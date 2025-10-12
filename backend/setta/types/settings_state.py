@@ -112,7 +112,6 @@ class SettingsBackend(BaseModel):
     autobackupKeepLastN: int = 10
     clearTerminalBeforeMarkingAsReady: bool = True
     defaultTerminalShell: str | None = None
-    exportDbRawOnSave: bool = False
     exportDbReadableOnSave: bool = False
     exportDbReadableWithVariantsOnSave: bool = False
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK

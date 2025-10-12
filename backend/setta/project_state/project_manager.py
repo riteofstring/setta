@@ -33,7 +33,6 @@ class ProjectManager(BaseProjectManager):
         # maybe_export_database(
         #     db,
         #     dbe.path,
-        #     settings.backend.exportDbRawOnSave,
         #     settings.backend.exportDbReadableOnSave,
         #     settings.backend.exportDbReadableWithVariantsOnSave,
         # )

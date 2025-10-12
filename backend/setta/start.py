@@ -9,7 +9,6 @@ import uvicorn
 from setta.database.db_objs import DBE
 
 from . import __version__
-from .database.export_db.export_db import export_database
 from .utils.constants import C
 from .websockets.connect import connect as _connect
 
@@ -41,7 +40,7 @@ def export_db(readable, readable_with_variants):
         readable_with_variants = True
 
     dbe = DBE(C.SETTA_FILES_FOLDER)
-    export_database(dbe.project, readable, readable_with_variants)
+    # TODO
 
 
 @click.group(
