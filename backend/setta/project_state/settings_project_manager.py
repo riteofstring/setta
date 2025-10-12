@@ -1,16 +1,14 @@
 import logging
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.project_state.jsonSource.save import (
-    remove_json_source_values,
-    save_json_source_data,
-)
+from setta.project_state.jsonSource.save import remove_json_source_values
 from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
 )
+from setta.project_state.jsonSource.jsonSource import ProcessedJSONInfo
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
@@ -35,7 +33,7 @@ class SettingsProjectManager(BaseProjectManager):
             self.project_state_backend,
             default_id,
         )
-        save_json_source_data(self.dbe, p)
+        self.json_source.flush_dirty_entries()
         remove_json_source_values(p)
         self.dbe.write_settings_project(p)
         self.artifacts.save()
@@ -48,7 +46,7 @@ class SettingsProjectManager(BaseProjectManager):
 
     async def load_json_sources(
         self,
-        json_sources: dict[Path, Any],
+        json_sources: dict[Path, ProcessedJSONInfo],
         section_variants_to_load: Iterable[tuple[str, str]],
     ):
         logger.critical(

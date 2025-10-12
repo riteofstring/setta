@@ -1,4 +1,5 @@
 import copy
+import logging
 from typing import TYPE_CHECKING, TypeVar
 
 from setta.database.utils import create_new_id, remap_ids, rename_keys
@@ -11,6 +12,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
+from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
@@ -32,6 +34,26 @@ if TYPE_CHECKING:
 
 
 T = TypeVar("T", bound=BaseSectionImplUnion | BaseCodeObjImplUnion)
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_grid_pattern_value(p: ProjectStateSingleConfig) -> str | None:
+    for core in p.codeObjs.values():
+        if core.name != "gridPattern":
+            continue
+        variant_id = core.defaultVariant or (core.variants[0] if core.variants else None)
+        if not variant_id:
+            return None
+        variant = p.codeObjVariants.get(variant_id)
+        if not variant:
+            return None
+        impl = p.codeObjImpls.get(variant.impl)
+        if not impl:
+            return None
+        effective = get_effective_impl(impl, core, variant)
+        return getattr(effective, "value", None)
+    return None
 
 
 def remove_singleton_sections_if_already_present(
@@ -166,7 +188,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
     )
 
     # Build the sliced state
-    return ProjectStateSingleConfig(
+    result = ProjectStateSingleConfig(
         sections=project_state_core.sections,
         sectionImpls=project_state_core.sectionImpls,
         sectionVariants=project_state_core.sectionVariants,
@@ -175,6 +197,13 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
         codeObjVariants=project_state_core.codeObjVariants,
         projectConfig=project_config,
     )
+    grid_pattern = _extract_grid_pattern_value(result)
+    logger.critical(
+        "convert_backend_to_single_config project_config_id=%s grid_pattern=%s",
+        projectConfigId,
+        grid_pattern,
+    )
+    return result
 
 
 def remap_section_variant_map(

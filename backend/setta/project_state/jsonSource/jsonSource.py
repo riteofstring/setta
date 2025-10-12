@@ -1,10 +1,11 @@
 import asyncio
+import copy
 import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.code_obj_impls import (
@@ -37,6 +38,7 @@ from setta.types.hierarchy_traversal import (
 from setta.types.notifications import SettaNotification
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.utils.utils import normalize_path
+from setta.project_state.jsonSource.save import collect_json_source_data
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -65,6 +67,14 @@ class ProcessedJSONInfo:
     hierarchy: HierarchyTraversalResult
 
 
+@dataclass
+class JSONSourceCacheEntry:
+    data: dict[str, Any]
+    processed: ProcessedJSONInfo
+    dirty: bool = False
+    dirty_section_variants: set[tuple[str, str]] = field(default_factory=set)
+
+
 class JSONSource:
     def __init__(
         self,
@@ -77,11 +87,215 @@ class JSONSource:
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
-        self.json_sources: dict[Path, ProcessedJSONInfo] = {}
+        self.settings_file.attach_json_source(self)
+        self.json_sources: dict[Path, JSONSourceCacheEntry] = {}
         # maps from file path to set of (sectionId, variantId)
         self.json_source_to_section_variant: dict[Path, set[tuple[str, str]]] = (
             defaultdict(set)
         )
+
+    def _clone_json_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        return copy.deepcopy(data)
+
+    def _set_cache_entry(
+        self,
+        filepath: Path,
+        data: dict[str, Any],
+        *,
+        dirty: bool,
+        dirty_section_variants: Iterable[tuple[str, str]] | None = None,
+    ) -> JSONSourceCacheEntry:
+        normalized_path = normalize_path(filepath)
+        data_copy = self._clone_json_data(data)
+        processed = self.process_json_object(data_copy)
+        entry = self.json_sources.get(normalized_path)
+        if entry is None:
+            entry = JSONSourceCacheEntry(
+                data=data_copy,
+                processed=processed,
+                dirty=dirty,
+            )
+            if dirty and dirty_section_variants:
+                entry.dirty_section_variants.update(dirty_section_variants)
+            self.json_sources[normalized_path] = entry
+            return entry
+
+        entry.data = data_copy
+        entry.processed = processed
+        if dirty:
+            entry.dirty = True
+            if dirty_section_variants:
+                entry.dirty_section_variants.update(dirty_section_variants)
+        return entry
+
+    def _processed_snapshot(self) -> dict[Path, ProcessedJSONInfo]:
+        return {path: entry.processed for path, entry in self.json_sources.items()}
+
+    def get_cache_entry(self, filepath: Path) -> JSONSourceCacheEntry | None:
+        return self.json_sources.get(normalize_path(filepath))
+
+    def get_cached_json(self, filepath: Path) -> dict[str, Any] | None:
+        entry = self.get_cache_entry(filepath)
+        return self._clone_json_data(entry.data) if entry else None
+
+    def get_processed_json_sources(self) -> dict[Path, ProcessedJSONInfo]:
+        return self._processed_snapshot()
+
+    def get_section_variants_for_paths(
+        self,
+        project_state_backend: "ProjectStateCore",
+        paths: Iterable[Path],
+    ) -> set[tuple[str, str]]:
+        result: set[tuple[str, str]] = set()
+        if not paths:
+            return result
+        if not self.json_source_to_section_variant:
+            _, mapping = self.get_json_source_files_to_watch(project_state_backend)
+            self.json_source_to_section_variant = mapping
+        for path in paths:
+            normalized = normalize_path(path)
+            result.update(self.json_source_to_section_variant.get(normalized, set()))
+        return result
+
+    def replace_file_data(
+        self, filepath: Path, data: dict[str, Any], *, dirty: bool
+    ) -> JSONSourceCacheEntry:
+        return self._set_cache_entry(filepath, data, dirty=dirty)
+
+    def _merge_json(self, target: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+        for key, value in updates.items():
+            if (
+                isinstance(value, dict)
+                and isinstance(target.get(key), dict)
+            ):
+                self._merge_json(target[key], value)
+            else:
+                target[key] = self._clone_json_data(value)
+        return target
+
+    async def _load_json_sources_from_cache(
+        self,
+        load_json_sources_fn: Callable[
+            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
+            Coroutine[Any, Any, None],
+        ],
+        section_variant_ids_to_load: set[tuple[str, str]],
+    ):
+        if not section_variant_ids_to_load:
+            return
+        await load_json_sources_fn(
+            self._processed_snapshot(), set(section_variant_ids_to_load)
+        )
+
+    def sync_from_backend(
+        self,
+        project_state_backend: "ProjectStateCore",
+        *,
+        treat_new_entries_as_clean: bool = False,
+    ) -> set[Path]:
+        new_data = {
+            normalize_path(path): data
+            for path, data in collect_json_source_data(
+                project_state_backend, section_variant_ids=None
+            ).items()
+        }
+        existing_paths = set(self.json_sources.keys())
+        new_paths = set(new_data.keys())
+        removed_paths = existing_paths - new_paths
+        for path in removed_paths:
+            self.json_sources.pop(path, None)
+
+        updated_paths: set[Path] = set()
+        for path, data in new_data.items():
+            data_source = data
+            if treat_new_entries_as_clean:
+                disk_data = self.dbe.read_json(path)
+                if isinstance(disk_data, dict) and disk_data:
+                    data_source = disk_data
+            data_copy = self._clone_json_data(data_source)
+            entry = self.json_sources.get(path)
+            if entry is None:
+                entry = JSONSourceCacheEntry(
+                    data=data_copy,
+                    processed=self.process_json_object(data_copy),
+                    dirty=not treat_new_entries_as_clean,
+                )
+                self.json_sources[path] = entry
+                if entry.dirty:
+                    updated_paths.add(path)
+                continue
+
+            if entry.data != data_copy:
+                entry.data = data_copy
+                entry.processed = self.process_json_object(data_copy)
+                entry.dirty = True
+                entry.dirty_section_variants.clear()
+                updated_paths.add(path)
+
+        return updated_paths
+
+    def flush_dirty_entries(self) -> set[Path]:
+        flushed_paths: set[Path] = set()
+        for path, entry in self.json_sources.items():
+            if not entry.dirty:
+                continue
+            self.dbe.write_json(path, entry.data)
+            entry.dirty = False
+            entry.dirty_section_variants.clear()
+            flushed_paths.add(path)
+        return flushed_paths
+
+    def update_from_project_state(
+        self,
+        project_state: "ProjectStateCore",
+        section_variants: Iterable[tuple[str, str]],
+    ) -> set[Path]:
+        section_variants_set = set(section_variants)
+        if not section_variants_set:
+            return set()
+
+        variants_by_path: dict[Path, set[tuple[str, str]]] = defaultdict(set)
+        for section_id, variant_id in section_variants_set:
+            section = project_state.sections.get(section_id)
+            if section is None:
+                continue
+            variant, _, impl = get_variant_base_and_effective_section_impl(
+                project_state, section, variant_id
+            )
+            if (
+                not isinstance(impl, BaseDictSectionImpl)
+                or not impl.isJsonSource
+            ):
+                continue
+            path = normalize_path(variant.name)
+            variants_by_path[path].add((section_id, variant_id))
+
+        variant_filter = [variant_id for _, variant_id in section_variants_set]
+        data_by_path = collect_json_source_data(
+            project_state, section_variant_ids=variant_filter
+        )
+        updated_paths: set[Path] = set()
+        for path, data in data_by_path.items():
+            normalized_path = normalize_path(path)
+            entry = self.json_sources.get(normalized_path)
+            if entry is not None:
+                merged_data = self._clone_json_data(entry.data)
+            else:
+                try:
+                    disk_data = self.dbe.read_json(normalized_path)
+                except Exception:  # pragma: no cover - fallback path
+                    disk_data = {}
+                merged_data = disk_data if isinstance(disk_data, dict) else {}
+            merged_data = self._merge_json(merged_data, data)
+            self._set_cache_entry(
+                normalized_path,
+                merged_data,
+                dirty=True,
+                dirty_section_variants=variants_by_path.get(normalized_path, set()),
+            )
+            updated_paths.add(normalized_path)
+        return updated_paths
+
 
     def watch_json_source_files(
         self,
@@ -98,17 +312,13 @@ class JSONSource:
 
         section_variant_ids_to_load: set[tuple[str, str]] = set()
         for filename, ids in new_json_source_to_section_variant.items():
-            if filename in self.json_sources:
-                section_variant_ids_to_load.update(
-                    ids.difference(self.json_source_to_section_variant[filename])
-                )
+            previous_ids = self.json_source_to_section_variant.get(filename, set())
+            section_variant_ids_to_load.update(ids.difference(previous_ids))
 
-        if len(section_variant_ids_to_load) > 0:
+        if section_variant_ids_to_load:
             asyncio.create_task(
-                self._refresh_and_load_json_sources(
-                    load_json_sources_fn,
-                    set(section_variant_ids_to_load),
-                    project_state_backend_getter_fn,
+                self._load_json_sources_from_cache(
+                    load_json_sources_fn, section_variant_ids_to_load
                 )
             )
 
@@ -119,52 +329,10 @@ class JSONSource:
         )
         callbacks = {k: callback for k in filename_set}
 
-        fire_immediately = set([f for f in filename_set if f not in self.json_sources])
+        fire_immediately = {f for f in filename_set if f not in self.json_sources}
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
         )
-
-    async def _refresh_and_load_json_sources(
-        self,
-        load_json_sources_fn: Callable[
-            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
-            Coroutine[Any, Any, None],
-        ],
-        section_variant_ids_to_load: set[tuple[str, str]],
-        project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
-    ):
-        project_state_backend = project_state_backend_getter_fn()
-        refresh_logs: list[tuple[Path, str | None]] = []
-        for section_id, variant_id in section_variant_ids_to_load:
-            section = project_state_backend.sections.get(section_id)
-            if section is None:
-                continue
-            variant, _, impl = get_variant_base_and_effective_section_impl(
-                project_state_backend, section, variant_id
-            )
-            if (
-                not isinstance(impl, BaseDictSectionImpl)
-                or not impl.isJsonSource
-            ):
-                continue
-            filepath = normalize_path(variant.name)
-            file_content = self.dbe.read_json(filepath)
-            processedJsonInfo = self.process_json_object(file_content)
-            self.json_sources[filepath] = processedJsonInfo
-            grid_pattern = None
-            if isinstance(file_content, dict):
-                gui_section = file_content.get("gui")
-                if isinstance(gui_section, dict):
-                    grid_pattern = gui_section.get("gridPattern")
-            refresh_logs.append((filepath, grid_pattern))
-
-        if refresh_logs:
-            logger.critical(
-                "JSONSource.preload_from_disk grid_patterns=%s",
-                [(str(path), gp) for path, gp in refresh_logs],
-            )
-
-        await load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
 
     def get_json_source_file_watcher_callback(
         self,
@@ -182,13 +350,11 @@ class JSONSource:
 
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
-
-            processedJsonInfo = self.process_json_object(file_content)
-            self.json_sources[filepath] = processedJsonInfo
+            entry = self._set_cache_entry(filepath, file_content, dirty=False)
 
             grid_pattern = None
-            if isinstance(file_content, dict):
-                gui_section = file_content.get("gui")
+            if isinstance(entry.data, dict):
+                gui_section = entry.data.get("gui")
                 if isinstance(gui_section, dict):
                     grid_pattern = gui_section.get("gridPattern")
 
@@ -201,7 +367,9 @@ class JSONSource:
                     grid_pattern,
                     list(sectionVariantsToLoad),
                 )
-                await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
+                await load_json_sources_fn(
+                    self._processed_snapshot(), sectionVariantsToLoad
+                )
                 notification = SettaNotification(
                     message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
                 )

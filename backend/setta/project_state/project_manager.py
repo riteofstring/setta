@@ -1,9 +1,6 @@
 from setta.database.backup import maybe_create_backup
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.project_state.jsonSource.save import (
-    remove_json_source_values,
-    save_json_source_data,
-)
+from setta.project_state.jsonSource.save import remove_json_source_values
 from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
@@ -21,7 +18,7 @@ class ProjectManager(BaseProjectManager):
 
     def save(self):
         p = self.project_state_backend.model_copy(deep=True)
-        save_json_source_data(self.dbe, p)
+        self.json_source.flush_dirty_entries()
         remove_json_source_values(p)
         maybe_create_backup(
             self.dbe.project,

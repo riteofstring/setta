@@ -16,11 +16,12 @@ from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
+from setta.utils.utils import normalize_path
 
 
-def save_json_source_data(
-    dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
-):
+def collect_json_source_data(
+    p: ProjectStateCore, section_variant_ids: list[str] | None = None
+) -> dict[Path, dict]:
     to_be_saved: dict[Path, dict] = defaultdict(dict)
     processed = set()
     for section in p.sections.values():
@@ -52,12 +53,20 @@ def save_json_source_data(
                 ),
             )
 
-            filename = Path(variant.name)
+            filename = normalize_path(variant.name)
             to_be_saved[filename].update(hierarchy.nested_dict)
 
             # Make sure the jsonSourceKeys are present.
             # (They might not be because they are completely empty)
             add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
+
+    return to_be_saved
+
+
+def save_json_source_data(
+    dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
+):
+    to_be_saved = collect_json_source_data(p, section_variant_ids)
 
     # Save each file
     for filename, data in to_be_saved.items():
