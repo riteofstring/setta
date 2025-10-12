@@ -392,10 +392,10 @@ export function processProjectStateUpdateFromBackend(
         return acc;
       }
       const isBackendPending = backendPendingIds.has(opInfo.opId);
-      const acknowledged = opInfo.acknowledged || isBackendPending;
       if (opInfo.acknowledged && !isBackendPending) {
         return acc;
       }
+      const acknowledged = opInfo.acknowledged || isBackendPending;
       acc.push({
         ...opInfo,
         acknowledged,
