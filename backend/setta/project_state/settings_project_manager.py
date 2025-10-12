@@ -15,7 +15,7 @@ from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
 )
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 
 logger = logging.getLogger(__name__)
 
@@ -53,3 +53,15 @@ class SettingsProjectManager(BaseProjectManager):
     ):
         await super().load_json_sources(json_sources, section_variants_to_load)
         await self.settings_file.load_and_broadcast_settings()
+
+    async def update_and_broadcast_project_state(
+        self,
+        project_state: ProjectStateSingleConfig,
+        updateFileWatcher: bool = True,
+    ):
+        await super().update_and_broadcast_project_state(
+            project_state, updateFileWatcher=updateFileWatcher
+        )
+        if updateFileWatcher:
+            self.save()
+            await self.settings_file.load_and_broadcast_settings()
