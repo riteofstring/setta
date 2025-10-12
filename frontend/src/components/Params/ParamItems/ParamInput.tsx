@@ -1,6 +1,7 @@
 import _ from "lodash";
 import React from "react";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
@@ -59,11 +60,25 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 
 const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, paramInfoId, value) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      value,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          {
+            value,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_param_entered_value({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          value,
+          frontendOpId,
+        }),
     });
   },
   50,

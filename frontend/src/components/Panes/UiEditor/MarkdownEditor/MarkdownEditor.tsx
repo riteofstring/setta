@@ -8,6 +8,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import React, { useCallback, useRef } from "react";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
@@ -67,10 +68,23 @@ function _MarkdownEditorCore({
 
   const debouncedSetText = useCallback(
     _.debounce((sectionId, v) => {
-      route_set_text_block_text({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        text: v,
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"TextBlockSection">(
+            state,
+            sectionId,
+            {
+              text: v,
+            },
+          );
+        },
+        send: (frontendOpId) =>
+          route_set_text_block_text({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            text: v,
+            frontendOpId,
+          }),
       });
     }, 50),
     [],

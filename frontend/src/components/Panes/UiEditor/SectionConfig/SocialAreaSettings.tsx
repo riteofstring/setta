@@ -1,5 +1,6 @@
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -50,12 +51,19 @@ export function SocialAreaSettings({ sectionId }) {
   );
 }
 
-const debouncedSetSocialUrl = _.debounce(
-  (sectionId, url) =>
-    route_set_social_url({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      url,
-    }),
-  500,
-);
+const debouncedSetSocialUrl = _.debounce((sectionId, url) => {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
+        url,
+      });
+    },
+    send: (frontendOpId) =>
+      route_set_social_url({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        url,
+        frontendOpId,
+      }),
+  });
+}, 500);

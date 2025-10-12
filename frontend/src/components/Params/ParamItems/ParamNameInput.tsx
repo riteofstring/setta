@@ -1,6 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
@@ -77,9 +78,20 @@ export function ParamNameInput({
 }
 
 const debouncedSetParamName = _.debounce((codeObjId, name) => {
-  route_set_code_obj_name({
-    projectConfigId: getCurrProjectConfigId(),
-    codeObjId,
-    name,
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      const codeObj = state.codeObjs[codeObjId];
+      if (!codeObj) {
+        return;
+      }
+      codeObj.name = name;
+    },
+    send: (frontendOpId) =>
+      route_set_code_obj_name({
+        projectConfigId: getCurrProjectConfigId(),
+        codeObjId,
+        name,
+        frontendOpId,
+      }),
   });
 }, 200);

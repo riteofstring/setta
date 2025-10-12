@@ -11,8 +11,10 @@ import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -409,10 +411,19 @@ function ItemsColumn({
 
   function setView(newView: BrowserAreaViewMode) {
     setValue(newView);
-    route_set_browser_area_view_mode({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      viewMode: newView,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BrowserSection">(state, sectionId, {
+          viewMode: newView,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_browser_area_view_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          viewMode: newView,
+          frontendOpId,
+        }),
     });
   }
 

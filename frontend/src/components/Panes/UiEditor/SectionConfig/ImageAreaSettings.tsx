@@ -1,6 +1,8 @@
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -18,10 +20,19 @@ export function ImageAreaSettings({ sectionId }: { sectionId: string }) {
   });
 
   function onSetImagePath(newImagePath: string) {
-    route_set_image_area_image_path({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      imagePath: newImagePath,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"ImageSection">(state, sectionId, {
+          imagePath: newImagePath,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_image_area_image_path({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          imagePath: newImagePath,
+          frontendOpId,
+        }),
     });
   }
 

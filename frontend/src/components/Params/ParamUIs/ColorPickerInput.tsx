@@ -1,5 +1,10 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import _ from "lodash";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+  setCurrEffectiveCodeObjImplValue,
+} from "state/actions/sectionInfos";
 import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -22,11 +27,24 @@ export function ColorPickerInputConfigForParam({
   );
 
   function onChange(newConfig: ColorPickerConfigForFrontend) {
-    route_update_param_impl_config({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      newConfig,
+    const configClone = _.cloneDeep(newConfig);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"ColorPickerParamCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          configClone,
+        );
+      },
+      send: (frontendOpId) =>
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          newConfig: configClone,
+          frontendOpId,
+        }),
     });
   }
 

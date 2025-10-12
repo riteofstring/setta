@@ -1,7 +1,11 @@
 import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+  setCurrEffectiveCodeObjImplValue,
+} from "state/actions/sectionInfos";
 import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -24,11 +28,24 @@ export function SliderInputConfigForParam({
   );
 
   function onChange(newConfig: SliderConfigForFrontend) {
-    route_update_param_impl_config({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      newConfig,
+    const configClone = _.cloneDeep(newConfig);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"SliderParamCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          configClone,
+        );
+      },
+      send: (frontendOpId) =>
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          newConfig: configClone,
+          frontendOpId,
+        }),
     });
   }
 

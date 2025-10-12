@@ -1,5 +1,6 @@
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -134,9 +135,22 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
 }
 
 const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
-  route_set_section_param_filter({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId,
-    value,
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          paramFilter: value,
+        },
+      );
+    },
+    send: (frontendOpId) =>
+      route_set_section_param_filter({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        value,
+        frontendOpId,
+      }),
   });
 }, 200);
