@@ -57,3 +57,5 @@ Never use the `alias` feature in pydantic. Camel case is fine for pydantic attri
 
 ## Environment
 Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment.
+
+Don't bother running `pnpm test` for now, as there are currently no frontend tests.
