@@ -3,15 +3,7 @@ import _ from "lodash";
 import { useProjectState } from "state/definitions";
 
 export function DrawAreaSettings({ sectionId }) {
-  return (
-    <>
-      {/* <DrawAreaAvailableColors sectionId={sectionId} /> */}
-      {/* <LayerListAndListOfArtifacts
-        sectionId={sectionId}
-        sectionTypeName={UITypeNameEnum.DRAW}
-      /> */}
-    </>
-  );
+  return <>{/* <DrawAreaAvailableColors sectionId={sectionId} /> */}</>;
 }
 
 function DrawAreaAvailableColors({ sectionId }) {

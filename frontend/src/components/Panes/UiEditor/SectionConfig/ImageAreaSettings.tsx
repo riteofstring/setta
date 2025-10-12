@@ -46,11 +46,4 @@ export function ImageAreaSettings({ sectionId }: { sectionId: string }) {
       />
     </div>
   );
-
-  // return (
-  //   <JustListOfArtifacts
-  //     sectionId={sectionId}
-  //     sectionTypeName={UITypeNameEnum.IMAGE}
-  //   />
-  // );
 }

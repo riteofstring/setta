@@ -25,10 +25,6 @@ export function ChartAreaSettings({ sectionId }: { sectionId: string }) {
   return (
     <div className="flex-1 overflow-x-hidden overflow-y-scroll [&>*]:mr-[2px]">
       <ChartConfig sectionId={sectionId} />
-      {/* <JustListOfArtifacts
-        sectionId={sectionId}
-        sectionTypeName={UITypeNameEnum.CHART}
-      /> */}
     </div>
   );
 }

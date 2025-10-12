@@ -18,28 +18,11 @@ import { addTemporaryNotification } from "../notifications";
 import {
   createTopLevelSectionLayoutDict,
   getCurrProjectConfigViewport,
-  getSectionType,
 } from "../sectionInfos";
-import { requestBase64FromCanvas } from "../temporaryMiscState";
 
-export function getProjectData({ withArtifacts = false }) {
+export function getProjectData() {
   // remove temporary sections
   let sections = _.cloneDeep(useProjectState.getState().sections);
-  // sections = _.pickBy(sections, (x) => !x.isTemporary);
-
-  // sections = _.mapValues(sections, (x) => {
-  //   x.columnWidth = useSectionColumnWidth.getState()[x.id];
-  //   return x;
-  // });
-
-  // const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
-
-  // const variants = _.mapValues(useProjectState.getState().variants, (x) => ({
-  //   ...x,
-  //   // need this filter because some sections might be temporary
-  //   children: x.children.filter((c) => c in sections),
-  // }));
-  // const artifactGroups = useProjectState.getState().artifactGroups;
 
   const projectConfig = _.cloneDeep(useProjectState.getState().projectConfig);
   projectConfig.viewport = getCurrProjectConfigViewport();
@@ -98,27 +81,15 @@ export async function saveAsExistingProjectConfig(configName: string) {
 }
 
 export async function getProjectDataForSaving() {
-  const project = getProjectData({
-    withArtifacts: true,
-    convertYamlToGUI: true,
-  });
+  const project = getProjectData();
 
   if (useSettings.getState().backend.saveRenderedValues) {
-    await updateSectionsWithRenderedValues(project["sections"]);
+    await updateSectionsWithRenderedValues(project.sections);
   }
 
   return project;
 }
 
 async function updateSectionsWithRenderedValues(sections) {
-  for (const sectionId of Object.keys(sections)) {
-    if (
-      [UITypeNameEnum.DRAW, UITypeNameEnum.CHART].includes(
-        getSectionType(sectionId),
-      )
-    ) {
-      sections[sectionId].renderedValue =
-        await requestBase64FromCanvas(sectionId);
-    }
-  }
+  // TODO
 }
