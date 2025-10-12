@@ -42,7 +42,7 @@
 
 ## Environment & Tooling
 
-- Initialize local environments with `. ./init_env.sh` followed by `. ./dev_install.sh` to sync Python and pnpm dependencies; these scripts expect Python 3.10+ and pnpm on PATH.
+- Initialize local environments with `. ./init_env.sh` followed by `. ./dev_install.sh` to sync Python and pnpm dependencies; these scripts expect Python 3.12+ and pnpm on PATH.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
 - Regenerate TypeScript bindings or templates via `pnpm generate` whenever editing files under `frontend/generation/`.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.

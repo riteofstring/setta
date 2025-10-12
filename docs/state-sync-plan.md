@@ -33,5 +33,5 @@
 - Aligned callable name edits and code editor debounced updates with the pending-op tracker so websocket payloads replay cleanly without clobbering in-progress edits.
 
 ## Next Steps
-1. Harden the generation pipeline against Python 3.10 limitations so `pnpm generate`/`./format_code.sh` complete cleanly (replace f-string escapes, lambda assignments).
+1. Harden the generation pipeline for Python 3.12 compatibility so `pnpm generate`/`./format_code.sh` complete cleanly (replace f-string escapes, lambda assignments).
 2. Run targeted backend suites and manual smoke passes (rapid edits, toggle churn) to validate the new optimistic flows before closing out the sync effort.
