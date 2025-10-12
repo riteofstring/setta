@@ -190,6 +190,7 @@ class BaseProjectManager(ABC):
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
         ] = asyncio.Queue()
+        # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
