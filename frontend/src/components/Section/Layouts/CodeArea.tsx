@@ -7,9 +7,11 @@ import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
@@ -299,11 +301,20 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetCode = _.debounce((sectionId, code) => {
-  route_set_code({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId,
-    code,
+const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
+        code,
+      });
+    },
+    send: (frontendOpId) =>
+      route_set_code({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        code,
+        frontendOpId,
+      }),
   });
 }, 200);
 

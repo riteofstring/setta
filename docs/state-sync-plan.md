@@ -29,7 +29,9 @@
 - Migrated active section selection and viewport synchronization to the helper so both flows share pending op IDs and no longer rely on bespoke debounced route calls.
 - Extended optimistic helper usage across additional section header controls (rename, minimize, lock), param selection/unselect, and variant management flows (select/default/frozen/json-source toggles, naming, deletion) so they participate in pending op reconciliation.
 - Hooked high-frequency param editors into the shared pipeline: debounced entered values, param renames, slider/color configuration panels, markdown text, image paths, social URLs, and gen-code prefix/suffix now all emit `frontendOpId`s while replaying the same reducers locally.
+- Finished migrating the remaining quick toggles—callable section hide params, hide unpinned params, and browser type-column visibility—to the shared optimistic helper.
+- Aligned callable name edits and code editor debounced updates with the pending-op tracker so websocket payloads replay cleanly without clobbering in-progress edits.
 
 ## Next Steps
-1. Finish migrating outstanding UI toggles and editors—`hideParams`/`hideUnpinnedParams`, type-column visibility, callable changes/LSP resets, and any remaining debounced metadata writers—to use either the shared helper or coordinated local buffering.
-2. When all flows participate in the pending-op tracker, regenerate shared types (`source ./activate.sh && pnpm generate`), run formatters/tests (`source ./activate.sh && ./format_code.sh`, targeted `pnpm test` + backend suites), and perform rapid-edit smoke checks against websocket updates.
+1. Harden the generation pipeline against Python 3.10 limitations so `pnpm generate`/`./format_code.sh` complete cleanly (replace f-string escapes, lambda assignments).
+2. Run targeted backend suites and manual smoke passes (rapid edits, toggle churn) to validate the new optimistic flows before closing out the sync effort.

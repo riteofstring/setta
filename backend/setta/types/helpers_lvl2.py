@@ -41,6 +41,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     BrowserSectionImplArgsWithCallable,
+    CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
@@ -1013,6 +1014,26 @@ def set_section_with_params_display_mode(
     )
 
 
+def set_callable_hide_params(
+    p: "ProjectStateSingleConfig", sectionId: str, hideParams: bool
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, CallableSectionImplArgsWithCallable(hideParams=hideParams)
+    )
+
+
+def set_section_hide_unpinned_params(
+    p: "ProjectStateSingleConfig", sectionId: str, hideUnpinnedParams: bool
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(
+            hideUnpinnedParams=hideUnpinnedParams
+        ),
+    )
+
+
 def set_browser_area_view_mode(
     p: "ProjectStateSingleConfig",
     sectionId: str,
@@ -1020,6 +1041,14 @@ def set_browser_area_view_mode(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, BrowserSectionImplArgsWithCallable(viewMode=viewMode)
+    )
+
+
+def set_browser_hide_column(
+    p: "ProjectStateSingleConfig", sectionId: str, hideColumn: bool
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, BrowserSectionImplArgsWithCallable(hideColumn=hideColumn)
     )
 
 

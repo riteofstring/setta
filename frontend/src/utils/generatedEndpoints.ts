@@ -479,10 +479,28 @@ export async function route_set_section_with_params_display_mode(
   return await post("/setSectionWithParamsDisplayMode", x);
 }
 
+export async function route_set_callable_hide_params(
+  x: gt.SetCallableHideParamsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCallableHideParams", x);
+}
+
+export async function route_set_section_hide_unpinned_params(
+  x: gt.SetSectionHideUnpinnedParamsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionHideUnpinnedParams", x);
+}
+
 export async function route_set_browser_area_view_mode(
   x: gt.SetBrowserAreaViewModeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setBrowserAreaViewMode", x);
+}
+
+export async function route_set_browser_hide_column(
+  x: gt.SetBrowserHideColumnRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setBrowserHideColumn", x);
 }
 
 export async function route_set_text_block_format(

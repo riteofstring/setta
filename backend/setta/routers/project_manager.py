@@ -24,6 +24,8 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
+    SetBrowserHideColumnRequest,
+    SetCallableHideParamsRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
@@ -35,6 +37,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
+    SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
     SetSectionSizesRequest,
@@ -399,6 +402,24 @@ async def route_set_section_with_params_display_mode(
     ).set_section_with_params_display_mode(x)
 
 
+@router.post(Route.SET_CALLABLE_HIDE_PARAMS)
+async def route_set_callable_hide_params(
+    x: SetCallableHideParamsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_callable_hide_params(x)
+
+
+@router.post(Route.SET_SECTION_HIDE_UNPINNED_PARAMS)
+async def route_set_section_hide_unpinned_params(
+    x: SetSectionHideUnpinnedParamsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_section_hide_unpinned_params(x)
+
+
 @router.post(Route.SET_BROWSER_AREA_VIEW_MODE)
 async def route_set_browser_area_view_mode(
     x: SetBrowserAreaViewModeRequest, state: AppStateFromRequest
@@ -406,6 +427,15 @@ async def route_set_browser_area_view_mode(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_browser_area_view_mode(x)
+
+
+@router.post(Route.SET_BROWSER_HIDE_COLUMN)
+async def route_set_browser_hide_column(
+    x: SetBrowserHideColumnRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_browser_hide_column(
+        x
+    )
 
 
 @router.post(Route.SET_TEXT_BLOCK_FORMAT)

@@ -276,10 +276,28 @@ class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithFrontendOp
     displayMode: SectionWithParamsDisplayMode
 
 
+class SetCallableHideParamsRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+    sectionId: str
+    hideParams: bool
+
+
+class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+    sectionId: str
+    hideUnpinnedParams: bool
+
+
 class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     sectionId: str
     viewMode: BrowserAreaViewMode
+
+
+class SetBrowserHideColumnRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+    sectionId: str
+    hideColumn: bool
 
 
 class SetTextBlockFormatRequest(ProjectManagerRequestWithFrontendOp):

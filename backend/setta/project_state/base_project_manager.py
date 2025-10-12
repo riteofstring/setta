@@ -53,6 +53,8 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
+    SetBrowserHideColumnRequest,
+    SetCallableHideParamsRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
@@ -64,6 +66,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
+    SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
     SetSectionSizesRequest,
@@ -109,6 +112,8 @@ from setta.types.helpers_lvl2 import (
     group_sections,
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
+    set_browser_hide_column,
+    set_callable_hide_params,
     set_chart_area_data_path,
     set_chart_settings,
     set_chart_type,
@@ -117,6 +122,7 @@ from setta.types.helpers_lvl2 import (
     set_image_area_image_path,
     set_param_entered_value,
     set_project_config_name,
+    set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
     set_section_sizes,
@@ -899,9 +905,31 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_callable_hide_params(project_state, x.sectionId, x.hideParams)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_hide_unpinned_params(
+        self, x: SetSectionHideUnpinnedParamsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_hide_unpinned_params(
+            project_state, x.sectionId, x.hideUnpinnedParams
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

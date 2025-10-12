@@ -1,10 +1,13 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_callable_hide_params } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function HideShowParamsButton({ sectionId }) {
@@ -18,10 +21,20 @@ export function HideShowParamsButton({ sectionId }) {
   }, _.isEqual);
 
   function onClick() {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"CallableSection">(state, sectionId, {
-        hideParams: !hideParams,
-      });
+    const nextHideParams = !hideParams;
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"CallableSection">(state, sectionId, {
+          hideParams: nextHideParams,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_callable_hide_params({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          hideParams: nextHideParams,
+          frontendOpId,
+        }),
     });
   }
 

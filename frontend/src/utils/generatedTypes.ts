@@ -472,7 +472,10 @@ export const RouteEnum = {
   SET_SECTION_NAME: "/setSectionName",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
+  SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
+  SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
+  SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
@@ -8187,6 +8190,40 @@ export function createSetBrowserAreaViewModeRequest(
   return SetBrowserAreaViewModeRequestSchema.parse(options);
 }
 
+export const SetBrowserHideColumnRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  hideColumn: z.boolean(),
+});
+
+export type SetBrowserHideColumnRequest = z.infer<
+  typeof SetBrowserHideColumnRequestSchema
+>;
+
+export function createSetBrowserHideColumnRequest(
+  options: Partial<SetBrowserHideColumnRequest> = {},
+): SetBrowserHideColumnRequest {
+  return SetBrowserHideColumnRequestSchema.parse(options);
+}
+
+export const SetCallableHideParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  hideParams: z.boolean(),
+});
+
+export type SetCallableHideParamsRequest = z.infer<
+  typeof SetCallableHideParamsRequestSchema
+>;
+
+export function createSetCallableHideParamsRequest(
+  options: Partial<SetCallableHideParamsRequest> = {},
+): SetCallableHideParamsRequest {
+  return SetCallableHideParamsRequestSchema.parse(options);
+}
+
 export const SetCallableRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: z.string(),
@@ -8365,6 +8402,23 @@ export function createSetParamEnteredValueRequest(
   options: Partial<SetParamEnteredValueRequest> = {},
 ): SetParamEnteredValueRequest {
   return SetParamEnteredValueRequestSchema.parse(options);
+}
+
+export const SetSectionHideUnpinnedParamsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  hideUnpinnedParams: z.boolean(),
+});
+
+export type SetSectionHideUnpinnedParamsRequest = z.infer<
+  typeof SetSectionHideUnpinnedParamsRequestSchema
+>;
+
+export function createSetSectionHideUnpinnedParamsRequest(
+  options: Partial<SetSectionHideUnpinnedParamsRequest> = {},
+): SetSectionHideUnpinnedParamsRequest {
+  return SetSectionHideUnpinnedParamsRequestSchema.parse(options);
 }
 
 export const SetSectionNameRequestSchema = z.object({

@@ -4,10 +4,12 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -202,21 +204,31 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-export async function setCallable(
+export function setCallable(
   sectionId: string,
   callableName: string,
   refetchParams = false,
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  const projectConfigId = getCurrProjectConfigId();
-  const res = await route_set_callable({
-    projectConfigId,
-    sectionId,
-    callableName,
-    refetchParams,
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"CallableSection">(state, sectionId, {
+        callable: callableName,
+      });
+    },
+    send: async (frontendOpId) => {
+      const projectConfigId = getCurrProjectConfigId();
+      const res = await route_set_callable({
+        projectConfigId,
+        sectionId,
+        callableName,
+        refetchParams,
+        frontendOpId,
+      });
+      if (res200(res)) {
+        // state update occurs by websocket
+        setToNotWaiting();
+      }
+    },
   });
-  if (res200(res)) {
-    // state update occurs by websocket
-    setToNotWaiting();
-  }
 }
