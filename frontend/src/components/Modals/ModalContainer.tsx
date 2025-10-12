@@ -46,21 +46,3 @@ function ModalContent({ open }: { open: boolean }) {
       return modalInfo satisfies never;
   }
 }
-
-// case MODAL_TYPE.LOAD_PROJECT_CONFIG.title:
-//   return <FileMenuLoadModal open={open} modalType={modalType} />;
-// case MODAL_TYPE.SAVE_PROJECT_CONFIG_AS.title:
-// case MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS.title:
-//   return <FileMenuSaveAsModal open={open} modalType={modalType} />;
-// case MODAL_TYPE.EXPORT_JSON.title:
-//   return <ExportJSONModal open={open} modalType={modalType} />;
-// case MODAL_TYPE.IMPORT_JSON.title:
-//   return <ImportJSONModal modalType={modalType} />;
-// case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
-//   return <SaveUITypeConfigModal open={open} modalType={modalType} />;
-// case MODAL_TYPE.RENAME_REFERENCES.title:
-//   return <RenameReferencesModal open={open} />;
-// case MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH.title:
-//   return <AddArtifactByFilepathModal open={open} />;
-// default:
-//   return null;

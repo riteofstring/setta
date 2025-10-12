@@ -6,7 +6,6 @@ import {
 } from "components/Modals/types";
 import _ from "lodash";
 import { useModal } from "state/definitions";
-import { MODAL_TYPE } from "utils/constants";
 
 export function closeModal() {
   useModal.getState().reset();
@@ -44,22 +43,6 @@ export function openFileMenuSaveProjectConfigAsWithRefsModal() {
     type: ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
     data: { saveWithRefs: true },
   });
-}
-
-export function openExportJSONModal() {
-  openModal(MODAL_TYPE.EXPORT_JSON);
-}
-
-export function openImportJSONModal() {
-  openModal(MODAL_TYPE.IMPORT_JSON);
-}
-
-export function openRenameReferencesModal(changedValues) {
-  openModal(MODAL_TYPE.RENAME_REFERENCES, changedValues);
-}
-
-export function openAddArtifactByFilepathModal(sectionId) {
-  openModal(MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH, sectionId);
 }
 
 export function useModalData<T extends ModalType>(
