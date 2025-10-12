@@ -202,12 +202,14 @@ export function useComboboxStateReducerWithFilteredItems<T>(
   clearInputAfterSelection: boolean,
 ) {
   const [filteredItems, setFilteredItems] = useState(allItems);
+  // Derive the controlled selection from the latest incoming value so Downshift never lags behind during render.
   const selection =
     value !== undefined ? getExactMatch(allItems, value, "id") : null;
 
   useDeepCompareLayoutEffect(() => {
     setFilteredItems(allItems);
     if (value !== undefined) {
+      // Keep external value honest if the matching option disappears.
       // the following condition happens if the current selection is removed from the available options
       if (value && !selection) {
         setValue(null);
