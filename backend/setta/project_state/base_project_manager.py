@@ -157,7 +157,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import BaseDictSectionImpl, CodeLanguage, CodeSectionImpl, SectionType
+from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -189,14 +189,6 @@ class BaseProjectManager(ABC):
         self.temp_folder = normalize_path(C.CODE_FOLDER) / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
-        updated_paths = self.json_source.sync_from_backend(
-            self.project_state_backend, treat_new_entries_as_clean=True
-        )
-        section_variants = self.json_source.get_section_variants_for_paths(
-            self.project_state_backend, updated_paths
-        )
-        self._apply_json_sources_to_backend(section_variants)
-        self._pending_json_source_section_variants: set[tuple[str, str]] = set()
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
         self.used_files: set[Path] = set()
@@ -465,18 +457,6 @@ class BaseProjectManager(ABC):
 
         self.delete_unused_files(project_temp_folder)
         self.project_state_backend = self.get_new_project_state_backend(projectState)
-        if self._pending_json_source_section_variants:
-            section_variants = set(self._pending_json_source_section_variants)
-            self._pending_json_source_section_variants.clear()
-            self._apply_json_sources_to_backend(
-                None if not section_variants else section_variants
-            )
-        else:
-            updated_paths = self.json_source.sync_from_backend(self.project_state_backend)
-            section_variants = self.json_source.get_section_variants_for_paths(
-                self.project_state_backend, updated_paths
-            )
-            self._apply_json_sources_to_backend(section_variants)
         if updateFileWatcher:
             self.watch_json_source_files()
             self.watch_artifact_files()
@@ -558,7 +538,6 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
-        self._record_json_source_updates(project_state, [x.sectionId])
         logger.critical(
             "BaseProjectManager.set_param_entered_value manager=%s project_config_id=%s "
             "section_id=%s param_info_id=%s value=%s grid_pattern=%s pending_ops=%s",
@@ -628,7 +607,6 @@ class BaseProjectManager(ABC):
                 paramInfoId,
                 value,
             )
-        self._record_json_source_updates(project_state, [sectionId])
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1095,89 +1073,6 @@ class BaseProjectManager(ABC):
             return getattr(effective, "value", None)
         return None
 
-    def _get_active_section_variant_id(
-        self, project_state: ProjectStateSingleConfig, section_id: str
-    ) -> str | None:
-        variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
-        if variant_id:
-            return variant_id
-
-        section = project_state.sections.get(section_id)
-        if not section:
-            return None
-        if section.defaultVariant:
-            return section.defaultVariant
-        return section.variants[0] if section.variants else None
-
-    def _record_json_source_updates(
-        self, project_state: ProjectStateSingleConfig, section_ids: Iterable[str]
-    ) -> None:
-        dirty_variants: set[tuple[str, str]] = set()
-        for section_id in section_ids:
-            impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(impl, BaseDictSectionImpl) or not impl.isJsonSource:
-                continue
-            variant_id = self._get_active_section_variant_id(project_state, section_id)
-            if not variant_id:
-                continue
-            dirty_variants.add((section_id, variant_id))
-
-        if not dirty_variants:
-            return
-
-        self.json_source.update_from_project_state(project_state, dirty_variants)
-        self._pending_json_source_section_variants.update(dirty_variants)
-
-    def _apply_json_sources_to_backend(
-        self,
-        section_variant_ids: Iterable[tuple[str, str]] | None,
-    ) -> None:
-        if section_variant_ids is None:
-            target_variants = {
-                (section_id, variant_id)
-                for config in self.project_state_backend.projectConfigs.values()
-                for section_id, variant_id in config.sectionVariantMap.items()
-                if variant_id
-            }
-            logger.critical(
-                "BaseProjectManager._apply_json_sources_to_backend computed target_variants from backend count=%d",
-                len(target_variants),
-            )
-        else:
-            target_variants = set(section_variant_ids)
-            logger.critical(
-                "BaseProjectManager._apply_json_sources_to_backend using provided section_variant_ids count=%d",
-                len(target_variants),
-            )
-
-        if not target_variants:
-            logger.critical(
-                "BaseProjectManager._apply_json_sources_to_backend no target variants; skipping update"
-            )
-            return
-
-        load_json_sources_into_data_structures(
-            self.project_state_backend,
-            self.json_source.get_processed_json_sources(),
-            target_variants,
-        )
-        default_id = self.project_state_backend.defaultProjectConfigId
-        grid_pattern = None
-        if default_id:
-            try:
-                single_config = convert_backend_to_single_config(
-                    self.project_state_backend, default_id
-                )
-                grid_pattern = self._extract_grid_pattern_value(single_config)
-            except Exception as exc:  # pragma: no cover - diagnostic path
-                grid_pattern = f"<error extracting grid pattern: {exc}>"
-        logger.critical(
-            "BaseProjectManager._apply_json_sources_to_backend manager=%s section_variant_count=%d grid_pattern=%s",
-            self.__class__.__name__,
-            len(target_variants),
-            grid_pattern,
-        )
-
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
             defaultId = self.project_state_backend.defaultProjectConfigId
@@ -1185,28 +1080,9 @@ class BaseProjectManager(ABC):
         return None
 
     def get_single_config_state(self, projectConfigId: str):
-        cache_size = len(self.json_source.json_sources)
-        logger.critical(
-            "BaseProjectManager.get_single_config_state manager=%s project_config_id=%s json_cache_entries=%d pending_dirty_variants=%d",
-            self.__class__.__name__,
-            projectConfigId,
-            cache_size,
-            len(self._pending_json_source_section_variants),
-        )
-        if cache_size > 0:
-            self._apply_json_sources_to_backend(None)
-        else:
-            logger.critical(
-                "BaseProjectManager.get_single_config_state skipping apply; json cache empty"
-            )
-        result = convert_backend_to_single_config(
+        return convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
-        logger.critical(
-            "BaseProjectManager.get_single_config_state result_grid_pattern=%s",
-            self._extract_grid_pattern_value(result),
-        )
-        return result
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
