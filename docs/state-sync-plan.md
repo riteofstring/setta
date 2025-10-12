@@ -29,5 +29,4 @@
 
 ## Next Steps
 1. Migrate remaining optimistic UI flows (active IDs, viewport tweaks, metadata updates, etc.) to the new helper so every operation participates in reconciliation.
-2. Adjust `frontend/generation/utils.py` (or run generators under Python ≥3.12) to remove the backslash-in-f-string incompatibility; this unblocks `pnpm generate` / `./format_code.sh` from failing on the generator script.
-3. Once generators are fixed, rerun `pnpm generate`, `./format_code.sh`, and any relevant tests (`pnpm test`, targeted backend tests) to validate end-to-end.
+2. Run `pnpm generate`, `./format_code.sh`, and any relevant tests (`pnpm test`, targeted backend tests) to validate end-to-end.
