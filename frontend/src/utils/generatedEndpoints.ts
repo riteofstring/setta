@@ -127,12 +127,6 @@ export async function route_load_settings(): Promise<
   return await post("/loadSettings");
 }
 
-export async function route_format_code(
-  x: gt.FormatCodeRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/formatCode", x);
-}
-
 export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequests,
 ): Promise<ResponseDataAndStatus<boolean>> {

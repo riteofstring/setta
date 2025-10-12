@@ -172,11 +172,6 @@ class PythonCodeGenerator:
             case _:
                 return None
 
-        # elif t == UITypeName.TEXT_BLOCK:
-        #     output = f'"""{x["value"]}"""'
-        # else:
-        #     output = None
-
     def get_param_value(self, node: ParamNode):
         t = node.type
         if (

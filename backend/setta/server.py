@@ -18,7 +18,6 @@ from setta.routers import (
     ai_router,
     artifact_router,
     code_info_router,
-    interactive_code_router,
     lsp_router,
     project_manager_router,
     projects_router,
@@ -89,7 +88,6 @@ app.include_router(terminals_router, **kwargs)
 app.include_router(websocket_router, **kwargs)
 app.include_router(code_info_router, **kwargs)
 app.include_router(settings_router, **kwargs)
-app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 app.include_router(ai_router, **kwargs)

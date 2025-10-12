@@ -7781,18 +7781,6 @@ export function createDocstringToMarkdownRequest(
   return DocstringToMarkdownRequestSchema.parse(options);
 }
 
-export const FormatCodeRequestSchema = z.object({
-  project: z.record(z.string(), z.any()),
-});
-
-export type FormatCodeRequest = z.infer<typeof FormatCodeRequestSchema>;
-
-export function createFormatCodeRequest(
-  options: Partial<FormatCodeRequest> = {},
-): FormatCodeRequest {
-  return FormatCodeRequestSchema.parse(options);
-}
-
 export const TypeCheckRequestSchema = z.object({
   projectConfigId: z.string(),
 });
