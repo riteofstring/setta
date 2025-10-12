@@ -1,5 +1,4 @@
 import asyncio
-import copy
 import inspect
 import json
 import logging
@@ -24,6 +23,7 @@ class FrameInspectionError(RuntimeError):
     pass
 
 
+# TODO: this class is outdated and has missing parts
 class SettaListener:
     def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
         self.logger = SettaLogger(host=host, port=port)
@@ -41,7 +41,6 @@ class SettaListener:
             id=self.script_id
         )
         self.fns = []
-        self.exporter_obj = None
         self.dependencies_to_fns = defaultdict(set)
 
         # For debouncing/throttling
@@ -152,9 +151,10 @@ class SettaListener:
             messageType = message["messageType"]
             content = message["content"]
             if messageType == C.WS_PROJECT_DATA:
-                self.exporter_obj = export_for_interactive_fn(content)
+                # TODO
                 for fn in self.fns:
-                    fn._setta_data = copy.deepcopy(self.exporter_obj.output)
+                    pass
+                    # fn._setta_data = ...
                 self.dependencies_to_fns = self.get_mapped_dependencies_to_fns()
                 await websocket.send(
                     json.dumps(
@@ -167,9 +167,6 @@ class SettaListener:
 
                 # run all interactive functions when we first receive project data
                 asyncio.create_task(self._run_functions_on_init())
-
-            if not self.exporter_obj:
-                continue
 
             if messageType == C.WS_CALL_INTERACTIVE_FNS:
                 asyncio.create_task(
@@ -372,7 +369,6 @@ class SettaListener:
             for d in fn._setta_dependencies:
                 if d is not None:
                     # TODO: use new S class approach
-                    d = self.exporter_obj.var_name_reverse_mapping.get(d)
                     if not d:
                         continue
                 output[d].add(fn.__name__)
@@ -384,12 +380,8 @@ class SettaListener:
         if fn._setta_is_running:
             fn._setta_data_to_be_updated[tuple(key)] = value
         else:
-            # TODO: use new S class approach
-            nice_str = self.exporter_obj.var_name_mapping.get(tuple(key))
-            if not nice_str:
-                return
-            p_dict, p_dict_key = nested_access(fn._setta_data, nice_str)
-            p_dict[p_dict_key] = value
+            # TODO
+            pass
 
 
 def get_interactive_functions(caller_frame):
