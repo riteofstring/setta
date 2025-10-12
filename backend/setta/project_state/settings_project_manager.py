@@ -51,6 +51,10 @@ class SettingsProjectManager(BaseProjectManager):
         json_sources: dict[Path, Any],
         section_variants_to_load: Iterable[tuple[str, str]],
     ):
+        logger.critical(
+            "SettingsProjectManager.load_json_sources section_variants=%s",
+            list(section_variants_to_load),
+        )
         await super().load_json_sources(json_sources, section_variants_to_load)
         await self.settings_file.load_and_broadcast_settings()
 

@@ -3,6 +3,7 @@ import contextvars
 import copy
 import shutil
 import logging
+import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Coroutine, Iterable
@@ -1091,19 +1092,32 @@ class BaseProjectManager(ABC):
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
         self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = list(self.completed_op_ids_since_last_broadcast)
+        pending_op_ids = list(self.pending_frontend_ops.keys())
+        grid_pattern = self._extract_grid_pattern_value(project_state)
+        if not completed_op_ids and not pending_op_ids:
+            stack_lines = traceback.format_list(traceback.extract_stack(limit=12)[:-1])
+            logger.critical(
+                "BaseProjectManager.update_and_broadcast_project_state empty_ops "
+                "manager=%s project_config_id=%s grid_pattern=%s stack=\n%s",
+                self.__class__.__name__,
+                project_state.projectConfig.id,
+                grid_pattern,
+                "".join(stack_lines),
+            )
         logger.critical(
             "BaseProjectManager.update_and_broadcast_project_state manager=%s "
             "project_config_id=%s completed_op_ids=%s pending_op_ids=%s grid_pattern=%s",
             self.__class__.__name__,
             project_state.projectConfig.id,
-            list(self.completed_op_ids_since_last_broadcast),
-            list(self.pending_frontend_ops.keys()),
-            self._extract_grid_pattern_value(project_state),
+            completed_op_ids,
+            pending_op_ids,
+            grid_pattern,
         )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
             self.completed_op_ids_since_last_broadcast,
-            list(self.pending_frontend_ops.keys()),
+            pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
 
