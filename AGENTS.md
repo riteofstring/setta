@@ -49,8 +49,11 @@
 
 ## Endpoints
 
-Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If the function exists on the backend but not on the frontend, then ask me to run pnpm generate for you.
+Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If the function exists on the backend but not on the frontend, then run pnpm generate to sync the backend and frontend endpoint function definitions.
 
 ## Pydantic
 
 Never use the `alias` feature in pydantic. Camel case is fine for pydantic attributes, if it makes the backend/frontend communication easier.
+
+## Environment
+Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment.
