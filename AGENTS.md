@@ -56,6 +56,6 @@ Endpoint functions on the backend and frontend always have the exact same name. 
 Never use the `alias` feature in pydantic. Camel case is fine for pydantic attributes, if it makes the backend/frontend communication easier.
 
 ## Environment
-Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment.
+Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment. Specifically, go to the root folder of the project, and run `source activate.sh && cd frontend && pnpm generate`.
 
 Don't bother running `pnpm test` for now, as there are currently no frontend tests.
