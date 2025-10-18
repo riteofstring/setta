@@ -70,13 +70,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             )
         return uri
 
-    async def send_document_close_request(self, filepath):
-        uri = self.get_uri(filepath)
-        params = {"textDocument": {"uri": uri}}
-        await self.send_request("textDocument/didClose", params=params)
-        self.latest_version_numbers.pop(uri, None)
-        self.remove_diagnostics_response_callback(uri)
-
     async def send_document_update(self, filepath, code):
         uri = self.get_uri(filepath)
         version = self.latest_version_numbers[uri] + 1

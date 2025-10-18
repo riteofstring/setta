@@ -1,7 +1,5 @@
 import logging
-import uuid
 from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from setta.database.db_objs import DBE
@@ -106,26 +104,6 @@ class PythonCode(Code):
     @abstractmethod
     async def diagnostics_callback(self, lsp_response):
         pass
-
-    @asynccontextmanager
-    async def temporary_document(self, code: str):
-        filepath = (
-            self.temp_folder
-            / f"{self.get_base_filename()}__{uuid.uuid4().hex}.{self.get_extension()}"
-        )
-        uri: str | None = None
-        try:
-            self.dbe.write(filepath, code)
-            uri = await self.lsp_writer.send_document_open_request(
-                filepath=filepath,
-                code=code,
-            )
-            yield filepath
-        finally:
-            if uri:
-                await self.lsp_writer.send_document_close_request(filepath)
-            if filepath.exists():
-                filepath.unlink()
 
 
 class BashCode(Code):

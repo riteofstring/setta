@@ -19,6 +19,7 @@ import {
   route_set_callable,
 } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { focusOnSection } from "utils/tabbingLogic";
 
 export function SectionSearch({
   sectionId,
@@ -91,19 +92,16 @@ function SectionSearchCore({
   }, _.isEqual);
 
   const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
-  const [draftCallableName, setDraftCallableName] = useState<string | null>(
-    null,
-  );
   const shouldResetValueOnBlur = useRef(false);
 
   const debouncedSetValueNameInconsistent = useCallback(
-    _.debounce((isInconsistent: boolean) => {
-      setValueNameInconsistent(isInconsistent);
+    _.debounce((x) => {
+      setValueNameInconsistent(x);
     }, 1000),
     [setValueNameInconsistent],
   );
 
-  function setValueAndCheckConsistency(value: string, cancelDebounced = false) {
+  function setValueAndCheckConsistency(value, cancelDebounced = false) {
     if (cancelDebounced) {
       debouncedSetValueNameInconsistent.cancel();
       setValueNameInconsistent(false);
@@ -114,12 +112,10 @@ function SectionSearchCore({
 
   useEffect(() => {
     setValueAndCheckConsistency(codeInfoName, true);
-    setDraftCallableName((prev) => (prev !== null ? null : prev));
   }, [codeInfoName]);
 
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
-      setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       route_clear_text_field_completion({
@@ -127,38 +123,33 @@ function SectionSearchCore({
         sectionId,
         paramInfoId: null,
       });
-      shouldResetValueOnBlur.current = false;
-      return;
     }
     shouldResetValueOnBlur.current = false;
   }
 
-  function onEscape(completionResult: boolean) {
+  function onEscape(completionResult) {
     if (!completionResult) {
-      setDraftCallableName(null);
-      setValueAndCheckConsistency(codeInfoName, true);
       shouldResetValueOnBlur.current = true;
-      // TODO: Re-enable focusOnSection(null, sectionId, false) once tabbing logic is restored.
+      focusOnSection(null, sectionId, false);
     }
   }
 
-  function onTab(value: string, completionResult: boolean) {
+  function onTab(value, completionResult) {
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
       onEnter(value);
     }
   }
 
-  function onChange(value: string) {
-    setDraftCallableName(value);
+  function onChange(value) {
     setValueAndCheckConsistency(value);
   }
 
-  function _onEnter(value: string) {
+  function _onEnter(value) {
     onEnter(value);
   }
 
-  function _onShiftEnter(value: string) {
+  function _onShiftEnter(value) {
     onShiftEnter(value);
   }
 
@@ -172,9 +163,6 @@ function SectionSearchCore({
     ? "!border-amber-500 dark:!border-amber-800"
     : "";
 
-  const displayedCallableName =
-    draftCallableName !== null ? draftCallableName : codeInfoName;
-
   return (
     <search
       className="section-search single-cell-container w-full"
@@ -184,7 +172,7 @@ function SectionSearchCore({
         dummyDivId={divId}
         sectionId={sectionId}
         paramInfoId={null}
-        value={displayedCallableName}
+        value={codeInfoName}
         onBlur={onBlur}
         onChange={onChange}
         dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle}`}

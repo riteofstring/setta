@@ -1,4 +1,3 @@
-import copy
 from pathlib import Path
 
 from lsprotocol import types as LSPTypes
@@ -76,75 +75,44 @@ class ProjectGenPythonCode(PythonCode):
     async def update_file(self):
         await super().update_file(self.code)
 
-    def _clone_generator(self) -> PythonCodeGenerator:
-        dep_graph_copy = copy.deepcopy(self.dep_graph)
-        generator_copy = PythonCodeGenerator(
-            dep_graph_copy,
-            self.code_generator.gen_code_prefix,
-            self.code_generator.gen_code_suffix,
-        )
-        generator_copy.generate_code()
-        return generator_copy
-
-    def _build_param_completion_context(
-        self,
-        sectionId: str,
-        paramInfoId: str | None,
-        fullText: str,
-        position: int,
-    ) -> tuple[str, int, int] | None:
-        generator = self._clone_generator()
-        graph_key = generator.dep_graph.create_graph_key(sectionId, paramInfoId)
-        start = generator.change_value(graph_key, fullText)
+    async def insert_code_at_position(
+        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
+    ):
+        graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
+        start = self.code_generator.change_value(graph_key, fullText)
+        await self.update_file()
         if start is None:
             return None
-        absolute_position = position + start
-        line, col = position_to_line_col(generator.code, absolute_position)
-        return generator.code, line, col
+        position += start
+        line, col = position_to_line_col(self.code, position)
+        return line, col
 
-    async def _request_completion_response(
-        self, code: str, line: int, col: int
-    ) -> LSPTypes.CompletionList | LSPTypes.CompletionItem | None:
-        async with self.temporary_document(code) as filepath:
+    async def text_field_completion(
+        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
+    ):
+        line_col = await self.insert_code_at_position(
+            sectionId, paramInfoId, fullText, position
+        )
+        if line_col is None:
+            return []
+        else:
+            line, col = line_col
             request_id = create_new_id()
-            return await self.lsp_writer.send_and_wait(
+            response = await self.lsp_writer.send_and_wait(
                 self.lsp_writer.send_autocomplete_request(
-                    filepath=filepath,
+                    filepath=self.temp_file,
                     line=line,
                     character=col,
                     request_id=request_id,
                 ),
                 request_id,
             )
-
-    async def _insert_code_and_update_state(
-        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
-    ) -> tuple[int, int] | None:
-        graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
-        start = self.code_generator.change_value(graph_key, fullText)
-        await self.update_file()
-        if start is None:
-            return None
-        absolute_position = position + start
-        line, col = position_to_line_col(self.code, absolute_position)
-        return line, col
-
-    async def text_field_completion(
-        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
-    ):
-        context = self._build_param_completion_context(
-            sectionId, paramInfoId, fullText, position
-        )
-        if context is None:
-            return []
-        code, line, col = context
-        response = await self._request_completion_response(code, line, col)
-        return process_completion_response(response, fullText)
+            return process_completion_response(response, self.code)
 
     async def clear_text_field_completion(
         self, sectionId: str, paramInfoId: str | None
     ):
-        return None
+        await self.insert_code_at_position(sectionId, paramInfoId, "", 0)
 
     async def set_callable(
         self,
@@ -178,7 +146,7 @@ class ProjectGenPythonCode(PythonCode):
             )
             return
 
-        line_col = await self._insert_code_and_update_state(
+        line_col = await self.insert_code_at_position(
             sectionId, None, callableName, len(callableName)
         )
         if line_col is None:
@@ -249,18 +217,35 @@ class ProjectGenPythonCode(PythonCode):
         )
 
     async def gen_code_prefix_completion(self, fullText, position):
-        generator = self._clone_generator()
-        generator.set_gen_code_prefix(fullText)
-        line, col = position_to_line_col(generator.code, position)
-        response = await self._request_completion_response(generator.code, line, col)
+        self.code_generator.set_gen_code_prefix(fullText)
+        await self.update_file()
+        line, col = position_to_line_col(self.code, position)
+        request_id = create_new_id()
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_autocomplete_request(
+                filepath=self.temp_file,
+                line=line,
+                character=col,
+                request_id=request_id,
+            ),
+            request_id,
+        )
         return process_completion_response(response, fullText)
 
     async def gen_code_suffix_completion(self, fullText, position):
-        generator = self._clone_generator()
-        insertion_offset = generator.set_gen_code_suffix(fullText)
-        absolute_position = position + insertion_offset
-        line, col = position_to_line_col(generator.code, absolute_position)
-        response = await self._request_completion_response(generator.code, line, col)
+        position += self.code_generator.set_gen_code_suffix(fullText)
+        await self.update_file()
+        line, col = position_to_line_col(self.code, position)
+        request_id = create_new_id()
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_autocomplete_request(
+                filepath=self.temp_file,
+                line=line,
+                character=col,
+                request_id=request_id,
+            ),
+            request_id,
+        )
         return process_completion_response(response, fullText)
 
     async def type_check(self):
@@ -326,19 +311,20 @@ class ProjectPythonCode(PythonCode):
         return sanitize_name(self.section_path_full_name)
 
     async def code_area_completion(self, fullText, position):
+        self.code = fullText
+        await self.update_file()
         line, col = position_to_line_col(fullText, position)
-        async with self.temporary_document(fullText) as filepath:
-            request_id = create_new_id()
-            response = await self.lsp_writer.send_and_wait(
-                self.lsp_writer.send_autocomplete_request(
-                    filepath=filepath,
-                    line=line,
-                    character=col,
-                    request_id=request_id,
-                ),
-                request_id,
-            )
-        return process_completion_response(response, fullText)
+        request_id = create_new_id()
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_autocomplete_request(
+                filepath=self.temp_file,
+                line=line,
+                character=col,
+                request_id=request_id,
+            ),
+            request_id,
+        )
+        return process_completion_response(response, self.code)
 
     async def type_check(self):
         await self.send_document_open_request(self.code)
