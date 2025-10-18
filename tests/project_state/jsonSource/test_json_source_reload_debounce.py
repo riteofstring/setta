@@ -3,6 +3,7 @@ import unittest
 from types import MethodType
 
 from setta.project_state.base_project_manager import BaseProjectManager
+
 from tests.utils.manager_fixture import real_settings_manager
 
 
@@ -35,16 +36,12 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             json_sources,
             section_variants_to_load,
         ):
-            self.load_calls.append(
-                (json_sources, set(section_variants_to_load))
-            )
+            self.load_calls.append((json_sources, set(section_variants_to_load)))
             return await self._original_load_json_sources(
                 json_sources, section_variants_to_load
             )
 
-        self.manager.load_json_sources = MethodType(
-            spy_load_json_sources, self.manager
-        )
+        self.manager.load_json_sources = MethodType(spy_load_json_sources, self.manager)
         self.addAsyncCleanup(self._restore_load_json_sources)
 
     async def _restore_load_json_sources(self):

@@ -41,6 +41,7 @@ class ChatStorageTests(unittest.TestCase):
         self.assertEqual(1, len(loaded_chat.messages))
         text_block = loaded_chat.messages[0].content[0]
         self.assertIsInstance(text_block, TextBlock)
+        text_block = cast("TextBlock", text_block)
         self.assertEqual("Hello there", text_block.text)
 
     def test_save_messages_appends_and_updates_timestamp(self):

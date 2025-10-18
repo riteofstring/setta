@@ -2,6 +2,7 @@ import asyncio
 import unittest
 from contextlib import AsyncExitStack
 from types import SimpleNamespace
+from typing import Any, cast
 
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_code import ProjectGenPythonCode
@@ -34,30 +35,31 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self._exit_stack = AsyncExitStack()
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
-        self.project_config_id = (
-            self.manager.project_state_backend.defaultProjectConfigId
-        )
+        self.manager_hooks = cast("Any", self.manager)
+        project_config_id = self.manager.project_state_backend.defaultProjectConfigId
+        self.assertIsNotNone(project_config_id)
+        self.project_config_id = cast("str", project_config_id)
 
         # Bind helper coroutines onto the real manager so tests exercise the live queue.
-        self.manager.blocking_update = _blocking_update.__get__(
+        self.manager_hooks.blocking_update = _blocking_update.__get__(
             self.manager, type(self.manager)
         )
-        self.manager.completion = _non_serialized_completion.__get__(
+        self.manager_hooks.completion = _non_serialized_completion.__get__(
             self.manager, type(self.manager)
         )
 
         await self.manager.load_project_config(self.project_config_id)
         self.manager.completed_op_ids_since_last_broadcast.clear()
-        self.assertIn(self.project_config_id, self.manager.gen_code)
-        self.assertIsInstance(
-            self.manager.gen_code[self.project_config_id], ProjectGenPythonCode
-        )
+        config_id = self.project_config_id
+        self.assertIn(config_id, self.manager.gen_code)
+        self.assertIsInstance(self.manager.gen_code[config_id], ProjectGenPythonCode)
 
     async def asyncTearDown(self):
         await self._exit_stack.aclose()
 
     async def test_completion_waits_for_update_write_lock(self):
         manager = self.manager
+        manager_hooks = self.manager_hooks
         update_payload = SimpleNamespace(
             frontendOpId="update-op",
             started=asyncio.Event(),
@@ -66,7 +68,7 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             result="update-result",
         )
 
-        update_task = asyncio.create_task(manager.blocking_update(update_payload))
+        update_task = asyncio.create_task(manager_hooks.blocking_update(update_payload))
         await update_payload.started.wait()
         self.assertIn("update-op", manager.pending_frontend_ops)
 
@@ -78,7 +80,9 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             result="completion-result",
         )
 
-        completion_task = asyncio.create_task(manager.completion(completion_payload))
+        completion_task = asyncio.create_task(
+            manager_hooks.completion(completion_payload)
+        )
         await asyncio.sleep(0)
 
         self.assertIn("completion-op", manager.pending_frontend_ops)
@@ -106,6 +110,7 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_update_can_start_while_completion_waits_on_read(self):
         manager = self.manager
+        manager_hooks = self.manager_hooks
 
         completion_payload = SimpleNamespace(
             frontendOpId="completion-op",
@@ -115,7 +120,9 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             result="completion-result",
         )
 
-        completion_task = asyncio.create_task(manager.completion(completion_payload))
+        completion_task = asyncio.create_task(
+            manager_hooks.completion(completion_payload)
+        )
         await asyncio.wait_for(completion_payload.entered.wait(), timeout=1)
         self.assertIn("completion-op", manager.pending_frontend_ops)
         self.assertFalse(completion_payload.completed.is_set())
@@ -128,7 +135,7 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             result="update-result",
         )
 
-        update_task = asyncio.create_task(manager.blocking_update(update_payload))
+        update_task = asyncio.create_task(manager_hooks.blocking_update(update_payload))
         await asyncio.wait_for(update_payload.started.wait(), timeout=1)
         self.assertIn("update-op", manager.pending_frontend_ops)
         self.assertFalse(completion_payload.completed.is_set())
@@ -153,6 +160,7 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_lock_available_while_completion_waits(self):
         manager = self.manager
+        manager_hooks = self.manager_hooks
 
         completion_payload = SimpleNamespace(
             frontendOpId="completion-op",
@@ -162,7 +170,9 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             result="completion-result",
         )
 
-        completion_task = asyncio.create_task(manager.completion(completion_payload))
+        completion_task = asyncio.create_task(
+            manager_hooks.completion(completion_payload)
+        )
         await asyncio.wait_for(completion_payload.entered.wait(), timeout=1)
 
         write_lock_acquired = asyncio.Event()
