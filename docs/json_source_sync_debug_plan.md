@@ -51,3 +51,6 @@
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.
 - Once the root cause is understood, remove instrumentation and consider adding a regression test under `tests/project_state/jsonSource/` to capture the discovered edge case.
+- `ProjectStateCore.sections`, `codeObjs`, and their variants are keyed by UUIDs; names live on each `Core.name`, so instrumentation must resolve section/code object IDs before logging human-friendly labels (`backend/setta/types/project_state.py`, `backend/setta/types/core.py`).
+- Frontend mutations hit `BaseProjectManager.set_param_entered_value`, which delegates to `helpers_lvl2.set_param_entered_value`; that helper locates the current code object via UUID (`helpers_lvl1.get_curr_code_obj_variant`) before calling `set_effective_impl_value`, so logs should hook there to capture the authoritative value right after the update.
+- `save_json_source_data` builds the disk payload from `traverse_hierarchy(...).nested_dict` with `impl.jsonSourceKeys` as the prefix, so any logging of outbound values should inspect that nested structure rather than attempting `sections["gui"]`.

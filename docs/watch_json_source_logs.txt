@@ -1,0 +1,13 @@
+[2025-10-16T13:17:37.460995+00:00] setta_files/setta-settings.json
+section: gui
+keys: gridPattern
+{
+  "gridPattern": "dots"
+}
+
+[2025-10-16T13:17:52.390826+00:00] setta_files/setta-settings.json
+section: gui
+keys: gridPattern
+{
+  "gridPattern": "lines"
+}
