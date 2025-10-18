@@ -27,7 +27,6 @@ import { updateArtifacts } from "./artifacts";
 import { updateInteractiveDependencies } from "./interactive";
 import { processRenameRefactorResults } from "./referenceRenaming";
 import {
-  getGridPatternFromProjectState,
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
   updateAllProjectMetadata,
@@ -124,17 +123,8 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM:
       return updateUUIDMappingForLLM(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
-      console.log("[websocketReceive] UpdateFrontendProjectState", {
-        projectConfigId: m.content.projectState.projectConfig.id,
-        pendingOpIds: m.content.pendingOpIds,
-        completedOpIds: m.content.completedOpIds,
-        gridPattern: getGridPatternFromProjectState(m.content.projectState),
-      });
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
-      console.log("[websocketReceive] UpdateSettings", {
-        gridPattern: m.content.gui?.gridPattern,
-      });
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
       return updateAllProjectMetadata(m.content);

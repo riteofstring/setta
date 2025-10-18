@@ -1,5 +1,3 @@
-import logging
-
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
@@ -71,7 +69,6 @@ from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
 router = SettaAPIRouter()
-logger = logging.getLogger(__name__)
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
@@ -297,15 +294,6 @@ async def route_set_gen_code_suffix(
 async def route_set_param_entered_value(
     x: SetParamEnteredValueRequest, state: AppStateFromRequest
 ):
-    logger.critical(
-        "route_set_param_entered_value project_config_id=%s section_id=%s "
-        "param_info_id=%s value=%s frontend_op_id=%s",
-        x.projectConfigId,
-        x.sectionId,
-        x.paramInfoId,
-        x.value,
-        x.frontendOpId,
-    )
     await state.project_manager_switcher.get(x.projectConfigId).set_param_entered_value(
         x
     )

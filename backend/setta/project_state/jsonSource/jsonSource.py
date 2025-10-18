@@ -105,11 +105,7 @@ class JSONSource:
 
         if len(section_variant_ids_to_load) > 0:
             asyncio.create_task(
-                self._refresh_and_load_json_sources(
-                    load_json_sources_fn,
-                    set(section_variant_ids_to_load),
-                    project_state_backend_getter_fn,
-                )
+                load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
             )
 
         self.json_source_to_section_variant = new_json_source_to_section_variant
@@ -123,48 +119,6 @@ class JSONSource:
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
         )
-
-    async def _refresh_and_load_json_sources(
-        self,
-        load_json_sources_fn: Callable[
-            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
-            Coroutine[Any, Any, None],
-        ],
-        section_variant_ids_to_load: set[tuple[str, str]],
-        project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
-    ):
-        project_state_backend = project_state_backend_getter_fn()
-        refresh_logs: list[tuple[Path, str | None]] = []
-        for section_id, variant_id in section_variant_ids_to_load:
-            section = project_state_backend.sections.get(section_id)
-            if section is None:
-                continue
-            variant, _, impl = get_variant_base_and_effective_section_impl(
-                project_state_backend, section, variant_id
-            )
-            if (
-                not isinstance(impl, BaseDictSectionImpl)
-                or not impl.isJsonSource
-            ):
-                continue
-            filepath = normalize_path(variant.name)
-            file_content = self.dbe.read_json(filepath)
-            processedJsonInfo = self.process_json_object(file_content)
-            self.json_sources[filepath] = processedJsonInfo
-            grid_pattern = None
-            if isinstance(file_content, dict):
-                gui_section = file_content.get("gui")
-                if isinstance(gui_section, dict):
-                    grid_pattern = gui_section.get("gridPattern")
-            refresh_logs.append((filepath, grid_pattern))
-
-        if refresh_logs:
-            logger.critical(
-                "JSONSource.preload_from_disk grid_patterns=%s",
-                [(str(path), gp) for path, gp in refresh_logs],
-            )
-
-        await load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
 
     def get_json_source_file_watcher_callback(
         self,
@@ -186,21 +140,7 @@ class JSONSource:
             processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
 
-            grid_pattern = None
-            if isinstance(file_content, dict):
-                gui_section = file_content.get("gui")
-                if isinstance(gui_section, dict):
-                    grid_pattern = gui_section.get("gridPattern")
-
             if len(sectionVariantsToLoad) > 0:
-                logger.critical(
-                    "JSONSource.file_watcher event=%s file=%s grid_pattern=%s "
-                    "section_variants=%s",
-                    coreUpdate.eventType,
-                    coreUpdate.relPath,
-                    grid_pattern,
-                    list(sectionVariantsToLoad),
-                )
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 notification = SettaNotification(
                     message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",

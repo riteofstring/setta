@@ -1,7 +1,5 @@
 import asyncio
-import builtins
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -62,12 +60,7 @@ def export_db(readable, readable_with_variants):
 @click.pass_context
 def cli(ctx, reload, host: str, port: int, log_level):
     if ctx.invoked_subcommand is None:
-        suppress_prints = os.getenv("SETTA_SUPPRESS_BACKEND_PRINTS") == "1"
-        if not suppress_prints:
-            print("Starting Setta", flush=True)
-
-        if suppress_prints:
-            builtins.print = lambda *args, **kwargs: None
+        print("Starting Setta", flush=True)
 
         C.HOST = host
         C.PORT = port

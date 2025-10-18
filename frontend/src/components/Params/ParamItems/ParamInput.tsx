@@ -13,7 +13,7 @@ import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const { globalValue, name } = useProjectState((x) => {
+  const globalValue = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
@@ -21,9 +21,8 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       isBaseChildlessCodeObjImpl,
       true, // preview
     );
-    const name = x.codeObjs[paramInfoId].name;
-    return { globalValue: impl.value, name };
-  }, _.isEqual);
+    return impl.value;
+  });
 
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
@@ -45,19 +44,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   function onChange(v) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
-    if (name === "gridPattern") {
-      console.log("[ParamInput:onChange]", {
-        sectionId,
-        paramInfoId,
-        value: vStr,
-      });
-    }
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
-  }
-
-  if (name === "gridPattern") {
-    console.log("gridPattern globalValue:", globalValue);
-    console.log("gridPattern value:", value);
   }
 
   return (
@@ -92,12 +79,6 @@ const debouncedSetParamEnteredValue = _.debounce(
           value,
           frontendOpId,
         }),
-      metadata: {
-        action: "set_param_entered_value",
-        sectionId,
-        paramInfoId,
-        value,
-      },
     });
   },
   50,

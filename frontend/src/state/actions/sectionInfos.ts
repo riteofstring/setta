@@ -376,33 +376,6 @@ export function manualDndChildrenReset() {
   );
 }
 
-export function getGridPatternFromProjectState(
-  projectState: ProjectStateSingleConfig,
-) {
-  for (const [, core] of Object.entries(projectState.codeObjs)) {
-    if (core.name !== "gridPattern") {
-      continue;
-    }
-    const variantId = core.defaultVariant ?? core.variants[0];
-    if (!variantId) {
-      return undefined;
-    }
-    const variant = projectState.codeObjVariants[variantId];
-    if (!variant) {
-      return undefined;
-    }
-    const impl = projectState.codeObjImpls[variant.impl];
-    if (!impl) {
-      return undefined;
-    }
-    const effective = getEffectiveImpl(impl, core, variant) as {
-      value?: unknown;
-    };
-    return effective.value;
-  }
-  return undefined;
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -410,13 +383,6 @@ export function processProjectStateUpdateFromBackend(
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  const gridPattern = getGridPatternFromProjectState(x.projectState);
-  console.log("[processProjectStateUpdateFromBackend]", {
-    projectConfigId,
-    pendingOpIds: x.pendingOpIds,
-    completedOpIds: x.completedOpIds,
-    gridPattern,
-  });
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -715,18 +681,12 @@ export function addPendingOp(apply: (x: ZustandProjectState) => void) {
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
-  metadata,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
-  metadata?: Record<string, unknown>;
 }) {
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
-  console.log("[dispatchOptimisticProjectStateUpdate]", {
-    opId,
-    metadata,
-  });
   void send(opId);
   return opId;
 }
