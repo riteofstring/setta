@@ -125,6 +125,11 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
+      console.log(
+        "[WebSocket] UpdateSettings message",
+        m.content.gui?.gridPattern,
+        m.content,
+      );
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
       return updateAllProjectMetadata(m.content);

@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import copy
+import logging
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -161,6 +162,8 @@ from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
 
 
 class BaseProjectManager(ABC):
@@ -376,15 +379,30 @@ class BaseProjectManager(ABC):
         json_sources: dict[Path, ProcessedJSONInfo],
         section_variants_to_load: Iterable[tuple[str, str]],
     ):
+        section_variants_to_load = list(section_variants_to_load)
+        logger.critical(
+            "BaseProjectManager.load_json_sources section_variants_to_load_count=%d tracked_files_count=%d",
+            len(section_variants_to_load),
+            len(json_sources),
+        )
         p = self.project_state_backend
         load_json_sources_into_data_structures(
             p,
             json_sources,
             section_variants_to_load,
         )
+        logger.critical(
+            "BaseProjectManager.load_json_sources completed merge section_variants_count=%d",
+            len(section_variants_to_load),
+        )
 
         for configId in p.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(p, configId)
+            logger.critical(
+                "BaseProjectManager.load_json_sources broadcasting projectConfigId=%s projectConfigName=%s",
+                configId,
+                singleConfig.projectConfig.name,
+            )
             # Don't update file watcher here because otherwise it'll be an infinite loop
             await self.update_and_broadcast_project_state(
                 singleConfig, updateFileWatcher=False

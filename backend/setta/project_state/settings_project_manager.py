@@ -35,6 +35,11 @@ class SettingsProjectManager(BaseProjectManager):
             self.project_state_backend,
             default_id,
         )
+        logger.critical(
+            "SettingsProjectManager.save default_id=%s projectConfigName=%s",
+            default_id,
+            p.projectConfig.name,
+        )
         save_json_source_data(self.dbe, p)
         remove_json_source_values(p)
         self.dbe.write_settings_project(p)
