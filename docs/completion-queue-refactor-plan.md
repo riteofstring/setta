@@ -14,7 +14,8 @@
 
 4. **Regression coverage and validation**  
    - Added an isolated unit test exercising the serialized vs. non-serialized decorator paths and confirming concurrent execution/pending-op tracking.  
-   - Still need broader integration/manual validation (e.g. overlap `update()` with editor typing) plus the standard backend regression sweep.
+   - Added a queue-level integration test (`tests/project_state/test_completion_queue_concurrency.py`) that asserts bypassed completion calls hold the read lock while a serialized `update()` owns the write lock.  
+   - Manual validation checklist (full-stack run via `pnpm startr`): trigger a project refresh while typing in the editor to confirm completions pause during the write lock and resume with no dropped events; hammer completions back-to-back to ensure pending op ids clear immediately; monitor the LSP log to verify each temporary document issues matching `didOpen`/`didClose` pairs and leaves no stale diagnostics.
 
 5. **Finalize and document**  
-   - Once the queue split is stable, remove any feature flags, document the new concurrency expectations for backend contributors, and update troubleshooting guides with the new locking model.
+   - Once the queue split is stable, remove any feature flags, document the new read/write-lock + queue-bypass expectations for backend contributors, and expand troubleshooting guides with the temporary-document hygiene checks noted above.
