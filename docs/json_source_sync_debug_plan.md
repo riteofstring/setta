@@ -42,15 +42,11 @@
    - Document whether the bug lives in backend persistence, watcher cache invalidation, or frontend consumption to guide the fix.
 
 ## Progress
-- Added DEBUG-level instrumentation in `jsonSource.save`, `jsonSource.load`, and `SettingsProjectManager.save` that reports section names, leaf counts, and merge summaries without dumping raw payloads.
-- Introduced environment filters so `SETTA_DEBUG_MODULE_FILTER` scopes logs to jsonSource/settings managers, `SETTA_DEBUG_SECTION_FILTER` narrows output to a specific section (e.g., `gui`), and `SETTA_SUPPRESS_PRINTS` mutes residual `print` calls.
-- Expanded the debug module filter to include `jsonSource.jsonSource` and added cache snapshot logging; after switching the probe to inspect the effective impl we now see the cache reporting `gridPattern='dots'` on the initial read and `gridPattern='lines'` after the save, matching the file contents and proving the cache is not reverting.
-- Added `SETTA_LOGGER_LEVEL_OVERRIDES` handling plus `UVICORN_LOG_LEVEL` wiring so uvicorn/httpx/MCP/websocket noise no longer pollutes debug sessions; `frontend/backendStart.sh` now exports the override list by default.
 - Enabled Tailwind’s nesting plugin in PostCSS to silence the recurring frontend warning that spammed each log capture.
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.
-- Instrumented `helpers_lvl2.set_param_entered_value` to log UUID-resolved section/param names and captured a run showing the value flips to `"dots"` before the watcher reload; the subsequent autosave still writes `"lines"`, so the remaining regression likely sits in how the reload/merge output is applied to the project state or consumed on the frontend rather than in the cache itself.
-- Refactored `JSONSource.watch_json_source_files` to track watched variants per-callback-category and diff against the manager’s previous mapping. `BaseProjectManager.watch_json_source_files` now logs per-category counts via the new helper, keeping other managers’ registrations intact (2025-10-17).
-- Added a debouncing guard between `BaseProjectManager.watch_json_source_files` and `JSONSource.watch_json_source_files`; when the autosave debouncer is pending and all variants already existed for the file, the reload is deferred and flushed after autosave commits, preventing cached disk data from overwriting in-flight edits (2025-10-17).
+- Refactored `JSONSource.watch_json_source_files` to track watched variants per callback category and diff against the manager’s previous mapping, ensuring registrations remain stable across updates (2025-10-17).
+- Added a debouncing guard between `BaseProjectManager.watch_json_source_files` and `JSONSource.watch_json_source_files`; when autosave is pending and the variants were already tracked, the reload is deferred until after the save completes, preventing cached disk data from overwriting in-flight edits (2025-10-17).
+- Temporary DEBUG-level instrumentation and env-based log filters used during the investigation have been removed from the codebase now that the race fix is in place.
 
 ### Findings (2025-10-16)
 - Changing `gridPattern` from `"dots"` to `"lines"` updates the in-memory state immediately (`helpers_lvl2` log), then the debounced autosave fires ~2s later to write `"lines"` to disk; the watcher reload reports `gridPattern='lines'`, proving the cache mirrors disk at this point.
@@ -66,8 +62,8 @@
 - Debounce guard verifies as expected in manual runs: edits made immediately before autosave now persist because the watcher flushes deferred loads only after the pending autosave completes. Timing-sensitive repros look stable, though the behavior still relies on the autosave completing successfully.
 
 ## Notes
-- Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.
-- Once the root cause is understood, remove instrumentation and consider adding a regression test under `tests/project_state/jsonSource/` to capture the discovered edge case.
+- If deeper introspection is needed again, reapply temporary logging around the save/load paths and guard it behind debug checks to keep production noise down.
+- Once the root cause is understood, remove any reintroduced instrumentation and consider adding a regression test under `tests/project_state/jsonSource/` to capture the discovered edge case.
 - `ProjectStateCore.sections`, `codeObjs`, and their variants are keyed by UUIDs; names live on each `Core.name`, so instrumentation must resolve section/code object IDs before logging human-friendly labels (`backend/setta/types/project_state.py`, `backend/setta/types/core.py`).
 - Frontend mutations hit `BaseProjectManager.set_param_entered_value`, which delegates to `helpers_lvl2.set_param_entered_value`; that helper locates the current code object via UUID (`helpers_lvl1.get_curr_code_obj_variant`) before calling `set_effective_impl_value`, so logs should hook there to capture the authoritative value right after the update.
 - `save_json_source_data` builds the disk payload from `traverse_hierarchy(...).nested_dict` with `impl.jsonSourceKeys` as the prefix, so any logging of outbound values should inspect that nested structure rather than attempting `sections["gui"]`.
