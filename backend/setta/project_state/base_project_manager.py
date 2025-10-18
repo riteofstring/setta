@@ -166,7 +166,6 @@ from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -274,11 +273,15 @@ class BaseProjectManager(ABC):
         try:
             result = await future
             end_time = asyncio.get_event_loop().time()
-            logger.debug("Future completed after %.2fs with result", end_time - start_time)
+            logger.debug(
+                "Future completed after %.2fs with result", end_time - start_time
+            )
             return result
         except Exception as e:
             end_time = asyncio.get_event_loop().time()
-            logger.debug("Future raised exception after %.2fs: %s", end_time - start_time, e)
+            logger.debug(
+                "Future raised exception after %.2fs: %s", end_time - start_time, e
+            )
             raise
 
     @staticmethod
