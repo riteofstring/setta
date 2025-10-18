@@ -55,6 +55,7 @@
 - Flipping the value back to `"dots"` updates only the in-memory state. Before the autosave fires again, `watch_json_source_files` re-registers the settings variants and calls `load_json_sources_fn`, which reads from the existing cache snapshot.
 - The cache still contains `"lines"` because no save has occurred yet, so the reload merges `"lines"` back into the project state, wiping out the unsaved `"dots"` change. The subsequent autosave runs against this reverted state and persists `"lines"` again, which surfaces as the UI “undoing” the user edit.
 - Root cause: the reload path races the debounced autosave, reapplying cached disk data over pending UI edits. Next steps should focus on deferring/bypassing that reload until the new value is persisted or applying the in-memory hierarchy during that window.
+- Added instrumentation in `BaseProjectManager.watch_json_source_files`; during the second edit the watcher is invoked from `update_and_broadcast_project_state` after `set_param_entered_value`. At that moment `json_source_to_section_variant` has been reset to `{}`, so the diff treats all 30 settings variants as new and immediately schedules a reload with the cached `"lines"` snapshot. The reset appears to coincide with loading a fresh `ProjectStateCore` during the update cycle.
 
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.
