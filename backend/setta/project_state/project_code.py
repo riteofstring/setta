@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from lsprotocol import types as LSPTypes
@@ -53,6 +54,40 @@ from setta.types.section_impls import (
     CodeSectionImpl,
 )
 
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+
+
+def _feature_flag_enabled(env_var: str) -> bool:
+    return os.environ.get(env_var, "").lower() in _TRUE_VALUES
+
+
+def _sanitize_part(value: str | None) -> str:
+    sanitized = sanitize_name(value or "")
+    return sanitized or "virtual"
+
+
+def _build_virtual_completion_uri(base_folder: Path, *parts: str) -> str:
+    safe_parts = [_sanitize_part(part) for part in parts if part is not None]
+    if not safe_parts:
+        safe_parts = ["virtual"]
+    if VIRTUAL_COMPLETION_SCHEME == "untitled":
+        path_component = "/".join(safe_parts)
+        return f"untitled:setta/completion/{path_component}.py"
+    *dir_parts, file_part = safe_parts
+    virtual_folder = base_folder / "virtual_docs"
+    for part in dir_parts:
+        virtual_folder /= part
+    virtual_path = virtual_folder / f"{file_part}.py"
+    return virtual_path.absolute().as_uri()
+
+
+ENABLE_VIRTUAL_COMPLETION_DOCS = _feature_flag_enabled(
+    "SETTA_ENABLE_VIRTUAL_COMPLETIONS"
+)
+VIRTUAL_COMPLETION_SCHEME = os.environ.get(
+    "SETTA_VIRTUAL_COMPLETION_SCHEME", "file"
+).lower()
+
 
 class ProjectGenPythonCode(PythonCode):
     def __init__(
@@ -71,6 +106,10 @@ class ProjectGenPythonCode(PythonCode):
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
+        if ENABLE_VIRTUAL_COMPLETION_DOCS:
+            self.configure_virtual_document(
+                _build_virtual_completion_uri(self.temp_folder, project_config_id, "gen")
+            )
 
     async def update_file(self):
         await super().update_file(self.code)
@@ -98,9 +137,10 @@ class ProjectGenPythonCode(PythonCode):
         else:
             line, col = line_col
             request_id = create_new_id()
+            document_identifier = self.get_lsp_document_identifier()
             response = await self.lsp_writer.send_and_wait(
                 self.lsp_writer.send_autocomplete_request(
-                    filepath=self.temp_file,
+                    **document_identifier,
                     line=line,
                     character=col,
                     request_id=request_id,
@@ -155,9 +195,10 @@ class ProjectGenPythonCode(PythonCode):
         line, col = line_col
         col += 1  # put cursor inside parentheses
         request_id = create_new_id()
+        document_identifier = self.get_lsp_document_identifier()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_signature_help_request(
-                filepath=self.temp_file,
+                **document_identifier,
                 line=line,
                 character=col,
                 request_id=request_id,
@@ -221,9 +262,10 @@ class ProjectGenPythonCode(PythonCode):
         await self.update_file()
         line, col = position_to_line_col(self.code, position)
         request_id = create_new_id()
+        document_identifier = self.get_lsp_document_identifier()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
-                filepath=self.temp_file,
+                **document_identifier,
                 line=line,
                 character=col,
                 request_id=request_id,
@@ -237,9 +279,10 @@ class ProjectGenPythonCode(PythonCode):
         await self.update_file()
         line, col = position_to_line_col(self.code, position)
         request_id = create_new_id()
+        document_identifier = self.get_lsp_document_identifier()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
-                filepath=self.temp_file,
+                **document_identifier,
                 line=line,
                 character=col,
                 request_id=request_id,
@@ -303,6 +346,12 @@ class ProjectPythonCode(PythonCode):
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
+        if ENABLE_VIRTUAL_COMPLETION_DOCS:
+            self.configure_virtual_document(
+                _build_virtual_completion_uri(
+                    self.temp_folder, project_state.projectConfig.id, sectionId
+                )
+            )
 
     async def update_file(self):
         await super().update_file(self.code)
@@ -315,9 +364,10 @@ class ProjectPythonCode(PythonCode):
         await self.update_file()
         line, col = position_to_line_col(fullText, position)
         request_id = create_new_id()
+        document_identifier = self.get_lsp_document_identifier()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
-                filepath=self.temp_file,
+                **document_identifier,
                 line=line,
                 character=col,
                 request_id=request_id,
