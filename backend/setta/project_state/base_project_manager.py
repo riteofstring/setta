@@ -1,8 +1,11 @@
 import asyncio
 import contextvars
 import copy
+import logging
 import shutil
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
+from functools import wraps
 from pathlib import Path
 from typing import Coroutine, Iterable
 
@@ -158,9 +161,12 @@ from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
+from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
 
 
 class BaseProjectManager(ABC):
@@ -192,13 +198,14 @@ class BaseProjectManager(ABC):
         ] = asyncio.Queue()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
+        self._project_state_lock = AsyncReadWriteLock()
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
         )
-        print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)
+        logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = asyncio.create_task(self._process_queue())
-        print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
+        logger.debug("Queue task created with id %s", id(self.queue_task))
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
@@ -211,89 +218,103 @@ class BaseProjectManager(ABC):
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
-        print("[DEBUG] Starting _process_queue background task", flush=True)
+        logger.debug("Starting _process_queue background task")
         self._process_queue_task_started.set()
         while True:
-            print(
-                f"[DEBUG] Queue size before get: {self.message_queue.qsize()}",
-                flush=True,
-            )
+            logger.debug("Queue size before get: %s", self.message_queue.qsize())
             # Get the next message handler and its arguments
-            print("[DEBUG] Waiting for next message in queue...", flush=True)
+            logger.debug("Waiting for next message in queue...")
             coroutine, future, frontend_op_id = await self.message_queue.get()
-            token = self._current_frontend_op_id.set(frontend_op_id)
+            handler_name = self._describe_coroutine(coroutine)
             try:
                 # Execute the actual implementation
-                print(f"[DEBUG] Starting handler {coroutine.__name__}", flush=True)
-                result = await coroutine
-                print(f"[DEBUG] Completed handler {coroutine.__name__}", flush=True)
-                self._finalize_frontend_op(frontend_op_id, success=True)
+                logger.debug("Starting handler %s", handler_name)
+                async with self._track_frontend_op(frontend_op_id):
+                    result = await coroutine
+                logger.debug("Completed handler %s", handler_name)
                 # Set the result for the waiting call
-                print(
-                    f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
-                    flush=True,
+                logger.debug(
+                    "Setting result on future (cancelled=%s)", future.cancelled()
                 )
                 future.set_result(result)
             except Exception as e:
                 # Propagate any exceptions back to the caller
-                print(f"[DEBUG] Error in handler {coroutine.__name__}: {e}", flush=True)
-                self._finalize_frontend_op(frontend_op_id, success=False)
+                logger.exception("Error in handler %s", handler_name)
                 future.set_exception(e)
             finally:
                 # Mark the task as done
-                print("[DEBUG] Marking queue task as done", flush=True)
+                logger.debug("Marking queue task as done")
                 self.message_queue.task_done()
-                self._current_frontend_op_id.reset(token)
 
     async def _enqueue(self, coroutine: Coroutine, frontend_op_id: str | None = None):
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
 
-        # print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
-        print(
-            f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
-            flush=True,
+        logger.debug(
+            "Queue task status: cancelled=%s, done=%s, exception=%s",
+            self.queue_task.cancelled(),
+            self.queue_task.done(),
+            self.queue_task.exception() if self.queue_task.done() else None,
         )
 
         # Create a future to hold the result
         future = asyncio.Future()
-        print(f"[DEBUG] Created future {id(future)}", flush=True)
+        logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
-        print("[DEBUG] Putting message in queue", flush=True)
-        if frontend_op_id:
-            self.pending_frontend_ops[frontend_op_id] = None
+        logger.debug("Putting message in queue")
+        self._register_pending_frontend_op(frontend_op_id)
         await self.message_queue.put((coroutine, future, frontend_op_id))
-        print("[DEBUG] Message in queue, waiting for result", flush=True)
+        logger.debug("Message in queue, waiting for result")
 
         # Wait for the message to be processed and return the result
-        print(f"[DEBUG] Awaiting future {id(future)}", flush=True)
+        logger.debug("Awaiting future %s", id(future))
         start_time = asyncio.get_event_loop().time()
         try:
             result = await future
             end_time = asyncio.get_event_loop().time()
-            print(
-                f"[DEBUG] Future completed after {end_time - start_time:.2f}s with result",
-                flush=True,
+            logger.debug(
+                "Future completed after %.2fs with result", end_time - start_time
             )
             return result
         except Exception as e:
             end_time = asyncio.get_event_loop().time()
-            print(
-                f"[DEBUG] Future raised exception after {end_time - start_time:.2f}s: {e}",
-                flush=True,
+            logger.debug(
+                "Future raised exception after %.2fs: %s", end_time - start_time, e
             )
             raise
 
     @staticmethod
-    def enqueue_method(func):
-        async def wrapper(self, *args, **kwargs):
-            frontend_op_id = self._extract_frontend_op_id(args, kwargs)
-            return await self._enqueue(
-                func(self, *args, **kwargs), frontend_op_id=frontend_op_id
-            )
+    def enqueue_method(func=None, *, require_serialization: bool = True):
+        def decorator(actual_func):
+            @wraps(actual_func)
+            async def wrapper(self, *args, **kwargs):
+                frontend_op_id = self._extract_frontend_op_id(args, kwargs)
+                if require_serialization:
+                    return await self._enqueue(
+                        actual_func(self, *args, **kwargs),
+                        frontend_op_id=frontend_op_id,
+                    )
 
-        return wrapper
+                self._register_pending_frontend_op(frontend_op_id)
+                async with self._track_frontend_op(frontend_op_id):
+                    return await actual_func(self, *args, **kwargs)
+
+            return wraps(actual_func)(wrapper)
+
+        if func is None:
+            return decorator
+        return decorator(func)
+
+    @staticmethod
+    def _describe_coroutine(coroutine: Coroutine) -> str:
+        name = getattr(coroutine, "__name__", None)
+        if name:
+            return name
+        code = getattr(coroutine, "cr_code", None)
+        if code and getattr(code, "co_name", None):
+            return code.co_name
+        return type(coroutine).__name__
 
     @staticmethod
     def _extract_frontend_op_id(args, kwargs) -> str | None:
@@ -316,6 +337,26 @@ class BaseProjectManager(ABC):
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
 
+    def _register_pending_frontend_op(self, frontend_op_id: str | None):
+        if frontend_op_id:
+            self.pending_frontend_ops[frontend_op_id] = None
+
+    @asynccontextmanager
+    async def _track_frontend_op(self, frontend_op_id: str | None):
+        token = None
+        if frontend_op_id is not None:
+            token = self._current_frontend_op_id.set(frontend_op_id)
+        try:
+            yield
+        except Exception:
+            self._finalize_frontend_op(frontend_op_id, success=False)
+            raise
+        else:
+            self._finalize_frontend_op(frontend_op_id, success=True)
+        finally:
+            if token is not None:
+                self._current_frontend_op_id.reset(token)
+
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id
         frontend_op_id = self._current_frontend_op_id.get()
@@ -329,23 +370,24 @@ class BaseProjectManager(ABC):
         projectConfigId: str,
         sectionId: str | None,
     ):
-        target_folder = create_timestamped_folder(C.CODE_FOLDER)
-        gen_code = self.gen_code[projectConfigId]
-        gen_code_path = gen_code.write_to_folder(target_folder)
+        async with self._project_state_lock.read_lock():
+            target_folder = create_timestamped_folder(C.CODE_FOLDER)
+            gen_code = self.gen_code[projectConfigId]
+            gen_code_path = gen_code.write_to_folder(target_folder)
 
-        code_dict = self.code_dict[projectConfigId]
-        code_paths = {}
-        for sid, c in code_dict.items():
-            code_paths[sid] = c.write_to_folder(target_folder)
+            code_dict = self.code_dict[projectConfigId]
+            code_paths = {}
+            for sid, c in code_dict.items():
+                code_paths[sid] = c.write_to_folder(target_folder)
 
-        if not sectionId:
-            sectionId = self.project_state_backend.projectConfigs[
-                projectConfigId
-            ].entryCodeBlockId
+            if not sectionId:
+                sectionId = self.project_state_backend.projectConfigs[
+                    projectConfigId
+                ].entryCodeBlockId
 
-        if sectionId:
-            return code_dict[sectionId].get_run_command(code_paths[sectionId])
-        return gen_code.get_run_command(gen_code_path)
+            if sectionId:
+                return code_dict[sectionId].get_run_command(code_paths[sectionId])
+            return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: str):
@@ -355,7 +397,9 @@ class BaseProjectManager(ABC):
         return await self.maybe_init_project_config(projectState)
 
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
-        if projectState.projectConfig.id not in self.gen_code:
+        async with self._project_state_lock.read_lock():
+            needs_init = projectState.projectConfig.id not in self.gen_code
+        if needs_init:
             await self.update(projectState)
         return projectState
 
@@ -397,81 +441,89 @@ class BaseProjectManager(ABC):
         messageId: str | None = None,
         updateFileWatcher=True,
     ):
-        projectState.validate_singleton_sections()
-        projectState.validate_parent_section_map()
-        projectState.validate_shown_param_ids()
-        projectState.validate_yaml_values()
-        projectState.validate_required_decoded_images()
-        self.used_files = set()
-        dep_graph = DependencyGraph(projectState)
-        projectConfig = projectState.projectConfig
-        projectConfigId = projectConfig.id
-        if self.gen_code.get(projectConfigId):
-            await self.maybe_do_rename_refactor(messageId, projectConfigId, dep_graph)
-            self.gen_code[projectConfigId].callback_cleanup()
-
-        code_generator = PythonCodeGenerator(
-            dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
-        )
-        code_generator.generate_code()
-
-        projectConfigName = projectConfig.name
-        project_temp_folder = self.temp_folder / projectConfigName
-        new_gen_code = ProjectGenPythonCode(
-            self.dbe,
-            project_temp_folder,
-            self.lsp_writers,
-            self.websocket_msg_handler,
-            projectConfigId,
-            dep_graph,
-            code_generator,
-        )
-        await new_gen_code.update_file()
-        maybe_update_gen_python_code_section(projectState, new_gen_code.code)
-        self.add_to_used_files(new_gen_code)
-        self.gen_code[projectConfigId] = new_gen_code
-
-        if self.code_dict.get(projectConfigId):
-            for c in self.code_dict[projectConfigId].values():
-                if isinstance(c, ProjectPythonCode):
-                    c.callback_cleanup()
-        self.code_dict[projectConfigId] = {}
-
-        for sectionId in projectState.sections.keys():
-            section_impl = get_curr_effective_section_impl(projectState, sectionId)
-            if isinstance(section_impl, CodeSectionImpl):
-                section_code = self.create_project_code(
-                    project_temp_folder, projectState, sectionId, section_impl
+        async with self._project_state_lock.write_lock():
+            projectState.validate_singleton_sections()
+            projectState.validate_parent_section_map()
+            projectState.validate_shown_param_ids()
+            projectState.validate_yaml_values()
+            projectState.validate_required_decoded_images()
+            self.used_files = set()
+            dep_graph = DependencyGraph(projectState)
+            projectConfig = projectState.projectConfig
+            projectConfigId = projectConfig.id
+            if self.gen_code.get(projectConfigId):
+                await self.maybe_do_rename_refactor(
+                    messageId, projectConfigId, dep_graph
                 )
+                self.gen_code[projectConfigId].callback_cleanup()
 
-                if not section_code:
-                    continue
+            code_generator = PythonCodeGenerator(
+                dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
+            )
+            code_generator.generate_code()
 
-                await section_code.update_file()
-                self.add_to_used_files(section_code)
-                self.code_dict[projectConfigId][sectionId] = section_code
+            projectConfigName = projectConfig.name
+            project_temp_folder = self.temp_folder / projectConfigName
+            new_gen_code = ProjectGenPythonCode(
+                self.dbe,
+                project_temp_folder,
+                self.lsp_writers,
+                self.websocket_msg_handler,
+                projectConfigId,
+                dep_graph,
+                code_generator,
+            )
+            await new_gen_code.update_file()
+            maybe_update_gen_python_code_section(projectState, new_gen_code.code)
+            self.add_to_used_files(new_gen_code)
+            self.gen_code[projectConfigId] = new_gen_code
 
-        self.delete_unused_files(project_temp_folder)
-        self.project_state_backend = self.get_new_project_state_backend(projectState)
-        if updateFileWatcher:
-            self.watch_json_source_files()
-            self.watch_artifact_files()
+            if self.code_dict.get(projectConfigId):
+                for c in self.code_dict[projectConfigId].values():
+                    if isinstance(c, ProjectPythonCode):
+                        c.callback_cleanup()
+            self.code_dict[projectConfigId] = {}
 
-    @enqueue_method
+            for sectionId in projectState.sections.keys():
+                section_impl = get_curr_effective_section_impl(projectState, sectionId)
+                if isinstance(section_impl, CodeSectionImpl):
+                    section_code = self.create_project_code(
+                        project_temp_folder, projectState, sectionId, section_impl
+                    )
+
+                    if not section_code:
+                        continue
+
+                    await section_code.update_file()
+                    self.add_to_used_files(section_code)
+                    self.code_dict[projectConfigId][sectionId] = section_code
+
+            self.delete_unused_files(project_temp_folder)
+            self.project_state_backend = self.get_new_project_state_backend(
+                projectState
+            )
+            if updateFileWatcher:
+                self.watch_json_source_files()
+                self.watch_artifact_files()
+
+    @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):
-        await self.gen_code[projectConfigId].type_check()
+        async with self._project_state_lock.read_lock():
+            await self.gen_code[projectConfigId].type_check()
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
-        return await self.gen_code[x.projectConfigId].text_field_completion(
+        async with self._project_state_lock.read_lock():
+            gen_code = self.gen_code[x.projectConfigId]
+        return await gen_code.text_field_completion(
             x.sectionId, x.paramInfoId, x.fullText, x.position
         )
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
-        await self.gen_code[x.projectConfigId].clear_text_field_completion(
-            x.sectionId, x.paramInfoId
-        )
+        async with self._project_state_lock.read_lock():
+            gen_code = self.gen_code[x.projectConfigId]
+        await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
 
     @enqueue_method
     async def set_callable(self, x: SetCallableRequest):
@@ -488,27 +540,25 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
         return project_state
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
-        print("*************code_area_autocomplete\n\n\n", flush=True)
-        code = self.code_dict[x.projectConfigId][x.sectionId]
+        async with self._project_state_lock.read_lock():
+            code = self.code_dict[x.projectConfigId][x.sectionId]
         if isinstance(code, ProjectPythonCode):
             return await code.code_area_completion(x.fullText, x.position)
         return []
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
-        print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[x.projectConfigId].gen_code_prefix_completion(
-            x.fullText, x.position
-        )
+        async with self._project_state_lock.read_lock():
+            gen_code = self.gen_code[x.projectConfigId]
+        return await gen_code.gen_code_prefix_completion(x.fullText, x.position)
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
-        print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[x.projectConfigId].gen_code_suffix_completion(
-            x.fullText, x.position
-        )
+        async with self._project_state_lock.read_lock():
+            gen_code = self.gen_code[x.projectConfigId]
+        return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
@@ -582,7 +632,6 @@ class BaseProjectManager(ABC):
     async def set_param_values(
         self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
     ):
-        print("*************set_param_values\n\n\n", flush=True)
         self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         for paramInfoId, value in paramIdsToValues.items():
@@ -721,9 +770,9 @@ class BaseProjectManager(ABC):
                 ):
                     try:
                         file_path.unlink()
-                        print(f"Deleted unused file: {file_path}")
-                    except Exception as e:
-                        print(f"Error deleting file {file_path}: {e}")
+                        logger.debug("Deleted unused file: %s", file_path)
+                    except Exception:
+                        logger.exception("Error deleting file %s", file_path)
 
     def create_project_code(
         self,
@@ -1033,7 +1082,6 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def paste_sections(self, x: PasteSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        print("\n\n\npaste_sections")
         paste_sections(project_state, x.data, x.position, x.asRef)
         await self.update_and_broadcast_project_state(project_state)
 
