@@ -17,9 +17,9 @@ We want Python unit tests that currently rely on hand-rolled “fake” objects 
    - Attach the existing helper coroutines to the real manager via `BaseProjectManager.enqueue_method`.
    - Remove `StubGenCode` entirely so the tests drive the real generator path; populate `manager.gen_code` using the concrete implementation exercised by the fixture and assert against the live manager state (`pending_frontend_ops`, `_current_frontend_op_id`).
 
-3. **Update enqueue decorator tests**
-   - Replace the `DummyManager` in `tests/project_state/test_enqueue_method.py` with the shared fixture.
-   - Dynamically bind the test helper methods onto the real manager and assert the same concurrency and bookkeeping properties (`_finalized`, pending IDs, etc.).
+3. **Update enqueue decorator tests** — ✅ replaced `DummyManager` with the real `SettingsProjectManager` fixture in `tests/project_state/test_enqueue_method.py`
+   - Bind helper coroutines onto the live manager via `BaseProjectManager.enqueue_method` so serialized calls go through the actual queue.
+   - Assert sequential execution, concurrent non-serialized behaviour, and real bookkeeping (`pending_frontend_ops`, `completed_op_ids_since_last_broadcast`, `_current_frontend_op_id`).
 
 4. **Exercise manual save behaviour end-to-end**
    - In `tests/project_state/test_manual_save_autosave.py`, swap out the manual object construction with the shared fixture.

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_code import ProjectGenPythonCode
+
 from tests.utils.manager_fixture import real_settings_manager
 
 
@@ -33,7 +34,9 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self._exit_stack = AsyncExitStack()
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
-        self.project_config_id = self.manager.project_state_backend.defaultProjectConfigId
+        self.project_config_id = (
+            self.manager.project_state_backend.defaultProjectConfigId
+        )
 
         # Bind helper coroutines onto the real manager so tests exercise the live queue.
         self.manager.blocking_update = _blocking_update.__get__(

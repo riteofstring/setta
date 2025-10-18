@@ -26,7 +26,6 @@ from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-
 __all__ = ["SettingsManagerFixture", "real_settings_manager"]
 
 
@@ -102,7 +101,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             )
 
             specific_file_watcher.start()
-            stack.push_async_callback(_stop_specific_file_watcher, specific_file_watcher)
+            stack.push_async_callback(
+                _stop_specific_file_watcher, specific_file_watcher
+            )
 
             fixture = SettingsManagerFixture(
                 manager=manager,
@@ -153,4 +154,3 @@ async def _stop_lsps_and_file_watcher(
 ) -> None:
     await stop_lsps(lsps, lsp_readers)
     stop_file_watcher(lsp_writers)
-
