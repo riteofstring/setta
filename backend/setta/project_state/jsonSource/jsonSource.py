@@ -14,6 +14,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.effective_impls import (
+    get_effective_impl,
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -83,6 +84,32 @@ class JSONSource:
             defaultdict(set)
         )
 
+    def _summarize_processed_json(
+        self, processed_json: ProcessedJSONInfo
+    ) -> tuple[Any, list[str] | None]:
+        hierarchy = processed_json.hierarchy
+        top_level_keys: list[str] | None = None
+        if hierarchy.name_path_to_id:
+            top_level_keys = sorted({path[0] for path in hierarchy.name_path_to_id if len(path) > 0})
+        grid_pattern_value = None
+        grid_path = ("gui", "gridPattern")
+        grid_obj_id = hierarchy.name_path_to_id.get(grid_path)
+        if grid_obj_id:
+            variant_id = processed_json.keyValueInfo.codeObjVariantMap.get(grid_obj_id)
+            if variant_id:
+                variant = processed_json.keyValueInfo.codeObjVariants.get(variant_id)
+                code_obj = processed_json.keyValueInfo.codeObjs.get(grid_obj_id)
+                if variant and code_obj:
+                    base_impl = processed_json.keyValueInfo.codeObjImpls.get(variant.impl)
+                    if base_impl:
+                        effective_impl = get_effective_impl(base_impl, code_obj, variant)
+                        if isinstance(effective_impl, TextParamCodeObjImpl):
+                            try:
+                                grid_pattern_value = json.loads(effective_impl.value)
+                            except json.JSONDecodeError:
+                                grid_pattern_value = effective_impl.value
+        return grid_pattern_value, top_level_keys
+
     def watch_json_source_files(
         self,
         callbackCategory: str,
@@ -111,17 +138,15 @@ class JSONSource:
                 if not relevant_variants:
                     continue
                 processed_json = self.json_sources[filename]
-                nested = processed_json.hierarchy.nested_dict
-                grid_pattern_value = None
-                if isinstance(nested, dict):
-                    gui_section = nested.get("gui")
-                    if isinstance(gui_section, dict):
-                        grid_pattern_value = gui_section.get("gridPattern")
+                grid_pattern_value, top_level_keys = self._summarize_processed_json(
+                    processed_json
+                )
                 logger.debug(
-                    "jsonSource cache snapshot file=%s gridPattern=%r topLevelKeys=%s sectionVariants=%s",
+                    "jsonSource cache snapshot file=%s cacheId=%s gridPattern=%r topLevelKeys=%s sectionVariants=%s",
                     filename,
+                    hex(id(processed_json)),
                     grid_pattern_value,
-                    sorted(nested.keys()) if isinstance(nested, dict) else None,
+                    top_level_keys,
                     sorted(relevant_variants),
                 )
 
@@ -178,17 +203,25 @@ class JSONSource:
                 )
             file_content = self.dbe.read_json(filepath)
 
-            processedJsonInfo = self.process_json_object(file_content)
-            self.json_sources[filepath] = processedJsonInfo
             if logger.isEnabledFor(logging.DEBUG):
+                processedJsonInfo = self.process_json_object(file_content)
+                grid_pattern_value, top_level_keys = self._summarize_processed_json(
+                    processedJsonInfo
+                )
                 code_obj_count = len(processedJsonInfo.keyValueInfo.codeObjs)
                 variant_count = len(processedJsonInfo.keyValueInfo.codeObjVariants)
                 logger.debug(
-                    "jsonSource cache update file=%s codeObjCount=%d variantCount=%d",
+                    "jsonSource cache update file=%s cacheId=%s codeObjCount=%d variantCount=%d gridPattern=%r topLevelKeys=%s",
                     filepath,
+                    hex(id(processedJsonInfo)),
                     code_obj_count,
                     variant_count,
+                    grid_pattern_value,
+                    top_level_keys,
                 )
+            else:
+                processedJsonInfo = self.process_json_object(file_content)
+            self.json_sources[filepath] = processedJsonInfo
 
             if len(sectionVariantsToLoad) > 0:
                 logger.debug(

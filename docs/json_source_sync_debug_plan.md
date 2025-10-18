@@ -44,11 +44,17 @@
 ## Progress
 - Added DEBUG-level instrumentation in `jsonSource.save`, `jsonSource.load`, and `SettingsProjectManager.save` that reports section names, leaf counts, and merge summaries without dumping raw payloads.
 - Introduced environment filters so `SETTA_DEBUG_MODULE_FILTER` scopes logs to jsonSource/settings managers, `SETTA_DEBUG_SECTION_FILTER` narrows output to a specific section (e.g., `gui`), and `SETTA_SUPPRESS_PRINTS` mutes residual `print` calls.
-- Expanded the debug module filter to include `jsonSource.jsonSource` and added cache snapshot logging; the latest repro shows `jsonSource cache snapshot` emitting `gridPattern=None` with an empty `topLevelKeys` list right as the revert occurs, confirming the reload path relies on a stale/empty `ProcessedJSONInfo` even though the disk file holds `"gridPattern": "lines"`.
+- Expanded the debug module filter to include `jsonSource.jsonSource` and added cache snapshot logging; after switching the probe to inspect the effective impl we now see the cache reporting `gridPattern='dots'` on the initial read and `gridPattern='lines'` after the save, matching the file contents and proving the cache is not reverting.
 - Added `SETTA_LOGGER_LEVEL_OVERRIDES` handling plus `UVICORN_LOG_LEVEL` wiring so uvicorn/httpx/MCP/websocket noise no longer pollutes debug sessions; `frontend/backendStart.sh` now exports the override list by default.
 - Enabled Tailwind’s nesting plugin in PostCSS to silence the recurring frontend warning that spammed each log capture.
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.
-- Instrumented `helpers_lvl2.set_param_entered_value` to log UUID-resolved section/param names and captured a run showing the value flips to `"dots"` before the watcher reload; the subsequent autosave still writes `"lines"`, implicating the reload/merge path in overwriting the change pre-save.
+- Instrumented `helpers_lvl2.set_param_entered_value` to log UUID-resolved section/param names and captured a run showing the value flips to `"dots"` before the watcher reload; the subsequent autosave still writes `"lines"`, so the remaining regression likely sits in how the reload/merge output is applied to the project state or consumed on the frontend rather than in the cache itself.
+
+### Findings (2025-10-16)
+- Changing `gridPattern` from `"dots"` to `"lines"` updates the in-memory state immediately (`helpers_lvl2` log), then the debounced autosave fires ~2s later to write `"lines"` to disk; the watcher reload reports `gridPattern='lines'`, proving the cache mirrors disk at this point.
+- Flipping the value back to `"dots"` updates only the in-memory state. Before the autosave fires again, `watch_json_source_files` re-registers the settings variants and calls `load_json_sources_fn`, which reads from the existing cache snapshot.
+- The cache still contains `"lines"` because no save has occurred yet, so the reload merges `"lines"` back into the project state, wiping out the unsaved `"dots"` change. The subsequent autosave runs against this reverted state and persists `"lines"` again, which surfaces as the UI “undoing” the user edit.
+- Root cause: the reload path races the debounced autosave, reapplying cached disk data over pending UI edits. Next steps should focus on deferring/bypassing that reload until the new value is persisted or applying the in-memory hierarchy during that window.
 
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.
