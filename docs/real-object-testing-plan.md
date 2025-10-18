@@ -26,15 +26,14 @@ We want Python unit tests that currently rely on hand-rolled “fake” objects 
    - Added fixture teardown that closes LSP stdin/stdout and waits for the subprocess so the asyncio loop shuts down without resource warnings.
    - Some macOS environments may emit watchdog’s “Cannot start fsevents stream” warning during teardown; it’s harmless and can be ignored.
 
-5. **Rework JSON source debounce coverage**
-   - Update `tests/project_state/jsonSource/test_json_source_reload_debounce.py` to pull actual `(sectionId, variantId, Path)` tuples from the manager’s JSON-source mapping.
-   - Drive `autosave_debouncer.trigger()` to toggle pending state instead of manually wiring flags.
-   - For `_flush_deferred_json_source_loads`, pre-populate deferred variants, optionally wrap `load_json_sources` to capture arguments, let the real implementation run, and assert the cached data updates while the deferred set is cleared.
+5. **Rework JSON source debounce coverage** — ✅ `tests/project_state/jsonSource/test_json_source_reload_debounce.py` now exercises the real manager
+   - Tests pull actual `(sectionId, variantId, Path)` tuples from the fixture, drive `autosave_debouncer.trigger()` to toggle pending state, and assert against the real defer logic.
+   - `_flush_deferred_json_source_loads` uses a spy around `load_json_sources` to confirm the cache updates and deferred set clears.
 
 ## Additional Considerations
 
 - Place the shared fixture in a new helper module (e.g., `tests/utils/manager_fixture.py`) and expose async context managers so every test gets a fresh temp workspace and deterministic cleanup.
-- Consider extending `SpecificFileWatcher` with a test mode that skips starting the watchdog thread to avoid noisy output; if we need that, include the production tweak in the same refactor.
+- The macOS fsevents warning (“Cannot start fsevents stream…”) is harmless—leave the real `SpecificFileWatcher` in place and ignore the warning if it appears.
 - Expect marginally slower suites due to the higher-fidelity setup; if runtime becomes an issue, explore test-level parallelism or selective markers for longer flows.
 - Starting the language server in tests is acceptable; prioritize fidelity over synthetic stubs like `TestLSPWriters`.
 - Delete `StubGenCode` and any similar scaffolding; keep test collaborators real so behaviour matches production.
