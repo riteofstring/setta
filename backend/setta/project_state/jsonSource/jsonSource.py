@@ -83,10 +83,6 @@ class JSONSource:
         self._category_to_section_variants: dict[
             str, dict[Path, set[tuple[str, str]]]
         ] = {}
-        # aggregated view across categories, retained for backward compatibility
-        self.json_source_to_section_variant: dict[Path, set[tuple[str, str]]] = (
-            defaultdict(set)
-        )
 
     def _get_category_section_variants(
         self, callbackCategory: str
@@ -99,11 +95,6 @@ class JSONSource:
         mapping: dict[Path, set[tuple[str, str]]],
     ) -> None:
         self._category_to_section_variants[callbackCategory] = mapping
-        aggregated: dict[Path, set[tuple[str, str]]] = defaultdict(set)
-        for per_category in self._category_to_section_variants.values():
-            for filename, ids in per_category.items():
-                aggregated.setdefault(filename, set()).update(ids)
-        self.json_source_to_section_variant = aggregated
 
     def get_tracked_section_variant_counts(
         self, callbackCategory: str
