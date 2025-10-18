@@ -1,0 +1,46 @@
+# JSON Source Sync Debug Plan
+
+## Reproduction Recap
+- Start from `/settings`, edit the target codeObj from `X` to `Y`, navigate through `/home` to create a new project config, enter it, return to `/home`, revisit `/settings`, and flip the same codeObj back to `X`.
+- After a short delay, the UI reverts the value to `Y`, implying that a backend push or file watcher reload overwrites the local change.
+
+## Working Hypotheses
+- The JSON source file keeps `Y` on disk, and an async reload pushes that snapshot back through the websocket broadcast.
+- `JSONSource.json_sources` may cache an out-of-date snapshot that is reused when watchers re-register (e.g., after creating a project config).
+- `remove_json_source_values` might be clearing the edited value before the save finishes, leading the next reload to fall back to the stale payload.
+- Creating a project config could trigger an implicit settings reload that publishes the stale state.
+
+## Debug Strategy
+
+1. **Establish Baseline**
+   - Identify the JSON file backing the affected codeObj by inspecting the section’s `variant.name` and `jsonSourceKeys` in `frontend` devtools (via `useProjectStore`) or by logging `load_json_sources_into_data_structures` inputs.
+   - Inspect the file in `setta_files/` before touching the UI to confirm the initial `X`/`Y` values and timestamps.
+
+2. **Instrument Backend Saves**
+   - Add temporary debug logs inside `save_json_source_data` (`backend/setta/project_state/jsonSource/save.py:21`) to print the target filename, key path, and the serialized value being written.
+   - Log immediately after `remove_json_source_values` (`backend/setta/project_state/jsonSource/save.py:76`) to confirm the in-memory project state drops only scalar values.
+   - Wrap `SettingsProjectManager.save` (`backend/setta/project_state/settings_project_manager.py:17`) with debug statements to track every save trigger and correlate them with UI actions.
+
+3. **Trace JSON Source Reloads**
+   - Instrument `JSONSource.watch_json_source_files` and its watcher callback (`backend/setta/project_state/jsonSource/jsonSource.py:40-123`) to log:
+     - When watchers are re-registered (especially after creating a project config).
+     - Which `ProcessedJSONInfo` snapshot is reused when `load_json_sources_into_data_structures` is called.
+   - Inside `load_json_sources_into_data_structures` (`backend/setta/project_state/jsonSource/load.py:86`) log the incoming `processedJson` payload, the replacements computed, and any deletions scheduled for the section.
+
+4. **Observe Frontend Traffic**
+   - Run the app in dev mode and capture websocket traffic in the browser devtools; note which message (project state or notification) precedes the revert.
+   - Optionally add a temporary `console.info` in `frontend/src/stores/projectStateStore.ts` (or the derived selector used on `/settings`) to print every backend-driven state update for that codeObj, confirming whether the revert comes from the backend or local state logic.
+
+5. **Isolation Experiments**
+   - Repeat the edit without creating a project config to confirm the revert requires that intermediate action.
+   - Create a project config without touching the parameter to see if any settings reload occurs (logs from step 2/3 should surface this).
+   - Toggle autosave/manual save paths (if available) to see whether explicit saves behave differently.
+
+6. **Synthesize Findings**
+   - Correlate filesystem writes, watcher reloads, and websocket broadcasts using timestamps from the logs.
+   - If the disk never receives `X`, focus on the save path; if the disk has `X` but the revert still occurs, inspect cached `json_sources` state or merge logic.
+   - Document whether the bug lives in backend persistence, watcher cache invalidation, or frontend consumption to guide the fix.
+
+## Notes
+- Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.
+- Once the root cause is understood, remove instrumentation and consider adding a regression test under `tests/project_state/jsonSource/` to capture the discovered edge case.
