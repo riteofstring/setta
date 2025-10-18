@@ -3,6 +3,7 @@ import contextvars
 import copy
 import shutil
 from abc import ABC, abstractmethod
+from functools import wraps
 from pathlib import Path
 from typing import Coroutine, Iterable
 
@@ -288,14 +289,39 @@ class BaseProjectManager(ABC):
             raise
 
     @staticmethod
-    def enqueue_method(func):
-        async def wrapper(self, *args, **kwargs):
-            frontend_op_id = self._extract_frontend_op_id(args, kwargs)
-            return await self._enqueue(
-                func(self, *args, **kwargs), frontend_op_id=frontend_op_id
-            )
+    def enqueue_method(func=None, *, require_serialization: bool = True):
+        def decorator(actual_func):
+            @wraps(actual_func)
+            async def wrapper(self, *args, **kwargs):
+                frontend_op_id = self._extract_frontend_op_id(args, kwargs)
+                if require_serialization:
+                    return await self._enqueue(
+                        actual_func(self, *args, **kwargs),
+                        frontend_op_id=frontend_op_id,
+                    )
 
-        return wrapper
+                if frontend_op_id:
+                    self.pending_frontend_ops[frontend_op_id] = None
+
+                token = None
+                if frontend_op_id is not None:
+                    token = self._current_frontend_op_id.set(frontend_op_id)
+                try:
+                    result = await actual_func(self, *args, **kwargs)
+                    self._finalize_frontend_op(frontend_op_id, success=True)
+                    return result
+                except Exception:
+                    self._finalize_frontend_op(frontend_op_id, success=False)
+                    raise
+                finally:
+                    if token is not None:
+                        self._current_frontend_op_id.reset(token)
+
+            return wraps(actual_func)(wrapper)
+
+        if func is None:
+            return decorator
+        return decorator(func)
 
     @staticmethod
     def _extract_frontend_op_id(args, kwargs) -> str | None:
@@ -472,14 +498,14 @@ class BaseProjectManager(ABC):
         async with self._project_state_lock.read_lock():
             await self.gen_code[projectConfigId].type_check()
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
             return await self.gen_code[x.projectConfigId].text_field_completion(
                 x.sectionId, x.paramInfoId, x.fullText, x.position
             )
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
             await self.gen_code[x.projectConfigId].clear_text_field_completion(
@@ -501,7 +527,7 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
         return project_state
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
         print("*************code_area_autocomplete\n\n\n", flush=True)
         async with self._project_state_lock.read_lock():
@@ -510,7 +536,7 @@ class BaseProjectManager(ABC):
                 return await code.code_area_completion(x.fullText, x.position)
             return []
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
         print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
         async with self._project_state_lock.read_lock():
@@ -518,7 +544,7 @@ class BaseProjectManager(ABC):
                 x.fullText, x.position
             )
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
         print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
         async with self._project_state_lock.read_lock():
