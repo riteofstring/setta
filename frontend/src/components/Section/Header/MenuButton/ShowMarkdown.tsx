@@ -1,10 +1,10 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
-  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {

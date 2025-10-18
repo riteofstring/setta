@@ -1,11 +1,11 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   getSectionChildren,
   getSectionCore,
-  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";

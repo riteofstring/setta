@@ -52,7 +52,6 @@ import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
 import {
   deleteAllActiveSections,
-  getCurrProjectConfigId,
   groupActiveSections,
   ungroupActiveGroups,
   unselectAllParams,

@@ -9,7 +9,6 @@ import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -211,10 +210,8 @@ export function setCallable(
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
   dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      setCurrEffectiveSectionImplValue<"CallableSection">(state, sectionId, {
-        callable: callableName,
-      });
+    apply: () => {
+      // Skip optimistic update
     },
     send: async (frontendOpId) => {
       const projectConfigId = getCurrProjectConfigId();

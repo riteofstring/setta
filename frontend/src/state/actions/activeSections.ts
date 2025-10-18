@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useProjectState, ZustandProjectState } from "state/definitions";
+import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -9,7 +10,6 @@ import {
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
-import { route_set_active_ids } from "utils/generatedEndpoints";
 
 function optimisticActiveIdsUpdate(
   apply: (state: ZustandProjectState) => void,
@@ -37,9 +37,7 @@ export function setActiveSectionIds(ids: Array<string>) {
 
 export function addActiveSectionIds(ids: Array<string>) {
   const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
-  const nextActiveIds = [
-    ...new Set([...currentActiveIds, ...ids]),
-  ];
+  const nextActiveIds = [...new Set([...currentActiveIds, ...ids])];
   if (_.isEqual(currentActiveIds, nextActiveIds)) {
     return;
   }

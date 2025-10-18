@@ -4,11 +4,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
+  PendingOperation,
   useAllProjectMetadata,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
-  PendingOperation,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
@@ -17,8 +17,8 @@ import {
   route_group_sections,
   route_set_top_level_section_layout,
   route_set_viewport,
-  route_ungroup_groups,
   route_toggle_param_selected,
+  route_ungroup_groups,
   route_unselect_all_params,
 } from "utils/generatedEndpoints";
 import {
@@ -723,7 +723,8 @@ export function unselectAllParams() {
   const hasSelectedParams = sectionIds.some((sectionId) => {
     const impl = getCurrEffectiveSectionImpl(currentState, sectionId);
     return (
-      isBaseSectionWithParamsImpl(impl) && (impl.selectedParams?.length ?? 0) > 0
+      isBaseSectionWithParamsImpl(impl) &&
+      (impl.selectedParams?.length ?? 0) > 0
     );
   });
 
@@ -735,7 +736,10 @@ export function unselectAllParams() {
     apply: (state) => {
       for (const sectionId of Object.keys(state.sections)) {
         const impl = getCurrEffectiveSectionImpl(state, sectionId);
-        if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {
+        if (
+          isBaseSectionWithParamsImpl(impl) &&
+          impl.selectedParams.length > 0
+        ) {
           setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
             state,
             sectionId,

@@ -1,9 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
-  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_toggle_minimized } from "utils/generatedEndpoints";

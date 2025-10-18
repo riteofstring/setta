@@ -1,9 +1,9 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
-  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_set_section_with_params_display_mode } from "utils/generatedEndpoints";

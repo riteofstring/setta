@@ -1,9 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_toggle_position_lock } from "utils/generatedEndpoints";
