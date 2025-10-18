@@ -47,6 +47,7 @@
 - Added `SETTA_LOGGER_LEVEL_OVERRIDES` handling plus `UVICORN_LOG_LEVEL` wiring so uvicorn/httpx/MCP/websocket noise no longer pollutes debug sessions; `frontend/backendStart.sh` now exports the override list by default.
 - Enabled Tailwind’s nesting plugin in PostCSS to silence the recurring frontend warning that spammed each log capture.
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.
+- Instrumented `helpers_lvl2.set_param_entered_value` to log UUID-resolved section/param names and captured a run showing the value flips to `"dots"` before the watcher reload; the subsequent autosave still writes `"lines"`, implicating the reload/merge path in overwriting the change pre-save.
 
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.

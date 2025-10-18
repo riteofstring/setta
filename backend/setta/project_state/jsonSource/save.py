@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from collections import defaultdict
@@ -47,6 +48,24 @@ def _count_leaf_entries(value: object) -> int:
             total += _count_leaf_entries(child)
         return total or 1
     return 1
+
+
+def _extract_section_payload(nested: dict, json_source_keys: list[str]):
+    cursor: object = nested
+    for key in json_source_keys:
+        if not isinstance(cursor, dict):
+            return None
+        cursor = cursor.get(key)
+        if cursor is None:
+            return None
+    return cursor
+
+
+def _format_snapshot(snapshot: object) -> str:
+    try:
+        return json.dumps(snapshot, sort_keys=True)
+    except (TypeError, ValueError):
+        return repr(snapshot)
 
 
 def save_json_source_data(
@@ -99,6 +118,16 @@ def save_json_source_data(
                     filename,
                     impl.jsonSourceKeys,
                     leaf_count,
+                )
+                payload = _extract_section_payload(
+                    hierarchy.nested_dict, list(impl.jsonSourceKeys)
+                )
+                logger.debug(
+                    "jsonSource save payload section=%s variant=%s keys=%s snapshot=%s",
+                    section.name,
+                    variant.name,
+                    impl.jsonSourceKeys,
+                    _format_snapshot(payload) if payload is not None else "<missing>",
                 )
 
     # Save each file
