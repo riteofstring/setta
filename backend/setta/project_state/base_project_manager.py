@@ -501,16 +501,16 @@ class BaseProjectManager(ABC):
     @enqueue_method(require_serialization=False)
     async def text_field_completion(self, x: TextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
-            return await self.gen_code[x.projectConfigId].text_field_completion(
-                x.sectionId, x.paramInfoId, x.fullText, x.position
-            )
+            gen_code = self.gen_code[x.projectConfigId]
+        return await gen_code.text_field_completion(
+            x.sectionId, x.paramInfoId, x.fullText, x.position
+        )
 
     @enqueue_method(require_serialization=False)
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
         async with self._project_state_lock.read_lock():
-            await self.gen_code[x.projectConfigId].clear_text_field_completion(
-                x.sectionId, x.paramInfoId
-            )
+            gen_code = self.gen_code[x.projectConfigId]
+        await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
 
     @enqueue_method
     async def set_callable(self, x: SetCallableRequest):
@@ -529,28 +529,23 @@ class BaseProjectManager(ABC):
 
     @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
-        print("*************code_area_autocomplete\n\n\n", flush=True)
         async with self._project_state_lock.read_lock():
             code = self.code_dict[x.projectConfigId][x.sectionId]
-            if isinstance(code, ProjectPythonCode):
-                return await code.code_area_completion(x.fullText, x.position)
-            return []
+        if isinstance(code, ProjectPythonCode):
+            return await code.code_area_completion(x.fullText, x.position)
+        return []
 
     @enqueue_method(require_serialization=False)
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
-        print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
         async with self._project_state_lock.read_lock():
-            return await self.gen_code[x.projectConfigId].gen_code_prefix_completion(
-                x.fullText, x.position
-            )
+            gen_code = self.gen_code[x.projectConfigId]
+        return await gen_code.gen_code_prefix_completion(x.fullText, x.position)
 
     @enqueue_method(require_serialization=False)
     async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
-        print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
         async with self._project_state_lock.read_lock():
-            return await self.gen_code[x.projectConfigId].gen_code_suffix_completion(
-                x.fullText, x.position
-            )
+            gen_code = self.gen_code[x.projectConfigId]
+        return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):

@@ -12,10 +12,11 @@
    - Completion handlers now render snapshot code into per-request temporary documents, open and close them with the LSP, and avoid writing through the shared `DBE` temp files.  
    - `LanguageServerWriter` issues `didClose` notifications and the new `temporary_document` helper cleans up diagnostics metadata and filesystem debris.
 
-4. **Regression coverage and validation**  
+4. **Regression coverage and validation** ✅  
    - Added an isolated unit test exercising the serialized vs. non-serialized decorator paths and confirming concurrent execution/pending-op tracking.  
-   - Added a queue-level integration test (`tests/project_state/test_completion_queue_concurrency.py`) that asserts bypassed completion calls hold the read lock while a serialized `update()` owns the write lock.  
-   - Manual validation checklist (full-stack run via `pnpm startr`): trigger a project refresh while typing in the editor to confirm completions pause during the write lock and resume with no dropped events; hammer completions back-to-back to ensure pending op ids clear immediately; monitor the LSP log to verify each temporary document issues matching `didOpen`/`didClose` pairs and leaves no stale diagnostics.
+   - Extended the queue-level integration test (`tests/project_state/test_completion_queue_concurrency.py`) with an explicit check that a serialized update can acquire the write lock while a completion awaits its LSP response.  
+   - Added a minimal manager unit test that fails if completions hold the read lock across the LSP await, preventing regressions toward the original blocking behaviour.  
+   - Manual validation (full-stack `pnpm startr`): completions now resume immediately after an update finishes and UI writes are no longer blocked by in-flight completions; LSP logs show matching `didOpen`/`didClose` pairs with no lingering diagnostics.
 
 5. **Finalize and document**  
    - Once the queue split is stable, remove any feature flags, document the new read/write-lock + queue-bypass expectations for backend contributors, and expand troubleshooting guides with the temporary-document hygiene checks noted above.

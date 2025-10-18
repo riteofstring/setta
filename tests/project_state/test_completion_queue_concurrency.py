@@ -87,9 +87,9 @@ class QueueIntegrationManager:
     async def completion(self, payload: SimpleNamespace):
         async with self._project_state_lock.read_lock():
             payload.entered.set()
-            await payload.release.wait()
-            payload.completed.set()
-            return payload.result
+        await payload.release.wait()
+        payload.completed.set()
+        return payload.result
 
     async def shutdown(self):
         self.queue_task.cancel()
@@ -150,6 +150,142 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("completion-op", manager.pending_frontend_ops)
         self.assertEqual(manager._finalized, ["update-op", "completion-op"])
         self.assertIsNone(manager._current_frontend_op_id.get())
+
+    async def test_update_can_start_while_completion_waits_on_lsp(self):
+        manager = self.manager
+
+        completion_payload = SimpleNamespace(
+            frontendOpId="completion-op",
+            entered=asyncio.Event(),
+            release=asyncio.Event(),
+            completed=asyncio.Event(),
+            result="completion-result",
+        )
+
+        completion_task = asyncio.create_task(manager.completion(completion_payload))
+        await asyncio.wait_for(completion_payload.entered.wait(), timeout=1)
+        self.assertIn("completion-op", manager.pending_frontend_ops)
+        self.assertFalse(completion_payload.completed.is_set())
+
+        update_payload = SimpleNamespace(
+            frontendOpId="update-op",
+            started=asyncio.Event(),
+            release=asyncio.Event(),
+            completed=asyncio.Event(),
+            result="update-result",
+        )
+
+        update_task = asyncio.create_task(manager.blocking_update(update_payload))
+        await asyncio.wait_for(update_payload.started.wait(), timeout=1)
+        self.assertIn("update-op", manager.pending_frontend_ops)
+        self.assertFalse(completion_payload.completed.is_set())
+
+        update_payload.release.set()
+        await asyncio.wait_for(update_payload.completed.wait(), timeout=1)
+        await update_task
+        self.assertNotIn("update-op", manager.pending_frontend_ops)
+
+        self.assertFalse(completion_payload.completed.is_set())
+        completion_payload.release.set()
+        completion_result = await completion_task
+
+        self.assertEqual(completion_result, "completion-result")
+        self.assertTrue(completion_payload.completed.is_set())
+        self.assertNotIn("completion-op", manager.pending_frontend_ops)
+        self.assertEqual(manager._finalized, ["update-op", "completion-op"])
+        self.assertIsNone(manager._current_frontend_op_id.get())
+
+
+class StubGenCode:
+    def __init__(self):
+        self.started = asyncio.Event()
+        self.allow_finish = asyncio.Event()
+
+    async def text_field_completion(
+        self,
+        section_id: str,
+        param_info_id: str | None,
+        full_text: str,
+        position: int,
+    ):
+        self.started.set()
+        await self.allow_finish.wait()
+        return ["ok"]
+
+
+class MinimalBaseProjectManager(BaseProjectManager):
+    def __init__(self):
+        # Minimal subset of BaseProjectManager setup required for the decorator
+        # to run; we bypass queue management entirely for this isolated test.
+        self._project_state_lock = AsyncReadWriteLock()
+        self.pending_frontend_ops: dict[str, None] = {}
+        self.completed_op_ids_since_last_broadcast: list[str] = []
+        self._current_frontend_op_id = contextvars.ContextVar(
+            "minimal_current_frontend_op_id", default=None
+        )
+        self.gen_code: dict[str, StubGenCode] = {}
+        self.code_dict = {}
+
+    def load_initial_state(self):
+        raise NotImplementedError
+
+    def save(self):
+        raise NotImplementedError
+
+    async def save_as_new_project_config(self, x):
+        raise NotImplementedError
+
+    def save_as_existing_project_config(self, x):
+        raise NotImplementedError
+
+
+class BaseProjectManagerLockingTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.manager = MinimalBaseProjectManager()
+        self.stub = StubGenCode()
+        self.manager.gen_code["project"] = self.stub
+
+    async def asyncTearDown(self):
+        self.stub.allow_finish.set()
+
+    async def test_write_lock_available_while_completion_waits(self):
+        manager = self.manager
+        stub = self.stub
+        request = SimpleNamespace(
+            frontendOpId="completion-op",
+            projectConfigId="project",
+            sectionId="section",
+            paramInfoId=None,
+            fullText="code",
+            position=0,
+        )
+
+        completion_task = asyncio.create_task(manager.text_field_completion(request))
+        await asyncio.wait_for(stub.started.wait(), timeout=1)
+
+        write_lock_acquired = asyncio.Event()
+        release_write_lock = asyncio.Event()
+
+        async def acquire_write_lock():
+            async with manager._project_state_lock.write_lock():
+                write_lock_acquired.set()
+                await release_write_lock.wait()
+
+        write_task = asyncio.create_task(acquire_write_lock())
+
+        try:
+            await asyncio.wait_for(write_lock_acquired.wait(), timeout=0.2)
+        except asyncio.TimeoutError as exc:
+            release_write_lock.set()
+            stub.allow_finish.set()
+            await asyncio.gather(write_task, completion_task)
+            raise AssertionError(
+                "Write lock was blocked by completion's LSP wait."
+            ) from exc
+
+        release_write_lock.set()
+        stub.allow_finish.set()
+        await asyncio.gather(write_task, completion_task)
 
 
 if __name__ == "__main__":
