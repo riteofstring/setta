@@ -1,8 +1,8 @@
 import asyncio
 import contextvars
 import unittest
-from collections.abc import Coroutine
 from asyncio import QueueEmpty
+from collections.abc import Coroutine
 from types import SimpleNamespace
 
 from setta.project_state.base_project_manager import BaseProjectManager
