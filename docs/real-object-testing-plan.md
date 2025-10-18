@@ -21,10 +21,10 @@ We want Python unit tests that currently rely on hand-rolled “fake” objects 
    - Bind helper coroutines onto the live manager via `BaseProjectManager.enqueue_method` so serialized calls go through the actual queue.
    - Assert sequential execution, concurrent non-serialized behaviour, and real bookkeeping (`pending_frontend_ops`, `completed_op_ids_since_last_broadcast`, `_current_frontend_op_id`).
 
-4. **Exercise manual save behaviour end-to-end**
-   - In `tests/project_state/test_manual_save_autosave.py`, swap out the manual object construction with the shared fixture.
-   - Shorten the debouncer wait to keep the test fast, schedule an autosave, call `perform_manual_save()`, and assert `is_pending` is cleared.
-   - Verify that `setta-settings-project.json` in the temporary DB directory changes on disk rather than stubbing `save()` / `autosave()`.
+4. **Exercise manual save behaviour end-to-end** — ✅ `tests/project_state/test_manual_save_autosave.py` now uses the shared fixture
+   - Bound the test to the real `SettingsProjectManager`, shortened the debounce wait, and asserted on the live debouncer plus filesystem timestamps.
+   - Added fixture teardown that closes LSP stdin/stdout and waits for the subprocess so the asyncio loop shuts down without resource warnings.
+   - Some macOS environments may emit watchdog’s “Cannot start fsevents stream” warning during teardown; it’s harmless and can be ignored.
 
 5. **Rework JSON source debounce coverage**
    - Update `tests/project_state/jsonSource/test_json_source_reload_debounce.py` to pull actual `(sectionId, variantId, Path)` tuples from the manager’s JSON-source mapping.

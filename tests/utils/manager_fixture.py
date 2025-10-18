@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -152,5 +152,30 @@ async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
 async def _stop_lsps_and_file_watcher(
     lsps: LSPServers, lsp_readers: LSPReaders, lsp_writers: LSPWriters
 ) -> None:
+    process = getattr(lsps.full, "server", None)
     await stop_lsps(lsps, lsp_readers)
     stop_file_watcher(lsp_writers)
+    await _close_lsp_process(process)
+
+
+async def _close_lsp_process(process) -> None:
+    if process is None:
+        return
+
+    writer = getattr(process, "stdin", None)
+    if writer is not None:
+        writer.close()
+        with suppress(RuntimeError, AttributeError):
+            await writer.wait_closed()
+
+    with suppress(ProcessLookupError):
+        await process.wait()
+
+    for reader in (
+        getattr(process, "stdout", None),
+        getattr(process, "stderr", None),
+    ):
+        if reader is None:
+            continue
+        with suppress(Exception):
+            await reader.read()
