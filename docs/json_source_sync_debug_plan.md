@@ -44,6 +44,7 @@
 ## Progress
 - Added DEBUG-level instrumentation in `jsonSource.save`, `jsonSource.load`, and `SettingsProjectManager.save` that reports section names, leaf counts, and merge summaries without dumping raw payloads.
 - Introduced environment filters so `SETTA_DEBUG_MODULE_FILTER` scopes logs to jsonSource/settings managers, `SETTA_DEBUG_SECTION_FILTER` narrows output to a specific section (e.g., `gui`), and `SETTA_SUPPRESS_PRINTS` mutes residual `print` calls.
+- Expanded the debug module filter to include `jsonSource.jsonSource` and added cache snapshot logging; the latest repro shows `jsonSource cache snapshot` emitting `gridPattern=None` with an empty `topLevelKeys` list right as the revert occurs, confirming the reload path relies on a stale/empty `ProcessedJSONInfo` even though the disk file holds `"gridPattern": "lines"`.
 - Added `SETTA_LOGGER_LEVEL_OVERRIDES` handling plus `UVICORN_LOG_LEVEL` wiring so uvicorn/httpx/MCP/websocket noise no longer pollutes debug sessions; `frontend/backendStart.sh` now exports the override list by default.
 - Enabled Tailwind’s nesting plugin in PostCSS to silence the recurring frontend warning that spammed each log capture.
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.

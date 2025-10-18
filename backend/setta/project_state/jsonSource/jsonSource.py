@@ -103,6 +103,28 @@ class JSONSource:
                     ids.difference(self.json_source_to_section_variant[filename])
                 )
 
+        if section_variant_ids_to_load and logger.isEnabledFor(logging.DEBUG):
+            for filename, ids in new_json_source_to_section_variant.items():
+                if filename not in self.json_sources:
+                    continue
+                relevant_variants = ids.intersection(section_variant_ids_to_load)
+                if not relevant_variants:
+                    continue
+                processed_json = self.json_sources[filename]
+                nested = processed_json.hierarchy.nested_dict
+                grid_pattern_value = None
+                if isinstance(nested, dict):
+                    gui_section = nested.get("gui")
+                    if isinstance(gui_section, dict):
+                        grid_pattern_value = gui_section.get("gridPattern")
+                logger.debug(
+                    "jsonSource cache snapshot file=%s gridPattern=%r topLevelKeys=%s sectionVariants=%s",
+                    filename,
+                    grid_pattern_value,
+                    sorted(nested.keys()) if isinstance(nested, dict) else None,
+                    sorted(relevant_variants),
+                )
+
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "jsonSource watchers refresh category=%s files=%s newVariantCount=%d",
