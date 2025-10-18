@@ -1,15 +1,15 @@
 # Completion Queue Refactor Plan
 
-1. **Introduce read/write coordination around project refreshes**  
-   - Wrap `BaseProjectManager.update()` and other mutation-heavy code paths in an async write lock.  
-   - Provide a shared read lock that completion handlers acquire before touching `self.gen_code`, `self.code_dict`, or `ProjectPythonCode` instances so they can safely run in parallel when no refresh is underway.
+1. **Introduce read/write coordination around project refreshes** ✅  
+   - Added an `AsyncReadWriteLock` wrapper around `BaseProjectManager.update()` so refreshes acquire the write side before mutating shared state.  
+   - Completion handlers and other read-only paths now enter the shared read lock before touching `self.gen_code`, `self.code_dict`, or `ProjectPythonCode` instances; they still run on the queue for now but are ready for parallel reads once the bypass lands.
 
 2. **Let read-only routes bypass the global queue**  
    - Extend `enqueue_method` with an option (e.g. `require_serialization=True`) that keeps mutating operations in the FIFO queue while allowing read-only handlers to execute immediately.  
    - Mark the completion handlers (`text_field_completion`, `code_area_completion`, and `gen_code_*_completion`) as non-serialised once the locking primitives are in place.
 
 3. **Eliminate shared temp-file contention**  
-   - After the virtual-document work is validated, remove the temp-file writes from completion paths so queued updates no longer compete with them.  
+   - Replace the shared temp-file writes in completion paths with an approach that avoids contention (e.g. per-request staging or deferring writes through the serialized mutation path).  
    - Ensure diagnostic callbacks and cleanup logic work with the new approach.
 
 4. **Regression coverage and validation**  

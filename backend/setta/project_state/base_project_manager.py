@@ -158,6 +158,7 @@ from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
+from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -192,6 +193,7 @@ class BaseProjectManager(ABC):
         ] = asyncio.Queue()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
+        self._project_state_lock = AsyncReadWriteLock()
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
         )
@@ -329,23 +331,24 @@ class BaseProjectManager(ABC):
         projectConfigId: str,
         sectionId: str | None,
     ):
-        target_folder = create_timestamped_folder(C.CODE_FOLDER)
-        gen_code = self.gen_code[projectConfigId]
-        gen_code_path = gen_code.write_to_folder(target_folder)
+        async with self._project_state_lock.read_lock():
+            target_folder = create_timestamped_folder(C.CODE_FOLDER)
+            gen_code = self.gen_code[projectConfigId]
+            gen_code_path = gen_code.write_to_folder(target_folder)
 
-        code_dict = self.code_dict[projectConfigId]
-        code_paths = {}
-        for sid, c in code_dict.items():
-            code_paths[sid] = c.write_to_folder(target_folder)
+            code_dict = self.code_dict[projectConfigId]
+            code_paths = {}
+            for sid, c in code_dict.items():
+                code_paths[sid] = c.write_to_folder(target_folder)
 
-        if not sectionId:
-            sectionId = self.project_state_backend.projectConfigs[
-                projectConfigId
-            ].entryCodeBlockId
+            if not sectionId:
+                sectionId = self.project_state_backend.projectConfigs[
+                    projectConfigId
+                ].entryCodeBlockId
 
-        if sectionId:
-            return code_dict[sectionId].get_run_command(code_paths[sectionId])
-        return gen_code.get_run_command(gen_code_path)
+            if sectionId:
+                return code_dict[sectionId].get_run_command(code_paths[sectionId])
+            return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: str):
@@ -355,7 +358,9 @@ class BaseProjectManager(ABC):
         return await self.maybe_init_project_config(projectState)
 
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
-        if projectState.projectConfig.id not in self.gen_code:
+        async with self._project_state_lock.read_lock():
+            needs_init = projectState.projectConfig.id not in self.gen_code
+        if needs_init:
             await self.update(projectState)
         return projectState
 
@@ -397,81 +402,89 @@ class BaseProjectManager(ABC):
         messageId: str | None = None,
         updateFileWatcher=True,
     ):
-        projectState.validate_singleton_sections()
-        projectState.validate_parent_section_map()
-        projectState.validate_shown_param_ids()
-        projectState.validate_yaml_values()
-        projectState.validate_required_decoded_images()
-        self.used_files = set()
-        dep_graph = DependencyGraph(projectState)
-        projectConfig = projectState.projectConfig
-        projectConfigId = projectConfig.id
-        if self.gen_code.get(projectConfigId):
-            await self.maybe_do_rename_refactor(messageId, projectConfigId, dep_graph)
-            self.gen_code[projectConfigId].callback_cleanup()
-
-        code_generator = PythonCodeGenerator(
-            dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
-        )
-        code_generator.generate_code()
-
-        projectConfigName = projectConfig.name
-        project_temp_folder = self.temp_folder / projectConfigName
-        new_gen_code = ProjectGenPythonCode(
-            self.dbe,
-            project_temp_folder,
-            self.lsp_writers,
-            self.websocket_msg_handler,
-            projectConfigId,
-            dep_graph,
-            code_generator,
-        )
-        await new_gen_code.update_file()
-        maybe_update_gen_python_code_section(projectState, new_gen_code.code)
-        self.add_to_used_files(new_gen_code)
-        self.gen_code[projectConfigId] = new_gen_code
-
-        if self.code_dict.get(projectConfigId):
-            for c in self.code_dict[projectConfigId].values():
-                if isinstance(c, ProjectPythonCode):
-                    c.callback_cleanup()
-        self.code_dict[projectConfigId] = {}
-
-        for sectionId in projectState.sections.keys():
-            section_impl = get_curr_effective_section_impl(projectState, sectionId)
-            if isinstance(section_impl, CodeSectionImpl):
-                section_code = self.create_project_code(
-                    project_temp_folder, projectState, sectionId, section_impl
+        async with self._project_state_lock.write_lock():
+            projectState.validate_singleton_sections()
+            projectState.validate_parent_section_map()
+            projectState.validate_shown_param_ids()
+            projectState.validate_yaml_values()
+            projectState.validate_required_decoded_images()
+            self.used_files = set()
+            dep_graph = DependencyGraph(projectState)
+            projectConfig = projectState.projectConfig
+            projectConfigId = projectConfig.id
+            if self.gen_code.get(projectConfigId):
+                await self.maybe_do_rename_refactor(
+                    messageId, projectConfigId, dep_graph
                 )
+                self.gen_code[projectConfigId].callback_cleanup()
 
-                if not section_code:
-                    continue
+            code_generator = PythonCodeGenerator(
+                dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
+            )
+            code_generator.generate_code()
 
-                await section_code.update_file()
-                self.add_to_used_files(section_code)
-                self.code_dict[projectConfigId][sectionId] = section_code
+            projectConfigName = projectConfig.name
+            project_temp_folder = self.temp_folder / projectConfigName
+            new_gen_code = ProjectGenPythonCode(
+                self.dbe,
+                project_temp_folder,
+                self.lsp_writers,
+                self.websocket_msg_handler,
+                projectConfigId,
+                dep_graph,
+                code_generator,
+            )
+            await new_gen_code.update_file()
+            maybe_update_gen_python_code_section(projectState, new_gen_code.code)
+            self.add_to_used_files(new_gen_code)
+            self.gen_code[projectConfigId] = new_gen_code
 
-        self.delete_unused_files(project_temp_folder)
-        self.project_state_backend = self.get_new_project_state_backend(projectState)
-        if updateFileWatcher:
-            self.watch_json_source_files()
-            self.watch_artifact_files()
+            if self.code_dict.get(projectConfigId):
+                for c in self.code_dict[projectConfigId].values():
+                    if isinstance(c, ProjectPythonCode):
+                        c.callback_cleanup()
+            self.code_dict[projectConfigId] = {}
+
+            for sectionId in projectState.sections.keys():
+                section_impl = get_curr_effective_section_impl(projectState, sectionId)
+                if isinstance(section_impl, CodeSectionImpl):
+                    section_code = self.create_project_code(
+                        project_temp_folder, projectState, sectionId, section_impl
+                    )
+
+                    if not section_code:
+                        continue
+
+                    await section_code.update_file()
+                    self.add_to_used_files(section_code)
+                    self.code_dict[projectConfigId][sectionId] = section_code
+
+            self.delete_unused_files(project_temp_folder)
+            self.project_state_backend = self.get_new_project_state_backend(
+                projectState
+            )
+            if updateFileWatcher:
+                self.watch_json_source_files()
+                self.watch_artifact_files()
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
-        await self.gen_code[projectConfigId].type_check()
+        async with self._project_state_lock.read_lock():
+            await self.gen_code[projectConfigId].type_check()
 
     @enqueue_method
     async def text_field_completion(self, x: TextFieldCompletionRequest):
-        return await self.gen_code[x.projectConfigId].text_field_completion(
-            x.sectionId, x.paramInfoId, x.fullText, x.position
-        )
+        async with self._project_state_lock.read_lock():
+            return await self.gen_code[x.projectConfigId].text_field_completion(
+                x.sectionId, x.paramInfoId, x.fullText, x.position
+            )
 
     @enqueue_method
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
-        await self.gen_code[x.projectConfigId].clear_text_field_completion(
-            x.sectionId, x.paramInfoId
-        )
+        async with self._project_state_lock.read_lock():
+            await self.gen_code[x.projectConfigId].clear_text_field_completion(
+                x.sectionId, x.paramInfoId
+            )
 
     @enqueue_method
     async def set_callable(self, x: SetCallableRequest):
@@ -491,24 +504,27 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
         print("*************code_area_autocomplete\n\n\n", flush=True)
-        code = self.code_dict[x.projectConfigId][x.sectionId]
-        if isinstance(code, ProjectPythonCode):
-            return await code.code_area_completion(x.fullText, x.position)
-        return []
+        async with self._project_state_lock.read_lock():
+            code = self.code_dict[x.projectConfigId][x.sectionId]
+            if isinstance(code, ProjectPythonCode):
+                return await code.code_area_completion(x.fullText, x.position)
+            return []
 
     @enqueue_method
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
         print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[x.projectConfigId].gen_code_prefix_completion(
-            x.fullText, x.position
-        )
+        async with self._project_state_lock.read_lock():
+            return await self.gen_code[x.projectConfigId].gen_code_prefix_completion(
+                x.fullText, x.position
+            )
 
     @enqueue_method
     async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
         print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[x.projectConfigId].gen_code_suffix_completion(
-            x.fullText, x.position
-        )
+        async with self._project_state_lock.read_lock():
+            return await self.gen_code[x.projectConfigId].gen_code_suffix_completion(
+                x.fullText, x.position
+            )
 
     @enqueue_method
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
