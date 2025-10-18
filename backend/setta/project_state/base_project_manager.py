@@ -7,7 +7,18 @@ from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Coroutine, Iterable
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Concatenate,
+    Coroutine,
+    Iterable,
+    ParamSpec,
+    TypeVar,
+    cast,
+    overload,
+)
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -168,6 +179,11 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+_T = TypeVar("_T")
+_EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
+
 
 class BaseProjectManager(ABC):
     def __init__(
@@ -246,7 +262,11 @@ class BaseProjectManager(ABC):
                 logger.debug("Marking queue task as done")
                 self.message_queue.task_done()
 
-    async def _enqueue(self, coroutine: Coroutine, frontend_op_id: str | None = None):
+    async def _enqueue(
+        self,
+        coroutine: Coroutine[Any, Any, _T],
+        frontend_op_id: str | None = None,
+    ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
 
@@ -258,7 +278,7 @@ class BaseProjectManager(ABC):
         )
 
         # Create a future to hold the result
-        future = asyncio.Future()
+        future: asyncio.Future[_T] = asyncio.Future()
         logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
@@ -284,23 +304,46 @@ class BaseProjectManager(ABC):
             )
             raise
 
+    @overload
     @staticmethod
-    def enqueue_method(func=None, *, require_serialization: bool = True):
-        def decorator(actual_func):
+    def enqueue_method(
+        func: _EnqueueCallable,
+        *,
+        require_serialization: bool = True,
+    ) -> _EnqueueCallable: ...
+
+    @overload
+    @staticmethod
+    def enqueue_method(
+        func: None = ...,
+        *,
+        require_serialization: bool = True,
+    ) -> Callable[[_EnqueueCallable], _EnqueueCallable]: ...
+
+    @staticmethod
+    def enqueue_method(
+        func: _EnqueueCallable | None = None,
+        *,
+        require_serialization: bool = True,
+    ) -> _EnqueueCallable | Callable[[_EnqueueCallable], _EnqueueCallable]:
+        def decorator(actual_func: _EnqueueCallable) -> _EnqueueCallable:
             @wraps(actual_func)
-            async def wrapper(self, *args, **kwargs):
+            async def wrapper(
+                self: "BaseProjectManager", *args: _P.args, **kwargs: _P.kwargs
+            ) -> _R:
                 frontend_op_id = self._extract_frontend_op_id(args, kwargs)
+                coroutine = actual_func(self, *args, **kwargs)
                 if require_serialization:
                     return await self._enqueue(
-                        actual_func(self, *args, **kwargs),
+                        cast("Coroutine[Any, Any, _R]", coroutine),
                         frontend_op_id=frontend_op_id,
                     )
 
                 self._register_pending_frontend_op(frontend_op_id)
                 async with self._track_frontend_op(frontend_op_id):
-                    return await actual_func(self, *args, **kwargs)
+                    return await coroutine
 
-            return wraps(actual_func)(wrapper)
+            return cast("_EnqueueCallable", wrapper)
 
         if func is None:
             return decorator
