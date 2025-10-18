@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import copy
+import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
@@ -166,6 +167,9 @@ from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
+logger = logging.getLogger(__name__)
+
+
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -199,10 +203,10 @@ class BaseProjectManager(ABC):
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
         )
-        print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)
+        logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = asyncio.create_task(self._process_queue())
-        print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
+        logger.debug("Queue task created with id %s", id(self.queue_task))
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
@@ -215,74 +219,66 @@ class BaseProjectManager(ABC):
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
-        print("[DEBUG] Starting _process_queue background task", flush=True)
+        logger.debug("Starting _process_queue background task")
         self._process_queue_task_started.set()
         while True:
-            print(
-                f"[DEBUG] Queue size before get: {self.message_queue.qsize()}",
-                flush=True,
-            )
+            logger.debug("Queue size before get: %s", self.message_queue.qsize())
             # Get the next message handler and its arguments
-            print("[DEBUG] Waiting for next message in queue...", flush=True)
+            logger.debug("Waiting for next message in queue...")
             coroutine, future, frontend_op_id = await self.message_queue.get()
+            handler_name = self._describe_coroutine(coroutine)
             try:
                 # Execute the actual implementation
-                print(f"[DEBUG] Starting handler {coroutine.__name__}", flush=True)
+                logger.debug("Starting handler %s", handler_name)
                 async with self._track_frontend_op(frontend_op_id):
                     result = await coroutine
-                print(f"[DEBUG] Completed handler {coroutine.__name__}", flush=True)
+                logger.debug("Completed handler %s", handler_name)
                 # Set the result for the waiting call
-                print(
-                    f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
-                    flush=True,
+                logger.debug(
+                    "Setting result on future (cancelled=%s)", future.cancelled()
                 )
                 future.set_result(result)
             except Exception as e:
                 # Propagate any exceptions back to the caller
-                print(f"[DEBUG] Error in handler {coroutine.__name__}: {e}", flush=True)
+                logger.exception("Error in handler %s", handler_name)
                 future.set_exception(e)
             finally:
                 # Mark the task as done
-                print("[DEBUG] Marking queue task as done", flush=True)
+                logger.debug("Marking queue task as done")
                 self.message_queue.task_done()
 
     async def _enqueue(self, coroutine: Coroutine, frontend_op_id: str | None = None):
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
 
-        # print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
-        print(
-            f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
-            flush=True,
+        logger.debug(
+            "Queue task status: cancelled=%s, done=%s, exception=%s",
+            self.queue_task.cancelled(),
+            self.queue_task.done(),
+            self.queue_task.exception() if self.queue_task.done() else None,
         )
 
         # Create a future to hold the result
         future = asyncio.Future()
-        print(f"[DEBUG] Created future {id(future)}", flush=True)
+        logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
-        print("[DEBUG] Putting message in queue", flush=True)
+        logger.debug("Putting message in queue")
         self._register_pending_frontend_op(frontend_op_id)
         await self.message_queue.put((coroutine, future, frontend_op_id))
-        print("[DEBUG] Message in queue, waiting for result", flush=True)
+        logger.debug("Message in queue, waiting for result")
 
         # Wait for the message to be processed and return the result
-        print(f"[DEBUG] Awaiting future {id(future)}", flush=True)
+        logger.debug("Awaiting future %s", id(future))
         start_time = asyncio.get_event_loop().time()
         try:
             result = await future
             end_time = asyncio.get_event_loop().time()
-            print(
-                f"[DEBUG] Future completed after {end_time - start_time:.2f}s with result",
-                flush=True,
-            )
+            logger.debug("Future completed after %.2fs with result", end_time - start_time)
             return result
         except Exception as e:
             end_time = asyncio.get_event_loop().time()
-            print(
-                f"[DEBUG] Future raised exception after {end_time - start_time:.2f}s: {e}",
-                flush=True,
-            )
+            logger.debug("Future raised exception after %.2fs: %s", end_time - start_time, e)
             raise
 
     @staticmethod
@@ -306,6 +302,16 @@ class BaseProjectManager(ABC):
         if func is None:
             return decorator
         return decorator(func)
+
+    @staticmethod
+    def _describe_coroutine(coroutine: Coroutine) -> str:
+        name = getattr(coroutine, "__name__", None)
+        if name:
+            return name
+        code = getattr(coroutine, "cr_code", None)
+        if code and getattr(code, "co_name", None):
+            return code.co_name
+        return type(coroutine).__name__
 
     @staticmethod
     def _extract_frontend_op_id(args, kwargs) -> str | None:
@@ -623,7 +629,6 @@ class BaseProjectManager(ABC):
     async def set_param_values(
         self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
     ):
-        print("*************set_param_values\n\n\n", flush=True)
         self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         for paramInfoId, value in paramIdsToValues.items():
@@ -762,9 +767,9 @@ class BaseProjectManager(ABC):
                 ):
                     try:
                         file_path.unlink()
-                        print(f"Deleted unused file: {file_path}")
-                    except Exception as e:
-                        print(f"Error deleting file {file_path}: {e}")
+                        logger.debug("Deleted unused file: %s", file_path)
+                    except Exception:
+                        logger.exception("Error deleting file %s", file_path)
 
     def create_project_code(
         self,
@@ -1074,7 +1079,6 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def paste_sections(self, x: PasteSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        print("\n\n\npaste_sections")
         paste_sections(project_state, x.data, x.position, x.asRef)
         await self.update_and_broadcast_project_state(project_state)
 

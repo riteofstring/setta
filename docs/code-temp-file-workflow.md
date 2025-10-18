@@ -1,8 +1,9 @@
 # Code Temp File Workflow
 
 This note collects the current conventions around the Python files we surface to
-the language server. It complements the completion queue refactor plan and is
-meant to help future refactors avoid undoing the temp-file split.
+the language server. It complements the completion queue refactor plan (now
+fully implemented) and is meant to help future refactors avoid undoing the
+temp-file split or bypassing the read/write lock accidentally.
 
 ## Canonical project files
 
@@ -31,7 +32,8 @@ meant to help future refactors avoid undoing the temp-file split.
   materializes per-request snapshots named
   `setta_files/code/temp_folder/<projectConfigName>/<base>__<uuid>.py`. The
   document is opened with a fresh `didOpen`, the LSP request is issued, and we
-  immediately send `didClose` and unlink the file.
+  immediately send `didClose` and unlink the file. During validation, confirm
+  the `didClose` messages appear in the LSP logs to avoid leaking temp state.
 - Because the snapshots sit next to the canonical modules and reuse the same
   base name prefix, the LSP can import symbols from the permanent files while
   we collect completions for the snapshot contents.
@@ -52,7 +54,9 @@ meant to help future refactors avoid undoing the temp-file split.
 
 - Completion handlers run outside the manager queue to avoid blocking UI writes.
   The read lock prevents them from racing with `update`, while the snapshot
-  files prevent competing writes to shared temp files.
+  files prevent competing writes to shared temp files. Watching for overlapping
+  read-lock acquisitions in debug logging helps confirm the bypass remains
+  concurrent.
 - Mutating handlers (`set_code`, `set_callable`, etc.) remain serialized; they
   are the only ones that touch the canonical generator or section files.
 
@@ -67,4 +71,5 @@ meant to help future refactors avoid undoing the temp-file split.
 
 Keep this layout in mind when debugging LSP behaviour: if a completion resolves
 imports, it is because the canonical files stayed open, not because the snapshot
-persisted.
+persisted. When running manual smoke tests, include a quick check that the temp
+snapshot directory is empty after the server stops to catch `didClose` regressions.

@@ -20,5 +20,7 @@
    - Updated queue/concurrency test doubles and decorator unit tests to reuse the shared helper flow, keeping fixture behaviour aligned with the production manager.
    - Manual validation (full-stack `pnpm startr`): completions now resume immediately after an update finishes and UI writes are no longer blocked by in-flight completions; LSP logs show matching `didOpen`/`didClose` pairs with no lingering diagnostics.
 
-5. **Finalize and document**  
-   - Once the queue split is stable, remove any feature flags, document the new read/write-lock + queue-bypass expectations for backend contributors, and expand troubleshooting guides with the temporary-document hygiene checks noted above.
+5. **Finalize and document** ✅  
+   - Confirmed the queue split under full-stack manual runs; no feature flags remain gating the bypassed read paths.
+   - Documented the lock expectations and temp-document lifecycle in `docs/code-temp-file-workflow.md`, including guidance on LSP `didOpen`/`didClose` verification.
+   - Collected the validation steps and commands in the PR checklist so contributors can reproduce the backend/frontend smoke tests.
