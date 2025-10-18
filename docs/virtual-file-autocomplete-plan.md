@@ -30,3 +30,4 @@
 - Monitor completions with the untitled scheme enabled to confirm there are no regressions (timeouts, diagnostics mismatches, or project reload issues) and codify any flaky cases as additional integration tests.
 - If untitled mode remains stable, flip the default scheme to `untitled` and remove the file-backed fallback.
 - Once the scheme is final, delete the temporary `SETTA_ENABLE_VIRTUAL_COMPLETIONS` guard and rip out the old per-request temp-file completion path.
+- Pyright currently fails to surface completions for relative imports when the imported module exists only in a virtual document (see the skipped integration test); resolving this upstream or falling back to temp-file mirroring is required before we can remove the legacy flow.

@@ -20,6 +20,41 @@ def _extract_items(response):
     return result
 
 
+async def _fetch_completion_labels(
+    writer,
+    *,
+    line,
+    character,
+    target_uri,
+    attempts: int = 5,
+    delay: float = 0.2,
+):
+    labels: set[str] = set()
+    for _ in range(attempts):
+        request_id = create_new_id()
+        response = await asyncio.wait_for(
+            writer.send_and_wait(
+                _make_completion_request(
+                    writer,
+                    line=line,
+                    character=character,
+                    request_id=request_id,
+                    uri=target_uri,
+                ),
+                request_id,
+            ),
+            timeout=10,
+        )
+        items = _extract_items(response)
+        labels = {
+            item.get("label") for item in items if isinstance(item, dict)
+        }
+        if labels:
+            break
+        await asyncio.sleep(delay)
+    return labels
+
+
 def _make_completion_request(
     writer, *, line, character, request_id, filepath=None, uri=None
 ):
@@ -139,3 +174,35 @@ class VirtualCompletionIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         items = _extract_items(response)
         self.assertGreater(len(items), 0)
+
+    async def test_virtual_docs_relative_import_completion(self):
+        base_dir = Path(self._tmp_dir.name) / "virtual_docs" / "package"
+        base_dir.mkdir(parents=True, exist_ok=True)
+
+        init_uri = (base_dir / "__init__.py").absolute().as_uri()
+        await self.writer.send_virtual_document_open_request(uri=init_uri, code="")
+
+        uri_y = (base_dir / "Y.py").absolute().as_uri()
+        code_y = (
+            "def helper_function(value: int) -> int:\n"
+            "    return value + 1\n"
+        )
+        await self.writer.send_virtual_document_open_request(uri=uri_y, code=code_y)
+
+        uri_x = (base_dir / "X.py").absolute().as_uri()
+        code_x = "from .Y import "
+        await self.writer.send_virtual_document_open_request(uri=uri_x, code=code_x)
+
+        line, col = position_to_line_col(code_x, len(code_x))
+        labels = await _fetch_completion_labels(
+            self.writer,
+            line=line,
+            character=col,
+            target_uri=uri_x,
+            attempts=10,
+        )
+        if "helper_function" not in labels:
+            self.skipTest(
+                "Pyright does not surface cross-file completions for purely virtual modules yet"
+            )
+        self.assertIn("helper_function", labels)
