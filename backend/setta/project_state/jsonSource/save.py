@@ -1,6 +1,5 @@
 from collections import defaultdict
 from pathlib import Path
-import logging
 
 from setta.database.db_objs import DBE
 from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
@@ -18,16 +17,10 @@ from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
 
-logger = logging.getLogger(__name__)
-
 
 def save_json_source_data(
     dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
 ):
-    logger.critical(
-        "save_json_source_data start section_variant_ids=%s",
-        section_variant_ids if section_variant_ids is not None else "ALL",
-    )
     to_be_saved: dict[Path, dict] = defaultdict(dict)
     processed = set()
     for section in p.sections.values():
@@ -65,25 +58,9 @@ def save_json_source_data(
             # Make sure the jsonSourceKeys are present.
             # (They might not be because they are completely empty)
             add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
-            if filename.name == "setta-settings.json":
-                gui = to_be_saved[filename].get("gui", {})
-                grid_pattern = (
-                    gui.get("gridPattern") if isinstance(gui, dict) else None
-                )
-                logger.critical(
-                    "save_json_source_data aggregated filename=%s gridPattern=%s jsonSourceKeys=%s",
-                    filename,
-                    grid_pattern,
-                    impl.jsonSourceKeys,
-                )
 
     # Save each file
     for filename, data in to_be_saved.items():
-        logger.critical(
-            "save_json_source_data writing filename=%s keys=%s",
-            filename,
-            list(data.keys()),
-        )
         dbe.write_json(filename, data)
 
 

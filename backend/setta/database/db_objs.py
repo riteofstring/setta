@@ -1,6 +1,5 @@
 import hashlib
 import json
-import logging
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -11,8 +10,6 @@ from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.utils.utils import normalize_path
-
-logger = logging.getLogger(__name__)
 
 
 class DBE:
@@ -65,31 +62,10 @@ class DBE:
     def read_json(self, path: Path):
         x = self.read(path)
         if x is None:
-            logger.critical("DBE.read_json missing file path=%s", path)
             return {}
-        data = json.loads(x)
-        if path.name == "setta-settings.json":
-            gui = data.get("gui") if isinstance(data, dict) else None
-            grid_pattern = None
-            if isinstance(gui, dict):
-                grid_pattern = gui.get("gridPattern")
-            logger.critical(
-                "DBE.read_json path=%s gridPattern=%s", path, grid_pattern
-            )
-        elif path.name == "setta-settings-project.json":
-            logger.critical("DBE.read_json path=%s loaded settings project", path)
-        return data
+        return json.loads(x)
 
     def write_json(self, path: Path, data: Any):
-        if path.name in {"setta-settings.json", "setta-settings-project.json"}:
-            grid_pattern = None
-            if path.name == "setta-settings.json" and isinstance(data, dict):
-                gui = data.get("gui")
-                if isinstance(gui, dict):
-                    grid_pattern = gui.get("gridPattern")
-            logger.critical(
-                "DBE.write_json path=%s gridPattern=%s", path, grid_pattern
-            )
         self.write(path, json.dumps(data, indent=2, sort_keys=True))
 
     def read_jsonl(self, path: Path) -> list[dict]:

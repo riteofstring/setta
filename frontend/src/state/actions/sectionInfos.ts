@@ -39,7 +39,6 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { C } from "utils/c";
 
 export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -383,64 +382,6 @@ export function processProjectStateUpdateFromBackend(
   const projectConfigId = getCurrProjectConfigId();
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
-  }
-  if (x.projectState.projectConfig.name === C.SETTINGS_PROJECT_NAME) {
-    const gridPatternSectionEntry = Object.entries(
-      x.projectState.sections,
-    ).find(([, section]) => section.name === "gridPattern");
-    let gridPatternValue: unknown;
-    if (gridPatternSectionEntry) {
-      const [gridPatternSectionId] = gridPatternSectionEntry;
-      const gridPatternVariantId =
-        x.projectState.projectConfig.sectionVariantMap[
-          gridPatternSectionId
-        ];
-      if (gridPatternVariantId) {
-        const gridPatternVariant =
-          x.projectState.sectionVariants[gridPatternVariantId];
-        if (gridPatternVariant) {
-          const sectionImpl =
-            x.projectState.sectionImpls[gridPatternVariant.impl];
-          const codeObjVariantMap = (
-            sectionImpl as { codeObjVariantMap?: Record<string, string> }
-          )?.codeObjVariantMap;
-          const firstVariantId =
-            codeObjVariantMap &&
-            Object.values(codeObjVariantMap).length > 0
-              ? Object.values(codeObjVariantMap)[0]
-              : undefined;
-          if (firstVariantId) {
-            const codeObjVariant =
-              x.projectState.codeObjVariants[firstVariantId];
-            if (codeObjVariant) {
-              const codeObjImpl =
-                x.projectState.codeObjImpls[codeObjVariant.impl];
-              gridPatternValue = (
-                codeObjImpl as { value?: unknown }
-              )?.value;
-            }
-          }
-        }
-      }
-    }
-    let normalizedGridPattern = gridPatternValue;
-    if (typeof gridPatternValue === "string") {
-      try {
-        normalizedGridPattern = JSON.parse(gridPatternValue);
-      } catch {
-        normalizedGridPattern = gridPatternValue;
-      }
-    }
-    console.log(
-      "[SettingsProject] processProjectStateUpdateFromBackend",
-      {
-        projectConfigId: x.projectState.projectConfig.id,
-        pendingOpIds: x.pendingOpIds,
-        completedOpIds: x.completedOpIds,
-        gridPatternValue,
-        normalizedGridPattern,
-      },
-    );
   }
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);

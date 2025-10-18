@@ -26,10 +26,6 @@ class SettingsFile:
 
     async def save_settings(self, settings: SettingsState):
         logger.debug("Saving settings")
-        logger.critical(
-            "SettingsFile.save_settings incoming gridPattern=%s",
-            getattr(getattr(settings, "gui", None), "gridPattern", None),
-        )
         paths = self.get_settings_paths()
         to_be_saved = {}
         for settings_slice, path in paths.items():
@@ -40,16 +36,6 @@ class SettingsFile:
             )
 
         for filename, data in to_be_saved.items():
-            logger.critical(
-                "SettingsFile.save_settings writing filename=%s gridPattern=%s keys=%s",
-                filename,
-                (data.get("gui", {}) if isinstance(data, dict) else {}).get(
-                    "gridPattern"
-                )
-                if isinstance(data, dict)
-                else None,
-                list(data.keys()) if isinstance(data, dict) else None,
-            )
             self.dbe.write_json(filename, data)
         await self.load_and_broadcast_settings()
 
@@ -65,18 +51,10 @@ class SettingsFile:
             output[settings_slice] = contents[path][settings_slice]
 
         self.settings = SettingsState.model_validate(output)
-        logger.critical(
-            "SettingsFile.load_settings gridPattern=%s",
-            getattr(getattr(self.settings, "gui", None), "gridPattern", None),
-        )
         return self.settings
 
     async def load_and_broadcast_settings(self):
         self.load_settings()
-        logger.critical(
-            "SettingsFile.load_and_broadcast_settings broadcasting gridPattern=%s",
-            getattr(getattr(self.settings, "gui", None), "gridPattern", None),
-        )
         await self.websocket_msg_handler.broadcast_settings(self.settings)
 
     def get_settings_paths(self):

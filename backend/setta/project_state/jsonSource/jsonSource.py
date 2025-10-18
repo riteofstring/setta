@@ -102,12 +102,6 @@ class JSONSource:
                 section_variant_ids_to_load.update(
                     ids.difference(self.json_source_to_section_variant[filename])
                 )
-        logger.critical(
-            "JSONSource.watch_json_source_files category=%s filenames_count=%d sectionVariantsToLoad_count=%d",
-            callbackCategory,
-            len(filename_set),
-            len(section_variant_ids_to_load),
-        )
 
         if len(section_variant_ids_to_load) > 0:
             asyncio.create_task(
@@ -122,10 +116,6 @@ class JSONSource:
         callbacks = {k: callback for k in filename_set}
 
         fire_immediately = set([f for f in filename_set if f not in self.json_sources])
-        logger.critical(
-            "JSONSource.watch_json_source_files fire_immediately_count=%d",
-            len(fire_immediately),
-        )
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
         )
@@ -146,28 +136,11 @@ class JSONSource:
 
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
-            grid_pattern = None
-            if filepath.name == "setta-settings.json" and isinstance(
-                file_content, dict
-            ):
-                grid_pattern = file_content.get("gui", {}).get("gridPattern")
-            logger.critical(
-                "JSONSource.file_watcher triggered relPath=%s event=%s sectionVariantsToLoad_count=%d gridPattern=%s",
-                coreUpdate.relPath,
-                coreUpdate.eventType,
-                len(sectionVariantsToLoad),
-                grid_pattern,
-            )
 
             processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
 
             if len(sectionVariantsToLoad) > 0:
-                logger.critical(
-                    "JSONSource.file_watcher updating sectionVariants_count=%d for file=%s",
-                    len(sectionVariantsToLoad),
-                    filepath,
-                )
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 notification = SettaNotification(
                     message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
@@ -215,19 +188,6 @@ class JSONSource:
         return sectionVariantsToLoad
 
     def process_json_object(self, jsonSourceData: dict):
-        grid_pattern = None
-        key_count = None
-        has_gui = None
-        if isinstance(jsonSourceData, dict):
-            grid_pattern = jsonSourceData.get("gui", {}).get("gridPattern")
-            key_count = len(jsonSourceData)
-            has_gui = "gui" in jsonSourceData
-        logger.critical(
-            "JSONSource.process_json_object key_count=%s has_gui=%s gridPattern=%s",
-            key_count,
-            has_gui,
-            grid_pattern,
-        )
         new_data, rootId, rootChildren = self.construct_json_source_key_value_info(
             jsonSourceData
         )

@@ -88,11 +88,6 @@ def load_json_sources_into_data_structures(
     json_sources: dict[Path, ProcessedJSONInfo],
     section_variant_ids: Iterable[tuple[str, str]],
 ):
-    section_variant_ids = list(section_variant_ids)
-    logger.critical(
-        "load_json_sources_into_data_structures start section_variant_ids_count=%d",
-        len(section_variant_ids),
-    )
     # set of (filename, jsonSourceKeys)
     jsonSourceAndKeysToLoad: set[tuple[Path, tuple[str, ...]]] = set()
     for s, v in section_variant_ids:
@@ -101,10 +96,6 @@ def load_json_sources_into_data_structures(
         )
         filename = normalize_path(variant.name)
         jsonSourceAndKeysToLoad.add((filename, tuple(impl.jsonSourceKeys)))
-    logger.critical(
-        "load_json_sources_into_data_structures jsonSourceAndKeysToLoad_count=%d",
-        len(jsonSourceAndKeysToLoad),
-    )
 
     # maps from filepath, to jsonSourceKeys to ReplacementsAndUnmatchedDicts
     replacements_and_unmatched: FilenameToKeysToReplacementsAndUnmatchedDicts = {}
@@ -172,15 +163,6 @@ def load_json_sources_into_data_structures(
 
     for toUpdate in sectionVariantsToUpdate.values():
         r = replacements_and_unmatched[toUpdate.filename][toUpdate.jsonSourceKeys]
-        logger.critical(
-            "load_json_sources_into_data_structures merging section=%s variant=%s file=%s keys=%s replacements_count=%d unmatched_count=%d",
-            toUpdate.section.id,
-            toUpdate.variant.id,
-            toUpdate.filename,
-            toUpdate.jsonSourceKeys,
-            len(r.replacements),
-            len(r.unmatched),
-        )
         merge_into_existing(p, toUpdate, r.replacements, r.unmatched, codeObjsToDelete)
 
 
