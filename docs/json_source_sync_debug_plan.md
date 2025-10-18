@@ -46,6 +46,7 @@
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.
 - Refactored `JSONSource.watch_json_source_files` to track watched variants per callback category and diff against the manager’s previous mapping, ensuring registrations remain stable across updates (2025-10-17).
 - Added a debouncing guard between `BaseProjectManager.watch_json_source_files` and `JSONSource.watch_json_source_files`; when autosave is pending and the variants were already tracked, the reload is deferred until after the save completes, preventing cached disk data from overwriting in-flight edits (2025-10-17).
+- Added regression coverage in `tests/project_state/jsonSource/test_json_source_reload_debounce.py` to ensure deferred JSON-source reloads stay queued until autosave flushes them, protecting in-flight edits from stale watcher snapshots (2025-10-17).
 - Temporary DEBUG-level instrumentation and env-based log filters used during the investigation have been removed from the codebase now that the race fix is in place.
 
 ### Findings (2025-10-16)
