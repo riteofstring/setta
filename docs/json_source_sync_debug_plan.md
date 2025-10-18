@@ -49,6 +49,7 @@
 - Enabled Tailwind’s nesting plugin in PostCSS to silence the recurring frontend warning that spammed each log capture.
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.
 - Instrumented `helpers_lvl2.set_param_entered_value` to log UUID-resolved section/param names and captured a run showing the value flips to `"dots"` before the watcher reload; the subsequent autosave still writes `"lines"`, so the remaining regression likely sits in how the reload/merge output is applied to the project state or consumed on the frontend rather than in the cache itself.
+- Refactored `JSONSource.watch_json_source_files` to track watched variants per-callback-category and diff against the manager’s previous mapping. `BaseProjectManager.watch_json_source_files` now logs per-category counts via the new helper, keeping other managers’ registrations intact (2025-10-17).
 
 ### Findings (2025-10-16)
 - Changing `gridPattern` from `"dots"` to `"lines"` updates the in-memory state immediately (`helpers_lvl2` log), then the debounced autosave fires ~2s later to write `"lines"` to disk; the watcher reload reports `gridPattern='lines'`, proving the cache mirrors disk at this point.
@@ -56,6 +57,11 @@
 - The cache still contains `"lines"` because no save has occurred yet, so the reload merges `"lines"` back into the project state, wiping out the unsaved `"dots"` change. The subsequent autosave runs against this reverted state and persists `"lines"` again, which surfaces as the UI “undoing” the user edit.
 - Root cause: the reload path races the debounced autosave, reapplying cached disk data over pending UI edits. Next steps should focus on deferring/bypassing that reload until the new value is persisted or applying the in-memory hierarchy during that window.
 - Added instrumentation in `BaseProjectManager.watch_json_source_files`; during the second edit the watcher is invoked from `update_and_broadcast_project_state` after `set_param_entered_value`. At that moment `json_source_to_section_variant` has been reset to `{}`, so the diff treats all 30 settings variants as new and immediately schedules a reload with the cached `"lines"` snapshot. The reset appears to coincide with loading a fresh `ProjectStateCore` during the update cycle.
+
+### Findings (2025-10-17)
+- With the per-category watcher bookkeeping in place, the logs now show `newVariantCount=0` when `set_param_entered_value` runs, confirming the Settings manager keeps its existing registrations (`docs/backend_logs.txt:23-25,40-42`).
+- Autosave writes proceed without intermediary reloads reverting the in-memory change, and the watcher only fires again after the disk write (`docs/backend_logs.txt:26-37,43-55`; `docs/watch_json_source_logs.txt:1-20`).
+- The user-visible flicker is gone in manual repro; remaining work is to clean up temporary instrumentation and decide whether to add defensive tests/debouncing before closing the ticket.
 
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.

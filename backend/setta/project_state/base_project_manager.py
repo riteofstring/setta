@@ -1147,12 +1147,12 @@ class BaseProjectManager(ABC):
 
     def watch_json_source_files(self):
         target_logger = logging.getLogger(self.__module__)
+        callback_category = f"{self.__class__.__name__}_JSONSource"
         if target_logger.isEnabledFor(logging.DEBUG):
             project_state_backend = self.project_state_backend_getter_fn()
-            tracked_variants = {
-                str(path): len(section_variants)
-                for path, section_variants in self.json_source.json_source_to_section_variant.items()
-            }
+            tracked_variants = self.json_source.get_tracked_section_variant_counts(
+                callback_category
+            )
             stack_summary = traceback.extract_stack(limit=6)
             caller_chain = " > ".join(
                 f"{Path(frame.filename).name}:{frame.lineno}:{frame.name}"
@@ -1167,7 +1167,7 @@ class BaseProjectManager(ABC):
                 caller_chain,
             )
         self.json_source.watch_json_source_files(
-            f"{self.__class__.__name__}_JSONSource",
+            callback_category,
             self.load_json_sources,
             self.project_state_backend_getter_fn,
         )

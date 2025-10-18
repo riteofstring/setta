@@ -79,10 +79,37 @@ class JSONSource:
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
         self.json_sources: dict[Path, ProcessedJSONInfo] = {}
-        # maps from file path to set of (sectionId, variantId)
+        # maps callback category -> file path -> set of (sectionId, variantId)
+        self._category_to_section_variants: dict[
+            str, dict[Path, set[tuple[str, str]]]
+        ] = {}
+        # aggregated view across categories, retained for backward compatibility
         self.json_source_to_section_variant: dict[Path, set[tuple[str, str]]] = (
             defaultdict(set)
         )
+
+    def _get_category_section_variants(
+        self, callbackCategory: str
+    ) -> dict[Path, set[tuple[str, str]]]:
+        return self._category_to_section_variants.get(callbackCategory, {})
+
+    def _set_category_section_variants(
+        self,
+        callbackCategory: str,
+        mapping: dict[Path, set[tuple[str, str]]],
+    ) -> None:
+        self._category_to_section_variants[callbackCategory] = mapping
+        aggregated: dict[Path, set[tuple[str, str]]] = defaultdict(set)
+        for per_category in self._category_to_section_variants.values():
+            for filename, ids in per_category.items():
+                aggregated.setdefault(filename, set()).update(ids)
+        self.json_source_to_section_variant = aggregated
+
+    def get_tracked_section_variant_counts(
+        self, callbackCategory: str
+    ) -> dict[str, int]:
+        category_map = self._get_category_section_variants(callbackCategory)
+        return {str(path): len(ids) for path, ids in category_map.items()}
 
     def _summarize_processed_json(
         self, processed_json: ProcessedJSONInfo
@@ -122,12 +149,13 @@ class JSONSource:
         filename_set, new_json_source_to_section_variant = (
             self.get_json_source_files_to_watch(project_state_backend_getter_fn())
         )
+        previous_category_map = self._get_category_section_variants(callbackCategory)
 
         section_variant_ids_to_load: set[tuple[str, str]] = set()
         for filename, ids in new_json_source_to_section_variant.items():
             if filename in self.json_sources:
                 section_variant_ids_to_load.update(
-                    ids.difference(self.json_source_to_section_variant[filename])
+                    ids.difference(previous_category_map.get(filename, set()))
                 )
 
         if section_variant_ids_to_load and logger.isEnabledFor(logging.DEBUG):
@@ -167,7 +195,11 @@ class JSONSource:
                 load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
             )
 
-        self.json_source_to_section_variant = new_json_source_to_section_variant
+        normalized_mapping = {
+            filename: set(ids)
+            for filename, ids in new_json_source_to_section_variant.items()
+        }
+        self._set_category_section_variants(callbackCategory, normalized_mapping)
 
         callback = self.get_json_source_file_watcher_callback(
             load_json_sources_fn, project_state_backend_getter_fn
