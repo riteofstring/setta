@@ -136,6 +136,9 @@ class JSONSource:
             Coroutine[Any, Any, None],
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
+        *,
+        should_defer_reload: Callable[..., bool] | None = None,
+        on_deferred: Callable[[set[tuple[str, str]]], None] | None = None,
     ):
         filename_set, new_json_source_to_section_variant = (
             self.get_json_source_files_to_watch(project_state_backend_getter_fn())
@@ -167,7 +170,7 @@ class JSONSource:
                     grid_pattern_value,
                     top_level_keys,
                     sorted(relevant_variants),
-                )
+            )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
@@ -178,13 +181,33 @@ class JSONSource:
             )
 
         if len(section_variant_ids_to_load) > 0:
-            logger.debug(
-                "jsonSource initial load scheduling for %d section variants",
-                len(section_variant_ids_to_load),
-            )
-            asyncio.create_task(
-                load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
-            )
+            section_variants_snapshot = set(section_variant_ids_to_load)
+            should_defer = False
+            if should_defer_reload is not None:
+                should_defer = should_defer_reload(
+                    section_variants_snapshot,
+                    new_mapping=new_json_source_to_section_variant,
+                    previous_mapping=previous_category_map,
+                )
+            if should_defer:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "jsonSource initial load deferred category=%s pendingVariantCount=%d",
+                        callbackCategory,
+                        len(section_variant_ids_to_load),
+                    )
+                if on_deferred:
+                    on_deferred(section_variants_snapshot)
+            else:
+                logger.debug(
+                    "jsonSource initial load scheduling for %d section variants",
+                    len(section_variant_ids_to_load),
+                )
+                asyncio.create_task(
+                    load_json_sources_fn(
+                        self.json_sources, section_variants_snapshot
+                    )
+                )
 
         normalized_mapping = {
             filename: set(ids)

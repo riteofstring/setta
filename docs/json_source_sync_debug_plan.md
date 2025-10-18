@@ -50,6 +50,7 @@
 - Hardened the language-server startup path so watcher callbacks no longer crash when `self.server` is accessed before subprocess startup completes; requests now skip gracefully until the process is ready.
 - Instrumented `helpers_lvl2.set_param_entered_value` to log UUID-resolved section/param names and captured a run showing the value flips to `"dots"` before the watcher reload; the subsequent autosave still writes `"lines"`, so the remaining regression likely sits in how the reload/merge output is applied to the project state or consumed on the frontend rather than in the cache itself.
 - Refactored `JSONSource.watch_json_source_files` to track watched variants per-callback-category and diff against the manager’s previous mapping. `BaseProjectManager.watch_json_source_files` now logs per-category counts via the new helper, keeping other managers’ registrations intact (2025-10-17).
+- Added a debouncing guard between `BaseProjectManager.watch_json_source_files` and `JSONSource.watch_json_source_files`; when the autosave debouncer is pending and all variants already existed for the file, the reload is deferred and flushed after autosave commits, preventing cached disk data from overwriting in-flight edits (2025-10-17).
 
 ### Findings (2025-10-16)
 - Changing `gridPattern` from `"dots"` to `"lines"` updates the in-memory state immediately (`helpers_lvl2` log), then the debounced autosave fires ~2s later to write `"lines"` to disk; the watcher reload reports `gridPattern='lines'`, proving the cache mirrors disk at this point.
@@ -62,6 +63,7 @@
 - With the per-category watcher bookkeeping in place, the logs now show `newVariantCount=0` when `set_param_entered_value` runs, confirming the Settings manager keeps its existing registrations (`docs/backend_logs.txt:23-25,40-42`).
 - Autosave writes proceed without intermediary reloads reverting the in-memory change, and the watcher only fires again after the disk write (`docs/backend_logs.txt:26-37,43-55`; `docs/watch_json_source_logs.txt:1-20`).
 - The user-visible flicker is gone in manual repro; remaining work is to clean up temporary instrumentation and decide whether to add defensive tests/debouncing before closing the ticket.
+- Debounce guard verifies as expected in manual runs: edits made immediately before autosave now persist because the watcher flushes deferred loads only after the pending autosave completes. Timing-sensitive repros look stable, though the behavior still relies on the autosave completing successfully.
 
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.

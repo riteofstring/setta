@@ -205,6 +205,7 @@ class BaseProjectManager(ABC):
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
+        self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
 
@@ -1123,6 +1124,7 @@ class BaseProjectManager(ABC):
     async def autosave(self):
         try:
             self.save()
+            await self._flush_deferred_json_source_loads()
             notification = SettaNotification(
                 message="Autosaved!", type=SettaNotificationType.save
             )
@@ -1166,16 +1168,87 @@ class BaseProjectManager(ABC):
                 tracked_variants,
                 caller_chain,
             )
+
+        def should_defer_reload(
+            section_variants_to_load: set[tuple[str, str]],
+            *,
+            new_mapping: dict[Path, set[tuple[str, str]]],
+            previous_mapping: dict[Path, set[tuple[str, str]]],
+        ) -> bool:
+            return self._should_defer_json_source_reload(
+                callback_category,
+                section_variants_to_load,
+                new_mapping,
+                previous_mapping,
+            )
+
+        def on_deferred(section_variants_to_load: set[tuple[str, str]]) -> None:
+            self._record_deferred_json_source_loads(
+                callback_category, section_variants_to_load
+            )
+
         self.json_source.watch_json_source_files(
             callback_category,
             self.load_json_sources,
             self.project_state_backend_getter_fn,
+            should_defer_reload=should_defer_reload,
+            on_deferred=on_deferred,
         )
 
     def watch_artifact_files(self):
         self.artifacts.watch_artifact_files(
             f"{self.__class__.__name__}_Artifacts", self.project_state_backend
         )
+
+    def _should_defer_json_source_reload(
+        self,
+        callback_category: str,
+        section_variants_to_load: set[tuple[str, str]],
+        new_mapping: dict[Path, set[tuple[str, str]]],
+        previous_mapping: dict[Path, set[tuple[str, str]]],
+    ) -> bool:
+        if not section_variants_to_load or not self.autosave_debouncer.is_pending:
+            return False
+
+        variant_to_path: dict[tuple[str, str], Path] = {}
+        for path, variant_ids in new_mapping.items():
+            for variant in variant_ids:
+                variant_to_path[variant] = path
+
+        for variant in section_variants_to_load:
+            path = variant_to_path.get(variant)
+            if path is None:
+                return False
+            if variant not in previous_mapping.get(path, set()):
+                return False
+
+        manager_logger = logging.getLogger(self.__module__)
+        if manager_logger.isEnabledFor(logging.DEBUG):
+            manager_logger.debug(
+                "deferring jsonSource reload callbackCategory=%s pendingVariants=%s",
+                callback_category,
+                sorted(section_variants_to_load),
+            )
+        return True
+
+    def _record_deferred_json_source_loads(
+        self,
+        callback_category: str,
+        section_variants_to_load: set[tuple[str, str]],
+    ) -> None:
+        if not section_variants_to_load:
+            return
+        pending = self._deferred_json_source_loads.setdefault(
+            callback_category, set()
+        )
+        pending.update(section_variants_to_load)
+
+    async def _flush_deferred_json_source_loads(self) -> None:
+        callback_category = f"{self.__class__.__name__}_JSONSource"
+        pending = self._deferred_json_source_loads.pop(callback_category, None)
+        if not pending:
+            return
+        await self.load_json_sources(self.json_source.json_sources, pending)
 
 
 # function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
