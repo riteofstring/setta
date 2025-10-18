@@ -1,7 +1,5 @@
 import copy
-import logging
 import math
-import os
 import re
 from typing import TYPE_CHECKING, assert_never
 
@@ -12,7 +10,6 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
 )
 from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
@@ -72,7 +69,6 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
-    get_curr_effective_code_obj_impl,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -106,28 +102,7 @@ from setta.types.section_impls import (
 )
 from setta.types.simplified_states import Position
 from setta.utils.generate_memorable_string import generate_memorable_string
-from setta.utils.utils import (
-    insert_into_array,
-    move_item_in_array,
-    normalize_path,
-    try_json,
-)
-
-logger = logging.getLogger(__name__)
-_section_filter_env = os.getenv("SETTA_DEBUG_SECTION_FILTER", "")
-SECTION_FILTER = {
-    token.strip().casefold()
-    for token in _section_filter_env.split(",")
-    if token.strip()
-}
-
-
-def _should_log_section(section_name: str | None) -> bool:
-    if not SECTION_FILTER:
-        return True
-    if not section_name:
-        return False
-    return section_name.casefold() in SECTION_FILTER
+from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
@@ -324,44 +299,9 @@ def set_param_entered_value(
     paramId: str,
     value: str,
 ):
-    section_name = None
-    param_name = None
-    prev_value = None
-    variant_id: str | None = None
-    should_log = False
-    if logger.isEnabledFor(logging.DEBUG):
-        section_core = p.sections.get(sectionId)
-        section_name = section_core.name if section_core else None
-        should_log = _should_log_section(section_name)
-        if should_log:
-            param_core = p.codeObjs.get(paramId)
-            param_name = param_core.name if param_core else None
-            try:
-                prev_impl = get_curr_effective_code_obj_impl(p, sectionId, paramId)
-                if isinstance(prev_impl, BaseChildlessCodeObjImpl):
-                    prev_value = try_json(prev_impl.value)
-            except Exception:
-                prev_value = None
-            try:
-                variant = get_curr_code_obj_variant(p, sectionId, paramId)
-                variant_id = variant.id
-            except KeyError:
-                variant_id = None
-
     set_curr_effective_code_obj_impl_value(
         p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
     )
-    if logger.isEnabledFor(logging.DEBUG) and should_log:
-        logger.debug(
-            "jsonSource mutate set_param_entered_value section=%s(%s) param=%s(%s) variantId=%s previousValue=%r newValue=%r",
-            section_name,
-            sectionId,
-            param_name,
-            paramId,
-            variant_id,
-            prev_value,
-            value,
-        )
 
 
 def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):

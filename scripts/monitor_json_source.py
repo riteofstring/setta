@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 
 def parse_args() -> argparse.Namespace:
@@ -78,7 +78,9 @@ def main() -> int:
     args = parse_args()
     target = args.file
     if not target.exists():
-        print(f"[monitor_json_source] Waiting for {target} to appear...", file=sys.stderr)
+        print(
+            f"[monitor_json_source] Waiting for {target} to appear...", file=sys.stderr
+        )
 
     last_mtime: Optional[float] = None
     last_snapshot: Any = object()

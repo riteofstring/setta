@@ -1,5 +1,3 @@
-import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -47,21 +45,6 @@ from setta.types.project_state import (
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.utils.utils import normalize_path
 
-logger = logging.getLogger(__name__)
-
-_section_filter_env = os.getenv("SETTA_DEBUG_SECTION_FILTER", "")
-SECTION_FILTER = {
-    token.strip().casefold()
-    for token in _section_filter_env.split(",")
-    if token.strip()
-}
-
-
-def _should_log_section(section_name: str) -> bool:
-    if not SECTION_FILTER:
-        return True
-    return section_name.casefold() in SECTION_FILTER
-
 
 @dataclass
 class ReplacementInfo:
@@ -103,12 +86,6 @@ def load_json_sources_into_data_structures(
     section_variant_ids: Iterable[tuple[str, str]],
 ):
     section_variant_set = set(section_variant_ids)
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(
-            "load_json_sources invoked variantCount=%d jsonSourceCount=%d",
-            len(section_variant_set),
-            len(json_sources),
-        )
     # set of (filename, jsonSourceKeys)
     jsonSourceAndKeysToLoad: set[tuple[Path, tuple[str, ...]]] = set()
     for s, v in section_variant_set:
@@ -151,14 +128,6 @@ def load_json_sources_into_data_structures(
                 BaseDictSectionImplArgsWithCallable(jsonSourceMissing=isMissing),
             )
             if isMissing:
-                if _should_log_section(section.name):
-                    logger.debug(
-                        "load_json_sources missing file=%s keys=%s section=%s variant=%s",
-                        filename,
-                        jsonSourceKeys,
-                        section.name,
-                        variant.name,
-                    )
                 continue
             r = replacements_and_unmatched.setdefault(filename, {}).setdefault(
                 jsonSourceKeys, ReplacementsAndUnmatchedDicts()
@@ -183,18 +152,6 @@ def load_json_sources_into_data_structures(
                     )
                 )
                 codeObjsToDelete.update(currCodeObjsToDelete)
-                if logger.isEnabledFor(logging.DEBUG):
-                    if _should_log_section(section.name):
-                        logger.debug(
-                            "load_json_sources replacements section=%s variant=%s file=%s keys=%s deletes=%d replacements=%d unmatched=%d",
-                            section.name,
-                            variant.name,
-                            filename,
-                            jsonSourceKeys,
-                            len(currCodeObjsToDelete),
-                            len(r.replacements),
-                            len(r.unmatched),
-                        )
 
     for jToR in replacements_and_unmatched.values():
         for r in jToR.values():
@@ -205,15 +162,6 @@ def load_json_sources_into_data_structures(
     for toUpdate in sectionVariantsToUpdate.values():
         r = replacements_and_unmatched[toUpdate.filename][toUpdate.jsonSourceKeys]
         merge_into_existing(p, toUpdate, r.replacements, r.unmatched, codeObjsToDelete)
-        if logger.isEnabledFor(logging.DEBUG):
-            if _should_log_section(toUpdate.section.name):
-                logger.debug(
-                    "load_json_sources merge complete section=%s variant=%s replacements=%d unmatched=%d",
-                    toUpdate.section.name,
-                    toUpdate.variant.name,
-                    len(r.replacements),
-                    len(r.unmatched),
-                )
 
 
 def merge_into_existing(

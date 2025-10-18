@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +13,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.effective_impls import (
-    get_effective_impl,
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -46,8 +44,6 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateCore
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -96,38 +92,6 @@ class JSONSource:
     ) -> None:
         self._category_to_section_variants[callbackCategory] = mapping
 
-    def get_tracked_section_variant_counts(
-        self, callbackCategory: str
-    ) -> dict[str, int]:
-        category_map = self._get_category_section_variants(callbackCategory)
-        return {str(path): len(ids) for path, ids in category_map.items()}
-
-    def _summarize_processed_json(
-        self, processed_json: ProcessedJSONInfo
-    ) -> tuple[Any, list[str] | None]:
-        hierarchy = processed_json.hierarchy
-        top_level_keys: list[str] | None = None
-        if hierarchy.name_path_to_id:
-            top_level_keys = sorted({path[0] for path in hierarchy.name_path_to_id if len(path) > 0})
-        grid_pattern_value = None
-        grid_path = ("gui", "gridPattern")
-        grid_obj_id = hierarchy.name_path_to_id.get(grid_path)
-        if grid_obj_id:
-            variant_id = processed_json.keyValueInfo.codeObjVariantMap.get(grid_obj_id)
-            if variant_id:
-                variant = processed_json.keyValueInfo.codeObjVariants.get(variant_id)
-                code_obj = processed_json.keyValueInfo.codeObjs.get(grid_obj_id)
-                if variant and code_obj:
-                    base_impl = processed_json.keyValueInfo.codeObjImpls.get(variant.impl)
-                    if base_impl:
-                        effective_impl = get_effective_impl(base_impl, code_obj, variant)
-                        if isinstance(effective_impl, TextParamCodeObjImpl):
-                            try:
-                                grid_pattern_value = json.loads(effective_impl.value)
-                            except json.JSONDecodeError:
-                                grid_pattern_value = effective_impl.value
-        return grid_pattern_value, top_level_keys
-
     def watch_json_source_files(
         self,
         callbackCategory: str,
@@ -152,34 +116,6 @@ class JSONSource:
                     ids.difference(previous_category_map.get(filename, set()))
                 )
 
-        if section_variant_ids_to_load and logger.isEnabledFor(logging.DEBUG):
-            for filename, ids in new_json_source_to_section_variant.items():
-                if filename not in self.json_sources:
-                    continue
-                relevant_variants = ids.intersection(section_variant_ids_to_load)
-                if not relevant_variants:
-                    continue
-                processed_json = self.json_sources[filename]
-                grid_pattern_value, top_level_keys = self._summarize_processed_json(
-                    processed_json
-                )
-                logger.debug(
-                    "jsonSource cache snapshot file=%s cacheId=%s gridPattern=%r topLevelKeys=%s sectionVariants=%s",
-                    filename,
-                    hex(id(processed_json)),
-                    grid_pattern_value,
-                    top_level_keys,
-                    sorted(relevant_variants),
-            )
-
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "jsonSource watchers refresh category=%s files=%s newVariantCount=%d",
-                callbackCategory,
-                sorted(str(f) for f in filename_set),
-                len(section_variant_ids_to_load),
-            )
-
         if len(section_variant_ids_to_load) > 0:
             section_variants_snapshot = set(section_variant_ids_to_load)
             should_defer = False
@@ -190,23 +126,11 @@ class JSONSource:
                     previous_mapping=previous_category_map,
                 )
             if should_defer:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "jsonSource initial load deferred category=%s pendingVariantCount=%d",
-                        callbackCategory,
-                        len(section_variant_ids_to_load),
-                    )
                 if on_deferred:
                     on_deferred(section_variants_snapshot)
             else:
-                logger.debug(
-                    "jsonSource initial load scheduling for %d section variants",
-                    len(section_variant_ids_to_load),
-                )
                 asyncio.create_task(
-                    load_json_sources_fn(
-                        self.json_sources, section_variants_snapshot
-                    )
+                    load_json_sources_fn(self.json_sources, section_variants_snapshot)
                 )
 
         normalized_mapping = {
@@ -240,40 +164,12 @@ class JSONSource:
             )
 
             filepath = coreUpdate.fileToRead
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    "jsonSource callback event=%s relPath=%s sectionVariantCount=%d",
-                    getattr(coreUpdate.eventType, "value", coreUpdate.eventType),
-                    getattr(coreUpdate, "relPath", filepath),
-                    len(sectionVariantsToLoad),
-                )
             file_content = self.dbe.read_json(filepath)
 
-            if logger.isEnabledFor(logging.DEBUG):
-                processedJsonInfo = self.process_json_object(file_content)
-                grid_pattern_value, top_level_keys = self._summarize_processed_json(
-                    processedJsonInfo
-                )
-                code_obj_count = len(processedJsonInfo.keyValueInfo.codeObjs)
-                variant_count = len(processedJsonInfo.keyValueInfo.codeObjVariants)
-                logger.debug(
-                    "jsonSource cache update file=%s cacheId=%s codeObjCount=%d variantCount=%d gridPattern=%r topLevelKeys=%s",
-                    filepath,
-                    hex(id(processedJsonInfo)),
-                    code_obj_count,
-                    variant_count,
-                    grid_pattern_value,
-                    top_level_keys,
-                )
-            else:
-                processedJsonInfo = self.process_json_object(file_content)
+            processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
 
             if len(sectionVariantsToLoad) > 0:
-                logger.debug(
-                    "jsonSource triggering reload for %d section variants",
-                    len(sectionVariantsToLoad),
-                )
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 notification = SettaNotification(
                     message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",

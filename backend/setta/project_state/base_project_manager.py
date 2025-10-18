@@ -1,9 +1,7 @@
 import asyncio
 import contextvars
 import copy
-import logging
 import shutil
-import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Coroutine, Iterable
@@ -92,8 +90,6 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-
-logger = logging.getLogger(__name__)
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -1148,26 +1144,7 @@ class BaseProjectManager(ABC):
         pass
 
     def watch_json_source_files(self):
-        target_logger = logging.getLogger(self.__module__)
         callback_category = f"{self.__class__.__name__}_JSONSource"
-        if target_logger.isEnabledFor(logging.DEBUG):
-            project_state_backend = self.project_state_backend_getter_fn()
-            tracked_variants = self.json_source.get_tracked_section_variant_counts(
-                callback_category
-            )
-            stack_summary = traceback.extract_stack(limit=6)
-            caller_chain = " > ".join(
-                f"{Path(frame.filename).name}:{frame.lineno}:{frame.name}"
-                for frame in stack_summary[:-1]
-            )
-            target_logger.debug(
-                "watch_json_source_files invoked manager=%s project_state=%s sections=%d tracked_json_sources=%s caller_chain=%s",
-                self.__class__.__name__,
-                getattr(project_state_backend, "id", None) or hex(id(project_state_backend)),
-                len(getattr(project_state_backend, "sections", {})),
-                tracked_variants,
-                caller_chain,
-            )
 
         def should_defer_reload(
             section_variants_to_load: set[tuple[str, str]],
@@ -1222,13 +1199,6 @@ class BaseProjectManager(ABC):
             if variant not in previous_mapping.get(path, set()):
                 return False
 
-        manager_logger = logging.getLogger(self.__module__)
-        if manager_logger.isEnabledFor(logging.DEBUG):
-            manager_logger.debug(
-                "deferring jsonSource reload callbackCategory=%s pendingVariants=%s",
-                callback_category,
-                sorted(section_variants_to_load),
-            )
         return True
 
     def _record_deferred_json_source_loads(
@@ -1238,9 +1208,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if not section_variants_to_load:
             return
-        pending = self._deferred_json_source_loads.setdefault(
-            callback_category, set()
-        )
+        pending = self._deferred_json_source_loads.setdefault(callback_category, set())
         pending.update(section_variants_to_load)
 
     async def _flush_deferred_json_source_loads(self) -> None:

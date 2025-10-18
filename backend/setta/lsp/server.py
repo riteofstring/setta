@@ -73,9 +73,7 @@ class LanguageServer:
         process = getattr(self, "server", None)
         if process and process.stdin:
             return process.stdin
-        raise ValueError(
-            "Language server stdin is not available (process not started)"
-        )
+        raise ValueError("Language server stdin is not available (process not started)")
 
     @property
     def stdout(self):

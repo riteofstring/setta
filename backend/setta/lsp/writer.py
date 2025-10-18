@@ -25,9 +25,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         try:
             stdin = self.server.stdin
         except ValueError:
-            logger.debug(
-                "Skipping %s; language server process is not ready", method
-            )
+            logger.debug("Skipping %s; language server process is not ready", method)
             return
         stdin.write(header + request)
         await stdin.drain()
