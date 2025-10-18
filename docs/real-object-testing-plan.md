@@ -12,7 +12,7 @@ We want Python unit tests that currently rely on hand-rolled “fake” objects 
    - Patch `setta.utils.constants.C.CODE_FOLDER` to the temporary path.
    - Clean up by cancelling `queue_task` and stopping any observers/watchers to prevent stray background tasks between tests.
 
-2. **Refactor queue & concurrency tests**
+2. **Refactor queue & concurrency tests** — ✅ replaced stubs with the real manager in `tests/project_state/test_completion_queue_concurrency.py`
    - Update `tests/project_state/test_completion_queue_concurrency.py` to use the shared fixture instead of `QueueIntegrationManager` and `MinimalBaseProjectManager`.
    - Attach the existing helper coroutines to the real manager via `BaseProjectManager.enqueue_method`.
    - Remove `StubGenCode` entirely so the tests drive the real generator path; populate `manager.gen_code` using the concrete implementation exercised by the fixture and assert against the live manager state (`pending_frontend_ops`, `_current_frontend_op_id`).
