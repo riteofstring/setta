@@ -23,9 +23,10 @@
 - Regression coverage lives in `tests/project_state/test_project_code_virtual.py`, verifying the virtual-document path and the legacy path behind the feature flag.
 - The optional `SETTA_VIRTUAL_COMPLETION_SCHEME=untitled` toggle lets us experiment with Pyright’s untitled document handling without changing code.
 - Default virtual docs now generate stable paths under `<temp>/virtual_docs`, while the untitled scheme keeps everything in-memory for LSP purposes. The backend start script exports the feature flag to simplify manual QA.
+- Added an integration suite (`tests/lsp/test_virtual_completion_integration.py`) that boots basedpyright and exercises completions for both the file-based and untitled URI schemes, ensuring end-to-end parity with the real language server.
 
 ### Next Steps
 
-- Monitor completions with the untitled scheme enabled to confirm there are no regressions (timeouts, diagnostics mismatches, or project reload issues).
+- Monitor completions with the untitled scheme enabled to confirm there are no regressions (timeouts, diagnostics mismatches, or project reload issues) and codify any flaky cases as additional integration tests.
 - If untitled mode remains stable, flip the default scheme to `untitled` and remove the file-backed fallback.
 - Once the scheme is final, delete the temporary `SETTA_ENABLE_VIRTUAL_COMPLETIONS` guard and rip out the old per-request temp-file completion path.

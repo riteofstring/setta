@@ -108,7 +108,9 @@ class ProjectGenPythonCode(PythonCode):
         self.code_generator = code_generator
         if ENABLE_VIRTUAL_COMPLETION_DOCS:
             self.configure_virtual_document(
-                _build_virtual_completion_uri(self.temp_folder, project_config_id, "gen")
+                _build_virtual_completion_uri(
+                    self.temp_folder, project_config_id, "gen"
+                )
             )
 
     async def update_file(self):

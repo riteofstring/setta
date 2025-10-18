@@ -62,9 +62,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             diagnostics_callback=diagnostics_callback,
         )
 
-    async def _send_document_open_request(
-        self, uri, code, diagnostics_callback=None
-    ):
+    async def _send_document_open_request(self, uri, code, diagnostics_callback=None):
         if diagnostics_callback:
             self.add_diagnostics_response_callback(uri, diagnostics_callback)
         if uri not in self.latest_version_numbers:

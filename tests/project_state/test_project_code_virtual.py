@@ -58,9 +58,7 @@ class FakeWriter:
             self.add_diagnostics_response_callback(uri, diagnostics_callback)
         version = self.latest_version_numbers.get(uri, -1) + 1
         self.latest_version_numbers[uri] = version
-        self.virtual_open_calls.append(
-            {"uri": uri, "code": code, "version": version}
-        )
+        self.virtual_open_calls.append({"uri": uri, "code": code, "version": version})
         return uri
 
     async def send_document_open_request(
@@ -185,9 +183,7 @@ class ProjectGenPythonCodeVirtualDocsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(autocomplete_call["filepath"])
         self.assertEqual(autocomplete_call["uri"], virtual_call["uri"])
         self.assertTrue(gen_code.temp_file is not None and gen_code.temp_file.exists())
-        mock_completion.assert_called_once_with(
-            writer.response_payload, gen_code.code
-        )
+        mock_completion.assert_called_once_with(writer.response_payload, gen_code.code)
 
     @patch("setta.project_state.project_code.process_completion_response")
     async def test_temp_file_flow_persists_when_flag_disabled(self, mock_completion):
@@ -225,9 +221,7 @@ class ProjectGenPythonCodeVirtualDocsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(autocomplete_call["filepath"], file_call["filepath"])
         self.assertIsNone(autocomplete_call["uri"])
         self.assertTrue(gen_code.temp_file is not None and gen_code.temp_file.exists())
-        mock_completion.assert_called_once_with(
-            writer.response_payload, gen_code.code
-        )
+        mock_completion.assert_called_once_with(writer.response_payload, gen_code.code)
 
     @patch("setta.project_state.project_code.process_completion_response")
     async def test_untitled_scheme_when_configured(self, mock_completion):
@@ -235,10 +229,13 @@ class ProjectGenPythonCodeVirtualDocsTests(unittest.IsolatedAsyncioTestCase):
         writer = FakeWriter()
         lsp_writers = FakeLSPWriters(writer)
 
-        with patch(
-            "setta.project_state.project_code.ENABLE_VIRTUAL_COMPLETION_DOCS", True
-        ), patch(
-            "setta.project_state.project_code.VIRTUAL_COMPLETION_SCHEME", "untitled"
+        with (
+            patch(
+                "setta.project_state.project_code.ENABLE_VIRTUAL_COMPLETION_DOCS", True
+            ),
+            patch(
+                "setta.project_state.project_code.VIRTUAL_COMPLETION_SCHEME", "untitled"
+            ),
         ):
             # recreate builder function in module scope by reloading?
             gen_code = project_code.ProjectGenPythonCode(
