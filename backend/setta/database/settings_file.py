@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
 from setta.project_state.settings_project import create_settings_project_state
@@ -15,6 +16,9 @@ from setta.types.project_state import (
 from setta.types.section_impls import DictSectionImpl
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
+if TYPE_CHECKING:
+    from setta.project_state.jsonSource.jsonSource import JSONSource
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +26,11 @@ class SettingsFile:
     def __init__(self, dbe: DBE, websocket_msg_handler: WMHFrontendSender):
         self.dbe = dbe
         self.websocket_msg_handler = websocket_msg_handler
+        self.json_source: "JSONSource | None" = None
         self.settings = self.load_settings()
+
+    def attach_json_source(self, json_source: "JSONSource"):
+        self.json_source = json_source
 
     async def save_settings(self, settings: SettingsState):
         logger.debug("Saving settings")
@@ -40,6 +48,14 @@ class SettingsFile:
 
         for filename, data in to_be_saved.items():
             self.dbe.write_json(filename, data)
+            if self.json_source:
+                refreshed = self.dbe.read_json(filename)
+                self.json_source.set_cached_json(
+                    filename,
+                    refreshed,
+                    mark_dirty=False,
+                    reason="settings_file.save_settings",
+                )
         await self.load_and_broadcast_settings()
 
     def load_settings(self) -> SettingsState:
@@ -48,7 +64,10 @@ class SettingsFile:
         path_set = set(paths.values())
         contents = {}
         for p in path_set:
-            contents[p] = self.dbe.read_json(p)
+            if self.json_source and p in self.json_source.json_source_dirty:
+                contents[p] = self.json_source.get_cached_json(p)
+            else:
+                contents[p] = self.dbe.read_json(p)
         output = {}
         for settings_slice, path in paths.items():
             output[settings_slice] = contents[path][settings_slice]
