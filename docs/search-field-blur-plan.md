@@ -12,17 +12,15 @@
 - Retain the Escape key behavior that clears completions and restores the canonical name.
 
 ## Proposed Approach
-- Store the draft text in a `useRef` (`draftCallableNameRef`) instead of `useState`.
-- Derive the displayed value as `displayed = draftCallableNameRef.current ?? codeInfoName` and pass it to `TextInputCodeMirror`.
-- Use the existing debounce to maintain the inconsistency indicator without triggering React renders.
-- Introduce a lightweight `useReducer` counter (`bumpVersion`) that forces re-render only when the UI must sync the ref (blur, Escape, external updates).
-- On `onChange`, update the ref and run the debounce—no render needed.
-- On `onBlur`, call `bumpVersion` so the dummy component shows the draft; if Escape set `shouldResetValueOnBlur`, also reset the ref and canonical value.
-- On `codeInfoName` changes (backend updates), clear the ref, cancel the debounce, recompute consistency, and `bumpVersion` so the UI realigns with the canonical name.
-- On Escape with no completion, clear the ref, mark `shouldResetValueOnBlur`, set focus back to the section, and `bumpVersion`.
-- On Enter/Shift+Enter success, clear the ref so the view mirrors the saved upstream value once the websocket update arrives.
+- Keep the draft text in component state (`useState`) so React re-renders with each edit and always passes the latest draft to `TextInputCodeMirror`.
+- Compute the displayed value as `draftCallableName ?? codeInfoName`, preserving the canonical name whenever no draft is present.
+- Reuse the existing debounce to maintain the inconsistency indicator without double-rendering; clearing the draft resets the warning immediately.
+- On `onChange`, set the draft state and run the debounce so the amber border tracks divergence from the saved name.
+- On `onBlur`, keep the draft intact unless Escape explicitly requested a reset. When `shouldResetValueOnBlur` is set (Escape path), clear the draft, cancel completions, and resync with the canonical name.
+- When `codeInfoName` updates from the backend, clear any draft so the UI reflects the authoritative value.
+- Escape continues to clear the draft and queue a backend reset; Enter/Shift+Enter still call `setCallable`, after which websocket updates supply the new canonical name.
 
 ## Rationale
-- Keeps the blur behavior localized to `SectionSearchCore` so other `TextInputCodeMirror` consumers remain unaffected.
-- Minimizes render churn by leveraging refs and a manual `bumpVersion`.
-- Preserves the existing completion cleanup pipeline and consistency indicator semantics.
+- Keeps the blur behavior localized to `SectionSearchCore`, leaving other `TextInputCodeMirror` consumers untouched.
+- Leaning on controlled state ensures the dummy and live editors stay in sync without extra bookkeeping.
+- Maintains the existing completion cleanup pipeline and consistency indicator semantics while preventing accidental draft loss.
