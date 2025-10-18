@@ -53,7 +53,7 @@ class ProjectManager(BaseProjectManager):
             self.project_state_backend = merge_single_config_into_backend(
                 self.project_state_backend, new_project_config
             )
-        self.save()
+        self.perform_manual_save()
         await self.broadcast_all_project_metadata()
 
     def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):

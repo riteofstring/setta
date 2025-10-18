@@ -1191,6 +1191,11 @@ class BaseProjectManager(ABC):
     def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
         pass
 
+    def perform_manual_save(self):
+        """Run a manual save, clearing any pending autosave first."""
+        self.autosave_debouncer.cancel_pending()
+        self.save()
+
     def watch_json_source_files(self):
         callback_category = f"{self.__class__.__name__}_JSONSource"
 

@@ -109,7 +109,7 @@ async def route_save_project(
                 message="Save failed due to update conflict",
             )
         else:
-            project_manager.save()
+            project_manager.perform_manual_save()
             notification = SettaNotification(
                 projectConfigId=x.projectConfig.id,
                 message="Saved!",
@@ -154,7 +154,7 @@ async def route_create_project_config(
     newProjectConfigName = await project_manager.create_project_config(
         x.previewImgColor
     )
-    project_manager.save()
+    project_manager.perform_manual_save()
     return newProjectConfigName
 
 
@@ -164,7 +164,7 @@ async def route_delete_project_configs(
 ):
     project_manager = state.project_manager_switcher.main
     await project_manager.delete_project_configs(x.ids)
-    project_manager.save()
+    project_manager.perform_manual_save()
     return True
 
 
@@ -175,7 +175,7 @@ async def route_set_project_config_name(
     try:
         project_manager = state.project_manager_switcher.main
         await project_manager.set_project_config_name(x.projectConfigId, x.newName)
-        project_manager.save()
+        project_manager.perform_manual_save()
     except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 
@@ -191,7 +191,7 @@ async def router_set_as_default_project(
 ):
     project_manager = state.project_manager_switcher.main
     await project_manager.set_as_default_project(x.projectId)
-    project_manager.save()
+    project_manager.perform_manual_save()
 
 
 @router.post(Route.GET_NOTIFICATIONS)
