@@ -78,8 +78,6 @@ class JSONSource:
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
         self.json_sources: dict[Path, ProcessedJSONInfo] = {}
-        self.json_source_raw: dict[Path, Any] = {}
-        self.json_source_dirty: set[Path] = set()
         # maps from file path to set of (sectionId, variantId)
         self.json_source_to_section_variant: dict[Path, set[tuple[str, str]]] = (
             defaultdict(set)
@@ -151,12 +149,8 @@ class JSONSource:
                 continue
             filepath = normalize_path(variant.name)
             file_content = self.dbe.read_json(filepath)
-            processedJsonInfo = self._update_cache_from_data(
-                filepath,
-                file_content,
-                mark_dirty=False,
-                reason="_refresh_and_load_json_sources",
-            )
+            processedJsonInfo = self.process_json_object(file_content)
+            self.json_sources[filepath] = processedJsonInfo
             grid_pattern = None
             if isinstance(file_content, dict):
                 gui_section = file_content.get("gui")
@@ -189,12 +183,8 @@ class JSONSource:
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
 
-            processedJsonInfo = self._update_cache_from_data(
-                filepath,
-                file_content,
-                mark_dirty=False,
-                reason="watcher",
-            )
+            processedJsonInfo = self.process_json_object(file_content)
+            self.json_sources[filepath] = processedJsonInfo
 
             grid_pattern = None
             if isinstance(file_content, dict):
@@ -368,71 +358,3 @@ class JSONSource:
         output.codeObjImpls[codeObjImpl.id] = codeObjImpl
         output.codeObjVariants[variantId] = codeObjVariant
         return codeObj, codeObjImpl, codeObjVariant
-
-    def _update_cache_from_data(
-        self,
-        filepath: Path,
-        file_content: Any,
-        *,
-        mark_dirty: bool,
-        reason: str,
-    ) -> ProcessedJSONInfo:
-        processedJsonInfo = self.process_json_object(file_content)
-        self.json_source_raw[filepath] = file_content
-        self.json_sources[filepath] = processedJsonInfo
-        if mark_dirty:
-            self.json_source_dirty.add(filepath)
-        else:
-            self.json_source_dirty.discard(filepath)
-        grid_pattern = None
-        if isinstance(file_content, dict):
-            gui_section = file_content.get("gui")
-            if isinstance(gui_section, dict):
-                grid_pattern = gui_section.get("gridPattern")
-        logger.critical(
-            "JSONSource.update_cache_from_data file=%s reason=%s mark_dirty=%s "
-            "grid_pattern=%s dirty_count=%s",
-            str(filepath),
-            reason,
-            mark_dirty,
-            grid_pattern,
-            len(self.json_source_dirty),
-        )
-        return processedJsonInfo
-
-    def get_cached_json(self, filepath: Path) -> Any:
-        if filepath not in self.json_source_raw:
-            file_content = self.dbe.read_json(filepath)
-            self._update_cache_from_data(
-                filepath,
-                file_content,
-                mark_dirty=False,
-                reason="hydrate_cache",
-            )
-        logger.critical(
-            "JSONSource.get_cached_json file=%s dirty=%s",
-            str(filepath),
-            filepath in self.json_source_dirty,
-        )
-        return self.json_source_raw[filepath]
-
-    def set_cached_json(
-        self,
-        filepath: Path,
-        file_content: Any,
-        *,
-        mark_dirty: bool,
-        reason: str,
-    ) -> ProcessedJSONInfo:
-        logger.critical(
-            "JSONSource.set_cached_json file=%s reason=%s mark_dirty=%s",
-            str(filepath),
-            reason,
-            mark_dirty,
-        )
-        return self._update_cache_from_data(
-            filepath,
-            file_content,
-            mark_dirty=mark_dirty,
-            reason=reason,
-        )

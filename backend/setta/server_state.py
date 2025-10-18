@@ -47,7 +47,6 @@ class SettaFastAPIState:
             self.specific_file_watcher,
             self.dbe,
         )
-        self.settings_file.attach_json_source(self.json_source)
         project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,

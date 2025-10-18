@@ -24,7 +24,6 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
-from setta.project_state.jsonSource.save import collect_json_source_payloads
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -198,9 +197,6 @@ class BaseProjectManager(ABC):
         ] = asyncio.Queue()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
-        # Track JSON source ownership so managers don't evict each other's caches
-        self._json_source_files_for_config: dict[str, set[Path]] = {}
-        self._json_source_file_ref_counts: dict[Path, int] = {}
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
         )
@@ -461,112 +457,9 @@ class BaseProjectManager(ABC):
 
         self.delete_unused_files(project_temp_folder)
         self.project_state_backend = self.get_new_project_state_backend(projectState)
-        self._sync_json_source_cache_from_backend(projectState)
         if updateFileWatcher:
             self.watch_json_source_files()
             self.watch_artifact_files()
-
-    def _sync_json_source_cache_from_backend(
-        self, project_state: ProjectStateSingleConfig
-    ):
-        if not self.json_source:
-            return
-
-        project_config_id = project_state.projectConfig.id
-        payloads = collect_json_source_payloads(self.project_state_backend)
-        payload_files = set(payloads.keys())
-        previous_files = set(
-            self._json_source_files_for_config.get(project_config_id, set())
-        )
-        for filepath, data in payloads.items():
-            existing = self.json_source.json_source_raw.get(filepath)
-            is_new_entry = existing is None
-            has_changed = not is_new_entry and existing != data
-            if not is_new_entry and not has_changed:
-                logger.critical(
-                    "BaseProjectManager.sync_json_source_cache unchanged file=%s "
-                    "manager=%s project_config_id=%s",
-                    str(filepath),
-                    self.__class__.__name__,
-                    project_state.projectConfig.id,
-                )
-                continue
-
-            mark_dirty = has_changed
-            reason = (
-                f"sync_from_backend:{self.__class__.__name__}"
-                f":config={project_state.projectConfig.id}"
-            )
-            self.json_source.set_cached_json(
-                filepath,
-                data,
-                mark_dirty=mark_dirty,
-                reason=reason,
-            )
-            logger.critical(
-                "BaseProjectManager.sync_json_source_cache updated file=%s "
-                "manager=%s project_config_id=%s new_entry=%s mark_dirty=%s",
-                str(filepath),
-                self.__class__.__name__,
-                project_config_id,
-                is_new_entry,
-                mark_dirty,
-            )
-
-        newly_tracked = payload_files - previous_files
-        for filepath in newly_tracked:
-            new_count = self._json_source_file_ref_counts.get(filepath, 0) + 1
-            self._json_source_file_ref_counts[filepath] = new_count
-            logger.critical(
-                "BaseProjectManager.sync_json_source_cache added file=%s "
-                "manager=%s project_config_id=%s ref_count=%s",
-                str(filepath),
-                self.__class__.__name__,
-                project_config_id,
-                new_count,
-            )
-
-        removed_files = previous_files - payload_files
-        for filepath in removed_files:
-            self._release_json_source_file(filepath, project_config_id)
-
-        self._json_source_files_for_config[project_config_id] = set(payload_files)
-
-    def _release_json_source_file(self, filepath: Path, project_config_id: str):
-        if filepath not in self._json_source_file_ref_counts:
-            logger.critical(
-                "BaseProjectManager.sync_json_source_cache missing ref count for file=%s "
-                "manager=%s project_config_id=%s skipping_removal",
-                str(filepath),
-                self.__class__.__name__,
-                project_config_id,
-            )
-            return
-
-        remaining = self._json_source_file_ref_counts[filepath] - 1
-        if remaining <= 0:
-            self._json_source_file_ref_counts.pop(filepath, None)
-            self.json_source.json_sources.pop(filepath, None)
-            self.json_source.json_source_raw.pop(filepath, None)
-            self.json_source.json_source_dirty.discard(filepath)
-            logger.critical(
-                "BaseProjectManager.sync_json_source_cache removed file=%s "
-                "manager=%s project_config_id=%s",
-                str(filepath),
-                self.__class__.__name__,
-                project_config_id,
-            )
-            return
-
-        self._json_source_file_ref_counts[filepath] = remaining
-        logger.critical(
-            "BaseProjectManager.sync_json_source_cache decremented ref count file=%s "
-            "manager=%s project_config_id=%s ref_count=%s",
-            str(filepath),
-            self.__class__.__name__,
-            project_config_id,
-            remaining,
-        )
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):

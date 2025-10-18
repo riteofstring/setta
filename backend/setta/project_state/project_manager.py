@@ -21,7 +21,7 @@ class ProjectManager(BaseProjectManager):
 
     def save(self):
         p = self.project_state_backend.model_copy(deep=True)
-        save_json_source_data(self.dbe, self.json_source)
+        save_json_source_data(self.dbe, p)
         remove_json_source_values(p)
         maybe_create_backup(
             self.dbe.project,
