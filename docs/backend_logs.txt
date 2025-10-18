@@ -1,0 +1,130 @@
+Starting Setta
+INFO - 2025-10-16 05:39:33,491 - setta.start - Console print statements suppressed (SETTA_SUPPRESS_PRINTS set).
+INFO - 2025-10-16 05:39:33,491 - setta.start - Applying debug module filter for: ['setta.project_state.jsonSource.save', 'setta.project_state.jsonSource.load', 'setta.project_state.settings_project_manager']
+INFO - 2025-10-16 05:39:33,491 - setta.start - Filtering jsonSource debug sections: ['gui']
+
+  VITE v6.2.0  ready in 403 ms
+
+  ➜  Local:   http://127.0.0.1:3000/
+(node:33463) ExperimentalWarning: CommonJS module /Users/kevin/Documents/AppDevelopment/setta/frontend/node_modules/.pnpm/tailwindcss@3.4.1/node_modules/tailwindcss/lib/lib/load-config.js is loading ES Module /Users/kevin/Documents/AppDevelopment/setta/frontend/tailwind.config.js using require().
+Support for loading ES Module in require() is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO:     Started server process [33468]
+INFO:     Waiting for application startup.
+DEBUG - 2025-10-16 05:39:34,914 - setta.project_state.settings_project_manager - Loading settings project
+INFO:     Application startup complete.
+DEBUG - 2025-10-16 05:39:35,001 - setta.project_state.jsonSource.load - load_json_sources invoked variantCount=30 jsonSourceCount=1
+DEBUG - 2025-10-16 05:39:35,016 - setta.project_state.jsonSource.load - load_json_sources replacements section=gui variant=setta_files/setta-settings.json file=setta_files/setta-settings.json keys=('gui',) deletes=0 replacements=13 unmatched=20
+DEBUG - 2025-10-16 05:39:35,025 - setta.project_state.jsonSource.load - load_json_sources merge complete section=gui variant=setta_files/setta-settings.json replacements=13 unmatched=7
+ERROR - 2025-10-16 05:39:35,067 - asyncio - Task exception was never retrieved
+future: <Task finished name='Task-8' coro=<SpecificFileEventHandler.call_handlers() done, defined at /Users/kevin/Documents/AppDevelopment/setta/backend/setta/file_watchers/specific_file_watcher.py:165> exception=AttributeError("'LanguageServer' object has no attribute 'server'")>
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[vite:css][postcss] Nested CSS was detected, but CSS nesting has not been configured correctly.
+Please enable a CSS nesting plugin *before* Tailwind in your configuration.
+See how here: https://tailwindcss.com/docs/using-with-preprocessors#nesting
+13 |    }
+14 |  }
+15 |  
+   |  ^
+16 |  .react-flow__node.selectable {
+   |  ^^^^
+17 |    &:focus,
+INFO:     127.0.0.1:65193 - "GET /mcp HTTP/1.1" 200 OK
+INFO - 2025-10-16 05:39:36,087 - httpx - HTTP Request: GET http://127.0.0.1:8000/mcp "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:65194 - "POST /mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e HTTP/1.1" 202 Accepted
+INFO - 2025-10-16 05:39:36,091 - httpx - HTTP Request: POST http://127.0.0.1:8000/mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e "HTTP/1.1 202 Accepted"
+INFO:     127.0.0.1:65194 - "POST /mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e HTTP/1.1" 202 Accepted
+INFO - 2025-10-16 05:39:36,094 - httpx - HTTP Request: POST http://127.0.0.1:8000/mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e "HTTP/1.1 202 Accepted"
+INFO:     127.0.0.1:65194 - "POST /mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e HTTP/1.1" 202 Accepted
+INFO - 2025-10-16 05:39:36,096 - httpx - HTTP Request: POST http://127.0.0.1:8000/mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e "HTTP/1.1 202 Accepted"
+INFO - 2025-10-16 05:39:36,096 - mcp.server.lowlevel.server - Processing request of type ListToolsRequest
+DEBUG:    = connection is CONNECTING
+DEBUG:    < GET /api/frontend HTTP/1.1
+DEBUG:    < host: 127.0.0.1:8000
+DEBUG:    < connection: Upgrade
+DEBUG:    < pragma: no-cache
+DEBUG:    < cache-control: no-cache
+DEBUG:    < upgrade: websocket
+DEBUG:    < origin: http://127.0.0.1:3000
+DEBUG:    < sec-websocket-version: 13
+DEBUG:    < user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+DEBUG:    < accept-encoding: gzip, deflate, br, zstd
+DEBUG:    < accept-language: en-US,en;q=0.9
+DEBUG:    < sec-gpc: 1
+DEBUG:    < sec-websocket-key: VbTX9g3pvrIDVvvPiz1JZQ==
+DEBUG:    < sec-websocket-extensions: permessage-deflate; client_max_window_bits
+INFO:     127.0.0.1:65199 - "WebSocket /api/frontend" [accepted]
+DEBUG:    > HTTP/1.1 101 Switching Protocols
+DEBUG:    > Upgrade: websocket
+DEBUG:    > Connection: Upgrade
+DEBUG:    > Sec-WebSocket-Accept: kjAZLswI4WjYJvEMgsZEog3ezWI=
+DEBUG:    > Sec-WebSocket-Extensions: permessage-deflate
+DEBUG:    > date: Thu, 16 Oct 2025 12:39:37 GMT
+DEBUG:    > server: uvicorn
+INFO:     connection open
+DEBUG:    = connection is OPEN
+DEBUG:    > TEXT '{"id":null,"content":[{"id":"lazy_whale","conne...Type":"AllConnections"}' [186 bytes]
+DEBUG:    > TEXT '{"id":null,"content":[],"messageType":"AllDependencies"}' [56 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"defaultProjectConfigId":...":"AllProjectMetadata"}' [109 bytes]
+DEBUG:    < TEXT '{"id":null,"content":"/settings","messageType":"CurrentAddressUpdate"}' [70 bytes]
+INFO:     127.0.0.1:65200 - "POST /api/loadSettings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65200 - "POST /api/loadProjectConfig HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/loadSettings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/setTopLevelSectionLayout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/setViewport HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/setActiveIds HTTP/1.1" 200 OK
+DEBUG:    > TEXT '{"id":null,"content":{"projectState":{"sections...eFrontendProjectState"}' [430840 bytes]
+INFO:     127.0.0.1:65201 - "POST /api/setParamEnteredValue HTTP/1.1" 200 OK
+DEBUG - 2025-10-16 05:39:45,956 - setta.project_state.settings_project_manager - SettingsProjectManager.save triggered defaultProjectConfigId=cf8543b9-f1a7-40e2-a640-0e9a96fc0cda
+DEBUG - 2025-10-16 05:39:46,000 - setta.project_state.settings_project_manager - SettingsProjectManager.save preparing to persist 30 sections=['backend', 'browserSectionDefault', 'callableSectionDefault', 'chartSectionDefault', 'chatSectionDefault', 'codeCallableCodeObjDefault', 'codeParamCodeObjDefault', 'codeSectionDefault', 'colorPickerParamCodeObjDefault', 'dictRootSectionDefault', 'dictSectionDefault', 'drawSectionDefault', 'dropdownParamCodeObjDefault', 'genPythonCodeSectionDefault', 'globalVariablesSectionDefault', 'groupSectionDefault', 'gui', 'iFrameSectionDefault', 'imageSectionDefault', 'languageServer', 'listRootSectionDefault', 'nestedParamCodeObjDefault', 'passwordParamCodeObjDefault', 'shortcuts', 'sliderParamCodeObjDefault', 'socialSectionDefault', 'switchParamCodeObjDefault', 'terminalSectionDefault', 'textBlockSectionDefault', 'textParamCodeObjDefault']
+DEBUG - 2025-10-16 05:39:46,001 - setta.project_state.jsonSource.save - jsonSource save staged section=gui variant=setta_files/setta-settings.json file=setta_files/setta-settings.json keys=['gui'] leafCount=20
+DEBUG - 2025-10-16 05:39:46,009 - setta.project_state.jsonSource.save - jsonSource write committing file=setta_files/setta-settings.json topLevelKeys=['gui', 'listRootSectionDefault', 'textParamCodeObjDefault', 'chatSectionDefault', 'genPythonCodeSectionDefault', 'nestedParamCodeObjDefault', 'dictSectionDefault', 'switchParamCodeObjDefault', 'callableSectionDefault', 'passwordParamCodeObjDefault', 'sliderParamCodeObjDefault', 'imageSectionDefault', 'drawSectionDefault', 'chartSectionDefault', 'backend', 'shortcuts', 'socialSectionDefault', 'browserSectionDefault', 'colorPickerParamCodeObjDefault', 'codeParamCodeObjDefault', 'terminalSectionDefault', 'dictRootSectionDefault', 'globalVariablesSectionDefault', 'codeCallableCodeObjDefault', 'dropdownParamCodeObjDefault', 'languageServer', 'iFrameSectionDefault', 'textBlockSectionDefault', 'codeSectionDefault', 'groupSectionDefault'] leafCount=302
+DEBUG - 2025-10-16 05:39:46,022 - setta.project_state.jsonSource.save - jsonSource removed childless values count=19 sections=['gui']
+DEBUG - 2025-10-16 05:39:46,031 - setta.project_state.settings_project_manager - SettingsProjectManager.save completed successfully
+DEBUG:    > TEXT '{"id":null,"content":{"id":"a1d9c7bd-5aa6-45c6-...geType":"Notification"}' [284 bytes]
+DEBUG - 2025-10-16 05:39:46,052 - setta.project_state.jsonSource.load - load_json_sources invoked variantCount=30 jsonSourceCount=1
+DEBUG - 2025-10-16 05:39:46,070 - setta.project_state.jsonSource.load - load_json_sources replacements section=gui variant=setta_files/setta-settings.json file=setta_files/setta-settings.json keys=('gui',) deletes=0 replacements=20 unmatched=20
+DEBUG - 2025-10-16 05:39:46,079 - setta.project_state.jsonSource.load - load_json_sources merge complete section=gui variant=setta_files/setta-settings.json replacements=20 unmatched=0
+DEBUG:    > TEXT '{"id":null,"content":{"projectState":{"sections...eFrontendProjectState"}' [430724 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"shortcuts":{"newCardShor...Type":"UpdateSettings"}' [7669 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"id":"8f702e80-a384-438e-...geType":"Notification"}' [314 bytes]
+INFO:     127.0.0.1:65239 - "POST /mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e HTTP/1.1" 202 Accepted
+INFO - 2025-10-16 05:39:46,162 - httpx - HTTP Request: POST http://127.0.0.1:8000/mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e "HTTP/1.1 202 Accepted"
+INFO - 2025-10-16 05:39:46,162 - mcp.server.lowlevel.server - Processing request of type PingRequest
+INFO:     127.0.0.1:65201 - "POST /api/loadAllProjectMetadata HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65244 - "POST /api/loadAllProjectMetadata HTTP/1.1" 200 OK
+DEBUG:    > TEXT '{"id":null,"content":{"defaultProjectConfigId":...":"AllProjectMetadata"}' [464 bytes]
+INFO:     127.0.0.1:65244 - "POST /api/createProjectConfig HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65244 - "POST /api/loadProjectConfig HTTP/1.1" 200 OK
+DEBUG:    > TEXT '{"id":null,"content":{"projectConfigId":"19f1cf...Type":"LSPDiagnostics"}' [145 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"projectConfigId":"19f1cf...Type":"LSPDiagnostics"}' [145 bytes]
+INFO:     127.0.0.1:65244 - "POST /api/loadAllProjectMetadata HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/loadAllProjectMetadata HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/loadProjectConfig HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/setTopLevelSectionLayout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65201 - "POST /api/setViewport HTTP/1.1" 200 OK
+DEBUG:    > TEXT '{"id":null,"content":{"projectState":{"sections...eFrontendProjectState"}' [430800 bytes]
+INFO:     127.0.0.1:65201 - "POST /api/setParamEnteredValue HTTP/1.1" 200 OK
+DEBUG - 2025-10-16 05:39:52,551 - setta.project_state.jsonSource.load - load_json_sources invoked variantCount=30 jsonSourceCount=1
+DEBUG - 2025-10-16 05:39:52,571 - setta.project_state.jsonSource.load - load_json_sources replacements section=gui variant=setta_files/setta-settings.json file=setta_files/setta-settings.json keys=('gui',) deletes=0 replacements=20 unmatched=20
+DEBUG - 2025-10-16 05:39:52,580 - setta.project_state.jsonSource.load - load_json_sources merge complete section=gui variant=setta_files/setta-settings.json replacements=20 unmatched=0
+DEBUG:    > TEXT '{"id":null,"content":{"projectState":{"sections...eFrontendProjectState"}' [430724 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"shortcuts":{"newCardShor...Type":"UpdateSettings"}' [7669 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"projectConfigId":"19f1cf...Type":"LSPDiagnostics"}' [145 bytes]
+DEBUG - 2025-10-16 05:39:54,552 - setta.project_state.settings_project_manager - SettingsProjectManager.save triggered defaultProjectConfigId=cf8543b9-f1a7-40e2-a640-0e9a96fc0cda
+DEBUG - 2025-10-16 05:39:54,594 - setta.project_state.settings_project_manager - SettingsProjectManager.save preparing to persist 30 sections=['backend', 'browserSectionDefault', 'callableSectionDefault', 'chartSectionDefault', 'chatSectionDefault', 'codeCallableCodeObjDefault', 'codeParamCodeObjDefault', 'codeSectionDefault', 'colorPickerParamCodeObjDefault', 'dictRootSectionDefault', 'dictSectionDefault', 'drawSectionDefault', 'dropdownParamCodeObjDefault', 'genPythonCodeSectionDefault', 'globalVariablesSectionDefault', 'groupSectionDefault', 'gui', 'iFrameSectionDefault', 'imageSectionDefault', 'languageServer', 'listRootSectionDefault', 'nestedParamCodeObjDefault', 'passwordParamCodeObjDefault', 'shortcuts', 'sliderParamCodeObjDefault', 'socialSectionDefault', 'switchParamCodeObjDefault', 'terminalSectionDefault', 'textBlockSectionDefault', 'textParamCodeObjDefault']
+DEBUG - 2025-10-16 05:39:54,595 - setta.project_state.jsonSource.save - jsonSource save staged section=gui variant=setta_files/setta-settings.json file=setta_files/setta-settings.json keys=['gui'] leafCount=20
+DEBUG - 2025-10-16 05:39:54,603 - setta.project_state.jsonSource.save - jsonSource write committing file=setta_files/setta-settings.json topLevelKeys=['gui', 'listRootSectionDefault', 'textParamCodeObjDefault', 'chatSectionDefault', 'genPythonCodeSectionDefault', 'nestedParamCodeObjDefault', 'dictSectionDefault', 'switchParamCodeObjDefault', 'callableSectionDefault', 'passwordParamCodeObjDefault', 'sliderParamCodeObjDefault', 'imageSectionDefault', 'drawSectionDefault', 'chartSectionDefault', 'backend', 'shortcuts', 'socialSectionDefault', 'browserSectionDefault', 'colorPickerParamCodeObjDefault', 'codeParamCodeObjDefault', 'terminalSectionDefault', 'dictRootSectionDefault', 'globalVariablesSectionDefault', 'codeCallableCodeObjDefault', 'dropdownParamCodeObjDefault', 'languageServer', 'iFrameSectionDefault', 'textBlockSectionDefault', 'codeSectionDefault', 'groupSectionDefault'] leafCount=302
+DEBUG - 2025-10-16 05:39:54,614 - setta.project_state.jsonSource.save - jsonSource removed childless values count=19 sections=['gui']
+DEBUG - 2025-10-16 05:39:54,622 - setta.project_state.settings_project_manager - SettingsProjectManager.save completed successfully
+DEBUG:    > TEXT '{"id":null,"content":{"id":"89617cd5-de3e-4182-...geType":"Notification"}' [284 bytes]
+DEBUG - 2025-10-16 05:39:54,646 - setta.project_state.jsonSource.load - load_json_sources invoked variantCount=30 jsonSourceCount=1
+DEBUG - 2025-10-16 05:39:54,664 - setta.project_state.jsonSource.load - load_json_sources replacements section=gui variant=setta_files/setta-settings.json file=setta_files/setta-settings.json keys=('gui',) deletes=0 replacements=20 unmatched=20
+DEBUG - 2025-10-16 05:39:54,673 - setta.project_state.jsonSource.load - load_json_sources merge complete section=gui variant=setta_files/setta-settings.json replacements=20 unmatched=0
+DEBUG:    > TEXT '{"id":null,"content":{"projectState":{"sections...eFrontendProjectState"}' [430724 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"shortcuts":{"newCardShor...Type":"UpdateSettings"}' [7669 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"id":"55bbd4b6-02af-432f-...geType":"Notification"}' [314 bytes]
+DEBUG:    > TEXT '{"id":null,"content":{"projectConfigId":"19f1cf...Type":"LSPDiagnostics"}' [145 bytes]
+INFO:     127.0.0.1:65281 - "POST /mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e HTTP/1.1" 202 Accepted
+INFO - 2025-10-16 05:39:56,168 - httpx - HTTP Request: POST http://127.0.0.1:8000/mcp/messages/?session_id=0ffaf47d19a64770adf16c1eb4e3a56e "HTTP/1.1 202 Accepted"
+INFO - 2025-10-16 05:39:56,169 - mcp.server.lowlevel.server - Processing request of type PingRequest

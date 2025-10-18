@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -71,6 +72,64 @@ def cli(ctx, reload, host: str, port: int, log_level):
             level=getattr(logging, log_level.upper()),
             format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
         )
+
+        if os.getenv("SETTA_SUPPRESS_PRINTS"):
+            import builtins
+
+            _orig_print = builtins.print
+
+            def _suppressed_print(*args, **kwargs):
+                if kwargs.pop("_force", False):
+                    return _orig_print(*args, **kwargs)
+                return None
+
+            builtins.print = _suppressed_print
+            logging.getLogger(__name__).info(
+                "Console print statements suppressed (SETTA_SUPPRESS_PRINTS set)."
+            )
+
+        module_filter_env = os.getenv("SETTA_DEBUG_MODULE_FILTER")
+        if module_filter_env:
+
+            class _ModuleFilter(logging.Filter):
+                def __init__(self, tokens: list[str]):
+                    super().__init__()
+                    self.tokens = [t.casefold() for t in tokens]
+
+                def filter(self, record: logging.LogRecord) -> bool:
+                    if record.levelno > logging.DEBUG:
+                        return True
+                    record_name = record.name.casefold()
+                    return any(
+                        record_name.startswith(token) or token in record_name
+                        for token in self.tokens
+                    )
+
+            prefixes = [
+                token.strip()
+                for token in module_filter_env.replace(" ", "").split(",")
+                if token.strip()
+            ]
+            if prefixes:
+                root_logger = logging.getLogger()
+                module_filter = _ModuleFilter(prefixes)
+                root_logger.addFilter(module_filter)
+                for handler in root_logger.handlers:
+                    handler.addFilter(module_filter)
+                logging.getLogger(__name__).info(
+                    "Applying debug module filter for: %s", prefixes
+                )
+        section_filter_env = os.getenv("SETTA_DEBUG_SECTION_FILTER")
+        if section_filter_env:
+            section_tokens = [
+                token.strip()
+                for token in section_filter_env.split(",")
+                if token.strip()
+            ]
+            if section_tokens:
+                logging.getLogger(__name__).info(
+                    "Filtering jsonSource debug sections: %s", section_tokens
+                )
 
         config = uvicorn.Config(
             "server:app",

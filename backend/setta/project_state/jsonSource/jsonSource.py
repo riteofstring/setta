@@ -103,7 +103,19 @@ class JSONSource:
                     ids.difference(self.json_source_to_section_variant[filename])
                 )
 
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "jsonSource watchers refresh category=%s files=%s newVariantCount=%d",
+                callbackCategory,
+                sorted(str(f) for f in filename_set),
+                len(section_variant_ids_to_load),
+            )
+
         if len(section_variant_ids_to_load) > 0:
+            logger.debug(
+                "jsonSource initial load scheduling for %d section variants",
+                len(section_variant_ids_to_load),
+            )
             asyncio.create_task(
                 load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
             )
@@ -135,12 +147,32 @@ class JSONSource:
             )
 
             filepath = coreUpdate.fileToRead
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "jsonSource callback event=%s relPath=%s sectionVariantCount=%d",
+                    getattr(coreUpdate.eventType, "value", coreUpdate.eventType),
+                    getattr(coreUpdate, "relPath", filepath),
+                    len(sectionVariantsToLoad),
+                )
             file_content = self.dbe.read_json(filepath)
 
             processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
+            if logger.isEnabledFor(logging.DEBUG):
+                code_obj_count = len(processedJsonInfo.keyValueInfo.codeObjs)
+                variant_count = len(processedJsonInfo.keyValueInfo.codeObjVariants)
+                logger.debug(
+                    "jsonSource cache update file=%s codeObjCount=%d variantCount=%d",
+                    filepath,
+                    code_obj_count,
+                    variant_count,
+                )
 
             if len(sectionVariantsToLoad) > 0:
+                logger.debug(
+                    "jsonSource triggering reload for %d section variants",
+                    len(sectionVariantsToLoad),
+                )
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 notification = SettaNotification(
                     message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",

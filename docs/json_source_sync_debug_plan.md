@@ -41,6 +41,11 @@
    - If the disk never receives `X`, focus on the save path; if the disk has `X` but the revert still occurs, inspect cached `json_sources` state or merge logic.
    - Document whether the bug lives in backend persistence, watcher cache invalidation, or frontend consumption to guide the fix.
 
+## Progress
+- Added DEBUG-level instrumentation in `jsonSource.save`, `jsonSource.load`, and `SettingsProjectManager.save` that reports section names, leaf counts, and merge summaries without dumping raw payloads.
+- Introduced environment filters so `SETTA_DEBUG_MODULE_FILTER` scopes logs to jsonSource/settings managers, `SETTA_DEBUG_SECTION_FILTER` narrows output to a specific section (e.g., `gui`), and `SETTA_SUPPRESS_PRINTS` mutes residual `print` calls.
+- Updated `frontend/backendStart.sh` to run with the recommended filters (`gui` section, module scopes, uvicorn warning level), producing concise, actionable traces during reproduction runs.
+
 ## Notes
 - Keep the temporary logging guarded by a verbose flag or `if logger.isEnabledFor(logging.DEBUG)` so production behavior is unaffected.
 - Once the root cause is understood, remove instrumentation and consider adding a regression test under `tests/project_state/jsonSource/` to capture the discovered edge case.

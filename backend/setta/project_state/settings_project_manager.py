@@ -31,14 +31,26 @@ class SettingsProjectManager(BaseProjectManager):
         if not default_id:
             raise ValueError
 
+        logger.debug(
+            "SettingsProjectManager.save triggered defaultProjectConfigId=%s",
+            default_id,
+        )
         p = convert_backend_to_single_config(
             self.project_state_backend,
             default_id,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            section_names = sorted(s.name for s in p.sections.values())
+            logger.debug(
+                "SettingsProjectManager.save preparing to persist %d sections=%s",
+                len(section_names),
+                section_names,
+            )
         save_json_source_data(self.dbe, p)
         remove_json_source_values(p)
         self.dbe.write_settings_project(p)
         self.artifacts.save()
+        logger.debug("SettingsProjectManager.save completed successfully")
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         raise ValueError

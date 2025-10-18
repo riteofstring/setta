@@ -1,3 +1,5 @@
+import logging
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -16,6 +18,35 @@ from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
+
+logger = logging.getLogger(__name__)
+
+_section_filter_env = os.getenv("SETTA_DEBUG_SECTION_FILTER", "")
+SECTION_FILTER = {
+    token.strip().casefold()
+    for token in _section_filter_env.split(",")
+    if token.strip()
+}
+
+
+def _should_log_section(section_name: str) -> bool:
+    if not SECTION_FILTER:
+        return True
+    return section_name.casefold() in SECTION_FILTER
+
+
+def _count_leaf_entries(value: object) -> int:
+    if isinstance(value, dict):
+        total = 0
+        for child in value.values():
+            total += _count_leaf_entries(child)
+        return total
+    if isinstance(value, list):
+        total = 0
+        for child in value:
+            total += _count_leaf_entries(child)
+        return total or 1
+    return 1
 
 
 def save_json_source_data(
@@ -59,8 +90,27 @@ def save_json_source_data(
             # (They might not be because they are completely empty)
             add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
 
+            if logger.isEnabledFor(logging.DEBUG) and _should_log_section(section.name):
+                leaf_count = _count_leaf_entries(hierarchy.nested_dict)
+                logger.debug(
+                    "jsonSource save staged section=%s variant=%s file=%s keys=%s leafCount=%d",
+                    section.name,
+                    variant.name,
+                    filename,
+                    impl.jsonSourceKeys,
+                    leaf_count,
+                )
+
     # Save each file
     for filename, data in to_be_saved.items():
+        if logger.isEnabledFor(logging.DEBUG):
+            leaf_count = _count_leaf_entries(data)
+            logger.debug(
+                "jsonSource write committing file=%s topLevelKeys=%s leafCount=%d",
+                filename,
+                list(data.keys()),
+                leaf_count,
+            )
         dbe.write_json(filename, data)
 
 
@@ -74,6 +124,8 @@ def add_key_path_to_dict(output: dict, key_path: list[str]):
 
 
 def remove_json_source_values(p: ProjectStateCore):
+    cleared_count = 0
+    sections_touched: set[str] = set()
     for section in p.sections.values():
         for variant_id in section.variants:
             impl = get_variant_effective_section_impl(p, section.id, variant_id)
@@ -93,3 +145,14 @@ def remove_json_source_values(p: ProjectStateCore):
                     cvariant,
                     BaseChildlessCodeObjImplArgsWithCallable(value=""),
                 )
+                if logger.isEnabledFor(logging.DEBUG):
+                    if _should_log_section(section.name):
+                        cleared_count += 1
+                        sections_touched.add(section.name)
+
+    if cleared_count and logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "jsonSource removed childless values count=%d sections=%s",
+            cleared_count,
+            sorted(sections_touched),
+        )
