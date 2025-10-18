@@ -102,6 +102,27 @@ class JSONSource:
                 section_variant_ids_to_load.update(
                     ids.difference(self.json_source_to_section_variant[filename])
                 )
+            if logger.isEnabledFor(logging.DEBUG):
+                cached = self.json_sources.get(filename)
+                try:
+                    mtime_ns = filename.stat().st_mtime_ns
+                except OSError:
+                    mtime_ns = None
+                if cached:
+                    logger.debug(
+                        "jsonSource watcher reuse file=%s cachedId=%s codeObjCount=%d variantCount=%d mtimeNs=%s",
+                        filename,
+                        id(cached),
+                        len(cached.keyValueInfo.codeObjs),
+                        len(cached.keyValueInfo.codeObjVariants),
+                        mtime_ns,
+                    )
+                else:
+                    logger.debug(
+                        "jsonSource watcher cold-start file=%s mtimeNs=%s",
+                        filename,
+                        mtime_ns,
+                    )
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
@@ -128,6 +149,11 @@ class JSONSource:
         callbacks = {k: callback for k in filename_set}
 
         fire_immediately = set([f for f in filename_set if f not in self.json_sources])
+        if logger.isEnabledFor(logging.DEBUG) and fire_immediately:
+            logger.debug(
+                "jsonSource watcher fireImmediately files=%s",
+                sorted(str(f) for f in fire_immediately),
+            )
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
         )
@@ -147,12 +173,15 @@ class JSONSource:
             )
 
             filepath = coreUpdate.fileToRead
+            cached_before = self.json_sources.get(filepath)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    "jsonSource callback event=%s relPath=%s sectionVariantCount=%d",
+                    "jsonSource callback event=%s relPath=%s sectionVariantCount=%d hadCached=%s cachedId=%s",
                     getattr(coreUpdate.eventType, "value", coreUpdate.eventType),
                     getattr(coreUpdate, "relPath", filepath),
                     len(sectionVariantsToLoad),
+                    cached_before is not None,
+                    id(cached_before) if cached_before else None,
                 )
             file_content = self.dbe.read_json(filepath)
 

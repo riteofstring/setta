@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
@@ -63,6 +64,31 @@ def _should_log_section(section_name: str) -> bool:
     return section_name.casefold() in SECTION_FILTER
 
 
+def _read_json_payload_for_logging(filename: Path) -> tuple[str, Any]:
+    try:
+        with filename.open("r", encoding="utf-8") as f:
+            return ("ok", json.load(f))
+    except FileNotFoundError:
+        return ("missing-file", None)
+    except json.JSONDecodeError as exc:
+        return (f"json-decode-error: {exc.msg}", None)
+    except Exception as exc:  # noqa: BLE001 - debugging helper
+        return (f"error: {exc}", None)
+
+
+def _extract_path_from_mapping(data: Any, keys: tuple[str, ...]):
+    if not keys:
+        return data
+    current = data
+    for key in keys:
+        if not isinstance(current, dict):
+            return "<non-dict>"
+        if key not in current:
+            return "<missing>"
+        current = current[key]
+    return current
+
+
 @dataclass
 class ReplacementInfo:
     existingCodeObjId: str
@@ -102,6 +128,9 @@ def load_json_sources_into_data_structures(
     json_sources: dict[Path, ProcessedJSONInfo],
     section_variant_ids: Iterable[tuple[str, str]],
 ):
+    disk_payload_cache: dict[Path, tuple[str, Any]] = {}
+    processed_snapshot_ids: dict[tuple[str, str], int | None] = {}
+    debug_disk_values: dict[tuple[str, str], tuple[str, Any]] = {}
     section_variant_set = set(section_variant_ids)
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(
@@ -143,6 +172,10 @@ def load_json_sources_into_data_structures(
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue
             processedJson = json_sources.get(filename)
+            if logger.isEnabledFor(logging.DEBUG) and _should_log_section(section.name):
+                processed_snapshot_ids[(section.id, variant_id)] = (
+                    id(processedJson) if processedJson else None
+                )
             isMissing = processedJson is None
             impl = set_effective_impl_value(
                 base_impl,
@@ -170,6 +203,17 @@ def load_json_sources_into_data_structures(
                 r.replacements,
                 r.unmatched,
             )
+            if logger.isEnabledFor(logging.DEBUG) and _should_log_section(section.name):
+                status, disk_payload = disk_payload_cache.get(filename, (None, None))
+                if status is None:
+                    status, disk_payload = _read_json_payload_for_logging(filename)
+                    disk_payload_cache[filename] = (status, disk_payload)
+                disk_value = (
+                    _extract_path_from_mapping(disk_payload, jsonSourceKeys)
+                    if status == "ok"
+                    else status
+                )
+                debug_disk_values[(section.id, variant_id)] = (status, disk_value)
             if (section.id, variant_id) in section_variant_set:
                 sectionVariantsToUpdate[(section.id, variant_id)] = (
                     SectionVariantToUpdate(
@@ -185,8 +229,14 @@ def load_json_sources_into_data_structures(
                 codeObjsToDelete.update(currCodeObjsToDelete)
                 if logger.isEnabledFor(logging.DEBUG):
                     if _should_log_section(section.name):
+                        status, disk_value = debug_disk_values.get(
+                            (section.id, variant_id), ("n/a", "n/a")
+                        )
+                        processed_id = processed_snapshot_ids.get(
+                            (section.id, variant_id)
+                        )
                         logger.debug(
-                            "load_json_sources replacements section=%s variant=%s file=%s keys=%s deletes=%d replacements=%d unmatched=%d",
+                            "load_json_sources replacements section=%s variant=%s file=%s keys=%s deletes=%d replacements=%d unmatched=%d diskStatus=%s diskValue=%s cacheId=%s",
                             section.name,
                             variant.name,
                             filename,
@@ -194,6 +244,9 @@ def load_json_sources_into_data_structures(
                             len(currCodeObjsToDelete),
                             len(r.replacements),
                             len(r.unmatched),
+                            status,
+                            disk_value,
+                            processed_id,
                         )
 
     for jToR in replacements_and_unmatched.values():
@@ -207,12 +260,40 @@ def load_json_sources_into_data_structures(
         merge_into_existing(p, toUpdate, r.replacements, r.unmatched, codeObjsToDelete)
         if logger.isEnabledFor(logging.DEBUG):
             if _should_log_section(toUpdate.section.name):
+                top_level_ids = get_top_level_param_ids(p, toUpdate.impl)
+                if top_level_ids:
+                    hierarchy = traverse_hierarchy(
+                        p.codeObjs,
+                        p.codeObjImpls,
+                        p.codeObjVariants,
+                        toUpdate.impl.codeObjVariantMap,
+                        top_level_ids,
+                        options=TraversalOptions(
+                            build_nested_dict=True,
+                            name_path_prefix=tuple(toUpdate.impl.jsonSourceKeys),
+                        ),
+                    )
+                    in_memory_value = _extract_path_from_mapping(
+                        hierarchy.nested_dict, tuple(toUpdate.impl.jsonSourceKeys)
+                    )
+                else:
+                    in_memory_value = "<no-top-level-params>"
+                disk_status, disk_value = debug_disk_values.get(
+                    (toUpdate.section.id, toUpdate.variant.id), ("n/a", "n/a")
+                )
+                processed_id = processed_snapshot_ids.get(
+                    (toUpdate.section.id, toUpdate.variant.id)
+                )
                 logger.debug(
-                    "load_json_sources merge complete section=%s variant=%s replacements=%d unmatched=%d",
+                    "load_json_sources merge complete section=%s variant=%s replacements=%d unmatched=%d diskStatus=%s diskValue=%s cacheId=%s inMemory=%s",
                     toUpdate.section.name,
                     toUpdate.variant.name,
                     len(r.replacements),
                     len(r.unmatched),
+                    disk_status,
+                    disk_value,
+                    processed_id,
+                    in_memory_value,
                 )
 
 

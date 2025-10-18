@@ -1,10 +1,12 @@
 import asyncio
 import contextvars
 import copy
+import logging
+import os
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Coroutine, Iterable
+from typing import Any, Coroutine, Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -142,6 +144,8 @@ from setta.types.helpers_lvl2 import (
     unselect_all_params,
     update_param_impl_config,
 )
+from setta.types.helpers_lvl2 import get_top_level_param_ids
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
@@ -154,13 +158,44 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    CodeLanguage,
+    CodeSectionImpl,
+    SectionType,
+)
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
+
+_section_filter_env = os.getenv("SETTA_DEBUG_SECTION_FILTER", "")
+SECTION_FILTER = {
+    token.strip().casefold()
+    for token in _section_filter_env.split(",")
+    if token.strip()
+}
+
+
+def _should_log_section(section_name: str) -> bool:
+    if not SECTION_FILTER:
+        return True
+    return section_name.casefold() in SECTION_FILTER
+
+
+def _extract_json_path(payload: Any, keys: tuple[str, ...]):
+    current = payload
+    for key in keys:
+        if not isinstance(current, dict):
+            return "<non-dict>"
+        if key not in current:
+            return "<missing>"
+        current = current[key]
+    return current
 
 
 class BaseProjectManager(ABC):
@@ -1055,6 +1090,16 @@ class BaseProjectManager(ABC):
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
         self._mark_current_frontend_op_completed_before_broadcast()
+        if logger.isEnabledFor(logging.DEBUG):
+            snapshots = self._collect_json_source_snapshots(project_state)
+            logger.debug(
+                "broadcast_project_state project=%s(%s) completedOps=%d pendingOps=%d jsonSourceSnapshots=%s",
+                project_state.projectConfig.name,
+                project_state.projectConfig.id,
+                len(self.completed_op_ids_since_last_broadcast),
+                len(self.pending_frontend_ops),
+                snapshots,
+            )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
             self.completed_op_ids_since_last_broadcast,
@@ -1084,6 +1129,55 @@ class BaseProjectManager(ABC):
 
     def project_state_backend_getter_fn(self):
         return self.project_state_backend
+
+    def _collect_json_source_snapshots(
+        self, project_state: ProjectStateSingleConfig
+    ) -> list[dict[str, Any]]:
+        if not logger.isEnabledFor(logging.DEBUG):
+            return []
+
+        snapshots: list[dict[str, Any]] = []
+        for section in project_state.sections.values():
+            if not _should_log_section(section.name):
+                continue
+            for variant_id in section.variants:
+                variant = project_state.sectionVariants.get(variant_id)
+                if variant is None:
+                    continue
+                _, _, impl = get_variant_base_and_effective_section_impl(
+                    project_state, section, variant_id
+                )
+                if not isinstance(impl, BaseDictSectionImpl) or not impl.isJsonSource:
+                    continue
+                top_level_ids = get_top_level_param_ids(project_state, impl)
+                if not top_level_ids:
+                    in_memory_snapshot = "<no-top-level-params>"
+                else:
+                    hierarchy = traverse_hierarchy(
+                        project_state.codeObjs,
+                        project_state.codeObjImpls,
+                        project_state.codeObjVariants,
+                        impl.codeObjVariantMap,
+                        top_level_ids,
+                        options=TraversalOptions(
+                            build_nested_dict=True,
+                            name_path_prefix=tuple(impl.jsonSourceKeys),
+                        ),
+                    )
+                    in_memory_snapshot = _extract_json_path(
+                        hierarchy.nested_dict, tuple(impl.jsonSourceKeys)
+                    )
+                snapshots.append(
+                    {
+                        "section": section.name,
+                        "sectionId": section.id,
+                        "variant": variant.name,
+                        "variantId": variant_id,
+                        "jsonSourceKeys": list(impl.jsonSourceKeys),
+                        "inMemory": in_memory_snapshot,
+                    }
+                )
+        return snapshots
 
     def add_new_history_entry(self, trigger_autosave=True):
         self.history.add_current_copy()
