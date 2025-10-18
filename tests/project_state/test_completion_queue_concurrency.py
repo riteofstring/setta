@@ -3,6 +3,7 @@ import contextvars
 import unittest
 from asyncio import QueueEmpty
 from collections.abc import Coroutine
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 from setta.project_state.base_project_manager import BaseProjectManager
@@ -63,10 +64,29 @@ class QueueIntegrationManager:
     ):
         await self._process_queue_task_started.wait()
         future: asyncio.Future = asyncio.Future()
-        if frontend_op_id:
-            self.pending_frontend_ops[frontend_op_id] = None
+        self._register_pending_frontend_op(frontend_op_id)
         await self.message_queue.put((coroutine, future, frontend_op_id))
         return await future
+
+    def _register_pending_frontend_op(self, frontend_op_id: str | None):
+        if frontend_op_id:
+            self.pending_frontend_ops[frontend_op_id] = None
+
+    @asynccontextmanager
+    async def _track_frontend_op(self, frontend_op_id: str | None):
+        token = None
+        if frontend_op_id is not None:
+            token = self._current_frontend_op_id.set(frontend_op_id)
+        try:
+            yield
+        except Exception:
+            self._finalize_frontend_op(frontend_op_id, success=False)
+            raise
+        else:
+            self._finalize_frontend_op(frontend_op_id, success=True)
+        finally:
+            if token is not None:
+                self._current_frontend_op_id.reset(token)
 
     def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
         if not frontend_op_id:

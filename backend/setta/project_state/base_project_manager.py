@@ -3,6 +3,7 @@ import contextvars
 import copy
 import shutil
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from functools import wraps
 from pathlib import Path
 from typing import Coroutine, Iterable
@@ -224,13 +225,12 @@ class BaseProjectManager(ABC):
             # Get the next message handler and its arguments
             print("[DEBUG] Waiting for next message in queue...", flush=True)
             coroutine, future, frontend_op_id = await self.message_queue.get()
-            token = self._current_frontend_op_id.set(frontend_op_id)
             try:
                 # Execute the actual implementation
                 print(f"[DEBUG] Starting handler {coroutine.__name__}", flush=True)
-                result = await coroutine
+                async with self._track_frontend_op(frontend_op_id):
+                    result = await coroutine
                 print(f"[DEBUG] Completed handler {coroutine.__name__}", flush=True)
-                self._finalize_frontend_op(frontend_op_id, success=True)
                 # Set the result for the waiting call
                 print(
                     f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
@@ -240,13 +240,11 @@ class BaseProjectManager(ABC):
             except Exception as e:
                 # Propagate any exceptions back to the caller
                 print(f"[DEBUG] Error in handler {coroutine.__name__}: {e}", flush=True)
-                self._finalize_frontend_op(frontend_op_id, success=False)
                 future.set_exception(e)
             finally:
                 # Mark the task as done
                 print("[DEBUG] Marking queue task as done", flush=True)
                 self.message_queue.task_done()
-                self._current_frontend_op_id.reset(token)
 
     async def _enqueue(self, coroutine: Coroutine, frontend_op_id: str | None = None):
         """Enqueue a message for processing and wait for its completion"""
@@ -264,8 +262,7 @@ class BaseProjectManager(ABC):
 
         # Put the message in the queue
         print("[DEBUG] Putting message in queue", flush=True)
-        if frontend_op_id:
-            self.pending_frontend_ops[frontend_op_id] = None
+        self._register_pending_frontend_op(frontend_op_id)
         await self.message_queue.put((coroutine, future, frontend_op_id))
         print("[DEBUG] Message in queue, waiting for result", flush=True)
 
@@ -300,22 +297,9 @@ class BaseProjectManager(ABC):
                         frontend_op_id=frontend_op_id,
                     )
 
-                if frontend_op_id:
-                    self.pending_frontend_ops[frontend_op_id] = None
-
-                token = None
-                if frontend_op_id is not None:
-                    token = self._current_frontend_op_id.set(frontend_op_id)
-                try:
-                    result = await actual_func(self, *args, **kwargs)
-                    self._finalize_frontend_op(frontend_op_id, success=True)
-                    return result
-                except Exception:
-                    self._finalize_frontend_op(frontend_op_id, success=False)
-                    raise
-                finally:
-                    if token is not None:
-                        self._current_frontend_op_id.reset(token)
+                self._register_pending_frontend_op(frontend_op_id)
+                async with self._track_frontend_op(frontend_op_id):
+                    return await actual_func(self, *args, **kwargs)
 
             return wraps(actual_func)(wrapper)
 
@@ -343,6 +327,26 @@ class BaseProjectManager(ABC):
             self.pending_frontend_ops.pop(frontend_op_id, None)
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
+
+    def _register_pending_frontend_op(self, frontend_op_id: str | None):
+        if frontend_op_id:
+            self.pending_frontend_ops[frontend_op_id] = None
+
+    @asynccontextmanager
+    async def _track_frontend_op(self, frontend_op_id: str | None):
+        token = None
+        if frontend_op_id is not None:
+            token = self._current_frontend_op_id.set(frontend_op_id)
+        try:
+            yield
+        except Exception:
+            self._finalize_frontend_op(frontend_op_id, success=False)
+            raise
+        else:
+            self._finalize_frontend_op(frontend_op_id, success=True)
+        finally:
+            if token is not None:
+                self._current_frontend_op_id.reset(token)
 
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id

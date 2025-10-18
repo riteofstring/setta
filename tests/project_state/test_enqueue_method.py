@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import unittest
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 from setta.project_state.base_project_manager import BaseProjectManager
@@ -23,7 +24,9 @@ class DummyManager:
 
     async def _enqueue(self, coroutine, frontend_op_id=None):
         self._enqueue_calls += 1
-        return await coroutine
+        self._register_pending_frontend_op(frontend_op_id)
+        async with self._track_frontend_op(frontend_op_id):
+            return await coroutine
 
     def _finalize_frontend_op(self, frontend_op_id, success: bool):
         if not frontend_op_id:
@@ -31,6 +34,26 @@ class DummyManager:
         self.pending_frontend_ops.pop(frontend_op_id, None)
         if success:
             self._finalized.append(frontend_op_id)
+
+    def _register_pending_frontend_op(self, frontend_op_id: str | None):
+        if frontend_op_id:
+            self.pending_frontend_ops[frontend_op_id] = None
+
+    @asynccontextmanager
+    async def _track_frontend_op(self, frontend_op_id: str | None):
+        token = None
+        if frontend_op_id is not None:
+            token = self._current_frontend_op_id.set(frontend_op_id)
+        try:
+            yield
+        except Exception:
+            self._finalize_frontend_op(frontend_op_id, success=False)
+            raise
+        else:
+            self._finalize_frontend_op(frontend_op_id, success=True)
+        finally:
+            if token is not None:
+                self._current_frontend_op_id.reset(token)
 
     @BaseProjectManager.enqueue_method
     async def serialized(self, value):
