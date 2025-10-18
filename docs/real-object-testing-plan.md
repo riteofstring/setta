@@ -6,7 +6,7 @@ We want Python unit tests that currently rely on hand-rolled “fake” objects 
 
 ## Action Items
 
-1. **Introduce a shared async fixture**
+1. **Introduce a shared async fixture** — ✅ completed in `tests/utils/manager_fixture.py`
    - Spin up a real `SettingsProjectManager` wired together with real collaborators (`DBE`, `SettingsFile`, `Artifacts`, `JSONSource`, `WMHFrontendSender`) inside a `TemporaryDirectory`.
    - Start the language server within the fixture so the manager exercises the real writers, even if suite runtime increases a bit.
    - Patch `setta.utils.constants.C.CODE_FOLDER` to the temporary path.
