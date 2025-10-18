@@ -22,8 +22,15 @@ class LanguageServerWriter(LanguageServerInteractor):
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
-        self.server.stdin.write(header + request)
-        await self.server.stdin.drain()
+        try:
+            stdin = self.server.stdin
+        except ValueError:
+            logger.debug(
+                "Skipping %s; language server process is not ready", method
+            )
+            return
+        stdin.write(header + request)
+        await stdin.drain()
         logger.debug(f"Sent {method} with params: {params}")
 
     async def start(self):
