@@ -47,22 +47,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         self, filepath, code, diagnostics_callback=None
     ):
         uri = self.get_uri(filepath)
-        return await self._send_document_open_request(
-            uri=uri,
-            code=code,
-            diagnostics_callback=diagnostics_callback,
-        )
-
-    async def send_virtual_document_open_request(
-        self, uri: str, code: str, diagnostics_callback=None
-    ):
-        return await self._send_document_open_request(
-            uri=uri,
-            code=code,
-            diagnostics_callback=diagnostics_callback,
-        )
-
-    async def _send_document_open_request(self, uri, code, diagnostics_callback=None):
         if diagnostics_callback:
             self.add_diagnostics_response_callback(uri, diagnostics_callback)
         if uri not in self.latest_version_numbers:
@@ -80,17 +64,14 @@ class LanguageServerWriter(LanguageServerInteractor):
             await self.send_request("textDocument/didOpen", params=params)
         else:
             logger.debug(f"document already open, updating it {uri}")
-            await self._send_document_update(uri=uri, code=code)
+            await self.send_document_update(
+                filepath=filepath,
+                code=code,
+            )
         return uri
 
     async def send_document_update(self, filepath, code):
         uri = self.get_uri(filepath)
-        await self._send_document_update(uri=uri, code=code)
-
-    async def send_virtual_document_update(self, uri: str, code: str):
-        await self._send_document_update(uri=uri, code=code)
-
-    async def _send_document_update(self, uri, code):
         version = self.latest_version_numbers[uri] + 1
         self.latest_version_numbers[uri] = version
         params = {
@@ -104,16 +85,14 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_autocomplete_request(
         self,
-        *,
+        filepath,
         line,
         character,
         request_id,
-        filepath=None,
-        uri=None,
     ):
-        target_uri = self._resolve_uri(filepath=filepath, uri=uri)
+        uri = self.get_uri(filepath)
         params = {
-            "textDocument": {"uri": target_uri},
+            "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
         }
         await self.send_request(
@@ -122,18 +101,10 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_signature_help_request(
-        self,
-        *,
-        line,
-        character,
-        request_id,
-        filepath=None,
-        uri=None,
-    ):
-        target_uri = self._resolve_uri(filepath=filepath, uri=uri)
+    async def send_signature_help_request(self, filepath, line, character, request_id):
+        uri = self.get_uri(filepath)
         params = {
-            "textDocument": {"uri": target_uri},
+            "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
             "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
@@ -163,17 +134,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         asyncio.create_task(fn_call)
         return await self.wait_for_response(request_id)
 
-    def _resolve_uri(self, filepath=None, uri=None):
-        if uri is not None:
-            return uri
-        if filepath is not None:
-            return self.get_uri(filepath)
-        raise ValueError("Either filepath or uri must be provided")
-
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, filepath):
-        if isinstance(filepath, Path):
-            return filepath.absolute().as_uri()
-        if isinstance(filepath, str):
-            return filepath
-        raise TypeError("filepath must be a Path or string representing a URI")
+    def get_uri(self, filepath: Path):
+        return filepath.absolute().as_uri()

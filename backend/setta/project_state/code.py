@@ -72,20 +72,13 @@ class PythonCode(Code):
         self.lsp_writer = lsp_writers.full
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
-        self.virtual_uri: str | None = None
 
     async def update_file(self, code):
         super().update_file(code)
         await self.send_document_open_request(code)
 
     async def send_document_open_request(self, code):
-        if self.virtual_uri is not None:
-            self.uri = await self.lsp_writer.send_virtual_document_open_request(
-                uri=self.virtual_uri,
-                code=code,
-                diagnostics_callback=self.diagnostics_callback,
-            )
-        elif self.temp_file and self.temp_file.exists():
+        if self.temp_file and self.temp_file.exists():
             self.uri = await self.lsp_writer.send_document_open_request(
                 filepath=self.temp_file,
                 code=code,
@@ -95,19 +88,6 @@ class PythonCode(Code):
     def callback_cleanup(self):
         if self.diagnostics_callback and self.uri:
             self.lsp_writer.remove_diagnostics_response_callback(self.uri)
-
-    def configure_virtual_document(self, uri: str):
-        self.virtual_uri = uri
-
-    def uses_virtual_document(self) -> bool:
-        return self.virtual_uri is not None
-
-    def get_lsp_document_identifier(self):
-        if self.virtual_uri is not None:
-            return {"uri": self.virtual_uri}
-        if self.temp_file is not None:
-            return {"filepath": self.temp_file}
-        raise ValueError("No LSP document identifier is configured")
 
     @abstractmethod
     def get_base_filename(self):
