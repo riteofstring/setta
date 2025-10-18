@@ -20,6 +20,8 @@ from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
 from pydantic import TypeAdapter
 
+from setta.database.db.chats.load import load_uuid_mapping_for_llm
+from setta.database.db.chats.save import save_uuid_mapping_for_llm
 from setta.database.db_objs import DBE
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.mcp.utils import (
@@ -52,7 +54,8 @@ class SettaFastMCP(FastMCP):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
         self.state = state
-        self.id_to_uuid, self.uuid_to_id = dbe.read_uuid_mapping()
+        with dbe.session as db:
+            self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
         self.fn_param_docstrings = {}
         msg_path = f"{mount_path}/messages/"
         sse_transport = SseServerTransport(msg_path)
@@ -71,7 +74,7 @@ class SettaFastMCP(FastMCP):
         app.mount(msg_path, app=sse_transport.handle_post_message)
 
         self.add_setta_tools()
-        content = SettaNotification(message="MCP Server Ready")
+        content = SettaNotification(message="MCP Server Ready", temporary=True)
         asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
     def add_setta_tools(self):
@@ -109,8 +112,9 @@ class SettaFastMCP(FastMCP):
                 result = replace_uuids_with_ids(
                     result, self.uuid_to_id, self.id_to_uuid
                 )
-            self.state.dbe.write_uuid_mapping(self.uuid_to_id)
-            await self.state.wmh_frontend_sender.send_uuid_mapping(self.id_to_uuid)
+            with self.state.dbe.session as db:
+                save_uuid_mapping_for_llm(db, self.uuid_to_id)
+                await self.state.wmh_frontend_sender.send_uuid_mapping(self.id_to_uuid)
             return result
 
         return wrapper
@@ -213,7 +217,7 @@ class SettaToolManager(ToolManager):
         if existing:
             if self.warn_on_duplicate_tools:
                 logger.warning(f"Tool already exists: {tool.name}")
-            return cast("SettaTool", existing)
+            return cast(SettaTool, existing)
         self._tools[tool.name] = tool
         return tool
 

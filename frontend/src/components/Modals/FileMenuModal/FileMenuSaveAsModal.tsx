@@ -1,8 +1,5 @@
-import {
-  SaveLoadModal,
-  SaveLoadModalModeEnum,
-} from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { useModalData } from "state/actions/modal";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import _ from "lodash";
 import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
 import {
   saveAsExistingProjectConfig,
@@ -10,42 +7,40 @@ import {
   saveProject,
 } from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
-import { ModalTypeEnum } from "../types";
-import { useProjectMetadataForFileMenu } from "./utils";
+import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
+import { MODAL_TYPE } from "utils/constants";
 
-export function FileMenuSaveProjectConfigAsModal({ open }) {
-  const projectMetadata = useProjectMetadataForFileMenu(open);
+export function FileMenuSaveAsModal({ open, modalType }) {
+  const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
-  const { saveWithRefs } = useModalData(
-    ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
-  );
 
-  async function onClickSaveAsProject({
-    selected,
-    filename,
-  }: {
-    selected: string | null;
-    filename: string;
-  }) {
+  async function onClickSaveAsProject({ selected, filename }) {
     if (selected === useProjectState.getState().projectConfig.id) {
       saveProject();
     } else {
-      if (selected) {
-        await saveAsExistingProjectConfig(filename);
-      } else {
-        await saveAsNewProjectConfig(filename, saveWithRefs);
-      }
+      selected
+        ? await saveAsExistingProjectConfig({
+            configName: filename,
+          })
+        : await saveAsNewProjectConfig({
+            newConfigName: filename,
+            withRefs: _.isEqual(
+              modalType,
+              MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS,
+            ),
+          });
+
       navigateToAnotherConfig(filename);
     }
   }
 
   return (
     <SaveLoadModal
-      modalMode={SaveLoadModalModeEnum.save}
-      files={projectMetadata}
+      modalPurpose={modalType.purpose}
+      files={projectConfigs}
       onClickActionButton={onClickSaveAsProject}
-      title="Save Project Config As"
-      buttonText="Save As"
+      title={modalType.title}
+      buttonText={modalType.buttonText}
       placeholder="Project Config Name"
     />
   );

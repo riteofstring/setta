@@ -18,6 +18,7 @@ from setta.routers import (
     ai_router,
     artifact_router,
     code_info_router,
+    interactive_code_router,
     lsp_router,
     project_manager_router,
     projects_router,
@@ -28,17 +29,18 @@ from setta.routers import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
-from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.utils import get_absolute_path
+from setta.utils.constants import C
+from setta.utils.utils import get_absolute_path, is_dev_mode
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # startup
     app.state.setta = SettaFastAPIState(app)
 
-    if not IS_DEV_MODE:
+    if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
         frontend_folder = Path("static/frontend")
         dist_path = get_absolute_path(__file__, frontend_folder)
@@ -59,7 +61,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        # app.state.setta.project_manager.delete_temp_folder()
+        app.state.setta.project_manager.delete_temp_folder()
         app.state.setta.specific_file_watcher.stop()
         await app.state.setta.mcp_client.stop()
         await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
@@ -88,6 +90,7 @@ app.include_router(terminals_router, **kwargs)
 app.include_router(websocket_router, **kwargs)
 app.include_router(code_info_router, **kwargs)
 app.include_router(settings_router, **kwargs)
+app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 app.include_router(ai_router, **kwargs)

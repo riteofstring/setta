@@ -1,45 +1,27 @@
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import { useRef } from "react";
+import React, { useRef } from "react";
 import { HiCheckCircle } from "react-icons/hi";
 
-export function FileList({
-  files,
-  onClick,
-  onFileDoubleClick,
-  ref,
-}: {
-  files: Array<{ id: string; name: string }>;
-  onClick: (newValue: string | null) => void;
-  onFileDoubleClick: (newValue: string) => void;
-  ref: React.RefObject<HTMLDivElement>;
-}) {
-  return (
-    <div className="flex flex-grow flex-col" ref={ref}>
-      {files.map((x) => (
-        <File
-          id={x.id}
-          name={x.name}
-          onClick={onClick}
-          key={x.id}
-          onFileDoubleClick={onFileDoubleClick}
-        />
-      ))}
-    </div>
-  );
-}
+export const FileList = React.forwardRef(
+  ({ files, onClick, onFileDoubleClick }, ref) => {
+    return (
+      <div className="flex flex-grow flex-col" ref={ref}>
+        {files.map((x) => (
+          <File
+            id={x.id}
+            name={x.name}
+            onClick={onClick}
+            key={x.id}
+            onFileDoubleClick={onFileDoubleClick}
+          />
+        ))}
+      </div>
+    );
+  },
+);
 
-function File({
-  id,
-  name,
-  onClick,
-  onFileDoubleClick,
-}: {
-  id: string;
-  name: string;
-  onClick: (newValue: string | null) => void;
-  onFileDoubleClick: (newValue: string) => void;
-}) {
-  const itemRef = useRef<HTMLButtonElement>(null);
+function File({ id, name, onClick, onFileDoubleClick }) {
+  const itemRef = useRef(null);
 
   function _onClick(e) {
     // single click

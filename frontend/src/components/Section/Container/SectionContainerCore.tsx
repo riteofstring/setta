@@ -18,7 +18,7 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
-      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
+      isActiveSection: x.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
       // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,

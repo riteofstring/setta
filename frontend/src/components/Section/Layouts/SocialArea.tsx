@@ -3,7 +3,6 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { Tweet } from "react-tweet";
 import YouTube from "react-youtube";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useLocalStorage,
   useProjectState,
@@ -14,17 +13,9 @@ import {
   useYouTubeSectionSize,
 } from "state/hooks/sectionSizes";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _SocialArea({ sectionId }) {
-  const url = useProjectState((p) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      p,
-      sectionId,
-      SectionTypeEnum.Social,
-    );
-    return impl.url;
-  });
+  const url = useProjectState((x) => x.sections[sectionId].social);
 
   if (linkIsYouTube(url)) {
     return <YoutubeEmbed sectionId={sectionId} url={url} />;

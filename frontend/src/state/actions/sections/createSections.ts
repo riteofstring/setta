@@ -1,47 +1,61 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { useLocalStorage } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_create_top_level_section } from "utils/generatedEndpoints";
-import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSectionRefs,
+  ZustandProjectState,
+} from "state/definitions";
+import { BaseSectionImplUnion, Core } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
-import { getCurrProjectConfigId } from "../sectionInfos";
 
-async function addSectionInEmptySpace(
-  type: SectionType,
-  callback?: (x: string) => void,
-) {
-  const res = await route_create_top_level_section({
-    projectConfigId: getCurrProjectConfigId(),
-    implType: type,
-    implOverrides: {},
-    position: getEmptySpacePosition(),
+export type PartialImplWithType = Partial<BaseSectionImplUnion> &
+  Required<Pick<BaseSectionImplUnion, "type">>;
+
+type PartialCoreWithIdOrName = Partial<Pick<Core, "id" | "name">>;
+
+export function addRegularSectionInEmptySpace() {
+  let newId;
+  useProjectState.setState((state) => {
+    newId = addSectionInEmptySpace({
+      type: UITypeNameEnum.SECTION,
+      state,
+    });
   });
-
-  if (res200(res)) {
-    const newId = res.data;
-    callback?.(newId);
-  }
-}
-
-export function addCallableSectionInEmptySpace() {
-  addSectionInEmptySpace(SectionTypeEnum.Callable, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
-    focusOnSectionSearch(newId);
-  });
+  setActiveSectionIdAndUpdateZIndex(newId);
+  const unsub = useSectionRefs.subscribe(
+    (state) => state.selfOnly[newId],
+    (newSectionRef) => {
+      if (newSectionRef) {
+        focusOnSectionSearch(newId);
+      }
+      unsub();
+    },
+  );
 }
 
 export function addGroupInEmptySpace() {
-  addSectionInEmptySpace(SectionTypeEnum.Group, (newId) => {
-    setActiveSectionIdAndUpdateZIndex(newId);
+  let newId;
+  useProjectState.setState((state) => {
+    newId = addSectionInEmptySpace({
+      type: UITypeNameEnum.GROUP,
+      state,
+    });
   });
+  setActiveSectionIdAndUpdateZIndex(newId);
 }
 
 export function addTerminalInEmptySpace() {
-  addSectionInEmptySpace(SectionTypeEnum.Terminal);
+  useProjectState.setState((state) => {
+    addSectionInEmptySpace({ type: UITypeNameEnum.TERMINAL, state });
+  });
 }
 
-export function getEmptySpacePosition() {
+export function addSectionInEmptySpace(
+  sectionProps: PartialImplWithType,
+  state: ZustandProjectState,
+  coreProps?: PartialCoreWithIdOrName,
+) {
   const {
     transform: [_x, _y, zoom],
   } = useReactFlow.getState();
@@ -51,5 +65,23 @@ export function getEmptySpacePosition() {
   const y = -_y / zoom;
 
   const positionOffset = { x: 10, y: 10 };
-  return { x: x + positionOffset.x, y: y + positionOffset.y };
+  const position = { x: x + positionOffset.x, y: y + positionOffset.y };
+
+  return createSection(sectionProps, state, position, coreProps);
+}
+
+export function addSectionAtPosition({
+  type,
+  sectionProps = {},
+  sectionVariantProps = {},
+  position,
+  state,
+}) {
+  const [newId] = createSectionInfo({
+    sectionProps: { ...sectionProps, uiTypeId: BASE_UI_TYPE_IDS[type] },
+    sectionVariantProps,
+    position,
+    state,
+  });
+  return newId;
 }

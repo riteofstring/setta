@@ -2,6 +2,7 @@ from dotenv import dotenv_values, load_dotenv
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
+from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.file_watchers.utils import get_llm_api_keys_from_env_vars
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -116,12 +117,13 @@ async def route_set_llm_api_keys(
         load_dotenv(override=True)
 
         print("Successfully updated API keys in .env file", flush=True)
-        notification = SettaNotification(message="Saved LLM API keys")
+        notification = SettaNotification(message="Saved LLM API keys", temporary=True)
 
     except Exception:
         notification = SettaNotification(
             message="Error saving LLM API keys",
             type=SettaNotificationType.error,
+            temporary=True,
         )
 
     await state.wmh_frontend_sender.broadcast_notification(notification)
@@ -165,6 +167,7 @@ async def route_get_llm_chat(
                 projectConfigId=x.projectConfigId,
                 message="Chat not found!",
                 type=SettaNotificationType.error,
+                temporary=True,
             )
             background_tasks.add_task(
                 state.wmh_frontend_sender.broadcast_notification,
@@ -202,5 +205,6 @@ def merge_db_messages_with_current_stream(
 async def route_get_uuid_mapping_for_llm(
     state: AppStateFromRequest,
 ) -> IDToUUIDForLLM:
-    id_to_uuid, _ = state.dbe.read_uuid_mapping()
+    with state.dbe.session as db:
+        id_to_uuid, _ = load_uuid_mapping_for_llm(db)
     return id_to_uuid

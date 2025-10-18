@@ -5,11 +5,18 @@ import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaObjectGroup } from "react-icons/fa6";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
+import { updateArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
 import { useArtifacts, useProjectState } from "state/definitions";
+import {
+  getAllSectionArtifactIds,
+  getSectionArtifactGroupMetadata,
+} from "state/hooks/artifacts";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
+import { route_load_available_artifacts } from "utils/generatedEndpoints";
 import { ArtifactType, ArtifactTypeEnum } from "utils/generatedTypes";
+import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({
   sectionId,
@@ -296,7 +303,7 @@ function EditableArtifactName({ id, name }) {
     });
   }
 
-  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
+  const [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey] =
     useEditableOnSubmit(name, onTitleInputChange, () => true);
 
   // TODO: fix the border and margin on this. its hacky, and is probably overriding something else to achieve the underline during edit.

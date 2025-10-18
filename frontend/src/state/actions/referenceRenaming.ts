@@ -1,5 +1,6 @@
 import { useProjectState, useSettings } from "state/definitions";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
+import { openRenameReferencesModal } from "./modal";
 import { getSectionVariant } from "./sectionInfos";
 
 export function processRenameRefactorResults(changedValues) {

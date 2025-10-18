@@ -14,7 +14,6 @@ from anthropic.types import (
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
 
-from setta.database.utils import create_new_id
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
@@ -31,13 +30,13 @@ class ToolResult(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    id: str = Field(default_factory=create_new_id)
+    id: str
     role: ChatRole
     content: Sequence[ContentBlock | ToolResult]
 
 
 class ChatMetadata(BaseModel):
-    id: str = Field(default_factory=create_new_id)
+    id: str
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
 

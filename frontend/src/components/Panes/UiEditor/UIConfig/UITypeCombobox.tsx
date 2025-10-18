@@ -1,7 +1,3 @@
-import {
-  ComboboxItemArrayType,
-  OnSelectedItemChangeFnType,
-} from "components/Utils/Combobox/ComboboxStateReducer";
 import _ from "lodash";
 import {
   getCodeObjImpl,
@@ -9,18 +5,17 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
-import { IdNameCombobox } from "../../../Utils/Combobox/IdNameCombobox";
+import {
+  ComboboxOnSelectedItemChange,
+  IdNameArrayForCombobox,
+  IdNameCombobox,
+} from "../../../Utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({
   nonPresetImpls,
   presetImpls,
   onDropdownSelect,
   selectedBaseImplId,
-}: {
-  nonPresetImpls: ComboboxItemArrayType<string>;
-  presetImpls: ComboboxItemArrayType<string>;
-  onDropdownSelect: OnSelectedItemChangeFnType<string>;
-  selectedBaseImplId: string;
 }) {
   const allItems = [
     { group: "Base", items: nonPresetImpls },
@@ -47,8 +42,8 @@ export function ParamConfigUITypeCombobox({
   sectionId: string;
   paramInfoId: string;
   selectedBaseImplId: string;
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
-  onDropdownSelect: OnSelectedItemChangeFnType<string>;
+  presetCodeObjImpls: IdNameArrayForCombobox;
+  onDropdownSelect: ComboboxOnSelectedItemChange;
 }) {
   const nonPresetImpls = useNonPresetImplsForParam(sectionId, paramInfoId);
   return (
@@ -70,7 +65,7 @@ function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
       prevImpls[impl.type] = impl.id;
     }
 
-    const output: ComboboxItemArrayType<string> = [];
+    const output: IdNameArrayForCombobox = [];
     for (const c of BaseParamCodeObjImplTypeSet) {
       if (prevImpls[c]) {
         output.push({

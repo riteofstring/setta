@@ -38,29 +38,28 @@ import { useSettings } from "state/definitions";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import {
+  clearActiveSectionIds,
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
-import { copy, paste } from "./copyPaste";
+import { copy } from "./copyPaste/copy";
+import { paste } from "./copyPaste/paste";
 import { formatCode } from "./interactive";
+import { unselectAllParams } from "./kwargs";
 import { restartLanguageServer } from "./lsp";
-import {
-  openFileMenuLoadProjectConfigModal,
-  openFileMenuSaveProjectConfigAsModal,
-} from "./modal";
+import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
+import { deleteAllActiveSections } from "./sectionInfos";
 import {
-  deleteAllActiveSections,
-  groupActiveSections,
-  ungroupActiveGroups,
-  unselectAllParams,
-} from "./sectionInfos";
-import {
-  addCallableSectionInEmptySpace,
   addGroupInEmptySpace,
+  addRegularSectionInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
+import {
+  groupActiveSections,
+  ungroupActiveGroup,
+} from "./sections/groupSections";
 import {
   focusOnAdvancedSearch,
   focusOnCommandPalette,
@@ -427,7 +426,7 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [shortcuts.newCardShortcut, addCallableSectionInEmptySpace],
+    [shortcuts.newCardShortcut, addRegularSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
     addToShortcutsNeededForExtraProcessing(
@@ -470,10 +469,10 @@ export function attachKeyEventListeners() {
     [shortcuts.undoShortcut, undoProjectState, null, true],
     [shortcuts.redoShortcut, redoProjectState, null, true],
     [shortcuts.groupShortcut, groupActiveSections],
-    [shortcuts.ungroupShortcut, ungroupActiveGroups],
+    [shortcuts.ungroupShortcut, ungroupActiveGroup],
     [shortcuts.saveShortcut, saveProject],
-    [shortcuts.loadShortcut, openFileMenuLoadProjectConfigModal],
-    [shortcuts.saveAsShortcut, openFileMenuSaveProjectConfigAsModal],
+    [shortcuts.loadShortcut, openLoadModal],
+    [shortcuts.saveAsShortcut, openSaveAsModal],
     [shortcuts.searchShortcut, focusOnSearch],
     [shortcuts.advancedSearchShortcut, focusOnAdvancedSearch],
     [shortcuts.commandPaletteShortcut, focusOnCommandPalette],
@@ -656,10 +655,10 @@ function specialModTabCase(shortcutInfo) {
 }
 
 function onEscapeKey() {
-  unselectAllParams();
-  // if (!didUnselectSomeParams) {
-  //   clearActiveSectionIds();
-  // }
+  const didUnselectSomeParams = unselectAllParams();
+  if (!didUnselectSomeParams) {
+    clearActiveSectionIds();
+  }
   removeFrozenFloatingBox();
 }
 

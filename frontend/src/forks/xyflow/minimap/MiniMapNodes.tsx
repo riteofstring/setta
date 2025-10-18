@@ -39,7 +39,7 @@ function _MiniMapNodes({
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
-  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
+  const activeSectionIds = useProjectState((x) => x.activeIds);
 
   const shapeRendering =
     typeof window === "undefined" || !!window.chrome

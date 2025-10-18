@@ -6,10 +6,6 @@ from typing import Any, Callable, TypeVar, overload
 from pydantic import BaseModel
 
 from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
-    BaseCodeObjImpl,
-    BaseParamCodeObjImpl,
-    BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -22,6 +18,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant
 from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseArtifactSectionImplArgsWithCallable,
     BaseCanvasSectionImplArgsWithCallable,
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseCodeObjImplArgsWithCallable,
@@ -60,6 +57,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     TextParamCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.unions import (
+    BaseArtifactSectionImplUnion,
     BaseCanvasSectionImplUnion,
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
@@ -72,12 +70,6 @@ from setta.types.generated.unions import (
     BaseSectionWithParamsImplUnion,
 )
 from setta.types.section_impls import (
-    BaseCanvasSectionImpl,
-    BaseCodeSectionImpl,
-    BaseDictSectionImpl,
-    BaseParentSectionImpl,
-    BaseSectionImpl,
-    BaseSectionWithParamsImpl,
     BrowserSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
@@ -301,25 +293,11 @@ def set_effective_impl_value(
 ) -> BaseCanvasSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseCanvasSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCanvasSectionImplArgsWithCallable,
-) -> BaseCanvasSectionImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseCodeSectionImplUnion,
     core: Core,
     variant: Variant,
     args: BaseCodeSectionImplArgsWithCallable,
 ) -> BaseCodeSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCodeSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeSectionImplArgsWithCallable,
-) -> BaseCodeSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseDictSectionImplUnion,
@@ -329,13 +307,6 @@ def set_effective_impl_value(
 ) -> BaseDictSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseDictSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseDictSectionImplArgsWithCallable,
-) -> BaseDictSectionImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseParentCodeObjImplUnion,
     core: Core,
     variant: Variant,
@@ -343,11 +314,11 @@ def set_effective_impl_value(
 ) -> BaseParentCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseParentCodeObjImpl,
+    impl: BaseArtifactSectionImplUnion,
     core: Core,
     variant: Variant,
-    args: BaseParentCodeObjImplArgsWithCallable,
-) -> BaseParentCodeObjImpl: ...
+    args: BaseArtifactSectionImplArgsWithCallable,
+) -> BaseArtifactSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,
@@ -357,25 +328,11 @@ def set_effective_impl_value(
 ) -> BaseParentSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseParentSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParentSectionImplArgsWithCallable,
-) -> BaseParentSectionImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseSectionWithParamsImplUnion,
     core: Core,
     variant: Variant,
     args: BaseSectionWithParamsImplArgsWithCallable,
 ) -> BaseSectionWithParamsImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseSectionWithParamsImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseSectionWithParamsImplArgsWithCallable,
-) -> BaseSectionWithParamsImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseChildlessCodeObjImplUnion,
@@ -385,25 +342,11 @@ def set_effective_impl_value(
 ) -> BaseChildlessCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseChildlessCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseChildlessCodeObjImplArgsWithCallable,
-) -> BaseChildlessCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseParamCodeObjImplUnion,
     core: Core,
     variant: Variant,
     args: BaseParamCodeObjImplArgsWithCallable,
 ) -> BaseParamCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParamCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParamCodeObjImplArgsWithCallable,
-) -> BaseParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseCodeObjImplUnion,
@@ -413,26 +356,12 @@ def set_effective_impl_value(
 ) -> BaseCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCodeObjImplArgsWithCallable,
-) -> BaseCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseSectionImplUnion,
     core: Core,
     variant: Variant,
     args: BaseSectionImplArgsWithCallable,
 ) -> BaseSectionImplUnion: ...
-@overload
 def set_effective_impl_value(
-    impl: BaseSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseSectionImplArgsWithCallable,
-) -> BaseSectionImpl: ...
-def set_effective_impl_value(  # type: ignore
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
     variant: Variant,
@@ -452,13 +381,14 @@ def set_effective_impl_value(  # type: ignore
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     """
-    curr = get_effective_impl(impl, core, variant)
     for k, v in args.items():
-        currV = getattr(curr, k, None)
-        if k not in core.unsharedKeys:
-            core.sharedModifier[k] = v(currV) if callable(v) else v
-        elif not impl.isPreset:
-            setattr(impl, k, v(currV) if callable(v) else v)
+        if not impl.isPreset:
+            current = getattr(impl, k, None)
+            setattr(impl, k, v(current) if callable(v) else v)
+        elif k in core.unsharedKeys:
+            current = variant.modifier.get(k)
+            variant.modifier[k] = v(current) if callable(v) else v
         else:
-            variant.modifier[k] = v(currV) if callable(v) else v
+            current = core.sharedModifier.get(k)
+            core.sharedModifier[k] = v(current) if callable(v) else v
     return get_effective_impl(impl, core, variant)

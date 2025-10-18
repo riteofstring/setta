@@ -1,23 +1,21 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import {
-  getCurrEffectiveSectionImpl,
-  getSectionCore,
-} from "state/actions/sectionInfos";
+import React from "react";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import {
   BaseSectionImplUnion,
-  Core,
   isBaseParentSectionImpl,
+  SectionCore,
 } from "utils/generatedTypes";
 import { ProjectName } from "./ProjectName";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
-export function ProjectOverview() {
+export const ProjectOverview = React.forwardRef(() => {
   const sectionList = useOverviewListing();
   return <ProjectOverviewCore sectionList={sectionList} />;
-}
+});
 
 function ProjectOverviewCore({
   sectionList,
@@ -60,17 +58,18 @@ function ProjectOverviewCore({
 export function useOverviewListing() {
   return useProjectState((x) => {
     const outputList: Array<OverviewListingType> = [];
-    for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
-      const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
-      const sectionCore = getSectionCore(x, sectionId);
-      getDepthListingHelper(sectionCore, sectionImpl, 0, x, outputList);
+    for (const section of Object.values(x.sections)) {
+      const sectionImpl = getCurrEffectiveSectionImpl(x, section.id);
+      if (!sectionImpl.parentId) {
+        getDepthListingHelper(section, sectionImpl, 0, x, outputList);
+      }
     }
     return outputList;
   }, _.isEqual);
 }
 
 function getDepthListingHelper(
-  section: Core,
+  section: SectionCore,
   sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,

@@ -1,385 +1,151 @@
-import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useEffect, useMemo } from "react";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { useCallback } from "react";
+import { useDropzone } from "react-dropzone";
 import {
-  useBrushStrokes,
-  useChartData,
-  useDecodedImages,
-  useDrawAreaLayerItemTransform,
-  useImages,
-  useProjectState,
-  ZustandDecodedImages,
-  ZustandProjectState,
-} from "state/definitions";
-import { bumpRemoteRevisions } from "state/utils/revisions";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_load_cached_brush_strokes,
-  route_load_cached_chart_data,
-  route_load_cached_draw_area_layer_item_transform,
-  route_load_cached_image_artifacts,
-} from "utils/generatedEndpoints";
-import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+  addArtifactAndMaybeCreateNewArtifactGroup,
+  loadArtifacts,
+  prepareDataURLForRendering,
+} from "state/actions/artifacts";
+import { useArtifacts, useProjectState } from "state/definitions";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
-async function loadCachedImages(paths: Array<string>) {
-  if (paths.length === 0) {
-    return;
-  }
-  const res = await route_load_cached_image_artifacts({ paths });
-  if (res200(res)) {
-    useImages.setState((state) => {
-      const next = { ...state.x };
-      const changedIds: Array<string> = [];
-      for (const img of res.data) {
-        if (img) {
-          const existing = state.x[img.id];
-          if (!existing || !_.isEqual(existing, img)) {
-            next[img.id] = img;
-            changedIds.push(img.id);
-          }
-        }
+function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
+  const loadedArtifacts = useArtifacts((x) => {
+    const output = {};
+    for (const id of artifactIds) {
+      if (x.x[id]?.value) {
+        output[id] = attrPickerFn(x.x[id]);
       }
-      if (changedIds.length === 0) {
-        return state;
-      }
-      const revisions = bumpRemoteRevisions(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        changedIds,
-      );
-      return {
-        x: next,
-        ...revisions,
-      };
-    });
-  }
-}
-
-export function useImageArtifact(sectionId: string) {
-  const imagePath = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Image,
-    );
-    return impl.imagePath;
-  });
-
-  const imageArtifact = useImages((state) => state.x[imagePath]);
-
-  useEffect(() => {
-    if (!imageArtifact && imagePath) {
-      void loadCachedImages([imagePath]);
     }
-  }, [imageArtifact, imagePath]);
+    return output;
+  }, _.isEqual);
 
-  return imageArtifact;
-}
-
-async function loadCachedChartData(paths: Array<string>) {
-  if (paths.length === 0) {
-    return;
-  }
-  const res = await route_load_cached_chart_data({ paths });
-  if (res200(res)) {
-    useChartData.setState((state) => {
-      const next = { ...state.x };
-      const changedIds: Array<string> = [];
-      for (const artifact of res.data) {
-        if (artifact) {
-          const existing = state.x[artifact.id];
-          if (!existing || !_.isEqual(existing, artifact)) {
-            next[artifact.id] = artifact;
-            changedIds.push(artifact.id);
-          }
-        }
+  useDeepCompareEffect(() => {
+    const controller = new AbortController();
+    const notLoaded = [];
+    for (const id of artifactIds) {
+      if (!(id in loadedArtifacts)) {
+        notLoaded.push(id);
       }
-      if (changedIds.length === 0) {
-        return state;
-      }
-      const revisions = bumpRemoteRevisions(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        changedIds,
-      );
-      return {
-        x: next,
-        ...revisions,
-      };
-    });
-  }
-}
-
-export function useLoadedChartData(sectionId: string) {
-  const dataPath = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Chart,
-    );
-    return impl.dataPath;
-  });
-
-  const data = useChartData((state) => state.x[dataPath]);
-
-  useEffect(() => {
-    if (!data && dataPath) {
-      void loadCachedChartData([dataPath]);
     }
-  }, [data, dataPath]);
-
-  return data?.value ?? {};
-}
-
-async function loadCachedBrushStrokes(paths: Array<string>) {
-  if (paths.length === 0) {
-    return;
-  }
-  const res = await route_load_cached_brush_strokes({ paths });
-  if (res200(res)) {
-    useBrushStrokes.setState((state) => {
-      const next = { ...state.x };
-      const changedIds: Array<string> = [];
-      for (const artifact of res.data) {
-        if (artifact) {
-          const existing = state.x[artifact.id];
-          if (!existing || !_.isEqual(existing, artifact)) {
-            next[artifact.id] = artifact;
-            changedIds.push(artifact.id);
-          }
-        }
-      }
-      if (changedIds.length === 0) {
-        return state;
-      }
-      const revisions = bumpRemoteRevisions(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        changedIds,
-      );
-      return {
-        x: next,
-        ...revisions,
-      };
-    });
-  }
-}
-
-async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
-  if (paths.length === 0) {
-    return;
-  }
-  const res = await route_load_cached_draw_area_layer_item_transform({ paths });
-  if (res200(res)) {
-    useDrawAreaLayerItemTransform.setState((state) => {
-      const next = { ...state.x };
-      const changedIds: Array<string> = [];
-      for (const artifact of res.data) {
-        if (artifact) {
-          const existing = state.x[artifact.id];
-          if (!existing || !_.isEqual(existing, artifact)) {
-            next[artifact.id] = artifact;
-            changedIds.push(artifact.id);
-          }
-        }
-      }
-      if (changedIds.length === 0) {
-        return state;
-      }
-      const revisions = bumpRemoteRevisions(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        changedIds,
-      );
-      return {
-        x: next,
-        ...revisions,
-      };
-    });
-  }
-}
-
-export async function decodeExistingRawImages(needToDecode: Array<string>) {
-  if (needToDecode.length === 0) {
-    return;
-  }
-  const decoded: ZustandDecodedImages["x"] = {};
-  const rawImages = useImages.getState().x;
-  for (const path of needToDecode) {
-    const rawImage = rawImages[path];
-    if (rawImage) {
-      decoded[path] = await base64ToImageObj(rawImage.value);
+    if (notLoaded.length > 0) {
+      loadArtifacts(sectionId, notLoaded, controller.signal);
     }
-  }
-  const decodedIds = Object.keys(decoded);
-  if (decodedIds.length > 0) {
-    useDecodedImages.setState((state) => {
-      const revisions = bumpRemoteRevisions(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        decodedIds,
-      );
-      return {
-        x: { ...state.x, ...decoded },
-        ...revisions,
-      };
-    });
-  }
+
+    return () => {
+      controller.abort();
+    };
+  }, [artifactIds]);
+
+  return loadedArtifacts;
 }
 
-type DrawAreaArtifactRefs = {
-  imagePaths: Array<string>;
-  brushStrokeIds: Array<string>;
-  transformIds: Array<string>;
-};
+export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
+  const { artifactIds, activeLayer, allLayersMetadata, size, canvasSettings } =
+    useProjectState((state) => {
+      const artifactIds = getAllSectionArtifactIds(sectionId, state);
+      const canvasSettings = state.sections[sectionId].canvasSettings;
+      const activeLayer = state.artifactGroups[canvasSettings.activeLayerId];
+      const allLayersMetadata = getSectionArtifactGroupMetadata(
+        sectionId,
+        state,
+      );
 
-function collectDrawAreaArtifactRefs(
-  state: ZustandProjectState,
-  sectionId: string,
-): DrawAreaArtifactRefs {
-  const impl = getCurrEffectiveSectionImplOfType(
-    state,
-    sectionId,
-    SectionTypeEnum.Draw,
+      return {
+        activeLayer,
+        artifactIds,
+        allLayersMetadata,
+        size: state.sections[sectionId].size,
+        canvasSettings,
+      };
+    }, _.isEqual);
+
+  const loadedArtifacts = useLoadedArtifacts(sectionId, artifactIds, (a) =>
+    _.pick(a, ["type"]),
   );
 
-  const imagePaths = new Set<string>();
-  const brushStrokeIds = new Set<string>();
-  const transformIds = new Set<string>();
-
-  for (const layer of impl.layers) {
-    for (const element of layer.elements) {
-      transformIds.add(element.transformId);
-      if (element.type === ArtifactTypeEnum.Image) {
-        imagePaths.add(element.dataPath);
-      } else if (element.type === ArtifactTypeEnum.BrushStroke) {
-        brushStrokeIds.add(element.dataPath);
-      }
-    }
+  const loadedArtifactIdsWithDuplicates = [];
+  for (const x of allLayersMetadata) {
+    loadedArtifactIdsWithDuplicates.push(
+      ...x.artifactIdsUsed.filter((a) => a in loadedArtifacts),
+    );
+    delete x.artifactIdsUsed;
   }
 
   return {
-    imagePaths: Array.from(imagePaths),
-    brushStrokeIds: Array.from(brushStrokeIds),
-    transformIds: Array.from(transformIds),
+    activeLayer,
+    allLayersMetadata,
+    size,
+    canvasSettings,
+    loadedArtifacts,
+    loadedArtifactIdsWithDuplicates,
   };
 }
 
-function useDrawAreaElementRefs(sectionId: string) {
-  return useProjectState(
-    (state) => collectDrawAreaArtifactRefs(state, sectionId),
+export function useAllSectionArtifacts(sectionId, attrPickerFn) {
+  const artifactIds = useProjectState(
+    (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
   );
+
+  return useLoadedArtifacts(sectionId, artifactIds, attrPickerFn);
 }
 
-function buildRevisionStamp(ids: Array<string>, revisions: Array<number>) {
-  if (ids.length === 0 || revisions.length === 0) {
-    return "";
+export function getSectionArtifactGroupMetadata(sectionId, state) {
+  const { artifactGroupIds } = state.sections[sectionId];
+  const output = [];
+  for (const id of artifactGroupIds) {
+    const info = { id, ...state.artifactGroups[id] };
+    info.artifactIdsUsed = info.artifactTransforms.map((x) => x.artifactId);
+    delete info.artifactTransforms;
+    output.push(info);
   }
-  const pairs = ids.map((id, idx) => [id, revisions[idx] ?? 0] as const);
-  pairs.sort((a, b) => a[0].localeCompare(b[0]));
-  return pairs.map(([id, revision]) => `${id}:${revision}`).join("|");
+  return output;
 }
 
-export function useDrawAreaArtifactRevisionStamps(sectionId: string) {
-  const refs = useDrawAreaElementRefs(sectionId);
-
-  const imageRevisions = useImages(
-    (state) =>
-      refs.imagePaths.map((id) => {
-        const total = state.revisionById[id] ?? 0;
-        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
-        return total - local;
-      }),
-    _.isEqual,
-  );
-  const decodedRevisions = useDecodedImages(
-    (state) =>
-      refs.imagePaths.map((id) => {
-        const total = state.revisionById[id] ?? 0;
-        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
-        return total - local;
-      }),
-    _.isEqual,
-  );
-  const brushRevisions = useBrushStrokes(
-    (state) =>
-      refs.brushStrokeIds.map((id) => {
-        const total = state.revisionById[id] ?? 0;
-        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
-        return total - local;
-      }),
-    _.isEqual,
-  );
-  const transformRevisions = useDrawAreaLayerItemTransform(
-    (state) =>
-      refs.transformIds.map((id) => {
-        const total = state.revisionById[id] ?? 0;
-        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
-        return total - local;
-      }),
-    _.isEqual,
-  );
-
-  const images = useMemo(
-    () => buildRevisionStamp(refs.imagePaths, imageRevisions),
-    [refs.imagePaths, imageRevisions],
-  );
-  const decodedImages = useMemo(
-    () => buildRevisionStamp(refs.imagePaths, decodedRevisions),
-    [refs.imagePaths, decodedRevisions],
-  );
-  const brushStrokes = useMemo(
-    () => buildRevisionStamp(refs.brushStrokeIds, brushRevisions),
-    [refs.brushStrokeIds, brushRevisions],
-  );
-  const transforms = useMemo(
-    () => buildRevisionStamp(refs.transformIds, transformRevisions),
-    [refs.transformIds, transformRevisions],
-  );
-
-  return { images, decodedImages, brushStrokes, transforms };
-}
-
-export function useDrawAreaArtifactLoader(sectionId: string) {
-  const refs = useDrawAreaElementRefs(sectionId);
-
-  useEffect(() => {
-    if (sectionId === "") {
-      return;
+export function getAllSectionArtifactIds(sectionId, state) {
+  const artifactIds = new Set();
+  for (const artifactGroupId of state.sections[sectionId].artifactGroupIds) {
+    for (const t of state.artifactGroups[artifactGroupId].artifactTransforms) {
+      artifactIds.add(t.artifactId);
     }
+  }
+  return artifactIds;
+}
 
-    const { imagePaths, brushStrokeIds, transformIds } = refs;
+export function useLoadArtifactViaDropzone(
+  sectionId,
+  createNewArtifactGroup,
+  artifactType,
+) {
+  const onDrop = useCallback(
+    (acceptedFiles) => {
+      acceptedFiles.forEach((file) => {
+        const reader = new FileReader();
 
-    const imagesState = useImages.getState();
-    const decodedState = useDecodedImages.getState();
-    const brushState = useBrushStrokes.getState();
-    const transformState = useDrawAreaLayerItemTransform.getState();
-    const missingImages = imagePaths.filter((path) => !imagesState.x[path]);
-    const missingBrushStrokes = brushStrokeIds.filter(
-      (id) => !brushState.x[id],
-    );
-    const missingTransforms = transformIds.filter(
-      (id) => !transformState.x[id],
-    );
-    const pendingDecode = imagePaths.filter(
-      (path) => imagesState.x[path] && !decodedState.x[path],
-    );
+        reader.onload = async () => {
+          const value = await prepareDataURLForRendering(
+            artifactType,
+            reader.result,
+          );
+          await addArtifactAndMaybeCreateNewArtifactGroup({
+            sectionId,
+            createNewArtifactGroup,
+            value,
+            artifactType,
+          });
+        };
 
-    void loadCachedImages(missingImages);
-    void loadCachedBrushStrokes(missingBrushStrokes);
-    void loadCachedDrawAreaLayerItemTransforms(missingTransforms);
-    void decodeExistingRawImages(pendingDecode);
-  }, [sectionId, refs]);
+        reader.onerror = (error) => {
+          console.error("Error reading file:", error);
+        };
+
+        // Read the file as a Data URL (base64)
+        reader.readAsDataURL(file);
+      });
+    },
+    [sectionId, createNewArtifactGroup],
+  );
+
+  return useDropzone({ onDrop });
 }

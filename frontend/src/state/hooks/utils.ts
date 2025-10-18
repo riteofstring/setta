@@ -34,10 +34,7 @@ export function useMatchSorterFilterWithDelay<T>(
 export function useWindowSize() {
   // Initialize state with undefined width/height so server and client renders match
   // Learn more here: https://joshwcomeau.com/react/the-perils-of-rehydration/
-  const [windowSize, setWindowSize] = useState<{
-    winWidth: number | undefined;
-    winHeight: number | undefined;
-  }>({
+  const [windowSize, setWindowSize] = useState({
     winWidth: undefined,
     winHeight: undefined,
   });
@@ -79,21 +76,4 @@ export function useFileExists(delay) {
   );
 
   return { fileExists, debouncedCheckIfFileExists };
-}
-
-export function useLocalPendingValue<T>(
-  globalValue: T,
-  callbackOnGlobalUpdate?: (x: T) => void,
-) {
-  const [pendingValue, setPendingValue] = useState<T | null>(null);
-
-  useEffect(() => {
-    if (!pendingValue || pendingValue === globalValue) {
-      setPendingValue(null);
-      return;
-    }
-    callbackOnGlobalUpdate?.(pendingValue);
-  }, [globalValue]);
-
-  return [pendingValue ?? globalValue, setPendingValue] as const;
 }

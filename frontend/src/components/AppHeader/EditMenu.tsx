@@ -8,8 +8,8 @@ import { Link } from "react-router-dom";
 import { restartLanguageServer } from "state/actions/lsp";
 import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
-  addCallableSectionInEmptySpace,
   addGroupInEmptySpace,
+  addRegularSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
@@ -44,7 +44,7 @@ function Items() {
   return (
     <>
       <MenuItem
-        onClick={addCallableSectionInEmptySpace}
+        onClick={addRegularSectionInEmptySpace}
         shortcut={shortcuts.newCardShortcut}
       >
         <HiPlus className="h-4 w-4" /> Card

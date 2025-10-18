@@ -5,11 +5,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { useColumnResizer } from "state/actions/sectionColumnWidth";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
-  setCurrEffectiveSectionImplValue,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
+import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
 import {
   INFINITE_MAX_HEIGHT,
   PINNED_PARAMS_AREA_MIN_HEIGHT,
@@ -71,8 +71,9 @@ function GetPinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
 }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) =>
-    getCurrShownParamIds(x, sectionId, true, true),
+  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+    sectionId,
+    true,
   );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
@@ -120,13 +121,9 @@ function ResizablePinnedArea({
       sizeMode: { height: SIZE_MODE.any },
     });
     useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-        state,
-        sectionId,
-        {
-          pinnedAreaHeight: height,
-        },
-      );
+      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
+        pinnedAreaHeight: height,
+      });
     });
   }
 
@@ -226,8 +223,9 @@ function GetUnpinnedParamsCore({
   onResizeStart,
   setMaxNestedDepth,
 }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) =>
-    getCurrShownParamIds(x, sectionId, false, true),
+  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+    sectionId,
+    false,
   );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);

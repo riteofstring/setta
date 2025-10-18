@@ -9,22 +9,11 @@ export function StandardPopover({
   closeClasses,
   onOpenChange,
   arrowClasses,
-}: {
-  trigger: React.ReactElement;
-  contentClasses?: string;
-  children?: React.ReactNode;
-  close?: boolean;
-  closeClasses?: string;
-  arrowClasses?: string;
-} & (
-  | { open?: undefined; onOpenChange?: undefined }
-  | { open: boolean; onOpenChange: (newOpen: boolean) => void }
-)) {
+}) {
   // TODO: show a close button if closeButton is true
 
-  const rootProps: Popover.PopoverProps = open ? { open, onOpenChange } : {};
   return (
-    <Popover.Root {...rootProps}>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
 
       <Popover.Portal>

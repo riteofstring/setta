@@ -1,4 +1,3 @@
-import { ModalInfoType } from "components/Modals/types";
 import { Node } from "forks/xyflow/core/types";
 import {
   CLOSED_PANE_WIDTH,
@@ -11,17 +10,13 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
-  AllProjectMetadata,
   APIKeys,
-  BrushStrokeMapping,
-  ChartDataMapping,
+  BaseSectionImplUnion,
   ChatMetadata,
   createProjectConfig,
-  createSingletonSections,
-  DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
-  ImageMapping,
   ProjectStateSingleConfig,
+  SectionTypeEnum,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -71,8 +66,23 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = ProjectStateSingleConfig & {
-  previewSectionVariantMap: Record<string, string>;
+export type ZustandSingletonSections = {
+  [SectionTypeEnum.GlobalVariables]: string | null;
+  [SectionTypeEnum.GenPythonCode]: string | null;
+  temporaryTerminalGroup: string | null;
+};
+
+export type ZustandProjectState = {
+  projectConfig: ProjectStateSingleConfig["projectConfig"];
+  sections: ProjectStateSingleConfig["sections"];
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: ProjectStateSingleConfig["sectionVariants"];
+  codeObjs: ProjectStateSingleConfig["codeObjs"];
+  codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
+  codeObjVariants: ProjectStateSingleConfig["codeObjVariants"];
+  activeIds: Array<string>;
+  singletonSections: ZustandSingletonSections;
+  modCount: number;
 };
 
 export const NULL_PROJECT_CONFIG_ID = "null";
@@ -90,38 +100,17 @@ export const useProjectState = withProjectState(
           codeObjImpls: {},
           codeObjVariants: {},
           artifactGroups: {},
-          singletonSections: createSingletonSections(),
-          parentSectionMap: {},
-          yamlValues: {},
-          shownParamIds: {},
-          previewSectionVariantMap: {},
-          requiredDecodedImages: [],
+          singletonSections: {
+            [SectionTypeEnum.GlobalVariables]: null,
+            [SectionTypeEnum.GenPythonCode]: null,
+            temporaryTerminalGroup: null,
+          },
+          requestRenameRefactor: false,
+          activeIds: [],
+          modCount: 0,
         })),
       ),
     ),
-  ),
-);
-
-export const useAllProjectMetadata = createWithEqualityFn(
-  withResetFn<AllProjectMetadata>(() => ({
-    defaultProjectConfigId: null,
-    projectMetadata: [],
-  })),
-);
-
-export type PendingOperation = {
-  opId: string;
-  apply: (x: ZustandProjectState) => void;
-  acknowledged: boolean;
-};
-
-type ZustandPendingOperations = {
-  pending: Array<PendingOperation>;
-};
-
-export const usePendingOperations = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandPendingOperations>(() => ({ pending: [] })),
   ),
 );
 
@@ -150,13 +139,12 @@ export const useWaitingForLSPResult = withProjectState(
   ),
 );
 
-type ZustandModalState = { open: boolean; modalInfo: ModalInfoType | null };
-
 export const useModal = withProjectState(
   createWithEqualityFn(
-    withResetFn<ZustandModalState>(() => ({
+    withResetFn(() => ({
       open: false,
-      modalInfo: null,
+      modalType: null,
+      modalData: null,
     })),
   ),
 );
@@ -190,25 +178,15 @@ export const useInteractiveDependencies = withProjectState(
 );
 
 export type ZustandProjectSearch = {
-  codeInfo: Array<{
-    sectionId: string;
-    paramInfoId: string;
-    name: string;
-  }>;
-  focused: {
-    sectionId: string;
-    paramInfoId: string;
-    name: string;
-  } | null;
-  lookup: Set<string>;
   mode: ProjectSearchMode;
 };
 
 export const useProjectSearch = withProjectState(
   createWithEqualityFn(
     withResetFn<ZustandProjectSearch>(() => ({
+      sections: [],
       codeInfo: [],
-      focused: null,
+      focused: {},
       lookup: new Set(),
       mode: ProjectSearchModeEnum.find,
     })),
@@ -268,7 +246,6 @@ export const useMisc = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
       withResetFn(() => ({
-        isPanScrolling: false,
         lastMouseDownLocation: null,
         lastMouseUpLocation: null,
         mouseDownDrawArea: false,
@@ -281,9 +258,15 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
+        chartDisplayedSeriesNames: {}, //sectionId to series names
       })),
     ),
   ),
+);
+
+// maps from variantId to yaml
+export const useYamlValue = withProjectState(
+  createWithEqualityFn(withResetFn(() => {})),
 );
 
 // maps from variantId to yaml metadata
@@ -316,7 +299,7 @@ export type ZustandAIStore = {
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
-  // @ts-expect-error Zustand's persist function doesn't work well with types
+  // @ts-ignore
   subscribeWithSelector(
     persist(
       () => ({
@@ -382,71 +365,5 @@ export const useLocalStorage = createWithEqualityFn(
     {
       name: "setta_data", // Same prefix as in your custom implementation
     },
-  ),
-);
-
-export type RevisionedArtifacts<T> = {
-  x: T;
-  revisionById: Record<string, number>;
-  localRevisionById: Record<string, Record<string, number>>;
-};
-
-export type ZustandImages = RevisionedArtifacts<ImageMapping>;
-
-export const useImages = createWithEqualityFn(
-  subscribeWithSelector(
-    withResetFn<ZustandImages>(() => ({
-      x: {},
-      revisionById: {},
-      localRevisionById: {},
-    })),
-  ),
-);
-
-type ZustandChartData = RevisionedArtifacts<ChartDataMapping>;
-
-export const useChartData = createWithEqualityFn(
-  withResetFn<ZustandChartData>(() => ({
-    x: {},
-    revisionById: {},
-    localRevisionById: {},
-  })),
-);
-
-export type ZustandDecodedImages = RevisionedArtifacts<
-  Record<string, HTMLImageElement>
->;
-
-export const useDecodedImages = createWithEqualityFn(
-  withResetFn<ZustandDecodedImages>(() => ({
-    x: {},
-    revisionById: {},
-    localRevisionById: {},
-  })),
-);
-
-type ZustandBrushStrokes = RevisionedArtifacts<BrushStrokeMapping>;
-
-export const useBrushStrokes = createWithEqualityFn(
-  withResetFn<ZustandBrushStrokes>(() => ({
-    x: {},
-    revisionById: {},
-    localRevisionById: {},
-  })),
-);
-
-type ZustandDrawAreaLayerItemTransform = {
-  x: DrawAreaLayerItemTransformMapping;
-  revisionById: Record<string, number>;
-  localRevisionById: Record<string, Record<string, number>>;
-};
-
-export const useDrawAreaLayerItemTransform = createWithEqualityFn(
-  immer(
-    withResetFn<ZustandDrawAreaLayerItemTransform>(() => ({
-      x: {},
-      revisionById: {},
-      localRevisionById: {},
-    })),
   ),
 );

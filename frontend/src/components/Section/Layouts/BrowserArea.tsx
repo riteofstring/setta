@@ -2,7 +2,6 @@ import { ResizeHandle } from "components/Params/ResizeHandle";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
 import { FiFileText } from "react-icons/fi";
@@ -10,28 +9,10 @@ import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
-} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
-import { useLocalPendingValue } from "state/hooks/utils";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_get_folder_contents,
-  route_set_browser_area_view_mode,
-} from "utils/generatedEndpoints";
-import {
-  BrowserAreaItem,
-  BrowserAreaViewMode,
-  BrowserAreaViewModeEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { testItems } from "./BrowserArea/testitems";
 
 const artifactTypes = [
   // { type: "Select All" },
@@ -43,33 +24,22 @@ const artifactTypes = [
   { type: "Other", icon: <MdCategory /> },
 ];
 
-export function BrowserArea({ sectionId }: { sectionId: string }) {
-  const { width, hideColumn, viewMode, folder } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Browser,
-    );
-    return {
-      width:
-        impl.size.width === "auto"
-          ? getSectionRect(sectionId)?.width
-          : impl.size.width,
-      hideColumn: impl.hideColumn,
-      viewMode: impl.viewMode,
-      folder: impl.folder,
-    };
-  }, _.isEqual);
+export function BrowserArea({ sectionId }) {
+  const width = useProjectState((x) => {
+    const w = x.sections[sectionId].size.width;
+    return w === "auto" ? getSectionRect(sectionId)?.width : w;
+  });
+  const hideColumn = useProjectState((x) => x.sections[sectionId].hideColumn);
 
   return (
     <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
       {!hideColumn && <TypesColumn width={width} />}
-      <ItemsColumn sectionId={sectionId} viewMode={viewMode} folder={folder} />
+      <ItemsColumn sectionId={sectionId} />
     </div>
   );
 }
 
-function TypesColumn({ width }: { width: number }) {
+function TypesColumn({ width }) {
   const { ref, isScrollable } = useIsScrollable();
   return (
     <>
@@ -97,17 +67,7 @@ function TypesColumn({ width }: { width: number }) {
   );
 }
 
-function ViewSelectorButton({
-  view,
-  setView,
-  viewType,
-  children,
-}: {
-  view: BrowserAreaViewMode;
-  setView: (newView: BrowserAreaViewMode) => void;
-  viewType: BrowserAreaViewMode;
-  children: React.ReactNode;
-}) {
+function ViewSelectorButton({ view, setView, viewType, children }) {
   return (
     <button
       onClick={() => {
@@ -120,13 +80,7 @@ function ViewSelectorButton({
   );
 }
 
-function ViewSelector({
-  view,
-  setView,
-}: {
-  view: BrowserAreaViewMode;
-  setView: (newView: BrowserAreaViewMode) => void;
-}) {
+function ViewSelector({ view, setView }) {
   return (
     <div className="flex gap-0.5">
       <ViewSelectorButton view={view} setView={setView} viewType="list">
@@ -142,15 +96,7 @@ function ViewSelector({
   );
 }
 
-function ThumbnailItem({
-  size = "96px",
-  thumbnail,
-  children,
-}: {
-  size: string;
-  thumbnail: string;
-  children: React.ReactNode;
-}) {
+function ThumbnailItem({ size = "96px", thumbnail, children }) {
   console.log("thumbnail: ", thumbnail);
   return (
     <div
@@ -187,7 +133,7 @@ function ThumbnailItem({
   );
 }
 
-function ResizableFileList({ items, sectionId }) {
+function ResizableFileList({ items, sectionId, children }) {
   const { headerRef, contentRef, handleResize, getRowProps } =
     useResizableColumn(sectionId, {
       minWidth: 80,
@@ -248,12 +194,13 @@ function ResizableFileList({ items, sectionId }) {
             </p>
           </div>
         ))}
+        {children}
       </div>
     </div>
   );
 }
 
-function EnhancedCarouselView({ items }) {
+function EnhancedCarouselView({ items, children }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Find items with images for initial selection
@@ -313,6 +260,7 @@ function EnhancedCarouselView({ items }) {
           />
         ))}
       </article>
+      {children}
     </div>
   );
 }
@@ -359,84 +307,47 @@ function EnhancedThumbnailItem({ item, isSelected, onClick }) {
   );
 }
 
-function ViewSwitch({
-  view,
-  sectionId,
-  items,
-}: {
-  view: BrowserAreaViewMode;
-  sectionId: string;
-  items: Array<BrowserAreaItem>;
-}) {
+function ViewSwitch({ view, children, sectionId }) {
   const { ref, isScrollable } = useIsScrollable();
   switch (view) {
-    case BrowserAreaViewModeEnum.list:
-      return <ResizableFileList items={items} sectionId={sectionId} />;
+    case "list":
+      return (
+        <ResizableFileList items={testItems} sectionId={sectionId}>
+          {children}
+        </ResizableFileList>
+      );
 
-    case BrowserAreaViewModeEnum.thumbnail:
+    case "thumbnail":
       return (
         <div
           ref={ref}
           className={`nodrag h-full w-full overflow-y-auto overflow-x-hidden ${isScrollable ? "nowheel" : ""}`}
         >
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
-            {items.map((x) => (
+            {testItems.map((x) => (
               <ThumbnailItem key={x.id} thumbnail={x.content?.thumbnail}>
                 {x.id}
               </ThumbnailItem>
             ))}
+            {children}
           </div>
         </div>
       );
 
-    case BrowserAreaViewModeEnum.carousel:
-      return <EnhancedCarouselView items={items} />;
+    case "carousel":
+      return (
+        <EnhancedCarouselView items={testItems}>
+          {children}
+        </EnhancedCarouselView>
+      );
 
     default:
-      return view satisfies never;
+      return <>{children}</>;
   }
 }
 
-function ItemsColumn({
-  sectionId,
-  viewMode,
-  folder,
-}: {
-  sectionId: string;
-  viewMode: BrowserAreaViewMode;
-  folder: string;
-}) {
-  const [value, setValue] = useLocalPendingValue(viewMode);
-  const [items, setItems] = useState<Array<BrowserAreaItem>>([]);
-
-  function setView(newView: BrowserAreaViewMode) {
-    setValue(newView);
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveSectionImplValue<"BrowserSection">(state, sectionId, {
-          viewMode: newView,
-        });
-      },
-      send: (frontendOpId) =>
-        route_set_browser_area_view_mode({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          viewMode: newView,
-          frontendOpId,
-        }),
-    });
-  }
-
-  async function setFolder(newFolder: string) {
-    const res = await route_get_folder_contents({ folderPath: newFolder });
-    if (res200(res)) {
-      console.log("res", res.data);
-      setItems(
-        res.data.map((d) => ({ id: d.name, type: d.type, lastModified: "" })),
-      );
-    }
-  }
-
+function ItemsColumn({ sectionId }) {
+  const [view, setView] = useState("list");
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
       <div className="-mt-[4.5px] mb-1 flex flex-row">
@@ -444,12 +355,11 @@ function ItemsColumn({
           <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
             Artifacts
           </div>
-          {/* <FilterSection /> */}
-          <FolderPath folder={folder} setFolder={setFolder} />
+          <FilterSection />
         </div>
-        <ViewSelector view={value} setView={setView} />
+        <ViewSelector view={view} setView={setView} />
       </div>
-      <ViewSwitch view={value} sectionId={sectionId} items={items} />
+      <ViewSwitch view={view} sectionId={sectionId} />
     </div>
   );
 }
@@ -458,7 +368,7 @@ function ResizableColumn({
   width,
   minContainerWidth = 384,
   children,
-  minWidth = 0,
+  minWidth = 100,
   maxWidth = "70%",
   enable = { right: true },
   className = "nodrag relative flex flex-col pr-1",
@@ -531,38 +441,5 @@ function FilterSection() {
       inputStyles={inputStyles}
       outerClasses="flex-1"
     />
-  );
-}
-
-function FolderPath({
-  folder,
-  setFolder,
-}: {
-  folder: string;
-  setFolder: (newFolder: string) => void;
-}) {
-  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
-    folder,
-    setFolder,
-    () => true,
-  );
-
-  const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
-
-  return (
-    <search
-      className={
-        "nodrag relative mx-[2px] flex min-w-0 flex-1 items-center dark:text-setta-200"
-      }
-    >
-      <input
-        className={inputStyles}
-        value={inputValue}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        onBlur={onBlur}
-      />
-    </search>
   );
 }

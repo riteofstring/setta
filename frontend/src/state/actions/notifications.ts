@@ -1,12 +1,10 @@
-import { useNotifications } from "state/definitions";
+import { useNotifications, useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import {
   createSettaNotification,
   SettaNotification,
-  SettaNotificationType,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
-import { getCurrProjectConfigId } from "./sectionInfos";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
 
@@ -46,7 +44,8 @@ export function addNotificationFromWebsocketMsg(
 ) {
   if (
     !notification ||
-    (notification.projectConfigId !== getCurrProjectConfigId() &&
+    (notification.projectConfigId !==
+      useProjectState.getState().projectConfig.id &&
       notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
   ) {
     return;
@@ -59,10 +58,10 @@ export function addNotificationFromWebsocketMsg(
 
 export const addTemporaryNotification = (
   message: string,
-  type: SettaNotificationType = SettaNotificationTypeEnum.info,
+  type: SettaNotificationTypeEnum = SettaNotificationTypeEnum.info,
 ) => {
   const notification = createSettaNotification({
-    projectConfigId: getCurrProjectConfigId(),
+    projectConfigId: useProjectState.getState().projectConfig.id,
     timestamp: new Date().toISOString(),
     type,
     message,

@@ -1,10 +1,6 @@
-import { ObjectValues } from "utils/generatedTypes";
-
-export const BehaviorDropTypeEnum = {
+export const BehaviorDropType = {
   INVALID: "INVALID",
-} as const;
-
-export type BehaviorDropType = ObjectValues<typeof BehaviorDropTypeEnum>;
+};
 
 export const behaviorToPretty = {
   INVALID: "Invalid",

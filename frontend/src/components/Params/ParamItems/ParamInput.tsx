@@ -1,51 +1,38 @@
 import _ from "lodash";
-import React from "react";
+import { useEffect, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplWithTypeGuard,
-  getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValue,
+  setEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useLocalPendingValue } from "state/hooks/utils";
-import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const globalValue = useProjectState((x) => {
+export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
+  const enteredValue = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
-      true, // preview
     );
     return impl.value;
   });
-
-  const [value, setPendingValue] = useLocalPendingValue(
-    globalValue,
-    (pendingValue) => {
-      useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
-          state,
-          sectionId,
-          paramInfoId,
-          {
-            value: pendingValue,
-          },
-        );
-      });
-    },
-  );
+  const [value, setValue] = useState(enteredValue);
 
   // value and enteredValue should always be string
   function onChange(v) {
     const vStr = _.toString(v);
-    setPendingValue(vStr);
+    setValue(vStr);
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
   }
+
+  useEffect(() => {
+    if (value !== enteredValue) {
+      setValue(enteredValue);
+    }
+  }, [enteredValue]);
 
   return (
     <ParamUI
@@ -59,29 +46,16 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 }
 
 const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
-          state,
-          sectionId,
-          paramInfoId,
-          {
-            value,
-          },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_param_entered_value({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          value,
-          frontendOpId,
-        }),
+  (sectionId, paramInfoId, vStr) => {
+    useProjectState.setState((state) => {
+      setEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        state,
+        sectionId,
+        paramInfoId,
+        { value: vStr },
+      );
     });
+    updateBackendProjectState();
   },
   50,
 );
-
-export const ParamInput = React.memo(_ParamInput);

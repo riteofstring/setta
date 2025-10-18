@@ -1,3 +1,4 @@
+import { Badge } from "components/Utils/atoms/badges/badge";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
@@ -47,18 +48,14 @@ type ComponentConnectionItemType = {
 };
 
 function ConnectionItem({ info }: ComponentConnectionItemType) {
-  const colors =
+  const twClasses =
     info.connectionType === WebsocketConnectionTypeEnum.SERVER
       ? "bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100"
       : "bg-grey-100 dark:bg-grey-800 text-grey-800 dark:text-grey-100";
 
   return (
     <MenuItem>
-      <span
-        className={`${colors} inline-block whitespace-nowrap rounded-md px-1 py-[0.1rem] align-middle text-xs font-bold`}
-      >
-        {info.connectionType}
-      </span>
+      <Badge twClasses={twClasses}>{info.connectionType}</Badge>
       {info.id}
     </MenuItem>
   );

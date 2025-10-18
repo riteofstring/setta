@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import {
   route_create_child_sections_via_incrementer,
   route_delete_child_sections_via_decrementer,
@@ -42,7 +42,7 @@ export function Incrementer({
   const addSections = () => {
     if (typeof numSections === "string") return;
     route_create_child_sections_via_incrementer({
-      projectConfigId: getCurrProjectConfigId(),
+      projectConfigId: useProjectState.getState().projectConfig.id,
       calledBy: sectionId,
       implType: SectionTypeEnum.Callable,
       numChildren: numSections,
@@ -52,7 +52,7 @@ export function Incrementer({
   const deleteChildren = () => {
     if (typeof numSections === "string") return;
     route_delete_child_sections_via_decrementer({
-      projectConfigId: getCurrProjectConfigId(),
+      projectConfigId: useProjectState.getState().projectConfig.id,
       calledBy: sectionId,
       numChildren: numSections,
     });

@@ -5,5 +5,4 @@ from setta.websockets.msg_handlers.base import (
 
 class WMHCLIReceiver(BaseWebsocketMsgReceiver):
     async def process_json_str(self, json_str, *_, **__):
-        # TODO: implement this
-        pass
+        await self.websocket_manager.send_message(message, message["toWebsocketId"])

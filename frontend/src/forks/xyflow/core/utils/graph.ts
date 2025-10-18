@@ -4,11 +4,10 @@ import {
   useProjectState,
   useSectionRefs,
 } from "state/definitions";
-import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { useReactFlow } from "../store";
-import { Node, Rect, Transform, Viewport } from "../types";
+import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {
   boxToRect,
   getBoundsOfBoxes,
@@ -17,13 +16,13 @@ import {
 } from "../utils";
 
 export const pointToRendererPoint = (
-  { x, y }: Position,
+  { x, y }: XYPosition,
   [tx, ty, tScale]: Transform,
   snapToGrid: boolean,
   [snapX, snapY]: [number, number],
   ignoreGrid,
-): Position => {
-  const position: Position = {
+): XYPosition => {
+  const position: XYPosition = {
     x: (x - tx) / tScale,
     y: (y - ty) / tScale,
   };
@@ -39,9 +38,9 @@ export const pointToRendererPoint = (
 };
 
 export const rendererPointToPoint = (
-  { x, y }: Position,
+  { x, y }: XYPosition,
   [tx, ty, tScale]: Transform,
-): Position => {
+): XYPosition => {
   return {
     x: x * tScale + tx,
     y: y * tScale + ty,
@@ -73,7 +72,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 };
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
-  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
+  const activeSectionIds = useProjectState.getState().activeIds;
   const sections = activeSectionIds.map((sectionId) => {
     const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
     return { position: { x, y }, width, height };
@@ -176,7 +175,7 @@ export function getSectionRect(sectionId: string, ignoreGrid = false) {
   return { x, y, width, height };
 }
 
-export function getSectionRectWithNested(sectionId: string) {
+export function getSectionRectWithNested(sectionId) {
   const ref = useSectionRefs.getState().withNested[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   return { width, height };

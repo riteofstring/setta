@@ -1,28 +1,19 @@
-import { updateDndChildren } from "forks/dnd-kit/dndChildren";
-import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
-  PendingOperation,
-  useAllProjectMetadata,
   useNodeInternals,
-  usePendingOperations,
   useProjectState,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
-  route_group_sections,
-  route_set_top_level_section_layout,
-  route_set_viewport,
-  route_toggle_param_selected,
-  route_ungroup_groups,
-  route_unselect_all_params,
+  route_get_json_source_path_to_be_deleted,
+  route_update_from_frontend_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import {
-  AllProjectMetadata,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
@@ -31,14 +22,14 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
-  ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
+  UpdateFrontendProjectState,
   Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
-  Viewport,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
+import { openDeleteJSONSourceFileModal } from "./modal";
+import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -46,36 +37,22 @@ export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   return effective;
 }
 
-export function getCurrSectionVariantId(
-  p: ZustandProjectState,
-  sectionId: string,
-  preview = false,
-) {
-  const variantId = preview
-    ? p.previewSectionVariantMap[sectionId] ??
-      p.projectConfig.sectionVariantMap[sectionId]
-    : p.projectConfig.sectionVariantMap[sectionId];
-  if (variantId === undefined) {
-    throw new Error();
-  }
-  return variantId;
-}
-
 export function getCurrSectionVariant(
   p: ZustandProjectState,
   sectionId: string,
-  preview = false,
 ) {
-  const variantId = getCurrSectionVariantId(p, sectionId, preview);
+  const variantId = p.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    throw new Error();
+  }
   return getSectionVariant(p, variantId);
 }
 
 export function getCurrEffectiveSectionImpl(
   p: ZustandProjectState,
   sectionId: string,
-  preview = false,
 ) {
-  const variant = getCurrSectionVariant(p, sectionId, preview);
+  const variant = getCurrSectionVariant(p, sectionId);
   const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
   return getEffectiveImpl(baseImpl, core, variant);
@@ -85,9 +62,8 @@ export function getCurrEffectiveSectionImplWithTypeGuard<T>(
   p: ZustandProjectState,
   sectionId: string,
   typeGuard: (impl) => impl is T,
-  preview = false,
 ): T {
-  const effective = getCurrEffectiveSectionImpl(p, sectionId, preview);
+  const effective = getCurrEffectiveSectionImpl(p, sectionId);
 
   if (!typeGuard(effective)) {
     throw new Error(
@@ -102,9 +78,8 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   p: ZustandProjectState,
   sectionId: string,
   expectedType: T,
-  preview = false,
 ): Extract<BaseSectionImplUnion, { type: T }> {
-  const impl = getCurrEffectiveSectionImpl(p, sectionId, preview);
+  const impl = getCurrEffectiveSectionImpl(p, sectionId);
 
   if (impl.type !== expectedType) {
     throw new Error(
@@ -115,29 +90,16 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
-export function getVariantBaseAndEffectiveSectionImpl(
-  p: ZustandProjectState,
-  core: Core,
-  variantId: string,
-) {
-  const variant = getSectionVariant(p, variantId);
-  const baseImpl = getSectionImpl(p, variant.impl);
-  const impl = getEffectiveImpl(baseImpl, core, variant);
-  return { variant, baseImpl, impl };
-}
-
 export function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
-  preview = false,
 ) {
   // Check if sectionId exists in the map
   const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
     p,
     sectionId,
     isBaseSectionWithParamsImpl,
-    preview,
   );
   const variantId = sectionImpl.codeObjVariantMap[codeObjId];
   if (variantId === undefined) {
@@ -150,9 +112,8 @@ export function getCurrEffectiveCodeObjImpl(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
-  preview = false,
 ) {
-  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId, preview);
+  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
   const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
@@ -163,14 +124,8 @@ export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   sectionId: string,
   codeObjId: string,
   typeGuard: (impl) => impl is T,
-  preview = false,
 ): T {
-  const effective = getCurrEffectiveCodeObjImpl(
-    p,
-    sectionId,
-    codeObjId,
-    preview,
-  );
+  const effective = getCurrEffectiveCodeObjImpl(p, sectionId, codeObjId);
 
   if (!typeGuard(effective)) {
     throw new Error(
@@ -224,23 +179,25 @@ export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   variant: Variant,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
-  const curr = getEffectiveImpl(impl, core, variant);
   for (const [k, v] of Object.entries(args)) {
-    const currV = curr[k];
-    if (!core.unsharedKeys.includes(k)) {
-      core.sharedModifier[k] = typeof v === "function" ? v(currV) : v;
-    } else if (!impl.isPreset) {
-      impl[k] = typeof v === "function" ? v(currV) : v;
+    // Resolve the value if it's a function
+    const resolvedValue =
+      typeof v === "function"
+        ? v(impl[k]) // Pass the current value to the updater
+        : v;
+
+    if (!impl.isPreset) {
+      impl[k] = resolvedValue;
+    } else if (core.unsharedKeys.includes(k)) {
+      variant.modifier[k] = resolvedValue;
     } else {
-      variant.modifier[k] = typeof v === "function" ? v(currV) : v;
+      core.sharedModifier[k] = resolvedValue;
     }
   }
   return getEffectiveImpl(impl, core, variant);
 }
 
-export function setCurrEffectiveSectionImplValue<
-  K extends keyof ImplArgsBundleMap,
->(
+export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
   state: ZustandProjectState,
   sectionId: string,
   args: ImplArgsBundleMap[K]["args"],
@@ -251,9 +208,7 @@ export function setCurrEffectiveSectionImplValue<
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
-export function setCurrEffectiveCodeObjImplValue<
-  K extends keyof ImplArgsBundleMap,
->(
+export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
@@ -313,32 +268,23 @@ export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   return variant;
 }
 
-export function getCurrShownParamIds(
-  p: ZustandProjectState,
-  sectionId: string,
-  isPinned: boolean,
-  preview = false,
-) {
-  const variantId = getCurrSectionVariantId(p, sectionId, preview);
-  const shown = p.shownParamIds[variantId];
-  if (!shown) {
-    throw new Error();
-  }
-  return isPinned ? shown.pinned : shown.unpinned;
-}
-
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }
 
-export function getSectionType(state: ZustandProjectState, sectionId: string) {
-  return getCurrEffectiveSectionImpl(state, sectionId).type;
+export function getSectionParentId(sectionId: string) {
+  return getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
+    .parentId;
+}
+
+export function getSectionType(sectionId, _state = null) {
+  const state = _state ?? useProjectState.getState();
+  return state.uiTypes[state.sections[sectionId].uiTypeId].type;
 }
 
 export function getHighestAncestor(
   sectionId: string,
-  parentIdGetter: (id: string) => string | null = (id) =>
-    useProjectState.getState().parentSectionMap[id] ?? null,
+  parentIdGetter: (id: string) => string | null = getSectionParentId,
 ) {
   let parentId = parentIdGetter(sectionId);
   let highestAncestor = sectionId;
@@ -371,46 +317,25 @@ export function getSectionDescendants(
 }
 
 export function manualDndChildrenReset() {
-  updateDndChildren(
-    getDisplayedSectionIdToChildren(useProjectState.getState()),
-  );
+  useDndChildren.getState().update(getDisplayedSectionIdToChildren());
+}
+
+export function setAllPreviewVariantIdsToNull() {
+  useProjectState.setState((x) => {
+    for (const s of Object.values(x.sections)) {
+      s.previewVariantId = null;
+    }
+  });
 }
 
 export function processProjectStateUpdateFromBackend(
-  x: ProjectStateSingleConfigWithCompletedOpIds,
+  msg: UpdateFrontendProjectState,
 ) {
-  const projectConfigId = getCurrProjectConfigId();
-  if (x.projectState.projectConfig.id !== projectConfigId) {
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  if (msg.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  const backendPendingIds = new Set(x.pendingOpIds);
-  const completedIds = new Set(x.completedOpIds);
-  const currentPending = usePendingOperations.getState().pending;
-  const nextPending = currentPending.reduce<PendingOperation[]>(
-    (acc, opInfo) => {
-      if (completedIds.has(opInfo.opId)) {
-        return acc;
-      }
-      const isBackendPending = backendPendingIds.has(opInfo.opId);
-      if (opInfo.acknowledged && !isBackendPending) {
-        return acc;
-      }
-      const acknowledged = opInfo.acknowledged || isBackendPending;
-      acc.push({
-        ...opInfo,
-        acknowledged,
-      });
-      return acc;
-    },
-    [],
-  );
-  usePendingOperations.setState({ pending: nextPending });
-  useProjectState.setState(() => {
-    for (const opInfo of nextPending) {
-      opInfo.apply(x.projectState);
-    }
-    return x.projectState;
-  });
+  useProjectState.setState({ ...msg.projectState, modCount: msg.modCount });
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
       useProjectState.getState(),
@@ -456,14 +381,40 @@ export function createNodesMapFromProjectConfigChildren(
   return nodesMap;
 }
 
-export function setSectionChildren(
-  state: ZustandProjectState,
+export function setEnteredValue(variantId, paramInfoId, value, state) {
+  if (!(paramInfoId in state.variants[variantId].values)) {
+    state.variants[variantId].values[paramInfoId] = createEVEntry();
+  }
+  state.variants[variantId].values[paramInfoId].value = value;
+}
+
+export function getCodeInfoCol(sectionId, _state) {
+  const state = _state ?? useProjectState.getState();
+  const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
+  return codeInfoColId
+    ? state.codeInfoCols[codeInfoColId]
+    : createCodeInfoCol();
+}
+
+export function getDisplayedSectionVariant(sectionId, _state) {
+  const state = _state ?? useProjectState.getState();
+  return state.variants[getDisplayedSectionVariantId(sectionId, state)];
+}
+
+export function getDisplayedSectionVariantId(
   sectionId: string,
-  newStateFn: (currChildren: Array<string>) => Array<string>,
+  _state: ZustandProjectState | null,
 ) {
-  setCurrEffectiveSectionImplValue<"BaseParentSection">(state, sectionId, {
-    children: newStateFn,
-  });
+  const state = _state ?? useProjectState.getState();
+  return (
+    state.sections[sectionId].previewVariantId ??
+    getCurrentSectionConfigs(state)[sectionId].variantId
+  );
+}
+
+export function setSectionVariantChildren(sectionId, newStateFn, state) {
+  const variant = getSectionVariant(sectionId, state);
+  variant.children = newStateFn(variant.children);
 }
 
 function getDisplayedSectionIdToChildrenHelper(
@@ -524,6 +475,41 @@ export function getCodeChildrenAndParentCodeInfoId(
     : createCodeInfoCol().children;
 
   return { codeInfoChildren, parentCodeInfoId };
+}
+
+export async function deleteSectionVariantAndMaybeJsonFile(
+  sectionId,
+  variantId,
+  isCurr,
+) {
+  const state = useProjectState.getState();
+  const { name: variantName, isJsonSource } = state.variants[variantId];
+  if (isJsonSource) {
+    const res = await route_get_json_source_path_to_be_deleted({ variantName });
+    if (res200(res)) {
+      openDeleteJSONSourceFileModal(res.data);
+      const wasDeleted = await waitForFileDeletion(res.data);
+      if (wasDeleted) {
+        deleteSectionVariant(sectionId, variantId, isCurr);
+      }
+    }
+  } else {
+    deleteSectionVariant(sectionId, variantId, isCurr);
+  }
+}
+
+function deleteSectionVariant(sectionId, variantId, isCurr) {
+  useProjectState.setState((state) => {
+    const section = state.sections[sectionId];
+    section.variantIds = section.variantIds.filter((v) => v !== variantId);
+    if (section.defaultVariantId === variantId) {
+      section.defaultVariantId = section.variantIds[0];
+    }
+    if (isCurr) {
+      section.variantId = section.variantIds[0];
+    }
+    delete state.variants[variantId];
+  });
 }
 
 export function getSectionShouldRender(
@@ -597,10 +583,17 @@ export function getAncestorSameVisibility(
   return false;
 }
 
+export function getCurrentSectionConfigs(
+  _state: ZustandProjectState | null = null,
+) {
+  const state = _state ?? useProjectState.getState();
+  return state.projectConfig.sectionConfigs;
+}
+
 export function deleteAllActiveSections() {
   route_delete_sections({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionIds: useProjectState.getState().projectConfig.activeIds,
+    projectConfigId: useProjectState.getState().projectConfig.id,
+    sectionIds: useProjectState.getState().activeIds,
   });
 }
 
@@ -625,161 +618,16 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-export const debounced_route_set_top_level_section_layout = _.debounce(
-  () =>
-    route_set_top_level_section_layout({
-      projectConfigId: getCurrProjectConfigId(),
-      topLevelSections: createTopLevelSectionLayoutDict(
-        useProjectState.getState().sections,
-        useNodeInternals.getState().x,
-      ),
-    }),
-  500,
-);
-
-export function getCurrProjectConfigId() {
-  return useProjectState.getState().projectConfig.id;
-}
-
-export function getCurrProjectConfigViewport() {
-  return useReactFlow.getState().fitViewOnInit ? null : getViewport();
-}
-
-export function getSectionChildren(
-  state: ZustandProjectState,
-  parentId: string,
-) {
-  return getCurrEffectiveSectionImplWithTypeGuard(
-    state,
-    parentId,
-    isBaseParentSectionImpl,
-  ).children;
-}
-
-export async function groupActiveSections() {
-  const sectionIds = useProjectState.getState().projectConfig.activeIds;
-  route_group_sections({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionIds,
-  });
-  useReactFlow.setState({ nodesSelectionDims: null });
-}
-
-export async function ungroupActiveGroups() {
-  const groupIds = useProjectState.getState().projectConfig.activeIds;
-  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
-}
-
-export function addPendingOp(apply: (x: ZustandProjectState) => void) {
-  const opId = createNewId();
-  usePendingOperations.setState((state) => ({
-    pending: [...state.pending, { apply, opId, acknowledged: false }],
-  }));
-  return opId;
-}
-
-export function dispatchOptimisticProjectStateUpdate({
-  apply,
-  send,
-}: {
-  apply: (state: ZustandProjectState) => void;
-  send: (frontendOpId: string) => void | Promise<unknown>;
-}) {
-  useProjectState.setState(apply);
-  const opId = addPendingOp(apply);
-  void send(opId);
-  return opId;
-}
-
-export function toggleParamSelected(sectionId: string, paramInfoId: string) {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-        state,
-        sectionId,
-        {
-          selectedParams: (curr) => {
-            if (curr?.includes(paramInfoId)) {
-              return curr.filter((id) => id !== paramInfoId);
-            }
-            return [...(curr ?? []), paramInfoId];
-          },
-        },
-      );
-    },
-    send: (frontendOpId) =>
-      route_toggle_param_selected({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        paramInfoId,
-        frontendOpId,
+export const debounced_route_update_from_frontend_top_level_section_layout =
+  _.debounce(
+    () =>
+      route_update_from_frontend_top_level_section_layout({
+        projectConfigId: useProjectState.getState().projectConfig.id,
+        topLevelSections: createTopLevelSectionLayoutDict(
+          useProjectState.getState().sections,
+          useNodeInternals.getState().x,
+        ),
+        modCount: useProjectState.getState().modCount,
       }),
-  });
-}
-
-export function unselectAllParams() {
-  const currentState = useProjectState.getState();
-  const sectionIds = Object.keys(currentState.sections);
-  const hasSelectedParams = sectionIds.some((sectionId) => {
-    const impl = getCurrEffectiveSectionImpl(currentState, sectionId);
-    return (
-      isBaseSectionWithParamsImpl(impl) &&
-      (impl.selectedParams?.length ?? 0) > 0
-    );
-  });
-
-  if (!hasSelectedParams) {
-    return false;
-  }
-
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      for (const sectionId of Object.keys(state.sections)) {
-        const impl = getCurrEffectiveSectionImpl(state, sectionId);
-        if (
-          isBaseSectionWithParamsImpl(impl) &&
-          impl.selectedParams.length > 0
-        ) {
-          setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-            state,
-            sectionId,
-            { selectedParams: [] },
-          );
-        }
-      }
-    },
-    send: (frontendOpId) =>
-      route_unselect_all_params({
-        projectConfigId: getCurrProjectConfigId(),
-        frontendOpId,
-      }),
-  });
-
-  return true;
-}
-
-export function updateAllProjectMetadata(x: AllProjectMetadata) {
-  useAllProjectMetadata.setState(x);
-}
-
-function dispatchViewportUpdate(viewport: Viewport | null) {
-  if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
-    return;
-  }
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      state.projectConfig.viewport = viewport;
-    },
-    send: (frontendOpId) =>
-      route_set_viewport({
-        projectConfigId: getCurrProjectConfigId(),
-        viewport,
-        frontendOpId,
-      }),
-  });
-}
-
-export const debouncedDispatchViewportUpdate = _.debounce(
-  () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
-  1000,
-);
+    500,
+  );

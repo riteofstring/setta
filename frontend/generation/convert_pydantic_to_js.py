@@ -27,6 +27,7 @@ from typing import (
 import setta.routers
 import setta.types
 import setta.types.code_obj_impls
+import setta.types.generated
 import setta.types.section_impls
 import setta.types.websocket
 from fastapi import WebSocket
@@ -49,16 +50,6 @@ TYPE_ALIAS_EXCLUSIONS = [
 ]
 
 DATACLASS_EXCLUSIONS = ["SerializeAsAny"]
-
-
-def is_not_tagged_for_skipping(cls):
-    try:
-        source = inspect.getsource(cls)
-        return all(
-            "# setta-convert-pydantic-to-js: skip" not in s for s in source.split("\n")
-        )
-    except:
-        return True
 
 
 def get_modules_from_package(package):
@@ -84,10 +75,7 @@ def get_modules_from_package(package):
 
 def get_all_sets(module):
     return inspect.getmembers(
-        module,
-        lambda obj: isinstance(obj, set)
-        and not inspect.isclass(obj)
-        and is_not_tagged_for_skipping(obj),
+        module, lambda obj: isinstance(obj, set) and not inspect.isclass(obj)
     )
 
 
@@ -104,7 +92,7 @@ def get_all_type_aliases(module):
     return [
         (name, obj)
         for name, obj in inspect.getmembers(module)
-        if is_type_alias(name, obj) and is_not_tagged_for_skipping(obj)
+        if is_type_alias(name, obj)
     ]
 
 
@@ -113,15 +101,12 @@ def get_all_enums(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, enum.Enum)
-        and obj is not enum.Enum
-        and is_not_tagged_for_skipping(obj),
+        and obj is not enum.Enum,
     )
 
 
 def get_all_typeddicts(module):
-    return inspect.getmembers(
-        module, lambda obj: is_typeddict(obj) and is_not_tagged_for_skipping(obj)
-    )
+    return inspect.getmembers(module, is_typeddict)
 
 
 def get_all_pydantic_models(module):
@@ -129,8 +114,7 @@ def get_all_pydantic_models(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, BaseModel)
-        and obj is not BaseModel
-        and is_not_tagged_for_skipping(obj),
+        and obj is not BaseModel,
     )
 
 
@@ -140,8 +124,7 @@ def get_all_dataclasses(module):
         module,
         lambda obj: inspect.isclass(obj)
         and dataclasses.is_dataclass(obj)
-        and obj.__name__ not in DATACLASS_EXCLUSIONS
-        and is_not_tagged_for_skipping(obj),
+        and obj.__name__ not in DATACLASS_EXCLUSIONS,
     )
 
 
@@ -274,7 +257,7 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
             ts, dependent_type_defs = python_type_to_zod(actual_type, processed_types)
             type_definitions.update(dependent_type_defs)
             if (
-                get_origin(actual_type) in (Union, types.UnionType)
+                get_origin(actual_type) is Union
                 and type(annotation) is FieldInfo
                 and annotation.discriminator
             ):
@@ -358,16 +341,10 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
         args = get_args(python_type)
         if args:
             schemas = []
-            hasEllipsis = False
             for t in args:
-                if t is Ellipsis:
-                    hasEllipsis = True
-                else:
-                    ts, dependent_type_defs = python_type_to_zod(t, processed_types)
-                    schemas.append(ts)
-                    type_definitions.update(dependent_type_defs)
-            if len(set(schemas)) == 1 and hasEllipsis:
-                return f"z.array({schemas[0]})", type_definitions
+                ts, dependent_type_defs = python_type_to_zod(t, processed_types)
+                schemas.append(ts)
+                type_definitions.update(dependent_type_defs)
             return f"z.tuple([{', '.join(schemas)}])", type_definitions
         return "z.tuple()", type_definitions
 
@@ -632,8 +609,6 @@ def dataclass_to_zod(model: type, processed_types: set):
                 zod_schema = f"{zod_schema}.default({{}})"
             elif default_factory is list:
                 zod_schema = f"{zod_schema}.default([])"
-            elif default_factory is set:
-                zod_schema = f"{zod_schema}.default(new Set())"
             else:
                 raise ValueError("this else case is not yet supported")
 
@@ -682,6 +657,52 @@ export function is{type_name}(x: {input_type}): x is {type_name}Union{{
     return code
 
 
+def create_default_getter_functions():
+    """Generate getSectionDefault and getCodeObjDefault functions."""
+    from setta.types.code_obj_impls import CodeObjType
+    from setta.types.section_impls import SectionType
+
+    # Generate getSectionDefault
+    section_cases = []
+    for section_type in SectionType:
+        field_name = (
+            section_type.value[0].lower() + section_type.value[1:] + "SectionDefault"
+        )
+        section_cases.append(f"""    case SectionTypeEnum.{section_type.value}:
+      return settings.{field_name};""")
+
+    section_cases_str = "\n".join(section_cases)
+
+    # Generate getCodeObjDefault
+    code_obj_cases = []
+    for code_obj_type in CodeObjType:
+        field_name = (
+            code_obj_type.value[0].lower() + code_obj_type.value[1:] + "CodeObjDefault"
+        )
+        code_obj_cases.append(f"""    case CodeObjTypeEnum.{code_obj_type.value}:
+      return settings.{field_name};""")
+
+    code_obj_cases_str = "\n".join(code_obj_cases)
+
+    return f"""
+export function getSectionDefault(settings: SettingsState, sectionType: SectionType) {{
+  switch (sectionType) {{
+{section_cases_str}
+    default:
+      return sectionType satisfies never;
+  }}
+}}
+
+export function getCodeObjDefault(settings: SettingsState, codeObjType: CodeObjType) {{
+  switch (codeObjType) {{
+{code_obj_cases_str}
+    default:
+      return codeObjType satisfies never;
+  }}
+}}
+"""
+
+
 def create_impl_core_variant_bundled_types():
     classes = get_impl_classes()
     code = ""
@@ -689,13 +710,13 @@ def create_impl_core_variant_bundled_types():
         code += f"""
     {c.base_name}: {{
         impl: {c.original_name};
-        args: ImplArgsBundleWithUpdaters<{c.args_name}, {c.original_name}>;
+        args: ImplArgsBundleWithUpdaters<{c.args_name}>;
     }}
 """
 
     code = f"""
-type ImplArgsBundleWithUpdaters<T, T2> = {{
-  [K in keyof T]?: T[K] | (K extends keyof T2 ? (prev: T2[K]) => T2[K] : never);
+type ImplArgsBundleWithUpdaters<T> = {{
+  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
 }};
 
     export type ImplArgsBundleMap = {{
@@ -728,8 +749,8 @@ def main(output_file):
         dataclasses_list = get_all_dataclasses(module)
         all_dataclasses.update({k: v for k, v in dataclasses_list})
 
-    ts_code = """import { z } from 'zod';
-import { createNewId as create_new_id, createRandomName as generate_memorable_string, createArtifactId as create_artifact_id, createJsonArtifactId as create_json_artifact_id, createCsvArtifactId as create_csv_artifact_id, createPngArtifactId as create_png_artifact_id } from "utils/idNameCreation";
+    ts_code = """import { z } from 'zod/v4';
+import { createNewId as create_new_id, createRandomName as generate_memorable_string } from "utils/idNameCreation";
 import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
 import _ from "lodash"
 
@@ -759,6 +780,7 @@ export type ObjectValues<T> = T[keyof T]
         ts_code += dataclass_to_zod(x, processed_types)
 
     ts_code += create_type_predicate_fns_from_sets(all_sets)
+    ts_code += create_default_getter_functions()
     ts_code += create_impl_core_variant_bundled_types()
 
     with open(output_file, "w") as f:

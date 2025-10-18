@@ -1,10 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import _ from "lodash";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValue,
-} from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -27,24 +22,11 @@ export function ColorPickerInputConfigForParam({
   );
 
   function onChange(newConfig: ColorPickerConfigForFrontend) {
-    const configClone = _.cloneDeep(newConfig);
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"ColorPickerParamCodeObj">(
-          state,
-          sectionId,
-          paramInfoId,
-          configClone,
-        );
-      },
-      send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: configClone,
-          frontendOpId,
-        }),
+    route_update_param_impl_config({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      sectionId,
+      paramInfoId,
+      newConfig,
     });
   }
 
@@ -160,15 +142,7 @@ export function ColorPickerInput({
   onEscape,
   wrapperClassName,
   colorPickerChoicesClasses,
-  isDisabled = false,
-}: {
-  colorChoices: ColorPickerConfigForFrontend["choices"];
-  value: string;
-  onChange: (newColor: string) => void;
-  onEscape?: () => void;
-  wrapperClassName: string;
-  colorPickerChoicesClasses: string;
-  isDisabled?: boolean;
+  isDisabled,
 }) {
   const _value = tryParseJSON(value);
   return (

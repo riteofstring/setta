@@ -1,12 +1,11 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_toggle_position_lock } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
@@ -27,21 +26,12 @@ export function LockPositionButton({ sectionId }) {
     : "[&>i]:!scale-[.4]"; // when !isGroup
 
   function onClick() {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const section = state.sections[sectionId];
-        if (!section) {
-          return;
-        }
-        section.positionAndSizeLocked = !section.positionAndSizeLocked;
-      },
-      send: (frontendOpId) =>
-        route_toggle_position_lock({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          frontendOpId,
-        }),
+    useProjectState.setState((state) => {
+      setEffectiveSectionImplValue(state, sectionId, {
+        positionAndSizeLocked: !positionAndSizeLocked,
+      });
     });
+    updateBackendProjectState();
   }
 
   return (

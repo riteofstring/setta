@@ -21,7 +21,7 @@ class SettaNotification(BaseModel):
     projectConfigId: str = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
     type: SettaNotificationType = SettaNotificationType.info
     message: str
-    temporary: bool = True
+    temporary: bool = False
     timestamp: datetime = Field(default_factory=get_now_timestamp)
     metadata: dict = Field(default_factory=dict)
     read_status: bool = False

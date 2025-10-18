@@ -2,9 +2,10 @@ import { DragOverlay } from "forks/dnd-kit/CustomCore";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
+import React from "react";
 import { TbDragDrop } from "react-icons/tb";
 
-export function TempDNDSection({ ref }) {
+export const TempDNDSection = React.forwardRef(({}, ref) => {
   const { width, height } = useDndState(
     (x) => ({
       width: x.width,
@@ -26,9 +27,9 @@ export function TempDNDSection({ ref }) {
       <div className="flex-auto bg-transparent" />
     </>
   );
-}
+});
 
-function DummySection({ ref }) {
+const DummySection = React.forwardRef(({}, ref) => {
   const zoom = useReactFlow((x) => x.transform[2]);
   const { width, height } = useDndState(
     (x) => ({
@@ -51,9 +52,9 @@ function DummySection({ ref }) {
       ref={ref}
     />
   );
-}
+});
 
-export function DummyDragOverlay({ ref }) {
+export const DummyDragOverlay = React.forwardRef((props, ref) => {
   const activeId = useDndState((x) => x.activeId);
 
   return (
@@ -63,4 +64,4 @@ export function DummyDragOverlay({ ref }) {
       </DragOverlay>
     )
   );
-}
+});

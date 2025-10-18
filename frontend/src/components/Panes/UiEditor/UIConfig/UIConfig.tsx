@@ -1,14 +1,11 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
-  ComboboxItemArrayType,
-  OnSelectedItemChangeFnType,
-} from "components/Utils/Combobox/ComboboxStateReducer";
+  ComboboxOnSelectedItemChange,
+  IdNameArrayForCombobox,
+} from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import React from "react";
-import {
-  getCurrCodeObjVariant,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
+import { getCurrCodeObjVariant } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
@@ -21,7 +18,7 @@ const UIElement = React.memo(_UIElement, _.isEqual);
 function _UIConfig({ sectionId }: { sectionId: string }) {
   const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
   const presetCodeObjImpls = useProjectState((x) => {
-    const output: ComboboxItemArrayType<string> = [];
+    const output: IdNameArrayForCombobox = [];
     for (const c of Object.values(x.codeObjImpls)) {
       if (c.isPreset) {
         output.push({
@@ -51,7 +48,7 @@ function UIConfigCore({
 }: {
   sectionId: string;
   paramInfos: Array<{ id: string; name: string }>;
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
+  presetCodeObjImpls: IdNameArrayForCombobox;
 }) {
   const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
@@ -94,7 +91,7 @@ function _UIElement({
 }: {
   sectionId: string;
   paramInfo: { id: string; name: string };
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
+  presetCodeObjImpls: IdNameArrayForCombobox;
 }) {
   const paramInfoId = paramInfo.id;
   const baseImplId = useProjectState((x) => {
@@ -102,12 +99,12 @@ function _UIElement({
   }, _.isEqual);
   const paramName = paramInfo.name;
 
-  const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
+  const onSelect: ComboboxOnSelectedItemChange = (selectedId) => {
     if (!selectedId) {
       throw new Error();
     }
     route_change_param_impl({
-      projectConfigId: getCurrProjectConfigId(),
+      projectConfigId: useProjectState.getState().projectConfig.id,
       sectionId,
       paramInfoId,
       selectedId,

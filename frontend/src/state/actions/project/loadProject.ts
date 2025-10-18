@@ -2,7 +2,6 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import {
-  useAllProjectMetadata,
   useNodeInternals,
   useProjectState,
   useSectionColumnWidth,
@@ -15,10 +14,10 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,
-  route_load_all_project_metadata,
   route_load_project_config,
+  route_load_settings_project,
 } from "utils/generatedEndpoints";
-import { ProjectStateSingleConfig } from "utils/generatedTypes";
+import { ProjectStateSingleConfigWithModCount } from "utils/generatedTypes";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -30,7 +29,20 @@ export async function loadProjectConfig({ projectConfigName }) {
   }
 }
 
-export async function loadProjectState(p: ProjectStateSingleConfig) {
+export async function loadSettingsProjectConfig() {
+  const res = await route_load_settings_project();
+  if (res200(res)) {
+    console.log(res.data);
+    return await loadProjectState(res.data);
+  } else {
+    return false;
+  }
+}
+
+export async function loadProjectState(
+  pWithModCount: ProjectStateSingleConfigWithModCount,
+) {
+  const p = pWithModCount.projectState;
   if (!p.projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -41,7 +53,7 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState(p);
+  useProjectState.setState({ ...p, modCount: pWithModCount.modCount });
   useSectionColumnWidth.setState(_.mapValues(p.sections, (x) => x.columnWidth));
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
@@ -49,6 +61,7 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       state.x,
     ),
   }));
+  // await maybeRunGuiToYamlOnAllSections();
   return true;
 }
 
@@ -56,9 +69,6 @@ export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
     const previewImgColor = getRandomProjectConfigPreviewImgColor();
-    if (!previewImgColor) {
-      throw new Error();
-    }
     const res = await route_create_project_config({ previewImgColor });
     if (res200(res)) {
       navigateToAnotherConfig(res.data);
@@ -75,16 +85,9 @@ function getRandomProjectConfigPreviewImgColor() {
 
 export function useNavigateToAnotherConfig() {
   const navigate = useNavigate();
-  return (projectConfigName: string) => {
+  return (projectConfigName) => {
     navigate(pathRelativeToProject(projectConfigName), {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   };
-}
-
-export async function loadAllProjectMetadata() {
-  const res = await route_load_all_project_metadata();
-  if (res200(res)) {
-    useAllProjectMetadata.setState(res.data);
-  }
 }

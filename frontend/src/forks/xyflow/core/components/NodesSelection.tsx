@@ -28,7 +28,7 @@ function _NodesSelection({ x, y, width, height }) {
   });
 
   const onContextMenu = (event) => {
-    const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
+    const activeSectionIds = useProjectState.getState().activeIds;
     const selectedNodeIds = getNodes()
       .filter((n) => activeSectionIds.includes(n.id))
       .map((n) => n.id);

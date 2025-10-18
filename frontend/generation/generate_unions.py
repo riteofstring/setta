@@ -1,6 +1,7 @@
-import sys
 from pathlib import Path
 
+import setta.types.code_obj_impls
+import setta.types.section_impls
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
@@ -21,7 +22,7 @@ def construct_unions(
         module, base_class, exclude_empty=True, required_discriminator=discriminator
     )
     code = """
-from typing import Annotated,TypeGuard
+from typing import Annotated,Union,TypeGuard
 from pydantic import Field, TypeAdapter
 
 """
@@ -32,7 +33,7 @@ from pydantic import Field, TypeAdapter
 
     for base_class, child_classes in class_to_children.items():
         union_name = f"{class_transformer(base_class.__name__)}Union"
-        code += f"{union_name} = {' | '.join(class_transformer(c.__name__) for c in child_classes)}\n\n"
+        code += f"{union_name} = Union[{', '.join(class_transformer(c.__name__) for c in child_classes)}]\n\n"
         code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
         code += f"{class_transformer(base_class.__name__)}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
 
@@ -53,11 +54,6 @@ from pydantic import Field, TypeAdapter
 
 
 def generate_unions(output_file):
-    import setta.types.artifact
-    import setta.types.code_obj_impls
-    import setta.types.generated.impl_args_as_typed_dicts
-    import setta.types.section_impls
-
     code = construct_unions(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
@@ -70,28 +66,6 @@ def generate_unions(output_file):
         setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         setta.types.code_obj_impls,
-        lambda x: x,
-    )
-    code += construct_unions(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-        "type",
-        setta.types.generated.impl_args_as_typed_dicts,
-        lambda x: f"{x}Args",
-    )
-    code += construct_unions(
-        setta.types.code_obj_impls,
-        setta.types.code_obj_impls.BaseCodeObjImpl,
-        "type",
-        setta.types.generated.impl_args_as_typed_dicts,
-        lambda x: f"{x}Args",
-    )
-
-    code += construct_unions(
-        setta.types.artifact,
-        setta.types.artifact.BaseArtifact,
-        "type",
-        setta.types.artifact,
         lambda x: x,
     )
 
@@ -116,71 +90,17 @@ def generate_websocket_unions(output_file: Path):
     print(f"wrote to {output_file}")
 
 
-def generate_clipboard_data_unions(output_file: Path):
-    import setta.types.clipboard
-
-    code = construct_unions(
-        setta.types.clipboard,
-        setta.types.clipboard.BaseClipboardData,
-        "type",
-        setta.types.clipboard,
-        lambda x: x,
-    )
-
-    code = ruff_format(code)
-    output_file.write_text(code)
-    print(f"wrote to {output_file}")
-
-
-def generate_chart_settings_unions(output_file: Path):
-    import setta.types.artifact
-
-    code = construct_unions(
-        setta.types.artifact,
-        setta.types.artifact.BaseChartSettings,
-        "type",
-        setta.types.artifact,
-        lambda x: x,
-    )
-    code = ruff_format(code)
-    output_file.write_text(code)
-    print(f"wrote to {output_file}")
-
-
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise ValueError
-
-    if sys.argv[1] == "unions":
-        generate_unions(
-            output_file=(
-                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-                / "unions.py"
-            )
+    generate_unions(
+        output_file=(
+            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+            / "unions.py"
         )
-    elif sys.argv[1] == "websocket_unions":
-        # has to be done separately due to import dependencies
-        generate_websocket_unions(
-            output_file=(
-                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-                / "websocket_unions.py"
-            )
+    )
+    # has to be done separately due to import dependencies
+    generate_websocket_unions(
+        output_file=(
+            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+            / "websocket_unions.py"
         )
-    elif sys.argv[1] == "clipboard_data":
-        # has to be done separately due to import dependencies
-        generate_clipboard_data_unions(
-            output_file=(
-                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-                / "clipboard_data_unions.py"
-            )
-        )
-    elif sys.argv[1] == "chart_settings":
-        # has to be done separately due to import dependencies
-        generate_chart_settings_unions(
-            output_file=(
-                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-                / "chart_settings_unions.py"
-            )
-        )
-    else:
-        raise ValueError
+    )

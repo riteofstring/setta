@@ -28,7 +28,7 @@ function _TextBlock({ sectionId }) {
     return impl.displayMode;
   });
 
-  return displayMode === TextBlockDisplayModeEnum.Render ? (
+  return displayMode === TextBlockDisplayModeEnum.render ? (
     <Markdown sectionId={sectionId} />
   ) : (
     <MarkdownEditorInSection sectionId={sectionId} />

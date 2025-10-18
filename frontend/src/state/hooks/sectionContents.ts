@@ -1,26 +1,48 @@
 import _ from "lodash";
-import { getCurrSectionVariantId } from "state/actions/sectionInfos";
-import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionInfos";
+import {
+  getParamIdsToShowInArea,
+  paramNameFromPathArray,
+} from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
+import {
+  isBaseChildlessCodeObjImpl,
+  isBaseParamCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
+import { findAllParametersOfSection } from "utils/getDescendants";
 
 export function useParamIdsAndNamesForSidePane(sectionId: string) {
   return useProjectState((x) => {
-    const variantId = getCurrSectionVariantId(x, sectionId);
-    const shown = x.shownParamIds[variantId];
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const { ids, pathMap } = findAllParametersOfSection(x, impl, {
+      output: isBaseChildlessCodeObjImpl,
+      paramPath: isBaseParamCodeObjImpl,
+    });
     const output: Array<{ id: string; name: string }> = [];
-    if (!shown) {
-      return output;
-    }
-    const allIdPaths = {
-      ...shown.pinned.requiredParamIdsToPaths,
-      ...shown.unpinned.requiredParamIdsToPaths,
-    };
-    for (const [s, idPath] of Object.entries(allIdPaths)) {
+    for (const id of ids) {
       output.push({
-        id: s,
-        name: paramNameFromPathArray(x.codeObjs, idPath),
+        id,
+        name: paramNameFromPathArray(x.codeObjs, pathMap, id),
       });
     }
     return output;
+  }, _.isEqual);
+}
+
+export function useParamIdsToShowInArea(sectionId: string, isPinned: boolean) {
+  return useProjectState((x) => {
+    return getParamIdsToShowInArea(
+      x,
+      getCurrEffectiveSectionImpl(x, sectionId),
+      isPinned,
+    );
   }, _.isEqual);
 }

@@ -68,10 +68,11 @@ def sort_unions_by_specificity(union_data, debug=False):
 def generate_effective_impl_overloads():
     """Generate overloaded effective impl functions."""
     classes = get_impl_classes()
+    classes = {k: v for k, v in classes.items() if v.type_has_default}
 
     # Get unions with their actual objects
-    section_unions = get_impl_unions(["Section", "Impl"], ["Args"])
-    code_obj_unions = get_impl_unions(["CodeObj", "Impl"], ["Args"])
+    section_unions = get_impl_unions(["Section", "Impl"])
+    code_obj_unions = get_impl_unions(["CodeObj", "Impl"])
     all_union_data = section_unions + code_obj_unions
 
     # Sort unions by specificity
@@ -131,8 +132,7 @@ def get_effective_impl(
     set_overloads_list = []
 
     # First, specific class overloads
-    non_base_classes = {k: v for k, v in classes.items() if v.type_has_default}
-    for cls in non_base_classes.values():
+    for cls in classes.values():
         set_overloads_list.append(
             generate_set_effective_impl_value_overload(
                 cls.original_name,
@@ -142,23 +142,16 @@ def get_effective_impl(
 
     # Then, union overloads (already sorted by specificity)
     for u in sorted_union_names:
-        # add union
         set_overloads_list.append(
             generate_set_effective_impl_value_overload(
                 u, u.replace("Union", "ArgsWithCallable")
-            )
-        )
-        # add base class too
-        set_overloads_list.append(
-            generate_set_effective_impl_value_overload(
-                u.replace("Union", ""), u.replace("Union", "ArgsWithCallable")
             )
         )
 
     set_overloads = "".join(set_overloads_list)
 
     set_impl = """
-def set_effective_impl_value( # type: ignore
+def set_effective_impl_value(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
     variant: Variant,
@@ -178,15 +171,16 @@ def set_effective_impl_value( # type: ignore
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     \"\"\"
-    curr = get_effective_impl(impl, core, variant)
     for k, v in args.items():
-        currV = getattr(curr, k, None)
-        if k not in core.unsharedKeys:
-            core.sharedModifier[k] = v(currV) if callable(v) else v
-        elif not impl.isPreset:
-            setattr(impl, k, v(currV) if callable(v) else v)
+        if not impl.isPreset:
+            current = getattr(impl, k, None)
+            setattr(impl, k, v(current) if callable(v) else v)
+        elif k in core.unsharedKeys:
+            current = variant.modifier.get(k)
+            variant.modifier[k] = v(current) if callable(v) else v
         else:
-            variant.modifier[k] = v(currV) if callable(v) else v
+            current = core.sharedModifier.get(k)
+            core.sharedModifier[k] = v(current) if callable(v) else v
     return get_effective_impl(impl, core, variant)
 """
 

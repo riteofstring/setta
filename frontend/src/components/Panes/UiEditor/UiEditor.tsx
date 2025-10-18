@@ -24,14 +24,11 @@ import {
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
-import { VariantList } from "./SectionVariants/VariantList";
+import { VersionList } from "./SectionVariants/VersionList";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
-  const sectionIds = useProjectState(
-    (x) => x.projectConfig.activeIds,
-    _.isEqual,
-  );
+  const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
     sectionIds[0] ?? null,
   );
@@ -150,7 +147,7 @@ function TabContent({
     case UIEditorTabNameEnum.InfoConfig:
       return <MarkdownEditorInPane sectionId={sectionId} />;
     case UIEditorTabNameEnum.SectionVariantsConfig:
-      return <VariantList sectionId={sectionId} />;
+      return <VersionList sectionId={sectionId} />;
     default:
       return selectedTabName satisfies never;
   }

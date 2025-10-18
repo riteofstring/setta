@@ -1,38 +1,38 @@
-from typing import Annotated
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllDependencies,
-    WebsocketMsgAllProjectMetadata,
+    WebsocketMsgArtifact,
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
     WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgSpecificFileWatcherUpdate,
     WebsocketMsgTerminalMetadata,
-    WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
     WebsocketMsgUUIDMappingForLLM,
 )
 
-WebsocketMsgUnion = (
-    WebsocketMsgAllConnections
-    | WebsocketMsgNotification
-    | WebsocketMsgLLMStreamingResponse
-    | WebsocketMsgUUIDMappingForLLM
-    | WebsocketMsgLSPDiagnostics
-    | WebsocketMsgReturnRenameRefactorResults
-    | WebsocketMsgUpdateFrontendProjectState
-    | WebsocketMsgAllDependencies
-    | WebsocketMsgTerminalMetadata
-    | WebsocketMsgUpdateSettings
-    | WebsocketMsgAllProjectMetadata
-    | WebsocketMsgUpdateArtifacts
-    | WebsocketMsgCurrentAddressUpdate
-)
+WebsocketMsgUnion = Union[
+    WebsocketMsgAllConnections,
+    WebsocketMsgArtifact,
+    WebsocketMsgNotification,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgUUIDMappingForLLM,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgTerminalMetadata,
+    WebsocketMsgUpdateSettings,
+    WebsocketMsgCurrentAddressUpdate,
+]
 
 WebsocketMsgUnionWithDiscriminator = Annotated[
     WebsocketMsgUnion, Field(discriminator="messageType")
@@ -43,35 +43,35 @@ WebsocketMsgTypeAdapter = TypeAdapter(WebsocketMsgUnionWithDiscriminator)
 WebsocketMsgTypeSet = set(
     [
         "AllConnections",
+        "Artifact",
         "Notification",
         "LLMStreamingResponse",
         "UUIDMappingForLLM",
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
+        "SpecificFileWatcherUpdate",
         "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
-        "AllProjectMetadata",
-        "UpdateArtifacts",
         "CurrentAddressUpdate",
     ]
 )
 
-FrontendWebsocketMsgUnion = (
-    WebsocketMsgAllConnections
-    | WebsocketMsgNotification
-    | WebsocketMsgLLMStreamingResponse
-    | WebsocketMsgUUIDMappingForLLM
-    | WebsocketMsgLSPDiagnostics
-    | WebsocketMsgReturnRenameRefactorResults
-    | WebsocketMsgUpdateFrontendProjectState
-    | WebsocketMsgAllDependencies
-    | WebsocketMsgTerminalMetadata
-    | WebsocketMsgUpdateSettings
-    | WebsocketMsgAllProjectMetadata
-    | WebsocketMsgUpdateArtifacts
-)
+FrontendWebsocketMsgUnion = Union[
+    WebsocketMsgAllConnections,
+    WebsocketMsgArtifact,
+    WebsocketMsgNotification,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgUUIDMappingForLLM,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgTerminalMetadata,
+    WebsocketMsgUpdateSettings,
+]
 
 FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
     FrontendWebsocketMsgUnion, Field(discriminator="messageType")
@@ -84,21 +84,21 @@ FrontendWebsocketMsgTypeAdapter = TypeAdapter(
 FrontendWebsocketMsgTypeSet = set(
     [
         "AllConnections",
+        "Artifact",
         "Notification",
         "LLMStreamingResponse",
         "UUIDMappingForLLM",
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
+        "SpecificFileWatcherUpdate",
         "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
-        "AllProjectMetadata",
-        "UpdateArtifacts",
     ]
 )
 
-BackendWebsocketMsgUnion = WebsocketMsgCurrentAddressUpdate
+BackendWebsocketMsgUnion = Union[WebsocketMsgCurrentAddressUpdate]
 
 BackendWebsocketMsgUnionWithDiscriminator = Annotated[
     BackendWebsocketMsgUnion, Field(discriminator="messageType")

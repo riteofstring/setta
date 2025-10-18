@@ -1,27 +1,27 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { BiErrorCircle } from "react-icons/bi";
-import { closeModal, useModalData } from "state/actions/modal";
+import { setModalOpen } from "state/actions/modal";
+import { useModal } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_delete_project_configs } from "utils/generatedEndpoints";
-import { ModalTypeEnum } from "../types";
 
 export function DeleteProjectWarningModal() {
-  const { selectedProjectsIdName, setSelectedProjects } = useModalData(
-    ModalTypeEnum.DELETE_PROJECT_WARNING,
-  );
+  const { selectedProjects, getAllProjectConfigMetadata, setSelectedProjects } =
+    useModal((x) => x.modalData);
 
   const handleCancel = () => {
-    closeModal();
+    setModalOpen(false);
   };
 
   const handleConfirm = async () => {
     const res = await route_delete_project_configs({
-      ids: selectedProjectsIdName.map((x) => x.id),
+      ids: selectedProjects.map((x) => x.id),
     });
     if (res200(res)) {
+      getAllProjectConfigMetadata();
       setSelectedProjects([]);
     }
-    closeModal();
+    setModalOpen(false);
   };
 
   return (
@@ -44,7 +44,7 @@ export function DeleteProjectWarningModal() {
           Projects to be deleted:
         </h4>
         <ul className="space-y-2">
-          {selectedProjectsIdName.map((project) => (
+          {selectedProjects.map((project) => (
             <li
               key={project.name}
               className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400"

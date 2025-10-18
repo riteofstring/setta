@@ -18,22 +18,17 @@ function ProjectNavSwitch() {
   const { projectConfigName } = useParams();
 
   return (
-    <div className="ml-4 flex gap-1">
-      {projectConfigName ? (
-        <>
-          <Menubar.Root className="contents">
-            <FileMenu />
-            <EditMenu />
-            <WebsocketConnections />
-            <RunButton />
-          </Menubar.Root>
-          <StopButton />
-        </>
-      ) : (
+    projectConfigName && (
+      <div className="ml-4 flex gap-1">
         <Menubar.Root className="contents">
+          <FileMenu />
+          <EditMenu />
           <WebsocketConnections />
+          <RunButton />
         </Menubar.Root>
-      )}
-    </div>
+
+        <StopButton />
+      </div>
+    )
   );
 }

@@ -1,9 +1,9 @@
 import _ from "lodash";
 import React, { useCallback } from "react";
+import { toggleParamSelected } from "state/actions/kwargs";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
-  toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
   useMisc,
@@ -31,8 +31,8 @@ function _ParamSwitch(props) {
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
       isFocusedSearchResult:
-        x.focused?.sectionId === sectionId &&
-        x.focused?.paramInfoId === paramInfoId,
+        x.focused.sectionId === sectionId &&
+        x.focused.paramInfoId === paramInfoId,
       isSearchResult: x.lookup.has(
         createProjectSearchLookupKey(sectionId, paramInfoId),
       ),
@@ -121,4 +121,4 @@ function _ParamSwitch(props) {
   );
 }
 
-export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
+export const ParamSwitch = React.memo(_ParamSwitch);

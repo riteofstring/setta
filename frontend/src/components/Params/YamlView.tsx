@@ -5,20 +5,22 @@ import {
 } from "components/Section/Layouts/CodeArea";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { getCurrSectionVariantId } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
-import { useLocalPendingValue } from "state/hooks/utils";
+import _ from "lodash";
+import { yamlToGUI } from "state/actions/guiToYaml";
+import {
+  getDisplayedSectionVariantId,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
+import { useProjectState, useYamlValue } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
-export function SectionYamlView({ sectionId }: { sectionId: string }) {
-  // const isDisabled = useProjectState(
-  //   (x) => getSectionVariant(sectionId, x).isFrozen,
-  // );
-  const isDisabled = false;
+export function SectionYamlView({ sectionId }) {
+  const isDisabled = useProjectState(
+    (x) => getSectionVariant(sectionId, x).isFrozen,
+  );
 
   function onChange() {
-    // debouncedYamlToGUI(sectionId);
-    console.log("SectionYamlView onChange");
+    debouncedYamlToGUI(sectionId);
   }
 
   return (
@@ -30,13 +32,8 @@ export function SectionYamlView({ sectionId }: { sectionId: string }) {
   );
 }
 
-function YamlView({ sectionId, isDisabled, onChange }) {
-  const yamlValue = useProjectState((state) => {
-    const variantId = getCurrSectionVariantId(state, sectionId, true);
-    return state.yamlValues[variantId] ?? "";
-  });
-
-  const [localValue, setLocalValue] = useLocalPendingValue(yamlValue);
+export function YamlView({ sectionId, isDisabled, onChange }) {
+  const [yamlValue, setYamlValue] = useGetAndSetYamlValue(sectionId);
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
@@ -54,7 +51,7 @@ function YamlView({ sectionId, isDisabled, onChange }) {
   });
 
   function localOnChange(v) {
-    setLocalValue(v);
+    setYamlValue(v);
     onChange?.();
   }
 
@@ -73,7 +70,7 @@ function YamlView({ sectionId, isDisabled, onChange }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={localValue}
+        value={yamlValue}
         onChange={localOnChange}
         theme={theme}
         extensions={extensions}
@@ -84,3 +81,22 @@ function YamlView({ sectionId, isDisabled, onChange }) {
     </article>
   );
 }
+
+function useGetAndSetYamlValue(sectionId) {
+  const { variantId, displayedVariantId } = useProjectState((state) => {
+    return {
+      variantId: state.sections[sectionId].variantId,
+      displayedVariantId: getDisplayedSectionVariantId(sectionId, state),
+    };
+  }, _.isEqual);
+
+  const yamlValue = useYamlValue((x) => x[displayedVariantId] ?? "");
+
+  function setYamlValue(v) {
+    useYamlValue.setState({ [variantId]: v });
+  }
+
+  return [yamlValue, setYamlValue];
+}
+
+const debouncedYamlToGUI = _.debounce(yamlToGUI, 500);

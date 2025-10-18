@@ -1,14 +1,17 @@
 import logging
-import os
 from pathlib import Path
 
 from setta.types.routes import Route
 
+from .utils import is_dev_mode
+
 logger = logging.getLogger(__name__)
 
 CWD = Path.cwd()
+SETTA_FILES_FOLDER = CWD / "setta_files"
+CODE_FOLDER = SETTA_FILES_FOLDER / "code"
+DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
-IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 
 
 class classproperty:
@@ -26,16 +29,12 @@ class C:
     DEFAULT_HOST = "127.0.0.1"
     DEFAULT_PORT = 8000
     DEV_MODE_FRONTEND_PORT = 3000
-    SETTINGS_PROJECT_NAME = "settings"
+    DEFAULT_DB_PATH = SETTA_FILES_FOLDER / "setta.db"
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
     PORT: int = DEFAULT_PORT
-
-    SETTA_FILES_FOLDER = Path("setta_files")
-    CODE_FOLDER = SETTA_FILES_FOLDER / "code"
-    DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
-    ARTIFACTS_FOLDER = SETTA_FILES_FOLDER / "artifacts"
+    DB_PATH: Path = DEFAULT_DB_PATH
 
     # WebSocket message types
     WS_RUN_CODE = "runCode"
@@ -44,6 +43,7 @@ class C:
     WS_SCRIPT_DEPENDENCIES = "scriptDependencies"
     WS_PROJECT_DATA = "projectData"
     WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS"
+    WS_UPDATE_PROJECT_STATE = "WS_UPDATE_PROJECT_STATE"
 
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
 
@@ -93,7 +93,7 @@ class C:
 
     @classproperty
     def FRONTEND_ORIGINS(cls):
-        if IS_DEV_MODE:
+        if is_dev_mode():
             output: list[str] = [f"http://{cls.HOST}:{cls.DEV_MODE_FRONTEND_PORT}"]
         else:
             output: list[str] = [cls.BACKEND]

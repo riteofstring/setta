@@ -1,3 +1,10 @@
+import { JustListOfArtifacts } from "./ListOfArtifacts";
+
 export function ChatAreaSettings({ sectionId }) {
-  return null;
+  return (
+    <JustListOfArtifacts
+      sectionId={sectionId}
+      sectionTypeName={UITypeNameEnum.CHAT}
+    />
+  );
 }

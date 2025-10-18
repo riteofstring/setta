@@ -135,8 +135,6 @@ class PythonCodeGenerator:
 
     def create_line(self, graph_key, node: Node):
         value = self.get_value(node)
-        if not value:
-            return
         var_name = self.create_var_name(graph_key, node)
         prefix = f"{var_name} = "
         final_str = f"{prefix}{value}"
@@ -158,19 +156,21 @@ class PythonCodeGenerator:
 
     def get_section_value(self, node: SectionNode):
         t = node.type
-        match t:
-            case SectionType.Callable:
-                if node.value:
-                    return self.construct_callable(node.value, node.deps)
-                return "None"
-            case SectionType.ListRoot:
-                return self.construct_list(node.deps)
-            case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
+        if t == SectionType.Callable:
+            if node.value:
+                return self.construct_callable(node.value, node.deps)
+            else:
                 return self.construct_dict(node.deps)
-            case SectionType.TextBlock:
-                return repr(node.value)
-            case _:
-                return None
+        elif t == SectionType.ListRoot:
+            return self.construct_list(node.deps)
+        elif t in [SectionType.DictRoot, SectionType.Group]:
+            return self.construct_dict(node.deps)
+        else:
+            raise ValueError
+        # elif t == UITypeName.TEXT_BLOCK:
+        #     output = f'"""{x["value"]}"""'
+        # else:
+        #     output = None
 
     def get_param_value(self, node: ParamNode):
         t = node.type

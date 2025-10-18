@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
-import { Node } from "forks/xyflow/core/types";
+import { Node, XYPosition } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
@@ -9,8 +9,7 @@ import {
   useSectionRefs,
   ZustandNodeInternalsState,
 } from "state/definitions";
-import { Position } from "utils/generatedTypes";
-import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
+import { debounced_route_update_from_frontend_top_level_section_layout } from "./sectionInfos";
 
 type NodeDimensionsUpdate = Array<{
   id: string;
@@ -77,7 +76,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   }
 
   useNodeInternals.setState({ x: newNodes });
-  debounced_route_set_top_level_section_layout();
+  debounced_route_update_from_frontend_top_level_section_layout();
 
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering
@@ -116,7 +115,7 @@ export function raiseTempZIndex(nodes: Array<Node>) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function justMoveANode(id: string, position: Position) {
+export function justMoveANode(id: string, position: XYPosition) {
   const newNodes = getNewNodes();
   newNodes.get(id).position = position;
   useNodeInternals.setState({ x: newNodes });

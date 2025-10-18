@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
@@ -22,25 +22,25 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 
-BaseSectionImplUnion = (
-    CallableSectionImpl
-    | DictSectionImpl
-    | ListRootSectionImpl
-    | DictRootSectionImpl
-    | GroupSectionImpl
-    | ImageSectionImpl
-    | ChartSectionImpl
-    | DrawSectionImpl
-    | TextBlockSectionImpl
-    | SocialSectionImpl
-    | GlobalVariablesSectionImpl
-    | CodeSectionImpl
-    | GenPythonCodeSectionImpl
-    | TerminalSectionImpl
-    | IFrameSectionImpl
-    | ChatSectionImpl
-    | BrowserSectionImpl
-)
+BaseSectionImplUnion = Union[
+    CallableSectionImpl,
+    DictSectionImpl,
+    ListRootSectionImpl,
+    DictRootSectionImpl,
+    GroupSectionImpl,
+    ImageSectionImpl,
+    ChartSectionImpl,
+    DrawSectionImpl,
+    TextBlockSectionImpl,
+    SocialSectionImpl,
+    GlobalVariablesSectionImpl,
+    CodeSectionImpl,
+    GenPythonCodeSectionImpl,
+    TerminalSectionImpl,
+    IFrameSectionImpl,
+    ChatSectionImpl,
+    BrowserSectionImpl,
+]
 
 BaseSectionImplUnionWithDiscriminator = Annotated[
     BaseSectionImplUnion, Field(discriminator="type")
@@ -70,9 +70,9 @@ BaseSectionImplTypeSet = set(
     ]
 )
 
-BaseSectionWithParamsImplUnion = (
-    CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl
-)
+BaseSectionWithParamsImplUnion = Union[
+    CallableSectionImpl, DictSectionImpl, GlobalVariablesSectionImpl
+]
 
 BaseSectionWithParamsImplUnionWithDiscriminator = Annotated[
     BaseSectionWithParamsImplUnion, Field(discriminator="type")
@@ -84,7 +84,21 @@ BaseSectionWithParamsImplTypeAdapter = TypeAdapter(
 
 BaseSectionWithParamsImplTypeSet = set(["Callable", "Dict", "GlobalVariables"])
 
-BaseCanvasSectionImplUnion = ChartSectionImpl | DrawSectionImpl
+BaseArtifactSectionImplUnion = Union[
+    ImageSectionImpl, ChartSectionImpl, DrawSectionImpl
+]
+
+BaseArtifactSectionImplUnionWithDiscriminator = Annotated[
+    BaseArtifactSectionImplUnion, Field(discriminator="type")
+]
+
+BaseArtifactSectionImplTypeAdapter = TypeAdapter(
+    BaseArtifactSectionImplUnionWithDiscriminator
+)
+
+BaseArtifactSectionImplTypeSet = set(["Image", "Chart", "Draw"])
+
+BaseCanvasSectionImplUnion = Union[ChartSectionImpl, DrawSectionImpl]
 
 BaseCanvasSectionImplUnionWithDiscriminator = Annotated[
     BaseCanvasSectionImplUnion, Field(discriminator="type")
@@ -96,7 +110,7 @@ BaseCanvasSectionImplTypeAdapter = TypeAdapter(
 
 BaseCanvasSectionImplTypeSet = set(["Chart", "Draw"])
 
-BaseCodeSectionImplUnion = CodeSectionImpl | GenPythonCodeSectionImpl
+BaseCodeSectionImplUnion = Union[CodeSectionImpl, GenPythonCodeSectionImpl]
 
 BaseCodeSectionImplUnionWithDiscriminator = Annotated[
     BaseCodeSectionImplUnion, Field(discriminator="type")
@@ -106,9 +120,9 @@ BaseCodeSectionImplTypeAdapter = TypeAdapter(BaseCodeSectionImplUnionWithDiscrim
 
 BaseCodeSectionImplTypeSet = set(["Code", "GenPythonCode"])
 
-BaseParentSectionImplUnion = (
-    ListRootSectionImpl | DictRootSectionImpl | GroupSectionImpl
-)
+BaseParentSectionImplUnion = Union[
+    ListRootSectionImpl, DictRootSectionImpl, GroupSectionImpl
+]
 
 BaseParentSectionImplUnionWithDiscriminator = Annotated[
     BaseParentSectionImplUnion, Field(discriminator="type")
@@ -120,7 +134,7 @@ BaseParentSectionImplTypeAdapter = TypeAdapter(
 
 BaseParentSectionImplTypeSet = set(["ListRoot", "DictRoot", "Group"])
 
-BaseDictSectionImplUnion = DictSectionImpl | GlobalVariablesSectionImpl
+BaseDictSectionImplUnion = Union[DictSectionImpl, GlobalVariablesSectionImpl]
 
 BaseDictSectionImplUnionWithDiscriminator = Annotated[
     BaseDictSectionImplUnion, Field(discriminator="type")
@@ -131,7 +145,7 @@ BaseDictSectionImplTypeAdapter = TypeAdapter(BaseDictSectionImplUnionWithDiscrim
 BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])
 
 
-from typing import Annotated
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
@@ -147,17 +161,17 @@ from setta.types.code_obj_impls import (
     TextParamCodeObjImpl,
 )
 
-BaseCodeObjImplUnion = (
-    CodeCallableCodeObjImpl
-    | CodeParamCodeObjImpl
-    | TextParamCodeObjImpl
-    | SliderParamCodeObjImpl
-    | SwitchParamCodeObjImpl
-    | ColorPickerParamCodeObjImpl
-    | DropdownParamCodeObjImpl
-    | PasswordParamCodeObjImpl
-    | NestedParamCodeObjImpl
-)
+BaseCodeObjImplUnion = Union[
+    CodeCallableCodeObjImpl,
+    CodeParamCodeObjImpl,
+    TextParamCodeObjImpl,
+    SliderParamCodeObjImpl,
+    SwitchParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+    NestedParamCodeObjImpl,
+]
 
 BaseCodeObjImplUnionWithDiscriminator = Annotated[
     BaseCodeObjImplUnion, Field(discriminator="type")
@@ -179,16 +193,16 @@ BaseCodeObjImplTypeSet = set(
     ]
 )
 
-BaseParamCodeObjImplUnion = (
-    CodeParamCodeObjImpl
-    | TextParamCodeObjImpl
-    | SliderParamCodeObjImpl
-    | SwitchParamCodeObjImpl
-    | ColorPickerParamCodeObjImpl
-    | DropdownParamCodeObjImpl
-    | PasswordParamCodeObjImpl
-    | NestedParamCodeObjImpl
-)
+BaseParamCodeObjImplUnion = Union[
+    CodeParamCodeObjImpl,
+    TextParamCodeObjImpl,
+    SliderParamCodeObjImpl,
+    SwitchParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+    NestedParamCodeObjImpl,
+]
 
 BaseParamCodeObjImplUnionWithDiscriminator = Annotated[
     BaseParamCodeObjImplUnion, Field(discriminator="type")
@@ -211,15 +225,15 @@ BaseParamCodeObjImplTypeSet = set(
     ]
 )
 
-BaseChildlessCodeObjImplUnion = (
-    CodeParamCodeObjImpl
-    | TextParamCodeObjImpl
-    | SliderParamCodeObjImpl
-    | SwitchParamCodeObjImpl
-    | ColorPickerParamCodeObjImpl
-    | DropdownParamCodeObjImpl
-    | PasswordParamCodeObjImpl
-)
+BaseChildlessCodeObjImplUnion = Union[
+    CodeParamCodeObjImpl,
+    TextParamCodeObjImpl,
+    SliderParamCodeObjImpl,
+    SwitchParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+]
 
 BaseChildlessCodeObjImplUnionWithDiscriminator = Annotated[
     BaseChildlessCodeObjImplUnion, Field(discriminator="type")
@@ -241,7 +255,7 @@ BaseChildlessCodeObjImplTypeSet = set(
     ]
 )
 
-BaseParentCodeObjImplUnion = CodeCallableCodeObjImpl | NestedParamCodeObjImpl
+BaseParentCodeObjImplUnion = Union[CodeCallableCodeObjImpl, NestedParamCodeObjImpl]
 
 BaseParentCodeObjImplUnionWithDiscriminator = Annotated[
     BaseParentCodeObjImplUnion, Field(discriminator="type")
@@ -252,294 +266,3 @@ BaseParentCodeObjImplTypeAdapter = TypeAdapter(
 )
 
 BaseParentCodeObjImplTypeSet = set(["CodeCallable", "NestedParam"])
-
-
-from typing import Annotated
-
-from pydantic import Field, TypeAdapter
-
-from setta.types.generated.impl_args_as_typed_dicts import (
-    BrowserSectionImplArgs,
-    CallableSectionImplArgs,
-    ChartSectionImplArgs,
-    ChatSectionImplArgs,
-    CodeSectionImplArgs,
-    DictRootSectionImplArgs,
-    DictSectionImplArgs,
-    DrawSectionImplArgs,
-    GenPythonCodeSectionImplArgs,
-    GlobalVariablesSectionImplArgs,
-    GroupSectionImplArgs,
-    IFrameSectionImplArgs,
-    ImageSectionImplArgs,
-    ListRootSectionImplArgs,
-    SocialSectionImplArgs,
-    TerminalSectionImplArgs,
-    TextBlockSectionImplArgs,
-)
-
-BaseSectionImplArgsUnion = (
-    CallableSectionImplArgs
-    | DictSectionImplArgs
-    | ListRootSectionImplArgs
-    | DictRootSectionImplArgs
-    | GroupSectionImplArgs
-    | ImageSectionImplArgs
-    | ChartSectionImplArgs
-    | DrawSectionImplArgs
-    | TextBlockSectionImplArgs
-    | SocialSectionImplArgs
-    | GlobalVariablesSectionImplArgs
-    | CodeSectionImplArgs
-    | GenPythonCodeSectionImplArgs
-    | TerminalSectionImplArgs
-    | IFrameSectionImplArgs
-    | ChatSectionImplArgs
-    | BrowserSectionImplArgs
-)
-
-BaseSectionImplArgsUnionWithDiscriminator = Annotated[
-    BaseSectionImplArgsUnion, Field(discriminator="type")
-]
-
-BaseSectionImplArgsTypeAdapter = TypeAdapter(BaseSectionImplArgsUnionWithDiscriminator)
-
-BaseSectionImplArgsTypeSet = set(
-    [
-        "Callable",
-        "Dict",
-        "ListRoot",
-        "DictRoot",
-        "Group",
-        "Image",
-        "Chart",
-        "Draw",
-        "TextBlock",
-        "Social",
-        "GlobalVariables",
-        "Code",
-        "GenPythonCode",
-        "Terminal",
-        "IFrame",
-        "Chat",
-        "Browser",
-    ]
-)
-
-BaseSectionWithParamsImplArgsUnion = (
-    CallableSectionImplArgs | DictSectionImplArgs | GlobalVariablesSectionImplArgs
-)
-
-BaseSectionWithParamsImplArgsUnionWithDiscriminator = Annotated[
-    BaseSectionWithParamsImplArgsUnion, Field(discriminator="type")
-]
-
-BaseSectionWithParamsImplArgsTypeAdapter = TypeAdapter(
-    BaseSectionWithParamsImplArgsUnionWithDiscriminator
-)
-
-BaseSectionWithParamsImplArgsTypeSet = set(["Callable", "Dict", "GlobalVariables"])
-
-BaseCanvasSectionImplArgsUnion = ChartSectionImplArgs | DrawSectionImplArgs
-
-BaseCanvasSectionImplArgsUnionWithDiscriminator = Annotated[
-    BaseCanvasSectionImplArgsUnion, Field(discriminator="type")
-]
-
-BaseCanvasSectionImplArgsTypeAdapter = TypeAdapter(
-    BaseCanvasSectionImplArgsUnionWithDiscriminator
-)
-
-BaseCanvasSectionImplArgsTypeSet = set(["Chart", "Draw"])
-
-BaseCodeSectionImplArgsUnion = CodeSectionImplArgs | GenPythonCodeSectionImplArgs
-
-BaseCodeSectionImplArgsUnionWithDiscriminator = Annotated[
-    BaseCodeSectionImplArgsUnion, Field(discriminator="type")
-]
-
-BaseCodeSectionImplArgsTypeAdapter = TypeAdapter(
-    BaseCodeSectionImplArgsUnionWithDiscriminator
-)
-
-BaseCodeSectionImplArgsTypeSet = set(["Code", "GenPythonCode"])
-
-BaseParentSectionImplArgsUnion = (
-    ListRootSectionImplArgs | DictRootSectionImplArgs | GroupSectionImplArgs
-)
-
-BaseParentSectionImplArgsUnionWithDiscriminator = Annotated[
-    BaseParentSectionImplArgsUnion, Field(discriminator="type")
-]
-
-BaseParentSectionImplArgsTypeAdapter = TypeAdapter(
-    BaseParentSectionImplArgsUnionWithDiscriminator
-)
-
-BaseParentSectionImplArgsTypeSet = set(["ListRoot", "DictRoot", "Group"])
-
-BaseDictSectionImplArgsUnion = DictSectionImplArgs | GlobalVariablesSectionImplArgs
-
-BaseDictSectionImplArgsUnionWithDiscriminator = Annotated[
-    BaseDictSectionImplArgsUnion, Field(discriminator="type")
-]
-
-BaseDictSectionImplArgsTypeAdapter = TypeAdapter(
-    BaseDictSectionImplArgsUnionWithDiscriminator
-)
-
-BaseDictSectionImplArgsTypeSet = set(["Dict", "GlobalVariables"])
-
-
-from typing import Annotated
-
-from pydantic import Field, TypeAdapter
-
-from setta.types.generated.impl_args_as_typed_dicts import (
-    CodeCallableCodeObjImplArgs,
-    CodeParamCodeObjImplArgs,
-    ColorPickerParamCodeObjImplArgs,
-    DropdownParamCodeObjImplArgs,
-    NestedParamCodeObjImplArgs,
-    PasswordParamCodeObjImplArgs,
-    SliderParamCodeObjImplArgs,
-    SwitchParamCodeObjImplArgs,
-    TextParamCodeObjImplArgs,
-)
-
-BaseCodeObjImplArgsUnion = (
-    CodeCallableCodeObjImplArgs
-    | CodeParamCodeObjImplArgs
-    | TextParamCodeObjImplArgs
-    | SliderParamCodeObjImplArgs
-    | SwitchParamCodeObjImplArgs
-    | ColorPickerParamCodeObjImplArgs
-    | DropdownParamCodeObjImplArgs
-    | PasswordParamCodeObjImplArgs
-    | NestedParamCodeObjImplArgs
-)
-
-BaseCodeObjImplArgsUnionWithDiscriminator = Annotated[
-    BaseCodeObjImplArgsUnion, Field(discriminator="type")
-]
-
-BaseCodeObjImplArgsTypeAdapter = TypeAdapter(BaseCodeObjImplArgsUnionWithDiscriminator)
-
-BaseCodeObjImplArgsTypeSet = set(
-    [
-        "CodeCallable",
-        "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
-        "NestedParam",
-    ]
-)
-
-BaseParamCodeObjImplArgsUnion = (
-    CodeParamCodeObjImplArgs
-    | TextParamCodeObjImplArgs
-    | SliderParamCodeObjImplArgs
-    | SwitchParamCodeObjImplArgs
-    | ColorPickerParamCodeObjImplArgs
-    | DropdownParamCodeObjImplArgs
-    | PasswordParamCodeObjImplArgs
-    | NestedParamCodeObjImplArgs
-)
-
-BaseParamCodeObjImplArgsUnionWithDiscriminator = Annotated[
-    BaseParamCodeObjImplArgsUnion, Field(discriminator="type")
-]
-
-BaseParamCodeObjImplArgsTypeAdapter = TypeAdapter(
-    BaseParamCodeObjImplArgsUnionWithDiscriminator
-)
-
-BaseParamCodeObjImplArgsTypeSet = set(
-    [
-        "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
-        "NestedParam",
-    ]
-)
-
-BaseChildlessCodeObjImplArgsUnion = (
-    CodeParamCodeObjImplArgs
-    | TextParamCodeObjImplArgs
-    | SliderParamCodeObjImplArgs
-    | SwitchParamCodeObjImplArgs
-    | ColorPickerParamCodeObjImplArgs
-    | DropdownParamCodeObjImplArgs
-    | PasswordParamCodeObjImplArgs
-)
-
-BaseChildlessCodeObjImplArgsUnionWithDiscriminator = Annotated[
-    BaseChildlessCodeObjImplArgsUnion, Field(discriminator="type")
-]
-
-BaseChildlessCodeObjImplArgsTypeAdapter = TypeAdapter(
-    BaseChildlessCodeObjImplArgsUnionWithDiscriminator
-)
-
-BaseChildlessCodeObjImplArgsTypeSet = set(
-    [
-        "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
-    ]
-)
-
-BaseParentCodeObjImplArgsUnion = (
-    CodeCallableCodeObjImplArgs | NestedParamCodeObjImplArgs
-)
-
-BaseParentCodeObjImplArgsUnionWithDiscriminator = Annotated[
-    BaseParentCodeObjImplArgsUnion, Field(discriminator="type")
-]
-
-BaseParentCodeObjImplArgsTypeAdapter = TypeAdapter(
-    BaseParentCodeObjImplArgsUnionWithDiscriminator
-)
-
-BaseParentCodeObjImplArgsTypeSet = set(["CodeCallable", "NestedParam"])
-
-
-from typing import Annotated
-
-from pydantic import Field, TypeAdapter
-
-from setta.types.artifact import (
-    BrushStrokeArtifact,
-    ChartDataArtifact,
-    DrawAreaLayerItemTransformArtifact,
-    ImageArtifact,
-)
-
-BaseArtifactUnion = (
-    ImageArtifact
-    | BrushStrokeArtifact
-    | DrawAreaLayerItemTransformArtifact
-    | ChartDataArtifact
-)
-
-BaseArtifactUnionWithDiscriminator = Annotated[
-    BaseArtifactUnion, Field(discriminator="type")
-]
-
-BaseArtifactTypeAdapter = TypeAdapter(BaseArtifactUnionWithDiscriminator)
-
-BaseArtifactTypeSet = set(
-    ["Image", "BrushStroke", "DrawAreaLayerItemTransform", "ChartData"]
-)

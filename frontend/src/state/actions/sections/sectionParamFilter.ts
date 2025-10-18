@@ -1,24 +1,7 @@
 import { useProjectSearch, useProjectState } from "state/definitions";
-import { ProjectSearchModeEnum } from "utils/constants";
-
-export const ProjectPageSearchBarDivId = "ProjectPageSearchBar";
-
-export function clickOrFocusOnSearchBar(mode: "click" | "focus") {
-  // wait for re-render, otherwise the search bar re-renders after focusing on it
-  requestAnimationFrame(() => {
-    const element = document.getElementById(ProjectPageSearchBarDivId);
-    if (element) {
-      if (mode === "click") {
-        element.click();
-      } else if (mode === "focus") {
-        element.focus({ preventScroll: true });
-      }
-    }
-  });
-}
 
 export function focusOnSearch() {
-  const sectionIds = useProjectState.getState().projectConfig.activeIds;
+  const sectionIds = useProjectState.getState().activeIds;
   if (sectionIds.length === 1) {
     const element = document.getElementById(`${sectionIds[0]}-args-filter`);
     if (element) {
@@ -27,16 +10,34 @@ export function focusOnSearch() {
     return;
   }
 
-  useProjectSearch.setState({ mode: ProjectSearchModeEnum.find });
-  clickOrFocusOnSearchBar("focus");
+  useProjectSearch.setState({ mode: "find" });
+  // wait for re-render, otherwise the search bar re-renders after focusing on it
+  requestAnimationFrame(() => {
+    const element = document.getElementById("ProjectPageSearchBar");
+    if (element) {
+      element.focus({ preventScroll: true });
+    }
+  });
 }
 
 export function focusOnAdvancedSearch() {
-  useProjectSearch.setState({ mode: ProjectSearchModeEnum.advanced });
-  clickOrFocusOnSearchBar("click");
+  useProjectSearch.setState({ mode: "advanced" });
+  // wait for re-render, otherwise the search bar re-renders after clicking on it
+  requestAnimationFrame(() => {
+    const element = document.getElementById("ProjectPageSearchBar");
+    if (element) {
+      element.click();
+    }
+  });
 }
 
 export function focusOnCommandPalette() {
-  useProjectSearch.setState({ mode: ProjectSearchModeEnum.commandPalette });
-  clickOrFocusOnSearchBar("click");
+  useProjectSearch.setState({ mode: "commandPalette" });
+  // wait for re-render, otherwise the search bar re-renders after clicking on it
+  requestAnimationFrame(() => {
+    const element = document.getElementById("ProjectPageSearchBar");
+    if (element) {
+      element.click();
+    }
+  });
 }

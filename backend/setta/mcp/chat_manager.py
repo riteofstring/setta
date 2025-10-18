@@ -21,10 +21,11 @@ from anthropic.types import (
     ToolUseBlockParam,
 )
 
+from setta.database.db.chats.load import load_all_chat_metadata, load_chat
+from setta.database.db.chats.save import create_new_chat, delete_chat, save_messages
 from setta.database.db_objs import DBE
+from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
-from setta.project_state.chats.load import load_all_chat_metadata, load_chat
-from setta.project_state.chats.save import create_new_chat, delete_chat, save_messages
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
@@ -54,36 +55,45 @@ class ChatManager:
         self.cache_trigger_tokens = 1000
 
     def get_chat(self, chat_id: str):
-        return load_chat(self.dbe, chat_id)
+        with self.dbe.session as db:
+            return load_chat(db, chat_id)
 
     def get_or_create_chat(self, chat_id: str | None, message: ChatMessage):
-        if not chat_id:
+        if not chat_id or not self.get_chat(chat_id):
             return self.create_new_chat(message)
-        chat = self.get_chat(chat_id)
-        if not chat:
-            return self.create_new_chat(message)
-        saved = self.save_messages_to_db(chat_id, [message])
-        return saved or self.get_chat(chat_id)
+        self.save_messages_to_db(chat_id, [message])
+        return self.get_chat(chat_id)
 
     def save_messages_to_db(self, chat_id: str, messages: list[ChatMessage]):
-        return save_messages(self.dbe, chat_id, messages)
+        if len(messages) == 0:
+            return
+        with self.dbe.session as db:
+            save_messages(db, chat_id, messages)
 
     def save_current_stream_to_db(self, chat_id: str):
         messages = self.get_current_stream(chat_id)
         messages = self.remove_incomplete_tool_uses(messages)
-        chat = self.save_messages_to_db(chat_id, messages)
+        self.save_messages_to_db(
+            chat_id,
+            messages,
+        )
+        chat = self.get_chat(chat_id)
         if not chat:
             raise ValueError
         return chat
 
     def create_new_chat(self, first_message: ChatMessage):
-        return create_new_chat(self.dbe, first_message)
+        with self.dbe.session as db:
+            return create_new_chat(db, first_message)
 
     def get_all_chat_metadata(self):
-        return load_all_chat_metadata(self.dbe)
+        with self.dbe.session as db:
+            return load_all_chat_metadata(db)
+        raise ValueError
 
     def delete_chat(self, chat_id: str):
-        delete_chat(self.dbe, chat_id)
+        with self.dbe.session as db:
+            delete_chat(db, chat_id)
 
     def is_waiting_for_response(self, chat_id: str):
         return chat_id in self.current_streams
@@ -206,6 +216,7 @@ class ChatManager:
                     )
                     newer_msgs.append(
                         ChatMessage(
+                            id=create_new_id(),
                             role=ChatRole.user,
                             content=[tool_result],
                         )

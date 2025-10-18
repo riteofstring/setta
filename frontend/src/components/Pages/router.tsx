@@ -1,6 +1,7 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { HomePage } from "components/Pages/Home/HomePage";
+import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
 import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
@@ -9,14 +10,6 @@ import {
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
-
-function GridContainer({ children }) {
-  return (
-    <section className="grid h-full w-screen grid-cols-[1fr] grid-rows-[min-content] overflow-hidden">
-      {children}
-    </section>
-  );
-}
 
 const homeRoute = {
   path: HOME_ROUTER_PATH,

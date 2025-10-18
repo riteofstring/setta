@@ -2,18 +2,12 @@ import asyncio
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
-from setta.file_watchers.specific_file_watcher import (
-    SpecificFileWatcher,
-)
+from setta.file_watchers.specific_file_watcher import create_specific_file_watcher
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
-from setta.project_state.artifacts import Artifacts
-from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager import ProjectManager
-from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
@@ -30,52 +24,31 @@ class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.dbe = DBE(C.SETTA_FILES_FOLDER)
-        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+        self.settings_file = SettingsFile(self.wmh_frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
         self.lsp_writers = LSPWriters(self.lsps)
         self.script_metadata = ScriptMetadata()
+        self.dbe = DBE(C.DB_PATH)
 
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
-        self.specific_file_watcher = SpecificFileWatcher()
-        self.artifacts = Artifacts(
-            self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
+        self.specific_file_watcher = create_specific_file_watcher(
+            self.wmh_frontend_sender
         )
-        self.json_source = JSONSource(
-            self.wmh_frontend_sender,
-            self.settings_file,
-            self.specific_file_watcher,
-            self.dbe,
-        )
-        project_manager = ProjectManager(
+        self.project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
             self.settings_file,
-            self.specific_file_watcher,
             self.dbe,
-            self.artifacts,
-            self.json_source,
-        )
-        settings_project_manager = SettingsProjectManager(
-            self.lsp_writers,
-            self.wmh_frontend_sender,
-            self.settings_file,
-            self.specific_file_watcher,
-            self.dbe,
-            self.artifacts,
-            self.json_source,
-        )
-        self.project_manager_switcher = ProjectManagerSwitcher(
-            project_manager, settings_project_manager
         )
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,
-            project_manager,
+            self.project_manager,
             self.script_metadata,
+            self.specific_file_watcher,
         )
         self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager, self.script_metadata, project_manager
+            self.websocket_manager, self.script_metadata, self.project_manager
         )
         self.wmh_python_logger_receiver = WMHPythonLoggerReceiver(
             self.websocket_manager

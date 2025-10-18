@@ -5,8 +5,7 @@ import type {
   HTMLAttributes,
   MouseEvent,
 } from "react";
-import { Position } from "utils/generatedTypes";
-import { Node, PanelPosition } from "../core/types";
+import { Node, PanelPosition, XYPosition } from "../core/types";
 
 export type GetMiniMapNodeAttribute<NodeData = any> = (
   node: Node<NodeData>,
@@ -26,7 +25,7 @@ export type MiniMapProps<NodeData = any> = Omit<
   maskStrokeColor?: string;
   maskStrokeWidth?: number;
   position?: PanelPosition;
-  onClick?: (event: MouseEvent, position: Position) => void;
+  onClick?: (event: MouseEvent, position: XYPosition) => void;
   onNodeClick?: (event: MouseEvent, node: Node<NodeData>) => void;
   pannable?: boolean;
   zoomable?: boolean;

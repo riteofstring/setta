@@ -5,20 +5,23 @@ import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   CreateSectionsContextMenuInfo,
-  createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
-import { useContextMenus } from "state/definitions";
+import { useContextMenus, useProjectState } from "state/definitions";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
-  function onClick(implSpecs: CreateSectionsContextMenuInfo["implSpecs"]) {
-    createTopLevelSectionFromImplSpecs(
-      implSpecs,
-      screenToFlowPosition({ x, y }),
-    );
+  function onClick(
+    specificProps: CreateSectionsContextMenuInfo["specificProps"],
+  ) {
+    route_create_top_level_section({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      implType: specificProps.type,
+      position: screenToFlowPosition({ x, y }),
+    });
     closeAllContextMenus();
   }
 
@@ -50,7 +53,7 @@ function DropdownGroup({
 }: {
   name: string;
   items: Array<CreateSectionsContextMenuInfo>;
-  onClick: (x: CreateSectionsContextMenuInfo["implSpecs"]) => void;
+  onClick: (x: CreateSectionsContextMenuInfo["specificProps"]) => void;
 }) {
   return (
     <DropdownMenu.Group className="[&:not(:first-child)]:mt-1.5">
@@ -58,7 +61,7 @@ function DropdownGroup({
         {name}
       </DropdownMenu.Label>
       {items.map((e) => (
-        <Item key={e.name} onClick={() => onClick(e.implSpecs)}>
+        <Item key={e.name} onClick={() => onClick(e.specificProps)}>
           {e.name}
         </Item>
       ))}

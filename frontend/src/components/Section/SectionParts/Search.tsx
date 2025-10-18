@@ -7,7 +7,6 @@ import {
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -91,6 +90,7 @@ function SectionSearchCore({
     return { name: "", description: "", configLanguage };
   }, _.isEqual);
 
+  const [value, setValue] = useState(codeInfoName);
   const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
   const shouldResetValueOnBlur = useRef(false);
 
@@ -102,6 +102,7 @@ function SectionSearchCore({
   );
 
   function setValueAndCheckConsistency(value, cancelDebounced = false) {
+    setValue(value);
     if (cancelDebounced) {
       debouncedSetValueNameInconsistent.cancel();
       setValueNameInconsistent(false);
@@ -117,7 +118,7 @@ function SectionSearchCore({
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
-      const projectConfigId = getCurrProjectConfigId();
+      const projectConfigId = useProjectState.getState().projectConfig.id;
       route_clear_text_field_completion({
         projectConfigId,
         sectionId,
@@ -134,7 +135,7 @@ function SectionSearchCore({
     }
   }
 
-  function onTab(value, completionResult) {
+  function onTab(completionResult) {
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
       onEnter(value);
@@ -145,11 +146,11 @@ function SectionSearchCore({
     setValueAndCheckConsistency(value);
   }
 
-  function _onEnter(value) {
+  function _onEnter() {
     onEnter(value);
   }
 
-  function _onShiftEnter(value) {
+  function _onShiftEnter() {
     onShiftEnter(value);
   }
 
@@ -172,7 +173,7 @@ function SectionSearchCore({
         dummyDivId={divId}
         sectionId={sectionId}
         paramInfoId={null}
-        value={codeInfoName}
+        value={value}
         onBlur={onBlur}
         onChange={onChange}
         dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle}`}
@@ -202,19 +203,18 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-async function setCallable(
+export async function setCallable(
   sectionId: string,
   callableName: string,
   refetchParams = false,
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  const projectConfigId = getCurrProjectConfigId();
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   const res = await route_set_callable({
     projectConfigId,
     sectionId,
     callableName,
     refetchParams,
-    frontendOpId: null,
   });
   if (res200(res)) {
     // state update occurs by websocket

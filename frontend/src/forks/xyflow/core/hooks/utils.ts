@@ -1,8 +1,7 @@
 import type { RefObject } from "react";
 
 import { useProjectState, ZustandNodeInternalsState } from "state/definitions";
-import { Position } from "utils/generatedTypes";
-import type { NodeDragItem } from "../types";
+import type { NodeDragItem, XYPosition } from "../types";
 
 export function hasSelector(
   target: Element,
@@ -23,11 +22,10 @@ export function hasSelector(
 // looks for all selected nodes and created a NodeDragItem for each of them
 export function getDragItems(
   nodeInternals: ZustandNodeInternalsState["x"],
-  mousePos: Position,
+  mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
-  const { activeIds: activeSections } =
-    useProjectState.getState().projectConfig;
+  const { activeIds: activeSections } = useProjectState.getState();
   const draggedNodeIsActive = activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())
     .filter(

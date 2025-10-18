@@ -5,9 +5,8 @@ import { getNowDate } from "utils/timestamps";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import { Disabled } from "./CustomSortable/types";
-import { BehaviorDropType } from "./dropTypes";
 
-export type ZustandDndState = {
+type ZustandDndState = {
   activeId: string | null;
   activeIsTopLevel: boolean;
   overId: string | null;
@@ -17,7 +16,6 @@ export type ZustandDndState = {
   disabled: Record<string, Disabled>;
   width: number | null;
   height: number | null;
-  behaviorDropType: BehaviorDropType | null;
   times: {};
 };
 
@@ -34,7 +32,6 @@ export const useDndState = withProjectState(
         disabled: {},
         width: null,
         height: null,
-        behaviorDropType: null,
         times: {},
       })),
     ),

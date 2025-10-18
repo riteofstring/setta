@@ -1,36 +1,22 @@
-import { useCombobox, UseComboboxProps } from "downshift";
-import { type KeyboardEvent } from "react";
-import {
-  AllItemsType,
-  ComboboxItemType,
-  OnSelectedItemChangeFnType,
-  useComboboxStateReducerWithFilteredItems,
-} from "./ComboboxStateReducer";
+import { useCombobox } from "downshift";
+import { useComboboxStateReducerWithFilteredItems } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
-// value doesn't have to be provided, for example if it's not a saved global state.
-// value === null means no selection
-export function useIdNameCombobox<T>({
+export function useIdNameCombobox({
   allItems,
   onSelectedItemChange,
   value,
-  selectedItemCanBeNull = false,
-  clearInputAfterSelection = false,
-}: {
-  allItems: AllItemsType<T>;
-  onSelectedItemChange: OnSelectedItemChangeFnType<T>;
-  value?: string | null;
-  selectedItemCanBeNull?: boolean;
-  clearInputAfterSelection?: boolean;
+  selectedItemCanBeNull,
+  clearInputAfterSelection,
 }) {
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+  function onKeyDown(e) {
     if (e.code === "Escape") {
       // TODO: figure out best way to blur without being annoying
-      e.currentTarget.blur();
+      // e.target.blur();
     }
   }
 
-  const itemToString = (x: ComboboxItemType<T> | null) => (x ? x.name : "");
+  const itemToString = (x) => (x ? x.name : "");
 
   const { filteredItems, stateReducer, selection } =
     useComboboxStateReducerWithFilteredItems(
@@ -41,9 +27,7 @@ export function useIdNameCombobox<T>({
       clearInputAfterSelection,
     );
 
-  const localOnSelectedItemChange: UseComboboxProps<
-    ComboboxItemType<T>
-  >["onSelectedItemChange"] = ({ selectedItem }) => {
+  const localOnSelectedItemChange = ({ selectedItem }) => {
     onSelectedItemChange(selectedItem ? selectedItem.id : null);
   };
 
@@ -56,7 +40,7 @@ export function useIdNameCombobox<T>({
     getInputProps,
     highlightedIndex,
     getItemProps,
-  } = useCombobox<ComboboxItemType<T>>({
+  } = useCombobox({
     stateReducer,
     selectedItem: selection,
     items: singleListItems,

@@ -7,7 +7,6 @@ import { initializeGlobalSectionColumnWidthEventListeners } from "state/actions/
 import { useLoadProjectConfig } from "state/hooks/project";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
-import { LoadingSpinner } from "../LoadingSpinner";
 import { NotFound } from "../NotFound/NotFound";
 import { UIPage } from "./UiPage";
 
@@ -23,18 +22,32 @@ export function MainContainer() {
     }
   }, [doneLoading, is404]);
 
-  return !doneLoading ? (
-    <LoadingSpinner />
-  ) : is404 ? (
-    <NotFound />
-  ) : (
+  return (
     <>
-      <Overview />
-      <UiEditor />
-      <GridWrapper>
-        <UIPage />
-      </GridWrapper>
-      <FloatingBox />
+      {!doneLoading && <LoadingSpinner />}
+      {doneLoading && is404 ? (
+        <NotFound />
+      ) : (
+        <>
+          <Overview />
+          <UiEditor />
+          <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
+          <FloatingBox />
+        </>
+      )}
     </>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="single-cell-container absolute h-full w-full">
+      <div
+        className={`single-cell-child inset-0 place-self-center bg-transparent bg-opacity-50`}
+      >
+        <div className="gg-spinner !scale-150 before:!border-t-blue-500 after:!border-blue-500"></div>
+      </div>
+      <div className="relative z-10" />
+    </div>
   );
 }

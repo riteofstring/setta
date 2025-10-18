@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
 function _IframeArea({ sectionId }) {

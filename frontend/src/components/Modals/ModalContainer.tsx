@@ -1,20 +1,26 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
-import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
+import { MODAL_TYPE } from "utils/constants";
+import { AddArtifactByFilepathModal } from "./AddArtifactByFilepathModal/AddArtifactByFilepathModal";
+import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
-import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModal";
-import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
+import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
+import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
+import {
+  ExportJSONModal,
+  ImportJSONModal,
+} from "./ImportExportModal/ImportExportModal";
+import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
+import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
+import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
-import { ModalTypeEnum } from "./types";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
 
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={(newOpen) => useModal.setState({ open: newOpen })}
-    >
+    <Dialog.Root open={open} onOpenChange={setModalOpen}>
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
@@ -26,23 +32,36 @@ export function ModalContainer({ children }) {
   );
 }
 
-function ModalContent({ open }: { open: boolean }) {
-  const modalInfo = useModal((x) => x.modalInfo);
+function ModalContent({ open }) {
+  const modalType = useModal((x) => x.modalType);
 
-  if (!open || !modalInfo) {
+  if (!open) {
     return null;
   }
 
-  switch (modalInfo.type) {
-    case ModalTypeEnum.DELETE_PROJECT_WARNING:
-      return <DeleteProjectWarningModal />;
-    case ModalTypeEnum.DELETE_JSON_SOURCE_FILE:
-      return <DeleteJSONSourceVariantModal />;
-    case ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG:
-      return <FileMenuLoadProjectConfigModal open={open} />;
-    case ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS:
-      return <FileMenuSaveProjectConfigAsModal open={open} />;
+  switch (modalType.title) {
+    case MODAL_TYPE.LOAD_PROJECT_CONFIG.title:
+      return <FileMenuLoadModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.SAVE_PROJECT_CONFIG_AS.title:
+    case MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS.title:
+      return <FileMenuSaveAsModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.EXPORT_JSON.title:
+      return <ExportJSONModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.IMPORT_JSON.title:
+      return <ImportJSONModal modalType={modalType} />;
+    case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
+      return <SaveUITypeConfigModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:
+      return <SaveCustomArgumentsModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.DELETE_PROJECT_WARNING.title:
+      return <DeleteProjectWarningModal open={open} />;
+    case MODAL_TYPE.RENAME_REFERENCES.title:
+      return <RenameReferencesModal open={open} />;
+    case MODAL_TYPE.DELETE_JSON_SOURCE_FILE.title:
+      return <DeleteFileModal open={open} />;
+    case MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH.title:
+      return <AddArtifactByFilepathModal open={open} />;
     default:
-      return modalInfo satisfies never;
+      return null;
   }
 }

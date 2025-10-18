@@ -9,7 +9,7 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
@@ -23,14 +23,13 @@ import {
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
-import { updateArtifacts } from "./artifacts";
-import { updateInteractiveDependencies } from "./interactive";
-import { processRenameRefactorResults } from "./referenceRenaming";
+import { updateWithFileChanges } from "./fileUpdates";
 import {
-  getCurrProjectConfigId,
-  processProjectStateUpdateFromBackend,
-  updateAllProjectMetadata,
-} from "./sectionInfos";
+  updateInteractiveArtifacts,
+  updateInteractiveDependencies,
+} from "./interactive";
+import { processRenameRefactorResults } from "./referenceRenaming";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 import { updateSettings } from "./settings";
 
 let wss: WebSocket | null;
@@ -53,10 +52,10 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        const projectConfigId = getCurrProjectConfigId();
+        const projectConfigId = useProjectState.getState().projectConfig.id;
         if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
           const res = await route_get_latest_project_state({
-            projectConfigId: getCurrProjectConfigId(),
+            projectConfigId: useProjectState.getState().projectConfig.id,
           });
           if (res200(res)) {
             processProjectStateUpdateFromBackend(res.data);
@@ -107,8 +106,8 @@ function receiveMessage(message: string) {
       return setWebsocketConnections(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllDependencies:
       return updateInteractiveDependencies(m.content);
-    // case WebsocketMsgTypeForFrontendEnum.Artifact:
-    //   return updateInteractiveArtifacts(m.content);
+    case WebsocketMsgTypeForFrontendEnum.Artifact:
+      return updateInteractiveArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
@@ -117,6 +116,8 @@ function receiveMessage(message: string) {
       return addNotificationFromWebsocketMsg(m.content);
     case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
       return processRenameRefactorResults(m.content);
+    case WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate:
+      return updateWithFileChanges(m.content);
     case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
       // TODO
       return null;
@@ -126,10 +127,6 @@ function receiveMessage(message: string) {
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
-      return updateAllProjectMetadata(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
-      return updateArtifacts(m.content);
     default:
       return m satisfies never;
   }

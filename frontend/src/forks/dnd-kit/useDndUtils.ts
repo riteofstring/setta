@@ -6,10 +6,11 @@ import {
 } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
-import { BehaviorDropTypeEnum } from "./dropTypes";
+import { BehaviorDropType } from "./dropTypes";
 
 export function useHighlightDroppable({ sectionId, isGroup }) {
   const padding = !isGroup ? "0.75rem" : "";
@@ -19,7 +20,7 @@ export function useHighlightDroppable({ sectionId, isGroup }) {
     return {
       behaviorDropType,
       style:
-        behaviorDropType === BehaviorDropTypeEnum.INVALID
+        behaviorDropType === BehaviorDropType.INVALID
           ? {
               borderRadius: "1.5rem",
               padding: padding,
@@ -48,12 +49,12 @@ export function useDisableSortable(sectionId: string) {
 
   function activeIdInAncestorSet(activeId: string) {
     const state = useProjectState.getState();
-    let parentId = state.parentSectionMap[sectionId];
+    let { parentId } = getCurrEffectiveSectionImpl(state, sectionId);
     while (parentId) {
       if (activeId === parentId) {
         return true;
       }
-      parentId = state.parentSectionMap[parentId];
+      ({ parentId } = getCurrEffectiveSectionImpl(state, parentId));
     }
     return false;
   }

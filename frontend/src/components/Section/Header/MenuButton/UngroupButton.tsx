@@ -1,12 +1,11 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { route_ungroup_groups } from "utils/generatedEndpoints";
+import { ungroupGroup } from "state/actions/sections/groupSections";
+import { useProjectState } from "state/definitions";
 
 export function UngroupButton({ sectionId }) {
   function onClick() {
-    route_ungroup_groups({
-      projectConfigId: getCurrProjectConfigId(),
-      groupIds: [sectionId],
+    useProjectState.setState((state) => {
+      ungroupGroup(sectionId, state);
     });
   }
 

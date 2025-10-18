@@ -1,13 +1,12 @@
 import { useRef } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
-import {
-  AllItemsType,
-  OnSelectedItemChangeFnType,
-} from "./ComboboxStateReducer";
 import { useIdNameCombobox } from "./useIdNameCombobox";
 
+export type IdNameArrayForCombobox = Array<{ id: string; name: string }>;
+export type ComboboxOnSelectedItemChange = (x: string | null) => void;
+
 // TODO: add "display groups" argument
-export function IdNameCombobox<T>({
+export function IdNameCombobox({
   allItems,
   value,
   onSelectedItemChange,
@@ -17,22 +16,10 @@ export function IdNameCombobox<T>({
   bg,
   isDisabled,
   inputDivId,
-  selectedItemCanBeNull = false,
-  clearInputAfterSelection = false,
-}: {
-  allItems: AllItemsType<T>;
-  value: string | null;
-  onSelectedItemChange: OnSelectedItemChangeFnType<T>;
-  small?: boolean;
-  outerDivClasses?: string;
-  placeholder?: string;
-  bg?: string;
-  isDisabled?: boolean;
-  inputDivId?: string;
-  selectedItemCanBeNull?: boolean;
-  clearInputAfterSelection?: boolean;
+  selectedItemCanBeNull,
+  clearInputAfterSelection,
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef();
 
   const {
     isOpen,

@@ -3,12 +3,7 @@ from pathlib import Path
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-from .utils import ImplClassInfoForGeneration, get_impl_classes
-
-
-def get_user_default_attr_name(cls_info: ImplClassInfoForGeneration):
-    suffix = "SectionDefault" if cls_info.is_for_section else "CodeObjDefault"
-    return cls_info.type_value[0].lower() + cls_info.type_value[1:] + suffix
+from .utils import get_impl_classes
 
 
 def generate_settings_state() -> str:
@@ -32,7 +27,8 @@ def generate_settings_state() -> str:
         cls_info = classes[key]
         if not cls_info.type_has_default:
             continue
-        attr_name = get_user_default_attr_name(cls_info)
+        suffix = "SectionDefault" if cls_info.is_for_section else "CodeObjDefault"
+        attr_name = cls_info.type_value[0].lower() + cls_info.type_value[1:] + suffix
         class_name = cls_info.user_default_name
         imports.append(class_name)
         defaults.append(f"""    {attr_name}: {class_name} = Field(
@@ -72,45 +68,9 @@ class SettingsState(BaseModel, extra="forbid"):
     return output
 
 
-def generate_default_getters():
-    classes = get_impl_classes()
-    section_impl_class_info = {
-        k: v for k, v in classes.items() if v.is_for_section and v.type_has_default
-    }
-    code_obj_impl_class_info = {
-        k: v for k, v in classes.items() if v.is_for_code_obj and v.type_has_default
-    }
-
-    code = """
-from setta.types.section_impls import SectionType
-from setta.types.code_obj_impls import CodeObjType
-
-def get_user_default_section_from_settings(settings: SettingsState, type: SectionType):
-    match type:
-"""
-    for v in section_impl_class_info.values():
-        code += f"""
-        case SectionType.{v.type_value}:
-            return settings.{get_user_default_attr_name(v)}
-"""
-
-    code += """
-def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeObjType):
-    match type:
-"""
-    for v in code_obj_impl_class_info.values():
-        code += f"""
-        case CodeObjType.{v.type_value}:
-            return settings.{get_user_default_attr_name(v)}
-"""
-
-    return code
-
-
 def main(output_file: Path):
     """Generate the SettingsState class."""
     code = generate_settings_state()
-    code += generate_default_getters()
     formatted = ruff_format(code)
     output_file.write_text(formatted)
     print(f"wrote to {output_file}")

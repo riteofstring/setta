@@ -5,9 +5,8 @@ import type {
 } from "react";
 
 import { useLocalStorage } from "state/definitions";
-import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
-import type { Box, Dimensions, Node, Rect } from "../types";
+import type { Box, Dimensions, Node, Rect, XYPosition } from "../types";
 
 export const getDimensions = (node: HTMLDivElement): Dimensions => ({
   width: node.offsetWidth,
@@ -30,7 +29,7 @@ const calcAutoPanVelocity = (
   return 0;
 };
 
-export const calcAutoPan = (pos: Position, bounds: Dimensions): number[] => {
+export const calcAutoPan = (pos: XYPosition, bounds: Dimensions): number[] => {
   const overview = useLocalStorage.getState().overviewTrueWidth;
   const uiEditor = useLocalStorage.getState().uiEditorTrueWidth;
   const xMovement =

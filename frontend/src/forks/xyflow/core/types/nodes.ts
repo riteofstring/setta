@@ -1,9 +1,9 @@
-import { Position } from "utils/generatedTypes";
+import type { XYPosition } from ".";
 
 // interface for the user node items
 export type Node = {
   id: string;
-  position: Position;
+  position: XYPosition;
   width: number | null;
   height: number | null;
   zIndex: number;
@@ -12,9 +12,9 @@ export type Node = {
 
 export type NodeDragItem = {
   id: string;
-  position: Position;
+  position: XYPosition;
   // distance from the mouse cursor to the node when start dragging
-  distance: Position;
+  distance: XYPosition;
   width?: number | null;
   height?: number | null;
   dragging?: boolean;

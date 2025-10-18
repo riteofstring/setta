@@ -3,18 +3,32 @@ import traceback
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.project_state.project_manager_types import (
-    SaveAsExistingProjectConfigRequest,
-    SaveAsNewProjectConfigRequest,
+from setta.database.db.notifications.delete import delete_notification
+from setta.database.db.notifications.load import (
+    load_project_notifications,
 )
+from setta.database.db.projects.save import (
+    save_project_state,
+)
+from setta.database.db.projects.saveAs import (
+    save_as_existing_project_config,
+    save_as_new_project_config,
+)
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithModCount,
+    UpdateFromFrontendRequest,
+)
+from setta.project_state.save_load import save
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.helpers_lvl2 import (
+from setta.types.helpers import (
     ProjectNameTaken,
     ProjectNotFound,
+    confirm_config_name,
+    convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
+from setta.types.project_state import ProjectMetadata
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -22,6 +36,17 @@ router = SettaAPIRouter()
 
 class ProjectLoadRequest(BaseModel):
     projectConfigName: str
+
+
+class SaveAsNewProjectConfigRequest(BaseModel):
+    project: dict
+    newConfigName: str
+    withRefs: bool
+
+
+class SaveAsExistingProjectConfigRequest(BaseModel):
+    project: dict
+    configName: str
 
 
 class CreateProjectConfigRequest(BaseModel):
@@ -58,25 +83,20 @@ class DeleteNotificationRequest(BaseModel):
 
 
 @router.post(Route.LOAD_ALL_PROJECT_METADATA)
-def route_load_all_project_metadata(state: AppStateFromRequest) -> AllProjectMetadata:
-    defaultProjectId, projectMetadata = (
-        state.project_manager_switcher.main.get_all_project_metadata()
-    )
-    return AllProjectMetadata(
-        defaultProjectConfigId=defaultProjectId, projectMetadata=projectMetadata
-    )
+def route_load_all_project_metadata(state: AppStateFromRequest) -> ProjectMetadata:
+    output = state.project_manager.get_project_metadata()
+    return output
 
 
 @router.post(Route.LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest, state: AppStateFromRequest
-) -> ProjectStateSingleConfig:
+) -> ProjectStateSingleConfigWithModCount:
     try:
-        projectConfigId = state.project_manager_switcher.get_config_id_by_name(
-            x.projectConfigName
-        )
-        project_manager = state.project_manager_switcher.get(projectConfigId)
-        return await project_manager.load_project_config(projectConfigId)
+        projectState = state.project_manager.project_state_backend
+        projectConfigId = confirm_config_name(projectState, x.projectConfigName)
+        projectState = convert_backend_to_single_config(projectState, projectConfigId)
+        return await state.project_manager.maybe_init_project_config(projectState)
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))
@@ -90,36 +110,42 @@ async def route_load_project_config(
 
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
-    x: ProjectStateSingleConfig,
+    x: ProjectStateSingleConfigWithModCount,
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     try:
-        # req = UpdateFromFrontendRequest(projectState=x)
-        project_manager = state.project_manager_switcher.get(x)
-        # TODO: pending operations should finish first.
-        # This endpoint shouldn't just take frontend state as it could be incorrect.
-        # update_success = await project_manager.update_from_frontend(
-        #     req, trigger_autosave=False,
-        # )
-        update_success = True
+        req = UpdateFromFrontendRequest(
+            projectState=x.projectState, modCount=x.modCount
+        )
+        update_success = await state.project_manager.update_from_frontend(
+            req,
+            trigger_autosave=False,
+        )
         if not update_success:
             notification = SettaNotification(
-                projectConfigId=x.projectConfig.id,
+                projectConfigId=x.projectState.projectConfig.id,
                 message="Save failed due to update conflict",
+                temporary=True,
             )
         else:
-            project_manager.save()
+            save(
+                state.settings_file.settings,
+                state.dbe,
+                state.project_manager.project_state_backend,
+            )
             notification = SettaNotification(
-                projectConfigId=x.projectConfig.id,
+                projectConfigId=x.projectState.projectConfig.id,
                 message="Saved!",
+                temporary=True,
             )
 
     except Exception:
         notification = SettaNotification(
-            projectConfigId=x.projectConfig.id,
+            projectConfigId=x.projectState.projectConfig.id,
             message="Failed to save",
             type=SettaNotificationType.error,
+            temporary=True,
         )
 
     background_tasks.add_task(
@@ -128,43 +154,41 @@ async def route_save_project(
     )
 
 
+@router.post(Route.CREATE_PROJECT_CONFIG)
+async def route_create_project_config(
+    x: CreateProjectConfigRequest, state: AppStateFromRequest
+) -> str:
+    newProjectConfigName = await state.project_manager.create_project_config(
+        x.previewImgColor
+    )
+    with state.dbe.session as db:
+        save_project_state(db, state.project_manager.project_state_backend)
+    return newProjectConfigName
+
+
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
-async def route_save_as_new_project_config(
+def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
-    # TODO: pending operations should finish first.
-    project_manager = state.project_manager_switcher.get(x.project)
-    await project_manager.save_as_new_project_config(x)
+    with state.dbe.session as db:
+        return save_as_new_project_config(db, x.project, x.newConfigName, x.withRefs)
 
 
 @router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
 def route_save_as_existing_project_config(
     x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
 ):
-    # TODO: pending operations should finish first.
-    project_manager = state.project_manager_switcher.get(x.project)
-    project_manager.save_as_existing_project_config(x)
-
-
-@router.post(Route.CREATE_PROJECT_CONFIG)
-async def route_create_project_config(
-    x: CreateProjectConfigRequest, state: AppStateFromRequest
-) -> str:
-    project_manager = state.project_manager_switcher.main
-    newProjectConfigName = await project_manager.create_project_config(
-        x.previewImgColor
-    )
-    project_manager.save()
-    return newProjectConfigName
+    with state.dbe.session as db:
+        return save_as_existing_project_config(db, x.project, x.configName)
 
 
 @router.post(Route.DELETE_PROJECT_CONFIGS)
 async def route_delete_project_configs(
     x: DeleteProjectConfigsRequest, state: AppStateFromRequest
 ):
-    project_manager = state.project_manager_switcher.main
-    await project_manager.delete_project_configs(x.ids)
-    project_manager.save()
+    await state.project_manager.delete_project_configs(x.ids)
+    with state.dbe.session as db:
+        save_project_state(db, state.project_manager.project_state_backend)
     return True
 
 
@@ -173,35 +197,52 @@ async def route_set_project_config_name(
     x: SetProjectConfigNameRequest, state: AppStateFromRequest
 ):
     try:
-        project_manager = state.project_manager_switcher.main
-        await project_manager.set_project_config_name(x.projectConfigId, x.newName)
-        project_manager.save()
+        await state.project_manager.set_project_config_name(
+            x.projectConfigId, x.newName
+        )
+        with state.dbe.session as db:
+            save_project_state(db, state.project_manager.project_state_backend)
     except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 
 
 @router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)
 def router_get_default_project_config_name(state: AppStateFromRequest) -> str | None:
-    return state.project_manager_switcher.main.get_default_project_config_name()
+    return state.project_manager.get_default_project_config_name()
 
 
 @router.post(Route.SET_AS_DEFAULT_PROJECT)
 async def router_set_as_default_project(
     x: SetAsDefaultProjectRequest, state: AppStateFromRequest
 ):
-    project_manager = state.project_manager_switcher.main
-    await project_manager.set_as_default_project(x.projectId)
-    project_manager.save()
+    await state.project_manager.set_as_default_project(x.projectId)
+    with state.dbe.session as db:
+        save_project_state(db, state.project_manager.project_state_backend)
+
+
+@router.post(Route.FILTER_DATA_FOR_JSON_EXPORT)
+def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
+    filter_data_for_json_export(x.project)
+    return x.project
+
+
+@router.post(Route.ADD_DEFAULT_DATA_FOR_JSON_IMPORT)
+def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
+    add_defaults_to_project_and_load_json_sources(x.project)
+    return x.project
 
 
 @router.post(Route.GET_NOTIFICATIONS)
 def route_get_notifications(
     x: GetNotificationsRequest, state: AppStateFromRequest
 ) -> list[SettaNotification]:
-    return state.dbe.read_notifications(x.projectConfigId)
+    with state.dbe.session as db:
+        notifications = load_project_notifications(db, x.projectConfigId)
+        return notifications
 
 
 @router.post(Route.DELETE_NOTIFICATION)
 def route_delete_notification(x: DeleteNotificationRequest, state: AppStateFromRequest):
-    success = state.dbe.delete_notification(x.notificationId)
-    return {"success": success}
+    with state.dbe.session as db:
+        success = delete_notification(db, x.notificationId)
+        return {"success": success}

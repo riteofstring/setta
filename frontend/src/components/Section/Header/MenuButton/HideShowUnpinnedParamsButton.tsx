@@ -1,43 +1,14 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
-} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_set_section_hide_unpinned_params } from "utils/generatedEndpoints";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 
 export function HideShowUnpinnedParamsButton({ sectionId }) {
-  const hideUnpinnedParams = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return impl.hideUnpinnedParams;
-  });
+  const hideUnpinnedParams = useProjectState(
+    (x) => x.sections[sectionId].hideUnpinnedParams,
+  );
 
   function onClick() {
-    const nextHideUnpinnedParams = !hideUnpinnedParams;
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-          state,
-          sectionId,
-          {
-            hideUnpinnedParams: nextHideUnpinnedParams,
-          },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_hide_unpinned_params({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          hideUnpinnedParams: nextHideUnpinnedParams,
-          frontendOpId,
-        }),
+    useProjectState.setState((state) => {
+      state.sections[sectionId].hideUnpinnedParams = !hideUnpinnedParams;
     });
   }
 

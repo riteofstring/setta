@@ -1,16 +1,17 @@
+import { Button } from "components/Utils/atoms/buttons/Button";
 import { RiStopFill } from "react-icons/ri";
-import { stopCode } from "state/actions/runOrImportCode";
+import { stopCode } from "state/actions/stopCode";
 
 export function StopButton() {
+  const baseClasses =
+    "relative transition-colors text-xs font-semibold text-setta-700 dark:text-setta-100 h-full rounded-md gap-1 select-none flex items-center hover:bg-setta-100 dark:hover:bg-setta-800 bg-transparent active:!bg-blue-100 active:dark:!bg-blue-950";
+
   return (
     <div className="flex justify-stretch">
-      <button
-        className="nodrag relative flex inline-flex h-full cursor-pointer select-none items-center items-center gap-1 rounded-md bg-transparent px-2 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-100 dark:hover:bg-setta-800 active:dark:!bg-blue-950"
-        onClick={stopCode}
-      >
+      <Button onClick={stopCode} twClasses={`${baseClasses} px-2`}>
         <RiStopFill />
         Stop
-      </button>
+      </Button>
     </div>
   );
 }

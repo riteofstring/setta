@@ -25,7 +25,7 @@ const NodeRenderer = () => {
   const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
-  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
+  const activeSectionIds = useProjectState((x) => x.activeIds);
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {

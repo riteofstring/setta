@@ -1,7 +1,14 @@
 from enum import Enum
 from pathlib import Path
+from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class FileWatchGroupName(str, Enum):
+    jsonSource = "jsonSource"
+    apiKeys = "apiKeys"
+    genPythonCode = "genPythonCode"
 
 
 class FileEventType(str, Enum):
@@ -19,4 +26,39 @@ class FileWatcherCoreUpdate(BaseModel):
     matchingGlobPatterns: list[str]
     destAbsPath: Path | None = None
     destRelPath: Path | None = None
-    fileToRead: Path
+
+
+class FileWatcherUpdate(BaseModel):
+    fileWatchGroupName: Any
+    coreUpdate: FileWatcherCoreUpdate
+    fileContent: Any
+
+
+class FileWatcherUpdateJSONSource(FileWatcherUpdate):
+    fileWatchGroupName: Literal[FileWatchGroupName.jsonSource] = (
+        FileWatchGroupName.jsonSource
+    )
+    fileContent: None = None
+
+
+class FileWatcherUpdateAPIKeys(FileWatcherUpdate):
+    fileContent: dict[str, str]
+    fileWatchGroupName: Literal[FileWatchGroupName.apiKeys] = FileWatchGroupName.apiKeys
+
+
+class FileWatcherUpdateGenPythonCode(FileWatcherUpdate):
+    fileContent: str
+    fileWatchGroupName: Literal[FileWatchGroupName.genPythonCode] = (
+        FileWatchGroupName.genPythonCode
+    )
+
+
+FileWatcherUpdateUnion = Union[
+    FileWatcherUpdateJSONSource,
+    FileWatcherUpdateAPIKeys,
+    FileWatcherUpdateGenPythonCode,
+]
+
+FileWatcherUpdateUnionWithDiscriminator = Annotated[
+    FileWatcherUpdateUnion, Field(discriminator="fileWatchGroupName")
+]

@@ -1,70 +1,31 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import {
-  getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
-import { useChartData, useProjectState } from "state/definitions";
-import { useEditableOnSubmit } from "state/hooks/editableText";
-import {
-  route_set_chart_area_data_path,
-  route_set_chart_settings,
-  route_set_chart_type,
-} from "utils/generatedEndpoints";
-import {
-  BaseChartSettingsUnion,
-  ChartType,
-  ChartTypeEnum,
-  createBaseChartSettingsUnionWithDiscriminator,
-  LineChartSettings,
-  ScatterChartSettings,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { updateColumnNameSelections } from "state/actions/artifacts";
+import { useMisc, useProjectState } from "state/definitions";
+import { getAllSectionArtifactIds } from "state/hooks/artifacts";
+import { JustListOfArtifacts } from "./ListOfArtifacts";
 
-export function ChartAreaSettings({ sectionId }: { sectionId: string }) {
+export function ChartAreaSettings({ sectionId }) {
   return (
     <div className="flex-1 overflow-x-hidden overflow-y-scroll [&>*]:mr-[2px]">
       <ChartConfig sectionId={sectionId} />
+      <JustListOfArtifacts
+        sectionId={sectionId}
+        sectionTypeName={UITypeNameEnum.CHART}
+      />
     </div>
   );
 }
 
-function ChartConfig({ sectionId }: { sectionId: string }) {
-  const { chartSettings, dataPath } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Chart,
-    );
-    return {
-      chartSettings: impl.chartSettings,
-      dataPath: impl.dataPath,
-    };
-  }, _.isEqual);
+function ChartConfig({ sectionId }) {
+  const chartSettings = useProjectState(
+    (x) => x.sections[sectionId].chartSettings,
+    _.isEqual,
+  );
 
-  const { valueHeaders, dataIsReady } = useChartData((x) => {
-    if (x.x[dataPath]) {
-      return {
-        valueHeaders: Object.keys(x.x[dataPath].value),
-        dataIsReady: true,
-      };
-    }
-    return { valueHeaders: [], dataIsReady: false };
-  });
-
-  function onSetDataPath(newDataPath: string) {
-    route_set_chart_area_data_path({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      dataPath: newDataPath,
-    });
-  }
-
-  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
-    dataPath,
-    onSetDataPath,
-    () => true,
-    true,
+  const valueHeaders = useMisc(
+    (x) => x.chartDisplayedSeriesNames[sectionId],
+    _.isEqual,
   );
 
   return (
@@ -72,44 +33,22 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
       <h3 className="mt-1 font-bold text-setta-400 dark:text-setta-500">
         Chart Config
       </h3>
-      <p className="select-none  text-sm font-bold text-setta-400 dark:text-setta-600">
-        Data Path
-      </p>
-      <input
-        className="mr-[2px] w-full truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
-        value={inputValue}
-        onChange={onChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
+      <ChartTypeSelection
+        sectionId={sectionId}
+        selectedChartType={chartSettings.type}
       />
-      {dataIsReady && (
-        <>
-          <ChartTypeSelection
-            sectionId={sectionId}
-            selectedChartType={chartSettings.type}
-          />
-          <SpecificConfig
-            sectionId={sectionId}
-            chartSettings={chartSettings}
-            valueHeaders={valueHeaders}
-          />
-        </>
-      )}
+      <SpecificConfig
+        sectionId={sectionId}
+        chartSettings={chartSettings}
+        valueHeaders={valueHeaders}
+      />
     </div>
   );
 }
 
-function SpecificConfig({
-  sectionId,
-  chartSettings,
-  valueHeaders,
-}: {
-  sectionId: string;
-  chartSettings: BaseChartSettingsUnion;
-  valueHeaders: Array<string>;
-}) {
+function SpecificConfig({ sectionId, chartSettings, valueHeaders }) {
   switch (chartSettings.type) {
-    case ChartTypeEnum.line:
+    case "line":
       return (
         <LineChartConfig
           sectionId={sectionId}
@@ -117,7 +56,7 @@ function SpecificConfig({
           valueHeaders={valueHeaders}
         />
       );
-    case ChartTypeEnum.scatter:
+    case "scatter":
       return (
         <ScatterChartConfig
           sectionId={sectionId}
@@ -126,29 +65,12 @@ function SpecificConfig({
         />
       );
     default:
-      return chartSettings satisfies never;
+      return null;
   }
 }
 
-// Helper type to get only boolean keys
-type BooleanKeys<T> = {
-  [K in keyof T]: T[K] extends boolean ? K : never;
-}[keyof T] &
-  string; // & string ensures we only get string keys
-
-function LineChartConfig({
-  sectionId,
-  chartSettings,
-  valueHeaders,
-}: {
-  sectionId: string;
-  chartSettings: LineChartSettings;
-  valueHeaders: Array<string>;
-}) {
-  const optionsWithToggle: Array<{
-    name: BooleanKeys<LineChartSettings>;
-    title: string;
-  }> = [
+function LineChartConfig({ sectionId, chartSettings, valueHeaders }) {
+  const optionsWithToggle = [
     { name: "xAxisLog", title: "X-Axis Log Scale" },
     { name: "y1AxisLog", title: "Y1-Axis Log Scale" },
     { name: "y2AxisLog", title: "Y2-Axis Log Scale" },
@@ -161,33 +83,21 @@ function LineChartConfig({
         valueHeaders={valueHeaders}
         selectedXAxisColumn={chartSettings.xAxisColumn}
         xAxisCanBeNull={true}
-        chartType={ChartTypeEnum.line}
       />
       <TogglableOptions
         sectionId={sectionId}
         optionsWithToggle={optionsWithToggle}
         chartSettings={chartSettings}
-        chartType={ChartTypeEnum.line}
       />
     </>
   );
 }
 
-function ScatterChartConfig({
-  sectionId,
-  chartSettings,
-  valueHeaders,
-}: {
-  sectionId: string;
-  chartSettings: ScatterChartSettings;
-  valueHeaders: Array<string>;
-}) {
-  const optionsWithToggle: Array<{
-    name: BooleanKeys<ScatterChartSettings>;
-    title: string;
-  }> = [
+function ScatterChartConfig({ sectionId, chartSettings, valueHeaders }) {
+  const optionsWithToggle = [
     { name: "xAxisLog", title: "X-Axis Log Scale" },
-    { name: "yAxisLog", title: "Y1-Axis Log Scale" },
+    { name: "y1AxisLog", title: "Y1-Axis Log Scale" },
+    { name: "y2AxisLog", title: "Y2-Axis Log Scale" },
   ];
 
   return (
@@ -196,39 +106,22 @@ function ScatterChartConfig({
         sectionId={sectionId}
         valueHeaders={valueHeaders}
         selectedXAxisColumn={chartSettings.xAxisColumn}
-        xAxisCanBeNull={false}
-        chartType={ChartTypeEnum.scatter}
       />
       <CategoryColumnSelection
         sectionId={sectionId}
         valueHeaders={valueHeaders}
         selectedCategoryColumn={chartSettings.categoryColumn}
-        chartType={ChartTypeEnum.scatter}
       />
       <TogglableOptions
         sectionId={sectionId}
         optionsWithToggle={optionsWithToggle}
         chartSettings={chartSettings}
-        chartType={ChartTypeEnum.scatter}
       />
     </>
   );
 }
 
-function ChartTypeSelection({
-  sectionId,
-  selectedChartType,
-}: {
-  sectionId: string;
-  selectedChartType: ChartType;
-}) {
-  const chartTypes = [
-    {
-      group: "Chart Types",
-      items: Object.values(ChartTypeEnum).map((x) => ({ id: x, name: x })),
-    },
-  ];
-
+function ChartTypeSelection({ sectionId, selectedChartType }) {
   return (
     <>
       <label
@@ -240,15 +133,7 @@ function ChartTypeSelection({
       <IdNameCombobox
         allItems={chartTypes}
         value={selectedChartType}
-        onSelectedItemChange={(v) => {
-          if (v) {
-            route_set_chart_type({
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              chartType: v,
-            });
-          }
-        }}
+        onSelectedItemChange={(v) => setChartType(sectionId, v)}
       />
     </>
   );
@@ -259,18 +144,11 @@ function XAxisColumnSelection({
   valueHeaders,
   selectedXAxisColumn,
   xAxisCanBeNull,
-  chartType,
-}: {
-  sectionId: string;
-  valueHeaders: Array<string>;
-  selectedXAxisColumn: string | null;
-  xAxisCanBeNull: boolean;
-  chartType: ChartType;
 }) {
   const xAxisColumnChoices = [
     {
       group: "Column Names",
-      items: valueHeaders.map((x) => ({ id: x, name: x })) ?? [],
+      items: valueHeaders?.map((x) => ({ id: x, name: x })) ?? [],
     },
   ];
 
@@ -285,17 +163,9 @@ function XAxisColumnSelection({
       <IdNameCombobox
         allItems={xAxisColumnChoices}
         value={selectedXAxisColumn}
-        onSelectedItemChange={(v) => {
-          route_set_chart_settings({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-              type: chartType,
-              xAxisColumn: v,
-            }),
-            changedSettings: ["xAxisColumn"],
-          });
-        }}
+        onSelectedItemChange={(v) =>
+          setChartSetting(sectionId, "xAxisColumn", v)
+        }
         selectedItemCanBeNull={xAxisCanBeNull}
       />
     </>
@@ -306,17 +176,11 @@ function CategoryColumnSelection({
   sectionId,
   valueHeaders,
   selectedCategoryColumn,
-  chartType,
-}: {
-  sectionId: string;
-  valueHeaders: Array<string>;
-  selectedCategoryColumn: string | null;
-  chartType: ChartType;
 }) {
   const categoryColumnChoices = [
     {
       group: "Column Names",
-      items: valueHeaders.map((x) => ({ id: x, name: x })) ?? [],
+      items: valueHeaders?.map((x) => ({ id: x, name: x })) ?? [],
     },
   ];
 
@@ -332,73 +196,33 @@ function CategoryColumnSelection({
         allItems={categoryColumnChoices}
         value={selectedCategoryColumn}
         onSelectedItemChange={(v) =>
-          route_set_chart_settings({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-              type: chartType,
-              categoryColumn: v,
-            }),
-            changedSettings: ["categoryColumn"],
-          })
+          setChartSetting(sectionId, "categoryColumn", v)
         }
       />
     </>
   );
 }
 
-function TogglableOptions<T extends BaseChartSettingsUnion>({
-  sectionId,
-  optionsWithToggle,
-  chartSettings,
-  chartType,
-}: {
-  sectionId: string;
-  optionsWithToggle: Array<{
-    name: BooleanKeys<T>; // Only keys where value is boolean
-    title: string;
-  }>;
-  chartSettings: T;
-  chartType: ChartType;
-}) {
+function TogglableOptions({ sectionId, optionsWithToggle, chartSettings }) {
   return (
     <div className="flex flex-col gap-2 py-6">
       <h4 className="font-semibold text-setta-400 dark:text-setta-400">
         Chart Labels
       </h4>
-      {optionsWithToggle.map((x) => {
-        const value = chartSettings[x.name];
-        if (typeof value !== "boolean") {
-          throw new Error(`Expected boolean for ${x.name}`);
-        }
-        return (
-          <ChartConfigToggle
-            key={x.name}
-            sectionId={sectionId}
-            name={x.name}
-            title={x.title}
-            value={value}
-            chartType={chartType}
-          />
-        );
-      })}
+      {optionsWithToggle.map((x) => (
+        <ChartConfigToggle
+          key={`${x.name}`}
+          sectionId={sectionId}
+          name={x.name}
+          title={x.title}
+          value={chartSettings[x.name]}
+        />
+      ))}
     </div>
   );
 }
 
-function ChartConfigToggle({
-  sectionId,
-  name,
-  value,
-  title,
-  chartType,
-}: {
-  sectionId: string;
-  name: string;
-  value: boolean;
-  title: string;
-  chartType: ChartType;
-}) {
+function ChartConfigToggle({ sectionId, name, value, title }) {
   return (
     <div className="flex items-center justify-between">
       <label
@@ -412,18 +236,29 @@ function ChartConfigToggle({
         id={name}
         className="h-4 w-4 cursor-pointer rounded bg-setta-500/50  text-blue-500 outline outline-offset-2 outline-transparent checked:bg-blue-500 focus-visible:!outline-blue-500 dark:text-blue-400 dark:focus-visible:ring-blue-400"
         checked={value}
-        onChange={(e) =>
-          route_set_chart_settings({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-              type: chartType,
-              [name]: e.target.checked,
-            }),
-            changedSettings: [name],
-          })
-        }
+        onChange={(e) => setChartSetting(sectionId, name, e.target.checked)}
       />
     </div>
   );
 }
+
+function setChartSetting(sectionId, name, value) {
+  useProjectState.setState((state) => {
+    state.sections[sectionId].chartSettings[name] = value;
+  });
+}
+
+function setChartType(sectionId, chartType) {
+  useProjectState.setState((state) => {
+    state.sections[sectionId].chartSettings.type = chartType;
+    const artifactIds = getAllSectionArtifactIds(sectionId, state);
+    updateColumnNameSelections(Array.from(artifactIds), sectionId, state);
+  });
+}
+
+const chartTypes = [
+  {
+    group: "Chart Types",
+    items: ["line", "scatter"].map((x) => ({ id: x, name: x })),
+  },
+];

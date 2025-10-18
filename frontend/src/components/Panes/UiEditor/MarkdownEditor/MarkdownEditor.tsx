@@ -6,17 +6,15 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
+  getSectionCore,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
-import { useLocalPendingValue } from "state/hooks/utils";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { route_set_text_block_text } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function MarkdownEditorInPane({ sectionId }) {
@@ -46,87 +44,90 @@ export function MarkdownEditorInSection({ sectionId }) {
   );
 }
 
-function _MarkdownEditorCore({
-  sectionId,
-  maxHeight,
-  onCreateEditor,
-  wrapperClassName,
-  ref,
-}) {
-  const { format, text, isFrozen } = useTextBlockTextAndEditability(sectionId);
+const _MarkdownEditorCore = React.forwardRef(
+  ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
+    const { format, text, isFrozen } =
+      useTextBlockTextAndEditability(sectionId);
 
-  const [value, setPendingValue] = useLocalPendingValue(
-    text,
-    (pendingValue) => {
-      useProjectState.setState((state) => {
-        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-          text: pendingValue,
-        });
-      });
-    },
-  );
+    const [localText, setLocalText] = useState(text);
 
-  const debouncedSetText = useCallback(
-    _.debounce((sectionId, v) => {
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"TextBlockSection">(
+    useEffect(() => {
+      if (text !== localText) {
+        setLocalText(text);
+      }
+    }, [text]);
+
+    const debouncedSetText = useCallback(
+      _.debounce((sectionId, v) => {
+        useProjectState.setState((state) => {
+          const impl = setEffectiveSectionImplValue<"TextBlockSection">(
             state,
             sectionId,
-            {
-              text: v,
-            },
+            { text: v },
           );
-        },
-        send: (frontendOpId) =>
-          route_set_text_block_text({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            text: v,
-            frontendOpId,
-          }),
-      });
-    }, 50),
-    [],
-  );
+          if (impl.headingAsSectionName) {
+            const section = getSectionCore(state, sectionId);
+            section.name = getFirstHeadingOrText(v) ?? section.name;
+          }
+        });
+        updateBackendProjectState();
+      }, 200),
+      [],
+    );
 
-  function onChange(v) {
-    setPendingValue(v);
-    debouncedSetText(sectionId, v);
-  }
+    function onChange(v) {
+      setLocalText(v);
+      debouncedSetText(sectionId, v);
+    }
 
-  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
-    codeAreaTabOnEnterKeyHandlers(ref);
+    const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+      codeAreaTabOnEnterKeyHandlers(ref);
 
-  const theme = useCodeMirrorStyle();
+    const theme = useCodeMirrorStyle();
 
-  const extensions = getExtensions({
-    language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
-    tabToAutocomplete: true,
-    indentWithTab: true,
-    isDisabled: isFrozen,
-    onEscape: onEscapeFocusOnArticleDiv,
-  });
+    const extensions = getExtensions({
+      language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
+      tabToAutocomplete: true,
+      indentWithTab: true,
+      isDisabled: isFrozen,
+      onEscape: onEscapeFocusOnArticleDiv,
+    });
 
-  return (
-    <article
-      ref={ref}
-      className={wrapperClassName}
-      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
-      tabIndex={0}
-    >
-      <CodeMirror
-        maxHeight={maxHeight}
-        value={value}
-        theme={theme}
-        extensions={extensions}
-        onChange={onChange}
-        onCreateEditor={onCreateEditor}
-        indentWithTab={false} // I take care of this in getExtensions
-        basicSetup={{ tabSize: 4 }}
-      />
-    </article>
-  );
-}
+    return (
+      <article
+        ref={ref}
+        className={wrapperClassName}
+        onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
+        tabIndex={0}
+      >
+        <CodeMirror
+          maxHeight={maxHeight}
+          value={text}
+          theme={theme}
+          extensions={extensions}
+          onChange={onChange}
+          onCreateEditor={onCreateEditor}
+          indentWithTab={false} // I take care of this in getExtensions
+          basicSetup={{ tabSize: 4 }}
+        />
+      </article>
+    );
+  },
+);
 
 const MarkdownEditorCore = React.memo(_MarkdownEditorCore);
+
+function getFirstHeadingOrText(markdown) {
+  // Trim leading whitespace
+  const trimmedMarkdown = markdown.trimStart();
+
+  // Look for the first heading anywhere in the text
+  const headingMatch = trimmedMarkdown.match(/(^|\n)(#+)\s*(.*?)(?=\n|$)/);
+
+  if (headingMatch) {
+    // Return the heading text (group 3 captures the text after # and spaces)
+    return headingMatch[3].trim();
+  }
+
+  return null;
+}

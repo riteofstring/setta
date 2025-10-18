@@ -130,6 +130,7 @@ export function ParamUI({
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           value={value}
+          defaultVal={defaultVal}
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
@@ -227,6 +228,7 @@ function SliderParamConfigured({
   sectionId,
   paramInfoId,
   value,
+  defaultVal,
   onChange,
   onEscape,
   isDisabled,
@@ -240,6 +242,7 @@ function SliderParamConfigured({
   return (
     <SliderInput
       value={value}
+      defaultVal={defaultVal}
       onChange={onChange}
       onEscape={onEscape}
       min={min}

@@ -2,10 +2,14 @@ import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
-  getSectionChildren,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
-import { BaseSectionImplUnion, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  BaseSectionImplUnion,
+  isBaseParentSectionImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 export function useListElementIdx(sectionId: string) {
   return useProjectState((x) => {
@@ -14,7 +18,12 @@ export function useListElementIdx(sectionId: string) {
     if (!parentId) {
       throw new Error();
     }
-    return getSectionChildren(x, parentId).indexOf(sectionId);
+    const parentImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      parentId,
+      isBaseParentSectionImpl,
+    );
+    return parentImpl.children.indexOf(sectionId);
   });
 }
 

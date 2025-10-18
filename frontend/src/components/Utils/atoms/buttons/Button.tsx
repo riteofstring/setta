@@ -1,4 +1,6 @@
-export function Button({ ref, ...props }) {
+import { forwardRef } from "react";
+
+export const Button = forwardRef((props, ref) => {
   const {
     twClasses = "",
     grid = false,
@@ -24,4 +26,4 @@ export function Button({ ref, ...props }) {
       {children}
     </button>
   );
-}
+});

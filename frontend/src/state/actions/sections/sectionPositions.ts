@@ -10,7 +10,7 @@ import potpack from "potpack";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getNewNodes } from "../nodeInternals";
-import { debounced_route_set_top_level_section_layout } from "../sectionInfos";
+import { updateBackendProjectState } from "../project/generateCode";
 
 export function setZIndices(
   sectionIds: Array<string>,
@@ -41,7 +41,7 @@ export function setZIndices(
   useNodeInternals.setState({ x: newValues });
 
   if (incrementVersion) {
-    debounced_route_set_top_level_section_layout();
+    updateBackendProjectState();
   }
 }
 

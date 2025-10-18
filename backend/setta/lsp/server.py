@@ -15,7 +15,6 @@ class LanguageServer:
         # Create folders if they don't exist
         workspace_folder.mkdir(parents=True, exist_ok=True)
         self.workspace_folder = workspace_folder
-        self.server = None
         self.init_properties()
         if not isinstance(settings, dict):
             logger.warning(
@@ -57,32 +56,23 @@ class LanguageServer:
         self.pending_requests.clear()
 
     def stop(self):
-        process = getattr(self, "server", None)
-        if not process:
-            return
         try:
             logger.debug(f"Stopping {self.name} language server")
-            process.terminate()
+            self.server.terminate()
         except ProcessLookupError:
             pass
-        finally:
-            self.server = None
 
     @property
     def stdin(self):
-        process = getattr(self, "server", None)
-        if process and process.stdin:
-            return process.stdin
-        raise ValueError("Language server stdin is not available (process not started)")
+        if self.server.stdin:
+            return self.server.stdin
+        raise ValueError("Error with language server stdin")
 
     @property
     def stdout(self):
-        process = getattr(self, "server", None)
-        if process and process.stdout:
-            return process.stdout
-        raise ValueError(
-            "Language server stdout is not available (process not started)"
-        )
+        if self.server.stdout:
+            return self.server.stdout
+        raise ValueError("Error with language server stdout")
 
 
 class LanguageServerInteractor:
