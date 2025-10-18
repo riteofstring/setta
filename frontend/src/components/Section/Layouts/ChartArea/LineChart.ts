@@ -1,14 +1,28 @@
-import { Tooltip } from "chart.js";
-import { processChartArtifacts } from "state/actions/artifacts";
+import {
+  Chart,
+  ChartConfiguration,
+  ChartData,
+  DefaultDataPoint,
+  Plugin,
+  Tooltip,
+} from "chart.js";
+import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
+import {
+  getAxisType,
+  getOnLegendClickSetDatasetHidden,
+  SetDatasetHiddenFn,
+} from "./utils";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
-  elements,
+  _elements,
   eventPosition,
 ) {
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getLineChartOptionsAndPlugins() {
+export function getLineChartConfig(
+  setDatasetHidden: SetDatasetHiddenFn,
+): ChartConfiguration<"line"> {
   return {
     type: "line",
     data: {
@@ -16,6 +30,26 @@ export function getLineChartOptionsAndPlugins() {
     },
     plugins: [verticalLinePlugin],
     options: {
+      animation: false,
+      responsive: false,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: "linear",
+          position: "bottom",
+        },
+        y1: {
+          type: "linear",
+          position: "left",
+        },
+        y2: {
+          type: "linear",
+          position: "right",
+          grid: {
+            drawOnChartArea: false,
+          },
+        },
+      },
       spanGaps: true,
       plugins: {
         tooltip: {
@@ -24,7 +58,9 @@ export function getLineChartOptionsAndPlugins() {
           position: "lineChartTooltipMousePosition",
           callbacks: {
             title: (context) => {
-              return `X: ${context[0].label}`;
+              if (context[0]) {
+                return `X: ${context[0].label}`;
+              }
             },
             label: (context) => {
               const label = context.dataset.label || "";
@@ -32,23 +68,31 @@ export function getLineChartOptionsAndPlugins() {
             },
           },
         },
+        legend: {
+          onClick: getOnLegendClickSetDatasetHidden(setDatasetHidden),
+        },
       },
     },
   };
 }
 
-export function updateLineChartWithNewData({
-  chartRef,
-  artifacts,
-  datasetHidden,
-  darkMode,
-  chartSettings,
-}) {
-  const datasets = [];
-  const artifactValue = processChartArtifacts(artifacts, "line");
+type LineChartData = ChartData<
+  "line",
+  DefaultDataPoint<"line">,
+  string | number
+>;
 
-  let labels = null;
-  for (const [columnName, values] of Object.entries(artifactValue)) {
+export function updateLineChartWithNewData(
+  chart: Chart,
+  data: ChartDataType,
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: LineChartSettings,
+): LineChartData {
+  const datasets: LineChartData["datasets"] = [];
+
+  let labels: LineChartData["labels"];
+  for (const [columnName, values] of Object.entries(data)) {
     if (columnName === chartSettings.xAxisColumn) {
       labels = values;
       continue;
@@ -63,7 +107,7 @@ export function updateLineChartWithNewData({
     });
   }
 
-  if (datasets.length > 0 && !labels) {
+  if (datasets.length > 0 && datasets[0] && !labels) {
     // The xAxisColumn can be made empty in the side pane.
     // In this case, none of the columns are used for the x axis.
     // So we use row count.
@@ -71,14 +115,29 @@ export function updateLineChartWithNewData({
     labels = [...Array(numRows).keys()];
   }
 
-  chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+  chart.verticalLinePlugin.color = darkMode ? "white" : "black";
 
-  return { labels, datasets };
+  const scaleOptions = chart.options.scales;
+  if (scaleOptions?.x) {
+    scaleOptions.x.type = getAxisType(chartSettings.xAxisLog, labels?.[0]);
+  }
+  if (scaleOptions?.y1) {
+    scaleOptions.y1.type = getAxisType(chartSettings.y1AxisLog);
+  }
+  if (scaleOptions?.y2) {
+    scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
+    scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
+  }
+
+  if (labels) {
+    return { labels, datasets };
+  }
+  return { datasets };
 }
 
-const verticalLinePlugin = {
+export const verticalLinePlugin: Plugin<"line"> = {
   id: "verticalLinePlugin",
-  afterInit: (chart) => {
+  afterInit: (chart: Chart) => {
     chart.verticalLinePlugin = {
       x: 0,
       y: 0,
@@ -92,17 +151,34 @@ const verticalLinePlugin = {
     const { inChartArea } = args;
     const { x, y } = args.event;
 
+    if (x === null || y === null) {
+      return;
+    }
+
     if (inChartArea) {
       // Find the nearest x-axis data point
       const xScale = chart.scales.x;
-      const values = chart.data.labels;
+      const values = chart.data.labels as number[];
+
+      if (!xScale) {
+        return;
+      }
 
       // Convert mouse x position to data space
       const mouseValue = xScale.getValueForPixel(x);
 
+      if (!mouseValue) {
+        return;
+      }
+
       // Find nearest data point
       let nearestValue = values[0];
-      let minDistance = Math.abs(mouseValue - values[0]);
+
+      if (nearestValue === undefined) {
+        return;
+      }
+
+      let minDistance = Math.abs(mouseValue - nearestValue);
 
       for (const value of values) {
         const distance = Math.abs(mouseValue - value);
@@ -136,6 +212,7 @@ const verticalLinePlugin = {
     const { ctx } = chart;
     const { top, bottom } = chart.chartArea;
     const { x, draw, width, color, dash } = chart.verticalLinePlugin;
+
     if (!draw) return;
 
     ctx.save();

@@ -8,8 +8,6 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
 
-EXCLUSIONS = set(["DEFAULT_DB_PATH", "DB_PATH"])
-
 
 def extract_constants(constants_class) -> Dict[str, Any]:
     constants = {}
@@ -38,8 +36,8 @@ export class C {
 
     # Generate static properties for all constants
     for name, value in constants.items():
-        if name in EXCLUSIONS:
-            continue
+        if isinstance(value, Path):
+            value = value.as_posix()
         js_code += f"  static {name} = {json.dumps(value)};\n"
 
     js_code += "}"

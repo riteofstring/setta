@@ -16,7 +16,8 @@ import {
   useSettings,
 } from "state/definitions";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
-import type { NodeDragItem, UseDragEvent, XYPosition } from "../types";
+import { Position } from "utils/generatedTypes";
+import type { NodeDragItem, UseDragEvent } from "../types";
 import { calcAutoPan, getEventPosition } from "../utils";
 import useGetPointerPosition from "./useGetPointerPosition";
 import { getDragItems, hasSelector } from "./utils";
@@ -49,7 +50,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
     if (nodeRef?.current) {
       const selection = select(nodeRef.current);
 
-      const updateNodes = ({ x, y }: XYPosition, dragEnd = false) => {
+      const updateNodes = ({ x, y }: Position, dragEnd = false) => {
         const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
           useReactFlow.getState();
 
@@ -115,7 +116,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           const newY = (lastPos.current.y ?? 0) - yMovement / transform[2];
 
           if (panBy({ x: xMovement, y: yMovement })) {
-            updateNodes({ x: newX, y: newY } as XYPosition);
+            updateNodes({ x: newX, y: newY } as Position);
           }
         }
         autoPanId.current = requestAnimationFrame(autoPan);
@@ -129,7 +130,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         if (
           !multiSelectionActive &&
           nodeId &&
-          !useProjectState.getState().activeIds.includes(nodeId)
+          !useProjectState.getState().projectConfig.activeIds.includes(nodeId)
         ) {
           // TODO: determine if we need to do anything here
           // It used to call unselectNodesAndEdges

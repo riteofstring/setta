@@ -14,7 +14,6 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     # Base classes
     "BaseSectionImpl": DEFAULT_EXCLUSIONS.union(
         {
-            "parentId",
             "isInOtherProjectConfigs",
             "isPreset",
             "aspectRatioExtraHeight",
@@ -29,7 +28,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "BaseCodeSectionImpl": DEFAULT_EXCLUSIONS,
     "BaseParentSectionImpl": DEFAULT_EXCLUSIONS.union({"children"}),
     "BaseDictSectionImpl": DEFAULT_EXCLUSIONS.union(
-        {"topLevelParamIds", "jsonSourceMissing"}
+        {"topLevelParamId", "jsonSourceMissing"}
     ),
     # Concrete classes
     "CallableSectionImpl": DEFAULT_EXCLUSIONS.union({"callable"}),
@@ -38,7 +37,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "DictRootSectionImpl": DEFAULT_EXCLUSIONS,
     "GroupSectionImpl": DEFAULT_EXCLUSIONS,
     "ImageSectionImpl": DEFAULT_EXCLUSIONS,
-    "ChartSectionImpl": DEFAULT_EXCLUSIONS,
+    "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
     "SocialSectionImpl": DEFAULT_EXCLUSIONS,
@@ -186,17 +185,20 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 # Section type imports
+from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaCanvasSettings,
     SectionSize,
     SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
+    SectionWithParamsDisplayMode,
+    BrowserAreaViewMode,
+    BrowserAreaItem,
 )
 
 # Code object type imports
@@ -206,6 +208,8 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+
+from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
 
 """
 

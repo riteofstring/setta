@@ -17,8 +17,9 @@ class Core(BaseModel, extra="forbid"):
         default_factory=lambda: [
             "callable",
             "codeObjVariantMap",
-            "topLevelParamIds",
+            "topLevelParamId",
             "value",
+            "layers",
         ]
     )
 
@@ -29,10 +30,7 @@ class Variant(BaseModel, extra="forbid"):
     impl: str
     nonPresetImpls: list[str]
     modifier: dict = Field(default_factory=dict)
-
-
-def compute_initial_default_variant(variant: Variant):
-    return {"variants": [variant.id], "defaultVariant": variant.id}
+    isFrozen: bool = False
 
 
 def compute_initial_nonPresetImpls(impl: BaseCodeObjImpl | BaseSectionImpl):

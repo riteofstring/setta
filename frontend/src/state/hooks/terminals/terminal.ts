@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useProjectState } from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
@@ -80,7 +80,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
   const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id })}`;
   const ws = new WebSocket(wsTerminalAddress);

@@ -23,8 +23,6 @@ from typing import (
     get_origin,
 )
 
-import setta.types.code_obj_impls
-import setta.types.section_impls
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
@@ -128,7 +126,7 @@ def python_type_to_str(python_type):
             key_ts_type = python_type_to_str(args[0])
             value_ts_type = python_type_to_str(args[1])
             return f"dict[{key_ts_type}, {value_ts_type}]"
-        return "dict[string, Any]"
+        return "dict[str, Any]"
 
     # Handle set/Set types
     if origin in (set, Set):
@@ -306,6 +304,9 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
 
 
 def get_impl_classes():
+    import setta.types.code_obj_impls
+    import setta.types.section_impls
+
     classes = find_sub_classes(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
@@ -385,7 +386,7 @@ def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args}):
     return code
 
 
-def get_impl_unions(name_filters: list[str]):
+def get_impl_unions(name_filters: list[str], exclusion_filters: list[str]):
     import setta.types.generated.unions
 
     unions = []
@@ -396,11 +397,13 @@ def get_impl_unions(name_filters: list[str]):
 
         if not all(n in name for n in name_filters):
             continue
+        if any(n in name for n in exclusion_filters):
+            continue
 
         attr = getattr(setta.types.generated.unions, name)
 
         origin = get_origin(attr)
-        if origin is Union:
+        if origin in (Union, types.UnionType):
             unions.append((name, attr))
 
     return unions

@@ -3,13 +3,19 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import { useCallback, useEffect, useState } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
+import { useCallback } from "react";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useLocalPendingValue } from "state/hooks/utils";
 import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
+  route_set_gen_code_prefix,
+  route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
 import {
   CodeMirrorCompletion,
@@ -18,41 +24,41 @@ import {
 
 function GenCodeEditor({
   label,
-  value,
+  globalValue,
   completionRoute,
-  onChange,
+  commitValue,
+  globalSetState,
 }: {
   label: string;
-  value: string;
+  globalValue: string;
   completionRoute: (
     x: GenCodePrefixCompletionRequest | GenCodePrefixCompletionRequest,
   ) => Promise<ResponseDataAndStatus<Array<CodeMirrorCompletion>>>;
-  onChange: (x: string) => void;
+  commitValue: (x: string) => void;
+  globalSetState: (x: string) => void;
 }) {
   const theme = useCodeMirrorStyle();
-  const [localValue, setLocalValue] = useState(value);
 
-  useEffect(() => {
-    if (value !== localValue) {
-      setLocalValue(value);
-    }
-  }, [value]);
+  const [value, setPendingValue] = useLocalPendingValue(
+    globalValue,
+    globalSetState,
+  );
 
   const debouncedSetGlobalState = useCallback(
     _.debounce((v) => {
-      onChange(v);
+      commitValue(v);
     }, 50),
-    [onChange],
+    [commitValue],
   );
 
-  function localOnChange(v) {
-    setLocalValue(v);
-    debouncedSetGlobalState(v);
+  function localOnChange(x: string) {
+    setPendingValue(x);
+    debouncedSetGlobalState(x);
   }
 
   const completionsFn = useCallback(() => {
     const fn = async (fullText: string, position: number) => {
-      const projectConfigId = useProjectState.getState().projectConfig.id;
+      const projectConfigId = getCurrProjectConfigId();
       const res = await completionRoute({
         projectConfigId,
         fullText,
@@ -86,7 +92,7 @@ function GenCodeEditor({
         tabIndex={0}
       >
         <CodeMirror
-          value={localValue}
+          value={value}
           theme={theme}
           extensions={extensions}
           onChange={localOnChange}
@@ -112,31 +118,55 @@ export function GenPythonCodeSettings() {
     <div className="flex flex-col gap-4">
       <GenCodeEditor
         label="Code Prefix"
-        value={prefixValue}
+        globalValue={prefixValue}
         completionRoute={route_gen_code_prefix_completion}
-        onChange={setGenCodePrefix}
+        commitValue={dispatchSetGenCodePrefix}
+        globalSetState={(x) =>
+          useProjectState.setState((state) => {
+            state.projectConfig.genCodePrefix = x;
+          })
+        }
       />
 
       <GenCodeEditor
         label="Code Suffix"
-        value={suffixValue}
+        globalValue={suffixValue}
         completionRoute={route_gen_code_suffix_completion}
-        onChange={setGenCodeSuffix}
+        commitValue={dispatchSetGenCodeSuffix}
+        globalSetState={(x) =>
+          useProjectState.setState((state) => {
+            state.projectConfig.genCodeSuffix = x;
+          })
+        }
       />
     </div>
   );
 }
 
-export function setGenCodePrefix(value: string) {
-  useProjectState.setState((state) => {
-    state.projectConfig.genCodePrefix = value;
+function dispatchSetGenCodePrefix(value: string) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      state.projectConfig.genCodePrefix = value;
+    },
+    send: (frontendOpId) =>
+      route_set_gen_code_prefix({
+        projectConfigId: getCurrProjectConfigId(),
+        genCodePrefix: value,
+        frontendOpId,
+      }),
   });
-  updateBackendProjectState();
 }
 
-export function setGenCodeSuffix(value: string) {
-  useProjectState.setState((state) => {
-    state.projectConfig.genCodeSuffix = value;
+function dispatchSetGenCodeSuffix(value: string) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      state.projectConfig.genCodeSuffix = value;
+    },
+    send: (frontendOpId) =>
+      route_set_gen_code_suffix({
+        projectConfigId: getCurrProjectConfigId(),
+        genCodeSuffix: value,
+        frontendOpId,
+      }),
   });
-  updateBackendProjectState();
 }

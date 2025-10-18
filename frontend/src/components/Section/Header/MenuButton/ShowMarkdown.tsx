@@ -1,10 +1,16 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
-  setEffectiveSectionImplValue,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import {
+  route_set_text_block_display_mode,
+  route_set_text_block_format,
+} from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
@@ -25,22 +31,31 @@ export function RenderTextBlock({ sectionId }) {
     };
   }, _.isEqual);
 
+  const newDisplayMode =
+    displayMode === TextBlockDisplayModeEnum.Render
+      ? TextBlockDisplayModeEnum.Edit
+      : TextBlockDisplayModeEnum.Render;
+
   function onClick() {
-    useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        displayMode:
-          displayMode === TextBlockDisplayModeEnum.render
-            ? TextBlockDisplayModeEnum.edit
-            : TextBlockDisplayModeEnum.render,
-      });
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          displayMode: newDisplayMode,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_display_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          displayMode: newDisplayMode,
+          frontendOpId,
+        }),
     });
   }
 
   return (
     <MenuItem onClick={onClick} disabled={implIsFrozen}>
-      {displayMode === TextBlockDisplayModeEnum.edit
-        ? `Render ${format}`
-        : `Edit ${format}`}
+      {`${newDisplayMode} ${format}`}
     </MenuItem>
   );
 }
@@ -61,10 +76,19 @@ export function ConvertFormat({ sectionId }) {
       : TextBlockFormatEnum.Plaintext;
 
   function onClick() {
-    useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        format: convertTo,
-      });
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          format: convertTo,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_format({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          format: convertTo,
+          frontendOpId,
+        }),
     });
   }
 

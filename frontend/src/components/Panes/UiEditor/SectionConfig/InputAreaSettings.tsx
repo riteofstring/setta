@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateProjectState } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";

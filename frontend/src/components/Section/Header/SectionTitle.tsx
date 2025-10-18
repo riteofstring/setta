@@ -1,17 +1,16 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
-  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
+  getSectionChildren,
   getSectionCore,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import {
-  isBaseParentSectionImpl,
-  SectionType,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { route_set_section_name } from "utils/generatedEndpoints";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
 export function SectionTitle({ sectionId, titleProps }: { sectionId: string }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
@@ -62,7 +61,7 @@ function EditableTitle({
     return !getSiblingHasName(sectionId, value);
   }
 
-  const [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey] =
+  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
     useEditableOnSubmit(sectionName, onTitleInputChange, condition);
 
   return (
@@ -81,10 +80,21 @@ function EditableTitle({
 }
 
 function setSectionName(sectionId: string, name: string) {
-  useProjectState.setState((x) => {
-    const s = getSectionCore(x, sectionId);
-    s.name = name;
-    x.requestRenameRefactor = true;
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      const section = state.sections[sectionId];
+      if (!section) {
+        return;
+      }
+      section.name = name;
+    },
+    send: (frontendOpId) =>
+      route_set_section_name({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        name,
+        frontendOpId,
+      }),
   });
 }
 
@@ -108,16 +118,10 @@ function useTitleIsEditable(sectionId: string) {
 
 function getSiblingHasName(sectionId: string, newName: string) {
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  const { parentId } = impl;
+  const parentId = state.parentSectionMap[sectionId];
   let siblingIds: Iterable<string>;
   if (parentId) {
-    const parentImpl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      parentId,
-      isBaseParentSectionImpl,
-    );
-    siblingIds = parentImpl.children;
+    siblingIds = getSectionChildren(state, parentId);
   } else {
     siblingIds = useNodeInternals.getState().x.keys();
   }

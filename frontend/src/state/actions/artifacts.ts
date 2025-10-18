@@ -1,302 +1,328 @@
-import {
-  base64ToImageObj,
-  dataURLToBase64,
-} from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useArtifacts, useMisc, useProjectState } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  route_load_artifacts,
-  route_read_csv_base64,
-} from "utils/generatedEndpoints";
-import { ArtifactTypeEnum } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
-import { newArtifactTransform, newLayer } from "utils/objs/artifact";
-import { getSectionType } from "./sectionInfos";
+  RevisionedArtifacts,
+  useBrushStrokes,
+  useChartData,
+  useDrawAreaLayerItemTransform,
+  useImages,
+} from "state/definitions";
+import {
+  bumpRemoteRevisions,
+  removeRevisionEntries,
+} from "state/utils/revisions";
+import { res200 } from "utils/endpointUtils";
+import { route_update_artifacts } from "utils/generatedEndpoints";
+import {
+  ArtifactType,
+  ArtifactTypeEnum,
+  BrushStrokeArtifact,
+  ChartDataArtifact,
+  DrawAreaLayerItemTransformArtifact,
+  ImageArtifact,
+  SettaNotificationTypeEnum,
+  UpdateArtifactMsgContent,
+} from "utils/generatedTypes";
 
-export async function loadArtifacts(sectionId, artifactIds, signal) {
-  const res = await route_load_artifacts(artifactIds);
-  if (res200(res)) {
-    const artifactsFromBackend = _.cloneDeep(res.data);
-    await prepareArtifactsForRendering(artifactsFromBackend);
-    if (signal?.aborted) return;
-    useArtifacts.setState((state) => ({
-      x: { ...state.x, ...artifactsFromBackend },
-    }));
-    useProjectState.setState((state) => {
-      actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
-    });
-  }
+type ArtifactByType =
+  | ImageArtifact
+  | BrushStrokeArtifact
+  | DrawAreaLayerItemTransformArtifact
+  | ChartDataArtifact;
+
+type StoreUpdate<T extends ArtifactByType> = {
+  next: Record<string, T>;
+  changedIds: Set<string>;
+  deletedIds: Set<string>;
+  commit: () => void;
+};
+
+function cloneArtifact<T extends ArtifactByType>(artifact: T): T {
+  return _.cloneDeep(artifact);
 }
 
-async function prepareArtifactsForRendering(artifactsFromBackend) {
-  for (const data of Object.values(artifactsFromBackend)) {
-    data.value = await prepareArtifactForRendering(data.type, data.value);
-  }
-}
-
-export async function prepareArtifactForRendering(
-  type: ArtifactTypeEnum,
-  value,
-) {
-  switch (type) {
-    case ArtifactTypeEnum.IMG:
-      return await base64ToImageObj(value);
-    case ArtifactTypeEnum.LIST:
-    case ArtifactTypeEnum.BRUSH_STROKES:
-    case ArtifactTypeEnum.CHAT_HISTORY:
-      return value;
-  }
-}
-
-export async function prepareDataURLForRendering(
-  type: ArtifactTypeEnum,
-  value,
-) {
-  switch (type) {
-    case ArtifactTypeEnum.IMG:
-      return await base64ToImageObj(value);
-    case ArtifactTypeEnum.LIST:
-      const res = await route_read_csv_base64(dataURLToBase64(value));
-      if (res200(res)) {
-        return res.data;
+function createStoreUpdate<T extends ArtifactByType>(
+  current: Record<string, T>,
+  setState: (
+    updater: (
+      state: RevisionedArtifacts<Record<string, T>>,
+    ) => void | RevisionedArtifacts<Record<string, T>>,
+  ) => void,
+  options: { mode?: "replace" | "mutate" } = {},
+): StoreUpdate<T> {
+  const { mode = "replace" } = options;
+  const storeUpdate: StoreUpdate<T> = {
+    next: { ...current },
+    changedIds: new Set<string>(),
+    deletedIds: new Set<string>(),
+    commit: () => {
+      if (
+        storeUpdate.changedIds.size === 0 &&
+        storeUpdate.deletedIds.size === 0
+      ) {
+        return;
       }
-    default:
-      return null;
-  }
-}
-
-export function getArtifactStateForSaving() {
-  const result = {};
-
-  for (const [id, artifact] of Object.entries(useArtifacts.getState().x)) {
-    if (typeof artifact === "function") {
-      continue;
-    } else if (
-      artifact.type === ArtifactTypeEnum.IMG &&
-      artifact.value instanceof Image
-    ) {
-      result[id] = { ...artifact, value: dataURLToBase64(artifact.value.src) };
-    } else {
-      result[id] = artifact;
-    }
-  }
-
-  return result;
-}
-
-function addArtifactUponSectionCreation({
-  sectionId,
-  sectionTypeName,
-  artifactType,
-  state,
-}) {
-  const artifactId = createNewId();
-  useArtifacts.setState((state) => ({
-    x: {
-      ...state.x,
-      [artifactId]: createArtifact({ type: artifactType, value: "" }),
-    },
-  }));
-
-  const artifactGroupId = createNewId();
-  state.artifactGroups[artifactGroupId] = newLayer({
-    artifactTransforms: [
-      newArtifactTransform(artifactId, sectionTypeName, artifactType),
-    ],
-  });
-
-  state.sections[sectionId].artifactGroupIds.push(artifactGroupId);
-
-  return artifactGroupId;
-}
-
-export function addDrawAreaLayer(sectionId, state) {
-  const artifactGroupId = addArtifactUponSectionCreation({
-    sectionId,
-    artifactType: ArtifactTypeEnum.BRUSH_STROKES,
-    sectionTypeName: UITypeNameEnum.DRAW,
-    state,
-  });
-
-  state.sections[sectionId].canvasSettings.activeLayerId = artifactGroupId;
-}
-
-export function addChatHistoryArtifact(sectionId, state) {
-  addArtifactUponSectionCreation({
-    sectionId,
-    artifactType: ArtifactTypeEnum.CHAT_HISTORY,
-    sectionTypeName: UITypeNameEnum.CHAT,
-    state,
-  });
-}
-
-export function updateArtifactGroupAndSetArtifactId({
-  sectionId,
-  sectionTypeName,
-  artifactId,
-  artifactType,
-  createNewArtifactGroup = false,
-  add,
-  state,
-}) {
-  let artifactGroupId = getActiveArtifactGroupId(
-    sectionId,
-    sectionTypeName,
-    state,
-  );
-  let currArtifactGroup;
-
-  if (add) {
-    if (!artifactGroupId || createNewArtifactGroup) {
-      artifactGroupId = createNewId();
-      state.artifactGroups[artifactGroupId] = newLayer({});
-      state.sections[sectionId].artifactGroupIds.unshift(artifactGroupId);
-    }
-
-    const artifactTransform = newArtifactTransform(
-      artifactId,
-      sectionTypeName,
-      artifactType,
-    );
-
-    currArtifactGroup = state.artifactGroups[artifactGroupId];
-    if (
-      sectionTypeName === UITypeNameEnum.DRAW ||
-      sectionTypeName === UITypeNameEnum.CHART
-    ) {
-      currArtifactGroup.artifactTransforms.push(artifactTransform);
-    } else {
-      currArtifactGroup.artifactTransforms = [artifactTransform];
-    }
-  } else {
-    // remove artifactId
-    currArtifactGroup = state.artifactGroups[artifactGroupId];
-    if (currArtifactGroup) {
-      currArtifactGroup.artifactTransforms =
-        currArtifactGroup.artifactTransforms.filter(
-          (t) => t.artifactId !== artifactId,
+      const changedIds = Array.from(storeUpdate.changedIds);
+      const deletedIds = Array.from(storeUpdate.deletedIds);
+      setState((state) => {
+        const afterRemoval = removeRevisionEntries(
+          {
+            revisionById: state.revisionById,
+            localRevisionById: state.localRevisionById,
+          },
+          deletedIds,
         );
+        const afterBump = bumpRemoteRevisions(afterRemoval, changedIds);
+        if (mode === "mutate") {
+          state.x = storeUpdate.next;
+          state.revisionById = afterBump.revisionById;
+          state.localRevisionById = afterBump.localRevisionById;
+          return;
+        }
+        return {
+          x: storeUpdate.next,
+          revisionById: afterBump.revisionById,
+          localRevisionById: afterBump.localRevisionById,
+        };
+      });
+    },
+  };
+  return storeUpdate;
+}
+
+function applyUpdate<T extends ArtifactByType>(
+  storeUpdate: StoreUpdate<T>,
+  artifact: T,
+  updateType: UpdateArtifactMsgContent["updateType"],
+) {
+  if (updateType === "delete") {
+    if (artifact.id in storeUpdate.next) {
+      delete storeUpdate.next[artifact.id];
+      storeUpdate.deletedIds.add(artifact.id);
     }
-  }
-
-  if (currArtifactGroup) {
-    actionAfterSettingSectionArtifacts(
-      currArtifactGroup.artifactTransforms.map((x) => x.artifactId),
-      sectionId,
-      state,
-    );
-  }
-}
-
-export async function addArtifactAndMaybeCreateNewArtifactGroup({
-  sectionId,
-  createNewArtifactGroup,
-  value,
-  artifactType,
-  path = "",
-}) {
-  const artifactId = createNewId();
-  useArtifacts.setState((state) => ({
-    x: {
-      ...state.x,
-      [artifactId]: createArtifact({
-        value,
-        path,
-        type: artifactType,
-      }),
-    },
-  }));
-  useProjectState.setState((state) => {
-    const sectionTypeName = getSectionType(sectionId, state);
-    updateArtifactGroupAndSetArtifactId({
-      sectionId,
-      sectionTypeName,
-      artifactId,
-      artifactType,
-      createNewArtifactGroup,
-      add: true,
-      state,
-    });
-  });
-}
-
-function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
-  switch (sectionTypeName) {
-    case UITypeNameEnum.DRAW:
-      return state.sections[sectionId].canvasSettings.activeLayerId;
-    case UITypeNameEnum.IMAGE:
-    case UITypeNameEnum.CHART:
-      return state.sections[sectionId].artifactGroupIds[0];
-  }
-}
-
-function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
-  const sectionTypeName = getSectionType(sectionId, state);
-  if (sectionTypeName === UITypeNameEnum.CHART) {
-    updateColumnNameSelections(artifactIds, sectionId, state);
-  }
-}
-
-export function updateColumnNameSelections(artifactIds, sectionId, state) {
-  const { chartSettings } = state.sections[sectionId];
-  const artifactValue = processChartArtifacts(
-    artifactIds.map((a) => useArtifacts.getState().x[a]),
-    chartSettings.type,
-  );
-  const seriesNames = Object.keys(artifactValue);
-  useMisc.setState((state) => ({
-    chartDisplayedSeriesNames: {
-      ...state.chartDisplayedSeriesNames,
-      [sectionId]: seriesNames,
-    },
-  }));
-  if (seriesNames === 0) {
     return;
   }
-  // TODO: think about whether we need this
-  // if (!seriesNames.includes(chartSettings.xAxisColumn)) {
-  //   chartSettings.xAxisColumn = seriesNames[0];
-  // }
-}
 
-// doesn't need whole artifacts, just name and value
-export function processChartArtifacts(artifacts, chartType) {
-  switch (chartType) {
-    case "line":
-      return processLineChartArtifacts(artifacts);
-    case "scatter":
-      return processScatterChartArtifacts(artifacts);
-    default:
-      return {};
+  const existing = storeUpdate.next[artifact.id];
+  if (!existing || !_.isEqual(existing, artifact)) {
+    storeUpdate.next[artifact.id] = cloneArtifact(artifact);
+    storeUpdate.changedIds.add(artifact.id);
   }
 }
 
-function processLineChartArtifacts(artifacts) {
-  const output = {};
-  for (const artifact of artifacts) {
-    for (const [seriesName, values] of Object.entries(artifact.value)) {
-      const newSeriesName =
-        artifacts.length === 1 ? seriesName : `${artifact.name}/${seriesName}`;
-      output[newSeriesName] = [...values];
+export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
+  if (!artifactUpdate.artifacts || artifactUpdate.artifacts.length === 0) {
+    return;
+  }
+
+  const imagesUpdate = createStoreUpdate(
+    useImages.getState().x,
+    useImages.setState,
+  );
+
+  const brushStrokeUpdate = createStoreUpdate(
+    useBrushStrokes.getState().x,
+    useBrushStrokes.setState,
+  );
+
+  const transformUpdate = createStoreUpdate(
+    useDrawAreaLayerItemTransform.getState().x,
+    useDrawAreaLayerItemTransform.setState,
+    { mode: "mutate" },
+  );
+
+  const chartDataUpdate = createStoreUpdate(
+    useChartData.getState().x,
+    useChartData.setState,
+  );
+
+  for (const artifact of artifactUpdate.artifacts) {
+    switch (artifact.type) {
+      case ArtifactTypeEnum.Image:
+        applyUpdate(imagesUpdate, artifact, artifactUpdate.updateType);
+        break;
+      case ArtifactTypeEnum.BrushStroke:
+        applyUpdate(brushStrokeUpdate, artifact, artifactUpdate.updateType);
+        break;
+      case ArtifactTypeEnum.DrawAreaLayerItemTransform:
+        applyUpdate(transformUpdate, artifact, artifactUpdate.updateType);
+        break;
+      case ArtifactTypeEnum.ChartData:
+        applyUpdate(chartDataUpdate, artifact, artifactUpdate.updateType);
+        break;
+      default:
+        artifact satisfies never;
     }
   }
-  return output;
+
+  imagesUpdate.commit();
+  brushStrokeUpdate.commit();
+  transformUpdate.commit();
+  chartDataUpdate.commit();
 }
 
-function processScatterChartArtifacts(artifacts) {
-  const output = {};
+export function getNamePathTypeKey(artifact: {
+  name?: string;
+  path?: string;
+  type: string | ArtifactType;
+}) {
+  return JSON.stringify([
+    artifact.name ?? "",
+    artifact.path ?? "",
+    artifact.type,
+  ]);
+}
+
+const SYNCED_ARTIFACT_TYPES = [
+  ArtifactTypeEnum.BrushStroke,
+  ArtifactTypeEnum.DrawAreaLayerItemTransform,
+] as const;
+
+type SyncedArtifactType = (typeof SYNCED_ARTIFACT_TYPES)[number];
+
+const pendingArtifacts: Record<
+  SyncedArtifactType,
+  Map<string, ArtifactByType>
+> = {
+  [ArtifactTypeEnum.BrushStroke]: new Map(),
+  [ArtifactTypeEnum.DrawAreaLayerItemTransform]: new Map(),
+};
+
+const FLUSH_DEBOUNCE_MS = 1500;
+
+let flushPromise: Promise<void> | null = null;
+
+const scheduleFlush = _.debounce(() => {
+  void flushPendingArtifacts();
+}, FLUSH_DEBOUNCE_MS);
+
+function storePendingArtifact<T extends SyncedArtifactType>(
+  type: T,
+  artifact: Extract<ArtifactByType, { type: T }>,
+) {
+  pendingArtifacts[type].set(artifact.id, cloneArtifact(artifact));
+}
+
+function collectPendingArtifacts() {
+  const snapshot: Array<ArtifactByType> = [];
+  for (const type of SYNCED_ARTIFACT_TYPES) {
+    for (const artifact of pendingArtifacts[type].values()) {
+      snapshot.push(artifact);
+    }
+  }
+  return snapshot;
+}
+
+function clearPendingArtifacts(artifacts: Array<ArtifactByType>) {
   for (const artifact of artifacts) {
-    for (const [seriesName, values] of Object.entries(artifact.value)) {
-      if (!(seriesName in output)) {
-        output[seriesName] = [];
+    const type = artifact.type as SyncedArtifactType;
+    pendingArtifacts[type].delete(artifact.id);
+  }
+}
+
+async function flushPendingArtifacts(force = false) {
+  if (flushPromise) {
+    if (!force) {
+      return flushPromise;
+    }
+    await flushPromise;
+  }
+
+  const snapshot = collectPendingArtifacts();
+  if (snapshot.length === 0) {
+    return;
+  }
+
+  flushPromise = (async () => {
+    const res = await route_update_artifacts({
+      artifacts: snapshot,
+      conflictStrategy: null,
+    });
+    if (res200(res)) {
+      clearPendingArtifacts(snapshot);
+      if (res.data) {
+        for (const result of res.data) {
+          if (result.status === "conflict" || result.status === "skipped") {
+            const message =
+              result.message || `Conflict detected while saving ${result.id}.`;
+            addTemporaryNotification(
+              message,
+              SettaNotificationTypeEnum.warning,
+            );
+          }
+        }
       }
-      output[seriesName].push(...values);
+    } else {
+      console.error("Failed to sync artifacts", res.status);
+      scheduleFlush();
     }
+  })();
+
+  try {
+    await flushPromise;
+  } finally {
+    flushPromise = null;
   }
-  return output;
 }
 
-export function getNamePathTypeKey(artifact) {
-  return JSON.stringify([artifact.name, artifact.path, artifact.type]);
+function queueArtifacts(
+  artifacts: Array<ArtifactByType | undefined>,
+  {
+    immediate = false,
+  }: {
+    immediate?: boolean;
+  } = {},
+) {
+  const validArtifacts: Array<ArtifactByType> = [];
+  for (const artifact of artifacts) {
+    if (!artifact) {
+      continue;
+    }
+    if (!SYNCED_ARTIFACT_TYPES.includes(artifact.type as SyncedArtifactType)) {
+      continue;
+    }
+    storePendingArtifact(
+      artifact.type as SyncedArtifactType,
+      artifact as Extract<ArtifactByType, { type: SyncedArtifactType }>,
+    );
+    validArtifacts.push(artifact);
+  }
+
+  if (validArtifacts.length === 0) {
+    return;
+  }
+
+  if (immediate) {
+    void flushPendingArtifacts(true);
+  } else {
+    scheduleFlush();
+  }
+}
+
+export function queueBrushStrokeForSave(
+  strokeId: string,
+  options: { immediate?: boolean; transformId?: string } = {},
+) {
+  const stroke = useBrushStrokes.getState().x[strokeId];
+  const transform = options.transformId
+    ? useDrawAreaLayerItemTransform.getState().x[options.transformId]
+    : undefined;
+
+  queueArtifacts([stroke, transform], {
+    immediate: options.immediate ?? false,
+  });
+}
+
+export function queueTransformsForSave(
+  transformIds: Array<string>,
+  options: { immediate?: boolean } = {},
+) {
+  const transforms = transformIds.map(
+    (id) => useDrawAreaLayerItemTransform.getState().x[id],
+  );
+  queueArtifacts(transforms, { immediate: options.immediate ?? false });
+}
+
+export async function flushQueuedArtifacts() {
+  await flushPendingArtifacts(true);
 }

@@ -1,21 +1,52 @@
-import { Tooltip } from "chart.js";
-import { processChartArtifacts } from "state/actions/artifacts";
+import {
+  Chart,
+  ChartConfiguration,
+  ChartData,
+  DefaultDataPoint,
+  Plugin,
+  Tooltip,
+} from "chart.js";
+import { ChartDataType, ScatterChartSettings } from "utils/generatedTypes";
+import {
+  getAxisType,
+  getOnLegendClickSetDatasetHidden,
+  SetDatasetHiddenFn,
+} from "./utils";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
-  elements,
+  _elements,
   eventPosition,
 ) {
   if (!eventPosition) {
+    // not sure how this works but it's needed
     return false;
   }
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getScatterChartOptionsAndPlugins() {
+export function getScatterChartConfig(
+  setDatasetHidden: SetDatasetHiddenFn,
+): ChartConfiguration<"scatter"> {
   return {
     type: "scatter",
+    data: {
+      datasets: [],
+    },
     plugins: [crosshairPlugin],
     options: {
+      animation: false,
+      responsive: false,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: "linear",
+          position: "bottom",
+        },
+        y: {
+          type: "linear",
+          position: "left",
+        },
+      },
       plugins: {
         tooltip: {
           enabled: true,
@@ -25,7 +56,9 @@ export function getScatterChartOptionsAndPlugins() {
           callbacks: {
             title: (context) => {
               const point = context[0];
-              return `(${point.parsed.x.toFixed(2)}, ${point.parsed.y.toFixed(2)})`;
+              if (point) {
+                return `(${point.parsed.x.toFixed(2)}, ${point.parsed.y.toFixed(2)})`;
+              }
             },
             label: (context) => {
               const label = context.dataset.label || "";
@@ -33,34 +66,41 @@ export function getScatterChartOptionsAndPlugins() {
             },
           },
         },
+        legend: { onClick: getOnLegendClickSetDatasetHidden(setDatasetHidden) },
       },
     },
   };
 }
 
-export function updateScatterChartWithNewData({
-  chartRef,
-  artifacts,
-  datasetHidden,
-  darkMode,
-  chartSettings,
-}) {
-  const artifactValue = processChartArtifacts(artifacts, "scatter");
+type ScatterChartData = ChartData<
+  "scatter",
+  DefaultDataPoint<"scatter">,
+  string | number
+>;
 
-  let categoryValue = "No Category";
-  const firstColumnLength = Object.values(artifactValue)[0]?.length;
+export function updateScatterChartWithNewData(
+  chart: Chart,
+  data: ChartDataType,
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: ScatterChartSettings,
+): ScatterChartData {
+  let categoryValue: string | number = "No Category";
+  const firstColumnLength = Object.values(data)[0]?.length;
 
-  // artifactValue might be an empty object if no artifacts are selected
   if (!firstColumnLength) {
     return { datasets: [] };
   }
 
   const categoryColumn = chartSettings.categoryColumn;
-  let xAxisColumn = Object.keys(artifactValue)[0];
+  let xAxisColumn = Object.keys(data)[0];
   if (chartSettings.xAxisColumn) {
     xAxisColumn = chartSettings.xAxisColumn;
   }
-  const yAxisColumn = Object.keys(artifactValue).find(
+  if (!xAxisColumn) {
+    return { datasets: [] };
+  }
+  const yAxisColumn = Object.keys(data).find(
     (a) => ![categoryColumn, xAxisColumn].includes(a),
   );
 
@@ -72,17 +112,39 @@ export function updateScatterChartWithNewData({
     return { datasets: [] };
   }
 
-  const groupedData = {};
+  const catColumn = data[categoryColumn];
+  const xColumn = data[xAxisColumn];
+  const yColumn = data[yAxisColumn];
+
+  if (!xColumn || !yColumn) {
+    return { datasets: [] };
+  }
+
+  const groupedData: Record<
+    string | number,
+    Array<{ x: number; y: number; columnName: string }>
+  > = {};
   for (let i = 0; i < firstColumnLength; i++) {
-    if (categoryColumn) {
-      categoryValue = artifactValue[categoryColumn][i];
+    if (catColumn) {
+      const cv = catColumn[i];
+      if (cv === undefined) {
+        throw new Error();
+      }
+      categoryValue = cv;
     }
     if (!(categoryValue in groupedData)) {
       groupedData[categoryValue] = [];
     }
+    const x = xColumn[i];
+    const y = yColumn[i];
+
+    if (typeof x !== "number" || typeof y !== "number") {
+      continue;
+    }
+
     groupedData[categoryValue].push({
-      x: artifactValue[xAxisColumn][i],
-      y: artifactValue[yAxisColumn][i],
+      x,
+      y,
       columnName: yAxisColumn,
     });
   }
@@ -91,20 +153,26 @@ export function updateScatterChartWithNewData({
   const datasets = Object.entries(groupedData).map(([category, points]) => ({
     label: category,
     data: points,
-    yAxisID: chartSettings.secondYAxisColumns.includes(points[0]?.columnName)
-      ? "y2"
-      : "y1",
+    yAxisID: "y",
     hidden: datasetHidden[category],
     pointRadius: 4,
     pointHoverRadius: 6,
   }));
 
-  chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
+  chart.crosshairPlugin.color = darkMode ? "white" : "black";
+
+  const scaleOptions = chart.options.scales;
+  if (scaleOptions?.x) {
+    scaleOptions.x.type = getAxisType(chartSettings.xAxisLog);
+  }
+  if (scaleOptions?.y) {
+    scaleOptions.y.type = getAxisType(chartSettings.yAxisLog);
+  }
 
   return { datasets };
 }
 
-const crosshairPlugin = {
+export const crosshairPlugin: Plugin<"scatter"> = {
   id: "crosshairPlugin",
   afterInit: (chart) => {
     chart.crosshairPlugin = {
@@ -125,7 +193,14 @@ const crosshairPlugin = {
     if (inChartArea) {
       // Find the nearest data point across all datasets
       let minDistance = Infinity;
-      let nearestPoint = null;
+      let nearestPoint: {
+        x: number;
+        y: number;
+        xValue: number;
+        yValue: number;
+        datasetIndex: number;
+        pointIndex: number;
+      } | null = null;
 
       chart.data.datasets.forEach((dataset, datasetIndex) => {
         if (dataset.hidden) return;
@@ -172,8 +247,8 @@ const crosshairPlugin = {
           },
         ];
 
-        chart.tooltip.setActiveElements(tooltipItems);
-        chart.tooltip.update();
+        chart.tooltip?.setActiveElements(tooltipItems);
+        chart.tooltip?.update();
       }
     } else {
       chart.crosshairPlugin = {
@@ -182,7 +257,7 @@ const crosshairPlugin = {
         y,
         draw: false,
       };
-      chart.tooltip.setActiveElements([], { x, y });
+      chart.tooltip?.setActiveElements([], { x, y });
     }
 
     chart.draw();

@@ -9,6 +9,12 @@ export function FileExplorer({
   onSelectedChange,
   title,
   onFileDoubleClick,
+}: {
+  files: Array<{ id: string; name: string }>;
+  selected: string | null;
+  title: string;
+  onSelectedChange: (newValue: string | null) => void;
+  onFileDoubleClick: (newValue: string) => void;
 }) {
   return (
     <>
@@ -26,10 +32,12 @@ export function FileExplorer({
       </div>
       <div className="overflow-scroll">
         <RadioGroup.Root
+          // @ts-expect-error It doesn't like null, but it works.
           value={selected}
           onValueChange={onSelectedChange}
           asChild
         >
+          {/* @ts-expect-error ref gets passed in by RadioGroup.Root I think */}
           <FileList
             files={files}
             onClick={onSelectedChange}

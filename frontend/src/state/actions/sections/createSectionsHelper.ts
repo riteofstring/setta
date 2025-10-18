@@ -1,11 +1,18 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { PartialImplWithType } from "./createSections";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
+import {
+  BaseSectionImplUnion,
+  CodeLanguageEnum,
+  Position,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
+import { getCurrProjectConfigId } from "../sectionInfos";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
-  specificProps: PartialImplWithType;
+  implSpecs: Partial<BaseSectionImplUnion> &
+    Required<Pick<BaseSectionImplUnion, "type">>;
 };
 
 export function useCreateSectionsList() {
@@ -14,56 +21,81 @@ export function useCreateSectionsList() {
     _.isEqual,
   );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    { name: "Callable", specificProps: { type: SectionTypeEnum.Callable } },
-    { name: "Dict", specificProps: { type: SectionTypeEnum.Dict } },
+    { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
+    { name: "Dict", implSpecs: { type: SectionTypeEnum.Dict } },
     {
       name: "List of Objects",
-      specificProps: { type: SectionTypeEnum.ListRoot },
+      implSpecs: { type: SectionTypeEnum.ListRoot },
     },
     {
       name: "Dict of Objects",
-      specificProps: { type: SectionTypeEnum.DictRoot },
+      implSpecs: { type: SectionTypeEnum.DictRoot },
     },
-    { name: "Group", specificProps: { type: SectionTypeEnum.Group } },
-    { name: "Text", specificProps: { type: SectionTypeEnum.TextBlock } },
+    { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
+    { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
   ];
 
-  if (!singletonSections[SectionTypeEnum.GlobalVariables]) {
+  if (!singletonSections.GlobalVariables) {
     sectionGroupItems.push({
       name: "Global Variables",
-      specificProps: { type: SectionTypeEnum.GlobalVariables },
+      implSpecs: { type: SectionTypeEnum.GlobalVariables },
     });
   }
 
   const codeGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "Python Code",
-      specificProps: {
+      implSpecs: {
         type: SectionTypeEnum.Code,
         codeLanguage: CodeLanguageEnum.python,
       },
     },
     {
       name: "Bash Script",
-      specificProps: {
+      implSpecs: {
         type: SectionTypeEnum.Code,
         codeLanguage: CodeLanguageEnum.bash,
       },
     },
     {
       name: "Terminal",
-      specificProps: { type: SectionTypeEnum.Terminal },
+      implSpecs: { type: SectionTypeEnum.Terminal },
     },
   ];
 
-  if (!singletonSections[SectionTypeEnum.GenPythonCode]) {
+  if (!singletonSections.GenPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
-      specificProps: {
+      implSpecs: {
         type: SectionTypeEnum.GenPythonCode,
       },
     });
   }
+
+  const embedGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    {
+      name: "Social",
+      implSpecs: { type: SectionTypeEnum.Social },
+    },
+    {
+      name: "IFrame",
+      implSpecs: { type: SectionTypeEnum.IFrame },
+    },
+  ];
+
+  const artifactGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    {
+      name: "Drawing Area",
+      implSpecs: { type: SectionTypeEnum.Draw },
+    },
+    { name: "Image", implSpecs: { type: SectionTypeEnum.Image } },
+    { name: "Chart", implSpecs: { type: SectionTypeEnum.Chart } },
+    { name: "Chat", implSpecs: { type: SectionTypeEnum.Chat } },
+    {
+      name: "Browser",
+      implSpecs: { type: SectionTypeEnum.Browser },
+    },
+  ];
 
   return [
     {
@@ -76,32 +108,23 @@ export function useCreateSectionsList() {
     },
     {
       group: "Artifacts",
-      items: [
-        {
-          name: "Drawing Area",
-          specificProps: { type: SectionTypeEnum.Draw },
-        },
-        { name: "Image", specificProps: { type: SectionTypeEnum.Image } },
-        { name: "Chart", specificProps: { type: SectionTypeEnum.Chart } },
-        { name: "Chat", specificProps: { type: SectionTypeEnum.Chat } },
-        {
-          name: "Browser",
-          specificProps: { type: SectionTypeEnum.Browser },
-        },
-      ],
+      items: artifactGroupItems,
     },
     {
       group: "Embed",
-      items: [
-        {
-          name: "Social",
-          specificProps: { type: SectionTypeEnum.Social },
-        },
-        {
-          name: "IFrame",
-          specificProps: { type: SectionTypeEnum.IFrame },
-        },
-      ],
+      items: embedGroupItems,
     },
   ];
+}
+
+export function createTopLevelSectionFromImplSpecs(
+  implSpecs: CreateSectionsContextMenuInfo["implSpecs"],
+  position: Position,
+) {
+  route_create_top_level_section({
+    projectConfigId: getCurrProjectConfigId(),
+    implType: implSpecs.type,
+    implOverrides: implSpecs,
+    position,
+  });
 }

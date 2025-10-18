@@ -33,15 +33,17 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
+    get_curr_code_obj_variant,
+    get_curr_effective_section_impl,
+    set_curr_effective_section_impl_value,
+)
+from setta.types.helpers_lvl2 import (
     add_children_of_callable,
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    get_curr_code_obj_variant,
-    get_curr_effective_section_impl,
     get_section_path_full_name,
-    set_curr_effective_section_impl_value,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
@@ -55,6 +57,7 @@ from setta.types.section_impls import (
 class ProjectGenPythonCode(PythonCode):
     def __init__(
         self,
+        dbe,
         temp_folder,
         lsp_writers,
         websocket_msg_handler,
@@ -62,7 +65,7 @@ class ProjectGenPythonCode(PythonCode):
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
-        super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, temp_folder, lsp_writers, websocket_msg_handler)
         # with open("test_project_state.json", "w") as f:
         # json.dump(project_state, f)
         self.project_config_id = project_config_id
@@ -70,7 +73,7 @@ class ProjectGenPythonCode(PythonCode):
         self.code_generator = code_generator
 
     async def update_file(self):
-        await super().update_file(self.code_generator.code)
+        await super().update_file(self.code)
 
     async def insert_code_at_position(
         self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
@@ -81,7 +84,7 @@ class ProjectGenPythonCode(PythonCode):
         if start is None:
             return None
         position += start
-        line, col = position_to_line_col(self.code_generator.code, position)
+        line, col = position_to_line_col(self.code, position)
         return line, col
 
     async def text_field_completion(
@@ -104,7 +107,7 @@ class ProjectGenPythonCode(PythonCode):
                 ),
                 request_id,
             )
-            return process_completion_response(response, self.code_generator.code)
+            return process_completion_response(response, self.code)
 
     async def clear_text_field_completion(
         self, sectionId: str, paramInfoId: str | None
@@ -169,7 +172,7 @@ class ProjectGenPythonCode(PythonCode):
             )
             callable_code_obj = Core(name=callableName)
             callable_code_obj_variant = add_code_obj(
-                project_state, sectionId, callable_code_obj, callable_base_impl
+                project_state, [sectionId], callable_code_obj, callable_base_impl
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
@@ -216,7 +219,7 @@ class ProjectGenPythonCode(PythonCode):
     async def gen_code_prefix_completion(self, fullText, position):
         self.code_generator.set_gen_code_prefix(fullText)
         await self.update_file()
-        line, col = position_to_line_col(self.code_generator.code, position)
+        line, col = position_to_line_col(self.code, position)
         request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
@@ -232,7 +235,7 @@ class ProjectGenPythonCode(PythonCode):
     async def gen_code_suffix_completion(self, fullText, position):
         position += self.code_generator.set_gen_code_suffix(fullText)
         await self.update_file()
-        line, col = position_to_line_col(self.code_generator.code, position)
+        line, col = position_to_line_col(self.code, position)
         request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
@@ -246,7 +249,7 @@ class ProjectGenPythonCode(PythonCode):
         return process_completion_response(response, fullText)
 
     async def type_check(self):
-        await self.send_document_open_request(self.code_generator.code)
+        await self.send_document_open_request(self.code)
 
     async def diagnostics_callback(
         self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
@@ -273,23 +276,25 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code_path(self):
         return self.temp_file
 
-    def get_gen_python_code(self):
+    @property
+    def code(self):
         return self.code_generator.code
 
     def write_to_folder(self, folder: Path):
-        return super().write_to_folder(self.code_generator.code, folder)
+        return super().write_to_folder(self.code, folder)
 
 
 class ProjectPythonCode(PythonCode):
     def __init__(
         self,
+        dbe,
         temp_folder,
         lsp_writers,
         websocket_msg_handler,
         project_state: ProjectStateSingleConfig,
         sectionId,
     ):
-        super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, temp_folder, lsp_writers, websocket_msg_handler)
         self.section_path_full_name = get_section_path_full_name(
             project_state, sectionId
         )
@@ -333,8 +338,10 @@ class ProjectPythonCode(PythonCode):
 
 
 class ProjectBashCode(BashCode):
-    def __init__(self, temp_folder, project_state: ProjectStateSingleConfig, sectionId):
-        super().__init__(temp_folder)
+    def __init__(
+        self, dbe, temp_folder, project_state: ProjectStateSingleConfig, sectionId
+    ):
+        super().__init__(dbe, temp_folder)
         self.section_path_full_name = get_section_path_full_name(
             project_state, sectionId
         )

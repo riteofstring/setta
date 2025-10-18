@@ -9,18 +9,28 @@ import {
   setActiveDnd,
   setDndTime,
   useDndState,
+  ZustandDndState,
 } from "forks/dnd-kit/dndState";
-import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
+import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
-  getSectionParentId,
+  getCurrSectionVariant,
+  getSectionChildren,
   getSectionType,
-  getSectionVariant,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
+import {
+  DragMoveEvent,
+  DragOverEvent,
+  DragStartEvent,
+  Over,
+} from "./CustomCore";
 
-export function onDragStart({ active }) {
+export function onDragStart({ active }: DragStartEvent) {
+  if (!active.data.current) {
+    return;
+  }
   const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
   setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
@@ -37,13 +47,13 @@ export function useOnDragMove() {
   return () => {};
 }
 
-function onDragMove({ active, collisions }) {
-  const triggerDistCondition = collisions[0]?.triggerDistCondition;
+function onDragMove({ active, collisions }: DragMoveEvent) {
+  const triggerDistCondition = collisions?.[0]?.triggerDistCondition;
   const dndState = useDndState.getState();
 
   if (triggerDistCondition !== dndState.triggerDistCondition) {
     useDndState.setState({ triggerDistCondition });
-    const over = collisions[0];
+    const over = collisions?.[0];
     if (over && over.id === dndState.overId) {
       onDragOver({
         active,
@@ -63,7 +73,16 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
+function onDragOver({
+  active,
+  over,
+  collisions,
+  calledFromOnDragMove,
+}: DragOverEvent & { calledFromOnDragMove?: boolean }) {
+  if (!collisions) {
+    return;
+  }
+
   const overId = getOverId(over);
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
@@ -145,23 +164,32 @@ function maybeMoveToNewParent({
   newParentId,
   dndChildrenState,
   collisions,
+}: DragOverEvent & {
+  dndSectionId: string;
+  oldParentId: string;
+  newParentId: string;
+  dndChildrenState: ZustandDndState;
 }) {
   const overId = getOverId(over);
   // Check if section can actually be dropped onto newParentId
+  console.log("newParentId", newParentId);
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
-  if (behaviorDropType === BehaviorDropType.INVALID) {
+  if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
     removeDndChild(dndSectionId);
     useDndState.setState({ behaviorDropType, overId });
     return;
   }
 
-  const newParentNumChildren = getSectionVariant(newParentId).children.length;
+  const newParentNumChildren = getSectionChildren(
+    useProjectState.getState(),
+    newParentId,
+  ).length;
 
   // Special case where you move a section out of its parent
   // and back in, and the section is the only-child of the parent
   if (
     newParentNumChildren === 1 &&
-    getSectionParentId(active.id) === newParentId
+    useProjectState.getState().parentSectionMap[active.id] === newParentId
   ) {
     addDndChild(oldParentId, newParentId, dndSectionId, 0);
     return;
@@ -228,53 +256,36 @@ function getTimeDiff(state, sectionId) {
   return Date.now() - (state.times[sectionId] ?? 0);
 }
 
-export function getDndParentId(dndSectionId) {
+export function getDndParentId(dndSectionId: string) {
   return useDndChildren.getState().y[dndSectionId];
 }
 
-function getBehaviorDropType(activeId, newParentId) {
+function getBehaviorDropType(activeId: string, newParentId: string) {
   // invalid
   // if parent can't have children
-  // or if child can only be in group and parent is not a group
   // or if parent variant is frozen
   // or if dragged section is global variables (TODO: loosen this restriction)
   if (
     !getSectionIsRoot(newParentId) ||
-    (getSectionCanOnlyBeChildOfGroup(activeId) &&
-      !getSectionIsGroup(newParentId)) ||
-    getSectionVariant(newParentId).isFrozen ||
+    getCurrSectionVariant(useProjectState.getState(), newParentId).isFrozen ||
     getSectionIsGlobalVariables(activeId)
   ) {
-    return BehaviorDropType.INVALID;
+    return BehaviorDropTypeEnum.INVALID;
   }
 
   return null;
 }
 
-function getOverId(over) {
+function getOverId(over: Over | null) {
   return over ? over.id : null;
 }
 
-function getSectionCanOnlyBeChildOfGroup(sectionId) {
-  return ![
-    UITypeNameEnum.SECTION,
-    UITypeNameEnum.LIST_ROOT,
-    UITypeNameEnum.DICT_ROOT,
-  ].includes(getSectionType(sectionId));
-}
-
-function getSectionIsGroup(sectionId) {
-  return getSectionType(sectionId) === UITypeNameEnum.GROUP;
-}
-
-function getSectionIsGlobalVariables(sectionId) {
+function getSectionIsGlobalVariables(sectionId: string) {
   return (
-    useProjectState.getState().singletonSections[
-      UITypeNameEnum.GLOBAL_VARIABLES
-    ] === sectionId
+    useProjectState.getState().singletonSections.GlobalVariables === sectionId
   );
 }
 
-function getSectionIsRoot(sectionId) {
-  return getIsRoot(getSectionType(sectionId));
+function getSectionIsRoot(sectionId: string) {
+  return getIsRoot(getSectionType(useProjectState.getState(), sectionId));
 }

@@ -2,16 +2,18 @@ import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
-from setta.utils.constants import CWD
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
 
 class Code(ABC):
-    def __init__(self, temp_folder: Path):
+    def __init__(self, dbe: DBE, temp_folder: Path):
+        self.dbe = dbe
         self.temp_folder = temp_folder
         self.temp_file: Path | None = None
 
@@ -36,7 +38,7 @@ class Code(ABC):
     def create_temp_file(self, filepath, code):
         logger.debug(f"Creating temporary file {filepath}")
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        filepath.write_text(code)
+        self.dbe.write(filepath, code)
         self.temp_file = filepath
 
     def create_or_update_temp_file(self, filepath, code):
@@ -44,7 +46,7 @@ class Code(ABC):
             self.delete_temp_file()
             self.create_temp_file(filepath, code)
         if self.temp_file:
-            self.temp_file.write_text(code)
+            self.dbe.write(self.temp_file, code)
 
     def delete_temp_file(self):
         if self.temp_file and self.temp_file.exists():
@@ -53,7 +55,7 @@ class Code(ABC):
     def write_to_folder(self, code: str, folder: Path) -> Path:
         if self.temp_file:
             full_path = folder / self.temp_file.name
-            full_path.write_text(code)
+            self.dbe.write(full_path, code)
             return full_path
         raise ValueError("self.temp_file is not set")
 
@@ -61,11 +63,12 @@ class Code(ABC):
 class PythonCode(Code):
     def __init__(
         self,
+        dbe: DBE,
         temp_folder: Path,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
     ):
-        super().__init__(temp_folder)
+        super().__init__(dbe, temp_folder)
         self.lsp_writer = lsp_writers.full
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
@@ -94,7 +97,7 @@ class PythonCode(Code):
         return "py"
 
     def get_run_command(self, path: Path):
-        path = path.relative_to(CWD)
+        path = normalize_path(path)
         module_path = convert_path_to_module_path(path)
         return f"python -m {module_path}"
 
@@ -112,5 +115,5 @@ class BashCode(Code):
         return "sh"
 
     def get_run_command(self, path: Path):
-        path = path.relative_to(CWD)
+        path = normalize_path(path)
         return f"bash {path}"

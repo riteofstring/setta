@@ -1,17 +1,36 @@
-import { useState } from "react";
+import _ from "lodash";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useLocalPendingValue } from "state/hooks/utils";
+import { route_set_social_url } from "utils/generatedEndpoints";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function SocialAreaSettings({ sectionId }) {
-  const url = useProjectState((x) => x.sections[sectionId].social);
+  const url = useProjectState((p) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      p,
+      sectionId,
+      SectionTypeEnum.Social,
+    );
+    return impl.url;
+  });
 
-  const [value, setValue] = useState(url ?? "");
-  function onBlur(e) {
-    const blurValue = e.target.value;
-    if (blurValue) {
-      useProjectState.setState((state) => {
-        state.sections[sectionId].social = blurValue;
+  const [value, setPendingValue] = useLocalPendingValue(url, (x) =>
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
+        url: x,
       });
-    }
+    }),
+  );
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPendingValue(e.target.value);
+    debouncedSetSocialUrl(sectionId, e.target.value);
   }
 
   return (
@@ -23,11 +42,28 @@ export function SocialAreaSettings({ sectionId }) {
         <input
           className="mr-[2px] w-full truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={onBlur}
+          // onChange={(e) => setValue(e.target.value)}
+          onChange={onChange}
           placeholder="https://www.youtube.com/"
         />
       </div>
     </div>
   );
 }
+
+const debouncedSetSocialUrl = _.debounce((sectionId, url) => {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
+        url,
+      });
+    },
+    send: (frontendOpId) =>
+      route_set_social_url({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        url,
+        frontendOpId,
+      }),
+  });
+}, 500);

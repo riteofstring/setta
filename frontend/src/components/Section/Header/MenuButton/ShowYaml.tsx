@@ -1,38 +1,56 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { route_set_section_with_params_display_mode } from "utils/generatedEndpoints";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionWithParamsDisplayModeEnum,
+} from "utils/generatedTypes";
 
 export function ShowYaml({ sectionId }) {
-  const displayMode = useProjectState((x) => x.sections[sectionId].displayMode);
+  const displayMode = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return impl.displayMode;
+  });
 
   function onClick() {
-    useProjectState.setState((state) => {
-      const newDisplayMode =
-        displayMode === SECTION_DISPLAY_MODES.YAML
-          ? SECTION_DISPLAY_MODES.GUI
-          : SECTION_DISPLAY_MODES.YAML;
-      state.sections[sectionId].displayMode = newDisplayMode;
+    const newDisplayMode =
+      displayMode === SectionWithParamsDisplayModeEnum.Yaml
+        ? SectionWithParamsDisplayModeEnum.Gui
+        : SectionWithParamsDisplayModeEnum.Yaml;
 
-      const { height: currHeight, width: currWidth } =
-        state.sections[sectionId].size;
-      if (
-        newDisplayMode === SECTION_DISPLAY_MODES.YAML &&
-        (currHeight === "auto" || currWidth === "auto")
-      ) {
-        // This is to avoid flickering when in "auto" mode.
-        // It gets set back to its original size in useCodeAreaHeight.
-        state.sections[sectionId].tempSavedSize =
-          state.sections[sectionId].size;
-        const { width, height } = getSectionRect(sectionId);
-        state.sections[sectionId].size = { width, height };
-      }
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+          state,
+          sectionId,
+          { displayMode: newDisplayMode },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_with_params_display_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          displayMode: newDisplayMode,
+          frontendOpId,
+        }),
     });
   }
 
   return (
     <MenuItem onClick={onClick}>
-      {displayMode === SECTION_DISPLAY_MODES.YAML ? "Show GUI" : "Show Yaml"}
+      {displayMode === SectionWithParamsDisplayModeEnum.Yaml
+        ? "Show GUI"
+        : "Show Yaml"}
     </MenuItem>
   );
 }

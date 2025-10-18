@@ -20,4 +20,6 @@ async def route_restart_language_server(state: AppStateFromRequest):
 
 @router.post(Route.TYPE_CHECK)
 async def route_type_check(x: TypeCheckRequest, state: AppStateFromRequest):
-    return await state.project_manager.type_check(x.projectConfigId)
+    return await state.project_manager_switcher.get(x.projectConfigId).type_check(
+        x.projectConfigId
+    )

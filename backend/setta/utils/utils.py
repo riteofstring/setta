@@ -1,17 +1,14 @@
 import json
-import os
 from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
+
+from setta.utils.constants import CWD
 
 
 def get_absolute_path(src_path, file_path):
     return (Path(src_path).parent / file_path).resolve()
-
-
-def is_dev_mode():
-    return os.environ.get("SETTA_DEV_MODE")
 
 
 def try_json(x):
@@ -81,11 +78,6 @@ def replace_at_positions(input_string, replacements, return_positions=False):
     return final_string
 
 
-def save_json_to_file(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-
-
 def remove_empty(x):
     if isinstance(x, defaultdict):
         # Create a new defaultdict with the same default_factory
@@ -108,3 +100,24 @@ def ensure_str_path(path: str | bytes | Any):
 
 def insert_into_array(arr: list, index: int, new_items: list):
     return [*arr[:index], *new_items, *arr[index:]]
+
+
+list_generic = TypeVar("list_generic")
+
+
+def move_item_in_array(array: list[list_generic], from_index: int, to_index: int):
+    new_array = array.copy()
+    item = new_array.pop(from_index)
+    new_array.insert(to_index, item)
+    return new_array
+
+
+def normalize_path(path: Path | str):
+    # Resolve to absolute path (handles both relative and absolute inputs)
+    absolute = (CWD / path).resolve()
+
+    try:
+        return absolute.relative_to(CWD.resolve())
+    except ValueError:
+        # Path is outside project
+        return absolute

@@ -14,9 +14,11 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     ParameterPassingStyle,
 )
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
+)
+from setta.types.helpers_lvl2 import (
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
 )
@@ -168,7 +170,29 @@ class DependencyGraph:
                 self.add_to_graph(graph_key, node)
             elif isinstance(sectionImpl, GlobalVariablesSectionImpl):
                 self.export_section_params(p, id, isTopLevel=True)
-            # elif type == UITypeName.TEXT_BLOCK:
+            elif isinstance(sectionImpl, DictSectionImpl):
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=None,
+                    deps={},
+                )
+                node.deps = self.export_section_params(p, id, parent_node=node)
+                self.add_to_graph(graph_key, node)
+            elif isinstance(sectionImpl, TextBlockSectionImpl):
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=sectionImpl.text,
+                    deps={},
+                )
+                self.add_to_graph(graph_key, node)
             #     variant = get_selected_section_variant(p, id)
             #     info["value"] = variant["description"]
             #     info["dependencies"] = []
@@ -272,6 +296,7 @@ class DependencyGraph:
             parent_node.type == SectionType.Callable
             or parent_node.type == SectionType.DictRoot
             or parent_node.type == SectionType.Group
+            or parent_node.type == SectionType.Dict
             or parent_node.type == CodeObjType.NestedParam
         ):
             return create_unique_name(

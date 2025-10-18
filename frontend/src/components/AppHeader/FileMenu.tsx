@@ -4,11 +4,9 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
-  openExportJSONModal,
-  openImportJSONModal,
-  openLoadModal,
-  openSaveAsModal,
-  openSaveAsWithRefsModal,
+  openFileMenuLoadProjectConfigModal,
+  openFileMenuSaveProjectConfigAsModal,
+  openFileMenuSaveProjectConfigAsWithRefsModal,
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
@@ -39,31 +37,37 @@ export function FileMenu() {
       >
         New Config
       </MenuItem>
-      <MenuItem onClick={openLoadModal} shortcut={shortcuts.loadShortcut}>
+      <MenuItem
+        onClick={openFileMenuLoadProjectConfigModal}
+        shortcut={shortcuts.loadShortcut}
+      >
         Load
       </MenuItem>
       <MenuItem onClick={saveProject} shortcut={shortcuts.saveShortcut}>
         <VscSave />
         Save
       </MenuItem>
-      <MenuItem onClick={openSaveAsModal} shortcut={shortcuts.saveAsShortcut}>
+      <MenuItem
+        onClick={openFileMenuSaveProjectConfigAsModal}
+        shortcut={shortcuts.saveAsShortcut}
+      >
         <VscSaveAs />
         Save As
       </MenuItem>
-      <MenuItem onClick={openSaveAsWithRefsModal}>
+      <MenuItem onClick={openFileMenuSaveProjectConfigAsWithRefsModal}>
         <VscSaveAs />
         Save As (With Refs)
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
-
-      <MenuItem onClick={openImportJSONModal}>
-        {/* <BiImport /> */}
-        Import JSON
-      </MenuItem>
-      <MenuItem onClick={openExportJSONModal}>
-        {/* <BiExport /> */}
-        Export JSON
-      </MenuItem>
     </NavbarMenuDropdown>
   );
 }
+
+// <MenuItem onClick={openImportJSONModal}>
+//   {/* <BiImport /> */}
+//   Import JSON
+// </MenuItem>
+// <MenuItem onClick={openExportJSONModal}>
+//   {/* <BiExport /> */}
+//   Export JSON
+// </MenuItem>

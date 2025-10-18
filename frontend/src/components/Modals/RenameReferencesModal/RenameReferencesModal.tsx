@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
-import { setModalOpen } from "state/actions/modal";
+import { closeModal } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
@@ -13,7 +13,7 @@ export function RenameReferencesModal() {
   const [doNotAsk, setDoNotAsk] = useState(false);
 
   const handleCancel = () => {
-    setModalOpen(false);
+    closeModal();
     if (doNotAsk) {
       useSettings.setState((state) => ({
         backend: {
@@ -38,7 +38,7 @@ export function RenameReferencesModal() {
       route_save_settings({ settings: useSettings.getState() });
     }
     await makeReplacements(modalData);
-    setModalOpen(false);
+    closeModal();
   };
 
   return (

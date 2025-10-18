@@ -5,17 +5,19 @@ from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
 from setta.project_state.project_manager_types import (
-    ProjectStateSingleConfigWithModCount,
+    ProjectStateSingleConfigWithCompletedOpIds,
 )
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.unions import (
+    BaseArtifactUnionWithDiscriminator,
+)
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.specific_file_watcher import FileWatcherUpdate
+from setta.types.project_state import AllProjectMetadata
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -23,14 +25,14 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
     AllDependencies = "AllDependencies"
-    SpecificFileWatcherUpdate = "SpecificFileWatcherUpdate"
     Notification = "Notification"
     LLMStreamingResponse = "LLMStreamingResponse"
     UUIDMappingForLLM = "UUIDMappingForLLM"
-    Artifact = "Artifact"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
     UpdateSettings = "UpdateSettings"
+    AllProjectMetadata = "AllProjectMetadata"
+    UpdateArtifacts = "UpdateArtifacts"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -70,6 +72,11 @@ class BackendWebsocketMsg(WebsocketMsg):
     pass
 
 
+class UpdateArtifactMsgContent(BaseModel):
+    artifacts: list[BaseArtifactUnionWithDiscriminator]
+    updateType: Literal["update", "delete"]
+
+
 class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
@@ -77,11 +84,11 @@ class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     )
 
 
-class WebsocketMsgArtifact(FrontendWebsocketMsg):
-    content: Artifact
-    messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
-        WebsocketMsgTypeForFrontend.Artifact
-    )
+# class WebsocketMsgArtifact(FrontendWebsocketMsg):
+#     content: Artifact
+#     messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
+#         WebsocketMsgTypeForFrontend.Artifact
+#     )
 
 
 class WebsocketMsgNotification(FrontendWebsocketMsg):
@@ -120,16 +127,9 @@ class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
 
 
 class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
-    content: ProjectStateSingleConfigWithModCount
+    content: ProjectStateSingleConfigWithCompletedOpIds
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
-    )
-
-
-class WebsocketMsgSpecificFileWatcherUpdate(FrontendWebsocketMsg):
-    content: FileWatcherUpdate
-    messageType: Literal[WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate] = (
-        WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate
     )
 
 
@@ -151,6 +151,20 @@ class WebsocketMsgUpdateSettings(FrontendWebsocketMsg):
     content: SettingsState
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateSettings] = (
         WebsocketMsgTypeForFrontend.UpdateSettings
+    )
+
+
+class WebsocketMsgAllProjectMetadata(FrontendWebsocketMsg):
+    content: AllProjectMetadata
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllProjectMetadata] = (
+        WebsocketMsgTypeForFrontend.AllProjectMetadata
+    )
+
+
+class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
+    content: UpdateArtifactMsgContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateArtifacts] = (
+        WebsocketMsgTypeForFrontend.UpdateArtifacts
     )
 
 

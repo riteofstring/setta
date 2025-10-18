@@ -1,18 +1,9 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { LayerListAndListOfArtifacts } from "./ListOfArtifacts";
 
 export function DrawAreaSettings({ sectionId }) {
-  return (
-    <>
-      <DrawAreaAvailableColors sectionId={sectionId} />
-      <LayerListAndListOfArtifacts
-        sectionId={sectionId}
-        sectionTypeName={UITypeNameEnum.DRAW}
-      />
-    </>
-  );
+  return <>{/* <DrawAreaAvailableColors sectionId={sectionId} /> */}</>;
 }
 
 function DrawAreaAvailableColors({ sectionId }) {

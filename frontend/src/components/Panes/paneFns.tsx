@@ -139,7 +139,7 @@ export function getOnUIEditorTabClickNoSectionSelected() {
 }
 
 function changeUIEditorTab(tabName) {
-  const activeId = useProjectState.getState().activeIds[0];
+  const activeId = useProjectState.getState().projectConfig.activeIds[0];
   if (!activeId) {
     return;
   }

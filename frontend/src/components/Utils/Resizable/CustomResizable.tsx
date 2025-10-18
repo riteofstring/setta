@@ -1,7 +1,10 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import {
   useLocalStorage,
@@ -17,6 +20,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
+import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
@@ -96,14 +100,26 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    useProjectState.setState((state) => {
-      setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+    let updatedSectionSizes: Record<string, SectionSize> = {};
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
+          sectionId,
+          changedSize,
+          state,
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_sizes({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionSizes: updatedSectionSizes,
+          frontendOpId,
+        }),
     });
     useResizeEvent.setState((state) => {
       setSectionResizeEvent(sectionId, "end", state);
     });
     useMisc.setState({ mouseDownDraggingSection: false });
-    updateBackendProjectState();
   }
 
   const heightResizable =

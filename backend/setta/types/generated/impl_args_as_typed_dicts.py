@@ -1,30 +1,133 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
+from setta.types.artifact import (
+    DrawAreaBrushShape,
+    DrawAreaLayer,
+    DrawAreaMode,
+    LineChartSettings,
+    ScatterChartSettings,
+)
 from setta.types.code_obj_impls import (
     CodeObjType,
     ColorPickerChoice,
     ParameterPassingStyle,
     ParamNameType,
 )
+from setta.types.project_config import (
+    TopLevelSectionLayout,
+    ViewingEditingMode,
+    Viewport,
+)
 from setta.types.section_impls import (
-    ChartSettings,
+    BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaCanvasSettings,
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
 )
 
 
+class CoreArgs(TypedDict):
+    id: NotRequired[str]
+    name: NotRequired[str]
+    variants: NotRequired[list[str]]
+    defaultVariant: NotRequired[str | None]
+    sharedModifier: NotRequired[dict[str, Any]]
+    unsharedKeys: NotRequired[
+        list[
+            Literal[
+                "activeLayerIdx",
+                "aspectRatio",
+                "aspectRatioExtraHeight",
+                "aspectRatioExtraWidth",
+                "brushColor",
+                "brushOpacity",
+                "brushShape",
+                "brushSize",
+                "callable",
+                "canvasMode",
+                "chartSettings",
+                "children",
+                "choices",
+                "code",
+                "codeLanguage",
+                "codeObjVariantMap",
+                "colorChoices",
+                "columnWidth",
+                "configLanguage",
+                "coreNameEditable",
+                "coreNameType",
+                "dataPath",
+                "defaultVal",
+                "description",
+                "displayMode",
+                "drawThrottleDelay",
+                "eraserBrushSize",
+                "folder",
+                "format",
+                "headingAsSectionName",
+                "hideColumn",
+                "hideParams",
+                "hideUnpinnedParams",
+                "id",
+                "ignoreTypeErrors",
+                "imagePath",
+                "isFrozen",
+                "isHorizontalOrientation",
+                "isInOtherProjectConfigs",
+                "isJsonSource",
+                "isMinimized",
+                "isPreset",
+                "jsonSourceKeys",
+                "jsonSourceMissing",
+                "layers",
+                "max",
+                "min",
+                "name",
+                "paramFilter",
+                "passingStyle",
+                "pinnedAreaHeight",
+                "pinnedParams",
+                "positionAndSizeLocked",
+                "renderedValue",
+                "selectedParams",
+                "size",
+                "step",
+                "text",
+                "topLevelParamId",
+                "type",
+                "url",
+                "value",
+                "viewMode",
+                "visibility",
+            ]
+        ]
+    ]
+
+
+class ProjectConfigArgs(TypedDict):
+    id: NotRequired[str]
+    name: NotRequired[str]
+    previewImgColor: NotRequired[str]
+    viewport: NotRequired[Viewport | None]
+    viewingEditingMode: NotRequired[ViewingEditingMode]
+    genCodePrefix: NotRequired[str]
+    genCodeSuffix: NotRequired[str]
+    entryCodeBlockId: NotRequired[str | None]
+    topLevelSections: NotRequired[dict[str, TopLevelSectionLayout]]
+    sectionVariantMap: NotRequired[dict[str, str]]
+    activeIds: NotRequired[list[str]]
+
+
 class BaseSectionImplArgs(TypedDict):
     type: NotRequired[Any]
     id: NotRequired[str]
     name: NotRequired[str]
-    parentId: NotRequired[str | None]
     isFrozen: NotRequired[bool]
     visibility: NotRequired[Visibility]
     isInOtherProjectConfigs: NotRequired[bool]
@@ -41,7 +144,6 @@ class BaseSectionImplArgsWithCallable(TypedDict):
     type: NotRequired[Any | Callable[[Any], Any]]
     id: NotRequired[str | Callable[[str], str]]
     name: NotRequired[str | Callable[[str], str]]
-    parentId: NotRequired[str | None | Callable[[str | None], str | None]]
     isFrozen: NotRequired[bool | Callable[[bool], bool]]
     visibility: NotRequired[Visibility | Callable[[Visibility], Visibility]]
     isInOtherProjectConfigs: NotRequired[bool | Callable[[bool], bool]]
@@ -65,6 +167,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[str]]
     ignoreTypeErrors: NotRequired[dict[str, bool]]
+    displayMode: NotRequired[SectionWithParamsDisplayMode]
 
 
 class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -91,16 +194,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ignoreTypeErrors: NotRequired[
         dict[str, bool] | Callable[[dict[str, bool]], dict[str, bool]]
     ]
-
-
-class BaseArtifactSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Any]
-    artifactGroupIds: NotRequired[list[str]]
-
-
-class BaseArtifactSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[Any | Callable[[Any], Any]]
-    artifactGroupIds: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    displayMode: NotRequired[
+        SectionWithParamsDisplayMode
+        | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
+    ]
 
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
@@ -135,7 +232,7 @@ class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
     type: NotRequired[Any]
-    topLevelParamIds: NotRequired[list[str]]
+    topLevelParamId: NotRequired[str | None]
     isJsonSource: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
@@ -143,7 +240,7 @@ class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
 
 class BaseDictSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    topLevelParamIds: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    topLevelParamId: NotRequired[str | None | Callable[[str | None], str | None]]
     isJsonSource: NotRequired[bool | Callable[[bool], bool]]
     jsonSourceKeys: NotRequired[list[str] | Callable[[list[str]], list[str]]]
     jsonSourceMissing: NotRequired[bool | Callable[[bool], bool]]
@@ -210,47 +307,76 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     isHorizontalOrientation: NotRequired[bool | Callable[[bool], bool]]
 
 
-class ImageSectionImplArgs(BaseArtifactSectionImplArgs):
+class ImageSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Image]]
+    imagePath: NotRequired[str]
 
 
-class ImageSectionImplArgsWithCallable(BaseArtifactSectionImplArgsWithCallable):
+class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Image]
         | Callable[[Literal[SectionType.Image]], Literal[SectionType.Image]]
     ]
+    imagePath: NotRequired[str | Callable[[str], str]]
 
 
-class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
+class ChartSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chart]]
-    chartSettings: NotRequired[ChartSettings]
+    dataPath: NotRequired[str]
+    chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
 
 
-class ChartSectionImplArgsWithCallable(
-    BaseArtifactSectionImplArgsWithCallable, BaseCanvasSectionImplArgsWithCallable
-):
+class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Chart]
         | Callable[[Literal[SectionType.Chart]], Literal[SectionType.Chart]]
     ]
-    chartSettings: NotRequired[ChartSettings | Callable[[ChartSettings], ChartSettings]]
+    dataPath: NotRequired[str | Callable[[str], str]]
+    chartSettings: NotRequired[
+        LineChartSettings
+        | ScatterChartSettings
+        | Callable[
+            [LineChartSettings | ScatterChartSettings],
+            LineChartSettings | ScatterChartSettings,
+        ]
+    ]
 
 
-class DrawSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
+class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
-    canvasSettings: NotRequired[DrawAreaCanvasSettings]
+    layers: NotRequired[list[DrawAreaLayer]]
+    activeLayerIdx: NotRequired[int]
+    brushColor: NotRequired[str]
+    brushSize: NotRequired[int]
+    brushShape: NotRequired[DrawAreaBrushShape]
+    brushOpacity: NotRequired[float]
+    eraserBrushSize: NotRequired[int]
+    drawThrottleDelay: NotRequired[int]
+    canvasMode: NotRequired[DrawAreaMode]
+    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
-class DrawSectionImplArgsWithCallable(
-    BaseArtifactSectionImplArgsWithCallable, BaseCanvasSectionImplArgsWithCallable
-):
+class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Draw]
         | Callable[[Literal[SectionType.Draw]], Literal[SectionType.Draw]]
     ]
-    canvasSettings: NotRequired[
-        DrawAreaCanvasSettings
-        | Callable[[DrawAreaCanvasSettings], DrawAreaCanvasSettings]
+    layers: NotRequired[
+        list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
+    ]
+    activeLayerIdx: NotRequired[int | Callable[[int], int]]
+    brushColor: NotRequired[str | Callable[[str], str]]
+    brushSize: NotRequired[int | Callable[[int], int]]
+    brushShape: NotRequired[
+        DrawAreaBrushShape | Callable[[DrawAreaBrushShape], DrawAreaBrushShape]
+    ]
+    brushOpacity: NotRequired[float | Callable[[float], float]]
+    eraserBrushSize: NotRequired[int | Callable[[int], int]]
+    drawThrottleDelay: NotRequired[int | Callable[[int], int]]
+    canvasMode: NotRequired[DrawAreaMode | Callable[[DrawAreaMode], DrawAreaMode]]
+    colorChoices: NotRequired[
+        list[ColorPickerChoice]
+        | Callable[[list[ColorPickerChoice]], list[ColorPickerChoice]]
     ]
 
 
@@ -277,7 +403,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Social]]
-    social: NotRequired[str]
+    url: NotRequired[str]
 
 
 class SocialSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -285,7 +411,7 @@ class SocialSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.Social]
         | Callable[[Literal[SectionType.Social]], Literal[SectionType.Social]]
     ]
-    social: NotRequired[str | Callable[[str], str]]
+    url: NotRequired[str | Callable[[str], str]]
 
 
 class GlobalVariablesSectionImplArgs(BaseDictSectionImplArgs):
@@ -362,7 +488,9 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class BrowserSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Browser]]
+    folder: NotRequired[str]
     hideColumn: NotRequired[bool]
+    viewMode: NotRequired[BrowserAreaViewMode]
 
 
 class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -370,7 +498,11 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.Browser]
         | Callable[[Literal[SectionType.Browser]], Literal[SectionType.Browser]]
     ]
+    folder: NotRequired[str | Callable[[str], str]]
     hideColumn: NotRequired[bool | Callable[[bool], bool]]
+    viewMode: NotRequired[
+        BrowserAreaViewMode | Callable[[BrowserAreaViewMode], BrowserAreaViewMode]
+    ]
 
 
 class BaseCodeObjImplArgs(TypedDict):

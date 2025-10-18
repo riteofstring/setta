@@ -1,1 +1,1 @@
-conda activate setta_env
+source .venv/bin/activate

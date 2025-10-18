@@ -1,8 +1,11 @@
 import * as Slider from "@radix-ui/react-slider";
-import { StandardInput } from "components/Utils/atoms/input/StandardInput";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { useProjectState } from "state/definitions";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+  setCurrEffectiveCodeObjImplValue,
+} from "state/actions/sectionInfos";
 import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -25,11 +28,24 @@ export function SliderInputConfigForParam({
   );
 
   function onChange(newConfig: SliderConfigForFrontend) {
-    route_update_param_impl_config({
-      projectConfigId: useProjectState.getState().projectConfig.id,
-      sectionId,
-      paramInfoId,
-      newConfig,
+    const configClone = _.cloneDeep(newConfig);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"SliderParamCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          configClone,
+        );
+      },
+      send: (frontendOpId) =>
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          newConfig: configClone,
+          frontendOpId,
+        }),
     });
   }
 
@@ -79,8 +95,8 @@ export function SliderInputConfig({
           <p className="flex-1 font-sans text-xs font-semibold text-setta-600">
             {e}
           </p>
-          <StandardInput
-            twClasses="justify-end"
+          <input
+            className={`nodrag font-code cursor-auto justify-end border-0 border-b border-solid border-setta-300 text-xs focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300`}
             placeholder={e}
             key={`${e}-${idx}`}
             onChange={(v) => localOnChange(e, v.target.value)}
@@ -106,28 +122,42 @@ function configMakesSense(
   const { min, max, step } = updatedConfig;
   return min < max && step <= max - min;
 }
+
 export function SliderInput({
   value,
-  defaultVal,
   onChange,
   onEscape,
   onCommit,
   min,
   max,
   step,
-  isDisabled,
+  isDisabled = false,
   wrapperDivClass,
   sliderRootClassName,
   sliderTrackClassName,
   sliderRangeClassName,
   sliderThumbClassName,
   textInputClassName,
+}: {
+  value: string | number;
+  onChange?: (x: number) => void;
+  onEscape?: () => void;
+  onCommit?: (x: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  isDisabled?: boolean;
+  wrapperDivClass?: string;
+  sliderRootClassName?: string;
+  sliderTrackClassName?: string;
+  sliderRangeClassName?: string;
+  sliderThumbClassName?: string;
+  textInputClassName?: string;
 }) {
   return (
     <div className={wrapperDivClass}>
       <SliderOnly
         value={value}
-        defaultVal={defaultVal}
         onChange={onChange}
         onCommit={onCommit}
         min={min}
@@ -147,6 +177,7 @@ export function SliderInput({
         onEscape={onEscape}
         min={min}
         max={max}
+        step={step}
       />
     </div>
   );
@@ -161,13 +192,22 @@ function SliderTextField({
   min,
   max,
   step,
+}: {
+  className?: string | undefined;
+  value: string | number;
+  onChange?: ((x: number) => void) | undefined;
+  onCommit?: ((x: number) => void) | undefined;
+  onEscape?: (() => void) | undefined;
+  min: number;
+  max: number;
+  step: number;
 }) {
   const [tempValue, setTempValue] = useState(value);
-  function localOnChange(e) {
+  function localOnChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTempValue(e.target.value);
   }
 
-  function onBlur(e) {
+  function onBlur(e: React.FocusEvent<HTMLInputElement>) {
     const num = _.toNumber(e.target.value);
     if (e.target.value === "" || !_.isFinite(num)) {
       setTempValue(value);
@@ -200,17 +240,28 @@ function SliderTextField({
 
 function SliderOnly({
   value,
-  defaultVal,
   onChange,
   onCommit,
   min,
   max,
   step,
-  isDisabled,
+  isDisabled = false,
   sliderRootClassName,
   sliderTrackClassName,
   sliderRangeClassName,
   sliderThumbClassName,
+}: {
+  value: string | number;
+  onChange?: ((newVal: number) => void) | undefined;
+  onCommit?: ((newVal: number) => void) | undefined;
+  min: number;
+  max: number;
+  step: number;
+  isDisabled?: boolean | undefined;
+  sliderRootClassName?: string | undefined;
+  sliderTrackClassName?: string | undefined;
+  sliderRangeClassName?: string | undefined;
+  sliderThumbClassName?: string | undefined;
 }) {
   const asNum = _.toNumber(value);
   const valueNum = isNaN(asNum) ? min : clamp(_.toNumber(value), min, max);
@@ -219,13 +270,20 @@ function SliderOnly({
     <Slider.Root
       className={sliderRootClassName}
       value={[valueNum]}
-      defaultValue={[defaultVal]}
       min={min}
       max={max}
       step={step}
       disabled={isDisabled}
-      onValueChange={(v) => onChange?.(v[0])}
-      onValueCommit={(v) => onCommit?.(v[0])}
+      onValueChange={(v) => {
+        if (v[0] !== undefined) {
+          onChange?.(v[0]);
+        }
+      }}
+      onValueCommit={(v) => {
+        if (v[0] !== undefined) {
+          onCommit?.(v[0]);
+        }
+      }}
     >
       <Slider.Track className={sliderTrackClassName}>
         <Slider.Range className={sliderRangeClassName} />

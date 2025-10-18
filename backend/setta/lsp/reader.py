@@ -47,9 +47,15 @@ class LanguageServerReader(LanguageServerInteractor):
                 await asyncio.sleep(0.1)
 
     async def read_and_process_message(self):
+        try:
+            stdout = self.server.stdout
+        except ValueError:
+            await asyncio.sleep(0.05)
+            return
+
         headers = b""
         while not self.stop_event.is_set():
-            chunk = await self.server.stdout.read(1)
+            chunk = await stdout.read(1)
             if not chunk:
                 # Server stdout closed/EOF reached
                 self.stop_event.set()  # Signal to stop
@@ -71,7 +77,7 @@ class LanguageServerReader(LanguageServerInteractor):
 
         response = b""
         while len(response) < content_length and not self.stop_event.is_set():
-            chunk = await self.server.stdout.read(content_length - len(response))
+            chunk = await stdout.read(content_length - len(response))
             if not chunk:
                 # Server stdout closed/EOF reached
                 self.stop_event.set()  # Signal to stop

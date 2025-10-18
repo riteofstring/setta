@@ -6,14 +6,17 @@ import {
   SettaProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
-import { getCurrEffectiveSectionImplWithTypeGuard } from "./sectionInfos";
+import {
+  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
+} from "./sectionInfos";
 
 export async function requestTypeCheck(userRequested = false) {
   if (userRequested) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
   }
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = getCurrProjectConfigId();
   route_type_check({ projectConfigId });
 }
 

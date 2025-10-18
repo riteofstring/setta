@@ -1,5 +1,6 @@
+from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -7,6 +8,16 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
+from setta.types.artifact import (
+    DrawAreaBrushShape,
+    DrawAreaLayer,
+    DrawAreaMode,
+    LineChartSettings,
+)
+from setta.types.code_obj_impls import ColorPickerChoice
+from setta.types.generated.chart_settings_unions import (
+    BaseChartSettingsUnionWithDiscriminator,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -35,8 +46,8 @@ class SectionSizeMode(str, Enum):
 
 
 class SectionSize(BaseModel, extra="forbid"):
-    width: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
-    height: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
+    width: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    height: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
 
 
 class CodeLanguage(str, Enum):
@@ -49,9 +60,14 @@ class ConfigLanguage(str, Enum):
     json = "json"
 
 
+class SectionWithParamsDisplayMode(str, Enum):
+    Gui = "Gui"
+    Yaml = "Yaml"
+
+
 class TextBlockDisplayMode(str, Enum):
-    render = "render"
-    edit = "edit"
+    Render = "Render"
+    Edit = "Edit"
 
 
 class TextBlockFormat(str, Enum):
@@ -59,36 +75,36 @@ class TextBlockFormat(str, Enum):
     Markdown = "Markdown"
 
 
+class BrowserAreaViewMode(str, Enum):
+    list = "list"
+    thumbnail = "thumbnail"
+    carousel = "carousel"
+
+
+class BrowserAreaItemType(str, Enum):
+    Image = "Image"
+    Video = "Video"
+    Text = "Text"
+    Data = "Data"
+    Brushes = "Brushes"
+    Other = "Other"
+
+
 class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
 
 
-class DrawAreaCanvasSettings(BaseModel, extra="forbid"):
-    activeLayerId: str | None = None
-    color: str = "#ff0000"
-    brushSize: int = 16
-    brushShape: str = "butt"
-    eraserBrushSize: int = 16
-    drawThrottleDelay: int = 0
-    canvasTransferQueueLength: int = 50
-    mode: str = "draw"
-
-
-class ChartSettings(BaseModel, extra="forbid"):
-    type: str = "line"
-    xAxisColumn: str = ""
-    secondYAxisColumns: list[str] = Field(default_factory=list)
-    xAxisLog: bool = False
-    y1AxisLog: bool = False
-    y2AxisLog: bool = False
+class BrowserAreaItem(BaseModel, extra="forbid"):
+    id: str
+    type: Any
+    lastModified: datetime
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
     type: Any
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    parentId: str | None = None
     isFrozen: bool = False
     visibility: Visibility = Field(default_factory=Visibility)
     isInOtherProjectConfigs: bool = False
@@ -108,13 +124,10 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedParams: list[str] = Field(default_factory=list)
-    pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[str] = Field(default_factory=list)
     ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
-
-
-class BaseArtifactSectionImpl(BaseSectionImpl):
-    artifactGroupIds: list[str] = Field(default_factory=list)
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
@@ -123,6 +136,7 @@ class BaseCanvasSectionImpl(BaseSectionImpl):
 
 class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class BaseParentSectionImpl(BaseSectionImpl):
@@ -130,7 +144,7 @@ class BaseParentSectionImpl(BaseSectionImpl):
 
 
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):
-    topLevelParamIds: list[str] = Field(default_factory=list)
+    topLevelParamId: str | None = None
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
@@ -159,36 +173,47 @@ class GroupSectionImpl(BaseParentSectionImpl):
     isHorizontalOrientation: bool = False
 
 
-class ImageSectionImpl(BaseArtifactSectionImpl):
+class ImageSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Image] = SectionType.Image
+    imagePath: str = ""
 
 
-class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
+class ChartSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
+    dataPath: str = ""
+    chartSettings: BaseChartSettingsUnionWithDiscriminator = Field(
+        default_factory=LineChartSettings
+    )
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )
 
 
-class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
+class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
-    canvasSettings: DrawAreaCanvasSettings = Field(
-        default_factory=DrawAreaCanvasSettings
-    )
+    layers: list[DrawAreaLayer] = Field(default_factory=list)
+    activeLayerIdx: int = 0
+    brushColor: str = "#ff0000"
+    brushSize: int = 16
+    brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
+    brushOpacity: float = 1
+    eraserBrushSize: int = 16
+    drawThrottleDelay: int = 0
+    canvasMode: DrawAreaMode = DrawAreaMode.draw
+    colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
 
 
 class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
 class SocialSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Social] = SectionType.Social
-    social: str = ""
+    url: str = ""
 
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):
@@ -198,7 +223,6 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
@@ -225,4 +249,6 @@ class ChatSectionImpl(BaseSectionImpl):
 
 class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
+    folder: str = ""
     hideColumn: bool = False
+    viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list

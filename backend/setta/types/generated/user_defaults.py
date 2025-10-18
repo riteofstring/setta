@@ -1,24 +1,25 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+# Section type imports
+from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 
 # Code object type imports
 from setta.types.code_obj_impls import (
     ColorPickerChoice,
     ParamNameType,
 )
-
-# Section type imports
 from setta.types.section_impls import (
-    ChartSettings,
+    BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaCanvasSettings,
     SectionSize,
     SectionSizeMode,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
@@ -39,11 +40,8 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
-    pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
-
-
-class UserDefaultBaseArtifactSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pass
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 
 class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -52,6 +50,7 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
 
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     code: str = ""
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -87,36 +86,39 @@ class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbi
     isHorizontalOrientation: bool = False
 
 
-class UserDefaultImageSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="forbid"):
-    pass
+class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    imagePath: str = ""
 
 
-class UserDefaultChartSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
-):
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
+class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
+    dataPath: str = ""
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )
 
 
-class UserDefaultDrawSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
-):
-    canvasSettings: DrawAreaCanvasSettings = Field(
-        default_factory=DrawAreaCanvasSettings
-    )
+class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
+    layers: list[DrawAreaLayer] = Field(default_factory=list)
+    activeLayerIdx: int = 0
+    brushColor: str = "#ff0000"
+    brushSize: int = 16
+    brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
+    brushOpacity: float = 1
+    eraserBrushSize: int = 16
+    drawThrottleDelay: int = 0
+    canvasMode: DrawAreaMode = DrawAreaMode.draw
+    colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    social: str = ""
+    url: str = ""
 
 
 class UserDefaultGlobalVariablesSectionImpl(
@@ -127,7 +129,6 @@ class UserDefaultGlobalVariablesSectionImpl(
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
     codeLanguage: CodeLanguage = CodeLanguage.python
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class UserDefaultGenPythonCodeSectionImpl(
@@ -153,7 +154,9 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 
 
 class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    folder: str = ""
     hideColumn: bool = False
+    viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

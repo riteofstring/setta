@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
+from pathlib import Path
 
 from .server import LanguageServer, LanguageServerInteractor
 
@@ -21,8 +22,13 @@ class LanguageServerWriter(LanguageServerInteractor):
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
-        self.server.stdin.write(header + request)
-        await self.server.stdin.drain()
+        try:
+            stdin = self.server.stdin
+        except ValueError:
+            logger.debug("Skipping %s; language server process is not ready", method)
+            return
+        stdin.write(header + request)
+        await stdin.drain()
         logger.debug(f"Sent {method} with params: {params}")
 
     async def start(self):
@@ -129,5 +135,5 @@ class LanguageServerWriter(LanguageServerInteractor):
         return await self.wait_for_response(request_id)
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, filepath):
-        return filepath.as_uri()
+    def get_uri(self, filepath: Path):
+        return filepath.absolute().as_uri()

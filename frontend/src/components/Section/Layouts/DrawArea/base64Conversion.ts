@@ -6,7 +6,7 @@ export function canvasToBase64(canvas) {
   return dataURLToBase64(canvas.toDataURL("image/png"));
 }
 
-export async function base64ToImageObj(input_value) {
+export async function base64ToImageObj(input_value: string) {
   const imgSrc = base64StrToImgSrc(input_value);
   const value = new Image();
   value.src = imgSrc;
@@ -81,14 +81,14 @@ export function combinedAndSeparateLayersToBase64(layerCanvases, layerIds) {
 //   const [width, height] = [canvasRef.current.width, canvasRef.current.height];
 //   const base64 = {};
 //   base64["completeCanvas"] = canvasToBase64(canvasRef.current);
-//   base64["strokes"] = exportStrokesToBase64(strokesRef.current, width, height);
+//   base64["strokes"] = exportStrokesToBase64(strokeRef.current, width, height);
 //   if (imageRef.current) {
 //     base64["image"] = exportImageToBase64(imageRef.current, width, height);
 //   }
 //   return base64;
 // }
 
-function base64StrToImgSrc(base64Str) {
+export function base64StrToImgSrc(base64Str: string) {
   return base64Str.startsWith("data:image/")
     ? base64Str
     : `data:image/png;base64,${base64Str}`;

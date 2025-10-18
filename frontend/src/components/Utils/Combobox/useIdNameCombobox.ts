@@ -1,22 +1,36 @@
-import { useCombobox } from "downshift";
-import { useComboboxStateReducerWithFilteredItems } from "./ComboboxStateReducer";
+import { useCombobox, UseComboboxProps } from "downshift";
+import { type KeyboardEvent } from "react";
+import {
+  AllItemsType,
+  ComboboxItemType,
+  OnSelectedItemChangeFnType,
+  useComboboxStateReducerWithFilteredItems,
+} from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
-export function useIdNameCombobox({
+// value doesn't have to be provided, for example if it's not a saved global state.
+// value === null means no selection
+export function useIdNameCombobox<T>({
   allItems,
   onSelectedItemChange,
   value,
-  selectedItemCanBeNull,
-  clearInputAfterSelection,
+  selectedItemCanBeNull = false,
+  clearInputAfterSelection = false,
+}: {
+  allItems: AllItemsType<T>;
+  onSelectedItemChange: OnSelectedItemChangeFnType<T>;
+  value?: string | null;
+  selectedItemCanBeNull?: boolean;
+  clearInputAfterSelection?: boolean;
 }) {
-  function onKeyDown(e) {
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.code === "Escape") {
       // TODO: figure out best way to blur without being annoying
-      // e.target.blur();
+      e.currentTarget.blur();
     }
   }
 
-  const itemToString = (x) => (x ? x.name : "");
+  const itemToString = (x: ComboboxItemType<T> | null) => (x ? x.name : "");
 
   const { filteredItems, stateReducer, selection } =
     useComboboxStateReducerWithFilteredItems(
@@ -27,7 +41,9 @@ export function useIdNameCombobox({
       clearInputAfterSelection,
     );
 
-  const localOnSelectedItemChange = ({ selectedItem }) => {
+  const localOnSelectedItemChange: UseComboboxProps<
+    ComboboxItemType<T>
+  >["onSelectedItemChange"] = ({ selectedItem }) => {
     onSelectedItemChange(selectedItem ? selectedItem.id : null);
   };
 
@@ -40,7 +56,7 @@ export function useIdNameCombobox({
     getInputProps,
     highlightedIndex,
     getItemProps,
-  } = useCombobox({
+  } = useCombobox<ComboboxItemType<T>>({
     stateReducer,
     selectedItem: selection,
     items: singleListItems,

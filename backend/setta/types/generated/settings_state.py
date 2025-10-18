@@ -122,3 +122,91 @@ class SettingsState(BaseModel, extra="forbid"):
     textParamCodeObjDefault: UserDefaultTextParamCodeObjImpl = Field(
         default_factory=UserDefaultTextParamCodeObjImpl
     )
+
+
+from setta.types.code_obj_impls import CodeObjType
+from setta.types.section_impls import SectionType
+
+
+def get_user_default_section_from_settings(settings: SettingsState, type: SectionType):
+    match type:
+        case SectionType.Callable:
+            return settings.callableSectionDefault
+
+        case SectionType.Dict:
+            return settings.dictSectionDefault
+
+        case SectionType.ListRoot:
+            return settings.listRootSectionDefault
+
+        case SectionType.DictRoot:
+            return settings.dictRootSectionDefault
+
+        case SectionType.Group:
+            return settings.groupSectionDefault
+
+        case SectionType.Image:
+            return settings.imageSectionDefault
+
+        case SectionType.Chart:
+            return settings.chartSectionDefault
+
+        case SectionType.Draw:
+            return settings.drawSectionDefault
+
+        case SectionType.TextBlock:
+            return settings.textBlockSectionDefault
+
+        case SectionType.Social:
+            return settings.socialSectionDefault
+
+        case SectionType.GlobalVariables:
+            return settings.globalVariablesSectionDefault
+
+        case SectionType.Code:
+            return settings.codeSectionDefault
+
+        case SectionType.GenPythonCode:
+            return settings.genPythonCodeSectionDefault
+
+        case SectionType.Terminal:
+            return settings.terminalSectionDefault
+
+        case SectionType.IFrame:
+            return settings.iFrameSectionDefault
+
+        case SectionType.Chat:
+            return settings.chatSectionDefault
+
+        case SectionType.Browser:
+            return settings.browserSectionDefault
+
+
+def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeObjType):
+    match type:
+        case CodeObjType.CodeCallable:
+            return settings.codeCallableCodeObjDefault
+
+        case CodeObjType.CodeParam:
+            return settings.codeParamCodeObjDefault
+
+        case CodeObjType.TextParam:
+            return settings.textParamCodeObjDefault
+
+        case CodeObjType.SliderParam:
+            return settings.sliderParamCodeObjDefault
+
+        case CodeObjType.SwitchParam:
+            return settings.switchParamCodeObjDefault
+
+        case CodeObjType.ColorPickerParam:
+            return settings.colorPickerParamCodeObjDefault
+
+        case CodeObjType.DropdownParam:
+            return settings.dropdownParamCodeObjDefault
+
+        case CodeObjType.PasswordParam:
+            return settings.passwordParamCodeObjDefault
+
+        case CodeObjType.NestedParam:
+            return settings.nestedParamCodeObjDefault

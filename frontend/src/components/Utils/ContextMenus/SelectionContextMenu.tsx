@@ -6,7 +6,6 @@ import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 // import { deleteSections } from "state/actions/sections/deleteSections";
-import { groupSections } from "state/actions/sections/groupSections";
 import { useContextMenus, useProjectState } from "state/definitions";
 import { ViewingEditingModeEnum } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";

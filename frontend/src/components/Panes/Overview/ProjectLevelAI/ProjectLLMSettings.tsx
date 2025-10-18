@@ -17,11 +17,10 @@ const IsolatedInput = ({ apiKeyName }) => {
     route_set_llm_api_keys({ apiKeys, apiKeysFilepath });
   };
 
-  const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
+  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     initialValue,
     onSetValue,
     () => true,
-    true,
     true,
   );
 

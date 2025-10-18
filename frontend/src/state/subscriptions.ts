@@ -2,69 +2,35 @@ import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  useAIStore,
-  useArtifacts,
+  useDecodedImages,
+  useImages,
   useMisc,
   useNodeInternals,
   useProjectState,
-  ZustandAIStore,
+  ZustandImages,
   ZustandProjectState,
-  ZustandSingletonSections,
 } from "state/definitions";
-import {
-  route_file_watch_gen_python_code,
-  route_file_watch_list,
-} from "utils/generatedEndpoints";
-import { FileWatchGroupNameEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { getNamePathTypeKey } from "./actions/artifacts";
-import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
+  debouncedDispatchViewportUpdate,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
-  getEffectiveImpl,
-  getSectionImpl,
   getSectionShouldRender,
-  getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
+import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {
-  useProjectState.subscribe(
-    singletonSectionsSubscriptionFn,
-    (x) => {
-      useProjectState.setState((state) => {
-        state.singletonSections = x;
-      });
-      route_file_watch_gen_python_code({
-        watch: Boolean(x[SectionTypeEnum.GenPythonCode]),
-        projectConfigId: useProjectState.getState().projectConfig.id,
-      });
-    },
-    { equalityFn: _.isEqual },
-  );
-
   useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
     (x) => {
       updateDndChildren(x);
     },
     { equalityFn: _.isEqual },
-  );
-
-  useProjectState.subscribe(
-    jsonFilenameSubscriptionFn,
-    (filepaths) =>
-      route_file_watch_list({
-        filepaths,
-        fileWatchGroupName: FileWatchGroupNameEnum.jsonSource,
-      }),
-    {
-      equalityFn: _.isEqual,
-    },
   );
 
   // useProjectState.subscribe(
@@ -90,7 +56,7 @@ export function subscribe() {
   });
 
   useReactFlow.subscribe(
-    reactFitViewOnInitSubscriptionFn,
+    reactFlowTransformSubscriptionFn,
     (newState, prevState) => {
       if (
         prevState.fitViewOnInit &&
@@ -106,6 +72,8 @@ export function subscribe() {
 
       // used by forked xterm to make text appear correctly
       window.reactFlowZoom = newState.transform[2];
+
+      debouncedDispatchViewportUpdate();
     },
     { equalityFn: _.isEqual },
   );
@@ -137,84 +105,33 @@ export function subscribe() {
     },
   );
 
-  useArtifacts.subscribe(
-    artifactNamePathTypeToIdSubscriptionFn,
-    (artifacts) => {
-      useArtifacts.setState(() => {
-        const namePathTypeToId = {};
-        for (const [id, a] of Object.entries(artifacts)) {
-          namePathTypeToId[getNamePathTypeKey(a)] = id;
+  useImages.subscribe(
+    imagesToDecodeSubscriptionFn,
+    (x) => {
+      const requiredDecodedImages =
+        useProjectState.getState().requiredDecodedImages;
+      const decodedImages = useDecodedImages.getState().x;
+      const needToDecode: Array<string> = [];
+      for (const [path, img] of Object.entries(x)) {
+        if (
+          img &&
+          requiredDecodedImages.includes(path) &&
+          (!decodedImages[path] || decodedImages[path].src !== img.value)
+        ) {
+          needToDecode.push(path);
         }
-        return { namePathTypeToId };
-      });
+      }
+      if (needToDecode.length > 0) {
+        decodeExistingRawImages(needToDecode);
+      }
     },
-    { equalityFn: _.isEqual },
-  );
-
-  useArtifacts.subscribe(
-    artifactWhoModifiedSubscriptionFn,
-    maybeRequestDrawAreaUpdate,
     {
       equalityFn: _.isEqual,
     },
   );
-
-  useAIStore.subscribe(
-    apiKeysFilepathSubscriptionFn,
-    (filepaths) =>
-      route_file_watch_list({
-        filepaths,
-        fileWatchGroupName: FileWatchGroupNameEnum.apiKeys,
-      }),
-    {
-      equalityFn: _.isEqual,
-      fireImmediately: true,
-    },
-  );
 }
 
-function singletonSectionsSubscriptionFn(state: ZustandProjectState) {
-  const output: ZustandSingletonSections = {
-    [SectionTypeEnum.GlobalVariables]: null,
-    [SectionTypeEnum.GenPythonCode]: null,
-    temporaryTerminalGroup: null,
-  };
-  for (const s of Object.values(state.sections)) {
-    if (
-      output[SectionTypeEnum.GlobalVariables] &&
-      output[SectionTypeEnum.GenPythonCode] &&
-      output.temporaryTerminalGroup
-    ) {
-      break;
-    }
-
-    const sectionImpl = getCurrEffectiveSectionImpl(state, s.id);
-
-    if (
-      !output[SectionTypeEnum.GlobalVariables] &&
-      sectionImpl.type === SectionTypeEnum.GlobalVariables
-    ) {
-      output[SectionTypeEnum.GlobalVariables] = s.id;
-    }
-    if (
-      !output[SectionTypeEnum.GenPythonCode] &&
-      sectionImpl.type === SectionTypeEnum.GenPythonCode
-    ) {
-      output[SectionTypeEnum.GenPythonCode] = s.id;
-    }
-    // TODO: need better way of knowing if it's the temporaryTerminalGroup
-    if (
-      !output.temporaryTerminalGroup &&
-      sectionImpl.type === SectionTypeEnum.Group &&
-      s.isTemporary
-    ) {
-      output.temporaryTerminalGroup = s.id;
-    }
-  }
-  return output;
-}
-
-function reactFitViewOnInitSubscriptionFn(state) {
+function reactFlowTransformSubscriptionFn(state) {
   return {
     transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,
@@ -224,39 +141,6 @@ function reactFitViewOnInitSubscriptionFn(state) {
 
 function updateNodeDimensionsSubscriptionFn(state) {
   return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
-}
-
-function artifactNamePathTypeToIdSubscriptionFn(state) {
-  const output = {};
-  for (const [id, a] of Object.entries(state.x)) {
-    output[id] = { name: a.name, path: a.path, type: a.type };
-  }
-  return output;
-}
-
-function artifactWhoModifiedSubscriptionFn(state) {
-  const output = {};
-  for (const [id, a] of Object.entries(state.x)) {
-    if (a.modifiedByInfo) {
-      output[id] = a.modifiedByInfo;
-    }
-  }
-  return output;
-}
-
-function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
-  const filenameSet: Set<string> = new Set();
-  for (const section of Object.values(state.sections)) {
-    for (const variantId of section.variants) {
-      const variant = getSectionVariant(state, variantId);
-      const baseImpl = getSectionImpl(state, variant.impl);
-      const impl = getEffectiveImpl(baseImpl, section, variant);
-      if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
-        filenameSet.add(variant.name);
-      }
-    }
-  }
-  return Array.from(filenameSet);
 }
 
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
@@ -281,6 +165,6 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   return codeBlockIds;
 }
 
-function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
-  return [state.apiKeysFilepath];
+function imagesToDecodeSubscriptionFn(state: ZustandImages) {
+  return state.x;
 }

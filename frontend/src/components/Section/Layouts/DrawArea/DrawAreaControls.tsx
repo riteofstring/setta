@@ -3,111 +3,62 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+} from "react";
 import { BiHide, BiPaint, BiShow } from "react-icons/bi";
 import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
-import { addDrawAreaLayer } from "state/actions/artifacts";
+import {
+  getCurrEffectiveSectionImplOfType,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
+import {
+  DrawAreaBrushShape,
+  DrawAreaBrushShapeEnum,
+  DrawAreaMode,
+  DrawAreaModeEnum,
+  SectionTypeEnum,
+  createDrawAreaLayer,
+} from "utils/generatedTypes";
 
 export function DrawAreaControls({
   sectionId,
-  activeLayerId,
-  color,
+  activeLayerIdx,
+  brushColor,
   brushOpacity,
   brushSize,
   brushShape,
   eraserBrushSize,
-  isEraser,
-  setIsEraser,
   layerOpacity,
-  mode,
+  canvasMode,
   clearStrokes,
+}: {
+  sectionId: string;
+  activeLayerIdx: number;
+  brushColor: string;
+  brushOpacity: number;
+  brushSize: number;
+  brushShape: DrawAreaBrushShape;
+  eraserBrushSize: number;
+  layerOpacity: number;
+  canvasMode: DrawAreaMode;
+  clearStrokes: () => void;
 }) {
-  function setColor(v) {
-    setCanvasSettings(sectionId, "color", v);
-  }
-  function setBrushOpacity(v) {
-    setLayerSettings(activeLayerId, "brushOpacity", v);
-  }
-  function setBrushSize(v) {
-    setCanvasSettings(sectionId, "brushSize", v);
-  }
-  function setBrushShape(v) {
-    setCanvasSettings(sectionId, "brushShape", v);
-  }
-  function setLayerOpacity(v) {
-    setLayerSettings(activeLayerId, "layerOpacity", v);
-  }
-  function setEraserBrushSize(v) {
-    setCanvasSettings(sectionId, "eraserBrushSize", v);
-  }
-  function setLayerVisibility(layerId, v) {
-    setLayerSettings(layerId, "visible", v);
-  }
-  function setActiveLayerId(v) {
-    setCanvasSettings(sectionId, "activeLayerId", v);
-  }
-  function setToBrushMode() {
-    setIsEraser(false);
-    setCanvasSettings(sectionId, "mode", "draw");
-  }
-  function setToEraserMode() {
-    setIsEraser(true);
-    setCanvasSettings(sectionId, "mode", "draw");
-  }
-  function setToEditMode() {
-    setCanvasSettings(sectionId, "mode", "edit");
-  }
-  function addLayer() {
-    useProjectState.setState((state) => {
-      addDrawAreaLayer(sectionId, state);
-    });
-  }
-
-  function deleteLayer(layerId) {
-    useProjectState.setState((state) => {
-      delete state.artifactGroups[layerId];
-      const s = state.sections[sectionId];
-      const layerIndex = s.artifactGroupIds.findIndex((x) => x === layerId);
-
-      s.artifactGroupIds = s.artifactGroupIds.filter((x) => x !== layerId);
-
-      if (s.artifactGroupIds.length > 0) {
-        s.canvasSettings.activeLayerId =
-          s.artifactGroupIds[layerIndex !== -1 ? layerIndex - 1 : 0];
-      } else {
-        s.canvasSettings.activeLayerId = null;
-      }
-    });
-  }
-
-  function reorderLayers(draggedIdx, targetIdx) {
-    useProjectState.setState((state) => {
-      state.sections[sectionId].artifactGroupIds = arrayMove(
-        state.sections[sectionId].artifactGroupIds,
-        draggedIdx,
-        targetIdx,
-      );
-    });
-  }
-
   return (
     <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
-      <DrawAreaColorPicker
-        sectionId={sectionId}
-        color={color}
-        setColor={setColor}
-      />
+      <DrawAreaColorPicker sectionId={sectionId} brushColor={brushColor} />
       <div className="flex self-stretch">
-        <button
-          className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && !isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={setToBrushMode}
-        >
-          <BiPaint />
-        </button>
+        <DrawAreaSetToDrawModeButton
+          sectionId={sectionId}
+          canvasMode={canvasMode}
+        />
         <StandardPopover
           arrowClasses="fill-white dark:fill-setta-800"
           contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -116,25 +67,20 @@ export function DrawAreaControls({
               <i className="gg-chevron-down" />
             </button>
           }
-          header={"Brush Settings"}
         >
           <BrushSettings
+            sectionId={sectionId}
             opacity={brushOpacity}
-            setOpacity={setBrushOpacity}
             brushSize={brushSize}
-            setBrushSize={setBrushSize}
             brushShape={brushShape}
-            setBrushShape={setBrushShape}
           />
         </StandardPopover>
       </div>
       <div className="flex self-stretch">
-        <button
-          className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={setToEraserMode}
-        >
-          <i className="gg-erase" />
-        </button>
+        <DrawAreaSetToEraserModeButton
+          sectionId={sectionId}
+          canvasMode={canvasMode}
+        />
         <StandardPopover
           arrowClasses="fill-white dark:fill-setta-800"
           contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -143,21 +89,18 @@ export function DrawAreaControls({
               <i className="gg-chevron-down" />
             </button>
           }
-          header={"Brush Settings"}
         >
           <EraserSettings
-            brushSize={eraserBrushSize}
-            setBrushSize={setEraserBrushSize}
+            sectionId={sectionId}
+            eraserBrushSize={eraserBrushSize}
           />
         </StandardPopover>
       </div>
-      <button
-        className={`flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs ${mode === "edit" ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-        onClick={setToEditMode}
-      >
-        <IoMove />
-      </button>
 
+      <DrawAreaSetToEditModeButton
+        sectionId={sectionId}
+        canvasMode={canvasMode}
+      />
       <StandardPopover
         arrowClasses="fill-white dark:fill-setta-800"
         contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -167,9 +110,12 @@ export function DrawAreaControls({
             <i className="gg-chevron-down" />
           </button>
         }
-        header={"Layer Opacity"}
       >
-        <LayerSettings opacity={layerOpacity} setOpacity={setLayerOpacity} />
+        <LayerSettings
+          sectionId={sectionId}
+          activeLayerIdx={activeLayerIdx}
+          opacity={layerOpacity}
+        />
       </StandardPopover>
 
       <StandardPopover
@@ -181,54 +127,86 @@ export function DrawAreaControls({
             <i className="gg-chevron-down" />
           </button>
         }
-        header={"Layer Selection"}
       >
-        <LayerList
-          sectionId={sectionId}
-          activeLayerId={activeLayerId}
-          setActiveLayerId={setActiveLayerId}
-          setLayerVisibility={setLayerVisibility}
-          addLayer={addLayer}
-          reorderLayers={reorderLayers}
-          deleteLayer={deleteLayer}
-        />
+        <LayerList sectionId={sectionId} activeLayerIdx={activeLayerIdx} />
       </StandardPopover>
 
-      <button
-        className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
-        onClick={clearStrokes}
-      >
-        <i className="gg-trash" />
-      </button>
+      <DrawAreaClearStrokesButton clearStrokes={clearStrokes} />
     </div>
   );
 }
 
-function DrawAreaColorPicker({ sectionId, color, setColor }) {
-  const colorChoices = useProjectState(
-    (x) => x.sections[sectionId].canvasSettings?.colorChoices,
-    _.isEqual,
+function DrawAreaColorPicker({
+  sectionId,
+  brushColor,
+}: {
+  sectionId: string;
+  brushColor: string;
+}) {
+  const colorChoices = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Draw,
+    );
+    return impl.colorChoices;
+  }, _.isEqual);
+
+  const [localValue, setLocalValue] = useState(brushColor);
+
+  const debouncedSetBrushColor = useCallback(
+    _.debounce((v) => {
+      useProjectState.setState((x) => {
+        setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+          brushColor: v,
+        });
+      });
+    }, 200),
+    [sectionId],
   );
+
+  function onChange(v: string) {
+    setLocalValue(v);
+    debouncedSetBrushColor(v);
+  }
 
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
-      value={color}
-      onChange={setColor}
+      value={localValue}
+      onChange={onChange}
       colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 w-full min-w-0 max-w-24 items-center text-white"
       wrapperClassName="single-cell-container justify-self-start self-center min-w-8 max-w-48 h-full"
     />
   );
 }
 
-function BrushSettings({
-  opacity,
-  setOpacity,
-  brushSize,
-  setBrushSize,
-  brushShape,
-  setBrushShape,
+function DrawAreaSetToDrawModeButton({
+  sectionId,
+  canvasMode,
+}: {
+  sectionId: string;
+  canvasMode: DrawAreaMode;
 }) {
+  function onClick() {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        canvasMode: DrawAreaModeEnum.draw,
+      });
+    });
+  }
+
+  return (
+    <button
+      className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${canvasMode === DrawAreaModeEnum.draw ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+      onClick={onClick}
+    >
+      <BiPaint />
+    </button>
+  );
+}
+
+function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
   const [localBrushSize, setLocalBrushSize] = useState(brushSize);
 
@@ -239,6 +217,30 @@ function BrushSettings({
   useEffect(() => {
     setLocalBrushSize(brushSize);
   }, [brushSize]);
+
+  function setBrushOpacity(v: number) {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushOpacity: v,
+      });
+    });
+  }
+
+  function setBrushSize(v: number) {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushSize: v,
+      });
+    });
+  }
+
+  function setBrushShape(v: DrawAreaBrushShape) {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushShape: v,
+      });
+    });
+  }
 
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
@@ -266,7 +268,7 @@ function BrushSettings({
         step={0.1}
         value={localOpacity}
         onChange={setLocalOpacity}
-        onCommit={setOpacity}
+        onCommit={setBrushOpacity}
       />
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Size
@@ -290,14 +292,14 @@ function BrushSettings({
       </p>
       <div className="flex gap-1">
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("butt")}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === DrawAreaBrushShapeEnum.butt ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape(DrawAreaBrushShapeEnum.butt)}
         >
           <i className="gg-shape-square" />
         </button>
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("round")}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === DrawAreaBrushShapeEnum.round ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape(DrawAreaBrushShapeEnum.round)}
         >
           <i className="gg-shape-circle" />
         </button>
@@ -306,12 +308,45 @@ function BrushSettings({
   );
 }
 
-function EraserSettings({ brushSize, setBrushSize }) {
-  const [localBrushSize, setLocalBrushSize] = useState(brushSize);
+function DrawAreaSetToEraserModeButton({
+  sectionId,
+  canvasMode,
+}: {
+  sectionId;
+  canvasMode: DrawAreaMode;
+}) {
+  function onClick() {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        canvasMode: DrawAreaModeEnum.erase,
+      });
+    });
+  }
+
+  return (
+    <button
+      className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${canvasMode === DrawAreaModeEnum.erase ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+      onClick={onClick}
+    >
+      <i className="gg-erase" />
+    </button>
+  );
+}
+
+function EraserSettings({ sectionId, eraserBrushSize }) {
+  const [localBrushSize, setLocalBrushSize] = useState(eraserBrushSize);
 
   useEffect(() => {
-    setLocalBrushSize(brushSize);
-  }, [brushSize]);
+    setLocalBrushSize(eraserBrushSize);
+  }, [eraserBrushSize]);
+
+  function setBrushSize(v: number) {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        eraserBrushSize: v,
+      });
+    });
+  }
 
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
@@ -345,12 +380,50 @@ function EraserSettings({ brushSize, setBrushSize }) {
   );
 }
 
-function LayerSettings({ opacity, setOpacity }) {
+function DrawAreaSetToEditModeButton({
+  sectionId,
+  canvasMode,
+}: {
+  sectionId;
+  canvasMode: DrawAreaMode;
+}) {
+  function onClick() {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        canvasMode: DrawAreaModeEnum.edit,
+      });
+    });
+  }
+
+  return (
+    <button
+      className={`flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs ${canvasMode === DrawAreaModeEnum.edit ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+      onClick={onClick}
+    >
+      <IoMove />
+    </button>
+  );
+}
+
+function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
 
   useEffect(() => {
     setLocalOpacity(opacity);
   }, [opacity]);
+
+  function setOpacity(v: number) {
+    useProjectState.setState((x) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        layers: (currLayers) => {
+          if (currLayers[activeLayerIdx]) {
+            currLayers[activeLayerIdx].layerOpacity = v;
+          }
+          return currLayers;
+        },
+      });
+    });
+  }
 
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
@@ -384,68 +457,201 @@ function LayerSettings({ opacity, setOpacity }) {
   );
 }
 
+type LayerMetadata = {
+  index: number;
+  name: string;
+  visible: boolean;
+};
+
 function LayerList({
   sectionId,
-  activeLayerId,
-  setActiveLayerId,
-  setLayerVisibility,
-  addLayer,
-  reorderLayers,
-  deleteLayer,
+  activeLayerIdx,
+}: {
+  sectionId: string;
+  activeLayerIdx: number;
 }) {
-  const layers = useProjectState(
-    (x) => getSectionArtifactGroupMetadata(sectionId, x),
-    _.isEqual,
-  );
-  const reversedLayers = layers.toReversed();
+  function reorderLayers(draggedIdx: number, targetIdx: number) {
+    if (draggedIdx === targetIdx) {
+      return;
+    }
+    useProjectState.setState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Draw,
+      );
+      const nextLayers = arrayMove(impl.layers, draggedIdx, targetIdx);
+      const { activeLayerIdx: currentActiveIdx } = impl;
 
-  const [draggedOverIdx, setDraggedOverIdx] = useState(null);
+      let nextActiveIdx = currentActiveIdx;
+      if (currentActiveIdx === draggedIdx) {
+        nextActiveIdx = targetIdx;
+      } else if (
+        draggedIdx < currentActiveIdx &&
+        currentActiveIdx <= targetIdx
+      ) {
+        nextActiveIdx = currentActiveIdx - 1;
+      } else if (
+        draggedIdx > currentActiveIdx &&
+        currentActiveIdx >= targetIdx
+      ) {
+        nextActiveIdx = currentActiveIdx + 1;
+      }
 
-  const handleDragStart = (e, idx) => {
-    e.dataTransfer.setData("text/plain", idx);
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: () => nextLayers,
+        activeLayerIdx: () => nextActiveIdx,
+      });
+    });
+  }
+
+  function setLayerVisibility(layerIdx: number, visible: boolean) {
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: (currLayers) => {
+          if (!currLayers[layerIdx]) {
+            return currLayers;
+          }
+          return currLayers.map((layer, idx) =>
+            idx === layerIdx ? { ...layer, visible } : layer,
+          );
+        },
+      });
+    });
+  }
+
+  function setActiveLayerIdx(layerIdx: number) {
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        activeLayerIdx: layerIdx,
+      });
+    });
+  }
+
+  function addLayer() {
+    useProjectState.setState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Draw,
+      );
+      const newLayers = [...impl.layers, createDrawAreaLayer()];
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: () => newLayers,
+        activeLayerIdx: () => newLayers.length - 1,
+      });
+    });
+  }
+
+  function deleteLayer(layerIdx: number) {
+    useProjectState.setState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Draw,
+      );
+      if (!impl.layers[layerIdx]) {
+        return;
+      }
+      if (impl.layers.length <= 1) {
+        return;
+      }
+      const newLayers = impl.layers.filter((_, idx) => idx !== layerIdx);
+      const currentActiveIdx = impl.activeLayerIdx;
+      let nextActiveIdx = currentActiveIdx;
+      if (currentActiveIdx === layerIdx) {
+        nextActiveIdx = Math.min(layerIdx, newLayers.length - 1);
+      } else if (currentActiveIdx > layerIdx) {
+        nextActiveIdx = currentActiveIdx - 1;
+      }
+      nextActiveIdx = Math.max(0, nextActiveIdx);
+
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: () => newLayers,
+        activeLayerIdx: () => nextActiveIdx,
+      });
+    });
+  }
+
+  const layers = useProjectState<Array<LayerMetadata>>((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Draw,
+    );
+    return impl.layers.map((layer, index) => ({
+      index,
+      name: layer.name,
+      visible: layer.visible,
+    }));
+  }, _.isEqual);
+  const reversedLayers = [...layers].reverse();
+
+  const [draggedOverIdx, setDraggedOverIdx] = useState<number | null>(null);
+
+  const handleDragStart = (
+    event: DragEvent<HTMLLIElement>,
+    layerIndex: number,
+  ) => {
+    event.dataTransfer.setData("text/plain", String(layerIndex));
+    event.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e, idx) => {
-    e.preventDefault();
-    setDraggedOverIdx(idx);
+  const handleDragOver = (
+    event: DragEvent<HTMLLIElement>,
+    layerIndex: number,
+  ) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDraggedOverIdx(layerIndex);
   };
 
   const handleDragLeave = () => {
     setDraggedOverIdx(null);
   };
 
-  const handleDrop = (e, targetIdx) => {
-    e.preventDefault();
-    const draggedIdx = e.dataTransfer.getData("text/plain");
+  const handleDrop = (
+    event: DragEvent<HTMLLIElement>,
+    targetLayerIndex: number,
+  ) => {
+    event.preventDefault();
+    const draggedLayerIndex = Number(event.dataTransfer.getData("text/plain"));
     setDraggedOverIdx(null);
 
-    if (draggedIdx !== targetIdx) {
-      // layers are reversed, so adjust indices
-      reorderLayers(
-        layers.length - 1 - draggedIdx,
-        layers.length - 1 - targetIdx,
-      );
+    if (
+      Number.isNaN(draggedLayerIndex) ||
+      draggedLayerIndex === targetLayerIndex
+    ) {
+      return;
     }
+
+    reorderLayers(draggedLayerIndex, targetLayerIndex);
   };
 
   return (
     <div className="flex w-full max-w-64 flex-col gap-2">
       <ul className="mt-1 flex w-full flex-col gap-2">
-        {reversedLayers.map((layer, idx) => (
+        {reversedLayers.map((layer) => (
           <li
-            key={layer.id}
+            key={`${layer.name}-${layer.index}`}
             draggable={true}
-            onDragStart={(e) => handleDragStart(e, idx)}
-            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragStart={(event) => handleDragStart(event, layer.index)}
+            onDragOver={(event) => handleDragOver(event, layer.index)}
             onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, idx)}
+            onDrop={(event) => handleDrop(event, layer.index)}
             className={`dark:hover:bg-setta-8509 flex cursor-move items-center justify-between gap-2 rounded-lg  border-2 bg-setta-50 px-2 py-1 hover:bg-setta-100 dark:bg-setta-900 ${
-              draggedOverIdx === idx ? " border-blue-500" : "border-transparent"
+              draggedOverIdx === layer.index
+                ? " border-blue-500"
+                : "border-transparent"
             } `}
-            onClick={() => setActiveLayerId(layer.id)}
+            onClick={() => setActiveLayerIdx(layer.index)}
           >
             <button
-              onClick={() => setLayerVisibility(layer.id, !layer.visible)}
+              type="button"
+              onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                setLayerVisibility(layer.index, !layer.visible);
+              }}
               className="cursor-pointer"
             >
               {layer.visible ? (
@@ -456,13 +662,17 @@ function LayerList({
             </button>
 
             <p
-              className={`truncate text-sm font-semibold ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
+              className={`truncate text-sm font-semibold ${layer.index === activeLayerIdx ? "!text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
             >
               {layer.name}
             </p>
 
             <button
-              onClick={() => deleteLayer(layer.id)}
+              type="button"
+              onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                deleteLayer(layer.index);
+              }}
               className="flex h-4 w-4 cursor-pointer items-center"
             >
               <i className="gg-close  text-setta-400 hover:!text-red-500 dark:text-setta-700" />
@@ -471,6 +681,7 @@ function LayerList({
         ))}
       </ul>
       <button
+        type="button"
         onClick={addLayer}
         className="flex max-w-full cursor-pointer items-center justify-center rounded p-2 text-sm text-setta-600 hover:text-blue-500"
       >
@@ -481,14 +692,17 @@ function LayerList({
   );
 }
 
-function setCanvasSettings(sectionId, attr, value) {
-  useProjectState.setState((x) => {
-    x.sections[sectionId].canvasSettings[attr] = value;
-  });
-}
-
-function setLayerSettings(layerId, attr, value) {
-  useProjectState.setState((x) => {
-    x.artifactGroups[layerId][attr] = value;
-  });
+function DrawAreaClearStrokesButton({
+  clearStrokes,
+}: {
+  clearStrokes: () => void;
+}) {
+  return (
+    <button
+      className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+      onClick={clearStrokes}
+    >
+      <i className="gg-trash" />
+    </button>
+  );
 }

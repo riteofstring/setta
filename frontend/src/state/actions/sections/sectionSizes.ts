@@ -3,7 +3,7 @@ import {
   getCurrEffectiveSectionImpl,
   getHighestAncestor,
   getSectionDescendants,
-  setEffectiveSectionImplValue,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
 import {
@@ -17,11 +17,17 @@ export function setSelfParentSiblingChildrenWidths(
   changedSize: Partial<SectionSize>,
   state: ZustandProjectState,
 ) {
-  setSectionSize(sectionId, changedSize, state);
-
+  const newSize = setSectionSize(sectionId, changedSize, state);
+  let updatedSectionSizes: Record<string, SectionSize> = {
+    [sectionId]: newSize,
+  };
   if (!_.isNil(changedSize.width)) {
-    setAllOtherWidths(sectionId, changedSize.width, state);
+    updatedSectionSizes = {
+      ...updatedSectionSizes,
+      ...setAllOtherWidths(sectionId, changedSize.width, state),
+    };
   }
+  return updatedSectionSizes;
 }
 
 function setAllOtherWidths(
@@ -42,22 +48,26 @@ function setAllOtherWidths(
     return null;
   };
   const highestAncestor = getHighestAncestor(sectionId, parentIdGetter);
-  setAllChildrenWidths({
+  const updatedSectionSizes = setAllChildrenWidths({
     sectionId: highestAncestor,
     exclude: sectionId,
     width,
     state,
   });
+  return updatedSectionSizes;
 }
 
 export function setAllChildrenWidths({ sectionId, exclude, width, state }) {
   const sectionIds = getSectionDescendants(sectionId, state);
+  const updatedSectionSizes: Record<string, SectionSize> = {};
   for (const s of sectionIds) {
     if (s === exclude) {
       continue;
     }
-    setSectionSize(s, { width }, state);
+    const newSize = setSectionSize(s, { width }, state);
+    updatedSectionSizes[s] = newSize;
   }
+  return updatedSectionSizes;
 }
 
 export function adjustSizeToBeAtLeastMin(height, width, minHeight, minWidth) {
@@ -129,11 +139,15 @@ export function setSectionSize(
   size: Partial<SectionSize>,
   state: ZustandProjectState,
 ) {
-  setEffectiveSectionImplValue(state, sectionId, {
-    size: (currSize) =>
-      createSectionSize({
+  let newSize!: SectionSize;
+  setCurrEffectiveSectionImplValue(state, sectionId, {
+    size: (currSize) => {
+      newSize = createSectionSize({
         ...currSize,
         ...size,
-      }),
+      });
+      return newSize;
+    },
   });
+  return newSize;
 }

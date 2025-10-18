@@ -1,112 +1,116 @@
+import { mouseLocation } from "forks/xyflow/core/utils/mouseLocation";
 import _ from "lodash";
-import { Resizable } from "re-resizable";
-import React, { useEffect, useRef, useState } from "react";
+import { Resizable, ResizeCallback } from "re-resizable";
+import React, { useEffect, useRef } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
-import { addSectionInEmptySpace } from "state/actions/sections/createSections";
-import {
-  useLocalStorage,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { getEmptySpacePosition } from "state/actions/sections/createSections";
+import { useLocalStorage, useSettings } from "state/definitions";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
+import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
-export const useFloatingBox = create(() => ({
+type FloatingBoxContent = (
+  | { content: string; title?: string }
+  | { content?: string; title: string }
+) & {
+  titleClassName?: string;
+  wrapperClassName?: string;
+  contentClassName?: string;
+};
+
+type ZustandFloatingBoxState = {
+  isFrozen: boolean;
+  isEnabled: boolean;
+  contentArray: Array<FloatingBoxContent>;
+  idx: number;
+  copied: boolean;
+};
+
+export const useFloatingBox = create<ZustandFloatingBoxState>(() => ({
   isFrozen: false,
   isEnabled: false,
-  contentArray: null,
+  contentArray: [],
   idx: 0,
   copied: false,
 }));
 
-let mouseMoved = false;
 const TOOLTIP_DIV_ID = "setta-tooltip-floating-box";
 
 export function FloatingBox() {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
   const { isEnabled, contentArray, isFrozen, idx, copied } = useFloatingBox();
-  const boxRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const positionRef = useRef({ x: 0, y: 0 });
   const tooltipWidth = useLocalStorage((x) => x.tooltipWidth);
 
-  // Store initial position when freezing
-  useEffect(() => {
-    if (isFrozen) {
-      // Save current position when freezing
-      const initialPos = { ...position };
-      setPosition(initialPos);
-    }
-  }, [isFrozen]);
-
-  // Handle mouse movement for both following cursor and dragging
-  useEffect(() => {
-    const handleMouseMove = (event) => {
-      mouseMoved = true;
-
-      if (!isFrozen) {
-        // Regular behavior: follow the mouse when not frozen
-        setPosition({ x: event.clientX + 10, y: event.clientY + 10 });
-      } else if (isDragging) {
-        // Only update position when explicitly dragging in frozen mode
-        setPosition({
-          x: event.clientX - dragStartRef.current.x,
-          y: event.clientY - dragStartRef.current.y,
-        });
-      }
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [isFrozen, isDragging]);
-
-  // Keep box within viewport bounds
-  useEffect(() => {
-    if (!boxRef.current || !isEnabled) return;
+  const updateBoxPosition = (x: number, y: number) => {
+    if (!boxRef.current) return;
 
     const box = boxRef.current;
     const rect = box.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    let { x, y } = position;
-
-    // Adjust horizontal position if necessary
+    // Clamp horizontal
     if (x + rect.width > viewportWidth) {
       x = viewportWidth - rect.width - 8;
     }
-
-    // Adjust vertical position if necessary
+    // Clamp vertical
     if (y + rect.height > viewportHeight) {
       y = viewportHeight - rect.height - 8;
     }
 
-    // Apply the adjusted position
+    positionRef.current = { x, y };
     box.style.transform = `translate(${x}px, ${y}px)`;
-  }, [isEnabled, position]);
+  };
 
-  if (!isEnabled || !contentArray || contentArray.length === 0 || !mouseMoved)
-    return null;
+  // Effect for non-frozen mode: follow mouse
+  useEffect(() => {
+    if (isFrozen || !isEnabled) return;
 
-  // Create a custom drag handle when in frozen mode
-  const dragHandleMouseDown = (event) => {
-    if (!isFrozen) return;
+    const { x, y } = mouseLocation;
+    updateBoxPosition(x + 10, y + 10);
 
-    // Prevent default to avoid text selection during drag
+    const handleMouseMove = (event: MouseEvent) => {
+      updateBoxPosition(event.clientX + 10, event.clientY + 10);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [isFrozen, isEnabled]);
+
+  // Dragging logic for frozen mode
+  const dragHandleMouseDown = (event: React.MouseEvent) => {
+    if (!isFrozen || !boxRef.current) return;
+
     event.preventDefault();
 
-    setIsDragging(true);
     const rect = boxRef.current.getBoundingClientRect();
     dragStartRef.current = {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
     };
+
+    // Add mousemove only when dragging starts
+    const handleDragMove = (e: MouseEvent) => {
+      updateBoxPosition(
+        e.clientX - dragStartRef.current.x,
+        e.clientY - dragStartRef.current.y,
+      );
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleDragMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleDragMove, { passive: true });
+    window.addEventListener("mouseup", handleMouseUp);
   };
 
-  // Handle mouse up to end dragging
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  if (!isEnabled || contentArray.length === 0) return null;
 
   return (
     <div
@@ -114,40 +118,33 @@ export function FloatingBox() {
       className="absolute left-0 top-0 z-20"
       ref={boxRef}
       style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
+        transform: `translate(${positionRef.current.x}px, ${positionRef.current.y}px)`,
         width: `${tooltipWidth}px`,
       }}
-      onMouseUp={handleMouseUp}
     >
       <MaybeResizable
         isFrozen={isFrozen}
-        className={`flex max-h-96 min-h-32 min-w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg focus:outline focus:outline-2 focus:outline-blue-600 dark:border-setta-700 dark:bg-setta-950 ${contentArray[idx].wrapperClassName}`}
+        className={`flex max-h-96 min-h-32 min-w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg focus:outline focus:outline-2 focus:outline-blue-600 dark:border-setta-700 dark:bg-setta-950 ${contentArray[idx] ? contentArray[idx].wrapperClassName : ""}`}
         tabIndex={0}
-        tooltipWidth={tooltipWidth}
-        onResizeStop={(e, direction, ref, d) => {
+        width={tooltipWidth}
+        onResizeStop={(_e, _direction, _ref, d) => {
           useLocalStorage.setState((state) => ({
             tooltipWidth: state.tooltipWidth + d.width,
           }));
         }}
-        width={tooltipWidth}
       >
-        {/* Add a drag handle when in frozen mode */}
         {isFrozen && (
           <div
             className="absolute left-0 right-0 top-0 h-8 cursor-move rounded-t-2xl bg-transparent"
             onMouseDown={dragHandleMouseDown}
-            style={{
-              zIndex: 10, // Above other content but below copy button
-              marginTop: "4px", // Match the p-4 padding
-              marginLeft: "4px",
-              marginRight: "4px",
-              // Visualize the drag area subtly when debugging
-              // backgroundColor: 'rgba(0,0,255,0.1)'
-            }}
           />
         )}
-        <TooltipCopyButton item={contentArray[idx]} copied={copied} />
-        <TooltipPage item={contentArray[idx]} isFrozen={isFrozen} />
+        {contentArray[idx] && (
+          <>
+            <TooltipCopyButton item={contentArray[idx]} copied={copied} />
+            <TooltipPage item={contentArray[idx]} isFrozen={isFrozen} />
+          </>
+        )}
         <TooltipPageCountIndicator numPages={contentArray.length} idx={idx} />
       </MaybeResizable>
     </div>
@@ -161,20 +158,26 @@ function MaybeResizable({
   children,
   onResizeStop,
   width,
+}: {
+  isFrozen: boolean;
+  className: string;
+  tabIndex: number;
+  children: React.ReactNode;
+  width: number;
+  onResizeStop: ResizeCallback;
 }) {
   return isFrozen ? (
     <Resizable
-      width={width}
+      size={{ width, height: "auto" }}
       className={className}
-      tabIndex={tabIndex}
       onResizeStop={onResizeStop}
       enable={{
         top: false,
         right: true,
-        bottom: true,
+        bottom: false,
         left: false,
         topRight: false,
-        bottomRight: true,
+        bottomRight: false,
         bottomLeft: false,
         topLeft: false,
       }}
@@ -188,79 +191,91 @@ function MaybeResizable({
   );
 }
 
-const TooltipPage = React.memo(({ item, isFrozen }) => {
-  return (
-    <>
-      {item.title && (
-        <h3
-          className={`break-words pb-1 pr-4 text-xs font-black uppercase text-setta-500 dark:text-setta-600 ${item.titleClassName}`}
+const TooltipPage = React.memo(
+  ({ item, isFrozen }: { item: FloatingBoxContent; isFrozen: boolean }) => {
+    return (
+      <>
+        {item.title && (
+          <h3
+            className={`break-words pb-1 pr-4 text-xs font-black uppercase text-setta-500 dark:text-setta-600 ${item.titleClassName}`}
+          >
+            {item.title}
+          </h3>
+        )}
+        <article
+          className={`flex-1 overflow-y-auto whitespace-pre-line break-words pr-4 text-sm text-setta-700 dark:text-setta-300 ${item.contentClassName}`}
         >
-          {item.title}
-        </h3>
-      )}
-      <article
-        className={`flex-1 overflow-y-auto whitespace-pre-line break-words pr-4 text-sm text-setta-700 dark:text-setta-300 ${item.contentClassName}`}
+          {item.content}
+        </article>
+        {!!item.content && <FooterSwitch isFrozen={isFrozen} />}
+      </>
+    );
+  },
+  _.isEqual,
+);
+
+const TooltipCopyButton = React.memo(
+  ({ item, copied }: { item: FloatingBoxContent; copied: boolean }) => {
+    const handleCopy = async () => {
+      try {
+        const content = item.content ?? item.title;
+        if (!content) {
+          throw new Error("Floating box content is undefined");
+        }
+        await navigator.clipboard.writeText(content);
+        setTimeout(() => {
+          useFloatingBox.setState({ copied: false });
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy:", err);
+      }
+    };
+
+    function onClick(e) {
+      e.stopPropagation();
+      useFloatingBox.setState({ copied: true });
+    }
+
+    useEffect(() => {
+      if (copied) {
+        handleCopy();
+      }
+    }, [copied]);
+
+    return (
+      <button
+        onClick={onClick}
+        className="tooltip-copy absolute right-2 top-2 cursor-pointer rounded-lg p-1.5 text-setta-500 hover:bg-setta-100 dark:text-setta-400 dark:hover:bg-setta-800"
+        aria-label={copied ? "Copied!" : "Copy to clipboard"}
       >
-        {item.content}
-      </article>
-      {Boolean(item.content) && <FooterSwitch isFrozen={isFrozen} />}
-    </>
-  );
-}, _.isEqual);
+        {copied ? (
+          <HiCheck className="h-4 w-4" />
+        ) : (
+          <HiOutlineDuplicate className="h-4 w-4" />
+        )}
+      </button>
+    );
+  },
+  _.isEqual,
+);
 
-const TooltipCopyButton = React.memo(({ item, copied }) => {
-  const handleCopy = async () => {
-    try {
-      const content = item.content ?? item.title;
-      await navigator.clipboard.writeText(content);
-      setTimeout(() => {
-        useFloatingBox.setState({ copied: false });
-      }, 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
-
-  function onClick() {
-    useFloatingBox.setState({ copied: true });
-  }
-
-  useEffect(() => {
-    if (copied) {
-      handleCopy();
-    }
-  }, [copied]);
-
-  return (
-    <button
-      onClick={onClick}
-      className="tooltip-copy absolute right-2 top-2 cursor-pointer rounded-lg p-1.5 text-setta-500 hover:bg-setta-100 dark:text-setta-400 dark:hover:bg-setta-800"
-      aria-label={copied ? "Copied!" : "Copy to clipboard"}
-    >
-      {copied ? (
-        <HiCheck className="h-4 w-4" />
-      ) : (
-        <HiOutlineDuplicate className="h-4 w-4" />
-      )}
-    </button>
-  );
-}, _.isEqual);
-
-const TooltipPageCountIndicator = React.memo(({ numPages, idx }) => {
-  return numPages > 1 ? (
-    <div className="tooltip-page mt-4 flex items-center justify-center gap-2">
-      {Array.from({ length: numPages }).map((_, i) => (
-        <div
-          key={i}
-          className={`h-2 w-2 rounded-full ${
-            i === idx ? "bg-blue-500" : "bg-setta-300 dark:bg-setta-600"
-          }`}
-          aria-label={`Page ${i + 1} of ${numPages}${i === idx ? " (current)" : ""}`}
-        />
-      ))}
-    </div>
-  ) : null;
-});
+const TooltipPageCountIndicator = React.memo(
+  ({ numPages, idx }: { numPages: number; idx: number }) => {
+    return numPages > 1 ? (
+      <div className="tooltip-page mt-4 flex items-center justify-center gap-2">
+        {Array.from({ length: numPages }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-2 w-2 rounded-full ${
+              i === idx ? "bg-blue-500" : "bg-setta-300 dark:bg-setta-600"
+            }`}
+            aria-label={`Page ${i + 1} of ${numPages}${i === idx ? " (current)" : ""}`}
+          />
+        ))}
+      </div>
+    ) : null;
+  },
+);
 
 function FooterSwitch({ isFrozen }) {
   const className =
@@ -339,7 +354,9 @@ function Footer({ className }) {
   );
 }
 
-export function getFloatingBoxHandlers(...contentArray) {
+export function getFloatingBoxHandlers(
+  ...contentArray: Array<FloatingBoxContent>
+) {
   function onMouseEnter() {
     if (contentArray && !useFloatingBox.getState().isFrozen) {
       useFloatingBox.setState({ contentArray });
@@ -348,7 +365,7 @@ export function getFloatingBoxHandlers(...contentArray) {
 
   function onMouseLeave() {
     if (!useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ contentArray: null, idx: 0, copied: false });
+      useFloatingBox.setState({ contentArray: [], idx: 0, copied: false });
     }
   }
 
@@ -363,26 +380,28 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false, idx: 0 });
 }
 
-export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
-  return async () => {
+export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
+  return () => {
     const s = useFloatingBox.getState();
-    if (s.contentArray) {
-      const item = s.contentArray[s.idx];
+    const item = s.contentArray[s.idx];
+    if (item) {
       const content = item.title
         ? `## ${item.title}\n\n${item.content}`
         : item.content;
-      useProjectState.setState((state) => {
-        addSectionInEmptySpace({
-          type: UITypeNameEnum.TEXT_BLOCK,
-          sectionProps: {
-            name: s.title,
+      if (content) {
+        route_create_top_level_section({
+          projectConfigId: getCurrProjectConfigId(),
+          implType: SectionTypeEnum.TextBlock,
+          implOverrides: {
             size: { width: 300, height: 300 },
-            renderMarkdown,
+            format: renderMarkdown
+              ? TextBlockFormatEnum.Markdown
+              : TextBlockFormatEnum.Plaintext,
+            text: content,
           },
-          sectionVariantProps: { description: content },
-          state,
+          position: getEmptySpacePosition(),
         });
-      });
+      }
     }
     // if converting a frozen floating box, then we need to remove it
     removeFrozenFloatingBox();
@@ -395,16 +414,20 @@ export function freezeFloatingBox() {
 }
 
 export function removeFrozenFloatingBox() {
-  useFloatingBox.setState({ isEnabled: false, isFrozen: false });
+  useFloatingBox.setState({
+    isEnabled: false,
+    isFrozen: false,
+    contentArray: [],
+  });
 }
 
 export function incrementFloatingBoxIdx() {
   if (!useFloatingBox.getState().contentArray) {
     return;
   }
-  useFloatingBox.setState((state) => ({
-    idx: positiveMod(state.idx + 1, state.contentArray.length),
-  }));
+  useFloatingBox.setState((state) => {
+    return { idx: positiveMod(state.idx + 1, state.contentArray.length) };
+  });
 }
 
 export function decrementFloatingBoxIdx() {

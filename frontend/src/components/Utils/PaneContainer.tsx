@@ -6,19 +6,27 @@ import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
 export function PaneContainer({
-  onResizeStop = null,
   paneName,
   right,
   children,
   minimumWidth,
   vis,
   width,
+  onResizeStop,
+}: {
+  paneName: string;
+  right: boolean;
+  children: React.ReactNode;
+  minimumWidth: number;
+  vis: boolean;
+  width: number;
+  onResizeStop?: (widthDiff: number) => void;
 }) {
   const size = useWindowSize();
   const [vMax, setVMax] = useState(100000);
   const [vMin, setVMin] = useState(minimumWidth);
 
-  function setNewWidth(newWidth) {
+  function setNewWidth(newWidth: number) {
     useLocalStorage.setState({
       [`${paneName}Width`]: newWidth,
       [`${paneName}TrueWidth`]: vis ? newWidth : CLOSED_PANE_WIDTH,
@@ -26,10 +34,13 @@ export function PaneContainer({
   }
 
   useEffect(() => {
+    if (size.winWidth === undefined || size.winHeight === undefined) {
+      return;
+    }
     const newVMax = size.winWidth / 2.1;
     const newVMin = Math.min(minimumWidth, newVMax);
-    newVMax && setVMax(newVMax);
-    newVMin && setVMin(newVMin);
+    if (newVMax) setVMax(newVMax);
+    if (newVMin) setVMin(newVMin);
     if (width > newVMax) {
       setNewWidth(newVMax);
     } else if (width < newVMin) {
@@ -37,7 +48,7 @@ export function PaneContainer({
     }
   }, [vis, size.winWidth]);
 
-  function localOnResizeStop(e, direction, ref, d) {
+  function localOnResizeStop(_e, _direction, _ref, d) {
     const newWidth = clamp(width + d.width, vMin, vMax);
     if (newWidth === width) {
       return;

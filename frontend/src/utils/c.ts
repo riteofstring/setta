@@ -9,6 +9,9 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
+  static ARTIFACTS_FOLDER = "setta_files/artifacts";
+  static CODE_FOLDER = "setta_files/code";
+  static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
   static DEV_MODE_FRONTEND_PORT = 3000;
@@ -39,6 +42,7 @@ export class C {
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PORT = 8000;
+  static SETTA_FILES_FOLDER = "setta_files";
   static SETTA_MCP_PARAM_NAMES = [
     "setta_chat_id",
     "setta_state",
@@ -46,11 +50,11 @@ export class C {
   ];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
+  static SETTINGS_PROJECT_NAME = "settings";
   static WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS";
   static WS_PROJECT_DATA = "projectData";
   static WS_RUN_CODE = "runCode";
   static WS_SCRIPT_DEPENDENCIES = "scriptDependencies";
   static WS_SCRIPT_READY = "scriptReady";
   static WS_TERMINAL_RESIZE = "terminalResize";
-  static WS_UPDATE_PROJECT_STATE = "WS_UPDATE_PROJECT_STATE";
 }

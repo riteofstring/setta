@@ -1,11 +1,16 @@
 import _ from "lodash";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
-  setEffectiveSectionImplValue,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
-import { route_add_kwarg, route_delete_kwarg } from "utils/generatedEndpoints";
+import {
+  route_add_kwarg,
+  route_delete_kwarg,
+  route_set_section_param_filter,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 
@@ -35,7 +40,7 @@ export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
               className={classes}
               onClick={() =>
                 route_delete_kwarg({
-                  projectConfigId: useProjectState.getState().projectConfig.id,
+                  projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 })
               }
@@ -48,7 +53,7 @@ export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
               className={classes}
               onClick={() =>
                 route_add_kwarg({
-                  projectConfigId: useProjectState.getState().projectConfig.id,
+                  projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 })
               }
@@ -87,7 +92,7 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
     );
     return {
       paramFilterValue: impl.paramFilter,
-      sectionIsActive: _.isEqual(x.activeIds, [sectionId]),
+      sectionIsActive: _.isEqual(x.projectConfig.activeIds, [sectionId]),
     };
   }, _.isEqual);
 
@@ -97,11 +102,15 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
 
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
-        paramFilter: e.target.value,
-      });
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          paramFilter: e.target.value,
+        },
+      );
     });
-    updateBackendProjectState();
+    debouncedSetSectionParamFilter(sectionId, e.target.value);
   }
 
   return (
@@ -124,3 +133,24 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
     </search>
   );
 }
+
+const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          paramFilter: value,
+        },
+      );
+    },
+    send: (frontendOpId) =>
+      route_set_section_param_filter({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        value,
+        frontendOpId,
+      }),
+  });
+}, 200);

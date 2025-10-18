@@ -1,5 +1,5 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { setEffectiveSectionImplValue } from "state/actions/sectionInfos";
+import { setCurrEffectiveSectionImplValue } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { res200 } from "utils/endpointUtils";
@@ -19,7 +19,7 @@ export function TextBlockSettings({ sectionId }) {
       newText = text;
     }
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
         text: newText,
         format: v
           ? TextBlockFormatEnum.Markdown
@@ -30,7 +30,7 @@ export function TextBlockSettings({ sectionId }) {
 
   async function onChangeHeadingAsSectionName(v) {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
         headingAsSectionName: v,
       });
     });

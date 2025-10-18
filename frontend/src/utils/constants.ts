@@ -1,3 +1,4 @@
+import { C } from "./c";
 import { ObjectValues, SectionType, SectionTypeEnum } from "./generatedTypes";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
@@ -113,71 +114,11 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-export const SETTINGS_PROJECT_NAME = "settings";
-export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
+export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
-export function pathRelativeToProject(projectConfigName) {
+export function pathRelativeToProject(projectConfigName: string) {
   return `../${projectConfigName}`;
 }
-
-export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
-
-export const MODAL_TYPE = {
-  LOAD_PROJECT_CONFIG: {
-    purpose: MODAL_PURPOSE.LOAD,
-    title: "Load Project Config",
-    buttonText: "Load",
-  },
-  SAVE_PROJECT_CONFIG_AS: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save Project Config As",
-    buttonText: "Save As",
-  },
-  SAVE_PROJECT_CONFIG_AS_WITH_REFS: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save Project Config As (With Refs)",
-    buttonText: "Save As",
-  },
-  EXPORT_JSON: {
-    purpose: null,
-    title: "Export JSON",
-    buttonText: null,
-  },
-  IMPORT_JSON: {
-    purpose: null,
-    title: "Import JSON",
-    buttonText: "Import",
-  },
-  SAVE_UI_TYPE_CONFIG: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save UI Type Config",
-    buttonText: "Save",
-  },
-  SAVE_CUSTOM_ARGUMENTS: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save Custom Arguments",
-    buttonText: "Save",
-  },
-  DELETE_PROJECT_WARNING: {
-    purpose: null,
-    title: "Confirm Deletion",
-  },
-  RENAME_REFERENCES: {
-    purpose: null,
-    title: "Rename References",
-    buttonText: "Rename",
-  },
-  DELETE_JSON_SOURCE_FILE: {
-    purpose: null,
-    title: "Delete JSON Source File",
-    buttonText: "Delete",
-  },
-  ADD_ARTIFACT_BY_FILEPATH: {
-    purpose: null,
-    title: "Add Artifact By Filepath",
-    buttonText: "Delete",
-  },
-};
 
 export const PAGE_LOAD_TYPES = {
   LOAD_PROJECT_CONFIG: "LOAD_PROJECT_CONFIG",
@@ -193,11 +134,6 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
-
-export const SECTION_DISPLAY_MODES = {
-  YAML: "YAML",
-  GUI: "GUI",
-};
 
 export const MODEL_GROUPS = [
   {

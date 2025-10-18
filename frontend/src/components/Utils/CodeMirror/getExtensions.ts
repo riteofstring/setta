@@ -163,7 +163,7 @@ function getKeyMapArray({
           indentMore(view);
         }
         if (onTab) {
-          onTab(completionResult);
+          onTab(view.state.doc.toString(), completionResult);
         }
         // if tab controls indent, then we never want to propagate the keystroke, so return true
         // otherwise it depends on the completion result
@@ -176,7 +176,7 @@ function getKeyMapArray({
     for (const [combo, action] of Object.entries(keyComboActions)) {
       keymapArray.push({
         key: combo,
-        run: action,
+        run: (view) => action(view.state.doc.toString()),
       });
     }
   }

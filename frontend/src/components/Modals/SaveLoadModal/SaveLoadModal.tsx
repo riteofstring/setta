@@ -1,31 +1,47 @@
 import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
 import { useState } from "react";
-import { setModalOpen } from "state/actions/modal";
-import { MODAL_PURPOSE } from "utils/constants";
+import { closeModal } from "state/actions/modal";
+import { ObjectValues } from "utils/generatedTypes";
 import { FileExplorer } from "./FileExplorer";
 import { FileNameInput } from "./FileNameInput";
 
+export const SaveLoadModalModeEnum = { load: "load", save: "save" } as const;
+type SaveLoadModalMode = ObjectValues<typeof SaveLoadModalModeEnum>;
+
 export function SaveLoadModal({
-  modalPurpose,
+  modalMode,
   files,
   onClickActionButton,
   title,
   buttonText,
   placeholder,
+}: {
+  modalMode: SaveLoadModalMode;
+  files: Array<{ id: string; name: string }>;
+  onClickActionButton: (info: {
+    selected: string | null;
+    filename: string;
+  }) => void;
+  title: string;
+  buttonText: string;
+  placeholder: string;
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [filename, setFilename] = useState("");
 
-  function getFilenameFromId(id) {
+  function getFilenameFromId(id: string | null) {
+    if (id === null) {
+      return "";
+    }
     return files.find((f) => f.id === id)?.name ?? "";
   }
 
-  function onFilenameChange(v) {
+  function onFilenameChange(v: string) {
     setFilename(v);
     setSelected(files.find((f) => f.name === v)?.id ?? null);
   }
 
-  function onSelectedChange(v) {
+  function onSelectedChange(v: string | null) {
     setSelected(v);
     setFilename(getFilenameFromId(v));
   }
@@ -40,16 +56,16 @@ export function SaveLoadModal({
     onClose();
   }
 
-  function onFileDoubleClick(id) {
+  function onFileDoubleClick(id: string) {
     onClickActionButton({ selected: id, filename: getFilenameFromId(id) });
-    setModalOpen(false);
+    closeModal();
     onClose();
   }
 
   return (
     <div className="grid flex-grow grid-rows-[min-content_min-content_1fr_min-content] overflow-hidden">
       <Body
-        modalPurpose={modalPurpose}
+        modalMode={modalMode}
         files={files}
         selected={selected}
         onSelectedChange={onSelectedChange}
@@ -69,7 +85,7 @@ export function SaveLoadModal({
 }
 
 function Body({
-  modalPurpose,
+  modalMode,
   files,
   selected,
   onSelectedChange,
@@ -78,6 +94,16 @@ function Body({
   filename,
   title,
   placeholder,
+}: {
+  modalMode: SaveLoadModalMode;
+  files: Array<{ id: string; name: string }>;
+  selected: string | null;
+  onSelectedChange: (newValue: string | null) => void;
+  onFileDoubleClick: (newValue: string) => void;
+  onFilenameChange: (newValue: string) => void;
+  filename: string;
+  title: string;
+  placeholder: string;
 }) {
   return (
     <>
@@ -88,7 +114,7 @@ function Body({
         onFileDoubleClick={onFileDoubleClick}
         title={title}
       />
-      {modalPurpose === MODAL_PURPOSE.SAVE && (
+      {modalMode === SaveLoadModalModeEnum.save && (
         // <div className="px-3">
         <FileNameInput
           placeholder={placeholder}
@@ -101,7 +127,15 @@ function Body({
   );
 }
 
-export function Footer({ onClose, onClick, buttonText }) {
+export function Footer({
+  onClose,
+  onClick,
+  buttonText,
+}: {
+  onClose: () => void;
+  onClick: () => void;
+  buttonText: string;
+}) {
   return (
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (

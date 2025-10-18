@@ -1,8 +1,8 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useLocalStorage, useSettings } from "state/definitions";
+import { Position } from "utils/generatedTypes";
 import { useReactFlow } from "../store";
-import type { XYPosition } from "../types";
 import {
   getD3Transition,
   getViewportForBounds,
@@ -54,7 +54,7 @@ export function getViewport() {
   return { x, y, zoom };
 }
 
-export function setCenter(x, y, options) {
+export function setCenter(x: number, y: number, options) {
   const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
   const { maxZoom } = useSettings.getState().gui;
 
@@ -84,7 +84,7 @@ export function fitBounds(bounds, options) {
   d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
 }
 
-export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
+export function screenToFlowPosition(position: Position, ignoreGrid = false) {
   const { transform, domNode } = useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
@@ -108,7 +108,7 @@ export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
   );
 }
 
-export function flowToScreenPosition(position: XYPosition) {
+export function flowToScreenPosition(position: Position) {
   const { transform, domNode } = useReactFlow.getState();
 
   if (!domNode) {

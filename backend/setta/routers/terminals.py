@@ -74,7 +74,8 @@ def route_kill_subprocesses(
         else "No subprocesses to kill"
     )
     notification = SettaNotification(
-        projectConfigId=x.projectConfigId, message=msg, temporary=True
+        projectConfigId=x.projectConfigId,
+        message=msg,
     )
     background_tasks.add_task(
         state.terminals.websocket_msg_handler.broadcast_notification,
@@ -90,13 +91,14 @@ async def route_run_code(
         x.projectConfigId,
         x.sectionId,
         x.cliId,
-        state.project_manager,
+        state.project_manager_switcher.get(x.projectConfigId),
         state.terminals,
         state.wmh_cli_sender,
     )
 
     notification = SettaNotification(
-        projectConfigId=x.projectConfigId, message="Started", temporary=True
+        projectConfigId=x.projectConfigId,
+        message="Started",
     )
     background_tasks.add_task(
         state.wmh_frontend_sender.broadcast_notification,

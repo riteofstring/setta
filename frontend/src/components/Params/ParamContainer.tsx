@@ -1,11 +1,8 @@
-import * as Accordion from "@radix-ui/react-accordion";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React, { useEffect, useRef } from "react";
-import { BiChevronUp, BiError } from "react-icons/bi";
-import { HiOutlineDuplicate } from "react-icons/hi";
+import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import {
   getCodeObjCore,
@@ -112,7 +109,7 @@ function _ParamContainer({
   );
 }
 
-export const ParamContainer = React.memo(_ParamContainer);
+export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
 
 function useColumnWidth(sectionId, isNestedParam) {
   const childlessRef = useRef();
@@ -152,52 +149,3 @@ function ErrorSection({ paramInfoId }) {
     />
   );
 }
-
-const AccordionItem = React.forwardRef(
-  ({ children, ...props }, forwardedRef) => (
-    <Accordion.Item
-      className="focus-within:relative focus-within:z-10
-        "
-      {...props}
-      ref={forwardedRef}
-    >
-      {children}
-    </Accordion.Item>
-  ),
-);
-
-const AccordionTrigger = React.forwardRef(
-  ({ children, className, ...props }, forwardedRef) => (
-    <Accordion.Header className="flex">
-      <Accordion.Trigger {...props} ref={forwardedRef} asChild>
-        {/* <p className="w-[calc(100%-1rem)] truncate">{children}</p> */}
-        <i className="group ml-auto flex h-4 cursor-default items-center overflow-hidden rounded-full bg-red-500 pl-[2px] pr-1 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-help dark:bg-red-800">
-          <BiChevronUp className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] ml-auto transition-transform duration-300 group-data-[state=closed]:rotate-180" />
-        </i>
-      </Accordion.Trigger>
-    </Accordion.Header>
-  ),
-);
-
-const AccordionContent = React.forwardRef(
-  ({ children, className, ...props }, forwardedRef) => (
-    <Accordion.Content
-      className="grid-row-start-2 nowheel nodrag relative -mb-1 overflow-hidden rounded-b-sm bg-white px-1 text-xs dark:bg-setta-950"
-      {...props}
-      ref={forwardedRef}
-    >
-      <aside className="mt-1 h-full cursor-text select-text overflow-y-scroll pb-2 pt-[.15rem] font-mono dark:text-setta-100">
-        {children}
-      </aside>
-      <IconButton
-        twClasses="absolute right-1 bottom-1.5 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
-        bg="bg-transparent hover:bg-setta-100 dark:hover:bg-setta-600"
-        icon={<HiOutlineDuplicate />}
-        onClick={() => navigator.clipboard.writeText(children)}
-      />
-    </Accordion.Content>
-  ),
-);
-
-// for AccordionContent animated version:
-// className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-setta-950"

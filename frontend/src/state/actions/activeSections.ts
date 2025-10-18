@@ -1,31 +1,69 @@
 import _ from "lodash";
-import { useProjectState } from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
   getHighestAncestor,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
+function optimisticActiveIdsUpdate(
+  apply: (state: ZustandProjectState) => void,
+) {
+  return dispatchOptimisticProjectStateUpdate({
+    apply,
+    send: (frontendOpId) =>
+      route_set_active_ids({
+        projectConfigId: getCurrProjectConfigId(),
+        activeIds: useProjectState.getState().projectConfig.activeIds,
+        frontendOpId,
+      }),
+  });
+}
+
 export function setActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState({ activeIds: ids });
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  if (_.isEqual(currentActiveIds, ids)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = ids;
+  });
 }
 
 export function addActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => ({
-    activeIds: [...new Set([...state.activeIds, ...ids])],
-  }));
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  const nextActiveIds = [...new Set([...currentActiveIds, ...ids])];
+  if (_.isEqual(currentActiveIds, nextActiveIds)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = nextActiveIds;
+  });
 }
 
 export function removeActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => ({
-    activeIds: _.difference(state.activeIds, ids),
-  }));
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  const nextActiveIds = _.difference(currentActiveIds, ids);
+  if (_.isEqual(currentActiveIds, nextActiveIds)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = nextActiveIds;
+  });
 }
 
 export function clearActiveSectionIds() {
-  useProjectState.setState({ activeIds: [] });
+  if (useProjectState.getState().projectConfig.activeIds.length === 0) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = [];
+  });
 }
 
 export function setActiveSectionIdAndUpdateZIndex(id: string) {
@@ -35,15 +73,16 @@ export function setActiveSectionIdAndUpdateZIndex(id: string) {
 }
 
 export function selectAll() {
-  const currActiveSections = useProjectState.getState().activeIds;
+  const currActiveSections = useProjectState.getState().projectConfig.activeIds;
 
   // select all params within single active section
   if (currActiveSections.length === 1) {
     useProjectState.setState((state) => {
       const sectionId = currActiveSections[0];
-      const ids = getAllVisibleParamsInSection(sectionId, state);
-      for (const p of ids) {
-        state.codeInfo[p].isSelected = true;
+      if (sectionId) {
+        const ids = getAllVisibleParamsInSection(state, sectionId);
+        //TODO set selected params:
+        console.log("selectAll ids", ids);
       }
     });
   } else {

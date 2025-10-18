@@ -1,4 +1,3 @@
-import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 
 export const isMacOs = () =>
@@ -6,6 +5,12 @@ export const isMacOs = () =>
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
+}
+
+export function updateArrayAt<T>(array: T[], index: number, newValue: T): T[] {
+  const newArray = [...array];
+  newArray[index] = newValue;
+  return newArray;
 }
 
 // https://stackoverflow.com/a/38181008
@@ -23,14 +28,6 @@ export function insertIntoArray<T>(
     // part of the array after the specified index
     ...arr.slice(index),
   ];
-}
-
-export function updateWithArrayMove(active, over) {
-  return (x) => {
-    const activeIndex = x.indexOf(active.id);
-    const overIndex = x.indexOf(over.id);
-    return arrayMove(x, activeIndex, overIndex);
-  };
 }
 
 export function asyncDebounce(func, wait, options = {}) {

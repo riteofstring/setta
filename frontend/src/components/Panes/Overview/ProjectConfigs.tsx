@@ -1,30 +1,22 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import _ from "lodash";
-import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
 import {
+  useAllProjectMetadata,
   useLocalStorage,
-  useProjectLoading,
   useProjectState,
 } from "state/definitions";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import { ProjectConfig } from "utils/generatedTypes";
 
-export const ProjectConfigs = React.forwardRef(() => {
-  const { name: currProjectConfigName, allConfigNames } = useProjectState(
-    (x) => {
-      const name = x.projectConfig.name;
-      const allConfigNames = _.map(x.projectConfigs, (p) => p.name);
-      return { name, allConfigNames };
-    },
+export function ProjectConfigs() {
+  const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
+  const allProjectMetadata = useAllProjectMetadata(
+    (x) => x.projectMetadata,
     _.isEqual,
   );
-
-  const projectIsLoading = useProjectLoading((x) => x.projectIsLoading);
   const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
-  const [mousedOverName, setMousedOverName] = useState(currProjectConfigName);
 
   return (
     <>
@@ -44,75 +36,59 @@ export const ProjectConfigs = React.forwardRef(() => {
         <div
           className="mt-1 flex w-full flex-col gap-1"
           onMouseLeave={() => {
-            setMousedOverName(currProjectConfigName);
             onMouseLeave();
           }}
         >
-          {!projectIsLoading ? (
-            allConfigNames.map((name, idx) => (
-              <Link
-                to={pathRelativeToProject(name)}
-                key={idx}
-                className="group flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50"
-                onMouseEnter={() => {
-                  setMousedOverName(name);
-                  onMouseEnter({
-                    previewEnabled,
-                    mousedOverName: name,
-                    currProjectConfigName,
-                  });
-                }}
-                state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+          {allProjectMetadata.map((m, idx) => (
+            <Link
+              to={pathRelativeToProject(m.name)}
+              key={idx}
+              className="group flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50"
+              onMouseEnter={() => {
+                onMouseEnter(m, currProjectConfigName, previewEnabled);
+              }}
+              state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+            >
+              <p
+                className={`${m.name === currProjectConfigName ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`}
               >
-                <p
-                  className={`${(previewEnabled && mousedOverName === name) || (!previewEnabled && currProjectConfigName === name) ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`}
-                >
-                  {name}
-                </p>
-              </Link>
-            ))
-          ) : (
-            <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
-          )}
+                {m.name}
+              </p>
+            </Link>
+          ))}
         </div>
       </section>
     </>
   );
-});
+}
 
-function onMouseEnter({
-  mousedOverName,
-  previewEnabled,
-  currProjectConfigName,
-}) {
+function onMouseEnter(
+  mousedOverProjectConfig: ProjectConfig,
+  currProjectConfigName: string,
+  previewEnabled: boolean,
+) {
   // preview not enabled
   if (!previewEnabled) {
     return;
   }
 
-  if (mousedOverName !== currProjectConfigName) {
-    // TODO: get this working again
-    // const previewSectionConfigs =
-    //   useAllProjectConfigs.getState().x[mousedOverName].sections;
-
+  if (mousedOverProjectConfig.name !== currProjectConfigName) {
     useProjectState.setState((x) => {
-      for (const [k, v] of Object.entries(x.sections)) {
-        if (previewSectionConfigs[k]) {
-          v.previewVariantId = previewSectionConfigs[k].variantId;
-        } else {
-          v.previewVariantId = null;
-        }
-      }
+      x.previewSectionVariantMap = _.cloneDeep(
+        mousedOverProjectConfig.sectionVariantMap,
+      );
     });
-
-    maybeRunGuiToYamlOnAllSections(true);
   } else {
-    setAllPreviewVariantIdsToNull();
-    maybeRunGuiToYamlOnAllSections(false);
+    clearPreviewIds();
   }
 }
 
 function onMouseLeave() {
-  setAllPreviewVariantIdsToNull();
-  maybeRunGuiToYamlOnAllSections(false);
+  clearPreviewIds();
+}
+
+function clearPreviewIds() {
+  useProjectState.setState((x) => {
+    x.previewSectionVariantMap = {};
+  });
 }

@@ -24,7 +24,7 @@ import {
   SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
 
-export function getIsSeriesElementHelper(
+function getIsSeriesElementHelper(
   sectionId: string,
   parentTypesToCheck: Array<SectionType>,
   state: ZustandProjectState,
@@ -38,7 +38,7 @@ export function getIsSeriesElementHelper(
   return parentTypesToCheck.includes(parentImpl.type);
 }
 
-export function useIsSeriesElement(sectionId) {
+export function useIsSeriesElement(sectionId: string) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(
       sectionId,
@@ -48,7 +48,7 @@ export function useIsSeriesElement(sectionId) {
   );
 }
 
-export function useIsListElement(sectionId) {
+export function useIsListElement(sectionId: string) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(sectionId, [SectionTypeEnum.ListRoot], x),
   );
@@ -88,7 +88,7 @@ export function getUIEditorTab(
   // when sectionId changes, the requiredTabs might not include the previously active tab
   let selectedTabName: UIEditorTabName | null;
   if (requiredTabs.length > 0) {
-    // @ts-ignore
+    // @ts-expect-error The includes function typing is annoying
     selectedTabName = requiredTabs.includes(storedTab) ? storedTab : null;
   } else {
     selectedTabName = null;

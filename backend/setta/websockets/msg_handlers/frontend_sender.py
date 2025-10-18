@@ -1,23 +1,31 @@
+from typing import Literal
+
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithCompletedOpIds,
+)
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.specific_file_watcher import FileWatcherUpdate
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import (
+    AllProjectMetadata,
+    ProjectStateSingleConfig,
+)
 from setta.types.websocket import (
-    ProjectStateSingleConfigWithModCount,
+    UpdateArtifactMsgContent,
     WebsocketConnectionType,
-    WebsocketMsgArtifact,
+    WebsocketMsgAllProjectMetadata,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
     WebsocketMsgReturnRenameRefactorResults,
-    WebsocketMsgSpecificFileWatcherUpdate,
     WebsocketMsgTerminalMetadata,
+    WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
     WebsocketMsgUUIDMappingForLLM,
@@ -32,9 +40,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_artifact(self, artifact: Artifact):
+    async def broadcast_artifacts_update(
+        self,
+        artifacts: list[BaseArtifactUnion],
+        updateType: Literal["update", "delete"],
+    ):
         await self.websocket_manager.broadcast(
-            message=WebsocketMsgArtifact(content=artifact),
+            message=WebsocketMsgUpdateArtifacts(
+                content=UpdateArtifactMsgContent(
+                    artifacts=artifacts, updateType=updateType
+                )
+            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
@@ -74,20 +90,32 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         )
 
     async def broadcast_project_state(
-        self, projectState: ProjectStateSingleConfig, modCount: int
+        self,
+        projectState: ProjectStateSingleConfig,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgUpdateFrontendProjectState(
-                content=ProjectStateSingleConfigWithModCount(
-                    projectState=projectState, modCount=modCount
+                content=ProjectStateSingleConfigWithCompletedOpIds(
+                    projectState=projectState,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_file_updates(self, content: FileWatcherUpdate):
+    async def broadcast_all_project_metadata(
+        self, defaultProjectConfigId: str | None, projectMetadata: list[ProjectConfig]
+    ):
         await self.websocket_manager.broadcast(
-            WebsocketMsgSpecificFileWatcherUpdate(content=content),
+            WebsocketMsgAllProjectMetadata(
+                content=AllProjectMetadata(
+                    defaultProjectConfigId=defaultProjectConfigId,
+                    projectMetadata=projectMetadata,
+                )
+            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
