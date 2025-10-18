@@ -497,7 +497,7 @@ class BaseProjectManager(ABC):
                 self.watch_json_source_files()
                 self.watch_artifact_files()
 
-    @enqueue_method
+    @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):
         async with self._project_state_lock.read_lock():
             await self.gen_code[projectConfigId].type_check()

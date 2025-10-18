@@ -6,7 +6,7 @@
 
 2. **Let read-only routes bypass the global queue** ✅  
    - Added a `require_serialization` flag to `enqueue_method`; read-only handlers capture `frontendOpId`s but execute immediately while holding the shared read lock.  
-   - Completion endpoints (`text_field_completion`, `code_area_completion`, `gen_code_prefix_completion`, `gen_code_suffix_completion`, `clear_text_field_completion`) now bypass the FIFO queue under the new decorator flow.
+   - Completion endpoints (`text_field_completion`, `code_area_completion`, `gen_code_prefix_completion`, `gen_code_suffix_completion`, `clear_text_field_completion`) and the `type_check` route now bypass the FIFO queue under the new decorator flow.
    - Centralized frontend-op bookkeeping in `_register_pending_frontend_op` and `_track_frontend_op` so both queued and bypassed handlers share the same pending/completion logic.
 
 3. **Eliminate shared temp-file contention** ✅  
