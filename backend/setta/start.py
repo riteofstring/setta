@@ -131,11 +131,50 @@ def cli(ctx, reload, host: str, port: int, log_level):
                     "Filtering jsonSource debug sections: %s", section_tokens
                 )
 
+        overrides_env = os.getenv("SETTA_LOGGER_LEVEL_OVERRIDES")
+        if overrides_env:
+
+            def _parse_override(token: str) -> tuple[str, int] | None:
+                name, _, level = token.partition("=")
+                name = name.strip()
+                level = level.strip().upper() or "WARNING"
+                if not name:
+                    return None
+                numeric_level = logging.getLevelName(level)
+                if isinstance(numeric_level, str):
+                    logging.getLogger(__name__).warning(
+                        "Ignoring invalid log level '%s' for logger '%s'",
+                        level,
+                        name,
+                    )
+                    return None
+                return name, numeric_level
+
+            parsed_overrides = []
+            for raw_token in overrides_env.split(","):
+                token = raw_token.strip()
+                if not token:
+                    continue
+                parsed = _parse_override(token)
+                if parsed:
+                    parsed_overrides.append(parsed)
+
+            if parsed_overrides:
+                for logger_name, level_value in parsed_overrides:
+                    logging.getLogger(logger_name).setLevel(level_value)
+                logging.getLogger(__name__).info(
+                    "Adjusted log levels: %s",
+                    [
+                        f"{name}={logging.getLevelName(level)}"
+                        for name, level in parsed_overrides
+                    ],
+                )
+
         config = uvicorn.Config(
             "server:app",
             host=host,
             port=port,
-            log_level=log_level,
+            log_level=os.getenv("UVICORN_LOG_LEVEL", log_level),
             reload=reload,
             timeout_graceful_shutdown=1,
         )
