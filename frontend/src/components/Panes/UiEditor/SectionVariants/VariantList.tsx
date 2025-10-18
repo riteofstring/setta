@@ -37,14 +37,10 @@ export function VariantList({ sectionId }) {
   }
 
   function onClickAddVariantButton() {
-    dispatchOptimisticProjectStateUpdate({
-      apply: () => undefined,
-      send: (frontendOpId) =>
-        route_create_new_section_variant({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          frontendOpId,
-        }),
+    route_create_new_section_variant({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      frontendOpId: null,
     });
   }
 
@@ -329,26 +325,21 @@ function OneVariantEditing({
     conditionToSetName,
   );
 
-  function onClickDelete(e) {
+  async function onClickDelete(e) {
     e.stopPropagation();
-    dispatchOptimisticProjectStateUpdate({
-      apply: () => undefined,
-      send: async (frontendOpId) => {
-        const res = await route_delete_section_variant_or_ask({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          variantId: id,
-          frontendOpId,
-        });
-        if (res200(res) && res.data) {
-          openDeleteJSONSourceFileModal({
-            sectionId,
-            variantId: id,
-            filepath: res.data,
-          });
-        }
-      },
+    const res = await route_delete_section_variant_or_ask({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      variantId: id,
+      frontendOpId: null,
     });
+    if (res200(res) && res.data) {
+      openDeleteJSONSourceFileModal({
+        sectionId,
+        variantId: id,
+        filepath: res.data,
+      });
+    }
   }
 
   return (

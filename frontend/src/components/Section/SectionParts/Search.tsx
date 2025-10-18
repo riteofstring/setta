@@ -4,7 +4,6 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -203,29 +202,22 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-export function setCallable(
+async function setCallable(
   sectionId: string,
   callableName: string,
   refetchParams = false,
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  dispatchOptimisticProjectStateUpdate({
-    apply: () => {
-      // Skip optimistic update
-    },
-    send: async (frontendOpId) => {
-      const projectConfigId = getCurrProjectConfigId();
-      const res = await route_set_callable({
-        projectConfigId,
-        sectionId,
-        callableName,
-        refetchParams,
-        frontendOpId,
-      });
-      if (res200(res)) {
-        // state update occurs by websocket
-        setToNotWaiting();
-      }
-    },
+  const projectConfigId = getCurrProjectConfigId();
+  const res = await route_set_callable({
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams,
+    frontendOpId: null,
   });
+  if (res200(res)) {
+    // state update occurs by websocket
+    setToNotWaiting();
+  }
 }
