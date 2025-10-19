@@ -69,3 +69,7 @@ Don't bother running `pnpm test` for now, as there are currently no frontend tes
 
 I prefer a hard KeyError instead of hiding problems via project_state.some_dict.get(key).
 When you know a section impl or code obj impl must be of a specific type, use the helper getter functions ending with "with_type_guard".
+
+
+## Tests
+Tests should reflect production behavior as closely as possible. It's ok if this means the tests take longer. The amount of "mocking", and "fake" or "dummy" classes should be minimized as much as possible.
