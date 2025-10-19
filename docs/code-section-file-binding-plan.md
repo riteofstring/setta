@@ -13,7 +13,10 @@
 - **Snapshot Documents**: the existing `temporary_document` helper now writes into `snapshot_dir`, keeping UUID filenames and auto-cleanup.
 
 ## Progress
-- Step 1 complete: the section schemas now define `CodeFileBinding` metadata, and `ProjectStateSingleConfig.validate_code_file_bindings` back-fills durable defaults (canonical path, snapshot dir, access mode) for every code and generated-code section.
+- Core schemas ship `CodeFileBinding` metadata and `ProjectStateSingleConfig.validate_code_file_bindings` now hydrates canonical paths, snapshot dirs, and access modes for sections and generated code.
+- `Code`, `PythonCode`, and `BashCode` consume the binding directly—canonical files are written without manager temp folders, and LSP snapshots are created under `binding.snapshot_dir`.
+- `ProjectPythonCode`, `ProjectBashCode`, and `ProjectGenPythonCode` pull bindings from project state; completion/signature requests now reference the durable file paths.
+- `BaseProjectManager.update` relies on `projectState.genCodeBinding`, revalidates bindings each run, and no longer tracks or purges per-update temp files.
 
 ## Refactor Steps
 1. **Add Binding Metadata**
@@ -29,9 +32,11 @@
    - Ensure `create_project_code` forwards the binding from project state when instantiating section code objects.
 4. **Generated Code**
    - Provide a binding for generated code sections with `access_mode=write_only`, a durable canonical path, and a temp-only `snapshot_dir`.
+   - Surface the generated-code binding on `ProjectStateSingleConfig` so managers can always reference it, even when the GenPythonCode section is absent.
 5. **Follow-Up Hooks**
    - Once bindings exist everywhere, wire file watchers and syncing logic off `canonical_path`.
    - Add UI flows for changing bindings (e.g. choosing an existing file, toggling read/write mode).
+   - Consider centralizing the language→extension mapping so `validate_code_file_bindings` and the `Code` classes stay in sync as we add more languages.
 
 ## Result
 - Canonical files always live where the user expects.

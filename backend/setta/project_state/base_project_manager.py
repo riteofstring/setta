@@ -2,7 +2,6 @@ import asyncio
 import contextvars
 import copy
 import logging
-import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from functools import wraps
@@ -29,7 +28,6 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.code import Code
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -168,13 +166,16 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
+from setta.types.section_impls import (
+    CodeLanguage,
+    CodeSectionImpl,
+    SectionType,
+)
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
-from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -203,12 +204,9 @@ class BaseProjectManager(ABC):
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
-        self.temp_folder = normalize_path(C.CODE_FOLDER) / "temp_folder"
-        self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
-        self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
         ] = asyncio.Queue()
@@ -490,7 +488,7 @@ class BaseProjectManager(ABC):
             projectState.validate_shown_param_ids()
             projectState.validate_yaml_values()
             projectState.validate_required_decoded_images()
-            self.used_files = set()
+            projectState.validate_code_file_bindings()
             dep_graph = DependencyGraph(projectState)
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
@@ -505,11 +503,12 @@ class BaseProjectManager(ABC):
             )
             code_generator.generate_code()
 
-            projectConfigName = projectConfig.name
-            project_temp_folder = self.temp_folder / projectConfigName
+            gen_code_binding = projectState.genCodeBinding
+            if gen_code_binding is None:
+                raise ValueError("Project state missing generated code binding")
             new_gen_code = ProjectGenPythonCode(
                 self.dbe,
-                project_temp_folder,
+                gen_code_binding,
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 projectConfigId,
@@ -518,7 +517,6 @@ class BaseProjectManager(ABC):
             )
             await new_gen_code.update_file()
             maybe_update_gen_python_code_section(projectState, new_gen_code.code)
-            self.add_to_used_files(new_gen_code)
             self.gen_code[projectConfigId] = new_gen_code
 
             if self.code_dict.get(projectConfigId):
@@ -531,17 +529,15 @@ class BaseProjectManager(ABC):
                 section_impl = get_curr_effective_section_impl(projectState, sectionId)
                 if isinstance(section_impl, CodeSectionImpl):
                     section_code = self.create_project_code(
-                        project_temp_folder, projectState, sectionId, section_impl
+                        projectState, sectionId, section_impl
                     )
 
                     if not section_code:
                         continue
 
                     await section_code.update_file()
-                    self.add_to_used_files(section_code)
                     self.code_dict[projectConfigId][sectionId] = section_code
 
-            self.delete_unused_files(project_temp_folder)
             self.project_state_backend = self.get_new_project_state_backend(
                 projectState
             )
@@ -799,45 +795,25 @@ class BaseProjectManager(ABC):
         delete_kwarg(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
-    def add_to_used_files(self, code_obj: Code):
-        if code_obj.temp_file:
-            self.used_files.add(normalize_path(code_obj.temp_file))
-
-    def delete_unused_files(self, project_temp_folder: Path):
-        # Get all files in the project temp folder and delete unused ones
-        if project_temp_folder.exists():
-            for file_path in project_temp_folder.glob("**/*"):
-                if (
-                    file_path.is_file()
-                    and normalize_path(file_path) not in self.used_files
-                ):
-                    try:
-                        file_path.unlink()
-                        logger.debug("Deleted unused file: %s", file_path)
-                    except Exception:
-                        logger.exception("Error deleting file %s", file_path)
-
     def create_project_code(
         self,
-        project_temp_folder: Path,
         project_state: ProjectStateSingleConfig,
         sectionId: str,
         section_impl: CodeSectionImpl,
     ):
+        if section_impl.codeFileBinding is None:
+            raise ValueError(f"Code section {sectionId} missing codeFileBinding")
         codeLanguage = section_impl.codeLanguage
         if codeLanguage == CodeLanguage.python:
             return ProjectPythonCode(
                 self.dbe,
-                project_temp_folder,
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 project_state,
                 sectionId,
             )
-        elif codeLanguage == CodeLanguage.bash:
-            return ProjectBashCode(
-                self.dbe, project_temp_folder, project_state, sectionId
-            )
+        if codeLanguage == CodeLanguage.bash:
+            return ProjectBashCode(self.dbe, project_state, sectionId)
         return None
 
     async def maybe_do_rename_refactor(
@@ -873,9 +849,6 @@ class BaseProjectManager(ABC):
                 changed_node_values,
                 messageId,
             )
-
-    def delete_temp_folder(self):
-        shutil.rmtree(self.temp_folder)
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):

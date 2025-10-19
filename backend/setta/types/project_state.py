@@ -97,6 +97,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     yamlValues: dict[str, str] = Field(default_factory=dict)
     shownParamIds: dict[str, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
+    genCodeBinding: CodeFileBinding | None = None
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
@@ -226,6 +227,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         canonical_sections_dir = code_root / "sections" / project_slug
         generated_code_dir = code_root / "generated" / project_slug
         snapshot_temp_dir = code_root / "temp_folder" / project_slug
+        gen_code_binding: CodeFileBinding | None = None
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
             core = self.sections[section_id]
@@ -265,6 +267,15 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 variant,
                 BaseCodeSectionImplArgsWithCallable(codeFileBinding=binding),
             )
+            if isinstance(effective_impl, GenPythonCodeSectionImpl):
+                gen_code_binding = binding
+        if gen_code_binding is None:
+            gen_code_binding = CodeFileBinding(
+                canonical_path=normalize_path(generated_code_dir / "setta_gen.py"),
+                snapshot_dir=normalize_path(snapshot_temp_dir),
+                access_mode=CodeFileAccessMode.write_only,
+            )
+        self.genCodeBinding = gen_code_binding
         return self
 
 
