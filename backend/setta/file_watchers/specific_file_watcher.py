@@ -31,7 +31,7 @@ class MockFileEvent:
 class SpecificFileWatcher:
     def __init__(self):
         self.observer = Observer()
-        self.watched_dirs: dict[Path, "ObservedWatch"] = {}
+        self.watched_dirs: dict[Path, "ObservedWatch | None"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
@@ -57,23 +57,32 @@ class SpecificFileWatcher:
         dirs_to_watch = set()
         for category_callbacks in self.callbacks.values():
             for file_path in category_callbacks.keys():
-                dirs_to_watch.add(file_path.parent)
+                absolute_file_path = Path(file_path).resolve()
+                dirs_to_watch.add(absolute_file_path.parent)
 
         # Remove watches for directories no longer needed
         current_watched_dirs = set(self.watched_dirs.keys())
         dirs_to_remove = current_watched_dirs - dirs_to_watch
         for dir_path in dirs_to_remove:
             if dir_path in self.watched_dirs:
-                self.observer.unschedule(self.watched_dirs[dir_path])
-                del self.watched_dirs[dir_path]
+                watch = self.watched_dirs.pop(dir_path)
+                if watch is not None:
+                    self.observer.unschedule(watch)
 
         # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
         for dir_path in dirs_to_add:
-            abs_dir_path = Path(dir_path).resolve()
-            watch = self.observer.schedule(
-                self.handler, str(abs_dir_path), recursive=True
-            )
+            if dir_path in self.watched_dirs:
+                continue
+            try:
+                watch = self.observer.schedule(
+                    self.handler, str(dir_path), recursive=True
+                )
+            except RuntimeError as exc:
+                if "already scheduled" in str(exc):
+                    self.watched_dirs[dir_path] = None
+                    continue
+                raise
             self.watched_dirs[dir_path] = watch
 
         # Fire immediate reads if requested (only for new files)

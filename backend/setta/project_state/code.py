@@ -7,7 +7,11 @@ from pathlib import Path
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path, get_code_extension
-from setta.types.section_impls import CodeFileBinding, CodeLanguage
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeLanguage,
+)
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -32,6 +36,13 @@ class Code(ABC):
 
     def update_file(self, code):
         filepath = self.binding.canonical_path
+        if self.binding.access_mode == CodeFileAccessMode.read_only:
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            logger.debug(
+                "Skipping canonical write for %s due to read-only code file binding",
+                filepath,
+            )
+            return
         logger.debug("Writing canonical file %s", filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.dbe.write(filepath, code)
