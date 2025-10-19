@@ -8,6 +8,7 @@
 ## Progress
 - Stubbed `CodeFiles` manager (`backend/setta/project_state/code_files.py`) to capture per-path metadata, binding ownership, and watcher category bookkeeping ahead of the full integration work.
 - Instantiated the shared `CodeFiles` manager inside `SettaFastAPIState`, injected it into both project managers, and added a `watch_code_files()` hook so the wiring is ready for upcoming watcher logic.
+- Implemented real metadata tracking, access-mode enforcement, and helper APIs in `CodeFiles`; added backend tests for hash bookkeeping and conflict handling.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
