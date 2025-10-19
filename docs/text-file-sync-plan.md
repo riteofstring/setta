@@ -20,6 +20,7 @@
 - Replaced the loose tuple wiring with a shared `TextSectionBinding` dataclass consumed by `TextFileSync.register_sections`, tightening the interface ahead of two-way sync logic.
 - Extended code section models, helpers, and generated schemas with `filePath`, `syncMode`, and `fileMissing`, and plumbed the values through `SetCodeRequest`.
 - Added a temporary CodeArea control surface so users can enter a file path, toggle sync mode, and view a missing-file badge while the backend stores the metadata.
+- Implemented write-through for two-way code sections so `set_code` persists to the configured file path and caches hashes to skip redundant writes.
 
 ## Open Questions
 - How should paths be entered—absolute, relative to the project root, or constrained to a workspace whitelist—and do we need templating per project config?
@@ -27,6 +28,5 @@
 - Can the LSP operate on the true file path for better tooling, or do we keep temp files to avoid breaking rename refactors?
 
 ## Next Steps
-1. Teach `set_code` to write through to the configured path when `syncMode == "twoWay"` and store per-path hashes so self-writes can be ignored.
-2. Activate `TextFileSync.watch_text_files` to subscribe to disk events, reload section code on external changes, and flag `fileMissing` when reads fail.
-3. Harden the frontend UX (status badges, conflict toasts, manual resync) and add automated coverage for the metadata and watcher flow.
+1. Activate `TextFileSync.watch_text_files` to subscribe to disk events, reload section code on external changes, and flag `fileMissing` when reads fail.
+2. Harden the frontend UX (status badges, conflict toasts, manual resync) and add automated coverage for the metadata and watcher flow.

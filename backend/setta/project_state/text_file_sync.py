@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +31,11 @@ class TextSectionBinding:
     sync_mode: SyncMode
 
 
+@dataclass
+class TextFileMetadata:
+    last_written_hash: str | None = None
+
+
 class TextFileSync:
     """Prototype manager that logs section-to-file mappings."""
 
@@ -42,6 +48,7 @@ class TextFileSync:
         self._dbe = dbe
         self._path_to_binding: dict[Path, TextFileBinding] = {}
         self._binding_to_path: dict[TextFileBinding, Path] = {}
+        self._path_metadata: dict[Path, TextFileMetadata] = {}
 
     def register_sections(
         self,
@@ -87,6 +94,7 @@ class TextFileSync:
                 helper_id,
                 normalized,
             )
+            self._ensure_metadata_initialized(normalized)
 
     def unregister_project_config(self, project_config_id: str) -> None:
         to_remove = [
@@ -125,3 +133,57 @@ class TextFileSync:
             len(self._path_to_binding),
         )
         # Placeholder: update SpecificFileWatcher subscriptions in future steps.
+
+    def write_section_code(
+        self,
+        binding: TextFileBinding,
+        path: Path,
+        content: str,
+    ) -> Literal["written", "skipped"]:
+        normalized = normalize_path(path)
+        content_hash = self._compute_hash(content.encode("utf-8"))
+        metadata = self._ensure_metadata_initialized(normalized)
+        if metadata.last_written_hash == content_hash:
+            logger.debug(
+                "TextFileSync skipping write for %s at %s (hash unchanged)",
+                binding,
+                normalized,
+            )
+            self._record_binding(binding, normalized)
+            return "skipped"
+
+        self._dbe.write(normalized, content)
+        metadata.last_written_hash = content_hash
+        self._record_binding(binding, normalized)
+        logger.info(
+            "TextFileSync wrote content for %s at %s hash=%s",
+            binding,
+            normalized,
+            content_hash,
+        )
+        return "written"
+
+    def _record_binding(self, binding: TextFileBinding, path: Path) -> None:
+        self._path_to_binding[path] = binding
+        self._binding_to_path[binding] = path
+
+    def _ensure_metadata_initialized(self, path: Path) -> TextFileMetadata:
+        metadata = self._path_metadata.get(path)
+        if metadata is None:
+            metadata = TextFileMetadata(
+                last_written_hash=self._compute_file_hash(path)
+            )
+            self._path_metadata[path] = metadata
+        return metadata
+
+    def _compute_hash(self, data: bytes) -> str:
+        return hashlib.md5(data).hexdigest()
+
+    def _compute_file_hash(self, path: Path) -> str | None:
+        try:
+            existing = self._dbe.read(path, mode="rb")
+        except FileNotFoundError:
+            return None
+        if existing is None:
+            return None
+        return self._compute_hash(existing)

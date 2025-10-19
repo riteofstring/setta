@@ -107,6 +107,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.project_state.text_file_sync import (
     SyncMode,
+    TextFileBinding,
     TextFileSync,
     TextSectionBinding,
 )
@@ -177,7 +178,12 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
+from setta.types.section_impls import (
+    CodeLanguage,
+    CodeSectionImpl,
+    CodeSyncMode,
+    SectionType,
+)
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -725,9 +731,40 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_code(self, x: SetCodeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
+        current_sync_mode: CodeSyncMode | None = None
+        current_path: str | None = None
+        if isinstance(section_impl, CodeSectionImpl):
+            current_sync_mode = section_impl.syncMode
+            current_path = section_impl.filePath
+
+        target_sync_mode = x.syncMode or current_sync_mode or CodeSyncMode.project
+        target_path = x.filePath if x.filePath is not None else current_path
         file_missing = x.fileMissing
-        if file_missing is None and x.filePath is not None:
+
+        if target_sync_mode == CodeSyncMode.twoWay and target_path:
+            variant = get_curr_section_variant(project_state, x.sectionId)
+            binding = TextFileBinding(
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+                variant_id=variant.id,
+            )
+            normalized_path = normalize_path(target_path)
+            try:
+                self.text_file_sync.write_section_code(
+                    binding,
+                    normalized_path,
+                    x.code,
+                )
+                file_missing = False
+            except Exception:
+                logger.exception(
+                    "Failed to write code for %s to %s", binding, normalized_path
+                )
+                file_missing = True
+        elif file_missing is None and target_path is not None:
             file_missing = False
+
         set_code(
             project_state,
             x.sectionId,
