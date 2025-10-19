@@ -164,6 +164,66 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(final_binding.access_mode, CodeFileAccessMode.read_write)
         self.assertEqual(final_impl.code, section_edit)
 
+    async def test_external_edit_updates_read_only_section_code(self):
+        section_id = await self.manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=self.project_config_id,
+                implType=SectionType.Code,
+                implOverrides=CodeSectionImplArgs(type=SectionType.Code),
+                position=Position(),
+            )
+        )
+        self.manager.completed_op_ids_since_last_broadcast.clear()
+
+        binding_path = (
+            self.fixture.code_folder / "sections" / "sync_target_read_only.py"
+        )
+        binding_path.parent.mkdir(parents=True, exist_ok=True)
+        self._override_watch_parent_path = binding_path.parent.resolve()
+        self._override_watch_target_path = binding_path.parent.parent.resolve()
+
+        await self.manager.set_code_file_binding(
+            SetCodeFileBindingRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=section_id,
+                canonicalPath=binding_path,
+                accessMode=CodeFileAccessMode.read_only,
+            )
+        )
+
+        section_impl = self._get_section_impl(section_id)
+        binding = section_impl.codeFileBinding
+        if binding is None:
+            self.fail("Expected code file binding after binding request")
+        self.assertEqual(
+            Path(binding.canonical_path).resolve(),
+            binding_path.resolve(),
+        )
+        self.assertEqual(binding.access_mode, CodeFileAccessMode.read_only)
+        self.assertEqual(section_impl.code, "")
+
+        await self._wait_for_binding_registration(binding_path)
+
+        binding_parent = str(binding_path.parent.resolve())
+        self.assertTrue(
+            any(path == binding_parent for path, _ in self._schedule_requests),
+            f"Expected observer.schedule to watch {binding_parent}, "
+            f"got {[path for path, _ in self._schedule_requests]}",
+        )
+        self.assertIsNotNone(self._override_watch_target_path)
+
+        disk_update = "print('read only sync from disk')\n"
+        self._atomic_replace(binding_path, disk_update)
+
+        await self._wait_for_section_code(section_id, disk_update)
+
+        final_impl = self._get_section_impl(section_id)
+        final_binding = final_impl.codeFileBinding
+        if final_binding is None:
+            self.fail("Expected code file binding to persist after disk updates")
+        self.assertEqual(final_binding.access_mode, CodeFileAccessMode.read_only)
+        self.assertEqual(final_impl.code, disk_update)
+
     async def _wait_for_section_code(
         self, section_id: str, expected_code: str, timeout: float = 5.0
     ) -> None:
