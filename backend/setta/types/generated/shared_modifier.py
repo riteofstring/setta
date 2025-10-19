@@ -30,11 +30,8 @@ from setta.types.section_impls import (
 
 
 class SharedModifier(TypedDict):
-    # Field 'aspectRatio' present with multiple annotations: bool, float
-    # Field 'chartSettings' present with multiple annotations: LineChartSettings, ScatterChartSettings
-    # Field 'choices' present with multiple annotations: list[ColorPickerChoice], list[str]
-    # Field 'displayMode' present with multiple annotations: SectionWithParamsDisplayMode, TextBlockDisplayMode
-    # Field 'pinnedAreaHeight' present with multiple annotations: Literal[SectionSizeMode.auto], float
+    # Field 'choices' present with conflicting annotations: list[ColorPickerChoice] (ColorPickerParamCodeObjImpl), list[str] (DropdownParamCodeObjImpl)
+    # Field 'displayMode' present with conflicting annotations: SectionWithParamsDisplayMode (CallableSectionImpl, DictSectionImpl, GlobalVariablesSectionImpl), TextBlockDisplayMode (TextBlockSectionImpl)
     activeLayerIdx: NotRequired[int | None]
     aspectRatio: NotRequired[bool | float | None]
     aspectRatioExtraHeight: NotRequired[int | None]

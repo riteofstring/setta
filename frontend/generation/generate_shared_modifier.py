@@ -23,6 +23,7 @@ class FieldTypeInfo:
     components: dict[str, Any] = field(default_factory=dict)
     sources: set[str] = field(default_factory=set)
     has_none: bool = False
+    non_base_signatures: dict[tuple[str, ...], set[str]] = field(default_factory=dict)
 
 
 def _add_typing_import(imports: dict[str, set[str]], name: str):
@@ -118,12 +119,24 @@ def gather_field_definitions(
                 continue
             info = field_infos[name]
             info.sources.add(class_info.original_name)
+            class_components: set[str] = set()
+            class_has_none = False
             for component in flatten_annotation(annotation):
                 if component is type(None):
                     info.has_none = True
+                    class_has_none = True
                     continue
                 component_str = python_type_to_str(component)
                 info.components.setdefault(component_str, component)
+                class_components.add(component_str)
+            if class_info.type_has_default:
+                signature_components = set(class_components)
+                if class_has_none:
+                    signature_components.add("None")
+                signature = tuple(sorted(signature_components))
+                info.non_base_signatures.setdefault(signature, set()).add(
+                    class_info.original_name
+                )
 
     return field_infos
 
@@ -140,8 +153,19 @@ def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
     for field_name in sorted(field_infos):
         info = field_infos[field_name]
         component_names = sorted(info.components.keys())
-        if len(component_names) > 1:
-            multi_type_fields.append((field_name, component_names))
+        if len(info.non_base_signatures) > 1:
+            conflict_descriptions: list[str] = []
+            for signature, classes in sorted(
+                info.non_base_signatures.items(),
+                key=lambda item: item[0],
+            ):
+                if signature:
+                    annotation_label = " | ".join(signature)
+                else:
+                    annotation_label = "Any"
+                class_list = ", ".join(sorted(classes))
+                conflict_descriptions.append(f"{annotation_label} ({class_list})")
+            multi_type_fields.append((field_name, conflict_descriptions))
         for component in info.components.values():
             collect_annotation_dependencies(imports, component)
         annotation_str = " | ".join(component_names) if component_names else "Any"
@@ -167,8 +191,8 @@ def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
 
     if multi_type_fields:
         conflicts = "\n".join(
-            f"# Field '{name}' present with multiple annotations: {', '.join(types)}"
-            for name, types in multi_type_fields
+            f"# Field '{name}' present with conflicting annotations: {', '.join(details)}"
+            for name, details in multi_type_fields
         )
         body = f"""{conflicts}
 {body}"""
