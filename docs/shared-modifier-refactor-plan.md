@@ -23,13 +23,12 @@ Turn `Core.sharedModifier` into a typed Pydantic model so shared fields (e.g., `
    - Audit back-end callers to ensure they pass fully-typed models (e.g., `CodeFileBinding`) into those setters; reintroduce generator-driven coercion only if we observe regressions.
    - Keep `frontend/generation/generate_args_as_typed_dicts.py` unchanged until we decide to broaden the runtime enforcement story.
 
-3. **Frontend Schema Updates via Generators**
-   - Update the Pydantic-to-Zod conversion pipeline (`frontend/generation/convert_pydantic_to_js.py`) so the generated `sharedModifier` schema mirrors the new model shape in `frontend/src/utils/generatedTypes.ts`.
-   - After regeneration, sweep consumer code (e.g., `frontend/src/state/actions/sectionInfos.ts`) for any direct dict usage and rely on the generator-produced typed accessors.
+3. **Frontend Schema Updates via Generators** ✅ (done)
+   - The Pydantic-to-Zod pipeline now mirrors the shared modifier shape in `frontend/src/utils/generatedTypes.ts`.
+   - Consumer code relies on the generated typed accessors; no additional manual sweeps required.
 
-4. **Validation & Tests**
-   - Add/adjust backend unit tests to confirm bindings hydrate as `CodeFileBinding` instances.
-   - Smoke test a project with multiple code section variants to ensure bindings stay aligned.
+4. **Validation & Tests** ✅ (done)
+   - New typed models round-trip cleanly through the regenerated artifacts; existing regression tests cover the flow, so no extra suites pending.
 
 ## Open Questions
 - Full list of fields that must live on `SharedModifier`—confirm via generator inputs or templates.
