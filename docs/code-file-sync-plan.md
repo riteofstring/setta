@@ -48,9 +48,10 @@
    - ✅ Added `/setCodeFileBinding` under `Route.SET_CODE_FILE_BINDING`, delegating to `BaseProjectManager.set_code_file_binding`.
    - ✅ Manager method re-validates project state, rebuilds the binding via `BaseCodeSectionImplArgsWithCallable`, and lets `_sync_code_file_bindings_for_project_state` drive the watcher refresh.
 
-6. **Frontend Controls**
-   - Surface binding details + editor UI (path picker, access mode toggle).
-   - Call the new route, optimistic update state, and show errors if sync rejects the path (nonexistent, permission issues, etc.).
+6. **Frontend Controls** ⏳ (in progress)
+   - ✅ Surface binding details + access mode editing in the UI editor via `CodeAreaSettings`, wiring optimistic updates through the new route.
+   - ✅ Call the new route with optimistic state updates when bindings change.
+   - ⬜ Add UX for path validation/file picker + surface backend errors (nonexistent files, permission issues, etc.).
 
 7. **Testing & Docs** ⏳
    - ✅ Added regression coverage for backend mutation flow (`tests/project_state/test_code_file_binding.py`) and the FastAPI route (`tests/routers/test_set_code_file_binding_route.py`).
