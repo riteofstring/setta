@@ -6,8 +6,8 @@ from pathlib import Path
 
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
-from setta.project_state.utils import convert_path_to_module_path
-from setta.types.section_impls import CodeFileBinding
+from setta.project_state.utils import convert_path_to_module_path, get_code_extension
+from setta.types.section_impls import CodeFileBinding, CodeLanguage
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -74,7 +74,7 @@ class PythonCode(Code):
             self.lsp_writer.remove_diagnostics_response_callback(self.uri)
 
     def get_extension(self):
-        return "py"
+        return get_code_extension(CodeLanguage.python)
 
     def get_run_command(self, path: Path):
         path = normalize_path(path)
@@ -110,7 +110,7 @@ class PythonCode(Code):
 
 class BashCode(Code):
     def get_extension(self):
-        return "sh"
+        return get_code_extension(CodeLanguage.bash)
 
     def get_run_command(self, path: Path):
         path = normalize_path(path)

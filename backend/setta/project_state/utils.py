@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from setta.types.section_impls import CodeLanguage
 from setta.utils.timestamps import get_now_timestamp, timestamp_to_filename
 from setta.utils.utils import normalize_path
 
@@ -18,3 +19,16 @@ def create_timestamped_folder(base_dir: Path, prefix=""):
 def convert_path_to_module_path(path: Path):
     path_without_extension = path.with_suffix("")
     return path_without_extension.as_posix().replace("/", ".").replace("\\", ".")
+
+
+_CODE_LANGUAGE_EXTENSION_MAP: dict[CodeLanguage, str] = {
+    CodeLanguage.python: "py",
+    CodeLanguage.bash: "sh",
+}
+
+
+def get_code_extension(language: CodeLanguage) -> str:
+    try:
+        return _CODE_LANGUAGE_EXTENSION_MAP[language]
+    except KeyError as exc:
+        raise KeyError(f"Unsupported CodeLanguage: {language}") from exc

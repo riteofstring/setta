@@ -20,8 +20,8 @@
   - When bindings change (new path, toggled access mode), the manager updates the registry without tearing down the whole watcher set.
 
 ## Integration Steps
-1. **Shared Language Metadata**
-   - Extract a helper (e.g., `get_code_extension(language: CodeLanguage) -> str`) and reuse it in `Code`, `ProjectStateSingleConfig.validate_code_file_bindings`, and future sync formatting.
+1. **Shared Language Metadata** ✅ (done)
+   - `get_code_extension(language: CodeLanguage) -> str` now lives in `backend/setta/project_state/utils.py`, reused by `Code` subclasses and `ProjectStateSingleConfig.validate_code_file_bindings` to keep extensions consistent.
 
 2. **Implement `CodeFileSyncService`**
    - Define the service under `backend/setta/project_state/code_file_sync.py`.

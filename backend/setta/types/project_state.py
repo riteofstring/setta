@@ -6,6 +6,7 @@ from pydantic import (
 )
 
 from setta.code_gen.utils import sanitize_name
+from setta.project_state.utils import get_code_extension
 from setta.types.artifact import ArtifactType
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import set_effective_impl_value
@@ -31,7 +32,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileAccessMode,
     CodeFileBinding,
-    CodeLanguage,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
     SectionType,
@@ -251,7 +251,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 section_full_name = get_section_path_full_name(self, section_id)
                 section_slug = sanitize_name(section_full_name)
                 language = effective_impl.codeLanguage
-                extension = "py" if language == CodeLanguage.python else "sh"
+                extension = get_code_extension(language)
                 canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"
                 snapshot_dir = canonical_path.parent
                 access_mode = CodeFileAccessMode.read_write
