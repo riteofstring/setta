@@ -33,7 +33,6 @@ def test_set_effective_impl_coerces_code_file_binding_into_model():
         CodeSectionImplArgsWithCallable(codeFileBinding=binding_payload),
     )
 
-    assert "codeFileBinding" in core.sharedModifier
     stored_binding = core.sharedModifier["codeFileBinding"]
     assert isinstance(stored_binding, CodeFileBinding)
     assert stored_binding.access_mode == CodeFileAccessMode.read_only
@@ -70,7 +69,6 @@ def test_set_effective_impl_coerces_variant_modifier_layers():
 
     assert "layers" not in core.sharedModifier
 
-    assert "layers" in variant.modifier
     stored_layers = variant.modifier["layers"]
     assert isinstance(stored_layers, list)
     assert len(stored_layers) == 1
