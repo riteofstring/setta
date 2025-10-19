@@ -44,17 +44,18 @@
    - ✅ Pass it into both `ProjectManager` and `SettingsProjectManager`.
    - ✅ Ensure tests (`tests/utils/manager_fixture.py`) construct the service as well.
 
-5. **Expose Binding Mutations**
-   - Add backend requests/routes for changing a section’s `CodeFileBinding` (path + access mode).
-   - When processed, run `validate_code_file_bindings`, update the sync registrations, and persist/broadcast.
+5. **Expose Binding Mutations** ✅
+   - ✅ Added `/setCodeFileBinding` under `Route.SET_CODE_FILE_BINDING`, delegating to `BaseProjectManager.set_code_file_binding`.
+   - ✅ Manager method re-validates project state, rebuilds the binding via `BaseCodeSectionImplArgsWithCallable`, and lets `_sync_code_file_bindings_for_project_state` drive the watcher refresh.
 
 6. **Frontend Controls**
    - Surface binding details + editor UI (path picker, access mode toggle).
    - Call the new route, optimistic update state, and show errors if sync rejects the path (nonexistent, permission issues, etc.).
 
-7. **Testing & Docs**
-   - Add tests covering external file edits/deletions and binding updates using the new service.
-   - Update `docs/code-section-file-binding-plan.md` once the core syncing step lands.
+7. **Testing & Docs** ⏳
+   - ✅ Added regression coverage for backend mutation flow (`tests/project_state/test_code_file_binding.py`) and the FastAPI route (`tests/routers/test_set_code_file_binding_route.py`).
+   - ⬜ Add tests covering external file edits/deletions using the live watcher integration.
+   - ✅ Documented the new route details here for future UI integration.
 
 ## Future Work
 - Support read-only viewers for arbitrary text files by registering them with `CodeFileSyncService` and rendering the content in the UI without LSP.

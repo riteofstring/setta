@@ -30,6 +30,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetCodeFileBindingRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -319,6 +320,13 @@ async def route_toggle_minimized(x: ToggleMinimizedRequest, state: AppStateFromR
 @router.post(Route.SET_CODE)
 async def route_set_code(x: SetCodeRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_code(x)
+
+
+@router.post(Route.SET_CODE_FILE_BINDING)
+async def route_set_code_file_binding(
+    x: SetCodeFileBindingRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(x.projectConfigId).set_code_file_binding(x)
 
 
 @router.post(Route.SET_SECTION_PARAM_FILTER)

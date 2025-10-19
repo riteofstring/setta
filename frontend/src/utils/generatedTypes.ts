@@ -469,6 +469,7 @@ export const RouteEnum = {
   TOGGLE_POSITION_LOCK: "/togglePositionLock",
   TOGGLE_MINIMIZED: "/toggleMinimized",
   SET_CODE: "/setCode",
+  SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
@@ -8429,6 +8430,24 @@ export function createSetChartTypeRequest(
   options: Partial<SetChartTypeRequest> = {},
 ): SetChartTypeRequest {
   return SetChartTypeRequestSchema.parse(options);
+}
+
+export const SetCodeFileBindingRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  canonicalPath: z.string(),
+  accessMode: z.enum(CodeFileAccessModeEnum),
+});
+
+export type SetCodeFileBindingRequest = z.infer<
+  typeof SetCodeFileBindingRequestSchema
+>;
+
+export function createSetCodeFileBindingRequest(
+  options: Partial<SetCodeFileBindingRequest> = {},
+): SetCodeFileBindingRequest {
+  return SetCodeFileBindingRequestSchema.parse(options);
 }
 
 export const SetCodeObjNameRequestSchema = z.object({

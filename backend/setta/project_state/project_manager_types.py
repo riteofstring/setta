@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    CodeFileAccessMode,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -212,6 +214,13 @@ class SetCodeRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     sectionId: str
     code: str
+
+
+class SetCodeFileBindingRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+    sectionId: str
+    canonicalPath: Path
+    accessMode: CodeFileAccessMode
 
 
 class SetSectionParamFilterRequest(ProjectManagerRequestWithFrontendOp):

@@ -89,6 +89,7 @@ class Route(str, Enum):
     TOGGLE_POSITION_LOCK = "/togglePositionLock"
     TOGGLE_MINIMIZED = "/toggleMinimized"
     SET_CODE = "/setCode"
+    SET_CODE_FILE_BINDING = "/setCodeFileBinding"
     SET_SECTION_PARAM_FILTER = "/setSectionParamFilter"
     SET_SECTION_VARIANT = "/setSectionVariant"
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"

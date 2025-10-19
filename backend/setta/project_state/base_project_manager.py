@@ -26,14 +26,14 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.lsp.managers import LSPWriters
+from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_file_sync import (
     BindingOwner,
     CodeFileSyncEvent,
     CodeFileSyncEventType,
     CodeFileSyncService,
 )
-from setta.lsp.managers import LSPWriters
-from setta.project_state.artifacts import Artifacts
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -77,6 +77,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetCodeFileBindingRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -113,7 +114,14 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseCodeSectionImplArgsWithCallable,
+)
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
+    set_curr_effective_section_impl_value,
+)
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
@@ -183,6 +191,7 @@ from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -659,6 +668,26 @@ class BaseProjectManager(ABC):
     async def set_code(self, x: SetCodeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_code(project_state, x.sectionId, x.code)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        get_curr_effective_section_impl_with_type_guard(
+            project_state, x.sectionId, CodeSectionImpl
+        )
+        canonical_path = normalize_path(x.canonicalPath)
+        binding = CodeFileBinding(
+            canonical_path=canonical_path,
+            snapshot_dir=normalize_path(canonical_path.parent),
+            access_mode=x.accessMode,
+        )
+        set_curr_effective_section_impl_value(
+            project_state,
+            x.sectionId,
+            BaseCodeSectionImplArgsWithCallable(codeFileBinding=binding),
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1232,7 +1261,10 @@ class BaseProjectManager(ABC):
         new_owner_ids: set[str] = set()
         owners: list[BindingOwner] = []
 
-        for section_id, variant_id in project_state.projectConfig.sectionVariantMap.items():
+        for (
+            section_id,
+            variant_id,
+        ) in project_state.projectConfig.sectionVariantMap.items():
             if variant_id is None:
                 continue
             section_impl = get_curr_effective_section_impl(project_state, section_id)
@@ -1278,9 +1310,7 @@ class BaseProjectManager(ABC):
         variant_id: str,
         binding: CodeFileBinding,
     ) -> BindingOwner:
-        description = (
-            f"{self._code_sync_owner_prefix}:{project_config_id}:{section_id}"
-        )
+        description = f"{self._code_sync_owner_prefix}:{project_config_id}:{section_id}"
 
         async def handle_event(event: CodeFileSyncEvent) -> None:
             await self._handle_code_file_sync_event(
@@ -1325,9 +1355,7 @@ class BaseProjectManager(ABC):
                     project_config_id,
                 )
                 return
-            project_state = convert_backend_to_single_config(
-                backend, project_config_id
-            )
+            project_state = convert_backend_to_single_config(backend, project_config_id)
 
         current_variant_id = project_state.projectConfig.sectionVariantMap.get(
             section_id
@@ -1365,9 +1393,7 @@ class BaseProjectManager(ABC):
             )
         )
 
-    def _make_code_sync_owner_id(
-        self, project_config_id: str, section_id: str
-    ) -> str:
+    def _make_code_sync_owner_id(self, project_config_id: str, section_id: str) -> str:
         return f"{self._code_sync_owner_prefix}:{project_config_id}:{section_id}"
 
     def perform_manual_save(self):
