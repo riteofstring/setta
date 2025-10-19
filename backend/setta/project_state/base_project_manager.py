@@ -236,6 +236,8 @@ class BaseProjectManager(ABC):
         self.text_file_sync = text_file_sync
         self.temp_folder = normalize_path(C.CODE_FOLDER) / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
+        self.code_sections_folder = normalize_path(C.CODE_FOLDER) / "sections"
+        self.code_sections_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
@@ -589,6 +591,17 @@ class BaseProjectManager(ABC):
         project_temp_folder: Path,
         project_config_id: str,
     ) -> list[SectionCodeHelperMetadata]:
+        def default_code_file_path(
+            section_id: str,
+            helper: ProjectPythonCode | ProjectBashCode,
+        ) -> Path:
+            helper_id = helper.get_base_filename()
+            safe_section_id = section_id.replace("-", "_")
+            extension = helper.get_extension()
+            folder = self.code_sections_folder / project_config_id
+            candidate = folder / f"{helper_id}__{safe_section_id}.{extension}"
+            return normalize_path(candidate)
+
         previous_helpers = self.code_dict.get(project_config_id, {})
         for helper in previous_helpers.values():
             if isinstance(helper, ProjectPythonCode):
@@ -610,9 +623,73 @@ class BaseProjectManager(ABC):
 
             await section_code.update_file()
             self.add_to_used_files(section_code)
+
             new_code_dict[section_id] = section_code
 
             variant = get_curr_section_variant(project_state, section_id)
+
+            if isinstance(section_impl, CodeSectionImpl):
+                assigned_default_path = False
+                update_kwargs: dict[str, object] = {}
+                if section_impl.syncMode != CodeSyncMode.twoWay:
+                    update_kwargs["sync_mode"] = CodeSyncMode.twoWay
+                if section_impl.filePath is None:
+                    generated_path = default_code_file_path(section_id, section_code)
+                    update_kwargs["file_path"] = str(generated_path)
+                    update_kwargs["file_missing"] = False
+                    assigned_default_path = True
+
+                if update_kwargs:
+                    set_code(
+                        project_state,
+                        section_id,
+                        section_impl.code,
+                        **update_kwargs,
+                    )
+                    section_impl = cast(
+                        CodeSectionImpl,
+                        get_curr_effective_section_impl(project_state, section_id),
+                    )
+
+                existing_path = (
+                    Path(section_impl.filePath) if section_impl.filePath else None
+                )
+                section_code.file_path = existing_path
+                section_code.sync_mode = section_impl.syncMode
+                section_code.file_missing = section_impl.fileMissing
+
+                if existing_path is not None and assigned_default_path:
+                    binding = TextFileBinding(
+                        project_config_id=project_config_id,
+                        section_id=section_id,
+                        variant_id=variant.id,
+                    )
+                    try:
+                        self.text_file_sync.write_section_code(
+                            binding,
+                            existing_path,
+                            section_code.code,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to bootstrap code file for %s at %s",
+                            binding,
+                            existing_path,
+                        )
+                        set_code(
+                            project_state,
+                            section_id,
+                            section_impl.code,
+                            file_missing=True,
+                        )
+                        section_impl = cast(
+                            CodeSectionImpl,
+                            get_curr_effective_section_impl(project_state, section_id),
+                        )
+                        section_code.file_missing = section_impl.fileMissing
+                    else:
+                        section_code.file_missing = False
+
             helper_metadata.append(
                 SectionCodeHelperMetadata(
                     project_config_id=project_config_id,
@@ -741,7 +818,7 @@ class BaseProjectManager(ABC):
             current_path = section_impl.filePath
             previous_code = section_impl.code
 
-        target_sync_mode = x.syncMode or current_sync_mode or CodeSyncMode.project
+        target_sync_mode = x.syncMode or current_sync_mode or CodeSyncMode.twoWay
         target_path = x.filePath if x.filePath is not None else current_path
         file_missing = x.fileMissing
         code_to_set = x.code
@@ -802,12 +879,18 @@ class BaseProjectManager(ABC):
         elif file_missing is None and target_path is not None:
             file_missing = False
 
+        normalized_final_path = (
+            str(normalized_target_path or normalize_path(target_path))
+            if target_path
+            else None
+        )
+
         set_code(
             project_state,
             x.sectionId,
             code_to_set,
-            file_path=x.filePath,
-            sync_mode=x.syncMode,
+            file_path=normalized_final_path,
+            sync_mode=target_sync_mode,
             file_missing=file_missing,
         )
         await self.update_and_broadcast_project_state(project_state)

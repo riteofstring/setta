@@ -19,7 +19,9 @@ from tests.utils.manager_fixture import real_settings_manager
 class TextFileSyncIntegrationTests(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.exit_stack = AsyncExitStack()
-        self.fixture = await self.exit_stack.enter_async_context(real_settings_manager())
+        self.fixture = await self.exit_stack.enter_async_context(
+            real_settings_manager()
+        )
         self.manager = self.fixture.manager
         self.project_config_id = (
             self.manager.project_state_backend.defaultProjectConfigId
@@ -59,6 +61,26 @@ class TextFileSyncIntegrationTests(IsolatedAsyncioTestCase):
         normalized = normalize_path(path)
         callbacks = self.manager.specific_file_watcher.callbacks[callback_category]
         return callbacks[normalized], normalized
+
+    async def test_default_code_section_bootstraps_file(self):
+        request = CreateTopLevelSectionRequest(
+            projectConfigId=self.project_config_id,
+            implType=SectionType.Code,
+            implOverrides={"type": SectionType.Code},
+            position=Position(),
+        )
+        section_id = await self.manager.create_top_level_section(request)
+
+        project_state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl(project_state, section_id)
+        self.assertIsNotNone(impl.filePath)
+        self.assertFalse(impl.fileMissing)
+        self.assertEqual(impl.syncMode, CodeSyncMode.twoWay)
+
+        normalized_path = normalize_path(impl.filePath)
+        self.assertTrue(normalized_path.exists())
+        disk_content = self.fixture.dbe.read(normalized_path)
+        self.assertEqual(disk_content, impl.code)
 
     async def test_initial_two_way_binding_loads_existing_file(self):
         target_path = self.fixture.code_folder / "existing.py"

@@ -133,6 +133,7 @@ class UserDefaultGlobalVariablesSectionImpl(
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
     codeLanguage: CodeLanguage = CodeLanguage.python
+    syncMode: CodeSyncMode = CodeSyncMode.twoWay
 
 
 class UserDefaultGenPythonCodeSectionImpl(

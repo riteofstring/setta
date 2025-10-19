@@ -144,9 +144,7 @@ class TextFileSync:
 
         callbacks: dict[Path, _TextFileWatcherCallback] = {}
         for path, binding in relevant_bindings.items():
-            callbacks[path] = self._create_watcher_callback(
-                binding, on_external_change
-            )
+            callbacks[path] = self._create_watcher_callback(binding, on_external_change)
 
         previous_paths = self._category_tracked_paths.get(callback_category, set())
         fire_immediately = {

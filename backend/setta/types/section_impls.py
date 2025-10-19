@@ -231,6 +231,7 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
+    syncMode: CodeSyncMode = CodeSyncMode.twoWay
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):

@@ -143,25 +143,16 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   }, [filePath]);
 
   const safeFileMissing = fileMissing ?? false;
+  const pathInputId = `${sectionId}-code-file-path`;
 
   const commitMetadata = useCallback(
-    (partial: {
-      filePath?: string | null;
-      syncMode?: CodeSyncMode;
-      fileMissing?: boolean;
-    }) => {
+    (partial: { filePath?: string | null; fileMissing?: boolean }) => {
       const existingFilePath = filePath ?? null;
       let nextFilePath =
         partial.filePath !== undefined ? partial.filePath : existingFilePath;
       if (typeof nextFilePath === "string") {
         nextFilePath =
           nextFilePath.trim().length === 0 ? null : nextFilePath.trim();
-      }
-
-      let nextSyncMode =
-        partial.syncMode !== undefined ? partial.syncMode : syncMode;
-      if (nextFilePath === null && nextSyncMode === CodeSyncModeEnum.twoWay) {
-        nextSyncMode = CodeSyncModeEnum.project;
       }
 
       const existingFileMissing = safeFileMissing;
@@ -174,7 +165,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
       if (
         nextFilePath === existingFilePath &&
-        nextSyncMode === syncMode &&
         nextFileMissing === existingFileMissing
       ) {
         return;
@@ -183,7 +173,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       sendCodeUpdate(sectionId, {
         code: value,
         filePath: nextFilePath,
-        syncMode: nextSyncMode,
+        syncMode: syncMode ?? CodeSyncModeEnum.twoWay,
         fileMissing: nextFileMissing,
       });
     },
@@ -192,13 +182,17 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
   const handlePathCommit = useCallback(() => {
     const trimmed = pathDraft.trim();
-    const normalized = trimmed.length === 0 ? null : trimmed;
+    if (trimmed.length === 0) {
+      setPathDraft(filePath ?? "");
+      return;
+    }
+    const normalized = trimmed;
     if ((filePath ?? null) === normalized) {
-      setPathDraft(normalized ?? "");
+      setPathDraft(normalized);
       return;
     }
     commitMetadata({ filePath: normalized });
-    setPathDraft(normalized ?? "");
+    setPathDraft(normalized);
   }, [commitMetadata, filePath, pathDraft]);
 
   const handlePathChange = useCallback(
@@ -218,14 +212,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     [handlePathCommit],
   );
 
-  const handleSyncModeChange = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => {
-      handlePathCommit();
-      commitMetadata({ syncMode: event.target.value as CodeSyncMode });
-    },
-    [commitMetadata, handlePathCommit],
-  );
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -235,7 +221,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     debouncedSetCode(sectionId, {
       code: v,
       filePath: filePath ?? null,
-      syncMode,
+      syncMode: syncMode ?? CodeSyncModeEnum.twoWay,
       fileMissing: safeFileMissing,
     });
   }
@@ -253,8 +239,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     isDisabled: variantIsFrozen,
   });
 
-  const canEnableTwoWay = Boolean(pathDraft.trim() || filePath);
-
   return (
     <article
       ref={wrapperRef}
@@ -263,24 +247,14 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-xs">
-        <label className="flex items-center gap-2 font-medium text-slate-600 dark:text-slate-300">
-          <span>Sync</span>
-          <select
-            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-300 dark:focus:ring-blue-300"
-            value={syncMode}
-            onChange={handleSyncModeChange}
-            disabled={variantIsFrozen}
-          >
-            <option value={CodeSyncModeEnum.project}>Project state only</option>
-            <option
-              value={CodeSyncModeEnum.twoWay}
-              disabled={!canEnableTwoWay}
-            >
-              Two-way file sync
-            </option>
-          </select>
+        <label
+          className="font-medium text-slate-600 dark:text-slate-300"
+          htmlFor={pathInputId}
+        >
+          File
         </label>
         <input
+          id={pathInputId}
           className="min-w-[12rem] flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-300 dark:focus:ring-blue-300"
           placeholder="Link to an existing file"
           value={pathDraft}
