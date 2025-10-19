@@ -12,13 +12,6 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import ImplClassInfoForGeneration, get_impl_classes, python_type_to_str
 
-DEFAULT_UNSHARED_KEYS = {
-    "callable",
-    "codeObjVariantMap",
-    "layers",
-    "topLevelParamId",
-    "value",
-}
 EXCLUDED_FIELDS = {"type"}
 UNION_TYPES: tuple[Any, ...] = tuple(
     t for t in (Union, getattr(types, "UnionType", None)) if t is not None
@@ -118,7 +111,7 @@ def gather_field_definitions(
 
     for class_info in classes.values():
         for name, model_field in class_info.class_obj.model_fields.items():
-            if name in DEFAULT_UNSHARED_KEYS or name in EXCLUDED_FIELDS:
+            if name in EXCLUDED_FIELDS:
                 continue
             annotation = model_field.annotation
             if annotation is None:
@@ -138,7 +131,8 @@ def gather_field_definitions(
 def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
     """Render SharedModifier source code based on collected field annotations."""
     imports: dict[str, set[str]] = defaultdict(set)
-    imports["pydantic"].add("BaseModel")
+    _add_typing_import(imports, "TypedDict")
+    _add_typing_import(imports, "NotRequired")
 
     lines = []
     multi_type_fields: list[tuple[str, list[str]]] = []
@@ -158,7 +152,8 @@ def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
                 )
         else:
             annotation_str = f"{annotation_str} | None"
-        lines.append(f"    {field_name}: {annotation_str} = None")
+        annotation_str = f"NotRequired[{annotation_str}]"
+        lines.append(f"    {field_name}: {annotation_str}")
 
     imports_lines: list[str] = []
     for module in sorted(imports):
@@ -166,34 +161,7 @@ def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
         imports_lines.append(f"from {module} import {names}")
 
     if lines:
-        class_body = "\n".join(lines)
-        helper_methods = """
-
-    def as_dict(self) -> dict[str, Any]:
-        \"\"\"Return a dict view excluding unset values.\"\"\"
-        return self.model_dump(exclude_none=True)
-
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        setattr(self, key, value)
-
-    def __contains__(self, key: object) -> bool:
-        return isinstance(key, str) and getattr(self, key, None) is not None
-
-    def get(self, key: str, default: Any = None) -> Any:
-        if key not in self:
-            return default
-        return getattr(self, key)
-
-    def items(self):
-        return self.as_dict().items()
-
-    def __iter__(self):
-        return iter(self.as_dict())
-"""
-        body = f"{class_body}{helper_methods}"
+        body = "\n".join(lines)
     else:
         body = "    pass"
 
@@ -211,7 +179,7 @@ def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
 {chr(10).join(imports_lines)}
 
 
-class SharedModifier(BaseModel, extra="forbid"):
+class SharedModifier(TypedDict):
 {body}
 """
     return ruff_format(code)

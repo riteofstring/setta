@@ -1681,6 +1681,37 @@ export function createCodeFileBinding(
   return CodeFileBindingSchema.parse(options);
 }
 
+export const DrawAreaLayerItemSchema = z.object({
+  type: z
+    .literal(["Image", "BrushStroke"])
+    .default(ArtifactTypeEnum.BrushStroke),
+  dataPath: z.string(),
+  transformId: z.string(),
+});
+
+export type DrawAreaLayerItem = z.infer<typeof DrawAreaLayerItemSchema>;
+
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
+  return DrawAreaLayerItemSchema.parse(options);
+}
+
+export const DrawAreaLayerSchema = z.object({
+  name: z.string().default(generate_memorable_string),
+  elements: z.array(DrawAreaLayerItemSchema).default([]),
+  visible: z.boolean().default(true),
+  layerOpacity: z.number().default(1),
+});
+
+export type DrawAreaLayer = z.infer<typeof DrawAreaLayerSchema>;
+
+export function createDrawAreaLayer(
+  options: Partial<DrawAreaLayer> = {},
+): DrawAreaLayer {
+  return DrawAreaLayerSchema.parse(options);
+}
+
 export const SectionSizeSchema = z.object({
   width: z
     .union([z.number(), z.literal("auto")])
@@ -1712,83 +1743,90 @@ export function createVisibility(
 }
 
 export const SharedModifierSchema = z.object({
-  activeLayerIdx: z.union([z.int(), z.null()]).default(null),
-  aspectRatio: z.union([z.boolean(), z.number(), z.null()]).default(null),
-  aspectRatioExtraHeight: z.union([z.int(), z.null()]).default(null),
-  aspectRatioExtraWidth: z.union([z.int(), z.null()]).default(null),
-  brushColor: z.union([z.string(), z.null()]).default(null),
-  brushOpacity: z.union([z.number(), z.null()]).default(null),
-  brushShape: z.union([z.enum(DrawAreaBrushShapeEnum), z.null()]).default(null),
-  brushSize: z.union([z.int(), z.null()]).default(null),
-  canvasMode: z.union([z.enum(DrawAreaModeEnum), z.null()]).default(null),
+  activeLayerIdx: z.union([z.int(), z.null()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.null()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.null()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.null()]).optional(),
+  brushColor: z.union([z.string(), z.null()]).optional(),
+  brushOpacity: z.union([z.number(), z.null()]).optional(),
+  brushShape: z.union([z.enum(DrawAreaBrushShapeEnum), z.null()]).optional(),
+  brushSize: z.union([z.int(), z.null()]).optional(),
+  callable: z.union([z.string(), z.null()]).optional(),
+  canvasMode: z.union([z.enum(DrawAreaModeEnum), z.null()]).optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema, z.null()])
-    .default(null),
-  children: z.union([z.array(z.string()), z.null()]).default(null),
+    .optional(),
+  children: z.union([z.array(z.string()), z.null()]).optional(),
   choices: z
     .union([z.array(ColorPickerChoiceSchema), z.array(z.string()), z.null()])
-    .default(null),
-  code: z.union([z.string(), z.null()]).default(null),
-  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
-  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.null()]).default(null),
+    .optional(),
+  code: z.union([z.string(), z.null()]).optional(),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
+  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.null()]).optional(),
+  codeObjVariantMap: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .optional(),
   colorChoices: z
     .union([z.array(ColorPickerChoiceSchema), z.null()])
-    .default(null),
-  columnWidth: z.union([z.number(), z.null()]).default(null),
-  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.null()]).default(null),
-  coreNameEditable: z.union([z.boolean(), z.null()]).default(null),
-  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.null()]).default(null),
-  dataPath: z.union([z.string(), z.null()]).default(null),
-  defaultVal: z.union([z.string(), z.null()]).default(null),
-  description: z.union([z.string(), z.null()]).default(null),
+    .optional(),
+  columnWidth: z.union([z.number(), z.null()]).optional(),
+  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.null()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.null()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.null()]).optional(),
+  dataPath: z.union([z.string(), z.null()]).optional(),
+  defaultVal: z.union([z.string(), z.null()]).optional(),
+  description: z.union([z.string(), z.null()]).optional(),
   displayMode: z
     .union([
       z.enum(SectionWithParamsDisplayModeEnum),
       z.enum(TextBlockDisplayModeEnum),
       z.null(),
     ])
-    .default(null),
-  drawThrottleDelay: z.union([z.int(), z.null()]).default(null),
-  eraserBrushSize: z.union([z.int(), z.null()]).default(null),
-  folder: z.union([z.string(), z.null()]).default(null),
-  format: z.union([z.enum(TextBlockFormatEnum), z.null()]).default(null),
-  headingAsSectionName: z.union([z.boolean(), z.null()]).default(null),
-  hideColumn: z.union([z.boolean(), z.null()]).default(null),
-  hideParams: z.union([z.boolean(), z.null()]).default(null),
-  hideUnpinnedParams: z.union([z.boolean(), z.null()]).default(null),
-  id: z.union([z.string(), z.null()]).default(null),
+    .optional(),
+  drawThrottleDelay: z.union([z.int(), z.null()]).optional(),
+  eraserBrushSize: z.union([z.int(), z.null()]).optional(),
+  folder: z.union([z.string(), z.null()]).optional(),
+  format: z.union([z.enum(TextBlockFormatEnum), z.null()]).optional(),
+  headingAsSectionName: z.union([z.boolean(), z.null()]).optional(),
+  hideColumn: z.union([z.boolean(), z.null()]).optional(),
+  hideParams: z.union([z.boolean(), z.null()]).optional(),
+  hideUnpinnedParams: z.union([z.boolean(), z.null()]).optional(),
+  id: z.union([z.string(), z.null()]).optional(),
   ignoreTypeErrors: z
     .union([z.record(z.string(), z.boolean()), z.null()])
-    .default(null),
-  imagePath: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.union([z.boolean(), z.null()]).default(null),
-  isHorizontalOrientation: z.union([z.boolean(), z.null()]).default(null),
-  isInOtherProjectConfigs: z.union([z.boolean(), z.null()]).default(null),
-  isJsonSource: z.union([z.boolean(), z.null()]).default(null),
-  isMinimized: z.union([z.boolean(), z.null()]).default(null),
-  isPreset: z.union([z.boolean(), z.null()]).default(null),
-  jsonSourceKeys: z.union([z.array(z.string()), z.null()]).default(null),
-  jsonSourceMissing: z.union([z.boolean(), z.null()]).default(null),
-  max: z.union([z.int(), z.null()]).default(null),
-  min: z.union([z.int(), z.null()]).default(null),
-  name: z.union([z.string(), z.null()]).default(null),
-  paramFilter: z.union([z.string(), z.null()]).default(null),
+    .optional(),
+  imagePath: z.union([z.string(), z.null()]).optional(),
+  isFrozen: z.union([z.boolean(), z.null()]).optional(),
+  isHorizontalOrientation: z.union([z.boolean(), z.null()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.null()]).optional(),
+  isJsonSource: z.union([z.boolean(), z.null()]).optional(),
+  isMinimized: z.union([z.boolean(), z.null()]).optional(),
+  isPreset: z.union([z.boolean(), z.null()]).optional(),
+  jsonSourceKeys: z.union([z.array(z.string()), z.null()]).optional(),
+  jsonSourceMissing: z.union([z.boolean(), z.null()]).optional(),
+  layers: z.union([z.array(DrawAreaLayerSchema), z.null()]).optional(),
+  max: z.union([z.int(), z.null()]).optional(),
+  min: z.union([z.int(), z.null()]).optional(),
+  name: z.union([z.string(), z.null()]).optional(),
+  paramFilter: z.union([z.string(), z.null()]).optional(),
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.null()])
-    .default(null),
+    .optional(),
   pinnedAreaHeight: z
     .union([z.literal("auto"), z.number(), z.null()])
-    .default(null),
-  pinnedParams: z.union([z.array(z.string()), z.null()]).default(null),
-  positionAndSizeLocked: z.union([z.boolean(), z.null()]).default(null),
-  renderedValue: z.union([z.any(), z.null()]).default(null),
-  selectedParams: z.union([z.array(z.string()), z.null()]).default(null),
-  size: z.union([SectionSizeSchema, z.null()]).default(null),
-  step: z.union([z.int(), z.null()]).default(null),
-  text: z.union([z.string(), z.null()]).default(null),
-  url: z.union([z.string(), z.null()]).default(null),
-  viewMode: z.union([z.enum(BrowserAreaViewModeEnum), z.null()]).default(null),
-  visibility: z.union([VisibilitySchema, z.null()]).default(null),
+    .optional(),
+  pinnedParams: z.union([z.array(z.string()), z.null()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.null()]).optional(),
+  renderedValue: z.union([z.any(), z.null()]).optional(),
+  selectedParams: z.union([z.array(z.string()), z.null()]).optional(),
+  size: z.union([SectionSizeSchema, z.null()]).optional(),
+  step: z.union([z.int(), z.null()]).optional(),
+  text: z.union([z.string(), z.null()]).optional(),
+  topLevelParamId: z.union([z.string(), z.null()]).optional(),
+  url: z.union([z.string(), z.null()]).optional(),
+  value: z.union([z.string(), z.null()]).optional(),
+  viewMode: z.union([z.enum(BrowserAreaViewModeEnum), z.null()]).optional(),
+  visibility: z.union([VisibilitySchema, z.null()]).optional(),
 });
 
 export type SharedModifier = z.infer<typeof SharedModifierSchema>;
@@ -2109,37 +2147,6 @@ export function createChartSectionImpl(
   overrides: Partial<ChartSectionImpl> = {},
 ): ChartSectionImpl {
   return ChartSectionImplSchema.parse({ ...defaults, ...overrides });
-}
-
-export const DrawAreaLayerItemSchema = z.object({
-  type: z
-    .literal(["Image", "BrushStroke"])
-    .default(ArtifactTypeEnum.BrushStroke),
-  dataPath: z.string(),
-  transformId: z.string(),
-});
-
-export type DrawAreaLayerItem = z.infer<typeof DrawAreaLayerItemSchema>;
-
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
-  return DrawAreaLayerItemSchema.parse(options);
-}
-
-export const DrawAreaLayerSchema = z.object({
-  name: z.string().default(generate_memorable_string),
-  elements: z.array(DrawAreaLayerItemSchema).default([]),
-  visible: z.boolean().default(true),
-  layerOpacity: z.number().default(1),
-});
-
-export type DrawAreaLayer = z.infer<typeof DrawAreaLayerSchema>;
-
-export function createDrawAreaLayer(
-  options: Partial<DrawAreaLayer> = {},
-): DrawAreaLayer {
-  return DrawAreaLayerSchema.parse(options);
 }
 
 export const DrawSectionImplSchema = z.object({

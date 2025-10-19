@@ -13,10 +13,9 @@ Turn `Core.sharedModifier` into a typed Pydantic model so shared fields (e.g., `
 - Simply moving `codeFileBinding` into the base impl would desynchronize variants by default, which we want to avoid.
 
 ## Refactor Steps
-1. **Model Definition via Generators**
-   - Add a dedicated generator script (e.g., `frontend/generation/generate_shared_modifier.py`) that inspects every section and code-obj impl via `get_impl_classes()` to gather their modifier-capable fields.
-   - Build a union of those keys with their Python annotations (including entries currently listed in `DEFAULT_UNSHARED_KEYS`), fail fast if two impls introduce the same key with incompatible types, and emit a generated module `backend/setta/types/generated/shared_modifier.py` defining a `TypedDict` `SharedModifier` (likely `total=False`) so unset values remain absent.
-   - Update `backend/setta/types/core.py` and `Variant` to import the generated mapping so `sharedModifier`/`modifier` rely on the partial typed dict while Core/Variant continue to handle type coercion.
+1. **Model Definition via Generators** ✅ (done)
+   - The generator now inspects all implementations, unions shared fields (including ones that were previously in `DEFAULT_UNSHARED_KEYS`), and emits `SharedModifier` as a `TypedDict` with per-field `NotRequired[...]` annotations so every key remains optional.
+   - Generated artifacts (`backend/setta/types/generated/shared_modifier.py`) and Zod schemas in `frontend/src/utils/generatedTypes.ts` originate from the updated generator. Core/Variant usage stays aligned through the generator output.
 
 2. **Backend Adjustments via Generators**
    - Update `frontend/generation/generate_effective_impls.py` so the generated `set_effective_impl_value` functions interact with the `SharedModifier` model rather than raw dicts.
