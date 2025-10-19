@@ -31,7 +31,6 @@ Turn `Core.sharedModifier` into a typed Pydantic model so shared fields (e.g., `
    - Smoke test a project with multiple code section variants to ensure bindings stay aligned.
 
 ## Open Questions
-- Are the helper methods we added to `SharedModifier` (e.g., `as_dict`, `items`, `__iter__`) actually necessary, or can we lean on Pydantic’s `model_dump`/`model_dump_json` in consumers instead?
 - How should we eliminate the fields that currently require multiple type annotations (e.g., `displayMode`, `choices`)? Audit the contributing impl classes and either align them on a shared type or rename the conflicting attributes so the generator can emit a single annotation.
 - Full list of fields that must live on `SharedModifier`—confirm via generator inputs or templates.
 - Whether any existing serialized project state needs migration once the model is enforced.
