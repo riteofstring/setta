@@ -69,7 +69,9 @@ class DBE:
         def default(obj: Any):
             if isinstance(obj, Path):
                 return str(obj)
-            raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+            raise TypeError(
+                f"Object of type {obj.__class__.__name__} is not JSON serializable"
+            )
 
         self.write(path, json.dumps(data, indent=2, sort_keys=True, default=default))
 

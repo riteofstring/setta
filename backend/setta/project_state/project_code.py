@@ -339,9 +339,7 @@ class ProjectPythonCode(PythonCode):
 
 
 class ProjectBashCode(BashCode):
-    def __init__(
-        self, dbe, project_state: ProjectStateSingleConfig, sectionId
-    ):
+    def __init__(self, dbe, project_state: ProjectStateSingleConfig, sectionId):
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError

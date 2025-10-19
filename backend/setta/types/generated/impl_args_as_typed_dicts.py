@@ -13,6 +13,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewingEditingMode,
@@ -38,7 +39,7 @@ class CoreArgs(TypedDict):
     name: NotRequired[str]
     variants: NotRequired[list[str]]
     defaultVariant: NotRequired[str | None]
-    sharedModifier: NotRequired[dict[str, Any]]
+    sharedModifier: NotRequired[SharedModifier]
     unsharedKeys: NotRequired[
         list[
             Literal[
