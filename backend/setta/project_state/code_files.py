@@ -56,8 +56,10 @@ class CodeFiles:
         self._metadata: dict[Path, CodeFileMetadata] = {}
         self._bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
 
-        # Tracks callback categories the manager has registered with SpecificFileWatcher.
-        self._category_to_paths: dict[str, set[Path]] = {}
+        # Tracks callback categories -> path -> bindings registered with the watcher.
+        self._category_to_bindings: dict[
+            str, dict[Path, set[RegisteredCodeFileBinding]]
+        ] = {}
 
     def register_binding(
         self,
@@ -103,13 +105,18 @@ class CodeFiles:
         TODO: once reload_code_sections exists, pull the registered bindings and trigger
         section reloads in response to filesystem events.
         """
-        previous_paths = self._category_to_paths.get(callback_category, set())
+        previous_paths = set(self._get_category_bindings(callback_category))
         category_bindings = self._collect_bindings_for_backend(
             project_state_backend_getter_fn()
         )
 
         current_paths = set(category_bindings)
-        self._category_to_paths[callback_category] = current_paths
+        if current_paths:
+            self._category_to_bindings[callback_category] = {
+                path: set(bindings) for path, bindings in category_bindings.items()
+            }
+        elif callback_category in self._category_to_bindings:
+            del self._category_to_bindings[callback_category]
 
         callback = self._build_file_watcher_callback(
             callback_category, project_state_backend_getter_fn
@@ -233,6 +240,11 @@ class CodeFiles:
                 category_bindings[path] = relevant
 
         return category_bindings
+
+    def _get_category_bindings(
+        self, callback_category: str
+    ) -> dict[Path, set[RegisteredCodeFileBinding]]:
+        return self._category_to_bindings.get(callback_category, {})
 
     def _build_file_watcher_callback(
         self,

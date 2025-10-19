@@ -11,6 +11,7 @@
 - Implemented real metadata tracking, access-mode enforcement, and helper APIs in `CodeFiles`; added backend tests for hash bookkeeping and conflict handling.
 - Populated `CodeFiles` during project updates so existing bindings stay registered before watcher work lands.
 - Wired `watch_code_files()` through `SpecificFileWatcher` using the live `project_state_backend_getter_fn`, filtering callbacks by active project configs and covering the registration path with tests.
+- Cached per-category binding mappings within `CodeFiles.watch_code_files()` so watcher callbacks can resolve section ownership, and ensured initial callbacks fire for newly tracked paths.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
