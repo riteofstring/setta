@@ -5,6 +5,7 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from typing import (
@@ -105,7 +106,11 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.project_state.text_file_sync import SyncMode, TextFileSync
+from setta.project_state.text_file_sync import (
+    SyncMode,
+    TextFileSync,
+    TextSectionBinding,
+)
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -189,6 +194,17 @@ _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
 
 
+@dataclass(frozen=True)
+class SectionCodeHelperMetadata:
+    project_config_id: str
+    section_id: str
+    variant_id: str
+    helper_id: str
+    helper: ProjectPythonCode | ProjectBashCode
+    temp_path: Path | None
+    sync_mode: SyncMode
+
+
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -214,6 +230,7 @@ class BaseProjectManager(ABC):
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
+        self.code_helper_metadata: dict[str, list[SectionCodeHelperMetadata]] = {}
         self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
@@ -528,39 +545,22 @@ class BaseProjectManager(ABC):
             self.add_to_used_files(new_gen_code)
             self.gen_code[projectConfigId] = new_gen_code
 
-            if self.code_dict.get(projectConfigId):
-                for c in self.code_dict[projectConfigId].values():
-                    if isinstance(c, ProjectPythonCode):
-                        c.callback_cleanup()
-            self.code_dict[projectConfigId] = {}
-            text_sync_bindings: list[
-                tuple[str, str, str, Path | None, SyncMode]
-            ] = []
-
-            for sectionId in projectState.sections.keys():
-                section_impl = get_curr_effective_section_impl(projectState, sectionId)
-                if isinstance(section_impl, CodeSectionImpl):
-                    section_code = self.create_project_code(
-                        project_temp_folder, projectState, sectionId, section_impl
-                    )
-
-                    if not section_code:
-                        continue
-
-                    await section_code.update_file()
-                    self.add_to_used_files(section_code)
-                    self.code_dict[projectConfigId][sectionId] = section_code
-                    variant = get_curr_section_variant(projectState, sectionId)
-                    helper_id = section_code.get_base_filename()
-                    text_sync_bindings.append(
-                        (
-                            sectionId,
-                            variant.id,
-                            helper_id,
-                            section_code.temp_file,
-                            "twoWay",
-                        )
-                    )
+            helper_metadata = await self._build_section_code_helpers(
+                projectState,
+                project_temp_folder,
+                projectConfigId,
+            )
+            text_sync_bindings = [
+                TextSectionBinding(
+                    project_config_id=metadata.project_config_id,
+                    section_id=metadata.section_id,
+                    variant_id=metadata.variant_id,
+                    helper_id=metadata.helper_id,
+                    path=metadata.temp_path,
+                    sync_mode=metadata.sync_mode,
+                )
+                for metadata in helper_metadata
+            ]
 
             self.delete_unused_files(project_temp_folder)
             self.project_state_backend = self.get_new_project_state_backend(
@@ -568,13 +568,57 @@ class BaseProjectManager(ABC):
             )
             self.text_file_sync.unregister_project_config(projectConfigId)
             if text_sync_bindings:
-                self.text_file_sync.register_sections(
-                    projectConfigId, text_sync_bindings
-                )
+                self.text_file_sync.register_sections(text_sync_bindings)
             if updateFileWatcher:
                 self.watch_json_source_files()
                 self.watch_artifact_files()
                 self.watch_text_files()
+
+    async def _build_section_code_helpers(
+        self,
+        project_state: ProjectStateSingleConfig,
+        project_temp_folder: Path,
+        project_config_id: str,
+    ) -> list[SectionCodeHelperMetadata]:
+        previous_helpers = self.code_dict.get(project_config_id, {})
+        for helper in previous_helpers.values():
+            if isinstance(helper, ProjectPythonCode):
+                helper.callback_cleanup()
+
+        new_code_dict: dict[str, ProjectPythonCode | ProjectBashCode] = {}
+        helper_metadata: list[SectionCodeHelperMetadata] = []
+
+        for section_id in project_state.sections.keys():
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CodeSectionImpl):
+                continue
+
+            section_code = self.create_project_code(
+                project_temp_folder, project_state, section_id, section_impl
+            )
+            if section_code is None:
+                continue
+
+            await section_code.update_file()
+            self.add_to_used_files(section_code)
+            new_code_dict[section_id] = section_code
+
+            variant = get_curr_section_variant(project_state, section_id)
+            helper_metadata.append(
+                SectionCodeHelperMetadata(
+                    project_config_id=project_config_id,
+                    section_id=section_id,
+                    variant_id=variant.id,
+                    helper_id=section_code.get_base_filename(),
+                    helper=section_code,
+                    temp_path=section_code.temp_file,
+                    sync_mode="twoWay",
+                )
+            )
+
+        self.code_dict[project_config_id] = new_code_dict
+        self.code_helper_metadata[project_config_id] = helper_metadata
+        return helper_metadata
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):

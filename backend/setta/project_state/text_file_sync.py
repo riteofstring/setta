@@ -20,6 +20,16 @@ class TextFileBinding:
     variant_id: str
 
 
+@dataclass(frozen=True)
+class TextSectionBinding:
+    project_config_id: str
+    section_id: str
+    variant_id: str
+    helper_id: str
+    path: Path | None
+    sync_mode: SyncMode
+
+
 class TextFileSync:
     """Prototype manager that logs section-to-file mappings."""
 
@@ -35,15 +45,17 @@ class TextFileSync:
 
     def register_sections(
         self,
-        project_config_id: str,
-        bindings: Iterable[tuple[str, str, str, Path | None, SyncMode]],
+        bindings: Iterable[TextSectionBinding],
     ) -> None:
-        for section_id, variant_id, helper_id, file_path, sync_mode in bindings:
+        for binding in bindings:
             binding_key = TextFileBinding(
-                project_config_id=project_config_id,
-                section_id=section_id,
-                variant_id=variant_id,
+                project_config_id=binding.project_config_id,
+                section_id=binding.section_id,
+                variant_id=binding.variant_id,
             )
+            helper_id = binding.helper_id
+            file_path = binding.path
+            sync_mode = binding.sync_mode
             if file_path is None or sync_mode != "twoWay":
                 self._discard_binding(binding_key)
                 logger.debug(

@@ -16,7 +16,8 @@
 
 ## Progress
 - Added a logging-only `TextFileSync` prototype with explicit `register_sections`/`watch_text_files` hooks and shared it across all `BaseProjectManager` instances via `server_state`.
-- Hooked `BaseProjectManager.update` to collect helper metadata and register sections, establishing the plumbing for real file-path tracking.
+- Refactored `BaseProjectManager.update` to emit `SectionCodeHelperMetadata`, cache helper instances per project config, and centralize registration of text sections.
+- Replaced the loose tuple wiring with a shared `TextSectionBinding` dataclass consumed by `TextFileSync.register_sections`, tightening the interface ahead of two-way sync logic.
 
 ## Open Questions
 - How should paths be entered—absolute, relative to the project root, or constrained to a workspace whitelist—and do we need templating per project config?
@@ -24,7 +25,5 @@
 - Can the LSP operate on the true file path for better tooling, or do we keep temp files to avoid breaking rename refactors?
 
 ## Next Steps
-1. Refactor the code-helper rebuild flow (`BaseProjectManager.update`) to return helper objects + metadata via a dedicated dataclass, making `code_dict` optional and simplifying text-file registration.
-2. Replace the loose `tuple[str, str, str, Path | None, SyncMode]` signature with a named dataclass (e.g., `TextSectionBinding`) shared between the rebuild logic and `TextFileSync.register_sections` for readability.
-3. Extend `CodeSectionImpl`/generated schemas with `filePath`, `syncMode`, and `fileMissing`, add the corresponding backend endpoint, and expose a temporary UI control to capture/validate file paths.
-4. Harden frontend UX (status badges, conflict toasts, manual resync) and add regression coverage—unit tests for sync metadata and an integration test proving external edits flow through `update_and_broadcast_project_state`.
+1. Extend `CodeSectionImpl`/generated schemas with `filePath`, `syncMode`, and `fileMissing`, add the corresponding backend endpoint, and expose a temporary UI control to capture/validate file paths.
+2. Harden frontend UX (status badges, conflict toasts, manual resync) and add regression coverage—unit tests for sync metadata and an integration test proving external edits flow through `update_and_broadcast_project_state`.
