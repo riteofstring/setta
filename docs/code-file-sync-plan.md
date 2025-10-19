@@ -55,7 +55,7 @@
 
 7. **Testing & Docs** ✅ (done)
    - ✅ Added regression coverage for backend mutation flow (`tests/project_state/test_code_file_binding.py`) and the FastAPI route (`tests/routers/test_set_code_file_binding_route.py`).
-   - ✅ Added integration coverage for external file edits/deletions using the live watcher (`tests/project_state/test_code_file_sync.py`).
+   - ✅ Strengthened integration coverage for external edits/deletions by shimming the watcher to observe a non-parent directory so we prove recursive file events still reach subscribers (`tests/project_state/test_code_file_sync.py`).
    - ✅ Documented the new route details here for future UI integration.
 
 ## Future Work

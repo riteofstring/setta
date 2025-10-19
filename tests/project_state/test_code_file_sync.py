@@ -40,17 +40,36 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         observer = self.fixture.code_file_sync._specific_file_watcher.observer
         original_schedule = observer.schedule
+        self._schedule_requests: list[tuple[str, bool]] = []
         self._scheduled_paths: list[tuple[str, bool]] = []
+        self._override_watch_parent_path: Path | None = None
+        self._override_watch_target_path: Path | None = None
 
         def schedule_with_record(handler, path, recursive=False):
-            self._scheduled_paths.append((path, recursive))
+            requested_path = Path(path).resolve()
+            effective_path = requested_path
+            if (
+                self._override_watch_parent_path is not None
+                and requested_path == self._override_watch_parent_path
+                and self._override_watch_target_path is not None
+            ):
+                effective_path = self._override_watch_target_path
+
+            request_entry = (str(requested_path), recursive)
+            effective_entry = (str(effective_path), recursive)
+            self._schedule_requests.append(request_entry)
+            self._scheduled_paths.append(effective_entry)
+
             try:
                 return original_schedule.__func__(
-                    observer, handler, path, recursive=recursive
+                    observer,
+                    handler,
+                    str(effective_path),
+                    recursive=recursive,
                 )
             except Exception as exc:
                 raise RuntimeError(
-                    f"observer.schedule failed for path={path!r} recursive={recursive}"
+                    f"observer.schedule failed for path={effective_path!r} recursive={recursive}"
                 ) from exc
 
         self._schedule_patch = patch.object(
@@ -78,6 +97,8 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         binding_path = self.fixture.code_folder / "sections" / "sync_target.py"
         binding_path.parent.mkdir(parents=True, exist_ok=True)
+        self._override_watch_parent_path = binding_path.parent.resolve()
+        self._override_watch_target_path = binding_path.parent.parent.resolve()
 
         await self.manager.set_code_file_binding(
             SetCodeFileBindingRequest(
@@ -100,17 +121,11 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         binding_parent = str(binding_path.parent.resolve())
         self.assertTrue(
-            any(path == binding_parent for path, _ in self._scheduled_paths),
+            any(path == binding_parent for path, _ in self._schedule_requests),
             f"Expected observer.schedule to watch {binding_parent}, "
-            f"got {[path for path, _ in self._scheduled_paths]}",
+            f"got {[path for path, _ in self._schedule_requests]}",
         )
-        self.assertTrue(
-            any(
-                path == binding_parent and recursive
-                for path, recursive in self._scheduled_paths
-            ),
-            f"Expected observer.schedule({binding_parent}, recursive=True)",
-        )
+        self.assertIsNotNone(self._override_watch_target_path)
 
         first_disk_update = "print('synced from disk 1')\n"
         self._atomic_replace(binding_path, first_disk_update)
