@@ -14,9 +14,9 @@ Turn `Core.sharedModifier` into a typed Pydantic model so shared fields (e.g., `
 
 ## Refactor Steps
 1. **Model Definition via Generators**
-   - Extend the generator that produces `backend/setta/types/core.py` so it emits a `SharedModifier` Pydantic model.
-   - Teach the generator to list optional fields for every supported shared modifier entry (e.g., `codeFileBinding`, `callable`, `codeObjVariantMap`, etc.).
-   - Ensure the generator updates `Core.sharedModifier` to use the new model when it writes `core.py`.
+   - Add a dedicated generator script (e.g., `frontend/generation/generate_shared_modifier.py`) that inspects every section and code-obj impl via `get_impl_classes()` to gather their modifier-capable fields.
+   - Build a union of those keys with their Python annotations, fail fast if two impls introduce the same key with incompatible types, and emit a generated module `backend/setta/types/generated/shared_modifier.py` defining `SharedModifier(BaseModel, extra="forbid")` with optional fields for each key.
+   - Update `backend/setta/types/core.py` and `Variant` to import the generated class so `sharedModifier`/`modifier` use `Field(default_factory=SharedModifier)` instead of raw `dict`.
 
 2. **Backend Adjustments via Generators**
    - Update `frontend/generation/generate_effective_impls.py` so the generated `set_effective_impl_value` functions interact with the `SharedModifier` model rather than raw dicts.
