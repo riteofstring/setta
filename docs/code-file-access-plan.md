@@ -17,11 +17,16 @@
   - Maintains callback-category maps like `JSONSource` (`backend/setta/project_state/jsonSource/jsonSource.py:65`) so each watcher group stays isolated.
   - Exposes helpers to record writes, detect no-op rewrites, and skip processing when the access mode forbids changes.
 - **Integrate with `SpecificFileWatcher`** via a new `BaseProjectManager.watch_code_files()` hook, parallel to `watch_json_source_files()` and `watch_artifact_files()` (`backend/setta/project_state/base_project_manager.py:1215`).
+  - Reproduce the JSON-source lifecycle: compute per-category path→section/variant maps, consult `_should_defer_json_source_reload()` style heuristics when autosave is pending, and keep `_deferred_json_source_loads` in sync (`backend/setta/project_state/base_project_manager.py:1219`).
 - **Implement `reload_code_sections()`** in `BaseProjectManager`:
   - Read file contents using `DBE.read`.
   - Compare hashes against `CodeFiles` metadata to avoid redundant reloads.
   - Update `ProjectStateBackend` in place with `set_effective_impl_value`, refresh `self.code_dict`, and broadcast the new state without re-registering watchers (to avoid loops).
   - Surface conflicts by scheduling notifications when external edits diverge from the last known snapshot.
+- **Fill in `CodeFiles.watch_code_files()`** (`backend/setta/project_state/code_files.py:88`):
+  - Gather bindings from `_bindings`, diff against `_category_to_paths`, and call `SpecificFileWatcher.update_callbacks` with fire-immediately paths for uncached files.
+  - Build the watcher coroutine so it forwards `FileWatcherCoreUpdate` payloads into `reload_code_sections()` once that API is available, mirroring the JSON source callback signature.
+- **Model callbacks on JSONSource**: `get_json_source_file_watcher_callback()` (`backend/setta/project_state/jsonSource/jsonSource.py:105`) demonstrates how to read via `DBE`, refresh cached state, and broadcast change notifications; use the same shape for code files.
 - **Rewrite `Code.update_file()`** (`backend/setta/project_state/code.py:33`) to delegate writes to `CodeFiles`:
   - Skip writes entirely for read-only bindings.
   - Short-circuit when the code matches the last read hash to avoid needless churn.
@@ -48,4 +53,5 @@
 - **Backend tests** (`tests/project_state/`):
   - Simulate file writes through `SpecificFileWatcher` to confirm read-write sections reload, write-only sections ignore, and read-only edits are blocked.
   - Validate hash bookkeeping: identical rewrites should not trigger reloads; `last_written_hash` prevents write loops.
+- **Leverage existing fixtures**: `tests/utils/manager_fixture.py` provisions a real `SettingsProjectManager` with live watchers, and `tests/project_state/test_code_files.py` already builds `CodeFiles` against `SpecificFileWatcher`; extend these to assert callback registration without new mocks.
 - **Developer docs**: Document the new manager, access-mode expectations, and manual override steps (e.g., how to transition a section from write-only to read/write).
