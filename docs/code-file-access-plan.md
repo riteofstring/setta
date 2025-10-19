@@ -5,6 +5,9 @@
 - Mirror the architecture used by JSON sources and artifacts so file watching, conflict handling, and broadcasts stay consistent.
 - Prevent write loops and unexpected overwrites when the filesystem changes behind Setta.
 
+## Progress
+- Stubbed `CodeFiles` manager (`backend/setta/project_state/code_files.py`) to capture per-path metadata, binding ownership, and watcher category bookkeeping ahead of the full integration work.
+
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
   - Tracks per-path metadata (`last_read_hash`, `last_written_hash`, `has_conflict`, `access_mode`).
