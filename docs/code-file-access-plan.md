@@ -6,7 +6,7 @@
 - Prevent write loops and unexpected overwrites when the filesystem changes behind Setta.
 
 ## Backend architecture
-- **Create a `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) that:
+- **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
   - Tracks per-path metadata (`last_read_hash`, `last_written_hash`, `has_conflict`, `access_mode`).
   - Maps canonical paths to `(sectionId, variantId, projectConfigId)` tuples so we know which sections need reloading.
   - Maintains callback-category maps like `JSONSource` (`backend/setta/project_state/jsonSource/jsonSource.py:65`) so each watcher group stays isolated.
