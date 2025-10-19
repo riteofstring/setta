@@ -44,7 +44,11 @@ class SettingsManagerFixture:
 
 @asynccontextmanager
 async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
-    """Provision a SettingsProjectManager backed by real collaborators."""
+    """Provision a SettingsProjectManager backed by real collaborators.
+
+    SettingsProjectManager can bootstrap a blank temp workspace via SettingsFile,
+    whereas ProjectManager would expect a pre-seeded project.json and fail here.
+    """
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         setta_root = root / "setta_files"
