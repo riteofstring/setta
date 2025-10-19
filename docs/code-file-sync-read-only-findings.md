@@ -12,3 +12,12 @@
 2. Add logging inside `_handle_code_file_sync_event` to confirm the callback runs and that no guard (`variant` mismatch, `event.content is None`, or unchanged code) suppresses the update.
 3. If the backend updates correctly, inspect the frontend store to ensure it accepts broadcasts when `codeFileBinding.access_mode === "read_only"`.
 4. If the watcher logs those fsevents errors again, capture the surrounding project-state context so we can track down why the existing `SpecificFileWatcher` path isn’t successfully registering callbacks for that binding.
+
+### Latest Debug Session (Oct 21, 2025)
+
+- Added `logger.critical` instrumentation in `CodeFileSyncService`, `BaseProjectManager`, and `SpecificFileWatcher` to trace owner registration, watcher scheduling, and event handling end-to-end.
+- Confirmed that binding a section to `test.py` (under the repo root) now preserves the file's contents on binding, thanks to seeding the section code from disk when `access_mode == read_only` and skipping backend writes for read-only bindings.
+- Discovered that edits to files outside `setta_files/...` do not emit filesystem events through the existing macOS fsevents observer. The watcher logs show an initial `readRequested` event but no follow-up `modified` or `moved` callbacks when the file is saved.
+- Verified that the same workflow succeeds when the canonical file lives under `setta_files/code/sections/...`, indicating the problem is limited to paths outside the default `setta_files` tree.
+- Implemented a temporary fix by introducing a `PollingObserver` for directories outside `setta_files`, which allows `test.py` edits to flow through, but this is not the desired long-term solution (kept for reference during ongoing investigation).
+- Next steps for the future debugging session: identify why the native `Observer` fails to surface events for repo-root files (likely an fsevents limitation or path normalization issue) and design a solution that keeps native watchers while still covering custom canonical paths.

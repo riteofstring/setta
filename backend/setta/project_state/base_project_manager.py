@@ -181,6 +181,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
@@ -683,10 +684,22 @@ class BaseProjectManager(ABC):
             snapshot_dir=normalize_path(canonical_path.parent),
             access_mode=x.accessMode,
         )
+        binding_update_kwargs: dict[str, Any] = {"codeFileBinding": binding}
+        if binding.access_mode == CodeFileAccessMode.read_only:
+            try:
+                existing_code = self.dbe.read(canonical_path)
+            except Exception:
+                logger.exception(
+                    "Failed to read existing code while binding read_only file %s",
+                    canonical_path,
+                )
+                existing_code = None
+            if existing_code is not None:
+                binding_update_kwargs["code"] = existing_code
         set_curr_effective_section_impl_value(
             project_state,
             x.sectionId,
-            BaseCodeSectionImplArgsWithCallable(codeFileBinding=binding),
+            BaseCodeSectionImplArgsWithCallable(**binding_update_kwargs),
         )
         await self.update_and_broadcast_project_state(project_state)
 
@@ -1276,6 +1289,15 @@ class BaseProjectManager(ABC):
                 continue
 
             owner_id = self._make_code_sync_owner_id(project_config_id, section_id)
+            logger.critical(
+                "code_sync_debug owner_candidate project=%s section=%s variant=%s path=%s mode=%s existing=%s",
+                project_config_id,
+                section_id,
+                variant_id,
+                binding.canonical_path,
+                binding.access_mode,
+                owner_id in existing_owner_ids,
+            )
             owners.append(
                 self._build_code_file_binding_owner(
                     owner_id,
@@ -1289,12 +1311,31 @@ class BaseProjectManager(ABC):
 
         stale_owner_ids = existing_owner_ids - new_owner_ids
         for owner_id in stale_owner_ids:
+            logger.critical(
+                "code_sync_debug unregister_stale_owner project=%s owner=%s",
+                project_config_id,
+                owner_id,
+            )
             self.code_file_sync.unregister_binding(owner_id)
 
         for owner in owners:
             if owner.owner_id in existing_owner_ids:
+                logger.critical(
+                    "code_sync_debug refresh_owner project=%s owner=%s path=%s mode=%s",
+                    project_config_id,
+                    owner.owner_id,
+                    owner.binding.canonical_path,
+                    owner.binding.access_mode,
+                )
                 self.code_file_sync.refresh_binding(owner)
             else:
+                logger.critical(
+                    "code_sync_debug register_owner project=%s owner=%s path=%s mode=%s",
+                    project_config_id,
+                    owner.owner_id,
+                    owner.binding.canonical_path,
+                    owner.binding.access_mode,
+                )
                 self.code_file_sync.register_binding(owner)
 
         if new_owner_ids:
@@ -1336,12 +1377,28 @@ class BaseProjectManager(ABC):
         expected_variant_id: str,
         event: CodeFileSyncEvent,
     ) -> None:
+        logger.critical(
+            "code_sync_debug event_received project=%s section=%s expected_variant=%s event_type=%s content_present=%s path=%s core_event=%s",
+            project_config_id,
+            section_id,
+            expected_variant_id,
+            event.event_type,
+            event.content is not None,
+            event.path,
+            event.core_update.eventType,
+        )
         if event.event_type == CodeFileSyncEventType.deleted:
             new_code = ""
         else:
             if event.content is None:
                 logger.debug(
                     "Ignoring code sync event for %s due to missing content",
+                    event.path,
+                )
+                logger.critical(
+                    "code_sync_debug skip_missing_content project=%s section=%s path=%s",
+                    project_config_id,
+                    section_id,
                     event.path,
                 )
                 return
@@ -1367,6 +1424,13 @@ class BaseProjectManager(ABC):
                 current_variant_id,
                 expected_variant_id,
             )
+            logger.critical(
+                "code_sync_debug skip_variant_mismatch project=%s section=%s expected_variant=%s current_variant=%s",
+                project_config_id,
+                section_id,
+                expected_variant_id,
+                current_variant_id,
+            )
             return
 
         section_impl = get_curr_effective_section_impl(project_state, section_id)
@@ -1374,6 +1438,12 @@ class BaseProjectManager(ABC):
             logger.debug(
                 "Skipping code sync for %s because section impl is not code-based",
                 section_id,
+            )
+            logger.critical(
+                "code_sync_debug skip_non_code_impl project=%s section=%s type=%s",
+                project_config_id,
+                section_id,
+                type(section_impl).__name__,
             )
             return
 
@@ -1383,8 +1453,20 @@ class BaseProjectManager(ABC):
                 "Skipping code sync for %s because content is unchanged",
                 section_id,
             )
+            logger.critical(
+                "code_sync_debug skip_unchanged_content project=%s section=%s",
+                project_config_id,
+                section_id,
+            )
             return
 
+        logger.critical(
+            "code_sync_debug enqueue_set_code project=%s section=%s code_length_before=%s code_length_after=%s",
+            project_config_id,
+            section_id,
+            len(current_code),
+            len(new_code),
+        )
         await self.set_code(
             SetCodeRequest(
                 projectConfigId=project_config_id,

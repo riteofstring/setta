@@ -145,14 +145,31 @@ class CodeFileSyncService:
 
         subscribers.owners[owner.owner_id] = owner
         self._owner_to_path[owner.owner_id] = path
+        logger.critical(
+            "code_sync_debug add_owner owner=%s path=%s mode=%s is_new_path=%s",
+            owner.owner_id,
+            path,
+            owner.binding.access_mode,
+            is_new_path,
+        )
 
         fire_immediately: Iterable[Path] = [path] if is_new_path else []
         self._sync_watcher_callbacks(fire_immediately=fire_immediately)
 
         try:
+            logger.critical(
+                "code_sync_debug request_initial_read owner=%s path=%s",
+                owner.owner_id,
+                path,
+            )
             self._specific_file_watcher.request_read(path)
         except Exception:
             logger.exception("Failed to request initial read for %s", path)
+            logger.critical(
+                "code_sync_debug request_initial_read_failed owner=%s path=%s",
+                owner.owner_id,
+                path,
+            )
 
     def _sync_watcher_callbacks(
         self,
@@ -196,10 +213,26 @@ class CodeFileSyncService:
     ) -> None:
         subscribers = self._registry.get(path)
         if not subscribers or not subscribers.owners:
+            logger.critical(
+                "code_sync_debug dispatch_no_subscribers path=%s event=%s",
+                path,
+                core_update.eventType,
+            )
             return
 
+        logger.critical(
+            "code_sync_debug dispatch_update path=%s event=%s owners=%s",
+            path,
+            core_update.eventType,
+            list(subscribers.owners.keys()),
+        )
         event_type = self._convert_event_type(core_update.eventType)
         if event_type is None:
+            logger.critical(
+                "code_sync_debug unsupported_event path=%s raw_event=%s",
+                path,
+                core_update.eventType,
+            )
             return
 
         content: str | None = None
@@ -210,8 +243,20 @@ class CodeFileSyncService:
                 content = self._dbe.read(core_update.fileToRead)
             except Exception:
                 logger.exception("Failed to read code file %s", core_update.fileToRead)
+                logger.critical(
+                    "code_sync_debug read_exception path=%s read_path=%s event=%s",
+                    path,
+                    core_update.fileToRead,
+                    event_type,
+                )
             if content is None:
                 final_event_type = CodeFileSyncEventType.deleted
+                logger.critical(
+                    "code_sync_debug read_missing_content path=%s read_path=%s treating_as=%s",
+                    path,
+                    core_update.fileToRead,
+                    final_event_type,
+                )
 
         await asyncio.gather(
             *[

@@ -46,7 +46,11 @@ from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeFileBinding, CodeSectionImpl
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeSectionImpl,
+)
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -68,6 +72,9 @@ class ProjectGenPythonCode(PythonCode):
         self.code_generator = code_generator
 
     async def update_file(self):
+        if self.binding.access_mode == CodeFileAccessMode.read_only:
+            await self.send_document_open_request(self.code)
+            return
         await super().update_file(self.code)
 
     def _clone_generator(self) -> PythonCodeGenerator:
@@ -310,6 +317,9 @@ class ProjectPythonCode(PythonCode):
         self.code = section_impl.code
 
     async def update_file(self):
+        if self.binding.access_mode == CodeFileAccessMode.read_only:
+            await self.send_document_open_request(self.code)
+            return
         await super().update_file(self.code)
 
     async def code_area_completion(self, fullText, position):
@@ -351,6 +361,8 @@ class ProjectBashCode(BashCode):
         self.code = section_impl.code
 
     async def update_file(self):
+        if self.binding.access_mode == CodeFileAccessMode.read_only:
+            return
         super().update_file(self.code)
 
     def write_to_folder(self, folder):
