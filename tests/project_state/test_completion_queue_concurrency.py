@@ -31,7 +31,7 @@ async def _non_serialized_completion(
 
 
 class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         self._exit_stack = AsyncExitStack()
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
@@ -54,7 +54,7 @@ class UpdateAndCompletionConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(config_id, self.manager.gen_code)
         self.assertIsInstance(self.manager.gen_code[config_id], ProjectGenPythonCode)
 
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await self._exit_stack.aclose()
 
     async def test_completion_waits_for_update_write_lock(self):
