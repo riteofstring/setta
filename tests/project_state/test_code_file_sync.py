@@ -4,6 +4,7 @@ import asyncio
 import unittest
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import AsyncContextManager, Awaitable, Callable, cast
 from unittest.mock import AsyncMock, patch
 
 from setta.project_state.project_manager_types import (
@@ -20,14 +21,21 @@ from setta.types.section_impls import (
 )
 from setta.types.simplified_states import Position
 
-from tests.utils.manager_fixture import real_settings_manager
+from tests.utils.manager_fixture import (
+    SettingsManagerFixture,
+    real_settings_manager,
+)
 
 
 class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self._manager_cm = real_settings_manager()
+        manager_cm = real_settings_manager()
+        self._manager_cm = cast(
+            "AsyncContextManager[SettingsManagerFixture]", manager_cm
+        )
         self.fixture = await self._manager_cm.__aenter__()
-        self.addAsyncCleanup(self._manager_cm.__aexit__, None, None, None)
+        cleanup = cast("Callable[..., Awaitable[object]]", self._manager_cm.__aexit__)
+        self.addAsyncCleanup(cleanup, None, None, None)
 
         self.manager = self.fixture.manager
         self._settings_patch = patch.object(
@@ -36,7 +44,7 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
             AsyncMock(return_value=None),
         )
         self._settings_patch.start()
-        self.addAsyncCleanup(self._settings_patch.stop)
+        self.addCleanup(self._settings_patch.stop)
 
         observer = self.fixture.code_file_sync._specific_file_watcher.observer
         original_schedule = observer.schedule
@@ -61,8 +69,7 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self._scheduled_paths.append(effective_entry)
 
             try:
-                return original_schedule.__func__(
-                    observer,
+                return original_schedule(
                     handler,
                     str(effective_path),
                     recursive=recursive,
@@ -78,9 +85,10 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self._schedule_patch.start()
         self.addCleanup(self._schedule_patch.stop)
 
-        self.project_config_id = (
-            self.manager.project_state_backend.defaultProjectConfigId
-        )
+        default_config_id = self.manager.project_state_backend.defaultProjectConfigId
+        if default_config_id is None:
+            self.fail("Test fixture expected default project config id")
+        self.project_config_id: str = default_config_id
         await self.manager.load_project_config(self.project_config_id)
         self.manager.completed_op_ids_since_last_broadcast.clear()
 
@@ -110,9 +118,11 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         section_impl = self._get_section_impl(section_id)
-        self.assertIsNotNone(section_impl.codeFileBinding)
+        binding = section_impl.codeFileBinding
+        if binding is None:
+            self.fail("Expected code file binding after binding request")
         self.assertEqual(
-            Path(section_impl.codeFileBinding.canonical_path).resolve(),
+            Path(binding.canonical_path).resolve(),
             binding_path.resolve(),
         )
         self.assertEqual(section_impl.code, "")
@@ -148,9 +158,10 @@ class CodeFileSyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await self._wait_for_file_content(binding_path, section_edit)
 
         final_impl = self._get_section_impl(section_id)
-        self.assertEqual(
-            final_impl.codeFileBinding.access_mode, CodeFileAccessMode.read_write
-        )
+        final_binding = final_impl.codeFileBinding
+        if final_binding is None:
+            self.fail("Expected code file binding to persist after edits")
+        self.assertEqual(final_binding.access_mode, CodeFileAccessMode.read_write)
         self.assertEqual(final_impl.code, section_edit)
 
     async def _wait_for_section_code(

@@ -34,9 +34,10 @@ class SetCodeFileBindingTests(unittest.IsolatedAsyncioTestCase):
             real_settings_manager()
         )
         self.manager = self.fixture.manager
-        self.project_config_id = (
-            self.manager.project_state_backend.defaultProjectConfigId
-        )
+        default_config_id = self.manager.project_state_backend.defaultProjectConfigId
+        if default_config_id is None:
+            self.fail("Test fixture expected default project config id")
+        self.project_config_id: str = default_config_id
         await self.manager.load_project_config(self.project_config_id)
         self.manager.completed_op_ids_since_last_broadcast.clear()
 
@@ -71,8 +72,9 @@ class SetCodeFileBindingTests(unittest.IsolatedAsyncioTestCase):
         section_impl = get_curr_effective_section_impl_with_type_guard(
             project_state, section_id, CodeSectionImpl
         )
-        self.assertIsNotNone(section_impl.codeFileBinding)
         binding = section_impl.codeFileBinding
+        if binding is None:
+            self.fail("Code file binding should exist after set_code_file_binding")
         self.assertEqual(binding.canonical_path, normalize_path(custom_path))
         self.assertEqual(binding.snapshot_dir, normalize_path(custom_path.parent))
         self.assertEqual(binding.access_mode, CodeFileAccessMode.read_write)
