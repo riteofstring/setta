@@ -33,11 +33,11 @@
    - Ensure we fire an initial `created`/`modified` event for new registrations so state reflects disk immediately.
    - ✅ Initial service scaffold handles multi-owner registry management, dedupes bursty filesystem events, normalizes `read`/`created`/`deleted` notifications, and surfaces them via subscriber callbacks. Queue wiring + consumers still to come in later steps.
 
-3. **Wire Into `BaseProjectManager`**
-   - Accept `code_file_sync` in the constructor; store it.
-   - After each `validate_code_file_bindings`, register all eligible bindings (read/write ones + maybe read_only).
-   - Handle sync events by invoking existing helpers (`set_code`, `maybe_update_gen_python_code_section`, broadcasts).
-   - Respect the project manager queue—schedule state mutations through `enqueue_method` or dedicated async tasks to avoid races with in-flight updates.
+3. **Wire Into `BaseProjectManager`** ⏳ (partial)
+   - ✅ Constructor now accepts an optional `CodeFileSyncService` and keeps per-project owner bookkeeping so managers control registration lifecycles.
+   - ✅ After `validate_code_file_bindings`, BaseProjectManager refreshes registrations, allowing multiple sections (and projects) to share a path.
+   - ✅ Filesystem events reuse the existing `SetCodeRequest` flow, ensuring updates run through the queue and broadcast pipeline.
+   - ⬜ Extend registration to include the generated code binding once we decide how to surface its callbacks (likely during Step 4 when the service is instantiated centrally).
 
 4. **Update Manager Creation**
    - Instantiate `CodeFileSyncService` in `backend/setta/server_state.py`.

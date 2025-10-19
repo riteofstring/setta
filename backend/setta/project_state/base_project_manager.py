@@ -26,6 +26,12 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.project_state.code_file_sync import (
+    BindingOwner,
+    CodeFileSyncEvent,
+    CodeFileSyncEventType,
+    CodeFileSyncService,
+)
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.history import History
@@ -167,6 +173,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
@@ -196,14 +203,18 @@ class BaseProjectManager(ABC):
         dbe: DBE,
         artifacts: Artifacts,
         json_source: JSONSource,
+        code_file_sync: CodeFileSyncService | None = None,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
+        self.code_file_sync = code_file_sync
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
+        self._code_sync_owner_ids_by_project: dict[str, set[str]] = {}
+        self._code_sync_owner_prefix = f"{self.__class__.__name__}"
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
@@ -489,6 +500,7 @@ class BaseProjectManager(ABC):
             projectState.validate_yaml_values()
             projectState.validate_required_decoded_images()
             projectState.validate_code_file_bindings()
+            self._sync_code_file_bindings_for_project_state(projectState)
             dep_graph = DependencyGraph(projectState)
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
@@ -1206,6 +1218,157 @@ class BaseProjectManager(ABC):
     @abstractmethod
     def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
         pass
+
+    def _sync_code_file_bindings_for_project_state(
+        self, project_state: ProjectStateSingleConfig
+    ) -> None:
+        if not self.code_file_sync:
+            return
+
+        project_config_id = project_state.projectConfig.id
+        existing_owner_ids = self._code_sync_owner_ids_by_project.get(
+            project_config_id, set()
+        )
+        new_owner_ids: set[str] = set()
+        owners: list[BindingOwner] = []
+
+        for section_id, variant_id in project_state.projectConfig.sectionVariantMap.items():
+            if variant_id is None:
+                continue
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CodeSectionImpl):
+                continue
+
+            binding = section_impl.codeFileBinding
+            if binding is None:
+                continue
+
+            owner_id = self._make_code_sync_owner_id(project_config_id, section_id)
+            owners.append(
+                self._build_code_file_binding_owner(
+                    owner_id,
+                    project_config_id,
+                    section_id,
+                    variant_id,
+                    binding,
+                )
+            )
+            new_owner_ids.add(owner_id)
+
+        stale_owner_ids = existing_owner_ids - new_owner_ids
+        for owner_id in stale_owner_ids:
+            self.code_file_sync.unregister_binding(owner_id)
+
+        for owner in owners:
+            if owner.owner_id in existing_owner_ids:
+                self.code_file_sync.refresh_binding(owner)
+            else:
+                self.code_file_sync.register_binding(owner)
+
+        if new_owner_ids:
+            self._code_sync_owner_ids_by_project[project_config_id] = new_owner_ids
+        else:
+            self._code_sync_owner_ids_by_project.pop(project_config_id, None)
+
+    def _build_code_file_binding_owner(
+        self,
+        owner_id: str,
+        project_config_id: str,
+        section_id: str,
+        variant_id: str,
+        binding: CodeFileBinding,
+    ) -> BindingOwner:
+        description = (
+            f"{self._code_sync_owner_prefix}:{project_config_id}:{section_id}"
+        )
+
+        async def handle_event(event: CodeFileSyncEvent) -> None:
+            await self._handle_code_file_sync_event(
+                project_config_id, section_id, variant_id, event
+            )
+
+        return BindingOwner(
+            owner_id=owner_id,
+            binding=binding,
+            project_config_id=project_config_id,
+            section_id=section_id,
+            variant_id=variant_id,
+            description=description,
+            on_external_update=handle_event,
+            on_created=handle_event,
+            on_deleted=handle_event,
+        )
+
+    async def _handle_code_file_sync_event(
+        self,
+        project_config_id: str,
+        section_id: str,
+        expected_variant_id: str,
+        event: CodeFileSyncEvent,
+    ) -> None:
+        if event.event_type == CodeFileSyncEventType.deleted:
+            new_code = ""
+        else:
+            if event.content is None:
+                logger.debug(
+                    "Ignoring code sync event for %s due to missing content",
+                    event.path,
+                )
+                return
+            new_code = event.content
+
+        async with self._project_state_lock.read_lock():
+            backend = self.project_state_backend
+            if project_config_id not in backend.projectConfigs:
+                logger.debug(
+                    "Skipping code sync for unknown project config %s",
+                    project_config_id,
+                )
+                return
+            project_state = convert_backend_to_single_config(
+                backend, project_config_id
+            )
+
+        current_variant_id = project_state.projectConfig.sectionVariantMap.get(
+            section_id
+        )
+        if current_variant_id != expected_variant_id:
+            logger.debug(
+                "Skipping code sync for %s because variant changed (%s != %s)",
+                section_id,
+                current_variant_id,
+                expected_variant_id,
+            )
+            return
+
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, CodeSectionImpl):
+            logger.debug(
+                "Skipping code sync for %s because section impl is not code-based",
+                section_id,
+            )
+            return
+
+        current_code = section_impl.code
+        if new_code == current_code:
+            logger.debug(
+                "Skipping code sync for %s because content is unchanged",
+                section_id,
+            )
+            return
+
+        await self.set_code(
+            SetCodeRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                code=new_code,
+            )
+        )
+
+    def _make_code_sync_owner_id(
+        self, project_config_id: str, section_id: str
+    ) -> str:
+        return f"{self._code_sync_owner_prefix}:{project_config_id}:{section_id}"
 
     def perform_manual_save(self):
         """Run a manual save, clearing any pending autosave first."""
