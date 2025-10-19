@@ -39,10 +39,10 @@
    - ✅ Filesystem events reuse the existing `SetCodeRequest` flow, ensuring updates run through the queue and broadcast pipeline.
    - ⬜ Extend registration to include the generated code binding once we decide how to surface its callbacks (likely during Step 4 when the service is instantiated centrally).
 
-4. **Update Manager Creation**
-   - Instantiate `CodeFileSyncService` in `backend/setta/server_state.py`.
-   - Pass it into both `ProjectManager` and `SettingsProjectManager`.
-   - Ensure tests (`tests/utils/manager_fixture.py`) construct the service as well.
+4. **Update Manager Creation** ✅ (done)
+   - ✅ Instantiate `CodeFileSyncService` in `backend/setta/server_state.py`.
+   - ✅ Pass it into both `ProjectManager` and `SettingsProjectManager`.
+   - ✅ Ensure tests (`tests/utils/manager_fixture.py`) construct the service as well.
 
 5. **Expose Binding Mutations**
    - Add backend requests/routes for changing a section’s `CodeFileBinding` (path + access mode).
