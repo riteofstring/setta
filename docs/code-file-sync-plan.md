@@ -23,7 +23,7 @@
 1. **Shared Language Metadata** ✅ (done)
    - `get_code_extension(language: CodeLanguage) -> str` now lives in `backend/setta/project_state/utils.py`, reused by `Code` subclasses and `ProjectStateSingleConfig.validate_code_file_bindings` to keep extensions consistent.
 
-2. **Implement `CodeFileSyncService`**
+2. **Implement `CodeFileSyncService`** ✅ (skeleton landed)
    - Define the service under `backend/setta/project_state/code_file_sync.py`.
    - Accept `SpecificFileWatcher`, `DBE`, and a scheduler/loop helper for batching (rely on `asyncio` similarly to `JSONSource`).
    - Expose methods:
@@ -31,6 +31,7 @@
      - `refresh_binding(owner)` for path or mode changes.
      - Event callbacks that yield `CodeFileSyncEvent` payloads.
    - Ensure we fire an initial `created`/`modified` event for new registrations so state reflects disk immediately.
+   - ✅ Initial service scaffold handles multi-owner registry management, dedupes bursty filesystem events, normalizes `read`/`created`/`deleted` notifications, and surfaces them via subscriber callbacks. Queue wiring + consumers still to come in later steps.
 
 3. **Wire Into `BaseProjectManager`**
    - Accept `code_file_sync` in the constructor; store it.
