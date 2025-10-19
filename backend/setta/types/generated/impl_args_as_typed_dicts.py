@@ -13,6 +13,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewingEditingMode,
@@ -38,7 +39,7 @@ class CoreArgs(TypedDict):
     name: NotRequired[str]
     variants: NotRequired[list[str]]
     defaultVariant: NotRequired[str | None]
-    sharedModifier: NotRequired[dict[str, Any]]
+    sharedModifier: NotRequired[SharedModifier]
     unsharedKeys: NotRequired[
         list[
             Literal[
@@ -101,6 +102,7 @@ class CoreArgs(TypedDict):
                 "size",
                 "step",
                 "text",
+                "textDisplayMode",
                 "topLevelParamId",
                 "type",
                 "url",
@@ -392,7 +394,7 @@ class TextBlockSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
-    displayMode: NotRequired[TextBlockDisplayMode]
+    textDisplayMode: NotRequired[TextBlockDisplayMode]
     text: NotRequired[str]
 
 
@@ -403,7 +405,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     format: NotRequired[TextBlockFormat | Callable[[TextBlockFormat], TextBlockFormat]]
     headingAsSectionName: NotRequired[bool | Callable[[bool], bool]]
-    displayMode: NotRequired[
+    textDisplayMode: NotRequired[
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
@@ -632,7 +634,7 @@ class SwitchParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
 
 class ColorPickerParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.ColorPickerParam]]
-    choices: NotRequired[list[ColorPickerChoice]]
+    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
 class ColorPickerParamCodeObjImplArgsWithCallable(
@@ -645,7 +647,7 @@ class ColorPickerParamCodeObjImplArgsWithCallable(
             Literal[CodeObjType.ColorPickerParam],
         ]
     ]
-    choices: NotRequired[
+    colorChoices: NotRequired[
         list[ColorPickerChoice]
         | Callable[[list[ColorPickerChoice]], list[ColorPickerChoice]]
     ]

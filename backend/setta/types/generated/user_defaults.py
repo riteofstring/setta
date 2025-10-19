@@ -115,7 +115,7 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
+    textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
@@ -217,7 +217,7 @@ class UserDefaultSwitchParamCodeObjImpl(
 class UserDefaultColorPickerParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    choices: list[ColorPickerChoice] = Field(default_factory=list)
+    colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
     value: str = "#ff0000"
 
 

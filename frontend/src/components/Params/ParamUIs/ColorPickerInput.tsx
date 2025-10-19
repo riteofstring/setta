@@ -60,27 +60,37 @@ export function ColorPickerInputConfig({
 }) {
   const addColor = () => {
     onChange({
-      choices: [...config.choices, { color: "#ff0000", description: "" }],
+      colorChoices: [
+        ...config.colorChoices,
+        { color: "#ff0000", description: "" },
+      ],
     });
   };
 
   const removeColor = (removeIdx: number) => {
     onChange({
-      choices: config.choices.filter((choice, idx) => idx !== removeIdx),
+      colorChoices: config.colorChoices.filter(
+        (choice, idx) => idx !== removeIdx,
+      ),
     });
   };
 
   const updateColor = (updateIdx: number, newColor: string) => {
     onChange({
-      choices: config.choices.map((choice, idx) =>
-        idx === updateIdx ? { ...choice, color: newColor } : choice,
+      colorChoices: config.colorChoices.map((choice, idx) =>
+        idx === updateIdx
+          ? {
+              ...choice,
+              color: newColor,
+            }
+          : choice,
       ),
     });
   };
 
   const updateDescription = (updateIdx: number, description: string) => {
     onChange({
-      choices: config.choices.map((choice, idx) =>
+      colorChoices: config.colorChoices.map((choice, idx) =>
         idx === updateIdx ? { ...choice, description } : choice,
       ),
     });
@@ -88,7 +98,7 @@ export function ColorPickerInputConfig({
 
   return (
     <AvailableColors
-      choices={config.choices}
+      colorChoices={config.colorChoices}
       addColor={addColor}
       removeColor={removeColor}
       updateColor={updateColor}
@@ -98,13 +108,13 @@ export function ColorPickerInputConfig({
 }
 
 export const AvailableColors = ({
-  choices,
+  colorChoices,
   addColor,
   removeColor,
   updateColor,
   updateDescription,
 }: {
-  choices: ColorPickerConfigForFrontend["choices"];
+  colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   addColor: () => void;
   removeColor: (removeIdx: number) => void;
   updateColor: (updateIdx: number, newColor: string) => void;
@@ -122,7 +132,7 @@ export const AvailableColors = ({
       </button>
 
       <div className="flex flex-col gap-2 overflow-y-auto">
-        {choices.map(({ color, description }, idx) => (
+        {colorChoices.map(({ color, description }, idx) => (
           <div key={idx} className="flex items-center gap-2">
             <div className="flex flex-auto items-center gap-1 overflow-hidden">
               <input
@@ -162,7 +172,7 @@ export function ColorPickerInput({
   colorPickerChoicesClasses,
   isDisabled = false,
 }: {
-  colorChoices: ColorPickerConfigForFrontend["choices"];
+  colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   value: string;
   onChange: (newColor: string) => void;
   onEscape?: () => void;
