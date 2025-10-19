@@ -7,9 +7,9 @@ from pathlib import Path
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
-from setta.types.section_impls import CodeFileBinding
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.types.section_impls import CodeFileBinding
 
 logger = logging.getLogger(__name__)
 

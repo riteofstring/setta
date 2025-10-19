@@ -125,6 +125,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         if event.is_directory:
             return
 
+        print("\n\nsend_event", event, flush=True)
         # Get absolute path
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
         rel_path = normalize_path(abs_path)
@@ -143,6 +144,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             if c:
                 handlers.append(c)
 
+        print("\n\n\nhandlers", handlers)
         if len(handlers) == 0:
             return
 
