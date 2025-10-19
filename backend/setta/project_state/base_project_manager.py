@@ -28,6 +28,7 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.code_files import CodeFiles
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -196,6 +197,7 @@ class BaseProjectManager(ABC):
         dbe: DBE,
         artifacts: Artifacts,
         json_source: JSONSource,
+        code_files: CodeFiles,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -204,6 +206,7 @@ class BaseProjectManager(ABC):
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
+        self.code_files = code_files
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
@@ -225,6 +228,7 @@ class BaseProjectManager(ABC):
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
+        self.watch_code_files()
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -1244,6 +1248,11 @@ class BaseProjectManager(ABC):
     def watch_artifact_files(self):
         self.artifacts.watch_artifact_files(
             f"{self.__class__.__name__}_Artifacts", self.project_state_backend
+        )
+
+    def watch_code_files(self):
+        self.code_files.watch_code_files(
+            f"{self.__class__.__name__}_CodeFiles", self.project_state_backend
         )
 
     def _should_defer_json_source_reload(
