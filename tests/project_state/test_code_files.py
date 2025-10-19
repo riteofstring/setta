@@ -1,4 +1,3 @@
-# pyright: reportMissingImports=false
 import asyncio
 import tempfile
 import unittest
