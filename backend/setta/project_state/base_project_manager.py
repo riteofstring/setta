@@ -5,7 +5,6 @@ import logging
 import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from typing import (
@@ -105,22 +104,12 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.project_state.text_file_sync import (
-    SyncMode,
-    TextFileBinding,
-    TextFileExternalChange,
-    TextFileSync,
-    TextSectionBinding,
-)
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.helpers_lvl1 import (
-    get_curr_effective_section_impl,
-    get_curr_section_variant,
-)
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
@@ -179,12 +168,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import (
-    CodeLanguage,
-    CodeSectionImpl,
-    CodeSyncMode,
-    SectionType,
-)
+from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -201,19 +185,6 @@ _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
 
 
-@dataclass(frozen=True)
-class SectionCodeHelperMetadata:
-    project_config_id: str
-    section_id: str
-    variant_id: str
-    helper_id: str
-    helper: ProjectPythonCode | ProjectBashCode
-    temp_path: Path | None
-    real_path: Path | None
-    sync_mode: SyncMode
-    file_missing: bool
-
-
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -223,7 +194,6 @@ class BaseProjectManager(ABC):
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
         artifacts: Artifacts,
-        text_file_sync: TextFileSync,
         json_source: JSONSource,
     ):
         self.lsp_writers = lsp_writers
@@ -233,15 +203,11 @@ class BaseProjectManager(ABC):
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
-        self.text_file_sync = text_file_sync
         self.temp_folder = normalize_path(C.CODE_FOLDER) / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
-        self.code_sections_folder = normalize_path(C.CODE_FOLDER) / "sections"
-        self.code_sections_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
-        self.code_helper_metadata: dict[str, list[SectionCodeHelperMetadata]] = {}
         self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[
             tuple[Coroutine, asyncio.Future, str | None]
@@ -261,7 +227,6 @@ class BaseProjectManager(ABC):
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
-        self.watch_text_files()
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -556,157 +521,33 @@ class BaseProjectManager(ABC):
             self.add_to_used_files(new_gen_code)
             self.gen_code[projectConfigId] = new_gen_code
 
-            helper_metadata = await self._build_section_code_helpers(
-                projectState,
-                project_temp_folder,
-                projectConfigId,
-            )
-            text_sync_bindings = [
-                TextSectionBinding(
-                    project_config_id=metadata.project_config_id,
-                    section_id=metadata.section_id,
-                    variant_id=metadata.variant_id,
-                    helper_id=metadata.helper_id,
-                    path=metadata.real_path,
-                    sync_mode=metadata.sync_mode,
-                )
-                for metadata in helper_metadata
-            ]
+            if self.code_dict.get(projectConfigId):
+                for c in self.code_dict[projectConfigId].values():
+                    if isinstance(c, ProjectPythonCode):
+                        c.callback_cleanup()
+            self.code_dict[projectConfigId] = {}
+
+            for sectionId in projectState.sections.keys():
+                section_impl = get_curr_effective_section_impl(projectState, sectionId)
+                if isinstance(section_impl, CodeSectionImpl):
+                    section_code = self.create_project_code(
+                        project_temp_folder, projectState, sectionId, section_impl
+                    )
+
+                    if not section_code:
+                        continue
+
+                    await section_code.update_file()
+                    self.add_to_used_files(section_code)
+                    self.code_dict[projectConfigId][sectionId] = section_code
 
             self.delete_unused_files(project_temp_folder)
             self.project_state_backend = self.get_new_project_state_backend(
                 projectState
             )
-            self.text_file_sync.unregister_project_config(projectConfigId)
-            if text_sync_bindings:
-                self.text_file_sync.register_sections(text_sync_bindings)
             if updateFileWatcher:
                 self.watch_json_source_files()
                 self.watch_artifact_files()
-                self.watch_text_files()
-
-    async def _build_section_code_helpers(
-        self,
-        project_state: ProjectStateSingleConfig,
-        project_temp_folder: Path,
-        project_config_id: str,
-    ) -> list[SectionCodeHelperMetadata]:
-        def default_code_file_path(
-            section_id: str,
-            helper: ProjectPythonCode | ProjectBashCode,
-        ) -> Path:
-            helper_id = helper.get_base_filename()
-            safe_section_id = section_id.replace("-", "_")
-            extension = helper.get_extension()
-            folder = self.code_sections_folder / project_config_id
-            candidate = folder / f"{helper_id}__{safe_section_id}.{extension}"
-            return normalize_path(candidate)
-
-        previous_helpers = self.code_dict.get(project_config_id, {})
-        for helper in previous_helpers.values():
-            if isinstance(helper, ProjectPythonCode):
-                helper.callback_cleanup()
-
-        new_code_dict: dict[str, ProjectPythonCode | ProjectBashCode] = {}
-        helper_metadata: list[SectionCodeHelperMetadata] = []
-
-        for section_id in project_state.sections.keys():
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CodeSectionImpl):
-                continue
-
-            section_code = self.create_project_code(
-                project_temp_folder, project_state, section_id, section_impl
-            )
-            if section_code is None:
-                continue
-
-            await section_code.update_file()
-            self.add_to_used_files(section_code)
-
-            new_code_dict[section_id] = section_code
-
-            variant = get_curr_section_variant(project_state, section_id)
-
-            if isinstance(section_impl, CodeSectionImpl):
-                assigned_default_path = False
-                update_kwargs: dict[str, object] = {}
-                if section_impl.syncMode != CodeSyncMode.twoWay:
-                    update_kwargs["sync_mode"] = CodeSyncMode.twoWay
-                if section_impl.filePath is None:
-                    generated_path = default_code_file_path(section_id, section_code)
-                    update_kwargs["file_path"] = str(generated_path)
-                    update_kwargs["file_missing"] = False
-                    assigned_default_path = True
-
-                if update_kwargs:
-                    set_code(
-                        project_state,
-                        section_id,
-                        section_impl.code,
-                        **update_kwargs,
-                    )
-                    section_impl = cast(
-                        CodeSectionImpl,
-                        get_curr_effective_section_impl(project_state, section_id),
-                    )
-
-                existing_path = (
-                    Path(section_impl.filePath) if section_impl.filePath else None
-                )
-                section_code.file_path = existing_path
-                section_code.sync_mode = section_impl.syncMode
-                section_code.file_missing = section_impl.fileMissing
-
-                if existing_path is not None and assigned_default_path:
-                    binding = TextFileBinding(
-                        project_config_id=project_config_id,
-                        section_id=section_id,
-                        variant_id=variant.id,
-                    )
-                    try:
-                        self.text_file_sync.write_section_code(
-                            binding,
-                            existing_path,
-                            section_code.code,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to bootstrap code file for %s at %s",
-                            binding,
-                            existing_path,
-                        )
-                        set_code(
-                            project_state,
-                            section_id,
-                            section_impl.code,
-                            file_missing=True,
-                        )
-                        section_impl = cast(
-                            CodeSectionImpl,
-                            get_curr_effective_section_impl(project_state, section_id),
-                        )
-                        section_code.file_missing = section_impl.fileMissing
-                    else:
-                        section_code.file_missing = False
-
-            helper_metadata.append(
-                SectionCodeHelperMetadata(
-                    project_config_id=project_config_id,
-                    section_id=section_id,
-                    variant_id=variant.id,
-                    helper_id=section_code.get_base_filename(),
-                    helper=section_code,
-                    temp_path=section_code.temp_file,
-                    real_path=section_code.file_path,
-                    sync_mode=section_code.sync_mode.value,
-                    file_missing=section_code.file_missing,
-                )
-            )
-
-        self.code_dict[project_config_id] = new_code_dict
-        self.code_helper_metadata[project_config_id] = helper_metadata
-        return helper_metadata
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):
@@ -809,133 +650,8 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_code(self, x: SetCodeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
-        current_sync_mode: CodeSyncMode | None = None
-        current_path: str | None = None
-        previous_code: str | None = None
-        if isinstance(section_impl, CodeSectionImpl):
-            current_sync_mode = section_impl.syncMode
-            current_path = section_impl.filePath
-            previous_code = section_impl.code
-
-        target_sync_mode = x.syncMode or current_sync_mode or CodeSyncMode.twoWay
-        target_path = x.filePath if x.filePath is not None else current_path
-        file_missing = x.fileMissing
-        code_to_set = x.code
-
-        normalized_current_path = (
-            normalize_path(current_path) if current_path is not None else None
-        )
-        normalized_target_path = (
-            normalize_path(target_path) if target_path is not None else None
-        )
-        is_new_two_way_binding = (
-            target_sync_mode == CodeSyncMode.twoWay
-            and normalized_target_path is not None
-            and (
-                current_sync_mode != CodeSyncMode.twoWay
-                or normalized_current_path != normalized_target_path
-            )
-        )
-        disk_content: str | None = None
-
-        if is_new_two_way_binding and normalized_target_path is not None:
-            disk_content = self.text_file_sync.read_file(normalized_target_path)
-            if disk_content is not None:
-                file_missing = False
-                if previous_code is not None and code_to_set == previous_code:
-                    code_to_set = disk_content
-            else:
-                if file_missing is None:
-                    file_missing = True
-
-        if target_sync_mode == CodeSyncMode.twoWay and target_path:
-            normalized_path = normalized_target_path or normalize_path(target_path)
-            should_write = True
-            if is_new_two_way_binding:
-                should_write = disk_content is None or code_to_set != disk_content
-
-            if should_write:
-                variant = get_curr_section_variant(project_state, x.sectionId)
-                binding = TextFileBinding(
-                    project_config_id=x.projectConfigId,
-                    section_id=x.sectionId,
-                    variant_id=variant.id,
-                )
-                try:
-                    self.text_file_sync.write_section_code(
-                        binding,
-                        normalized_path,
-                        code_to_set,
-                    )
-                    file_missing = False
-                except Exception:
-                    logger.exception(
-                        "Failed to write code for %s to %s", binding, normalized_path
-                    )
-                    file_missing = True
-            elif file_missing is None:
-                file_missing = False
-        elif file_missing is None and target_path is not None:
-            file_missing = False
-
-        normalized_final_path = (
-            str(normalized_target_path or normalize_path(target_path))
-            if target_path
-            else None
-        )
-
-        set_code(
-            project_state,
-            x.sectionId,
-            code_to_set,
-            file_path=normalized_final_path,
-            sync_mode=target_sync_mode,
-            file_missing=file_missing,
-        )
+        set_code(project_state, x.sectionId, x.code)
         await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def handle_external_text_file_change(
-        self,
-        change: TextFileExternalChange,
-    ):
-        project_config_id = change.binding.project_config_id
-        section_id = change.binding.section_id
-        project_state = self.get_single_config_state(project_config_id)
-        section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if not isinstance(section_impl, CodeSectionImpl):
-            logger.warning(
-                "Received external text file change for non-code section %s", section_id
-            )
-            return
-
-        current_code = section_impl.code
-        updated_code = change.content if change.content is not None else current_code
-        file_missing = change.file_missing
-        if updated_code == current_code and section_impl.fileMissing == file_missing:
-            logger.debug(
-                "Skipping external text file change for %s (no content or status change)",
-                section_id,
-            )
-            return
-
-        set_code(
-            project_state,
-            section_id,
-            updated_code,
-            file_missing=file_missing,
-        )
-
-        await self.update_and_broadcast_project_state(
-            project_state, updateFileWatcher=False
-        )
-
-        notification = SettaNotification(
-            message=f"{change.path} {change.event_type.value}",
-            projectConfigId=project_config_id,
-        )
-        await self.websocket_msg_handler.broadcast_notification(notification)
 
     @enqueue_method
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
@@ -1556,17 +1272,6 @@ class BaseProjectManager(ABC):
         self.artifacts.watch_artifact_files(
             f"{self.__class__.__name__}_Artifacts", self.project_state_backend
         )
-
-    def watch_text_files(self):
-        callback_category = f"{self.__class__.__name__}_TextFiles"
-        self.text_file_sync.watch_text_files(
-            callback_category,
-            self.code_helper_metadata.keys(),
-            self._on_text_file_change,
-        )
-
-    async def _on_text_file_change(self, change: TextFileExternalChange) -> None:
-        await self.handle_external_text_file_change(change)
 
     def _should_defer_json_source_reload(
         self,

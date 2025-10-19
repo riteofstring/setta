@@ -22,7 +22,6 @@ from setta.lsp.managers import (
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.settings_project_manager import SettingsProjectManager
-from setta.project_state.text_file_sync import TextFileSync
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -80,7 +79,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             json_source = JSONSource(
                 frontend_sender, settings_file, specific_file_watcher, dbe
             )
-            text_file_sync = TextFileSync(specific_file_watcher, dbe)
 
             manager = SettingsProjectManager(
                 lsp_writers,
@@ -89,7 +87,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 specific_file_watcher,
                 dbe,
                 artifacts,
-                text_file_sync,
                 json_source,
             )
 

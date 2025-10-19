@@ -89,7 +89,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
     CallableSectionImpl,
-    CodeSyncMode,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
@@ -953,26 +952,11 @@ def toggle_minimized(p: "ProjectStateSingleConfig", sectionId: str):
     )
 
 
-def set_code(
-    p: "ProjectStateSingleConfig",
-    sectionId: str,
-    code: str,
-    *,
-    file_path: str | None = None,
-    sync_mode: CodeSyncMode | None = None,
-    file_missing: bool | None = None,
-):
-    args: dict[str, object] = {"code": code}
-    if file_path is not None:
-        args["filePath"] = file_path
-    if sync_mode is not None:
-        args["syncMode"] = sync_mode
-    if file_missing is not None:
-        args["fileMissing"] = file_missing
+def set_code(p: "ProjectStateSingleConfig", sectionId: str, code: str):
     set_curr_effective_section_impl_value(
         p,
         sectionId,
-        BaseCodeSectionImplArgsWithCallable(**args),
+        BaseCodeSectionImplArgsWithCallable(code=code),
     )
 
 

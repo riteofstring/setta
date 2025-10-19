@@ -189,7 +189,6 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
-    CodeSyncMode,
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,

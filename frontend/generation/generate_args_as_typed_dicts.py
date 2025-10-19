@@ -107,7 +107,6 @@ from setta.types.section_impls import (
     SectionSize,
     Visibility,
     CodeLanguage,
-    CodeSyncMode,
     ConfigLanguage,
     TextBlockDisplayMode,
     TextBlockFormat,

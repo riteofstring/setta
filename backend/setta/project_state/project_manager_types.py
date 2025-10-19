@@ -16,7 +16,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    CodeSyncMode,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -213,9 +212,6 @@ class SetCodeRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     sectionId: str
     code: str
-    filePath: str | None = None
-    syncMode: CodeSyncMode | None = None
-    fileMissing: bool | None = None
 
 
 class SetSectionParamFilterRequest(ProjectManagerRequestWithFrontendOp):

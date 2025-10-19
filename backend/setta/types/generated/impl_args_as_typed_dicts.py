@@ -21,7 +21,6 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
-    CodeSyncMode,
     ConfigLanguage,
     SectionSize,
     SectionSizeMode,
@@ -69,8 +68,6 @@ class CoreArgs(TypedDict):
                 "displayMode",
                 "drawThrottleDelay",
                 "eraserBrushSize",
-                "fileMissing",
-                "filePath",
                 "folder",
                 "format",
                 "headingAsSectionName",
@@ -101,7 +98,6 @@ class CoreArgs(TypedDict):
                 "selectedParams",
                 "size",
                 "step",
-                "syncMode",
                 "text",
                 "topLevelParamId",
                 "type",
@@ -217,17 +213,11 @@ class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     code: NotRequired[str]
-    filePath: NotRequired[str | None]
-    syncMode: NotRequired[CodeSyncMode]
-    fileMissing: NotRequired[bool]
 
 
 class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     code: NotRequired[str | Callable[[str], str]]
-    filePath: NotRequired[str | None | Callable[[str | None], str | None]]
-    syncMode: NotRequired[CodeSyncMode | Callable[[CodeSyncMode], CodeSyncMode]]
-    fileMissing: NotRequired[bool | Callable[[bool], bool]]
 
 
 class BaseParentSectionImplArgs(BaseSectionImplArgs):

@@ -320,13 +320,6 @@ export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
 
-export const CodeSyncModeEnum = {
-  project: "project",
-  twoWay: "twoWay",
-} as const;
-
-export type CodeSyncMode = ObjectValues<typeof CodeSyncModeEnum>;
-
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
@@ -1553,8 +1546,6 @@ export const AllImplFieldsSchema = z.literal([
   "displayMode",
   "drawThrottleDelay",
   "eraserBrushSize",
-  "fileMissing",
-  "filePath",
   "folder",
   "format",
   "headingAsSectionName",
@@ -1585,7 +1576,6 @@ export const AllImplFieldsSchema = z.literal([
   "selectedParams",
   "size",
   "step",
-  "syncMode",
   "text",
   "topLevelParamId",
   "type",
@@ -1691,8 +1681,6 @@ export const CoreSchema = z.object({
         "displayMode",
         "drawThrottleDelay",
         "eraserBrushSize",
-        "fileMissing",
-        "filePath",
         "folder",
         "format",
         "headingAsSectionName",
@@ -1723,7 +1711,6 @@ export const CoreSchema = z.object({
         "selectedParams",
         "size",
         "step",
-        "syncMode",
         "text",
         "topLevelParamId",
         "type",
@@ -2198,9 +2185,6 @@ export const CodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.enum(CodeSyncModeEnum).default(CodeSyncModeEnum.project),
-  fileMissing: z.boolean().default(false),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
 
@@ -2228,9 +2212,6 @@ export const GenPythonCodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.enum(CodeSyncModeEnum).default(CodeSyncModeEnum.project),
-  fileMissing: z.boolean().default(false),
 });
 
 export type GenPythonCodeSectionImpl = z.infer<
@@ -3282,9 +3263,6 @@ export const CodeSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
-  filePath: z.union([z.string(), z.null()]).optional(),
-  syncMode: z.enum(CodeSyncModeEnum).optional(),
-  fileMissing: z.boolean().optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
 });
 
@@ -3311,9 +3289,6 @@ export const GenPythonCodeSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
-  filePath: z.union([z.string(), z.null()]).optional(),
-  syncMode: z.enum(CodeSyncModeEnum).optional(),
-  fileMissing: z.boolean().optional(),
 });
 
 export type GenPythonCodeSectionImplArgs = z.infer<
@@ -4753,9 +4728,6 @@ export const UserDefaultCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   code: z.string().default("" as const),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.enum(CodeSyncModeEnum).default(CodeSyncModeEnum.project),
-  fileMissing: z.boolean().default(false),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
 
@@ -4858,9 +4830,6 @@ export const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   code: z.string().default("" as const),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.enum(CodeSyncModeEnum).default(CodeSyncModeEnum.project),
-  fileMissing: z.boolean().default(false),
 });
 
 export type UserDefaultGenPythonCodeSectionImpl = z.infer<
@@ -5629,9 +5598,6 @@ export const BaseCodeSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
-  filePath: z.union([z.string(), z.null()]).optional(),
-  syncMode: z.enum(CodeSyncModeEnum).optional(),
-  fileMissing: z.boolean().optional(),
 });
 
 export type BaseCodeSectionImplArgs = z.infer<
@@ -5659,9 +5625,6 @@ export const BaseCodeSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   code: z.union([z.string(), z.any()]).optional(),
-  filePath: z.union([z.string(), z.null(), z.any()]).optional(),
-  syncMode: z.union([z.enum(CodeSyncModeEnum), z.any()]).optional(),
-  fileMissing: z.union([z.boolean(), z.any()]).optional(),
 });
 
 export type BaseCodeSectionImplArgsWithCallable = z.infer<
@@ -6219,9 +6182,6 @@ export const CodeSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   code: z.union([z.string(), z.any()]).optional(),
-  filePath: z.union([z.string(), z.null(), z.any()]).optional(),
-  syncMode: z.union([z.enum(CodeSyncModeEnum), z.any()]).optional(),
-  fileMissing: z.union([z.boolean(), z.any()]).optional(),
   codeLanguage: z.union([z.enum(CodeLanguageEnum), z.any()]).optional(),
 });
 
@@ -6414,9 +6374,6 @@ export const GenPythonCodeSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   code: z.union([z.string(), z.any()]).optional(),
-  filePath: z.union([z.string(), z.null(), z.any()]).optional(),
-  syncMode: z.union([z.enum(CodeSyncModeEnum), z.any()]).optional(),
-  fileMissing: z.union([z.boolean(), z.any()]).optional(),
 });
 
 export type GenPythonCodeSectionImplArgsWithCallable = z.infer<
@@ -6831,8 +6788,6 @@ export const CoreArgsSchema = z.object({
         "displayMode",
         "drawThrottleDelay",
         "eraserBrushSize",
-        "fileMissing",
-        "filePath",
         "folder",
         "format",
         "headingAsSectionName",
@@ -6863,7 +6818,6 @@ export const CoreArgsSchema = z.object({
         "selectedParams",
         "size",
         "step",
-        "syncMode",
         "text",
         "topLevelParamId",
         "type",
@@ -7128,9 +7082,6 @@ export const BaseCodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.enum(CodeSyncModeEnum).default(CodeSyncModeEnum.project),
-  fileMissing: z.boolean().default(false),
 });
 
 export type BaseCodeSectionImpl = z.infer<typeof BaseCodeSectionImplSchema>;
@@ -7304,9 +7255,6 @@ export const UserDefaultBaseCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   code: z.string().default("" as const),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.enum(CodeSyncModeEnum).default(CodeSyncModeEnum.project),
-  fileMissing: z.boolean().default(false),
 });
 
 export type UserDefaultBaseCodeSectionImpl = z.infer<
@@ -8362,9 +8310,6 @@ export const SetCodeRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
   code: z.string(),
-  filePath: z.union([z.string(), z.null()]).default(null),
-  syncMode: z.union([z.enum(CodeSyncModeEnum), z.null()]).default(null),
-  fileMissing: z.union([z.boolean(), z.null()]).default(null),
 });
 
 export type SetCodeRequest = z.infer<typeof SetCodeRequestSchema>;
