@@ -138,6 +138,7 @@ function RightColumn({
         </div>
         <Link
           to={SETTINGS_ROUTER_PATH}
+          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
           className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
         >
           <IoSettingsOutline />
