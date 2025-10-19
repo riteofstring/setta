@@ -15,20 +15,17 @@ import {
 import {
   route_delete_sections,
   route_group_sections,
-  route_set_code_file_binding,
   route_set_top_level_section_layout,
   route_set_viewport,
   route_toggle_param_selected,
   route_ungroup_groups,
   route_unselect_all_params,
 } from "utils/generatedEndpoints";
-import { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   AllProjectMetadata,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
-  CodeFileAccessMode,
   Core,
   ImplArgsBundleMap,
   isBaseParentSectionImpl,
@@ -692,65 +689,6 @@ export function dispatchOptimisticProjectStateUpdate({
   const opId = addPendingOp(apply);
   void send(opId);
   return opId;
-}
-
-export function dispatchSetCodeFileBinding({
-  sectionId,
-  canonicalPath,
-  accessMode,
-}: {
-  sectionId: string;
-  canonicalPath: string;
-  accessMode: CodeFileAccessMode;
-}): Promise<ResponseDataAndStatus<null>> {
-  let resolveSend!: (value: ResponseDataAndStatus<null>) => void;
-  let rejectSend!: (reason: unknown) => void;
-  const sendPromise = new Promise<ResponseDataAndStatus<null>>(
-    (resolve, reject) => {
-      resolveSend = resolve;
-      rejectSend = reject;
-    },
-  );
-
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
-        codeFileBinding: (currBinding) => {
-          const existingSnapshotDir = currBinding?.snapshot_dir;
-          const fallbackSnapshotDir = (() => {
-            if (existingSnapshotDir) {
-              return existingSnapshotDir;
-            }
-            const normalized = canonicalPath.replace(/\\/g, "/");
-            const dir = normalized.split("/").slice(0, -1).join("/");
-            return dir.length > 0 ? dir : ".";
-          })();
-
-          return {
-            canonical_path: canonicalPath,
-            access_mode: accessMode,
-            snapshot_dir: fallbackSnapshotDir,
-          };
-        },
-      });
-    },
-    send: async (frontendOpId) => {
-      try {
-        const res = await route_set_code_file_binding({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          canonicalPath,
-          accessMode,
-          frontendOpId,
-        });
-        resolveSend(res);
-      } catch (error) {
-        rejectSend(error);
-      }
-    },
-  });
-
-  return sendPromise;
 }
 
 export function toggleParamSelected(sectionId: string, paramInfoId: string) {
