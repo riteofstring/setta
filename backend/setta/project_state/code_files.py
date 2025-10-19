@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.project_state import ProjectStateBackend
+    from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
+from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.section_impls import CodeFileAccessMode
 from setta.utils.utils import normalize_path
 
@@ -22,7 +24,7 @@ GEN_CODE_VARIANT_ID = "__setta_gen_code__"
 class RegisteredCodeFileBinding:
     section_id: str
     variant_id: str
-    project_config_id: str | None
+    project_config_id: str
     access_mode: CodeFileAccessMode
 
 
@@ -92,17 +94,32 @@ class CodeFiles:
     def watch_code_files(
         self,
         callback_category: str,
-        project_state_backend: ProjectStateBackend,
+        project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
     ) -> None:
         """
         Register callbacks with SpecificFileWatcher for any paths tracked under this
         category. Mirrors watch_json_source_files/watch_artifact_files.
 
-        TODO: compute the per-category path set, diff with previous registrations, and
-        call SpecificFileWatcher.update_callbacks just like the existing managers.
+        TODO: once reload_code_sections exists, pull the registered bindings and trigger
+        section reloads in response to filesystem events.
         """
-        self._category_to_paths.setdefault(callback_category, set())
-        # TODO: derive callbacks once CodeFiles.reload_code_sections exists.
+        previous_paths = self._category_to_paths.get(callback_category, set())
+        category_bindings = self._collect_bindings_for_backend(
+            project_state_backend_getter_fn()
+        )
+
+        current_paths = set(category_bindings)
+        self._category_to_paths[callback_category] = current_paths
+
+        callback = self._build_file_watcher_callback(
+            callback_category, project_state_backend_getter_fn
+        )
+        callbacks = {path: callback for path in current_paths}
+
+        fire_immediately = {path for path in current_paths if path not in previous_paths}
+        self.specific_file_watcher.update_callbacks(
+            callbacks, callback_category, fire_immediately
+        )
 
     def record_read(self, path: Path, content_hash: str | None) -> None:
         """
@@ -199,3 +216,34 @@ class CodeFiles:
     def _ensure_registered(self, normalized_path: Path) -> None:
         if normalized_path not in self._bindings:
             raise KeyError(f"No bindings registered for {normalized_path}")
+
+    def _collect_bindings_for_backend(
+        self, project_state_backend: ProjectStateBackend
+    ) -> dict[Path, set[RegisteredCodeFileBinding]]:
+        project_config_ids = set(project_state_backend.projectConfigs.keys())
+        category_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
+
+        for path, bindings in self._bindings.items():
+            relevant = {
+                binding
+                for binding in bindings
+                if binding.project_config_id in project_config_ids
+            }
+            if relevant:
+                category_bindings[path] = relevant
+
+        return category_bindings
+
+    def _build_file_watcher_callback(
+        self,
+        callback_category: str,
+        project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
+    ) -> FileWatcherCallback:
+        async def _callback(core_update: "FileWatcherCoreUpdate") -> None:
+            # Placeholder: once section reloads are wired, use category bindings to
+            # refresh project state.
+            project_state_backend = project_state_backend_getter_fn()
+            _ = (callback_category, core_update, project_state_backend)
+            return None
+
+        return _callback

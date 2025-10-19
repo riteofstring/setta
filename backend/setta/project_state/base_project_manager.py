@@ -1262,7 +1262,8 @@ class BaseProjectManager(ABC):
 
     def watch_code_files(self):
         self.code_files.watch_code_files(
-            f"{self.__class__.__name__}_CodeFiles", self.project_state_backend
+            f"{self.__class__.__name__}_CodeFiles",
+            self.project_state_backend_getter_fn,
         )
 
     def _register_code_file_bindings(

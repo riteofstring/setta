@@ -10,9 +10,12 @@ from setta.project_state.code_files import (
     CodeFiles,
     RegisteredCodeFileBinding,
 )
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import CodeFileAccessMode
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
+from setta.utils.utils import normalize_path
 
 
 def register_binding(
@@ -42,6 +45,7 @@ class CodeFilesTests(unittest.TestCase):
 
         self.manager = CodeFiles(frontend_sender, file_watcher, dbe)
         self.path = root / "code.py"
+        self.path.touch()
 
     def tearDown(self) -> None:
         asyncio.set_event_loop(None)
@@ -83,6 +87,22 @@ class CodeFilesTests(unittest.TestCase):
         assert metadata is not None
         self.assertEqual(metadata.last_written_hash, "hash")
         self.assertFalse(metadata.has_conflict)
+
+    def test_watch_code_files_registers_callbacks(self) -> None:
+        register_binding(self.manager, self.path, CodeFileAccessMode.read_write)
+        backend = ProjectStateBackend(
+            projectConfigs={"config": ProjectConfig(id="config")}
+        )
+
+        category = "TestCategory"
+        self.manager.watch_code_files(category, lambda: backend)
+        self._loop.run_until_complete(asyncio.sleep(0))
+
+        normalized = normalize_path(self.path)
+        callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
+        self.assertIn(normalized, callbacks)
+        tracked_paths = self.manager._category_to_paths.get(category, set())
+        self.assertIn(normalized, tracked_paths)
 
     def test_record_write_rejects_read_only(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
