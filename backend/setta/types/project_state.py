@@ -225,7 +225,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         project_slug = sanitize_name(self.projectConfig.name)
         code_root = normalize_path(C.CODE_FOLDER)
         canonical_sections_dir = code_root / "sections" / project_slug
-        generated_code_dir = code_root / "generated" / project_slug
+        gen_code_path = canonical_sections_dir / "setta_gen.py"
         snapshot_temp_dir = code_root / "temp_folder" / project_slug
         gen_code_binding: CodeFileBinding | None = None
 
@@ -244,7 +244,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                canonical_path = generated_code_dir / "setta_gen.py"
+                canonical_path = gen_code_path
                 snapshot_dir = snapshot_temp_dir
                 access_mode = CodeFileAccessMode.write_only
             else:
@@ -271,7 +271,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 gen_code_binding = binding
         if gen_code_binding is None:
             gen_code_binding = CodeFileBinding(
-                canonical_path=normalize_path(generated_code_dir / "setta_gen.py"),
+                canonical_path=normalize_path(gen_code_path),
                 snapshot_dir=normalize_path(snapshot_temp_dir),
                 access_mode=CodeFileAccessMode.write_only,
             )
