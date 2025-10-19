@@ -622,7 +622,7 @@ class BaseProjectManager(ABC):
                     helper=section_code,
                     temp_path=section_code.temp_file,
                     real_path=section_code.file_path,
-                    sync_mode=cast("SyncMode", section_code.sync_mode.value),
+                    sync_mode=section_code.sync_mode.value,
                     file_missing=section_code.file_missing,
                 )
             )
