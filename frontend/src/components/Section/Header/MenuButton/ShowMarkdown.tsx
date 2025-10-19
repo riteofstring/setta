@@ -18,21 +18,21 @@ import {
 } from "utils/generatedTypes";
 
 export function RenderTextBlock({ sectionId }) {
-  const { displayMode, format, implIsFrozen } = useProjectState((x) => {
+  const { textDisplayMode, format, implIsFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.TextBlock,
     );
     return {
-      displayMode: impl.displayMode,
+      textDisplayMode: impl.textDisplayMode,
       format: impl.format,
       implIsFrozen: impl.isFrozen,
     };
   }, _.isEqual);
 
   const newDisplayMode =
-    displayMode === TextBlockDisplayModeEnum.Render
+    textDisplayMode === TextBlockDisplayModeEnum.Render
       ? TextBlockDisplayModeEnum.Edit
       : TextBlockDisplayModeEnum.Render;
 
@@ -40,14 +40,14 @@ export function RenderTextBlock({ sectionId }) {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-          displayMode: newDisplayMode,
+          textDisplayMode: newDisplayMode,
         });
       },
       send: (frontendOpId) =>
         route_set_text_block_display_mode({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
-          displayMode: newDisplayMode,
+          textDisplayMode: newDisplayMode,
           frontendOpId,
         }),
     });

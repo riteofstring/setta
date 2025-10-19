@@ -7,6 +7,7 @@ from pathlib import Path
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
+from setta.types.section_impls import CodeFileBinding
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -14,14 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 class Code(ABC):
-    def __init__(self, dbe: DBE, temp_folder: Path):
+    def __init__(self, dbe: DBE, binding: CodeFileBinding):
         self.dbe = dbe
-        self.temp_folder = temp_folder
-        self.temp_file: Path | None = None
+        self.binding = binding
 
-    @abstractmethod
     def get_base_filename(self):
-        pass
+        return self.binding.canonical_path.stem
 
     @abstractmethod
     def get_extension(self):
@@ -32,45 +31,27 @@ class Code(ABC):
         pass
 
     def update_file(self, code):
-        base_filename = self.get_base_filename()
-        extension = self.get_extension()
-        filepath = self.temp_folder / f"{base_filename}.{extension}"
-        self.create_or_update_temp_file(filepath, code)
-
-    def create_temp_file(self, filepath, code):
-        logger.debug(f"Creating temporary file {filepath}")
+        filepath = self.binding.canonical_path
+        logger.debug("Writing canonical file %s", filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.dbe.write(filepath, code)
-        self.temp_file = filepath
-
-    def create_or_update_temp_file(self, filepath, code):
-        if self.temp_file != filepath:
-            self.delete_temp_file()
-            self.create_temp_file(filepath, code)
-        if self.temp_file:
-            self.dbe.write(self.temp_file, code)
-
-    def delete_temp_file(self):
-        if self.temp_file and self.temp_file.exists():
-            self.temp_file.unlink()
 
     def write_to_folder(self, code: str, folder: Path) -> Path:
-        if self.temp_file:
-            full_path = folder / self.temp_file.name
-            self.dbe.write(full_path, code)
-            return full_path
-        raise ValueError("self.temp_file is not set")
+        folder.mkdir(parents=True, exist_ok=True)
+        target_path = folder / self.binding.canonical_path.name
+        self.dbe.write(target_path, code)
+        return target_path
 
 
 class PythonCode(Code):
     def __init__(
         self,
         dbe: DBE,
-        temp_folder: Path,
+        binding: CodeFileBinding,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
     ):
-        super().__init__(dbe, temp_folder)
+        super().__init__(dbe, binding)
         self.lsp_writer = lsp_writers.full
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
@@ -80,9 +61,10 @@ class PythonCode(Code):
         await self.send_document_open_request(code)
 
     async def send_document_open_request(self, code):
-        if self.temp_file and self.temp_file.exists():
+        filepath = self.binding.canonical_path
+        if filepath.exists():
             self.uri = await self.lsp_writer.send_document_open_request(
-                filepath=self.temp_file,
+                filepath=filepath,
                 code=code,
                 diagnostics_callback=self.diagnostics_callback,
             )
@@ -90,10 +72,6 @@ class PythonCode(Code):
     def callback_cleanup(self):
         if self.diagnostics_callback and self.uri:
             self.lsp_writer.remove_diagnostics_response_callback(self.uri)
-
-    @abstractmethod
-    def get_base_filename(self):
-        pass
 
     def get_extension(self):
         return "py"
@@ -109,8 +87,10 @@ class PythonCode(Code):
 
     @asynccontextmanager
     async def temporary_document(self, code: str):
+        snapshot_dir = self.binding.snapshot_dir
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
         filepath = (
-            self.temp_folder
+            snapshot_dir
             / f"{self.get_base_filename()}__{uuid.uuid4().hex}.{self.get_extension()}"
         )
         uri: str | None = None
@@ -129,10 +109,6 @@ class PythonCode(Code):
 
 
 class BashCode(Code):
-    @abstractmethod
-    def get_base_filename(self):
-        pass
-
     def get_extension(self):
         return "sh"
 

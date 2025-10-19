@@ -114,7 +114,8 @@ from setta.types.section_impls import (
     SectionSizeMode,
     SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
-    BrowserAreaItem
+    BrowserAreaItem,
+    CodeFileBinding
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
@@ -123,6 +124,7 @@ from setta.types.code_obj_impls import (
     CodeObjType
 )
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode
+from setta.types.generated.shared_modifier import SharedModifier
 
 """
 

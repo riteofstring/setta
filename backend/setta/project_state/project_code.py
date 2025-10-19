@@ -6,9 +6,6 @@ from lsprotocol import types as LSPTypes
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
-from setta.code_gen.utils import (
-    sanitize_name,
-)
 from setta.database.utils import create_new_id
 from setta.project_state.code import (
     BashCode,
@@ -44,29 +41,26 @@ from setta.types.helpers_lvl2 import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    get_section_path_full_name,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import (
-    CodeSectionImpl,
-)
+from setta.types.section_impls import CodeFileBinding, CodeSectionImpl
 
 
 class ProjectGenPythonCode(PythonCode):
     def __init__(
         self,
         dbe,
-        temp_folder,
+        binding: CodeFileBinding,
         lsp_writers,
         websocket_msg_handler,
         project_config_id: str,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
-        super().__init__(dbe, temp_folder, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, binding, lsp_writers, websocket_msg_handler)
         # with open("test_project_state.json", "w") as f:
         # json.dump(project_state, f)
         self.project_config_id = project_config_id
@@ -189,7 +183,7 @@ class ProjectGenPythonCode(PythonCode):
         request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_signature_help_request(
-                filepath=self.temp_file,
+                filepath=self.binding.canonical_path,
                 line=line,
                 character=col,
                 request_id=request_id,
@@ -285,11 +279,8 @@ class ProjectGenPythonCode(PythonCode):
 
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
-    def get_base_filename(self):
-        return "setta_gen"
-
     def get_gen_python_code_path(self):
-        return self.temp_file
+        return self.binding.canonical_path
 
     @property
     def code(self):
@@ -303,27 +294,23 @@ class ProjectPythonCode(PythonCode):
     def __init__(
         self,
         dbe,
-        temp_folder,
         lsp_writers,
         websocket_msg_handler,
         project_state: ProjectStateSingleConfig,
         sectionId,
     ):
-        super().__init__(dbe, temp_folder, lsp_writers, websocket_msg_handler)
-        self.section_path_full_name = get_section_path_full_name(
-            project_state, sectionId
-        )
-        self.sectionId = sectionId
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
+        binding = section_impl.codeFileBinding
+        if binding is None:
+            raise ValueError("Code section missing codeFileBinding")
+        super().__init__(dbe, binding, lsp_writers, websocket_msg_handler)
+        self.sectionId = sectionId
         self.code = section_impl.code
 
     async def update_file(self):
         await super().update_file(self.code)
-
-    def get_base_filename(self):
-        return sanitize_name(self.section_path_full_name)
 
     async def code_area_completion(self, fullText, position):
         line, col = position_to_line_col(fullText, position)
@@ -352,21 +339,16 @@ class ProjectPythonCode(PythonCode):
 
 
 class ProjectBashCode(BashCode):
-    def __init__(
-        self, dbe, temp_folder, project_state: ProjectStateSingleConfig, sectionId
-    ):
-        super().__init__(dbe, temp_folder)
-        self.section_path_full_name = get_section_path_full_name(
-            project_state, sectionId
-        )
-        self.sectionId = sectionId
+    def __init__(self, dbe, project_state: ProjectStateSingleConfig, sectionId):
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
+        binding = section_impl.codeFileBinding
+        if binding is None:
+            raise ValueError("Code section missing codeFileBinding")
+        super().__init__(dbe, binding)
+        self.sectionId = sectionId
         self.code = section_impl.code
-
-    def get_base_filename(self):
-        return sanitize_name(self.section_path_full_name)
 
     async def update_file(self):
         super().update_file(self.code)

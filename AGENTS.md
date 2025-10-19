@@ -56,6 +56,7 @@ Endpoint functions on the backend and frontend always have the exact same name. 
 Never use the `alias` feature in pydantic. Camel case is fine for pydantic attributes, if it makes the backend/frontend communication easier.
 
 ## Environment
+
 Whenever you run `pnpm generate` or `format_code`, make sure to first run `activate.sh` to activate the correct python environment. Specifically, go to the root folder of the project, and run `source activate.sh && cd frontend && pnpm generate`.
 
 To run python tests: `source activate.sh && python -m unittest discover`.
@@ -63,3 +64,8 @@ To run python tests: `source activate.sh && python -m unittest discover`.
 To run anything python related: `source activate.sh && <python command goes here>`
 
 Don't bother running `pnpm test` for now, as there are currently no frontend tests.
+
+## Project State access style
+
+I prefer a hard KeyError instead of hiding problems via project_state.some_dict.get(key).
+When you know a section impl or code obj impl must be of a specific type, use the helper getter functions ending with "with_type_guard".

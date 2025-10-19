@@ -267,7 +267,7 @@ class SetSectionNameRequest(ProjectManagerRequestWithFrontendOp):
 class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     sectionId: str
-    displayMode: TextBlockDisplayMode
+    textDisplayMode: TextBlockDisplayMode
 
 
 class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
