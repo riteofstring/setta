@@ -12,6 +12,9 @@
   - `access_mode`: enum such as `read_only`, `read_write`, `write_only` (generated code).
 - **Snapshot Documents**: the existing `temporary_document` helper now writes into `snapshot_dir`, keeping UUID filenames and auto-cleanup.
 
+## Progress
+- Step 1 complete: the section schemas now define `CodeFileBinding` metadata, and `ProjectStateSingleConfig.validate_code_file_bindings` back-fills durable defaults (canonical path, snapshot dir, access mode) for every code and generated-code section.
+
 ## Refactor Steps
 1. **Add Binding Metadata**
    - Extend the section impl schema to hold a `CodeFileBinding`.

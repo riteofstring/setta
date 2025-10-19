@@ -15,6 +15,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
     SectionSize,
@@ -51,6 +52,7 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+    codeFileBinding: CodeFileBinding | None = None
 
 
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

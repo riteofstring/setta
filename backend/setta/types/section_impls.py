@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import (
@@ -134,9 +135,22 @@ class BaseCanvasSectionImpl(BaseSectionImpl):
     renderedValue: Any = None
 
 
+class CodeFileAccessMode(str, Enum):
+    read_only = "read_only"
+    read_write = "read_write"
+    write_only = "write_only"
+
+
+class CodeFileBinding(BaseModel, extra="forbid"):
+    canonical_path: Path
+    snapshot_dir: Path
+    access_mode: CodeFileAccessMode
+
+
 class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+    codeFileBinding: CodeFileBinding | None = None
 
 
 class BaseParentSectionImpl(BaseSectionImpl):

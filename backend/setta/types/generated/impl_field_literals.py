@@ -15,6 +15,7 @@ AllImplFields = Literal[
     "children",
     "choices",
     "code",
+    "codeFileBinding",
     "codeLanguage",
     "codeObjVariantMap",
     "colorChoices",

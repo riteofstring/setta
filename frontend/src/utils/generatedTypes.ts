@@ -373,6 +373,14 @@ export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
 
+export const CodeFileAccessModeEnum = {
+  read_only: "read_only",
+  read_write: "read_write",
+  write_only: "write_only",
+} as const;
+
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
+
 export const RouteEnum = {
   PREFIX: "/api",
   SWAGGER_DOCS: "/docs",
@@ -1533,6 +1541,7 @@ export const AllImplFieldsSchema = z.literal([
   "children",
   "choices",
   "code",
+  "codeFileBinding",
   "codeLanguage",
   "codeObjVariantMap",
   "colorChoices",
@@ -1668,6 +1677,7 @@ export const CoreSchema = z.object({
         "children",
         "choices",
         "code",
+        "codeFileBinding",
         "codeLanguage",
         "codeObjVariantMap",
         "colorChoices",
@@ -2170,6 +2180,20 @@ export function createGlobalVariablesSectionImpl(
   return GlobalVariablesSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
+export const CodeFileBindingSchema = z.object({
+  canonical_path: z.string(),
+  snapshot_dir: z.string(),
+  access_mode: z.enum(CodeFileAccessModeEnum),
+});
+
+export type CodeFileBinding = z.infer<typeof CodeFileBindingSchema>;
+
+export function createCodeFileBinding(
+  options: Partial<CodeFileBinding> = {},
+): CodeFileBinding {
+  return CodeFileBindingSchema.parse(options);
+}
+
 export const CodeSectionImplSchema = z.object({
   type: z.literal("Code").default(SectionTypeEnum.Code),
   id: z.string().default(create_new_id),
@@ -2185,6 +2209,7 @@ export const CodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
 
@@ -2212,6 +2237,7 @@ export const GenPythonCodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
 });
 
 export type GenPythonCodeSectionImpl = z.infer<
@@ -3263,6 +3289,7 @@ export const CodeSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
 });
 
@@ -3289,6 +3316,7 @@ export const GenPythonCodeSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
 });
 
 export type GenPythonCodeSectionImplArgs = z.infer<
@@ -4728,6 +4756,7 @@ export const UserDefaultCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
 
@@ -4830,6 +4859,7 @@ export const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
 });
 
 export type UserDefaultGenPythonCodeSectionImpl = z.infer<
@@ -5598,6 +5628,7 @@ export const BaseCodeSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
 });
 
 export type BaseCodeSectionImplArgs = z.infer<
@@ -5625,6 +5656,9 @@ export const BaseCodeSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   code: z.union([z.string(), z.any()]).optional(),
+  codeFileBinding: z
+    .union([CodeFileBindingSchema, z.null(), z.any()])
+    .optional(),
 });
 
 export type BaseCodeSectionImplArgsWithCallable = z.infer<
@@ -6182,6 +6216,9 @@ export const CodeSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   code: z.union([z.string(), z.any()]).optional(),
+  codeFileBinding: z
+    .union([CodeFileBindingSchema, z.null(), z.any()])
+    .optional(),
   codeLanguage: z.union([z.enum(CodeLanguageEnum), z.any()]).optional(),
 });
 
@@ -6374,6 +6411,9 @@ export const GenPythonCodeSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   code: z.union([z.string(), z.any()]).optional(),
+  codeFileBinding: z
+    .union([CodeFileBindingSchema, z.null(), z.any()])
+    .optional(),
 });
 
 export type GenPythonCodeSectionImplArgsWithCallable = z.infer<
@@ -6775,6 +6815,7 @@ export const CoreArgsSchema = z.object({
         "children",
         "choices",
         "code",
+        "codeFileBinding",
         "codeLanguage",
         "codeObjVariantMap",
         "colorChoices",
@@ -7082,6 +7123,7 @@ export const BaseCodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
 });
 
 export type BaseCodeSectionImpl = z.infer<typeof BaseCodeSectionImplSchema>;
@@ -7255,6 +7297,7 @@ export const UserDefaultBaseCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   code: z.string().default("" as const),
+  codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
 });
 
 export type UserDefaultBaseCodeSectionImpl = z.infer<

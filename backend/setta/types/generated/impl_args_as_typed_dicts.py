@@ -20,6 +20,7 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
     SectionSize,
@@ -55,6 +56,7 @@ class CoreArgs(TypedDict):
                 "children",
                 "choices",
                 "code",
+                "codeFileBinding",
                 "codeLanguage",
                 "codeObjVariantMap",
                 "colorChoices",
@@ -213,11 +215,17 @@ class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     code: NotRequired[str]
+    codeFileBinding: NotRequired[CodeFileBinding | None]
 
 
 class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     code: NotRequired[str | Callable[[str], str]]
+    codeFileBinding: NotRequired[
+        CodeFileBinding
+        | None
+        | Callable[[CodeFileBinding | None], CodeFileBinding | None]
+    ]
 
 
 class BaseParentSectionImplArgs(BaseSectionImplArgs):
