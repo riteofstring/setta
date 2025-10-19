@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -76,9 +75,6 @@ class CodeFileSyncService:
         self._pending_updates: dict[Path, FileWatcherCoreUpdate] = {}
         self._processing_tasks: dict[Path, asyncio.Task[None]] = {}
         self._locks: dict[Path, asyncio.Lock] = {}
-        self._polling_tasks: dict[Path, asyncio.Task[None]] = {}
-        self._polling_state: dict[Path, tuple[bool, str | None]] = {}
-        self._poll_interval = 0.75
 
     def register_binding(self, owner: BindingOwner) -> None:
         if owner.binding.access_mode == CodeFileAccessMode.write_only:
@@ -112,7 +108,6 @@ class CodeFileSyncService:
             self._locks.pop(path, None)
 
         self._sync_watcher_callbacks()
-        self._maybe_update_polling(path)
 
     def refresh_binding(self, owner: BindingOwner) -> None:
         current_path = self._owner_to_path.get(owner.owner_id)
@@ -138,9 +133,6 @@ class CodeFileSyncService:
 
         subscribers.owners[owner.owner_id] = owner
         self._owner_to_path[owner.owner_id] = next_path
-        if owner.binding.access_mode == CodeFileAccessMode.read_only:
-            self._request_read_for_path(next_path)
-        self._maybe_update_polling(next_path)
 
     def _add_owner(self, owner: BindingOwner) -> None:
         path = normalize_path(owner.binding.canonical_path)
@@ -156,8 +148,11 @@ class CodeFileSyncService:
 
         fire_immediately: Iterable[Path] = [path] if is_new_path else []
         self._sync_watcher_callbacks(fire_immediately=fire_immediately)
-        self._request_read_for_path(path)
-        self._maybe_update_polling(path)
+
+        try:
+            self._specific_file_watcher.request_read(path)
+        except Exception:
+            logger.exception("Failed to request initial read for %s", path)
 
     def _sync_watcher_callbacks(
         self,
@@ -171,12 +166,6 @@ class CodeFileSyncService:
         self._specific_file_watcher.update_callbacks(
             callbacks, self._callback_category, fire_set
         )
-
-    def request_read_for_binding(self, binding: CodeFileBinding) -> None:
-        if binding.access_mode == CodeFileAccessMode.write_only:
-            return
-        path = normalize_path(binding.canonical_path)
-        self._request_read_for_path(path)
 
     def _create_callback(self, path: Path) -> FileWatcherCallback:
         async def _callback(core_update: FileWatcherCoreUpdate) -> None:
@@ -267,12 +256,6 @@ class CodeFileSyncService:
                     owner.owner_id,
                     event_type.value,
                 )
-
-    def _request_read_for_path(self, path: Path) -> None:
-        try:
-            self._specific_file_watcher.request_read(path)
-        except Exception:
-            logger.exception("Failed to request read for %s", path)
 
     @staticmethod
     def _convert_event_type(

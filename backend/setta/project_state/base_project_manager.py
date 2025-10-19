@@ -181,7 +181,6 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
-    CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
@@ -463,32 +462,7 @@ class BaseProjectManager(ABC):
             needs_init = projectState.projectConfig.id not in self.gen_code
         if needs_init:
             await self.update(projectState)
-        else:
-            await self._refresh_read_only_code_sections(projectState)
         return projectState
-
-    async def _refresh_read_only_code_sections(
-        self, project_state: ProjectStateSingleConfig
-    ) -> None:
-        if not self.code_file_sync:
-            return
-        async with self._project_state_lock.write_lock():
-            self._sync_code_file_bindings_for_project_state(project_state)
-        for (
-            section_id,
-            variant_id,
-        ) in project_state.projectConfig.sectionVariantMap.items():
-            if variant_id is None:
-                continue
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CodeSectionImpl):
-                continue
-            binding = section_impl.codeFileBinding
-            if binding is None:
-                continue
-            if binding.access_mode != CodeFileAccessMode.read_only:
-                continue
-            self.code_file_sync.request_read_for_binding(binding)
 
     @enqueue_method
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
