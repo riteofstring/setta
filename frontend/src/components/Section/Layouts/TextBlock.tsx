@@ -19,16 +19,16 @@ import {
 } from "utils/generatedTypes";
 
 function _TextBlock({ sectionId }) {
-  const textDisplayMode = useProjectState((x) => {
+  const displayMode = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.TextBlock,
     );
-    return impl.textDisplayMode;
+    return impl.displayMode;
   });
 
-  return textDisplayMode === TextBlockDisplayModeEnum.Render ? (
+  return displayMode === TextBlockDisplayModeEnum.Render ? (
     <Markdown sectionId={sectionId} />
   ) : (
     <MarkdownEditorInSection sectionId={sectionId} />

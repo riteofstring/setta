@@ -4,7 +4,6 @@ import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
-import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { GenPythonCodeSettings } from "./GenPythonCodeSettings";
 import { IframeSettings } from "./IframeSettings";
@@ -37,8 +36,6 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <DrawAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Image:
       return <ImageAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Code:
-      return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Chart:
       return <ChartAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Social:

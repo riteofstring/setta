@@ -5,11 +5,8 @@ from pydantic import (
     model_validator,
 )
 
-from setta.code_gen.utils import sanitize_name
-from setta.project_state.utils import get_code_extension
 from setta.types.artifact import ArtifactType
 from setta.types.core import Core, Variant
-from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
@@ -18,22 +15,14 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.helpers_lvl2 import (
-    BaseCodeSectionImplArgsWithCallable,
-    get_section_path_full_name,
-    get_top_level_param_ids,
-)
+from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
-    BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
-    CodeFileAccessMode,
-    CodeFileBinding,
     DrawSectionImpl,
-    GenPythonCodeSectionImpl,
     SectionType,
     SectionWithParamsDisplayMode,
 )
@@ -41,8 +30,6 @@ from setta.types.shown_params import (
     ShownParamIds,
     get_param_ids_to_show,
 )
-from setta.utils.constants import C
-from setta.utils.utils import normalize_path
 
 SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 
@@ -97,7 +84,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     yamlValues: dict[str, str] = Field(default_factory=dict)
     shownParamIds: dict[str, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
-    genCodeBinding: CodeFileBinding | None = None
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
@@ -122,10 +108,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     @model_validator(mode="after")
     def _validate_required_decoded_images(self):
         return self.validate_required_decoded_images()
-
-    @model_validator(mode="after")
-    def _validate_code_file_bindings(self):
-        return self.validate_code_file_bindings()
 
     def validate_singleton_sections(self):
         output = SingletonSections()
@@ -219,63 +201,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                         if el.type == ArtifactType.Image:
                             output.add(el.dataPath)
         self.requiredDecodedImages = list(output)
-        return self
-
-    def validate_code_file_bindings(self):
-        project_slug = sanitize_name(self.projectConfig.name)
-        code_root = normalize_path(C.CODE_FOLDER)
-        canonical_sections_dir = code_root / "sections" / project_slug
-        generated_code_dir = code_root / "generated" / project_slug
-        snapshot_temp_dir = code_root / "temp_folder" / project_slug
-        gen_code_binding: CodeFileBinding | None = None
-
-        for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
-            core = self.sections[section_id]
-            variant = self.sectionVariants[variant_id]
-            variant, base_impl, effective_impl = (
-                get_variant_base_and_effective_section_impl(self, core, variant_id)
-            )
-
-            if (
-                not isinstance(base_impl, BaseCodeSectionImpl)
-                or not isinstance(effective_impl, BaseCodeSectionImpl)
-                or effective_impl.codeFileBinding is not None
-            ):
-                continue
-
-            if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                canonical_path = generated_code_dir / "setta_gen.py"
-                snapshot_dir = snapshot_temp_dir
-                access_mode = CodeFileAccessMode.write_only
-            else:
-                section_full_name = get_section_path_full_name(self, section_id)
-                section_slug = sanitize_name(section_full_name)
-                language = effective_impl.codeLanguage
-                extension = get_code_extension(language)
-                canonical_path = canonical_sections_dir / f"{section_slug}.{extension}"
-                snapshot_dir = canonical_path.parent
-                access_mode = CodeFileAccessMode.read_write
-
-            binding = CodeFileBinding(
-                canonical_path=normalize_path(canonical_path),
-                snapshot_dir=normalize_path(snapshot_dir),
-                access_mode=access_mode,
-            )
-            set_effective_impl_value(
-                base_impl,
-                core,
-                variant,
-                BaseCodeSectionImplArgsWithCallable(codeFileBinding=binding),
-            )
-            if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                gen_code_binding = binding
-        if gen_code_binding is None:
-            gen_code_binding = CodeFileBinding(
-                canonical_path=normalize_path(generated_code_dir / "setta_gen.py"),
-                snapshot_dir=normalize_path(snapshot_temp_dir),
-                access_mode=CodeFileAccessMode.write_only,
-            )
-        self.genCodeBinding = gen_code_binding
         return self
 
 

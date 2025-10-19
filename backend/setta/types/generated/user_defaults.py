@@ -15,7 +15,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
     SectionSize,
@@ -52,7 +51,6 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
-    codeFileBinding: CodeFileBinding | None = None
 
 
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -115,7 +113,7 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
@@ -217,7 +215,7 @@ class UserDefaultSwitchParamCodeObjImpl(
 class UserDefaultColorPickerParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
+    choices: list[ColorPickerChoice] = Field(default_factory=list)
     value: str = "#ff0000"
 
 

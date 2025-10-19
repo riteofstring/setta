@@ -59,6 +59,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        # app.state.setta.project_manager.delete_temp_folder()
         app.state.setta.specific_file_watcher.stop()
         await app.state.setta.mcp_client.stop()
         await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)

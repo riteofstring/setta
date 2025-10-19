@@ -66,14 +66,7 @@ class DBE:
         return json.loads(x)
 
     def write_json(self, path: Path, data: Any):
-        def default(obj: Any):
-            if isinstance(obj, Path):
-                return str(obj)
-            raise TypeError(
-                f"Object of type {obj.__class__.__name__} is not JSON serializable"
-            )
-
-        self.write(path, json.dumps(data, indent=2, sort_keys=True, default=default))
+        self.write(path, json.dumps(data, indent=2, sort_keys=True))
 
     def read_jsonl(self, path: Path) -> list[dict]:
         if not path.exists():

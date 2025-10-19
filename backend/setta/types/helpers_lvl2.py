@@ -702,10 +702,10 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
         case CodeObjType.SwitchParam:
             return "false" if value == "0" else "true"
         case CodeObjType.ColorPickerParam:
-            if len(impl.colorChoices) > 0:
-                if value in [c.color for c in impl.colorChoices]:
+            if len(impl.choices) > 0:
+                if value in [c.color for c in impl.choices]:
                     return value
-                return impl.colorChoices[0].color
+                return impl.choices[0].color
             elif is_color_hex(value):
                 return value
             return "#ff0000"
@@ -997,14 +997,10 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: str, name: str):
 
 
 def set_text_block_display_mode(
-    p: "ProjectStateSingleConfig",
-    sectionId: str,
-    textDisplayMode: TextBlockDisplayMode,
+    p: "ProjectStateSingleConfig", sectionId: str, displayMode: TextBlockDisplayMode
 ):
     set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(textDisplayMode=textDisplayMode),
+        p, sectionId, TextBlockSectionImplArgsWithCallable(displayMode=displayMode)
     )
 
 

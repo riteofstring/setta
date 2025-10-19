@@ -20,7 +20,6 @@ from setta.lsp.managers import (
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.code_file_sync import CodeFileSyncService
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.utils.constants import C
@@ -41,7 +40,6 @@ class SettingsManagerFixture:
     artifacts: Artifacts
     json_source: JSONSource
     websocket_manager: WebsocketManager
-    code_file_sync: CodeFileSyncService
 
 
 @asynccontextmanager
@@ -81,10 +79,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             json_source = JSONSource(
                 frontend_sender, settings_file, specific_file_watcher, dbe
             )
-            code_file_sync = CodeFileSyncService(
-                specific_file_watcher,
-                dbe,
-            )
 
             manager = SettingsProjectManager(
                 lsp_writers,
@@ -94,7 +88,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 dbe,
                 artifacts,
                 json_source,
-                code_file_sync,
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
@@ -126,7 +119,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 artifacts=artifacts,
                 json_source=json_source,
                 websocket_manager=websocket_manager,
-                code_file_sync=code_file_sync,
             )
 
             yield fixture

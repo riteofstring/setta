@@ -413,12 +413,6 @@ export async function route_set_code(
   return await post("/setCode", x);
 }
 
-export async function route_set_code_file_binding(
-  x: gt.SetCodeFileBindingRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setCodeFileBinding", x);
-}
-
 export async function route_set_section_param_filter(
   x: gt.SetSectionParamFilterRequest,
 ): Promise<ResponseDataAndStatus<null>> {

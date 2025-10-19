@@ -87,7 +87,7 @@ class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
-    colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
+    choices: list[ColorPickerChoice] = Field(default_factory=list)
     value: str = "#ff0000"
 
 
