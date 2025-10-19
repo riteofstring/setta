@@ -38,6 +38,24 @@ class ManualSaveDebounceTests(unittest.IsolatedAsyncioTestCase):
         after_mtime_ns = settings_project_path.stat().st_mtime_ns
         self.assertGreater(after_mtime_ns, before_mtime_ns)
 
+    async def test_add_new_history_entry_skips_autosave_when_disabled(self):
+        # Confirm autosave enqueues normally while enabled.
+        self.manager.settings_file.settings.backend.autosave = True
+        self.manager.autosave_debouncer.cancel_pending()
+        self.manager.add_new_history_entry()
+        await asyncio.sleep(0)
+        self.assertTrue(self.manager.autosave_debouncer.is_pending)
+
+        # Disable autosave and ensure new history entries do not enqueue saves.
+        self.manager.autosave_debouncer.cancel_pending()
+        self.manager.settings_file.settings.backend.autosave = False
+        self.manager.add_new_history_entry()
+        await asyncio.sleep(0)
+        self.assertFalse(self.manager.autosave_debouncer.is_pending)
+
+        # Restore default behaviour for other tests.
+        self.manager.settings_file.settings.backend.autosave = True
+
 
 if __name__ == "__main__":
     unittest.main()

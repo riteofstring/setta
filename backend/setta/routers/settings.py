@@ -14,7 +14,11 @@ class SaveSettingsRequest(BaseModel):
 
 @router.post(Route.SAVE_SETTINGS)
 async def route_save_settings(x: SaveSettingsRequest, state: AppStateFromRequest):
+    previous_autosave = state.settings_file.settings.backend.autosave
     await state.settings_file.save_settings(x.settings)
+    if previous_autosave and not state.settings_file.settings.backend.autosave:
+        for manager in state.project_manager_switcher.project_managers:
+            manager.autosave_debouncer.cancel_pending()
 
 
 @router.post(Route.LOAD_SETTINGS)

@@ -1179,7 +1179,7 @@ class BaseProjectManager(ABC):
 
     def add_new_history_entry(self, trigger_autosave=True):
         self.history.add_current_copy()
-        if trigger_autosave:
+        if trigger_autosave and self.settings_file.settings.backend.autosave:
             self.autosave_debouncer.trigger()
 
     @enqueue_method
