@@ -52,6 +52,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     CodeSectionImpl,
+    CodeSyncMode,
 )
 
 
@@ -318,6 +319,10 @@ class ProjectPythonCode(PythonCode):
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
+        raw_path = section_impl.filePath
+        self.file_path = Path(raw_path) if raw_path else None
+        self.sync_mode: CodeSyncMode = section_impl.syncMode
+        self.file_missing = section_impl.fileMissing
 
     async def update_file(self):
         await super().update_file(self.code)
@@ -364,6 +369,10 @@ class ProjectBashCode(BashCode):
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
+        raw_path = section_impl.filePath
+        self.file_path = Path(raw_path) if raw_path else None
+        self.sync_mode: CodeSyncMode = section_impl.syncMode
+        self.file_missing = section_impl.fileMissing
 
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)

@@ -105,12 +105,12 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.project_state.utils import create_timestamped_folder
 from setta.project_state.text_file_sync import (
     SyncMode,
     TextFileSync,
     TextSectionBinding,
 )
+from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -202,7 +202,9 @@ class SectionCodeHelperMetadata:
     helper_id: str
     helper: ProjectPythonCode | ProjectBashCode
     temp_path: Path | None
+    real_path: Path | None
     sync_mode: SyncMode
+    file_missing: bool
 
 
 class BaseProjectManager(ABC):
@@ -556,7 +558,7 @@ class BaseProjectManager(ABC):
                     section_id=metadata.section_id,
                     variant_id=metadata.variant_id,
                     helper_id=metadata.helper_id,
-                    path=metadata.temp_path,
+                    path=metadata.real_path,
                     sync_mode=metadata.sync_mode,
                 )
                 for metadata in helper_metadata
@@ -612,7 +614,9 @@ class BaseProjectManager(ABC):
                     helper_id=section_code.get_base_filename(),
                     helper=section_code,
                     temp_path=section_code.temp_file,
-                    sync_mode="twoWay",
+                    real_path=section_code.file_path,
+                    sync_mode=cast("SyncMode", section_code.sync_mode.value),
+                    file_missing=section_code.file_missing,
                 )
             )
 
@@ -721,7 +725,17 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_code(self, x: SetCodeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_code(project_state, x.sectionId, x.code)
+        file_missing = x.fileMissing
+        if file_missing is None and x.filePath is not None:
+            file_missing = False
+        set_code(
+            project_state,
+            x.sectionId,
+            x.code,
+            file_path=x.filePath,
+            sync_mode=x.syncMode,
+            file_missing=file_missing,
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

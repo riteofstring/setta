@@ -55,6 +55,11 @@ class CodeLanguage(str, Enum):
     bash = "bash"
 
 
+class CodeSyncMode(str, Enum):
+    project = "project"
+    twoWay = "twoWay"
+
+
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
@@ -137,6 +142,9 @@ class BaseCanvasSectionImpl(BaseSectionImpl):
 class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+    filePath: str | None = None
+    syncMode: CodeSyncMode = CodeSyncMode.project
+    fileMissing: bool = False
 
 
 class BaseParentSectionImpl(BaseSectionImpl):

@@ -6,6 +6,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import type { ChangeEvent, KeyboardEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -23,7 +24,11 @@ import {
   route_code_area_completion,
   route_set_code,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  CodeSyncModeEnum,
+  SectionTypeEnum,
+  type CodeSyncMode,
+} from "utils/generatedTypes";
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
@@ -115,25 +120,124 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
 }
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
-  const { value, variantIsFrozen } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Code,
-    );
-    return {
-      value: impl.code,
-      variantIsFrozen: false,
-    };
-  }, _.isEqual);
+  const { value, variantIsFrozen, filePath, syncMode, fileMissing } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        x,
+        sectionId,
+        SectionTypeEnum.Code,
+      );
+      return {
+        value: impl.code,
+        variantIsFrozen: false,
+        filePath: impl.filePath ?? null,
+        syncMode: impl.syncMode,
+        fileMissing: impl.fileMissing ?? false,
+      };
+    }, _.isEqual);
+
+  const [pathDraft, setPathDraft] = useState(filePath ?? "");
+
+  useEffect(() => {
+    setPathDraft(filePath ?? "");
+  }, [filePath]);
+
+  const safeFileMissing = fileMissing ?? false;
+
+  const commitMetadata = useCallback(
+    (partial: {
+      filePath?: string | null;
+      syncMode?: CodeSyncMode;
+      fileMissing?: boolean;
+    }) => {
+      const existingFilePath = filePath ?? null;
+      let nextFilePath =
+        partial.filePath !== undefined ? partial.filePath : existingFilePath;
+      if (typeof nextFilePath === "string") {
+        nextFilePath =
+          nextFilePath.trim().length === 0 ? null : nextFilePath.trim();
+      }
+
+      let nextSyncMode =
+        partial.syncMode !== undefined ? partial.syncMode : syncMode;
+      if (nextFilePath === null && nextSyncMode === CodeSyncModeEnum.twoWay) {
+        nextSyncMode = CodeSyncModeEnum.project;
+      }
+
+      const existingFileMissing = safeFileMissing;
+      const nextFileMissing =
+        partial.fileMissing !== undefined
+          ? partial.fileMissing
+          : partial.filePath !== undefined
+            ? false
+            : existingFileMissing;
+
+      if (
+        nextFilePath === existingFilePath &&
+        nextSyncMode === syncMode &&
+        nextFileMissing === existingFileMissing
+      ) {
+        return;
+      }
+
+      sendCodeUpdate(sectionId, {
+        code: value,
+        filePath: nextFilePath,
+        syncMode: nextSyncMode,
+        fileMissing: nextFileMissing,
+      });
+    },
+    [filePath, safeFileMissing, sectionId, syncMode, value],
+  );
+
+  const handlePathCommit = useCallback(() => {
+    const trimmed = pathDraft.trim();
+    const normalized = trimmed.length === 0 ? null : trimmed;
+    if ((filePath ?? null) === normalized) {
+      setPathDraft(normalized ?? "");
+      return;
+    }
+    commitMetadata({ filePath: normalized });
+    setPathDraft(normalized ?? "");
+  }, [commitMetadata, filePath, pathDraft]);
+
+  const handlePathChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setPathDraft(event.target.value);
+    },
+    [],
+  );
+
+  const handlePathKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handlePathCommit();
+      }
+    },
+    [handlePathCommit],
+  );
+
+  const handleSyncModeChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      handlePathCommit();
+      commitMetadata({ syncMode: event.target.value as CodeSyncMode });
+    },
+    [commitMetadata, handlePathCommit],
+  );
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
 
-  function onChange(v) {
-    debouncedSetCode(sectionId, v);
+  function onChange(v: string) {
+    debouncedSetCode(sectionId, {
+      code: v,
+      filePath: filePath ?? null,
+      syncMode,
+      fileMissing: safeFileMissing,
+    });
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
@@ -149,7 +253,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     isDisabled: variantIsFrozen,
   });
 
-  // TODO: replace the arbitrary inline tailwind styles with something more elegant
+  const canEnableTwoWay = Boolean(pathDraft.trim() || filePath);
 
   return (
     <article
@@ -158,6 +262,39 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
+      <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-xs">
+        <label className="flex items-center gap-2 font-medium text-slate-600 dark:text-slate-300">
+          <span>Sync</span>
+          <select
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-300 dark:focus:ring-blue-300"
+            value={syncMode}
+            onChange={handleSyncModeChange}
+            disabled={variantIsFrozen}
+          >
+            <option value={CodeSyncModeEnum.project}>Project state only</option>
+            <option
+              value={CodeSyncModeEnum.twoWay}
+              disabled={!canEnableTwoWay}
+            >
+              Two-way file sync
+            </option>
+          </select>
+        </label>
+        <input
+          className="min-w-[12rem] flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-300 dark:focus:ring-blue-300"
+          placeholder="Link to an existing file"
+          value={pathDraft}
+          onChange={handlePathChange}
+          onBlur={handlePathCommit}
+          onKeyDown={handlePathKeyDown}
+          disabled={variantIsFrozen}
+        />
+        {safeFileMissing ? (
+          <span className="font-medium text-amber-600">
+            File not found on disk
+          </span>
+        ) : null}
+      </div>
       <CodeMirror
         maxHeight={maxHeight}
         value={value}
@@ -301,22 +438,37 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
+type CodeSectionUpdatePayload = {
+  code: string;
+  filePath: string | null;
+  syncMode: CodeSyncMode;
+  fileMissing: boolean;
+};
+
+function sendCodeUpdate(
+  sectionId: string,
+  payload: CodeSectionUpdatePayload,
+): void {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
-        code,
-      });
+      setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, payload);
     },
     send: (frontendOpId) =>
       route_set_code({
         projectConfigId: getCurrProjectConfigId(),
         sectionId,
-        code,
+        ...payload,
         frontendOpId,
       }),
   });
-}, 200);
+}
+
+const debouncedSetCode = _.debounce(
+  (sectionId: string, payload: CodeSectionUpdatePayload) => {
+    sendCodeUpdate(sectionId, payload);
+  },
+  200,
+);
 
 function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {
