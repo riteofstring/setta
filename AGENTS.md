@@ -72,4 +72,4 @@ When you know a section impl or code obj impl must be of a specific type, use th
 
 
 ## Tests
-Tests should reflect production behavior as closely as possible. It's ok if this means the tests take longer. The amount of "mocking", and "fake" or "dummy" classes should be minimized as much as possible.
+Tests should reflect production behavior as closely as possible. It's ok if this means the tests take longer. DO NOT use "mock", "fake" or "dummy" classes, or "cast" tricks.
