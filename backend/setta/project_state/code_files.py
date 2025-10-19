@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -11,13 +10,8 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateBackend
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
+from setta.types.section_impls import CodeFileAccessMode
 from setta.utils.utils import normalize_path
-
-
-class AccessMode(str, Enum):
-    read_write = "read_write"
-    read_only = "read_only"
-    write_only = "write_only"
 
 
 @dataclass(frozen=True)
@@ -25,7 +19,7 @@ class RegisteredCodeFileBinding:
     section_id: str
     variant_id: str
     project_config_id: str | None
-    access_mode: AccessMode
+    access_mode: CodeFileAccessMode
 
 
 @dataclass
@@ -72,7 +66,7 @@ class CodeFiles:
         """
         normalized = normalize_path(path)
         bucket = self._bindings.setdefault(normalized, set())
-        existing_modes: set[AccessMode] = {b.access_mode for b in bucket}
+        existing_modes: set[CodeFileAccessMode] = {b.access_mode for b in bucket}
         if existing_modes and binding.access_mode not in existing_modes:
             raise ValueError(
                 f"Conflicting access_mode for {normalized}: "
@@ -127,7 +121,7 @@ class CodeFiles:
         normalized = normalize_path(path)
         self._ensure_registered(normalized)
         access_mode = self._resolve_access_mode(normalized)
-        if access_mode == AccessMode.read_only:
+        if access_mode == CodeFileAccessMode.read_only:
             raise PermissionError(
                 f"Writes are forbidden for read-only file {normalized}"
             )
@@ -149,7 +143,7 @@ class CodeFiles:
         metadata = self._metadata.setdefault(normalized, CodeFileMetadata())
         access_mode = self._resolve_access_mode(normalized)
 
-        if access_mode == AccessMode.write_only:
+        if access_mode == CodeFileAccessMode.write_only:
             self._maybe_mark_conflict_for_write_only(metadata, on_disk_hash)
             return False
 
@@ -184,15 +178,15 @@ class CodeFiles:
             return
         metadata.has_conflict = True
 
-    def _resolve_access_mode(self, normalized_path: Path) -> AccessMode:
+    def _resolve_access_mode(self, normalized_path: Path) -> CodeFileAccessMode:
         bindings = self._bindings.get(normalized_path, set())
         if not bindings:
             raise KeyError(f"No bindings registered for {normalized_path}")
         modes = {binding.access_mode for binding in bindings}
         if len(modes) == 1:
             return next(iter(modes))
-        if AccessMode.read_write in modes:
-            return AccessMode.read_write
+        if CodeFileAccessMode.read_write in modes:
+            return CodeFileAccessMode.read_write
         raise ValueError(
             f"Conflicting access_modes for {normalized_path}: "
             f"{sorted(mode.value for mode in modes)}"
