@@ -14,6 +14,10 @@ from setta.types.section_impls import CodeFileAccessMode
 from setta.utils.utils import normalize_path
 
 
+GEN_CODE_SECTION_ID = "__setta_gen_code__"
+GEN_CODE_VARIANT_ID = "__setta_gen_code__"
+
+
 @dataclass(frozen=True)
 class RegisteredCodeFileBinding:
     section_id: str

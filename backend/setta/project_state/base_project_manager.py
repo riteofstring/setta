@@ -28,7 +28,12 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.code_files import CodeFiles
+from setta.project_state.code_files import (
+    GEN_CODE_SECTION_ID,
+    GEN_CODE_VARIANT_ID,
+    CodeFiles,
+    RegisteredCodeFileBinding,
+)
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -108,7 +113,10 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_variant_base_and_effective_section_impl,
+)
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
@@ -168,6 +176,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    BaseCodeSectionImpl,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
@@ -493,6 +502,7 @@ class BaseProjectManager(ABC):
             projectState.validate_yaml_values()
             projectState.validate_required_decoded_images()
             projectState.validate_code_file_bindings()
+            self._register_code_file_bindings(projectState)
             dep_graph = DependencyGraph(projectState)
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
@@ -1253,6 +1263,46 @@ class BaseProjectManager(ABC):
     def watch_code_files(self):
         self.code_files.watch_code_files(
             f"{self.__class__.__name__}_CodeFiles", self.project_state_backend
+        )
+
+    def _register_code_file_bindings(
+        self, project_state: ProjectStateSingleConfig
+    ) -> None:
+        project_config_id = project_state.projectConfig.id
+        for section_id, core in project_state.sections.items():
+            variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
+            if variant_id is None:
+                continue
+            _, _, impl = get_variant_base_and_effective_section_impl(
+                project_state, core, variant_id
+            )
+            if not isinstance(impl, BaseCodeSectionImpl):
+                continue
+            binding = impl.codeFileBinding
+            if binding is None:
+                continue
+            registered_binding = RegisteredCodeFileBinding(
+                section_id=section_id,
+                variant_id=variant_id,
+                project_config_id=project_config_id,
+                access_mode=binding.access_mode,
+            )
+            self.code_files.register_binding(
+                binding.canonical_path, registered_binding
+            )
+
+        gen_code_binding = project_state.genCodeBinding
+        if gen_code_binding is None:
+            return
+
+        registered_gen_binding = RegisteredCodeFileBinding(
+            section_id=GEN_CODE_SECTION_ID,
+            variant_id=GEN_CODE_VARIANT_ID,
+            project_config_id=project_config_id,
+            access_mode=gen_code_binding.access_mode,
+        )
+        self.code_files.register_binding(
+            gen_code_binding.canonical_path, registered_gen_binding
         )
 
     def _should_defer_json_source_reload(

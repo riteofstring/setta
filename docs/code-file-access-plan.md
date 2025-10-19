@@ -9,15 +9,20 @@
 - Stubbed `CodeFiles` manager (`backend/setta/project_state/code_files.py`) to capture per-path metadata, binding ownership, and watcher category bookkeeping ahead of the full integration work.
 - Instantiated the shared `CodeFiles` manager inside `SettaFastAPIState`, injected it into both project managers, and added a `watch_code_files()` hook so the wiring is ready for upcoming watcher logic.
 - Implemented real metadata tracking, access-mode enforcement, and helper APIs in `CodeFiles`; added backend tests for hash bookkeeping and conflict handling.
+- Populated `CodeFiles` during project updates so existing bindings stay registered before watcher work lands.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
   - Tracks per-path metadata (`last_read_hash`, `last_written_hash`, `has_conflict`, `access_mode`).
-  - Maps canonical paths to `(sectionId, variantId, projectConfigId)` tuples so we know which sections need reloading.
+  - Maps canonical paths to `(sectionId, variantId, projectConfigId)` tuples so we know which sections need reloading; generated-code bindings reuse language-specific sentinels (e.g. `GEN_PYTHON_CODE_SECTION_ID`) instead of `None` so future multi-language outputs remain unambiguous.
   - Maintains callback-category maps like `JSONSource` (`backend/setta/project_state/jsonSource/jsonSource.py:65`) so each watcher group stays isolated.
   - Exposes helpers to record writes, detect no-op rewrites, and skip processing when the access mode forbids changes.
+- **Centralize binding registration inside `CodeFiles`**:
+  - Add a `sync_bindings(project_state: ProjectStateSingleConfig)` API that walks sections and the generated-code binding, normalizes canonical paths, and installs/upgrades `RegisteredCodeFileBinding` entries.
+  - Call `code_files.sync_bindings()` from `BaseProjectManager.update()` immediately after `validate_code_file_bindings()` so watchers always operate on the latest metadata.
 - **Integrate with `SpecificFileWatcher`** via a new `BaseProjectManager.watch_code_files()` hook, parallel to `watch_json_source_files()` and `watch_artifact_files()` (`backend/setta/project_state/base_project_manager.py:1215`).
   - Reproduce the JSON-source lifecycle: compute per-category path→section/variant maps, consult `_should_defer_json_source_reload()` style heuristics when autosave is pending, and keep `_deferred_json_source_loads` in sync (`backend/setta/project_state/base_project_manager.py:1219`).
+  - Ensure `watch_code_files()` runs whenever `updateFileWatcher=True` during project updates so binding changes propagate to the watcher layer.
 - **Implement `reload_code_sections()`** in `BaseProjectManager`:
   - Read file contents using `DBE.read`.
   - Compare hashes against `CodeFiles` metadata to avoid redundant reloads.
@@ -32,7 +37,7 @@
   - Short-circuit when the code matches the last read hash to avoid needless churn.
   - Record `last_written_hash` so the next `modified` event can be ignored.
 - **Adjust binding validation** (`backend/setta/types/project_state.py:224`):
-  - Have `validate_code_file_bindings()` supply the manager with binding metadata (canonical path, snapshot dir, access mode).
+  - Keep `validate_code_file_bindings()` focused on enriching the project state; defer registration to `CodeFiles.sync_bindings()`.
   - Trigger `CodeFiles.watch_code_files()` during every project-state update when `updateFileWatcher=True`.
 
 ## Access-mode enforcement
