@@ -30,8 +30,6 @@ from setta.types.section_impls import (
 
 
 class SharedModifier(TypedDict):
-    # Field 'choices' present with conflicting annotations: list[ColorPickerChoice] (ColorPickerParamCodeObjImpl), list[str] (DropdownParamCodeObjImpl)
-    # Field 'displayMode' present with conflicting annotations: SectionWithParamsDisplayMode (CallableSectionImpl, DictSectionImpl, GlobalVariablesSectionImpl), TextBlockDisplayMode (TextBlockSectionImpl)
     activeLayerIdx: NotRequired[int | None]
     aspectRatio: NotRequired[bool | float | None]
     aspectRatioExtraHeight: NotRequired[int | None]
@@ -44,7 +42,7 @@ class SharedModifier(TypedDict):
     canvasMode: NotRequired[DrawAreaMode | None]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings | None]
     children: NotRequired[list[str] | None]
-    choices: NotRequired[list[ColorPickerChoice] | list[str] | None]
+    choices: NotRequired[list[str] | None]
     code: NotRequired[str | None]
     codeFileBinding: NotRequired[CodeFileBinding | None]
     codeLanguage: NotRequired[CodeLanguage | None]
@@ -57,7 +55,7 @@ class SharedModifier(TypedDict):
     dataPath: NotRequired[str | None]
     defaultVal: NotRequired[str | None]
     description: NotRequired[str | None]
-    displayMode: NotRequired[SectionWithParamsDisplayMode | TextBlockDisplayMode | None]
+    displayMode: NotRequired[SectionWithParamsDisplayMode | None]
     drawThrottleDelay: NotRequired[int | None]
     eraserBrushSize: NotRequired[int | None]
     folder: NotRequired[str | None]
@@ -91,6 +89,7 @@ class SharedModifier(TypedDict):
     size: NotRequired[SectionSize | None]
     step: NotRequired[int | None]
     text: NotRequired[str | None]
+    textDisplayMode: NotRequired[TextBlockDisplayMode | None]
     topLevelParamId: NotRequired[str | None]
     url: NotRequired[str | None]
     value: NotRequired[str | None]

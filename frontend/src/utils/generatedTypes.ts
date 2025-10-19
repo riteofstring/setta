@@ -1586,6 +1586,7 @@ export const AllImplFieldsSchema = z.literal([
   "size",
   "step",
   "text",
+  "textDisplayMode",
   "topLevelParamId",
   "type",
   "url",
@@ -1654,19 +1655,6 @@ export function createBaseChartSettingsUnionWithDiscriminator(
   return BaseChartSettingsUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const ColorPickerChoiceSchema = z.object({
-  color: z.string(),
-  description: z.string(),
-});
-
-export type ColorPickerChoice = z.infer<typeof ColorPickerChoiceSchema>;
-
-export function createColorPickerChoice(
-  options: Partial<ColorPickerChoice> = {},
-): ColorPickerChoice {
-  return ColorPickerChoiceSchema.parse(options);
-}
-
 export const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
   snapshot_dir: z.string(),
@@ -1679,6 +1667,19 @@ export function createCodeFileBinding(
   options: Partial<CodeFileBinding> = {},
 ): CodeFileBinding {
   return CodeFileBindingSchema.parse(options);
+}
+
+export const ColorPickerChoiceSchema = z.object({
+  color: z.string(),
+  description: z.string(),
+});
+
+export type ColorPickerChoice = z.infer<typeof ColorPickerChoiceSchema>;
+
+export function createColorPickerChoice(
+  options: Partial<ColorPickerChoice> = {},
+): ColorPickerChoice {
+  return ColorPickerChoiceSchema.parse(options);
 }
 
 export const DrawAreaLayerItemSchema = z.object({
@@ -1757,9 +1758,7 @@ export const SharedModifierSchema = z.object({
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema, z.null()])
     .optional(),
   children: z.union([z.array(z.string()), z.null()]).optional(),
-  choices: z
-    .union([z.array(ColorPickerChoiceSchema), z.array(z.string()), z.null()])
-    .optional(),
+  choices: z.union([z.array(z.string()), z.null()]).optional(),
   code: z.union([z.string(), z.null()]).optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   codeLanguage: z.union([z.enum(CodeLanguageEnum), z.null()]).optional(),
@@ -1777,11 +1776,7 @@ export const SharedModifierSchema = z.object({
   defaultVal: z.union([z.string(), z.null()]).optional(),
   description: z.union([z.string(), z.null()]).optional(),
   displayMode: z
-    .union([
-      z.enum(SectionWithParamsDisplayModeEnum),
-      z.enum(TextBlockDisplayModeEnum),
-      z.null(),
-    ])
+    .union([z.enum(SectionWithParamsDisplayModeEnum), z.null()])
     .optional(),
   drawThrottleDelay: z.union([z.int(), z.null()]).optional(),
   eraserBrushSize: z.union([z.int(), z.null()]).optional(),
@@ -1822,6 +1817,9 @@ export const SharedModifierSchema = z.object({
   size: z.union([SectionSizeSchema, z.null()]).optional(),
   step: z.union([z.int(), z.null()]).optional(),
   text: z.union([z.string(), z.null()]).optional(),
+  textDisplayMode: z
+    .union([z.enum(TextBlockDisplayModeEnum), z.null()])
+    .optional(),
   topLevelParamId: z.union([z.string(), z.null()]).optional(),
   url: z.union([z.string(), z.null()]).optional(),
   value: z.union([z.string(), z.null()]).optional(),
@@ -1905,6 +1903,7 @@ export const CoreSchema = z.object({
         "size",
         "step",
         "text",
+        "textDisplayMode",
         "topLevelParamId",
         "type",
         "url",
@@ -2203,7 +2202,7 @@ export const TextBlockSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
-  displayMode: z
+  textDisplayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.Render),
   text: z.string().default("" as const),
@@ -2606,7 +2605,7 @@ export const ColorPickerParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
   value: z.string().default("#ff0000" as const),
-  choices: z.array(ColorPickerChoiceSchema).default([]),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 export type ColorPickerParamCodeObjImpl = z.infer<
@@ -3146,7 +3145,7 @@ export const ColorPickerParamCodeObjImplArgsSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
-  choices: z.array(ColorPickerChoiceSchema).optional(),
+  colorChoices: z.array(ColorPickerChoiceSchema).optional(),
 });
 
 export type ColorPickerParamCodeObjImplArgs = z.infer<
@@ -3887,7 +3886,7 @@ export const TextBlockSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
-  displayMode: z.enum(TextBlockDisplayModeEnum).optional(),
+  textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   text: z.string().optional(),
 });
 
@@ -5127,7 +5126,7 @@ export const UserDefaultTextBlockSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
-  displayMode: z
+  textDisplayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.Render),
   text: z.string().default("" as const),
@@ -5177,7 +5176,7 @@ export const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
   value: z.string().default("#ff0000" as const),
-  choices: z.array(ColorPickerChoiceSchema).default([]),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 export type UserDefaultColorPickerParamCodeObjImpl = z.infer<
@@ -6341,7 +6340,7 @@ export const ColorPickerParamCodeObjImplArgsWithCallableSchema = z.object({
     .optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
-  choices: z.union([z.array(ColorPickerChoiceSchema), z.any()]).optional(),
+  colorChoices: z.union([z.array(ColorPickerChoiceSchema), z.any()]).optional(),
 });
 
 export type ColorPickerParamCodeObjImplArgsWithCallable = z.infer<
@@ -6849,7 +6848,9 @@ export const TextBlockSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   format: z.union([z.enum(TextBlockFormatEnum), z.any()]).optional(),
   headingAsSectionName: z.union([z.boolean(), z.any()]).optional(),
-  displayMode: z.union([z.enum(TextBlockDisplayModeEnum), z.any()]).optional(),
+  textDisplayMode: z
+    .union([z.enum(TextBlockDisplayModeEnum), z.any()])
+    .optional(),
   text: z.union([z.string(), z.any()]).optional(),
 });
 
@@ -6956,6 +6957,7 @@ export const CoreArgsSchema = z.object({
         "size",
         "step",
         "text",
+        "textDisplayMode",
         "topLevelParamId",
         "type",
         "url",
@@ -8678,7 +8680,7 @@ export const SetTextBlockDisplayModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: z.string(),
   sectionId: z.string(),
-  displayMode: z.enum(TextBlockDisplayModeEnum),
+  textDisplayMode: z.enum(TextBlockDisplayModeEnum),
 });
 
 export type SetTextBlockDisplayModeRequest = z.infer<

@@ -221,7 +221,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
+    textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 

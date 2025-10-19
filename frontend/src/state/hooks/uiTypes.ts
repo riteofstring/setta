@@ -108,7 +108,7 @@ export type DropdownConfigForFrontend = Pick<
 
 export type ColorPickerConfigForFrontend = Pick<
   ColorPickerParamCodeObjImpl,
-  "choices"
+  "colorChoices"
 >;
 
 const UI_CONFIG_EXTRACTORS = {
@@ -127,7 +127,7 @@ const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.ColorPickerParam]: (
     obj: ColorPickerParamCodeObjImpl,
   ): ColorPickerConfigForFrontend => ({
-    choices: obj.choices,
+    colorChoices: obj.colorChoices,
   }),
 } as const;
 

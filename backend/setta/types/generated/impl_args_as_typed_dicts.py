@@ -102,6 +102,7 @@ class CoreArgs(TypedDict):
                 "size",
                 "step",
                 "text",
+                "textDisplayMode",
                 "topLevelParamId",
                 "type",
                 "url",
@@ -393,7 +394,7 @@ class TextBlockSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
-    displayMode: NotRequired[TextBlockDisplayMode]
+    textDisplayMode: NotRequired[TextBlockDisplayMode]
     text: NotRequired[str]
 
 
@@ -404,7 +405,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     format: NotRequired[TextBlockFormat | Callable[[TextBlockFormat], TextBlockFormat]]
     headingAsSectionName: NotRequired[bool | Callable[[bool], bool]]
-    displayMode: NotRequired[
+    textDisplayMode: NotRequired[
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
@@ -633,7 +634,7 @@ class SwitchParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
 
 class ColorPickerParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.ColorPickerParam]]
-    choices: NotRequired[list[ColorPickerChoice]]
+    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
 class ColorPickerParamCodeObjImplArgsWithCallable(
@@ -646,7 +647,7 @@ class ColorPickerParamCodeObjImplArgsWithCallable(
             Literal[CodeObjType.ColorPickerParam],
         ]
     ]
-    choices: NotRequired[
+    colorChoices: NotRequired[
         list[ColorPickerChoice]
         | Callable[[list[ColorPickerChoice]], list[ColorPickerChoice]]
     ]

@@ -285,14 +285,14 @@ function ColorPickerParamConfigured({
   onEscape,
   isDisabled,
 }) {
-  const { choices } = useParamCodeObjUIConfig(
+  const { colorChoices } = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
     CodeObjTypeEnum.ColorPickerParam,
   );
   return (
     <ColorPickerInput
-      colorChoices={choices}
+      colorChoices={colorChoices}
       value={value}
       onChange={onChange}
       onEscape={onEscape}
