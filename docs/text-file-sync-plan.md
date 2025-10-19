@@ -14,12 +14,17 @@
 - Surface path configuration in the UI (choose file, show sync status/last updated, gate edits for missing files); the same abstraction can power future Markdown/Text sections by swapping the editor surface.
 - Optionally support conflict strategies (`skip`, `backup`, `overwrite`) mirroring artifact saves so users can opt into backups on simultaneous edits.
 
+## Progress
+- Added a logging-only `TextFileSync` prototype with explicit `register_sections`/`watch_text_files` hooks and shared it across all `BaseProjectManager` instances via `server_state`.
+- Hooked `BaseProjectManager.update` to collect helper metadata and register sections, establishing the plumbing for real file-path tracking.
+
 ## Open Questions
 - How should paths be entered—absolute, relative to the project root, or constrained to a workspace whitelist—and do we need templating per project config?
 - Do we allow multiple variants to bind to the same file, and if so how are simultaneous writes arbitrated?
 - Can the LSP operate on the true file path for better tooling, or do we keep temp files to avoid breaking rename refactors?
 
 ## Next Steps
-1. Prototype the `TextFileSync` manager hooked into `BaseProjectManager`, logging only, to validate mapping of `filePath` ↔ section IDs and change detection.
-2. Update the data model (`CodeSectionImpl`, generated zod schemas, migrations) plus a minimal `set_code_section_file_path` endpoint and a temporary “Set file path” control in the section header to exercise the flow.
-3. Harden frontend UX (status badges, conflict toasts, manual resync) and add regression coverage—unit tests for sync metadata and an integration test proving external edits flow through `update_and_broadcast_project_state`.
+1. Refactor the code-helper rebuild flow (`BaseProjectManager.update`) to return helper objects + metadata via a dedicated dataclass, making `code_dict` optional and simplifying text-file registration.
+2. Replace the loose `tuple[str, str, str, Path | None, SyncMode]` signature with a named dataclass (e.g., `TextSectionBinding`) shared between the rebuild logic and `TextFileSync.register_sections` for readability.
+3. Extend `CodeSectionImpl`/generated schemas with `filePath`, `syncMode`, and `fileMissing`, add the corresponding backend endpoint, and expose a temporary UI control to capture/validate file paths.
+4. Harden frontend UX (status badges, conflict toasts, manual resync) and add regression coverage—unit tests for sync metadata and an integration test proving external edits flow through `update_and_broadcast_project_state`.

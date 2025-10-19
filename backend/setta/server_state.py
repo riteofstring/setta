@@ -14,6 +14,7 @@ from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.settings_project_manager import SettingsProjectManager
+from setta.project_state.text_file_sync import TextFileSync
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
@@ -47,6 +48,7 @@ class SettaFastAPIState:
             self.specific_file_watcher,
             self.dbe,
         )
+        self.text_file_sync = TextFileSync(self.specific_file_watcher, self.dbe)
         project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
@@ -54,6 +56,7 @@ class SettaFastAPIState:
             self.specific_file_watcher,
             self.dbe,
             self.artifacts,
+            self.text_file_sync,
             self.json_source,
         )
         settings_project_manager = SettingsProjectManager(
@@ -63,6 +66,7 @@ class SettaFastAPIState:
             self.specific_file_watcher,
             self.dbe,
             self.artifacts,
+            self.text_file_sync,
             self.json_source,
         )
         self.project_manager_switcher = ProjectManagerSwitcher(

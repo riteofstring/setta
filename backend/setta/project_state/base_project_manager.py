@@ -105,11 +105,15 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
+from setta.project_state.text_file_sync import SyncMode, TextFileSync
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_curr_section_variant,
+)
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
@@ -194,6 +198,7 @@ class BaseProjectManager(ABC):
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
         artifacts: Artifacts,
+        text_file_sync: TextFileSync,
         json_source: JSONSource,
     ):
         self.lsp_writers = lsp_writers
@@ -203,6 +208,7 @@ class BaseProjectManager(ABC):
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
+        self.text_file_sync = text_file_sync
         self.temp_folder = normalize_path(C.CODE_FOLDER) / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
@@ -227,6 +233,7 @@ class BaseProjectManager(ABC):
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
+        self.watch_text_files()
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -526,6 +533,9 @@ class BaseProjectManager(ABC):
                     if isinstance(c, ProjectPythonCode):
                         c.callback_cleanup()
             self.code_dict[projectConfigId] = {}
+            text_sync_bindings: list[
+                tuple[str, str, str, Path | None, SyncMode]
+            ] = []
 
             for sectionId in projectState.sections.keys():
                 section_impl = get_curr_effective_section_impl(projectState, sectionId)
@@ -540,14 +550,31 @@ class BaseProjectManager(ABC):
                     await section_code.update_file()
                     self.add_to_used_files(section_code)
                     self.code_dict[projectConfigId][sectionId] = section_code
+                    variant = get_curr_section_variant(projectState, sectionId)
+                    helper_id = section_code.get_base_filename()
+                    text_sync_bindings.append(
+                        (
+                            sectionId,
+                            variant.id,
+                            helper_id,
+                            section_code.temp_file,
+                            "twoWay",
+                        )
+                    )
 
             self.delete_unused_files(project_temp_folder)
             self.project_state_backend = self.get_new_project_state_backend(
                 projectState
             )
+            self.text_file_sync.unregister_project_config(projectConfigId)
+            if text_sync_bindings:
+                self.text_file_sync.register_sections(
+                    projectConfigId, text_sync_bindings
+                )
             if updateFileWatcher:
                 self.watch_json_source_files()
                 self.watch_artifact_files()
+                self.watch_text_files()
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):
@@ -1272,6 +1299,10 @@ class BaseProjectManager(ABC):
         self.artifacts.watch_artifact_files(
             f"{self.__class__.__name__}_Artifacts", self.project_state_backend
         )
+
+    def watch_text_files(self):
+        callback_category = f"{self.__class__.__name__}_TextFiles"
+        self.text_file_sync.watch_text_files(callback_category)
 
     def _should_defer_json_source_reload(
         self,
