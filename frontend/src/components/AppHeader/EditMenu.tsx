@@ -15,7 +15,7 @@ import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
-import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
+import { SETTINGS_ROUTER_PATH } from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
 
 export function EditMenu() {
@@ -81,10 +81,7 @@ function Items() {
         Reset sections
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
-      <Link
-        to={SETTINGS_ROUTER_PATH}
-        state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-      >
+      <Link to={SETTINGS_ROUTER_PATH}>
         <MenuItem>Settings</MenuItem>
       </Link>
     </>
