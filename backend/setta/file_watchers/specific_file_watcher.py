@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
@@ -15,8 +14,6 @@ from setta.utils.utils import ensure_str_path, normalize_path
 
 if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
-
-logger = logging.getLogger(__name__)
 
 
 FileWatcherCallback = Callable[[FileWatcherCoreUpdate], Coroutine[Any, Any, None]]
@@ -73,7 +70,10 @@ class SpecificFileWatcher:
         # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
         for dir_path in dirs_to_add:
-            watch = self.observer.schedule(self.handler, str(dir_path), recursive=False)
+            abs_dir_path = Path(dir_path).resolve()
+            watch = self.observer.schedule(
+                self.handler, str(abs_dir_path), recursive=True
+            )
             self.watched_dirs[dir_path] = watch
 
         # Fire immediate reads if requested (only for new files)
@@ -114,8 +114,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             self._send_event(event, FileEventType.deleted)
 
     def on_moved(self, event: FileSystemEvent):
-        # TODO
-        pass
+        self._send_event(event, FileEventType.moved)
 
     def _send_event(
         self,

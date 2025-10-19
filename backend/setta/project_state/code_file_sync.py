@@ -265,6 +265,10 @@ class CodeFileSyncService:
             return CodeFileSyncEventType.deleted
         if event_type == FileEventType.created:
             return CodeFileSyncEventType.created
-        if event_type in (FileEventType.modified, FileEventType.readRequested):
+        if event_type in (
+            FileEventType.modified,
+            FileEventType.readRequested,
+            FileEventType.moved,
+        ):
             return CodeFileSyncEventType.modified
         return None

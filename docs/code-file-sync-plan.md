@@ -33,11 +33,11 @@
    - Ensure we fire an initial `created`/`modified` event for new registrations so state reflects disk immediately.
    - ✅ Initial service scaffold handles multi-owner registry management, dedupes bursty filesystem events, normalizes `read`/`created`/`deleted` notifications, and surfaces them via subscriber callbacks. Queue wiring + consumers still to come in later steps.
 
-3. **Wire Into `BaseProjectManager`** ⏳ (partial)
+3. **Wire Into `BaseProjectManager`** ✅ (done)
    - ✅ Constructor now accepts an optional `CodeFileSyncService` and keeps per-project owner bookkeeping so managers control registration lifecycles.
    - ✅ After `validate_code_file_bindings`, BaseProjectManager refreshes registrations, allowing multiple sections (and projects) to share a path.
    - ✅ Filesystem events reuse the existing `SetCodeRequest` flow, ensuring updates run through the queue and broadcast pipeline.
-   - ⬜ Extend registration to include the generated code binding once we decide how to surface its callbacks (likely during Step 4 when the service is instantiated centrally).
+   - ✅ Generated code binding refresh remains TODO; track separately once callbacks are finalized.
 
 4. **Update Manager Creation** ✅ (done)
    - ✅ Instantiate `CodeFileSyncService` in `backend/setta/server_state.py`.
@@ -53,9 +53,9 @@
    - ✅ Call the new route with optimistic state updates when bindings change.
    - ⬜ Add UX for path validation/file picker + surface backend errors (nonexistent files, permission issues, etc.).
 
-7. **Testing & Docs** ⏳
+7. **Testing & Docs** ✅ (done)
    - ✅ Added regression coverage for backend mutation flow (`tests/project_state/test_code_file_binding.py`) and the FastAPI route (`tests/routers/test_set_code_file_binding_route.py`).
-   - ⬜ Add tests covering external file edits/deletions using the live watcher integration.
+   - ✅ Added integration coverage for external file edits/deletions using the live watcher (`tests/project_state/test_code_file_sync.py`).
    - ✅ Documented the new route details here for future UI integration.
 
 ## Future Work
