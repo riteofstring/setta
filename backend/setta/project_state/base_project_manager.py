@@ -108,6 +108,7 @@ from setta.project_state.project_manager_types import (
 from setta.project_state.text_file_sync import (
     SyncMode,
     TextFileBinding,
+    TextFileExternalChange,
     TextFileSync,
     TextSectionBinding,
 )
@@ -734,46 +735,124 @@ class BaseProjectManager(ABC):
         section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
         current_sync_mode: CodeSyncMode | None = None
         current_path: str | None = None
+        previous_code: str | None = None
         if isinstance(section_impl, CodeSectionImpl):
             current_sync_mode = section_impl.syncMode
             current_path = section_impl.filePath
+            previous_code = section_impl.code
 
         target_sync_mode = x.syncMode or current_sync_mode or CodeSyncMode.project
         target_path = x.filePath if x.filePath is not None else current_path
         file_missing = x.fileMissing
+        code_to_set = x.code
+
+        normalized_current_path = (
+            normalize_path(current_path) if current_path is not None else None
+        )
+        normalized_target_path = (
+            normalize_path(target_path) if target_path is not None else None
+        )
+        is_new_two_way_binding = (
+            target_sync_mode == CodeSyncMode.twoWay
+            and normalized_target_path is not None
+            and (
+                current_sync_mode != CodeSyncMode.twoWay
+                or normalized_current_path != normalized_target_path
+            )
+        )
+        disk_content: str | None = None
+
+        if is_new_two_way_binding and normalized_target_path is not None:
+            disk_content = self.text_file_sync.read_file(normalized_target_path)
+            if disk_content is not None:
+                file_missing = False
+                if previous_code is not None and code_to_set == previous_code:
+                    code_to_set = disk_content
+            else:
+                if file_missing is None:
+                    file_missing = True
 
         if target_sync_mode == CodeSyncMode.twoWay and target_path:
-            variant = get_curr_section_variant(project_state, x.sectionId)
-            binding = TextFileBinding(
-                project_config_id=x.projectConfigId,
-                section_id=x.sectionId,
-                variant_id=variant.id,
-            )
-            normalized_path = normalize_path(target_path)
-            try:
-                self.text_file_sync.write_section_code(
-                    binding,
-                    normalized_path,
-                    x.code,
+            normalized_path = normalized_target_path or normalize_path(target_path)
+            should_write = True
+            if is_new_two_way_binding:
+                should_write = disk_content is None or code_to_set != disk_content
+
+            if should_write:
+                variant = get_curr_section_variant(project_state, x.sectionId)
+                binding = TextFileBinding(
+                    project_config_id=x.projectConfigId,
+                    section_id=x.sectionId,
+                    variant_id=variant.id,
                 )
+                try:
+                    self.text_file_sync.write_section_code(
+                        binding,
+                        normalized_path,
+                        code_to_set,
+                    )
+                    file_missing = False
+                except Exception:
+                    logger.exception(
+                        "Failed to write code for %s to %s", binding, normalized_path
+                    )
+                    file_missing = True
+            elif file_missing is None:
                 file_missing = False
-            except Exception:
-                logger.exception(
-                    "Failed to write code for %s to %s", binding, normalized_path
-                )
-                file_missing = True
         elif file_missing is None and target_path is not None:
             file_missing = False
 
         set_code(
             project_state,
             x.sectionId,
-            x.code,
+            code_to_set,
             file_path=x.filePath,
             sync_mode=x.syncMode,
             file_missing=file_missing,
         )
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def handle_external_text_file_change(
+        self,
+        change: TextFileExternalChange,
+    ):
+        project_config_id = change.binding.project_config_id
+        section_id = change.binding.section_id
+        project_state = self.get_single_config_state(project_config_id)
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, CodeSectionImpl):
+            logger.warning(
+                "Received external text file change for non-code section %s", section_id
+            )
+            return
+
+        current_code = section_impl.code
+        updated_code = change.content if change.content is not None else current_code
+        file_missing = change.file_missing
+        if updated_code == current_code and section_impl.fileMissing == file_missing:
+            logger.debug(
+                "Skipping external text file change for %s (no content or status change)",
+                section_id,
+            )
+            return
+
+        set_code(
+            project_state,
+            section_id,
+            updated_code,
+            file_missing=file_missing,
+        )
+
+        await self.update_and_broadcast_project_state(
+            project_state, updateFileWatcher=False
+        )
+
+        notification = SettaNotification(
+            message=f"{change.path} {change.event_type.value}",
+            projectConfigId=project_config_id,
+        )
+        await self.websocket_msg_handler.broadcast_notification(notification)
 
     @enqueue_method
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
@@ -1397,7 +1476,14 @@ class BaseProjectManager(ABC):
 
     def watch_text_files(self):
         callback_category = f"{self.__class__.__name__}_TextFiles"
-        self.text_file_sync.watch_text_files(callback_category)
+        self.text_file_sync.watch_text_files(
+            callback_category,
+            self.code_helper_metadata.keys(),
+            self._on_text_file_change,
+        )
+
+    async def _on_text_file_change(self, change: TextFileExternalChange) -> None:
+        await self.handle_external_text_file_change(change)
 
     def _should_defer_json_source_reload(
         self,

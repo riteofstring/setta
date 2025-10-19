@@ -21,6 +21,9 @@
 - Extended code section models, helpers, and generated schemas with `filePath`, `syncMode`, and `fileMissing`, and plumbed the values through `SetCodeRequest`.
 - Added a temporary CodeArea control surface so users can enter a file path, toggle sync mode, and view a missing-file badge while the backend stores the metadata.
 - Implemented write-through for two-way code sections so `set_code` persists to the configured file path and caches hashes to skip redundant writes.
+- TextFileSync now manages per-path watchers, hashes, and missing-file state, delivering `TextFileExternalChange` payloads back to project managers.
+- Switching a section into two-way sync pulls existing disk content when the section’s code matches the current in-memory state to avoid wiping files, and ignores redundant writes when hashes match.
+- Added integration tests that exercise external edits, deletes, initial binding to existing files, and hash-skipping behavior via the settings project manager fixture.
 
 ## Open Questions
 - How should paths be entered—absolute, relative to the project root, or constrained to a workspace whitelist—and do we need templating per project config?
@@ -28,5 +31,6 @@
 - Can the LSP operate on the true file path for better tooling, or do we keep temp files to avoid breaking rename refactors?
 
 ## Next Steps
-1. Activate `TextFileSync.watch_text_files` to subscribe to disk events, reload section code on external changes, and flag `fileMissing` when reads fail.
-2. Harden the frontend UX (status badges, conflict toasts, manual resync) and add automated coverage for the metadata and watcher flow.
+1. Harden the frontend UX (status badges, conflict toasts, manual resync) and expose disk-sync status in the UI.
+2. Explore conflict strategies (`skip`, `backup`, `overwrite`) and surface backups on concurrent edits.
+3. Investigate enabling LSP operations against real file paths once two-way sync stabilizes.
