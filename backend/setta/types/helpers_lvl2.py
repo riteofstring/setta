@@ -89,7 +89,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
     CallableSectionImpl,
-    CodeFileBinding,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
@@ -958,20 +957,6 @@ def set_code(p: "ProjectStateSingleConfig", sectionId: str, code: str):
         p,
         sectionId,
         BaseCodeSectionImplArgsWithCallable(code=code),
-    )
-
-
-def set_code_file_binding(
-    p: "ProjectStateSingleConfig", sectionId: str, binding: CodeFileBinding
-):
-    normalized_binding = CodeFileBinding(
-        canonical_path=normalize_path(binding.canonical_path),
-        access_mode=binding.access_mode,
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseCodeSectionImplArgsWithCallable(codeFileBinding=normalized_binding),
     )
 
 

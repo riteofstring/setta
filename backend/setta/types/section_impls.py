@@ -143,11 +143,8 @@ class CodeFileAccessMode(str, Enum):
 
 class CodeFileBinding(BaseModel, extra="forbid"):
     canonical_path: Path
+    snapshot_dir: Path
     access_mode: CodeFileAccessMode
-
-    @property
-    def snapshot_dir(self) -> Path:
-        return self.canonical_path.parent
 
 
 class BaseCodeSectionImpl(BaseSectionImpl):

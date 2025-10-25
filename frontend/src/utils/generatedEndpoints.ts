@@ -395,12 +395,6 @@ export async function route_set_code_obj_name(
   return await post("/setCodeObjName", x);
 }
 
-export async function route_set_code_file_binding(
-  x: gt.SetCodeFileBindingRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setCodeFileBinding", x);
-}
-
 export async function route_toggle_position_lock(
   x: gt.TogglePositionLockRequest,
 ): Promise<ResponseDataAndStatus<null>> {

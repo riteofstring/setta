@@ -10,7 +10,6 @@ from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
@@ -42,9 +41,6 @@ class SettaFastAPIState:
         self.artifacts = Artifacts(
             self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
         )
-        self.code_files = CodeFiles(
-            self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
-        )
         self.json_source = JSONSource(
             self.wmh_frontend_sender,
             self.settings_file,
@@ -59,7 +55,6 @@ class SettaFastAPIState:
             self.dbe,
             self.artifacts,
             self.json_source,
-            self.code_files,
         )
         settings_project_manager = SettingsProjectManager(
             self.lsp_writers,
@@ -69,7 +64,6 @@ class SettaFastAPIState:
             self.dbe,
             self.artifacts,
             self.json_source,
-            self.code_files,
         )
         self.project_manager_switcher = ProjectManagerSwitcher(
             project_manager, settings_project_manager

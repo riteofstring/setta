@@ -1,5 +1,5 @@
 import asyncio
-from typing import Callable
+from typing import Callable, Optional
 
 
 class AsyncDebouncer:
@@ -9,7 +9,7 @@ class AsyncDebouncer:
     def __init__(self, func: Callable, wait: float = 2.0):
         self.func = func
         self.wait = wait
-        self._task: asyncio.Task | None = None
+        self._task: Optional[asyncio.Task] = None
         self._is_executing: bool = False
 
     def trigger(self, *args, **kwargs):
