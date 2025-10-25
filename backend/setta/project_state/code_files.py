@@ -231,9 +231,7 @@ class CodeFiles:
         self,
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
-        reload_code_sections: Callable[
-            [CodeFileReloadPlan], Coroutine[Any, Any, None]
-        ],
+        reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
     ) -> None:
         """
         Register callbacks with SpecificFileWatcher for any paths tracked under this
@@ -414,9 +412,7 @@ class CodeFiles:
         self,
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
-        reload_code_sections: Callable[
-            [CodeFileReloadPlan], Coroutine[Any, Any, None]
-        ],
+        reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
     ) -> FileWatcherCallback:
         async def _callback(core_update: FileWatcherCoreUpdate) -> None:
             normalized_path = normalize_path(core_update.fileToRead)
