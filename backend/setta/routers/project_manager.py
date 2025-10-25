@@ -30,6 +30,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetCodeFileBindingRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -302,6 +303,13 @@ async def route_set_param_entered_value(
 @router.post(Route.SET_CODE_OBJ_NAME)
 async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_code_obj_name(x)
+
+
+@router.post(Route.SET_CODE_FILE_BINDING)
+async def route_set_code_file_binding(
+    x: SetCodeFileBindingRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_code_file_binding(x)
 
 
 @router.post(Route.TOGGLE_POSITION_LOCK)

@@ -22,7 +22,6 @@ def test_set_effective_impl_coerces_code_file_binding_into_model():
 
     binding_payload = CodeFileBinding(
         canonical_path=Path("/tmp/code.py"),
-        snapshot_dir=Path("/tmp"),
         access_mode=CodeFileAccessMode.read_only,
     )
 

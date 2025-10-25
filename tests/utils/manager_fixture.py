@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
@@ -20,6 +18,7 @@ from setta.lsp.managers import (
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.utils.constants import C
@@ -39,6 +38,7 @@ class SettingsManagerFixture:
     settings_file: SettingsFile
     artifacts: Artifacts
     json_source: JSONSource
+    code_files: CodeFiles
     websocket_manager: WebsocketManager
 
 
@@ -76,6 +76,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
             specific_file_watcher = SpecificFileWatcher()
             artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
             json_source = JSONSource(
                 frontend_sender, settings_file, specific_file_watcher, dbe
             )
@@ -88,6 +89,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 dbe,
                 artifacts,
                 json_source,
+                code_files,
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
@@ -118,6 +120,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 settings_file=settings_file,
                 artifacts=artifacts,
                 json_source=json_source,
+                code_files=code_files,
                 websocket_manager=websocket_manager,
             )
 

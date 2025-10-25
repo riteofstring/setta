@@ -7,9 +7,11 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.database.utils import create_new_id
-from setta.project_state.code import (
-    BashCode,
-    PythonCode,
+from setta.project_state.code import BashCode, PythonCode
+from setta.project_state.code_files import (
+    GEN_CODE_SECTION_ID,
+    GEN_CODE_VARIANT_ID,
+    RegisteredCodeFileBinding,
 )
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
@@ -53,6 +55,7 @@ class ProjectGenPythonCode(PythonCode):
     def __init__(
         self,
         dbe,
+        code_files,
         binding: CodeFileBinding,
         lsp_writers,
         websocket_msg_handler,
@@ -60,12 +63,21 @@ class ProjectGenPythonCode(PythonCode):
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
-        super().__init__(dbe, binding, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         # with open("test_project_state.json", "w") as f:
         # json.dump(project_state, f)
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
+        code_files.register_binding(
+            binding.canonical_path,
+            RegisteredCodeFileBinding(
+                section_id=GEN_CODE_SECTION_ID,
+                variant_id=GEN_CODE_VARIANT_ID,
+                project_config_id=project_config_id,
+                access_mode=binding.access_mode,
+            ),
+        )
 
     async def update_file(self):
         await super().update_file(self.code)
@@ -294,6 +306,7 @@ class ProjectPythonCode(PythonCode):
     def __init__(
         self,
         dbe,
+        code_files,
         lsp_writers,
         websocket_msg_handler,
         project_state: ProjectStateSingleConfig,
@@ -305,12 +318,31 @@ class ProjectPythonCode(PythonCode):
         binding = section_impl.codeFileBinding
         if binding is None:
             raise ValueError("Code section missing codeFileBinding")
-        super().__init__(dbe, binding, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.sectionId = sectionId
         self.code = section_impl.code
+        project_config = project_state.projectConfig
+        variant_id = project_config.sectionVariantMap.get(sectionId)
+        if variant_id is None:
+            raise ValueError(
+                f"Missing variant mapping for section {sectionId} in project config {project_config.id}"
+            )
+        code_files.register_binding(
+            binding.canonical_path,
+            RegisteredCodeFileBinding(
+                section_id=sectionId,
+                variant_id=variant_id,
+                project_config_id=project_config.id,
+                access_mode=binding.access_mode,
+            ),
+        )
 
     async def update_file(self):
         await super().update_file(self.code)
+
+    async def handle_external_reload(self, new_code: str) -> None:
+        await super().handle_external_reload(new_code)
+        await self.send_document_open_request(new_code)
 
     async def code_area_completion(self, fullText, position):
         line, col = position_to_line_col(fullText, position)
@@ -339,16 +371,37 @@ class ProjectPythonCode(PythonCode):
 
 
 class ProjectBashCode(BashCode):
-    def __init__(self, dbe, project_state: ProjectStateSingleConfig, sectionId):
+    def __init__(
+        self,
+        dbe,
+        code_files,
+        project_state: ProjectStateSingleConfig,
+        sectionId,
+    ):
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         binding = section_impl.codeFileBinding
         if binding is None:
             raise ValueError("Code section missing codeFileBinding")
-        super().__init__(dbe, binding)
+        super().__init__(dbe, code_files, binding)
         self.sectionId = sectionId
         self.code = section_impl.code
+        project_config = project_state.projectConfig
+        variant_id = project_config.sectionVariantMap.get(sectionId)
+        if variant_id is None:
+            raise ValueError(
+                f"Missing variant mapping for section {sectionId} in project config {project_config.id}"
+            )
+        code_files.register_binding(
+            binding.canonical_path,
+            RegisteredCodeFileBinding(
+                section_id=sectionId,
+                variant_id=variant_id,
+                project_config_id=project_config.id,
+                access_mode=binding.access_mode,
+            ),
+        )
 
     async def update_file(self):
         super().update_file(self.code)

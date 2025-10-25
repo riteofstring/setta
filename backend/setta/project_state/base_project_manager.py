@@ -28,6 +28,10 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.code_files import (
+    CodeFileReloadPlan,
+    CodeFiles,
+)
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
@@ -71,6 +75,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetCodeFileBindingRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -107,7 +112,10 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
+)
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
@@ -130,6 +138,7 @@ from setta.types.helpers_lvl2 import (
     set_chart_settings,
     set_chart_type,
     set_code,
+    set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
     set_param_entered_value,
@@ -167,6 +176,9 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    BaseCodeSectionImpl,
+    CodeFileAccessMode,
+    CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
@@ -176,6 +188,7 @@ from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -196,6 +209,7 @@ class BaseProjectManager(ABC):
         dbe: DBE,
         artifacts: Artifacts,
         json_source: JSONSource,
+        code_files: CodeFiles,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -204,6 +218,7 @@ class BaseProjectManager(ABC):
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
+        self.code_files = code_files
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
@@ -225,6 +240,7 @@ class BaseProjectManager(ABC):
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
+        self.watch_code_files()
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -508,6 +524,7 @@ class BaseProjectManager(ABC):
                 raise ValueError("Project state missing generated code binding")
             new_gen_code = ProjectGenPythonCode(
                 self.dbe,
+                self.code_files,
                 gen_code_binding,
                 self.lsp_writers,
                 self.websocket_msg_handler,
@@ -544,6 +561,7 @@ class BaseProjectManager(ABC):
             if updateFileWatcher:
                 self.watch_json_source_files()
                 self.watch_artifact_files()
+                self.watch_code_files()
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):
@@ -632,6 +650,18 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        canonical_path = normalize_path(x.binding.canonical_path)
+        updated_binding = CodeFileBinding(
+            canonical_path=canonical_path,
+            access_mode=x.binding.access_mode,
+        )
+        set_code_file_binding(project_state, x.sectionId, updated_binding)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_lock(project_state, x.sectionId)
@@ -646,6 +676,19 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_code(self, x: SetCodeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            BaseCodeSectionImpl,
+        )
+        binding = section_impl.codeFileBinding
+        if binding is not None and binding.access_mode == CodeFileAccessMode.read_only:
+            logger.warning(
+                "Rejecting set_code for read-only binding: section %s (config %s)",
+                x.sectionId,
+                x.projectConfigId,
+            )
+            raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
         await self.update_and_broadcast_project_state(project_state)
 
@@ -807,13 +850,19 @@ class BaseProjectManager(ABC):
         if codeLanguage == CodeLanguage.python:
             return ProjectPythonCode(
                 self.dbe,
+                self.code_files,
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 project_state,
                 sectionId,
             )
         if codeLanguage == CodeLanguage.bash:
-            return ProjectBashCode(self.dbe, project_state, sectionId)
+            return ProjectBashCode(
+                self.dbe,
+                self.code_files,
+                project_state,
+                sectionId,
+            )
         return None
 
     async def maybe_do_rename_refactor(
@@ -1119,6 +1168,11 @@ class BaseProjectManager(ABC):
         self, project_state: ProjectStateSingleConfig, updateFileWatcher: bool = True
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
+        await self._broadcast_project_state_snapshot(project_state)
+
+    async def _broadcast_project_state_snapshot(
+        self, project_state: ProjectStateSingleConfig
+    ) -> None:
         self._mark_current_frontend_op_completed_before_broadcast()
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
@@ -1245,6 +1299,106 @@ class BaseProjectManager(ABC):
         self.artifacts.watch_artifact_files(
             f"{self.__class__.__name__}_Artifacts", self.project_state_backend
         )
+
+    def watch_code_files(self):
+        self.code_files.watch_code_files(
+            f"{self.__class__.__name__}_CodeFiles",
+            self.project_state_backend_getter_fn,
+            self.reload_code_sections,
+        )
+
+    async def reload_code_sections(
+        self,
+        plan: CodeFileReloadPlan,
+    ) -> None:
+        """
+        Handle code file watcher events by hydrating project state, updating
+        cached code objects, and broadcasting the refreshed sections.
+        """
+        logger.debug(
+            "Received code file watcher event for %s (%s) via %s",
+            plan.path,
+            {
+                binding.section_id
+                for bindings in plan.bindings_by_config.values()
+                for binding in bindings
+            },
+            plan.core_update.eventType.value,
+        )
+
+        if not plan.bindings_by_config:
+            return
+
+        self.code_files.record_read(plan.path, plan.content_hash)
+
+        if plan.raw_content is None:
+            logger.debug(
+                "No on-disk content for %s; skipping project state reload", plan.path
+            )
+            return
+
+        states_to_broadcast: list[ProjectStateSingleConfig] = []
+        async with self._project_state_lock.write_lock():
+            base_backend = self.project_state_backend
+            updated_configs: dict[str, ProjectStateSingleConfig] = {}
+            for (
+                project_config_id,
+                config_bindings,
+            ) in plan.bindings_by_config.items():
+                single_state = convert_backend_to_single_config(
+                    base_backend, project_config_id
+                )
+
+                for binding in config_bindings:
+                    section_id = binding.section_id
+                    if section_id not in single_state.sections:
+                        logger.debug(
+                            "Section %s not found in project config %s during reload",
+                            section_id,
+                            project_config_id,
+                        )
+                        continue
+                    set_code(single_state, section_id, plan.raw_content)
+                if config_bindings:
+                    updated_configs[project_config_id] = single_state
+
+            if not updated_configs:
+                return
+
+            backend = base_backend
+            for single_state in updated_configs.values():
+                backend = merge_single_config_into_backend(backend, single_state)
+            self.project_state_backend = backend
+
+            for project_config_id, single_state in updated_configs.items():
+                code_entries = self.code_dict.setdefault(project_config_id, {})
+                config_bindings_for_id = plan.bindings_by_config.get(
+                    project_config_id, []
+                )
+                for binding in config_bindings_for_id:
+                    section_id = binding.section_id
+                    if section_id not in single_state.sections:
+                        continue
+                    section_impl = get_curr_effective_section_impl(
+                        single_state, section_id
+                    )
+                    if not isinstance(section_impl, CodeSectionImpl):
+                        continue
+                    code_entry = code_entries.get(section_id)
+                    if code_entry is None:
+                        code_entry = self.create_project_code(
+                            single_state, section_id, section_impl
+                        )
+                        if code_entry:
+                            code_entries[section_id] = code_entry
+                    if code_entry is None:
+                        continue
+                    await code_entry.handle_external_reload(section_impl.code)
+
+                states_to_broadcast.append(single_state)
+
+        for single_state in states_to_broadcast:
+            await self._broadcast_project_state_snapshot(single_state)
 
     def _should_defer_json_source_reload(
         self,

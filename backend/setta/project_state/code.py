@@ -1,22 +1,28 @@
+import hashlib
 import logging
 import uuid
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
-from setta.types.section_impls import CodeFileBinding
+from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+if TYPE_CHECKING:
+    from setta.project_state.code_files import CodeFileMetadata, CodeFiles
 
 logger = logging.getLogger(__name__)
 
 
 class Code(ABC):
-    def __init__(self, dbe: DBE, binding: CodeFileBinding):
+    def __init__(self, dbe: DBE, code_files: "CodeFiles", binding: "CodeFileBinding"):
         self.dbe = dbe
+        self.code_files = code_files
         self.binding = binding
 
     def get_base_filename(self):
@@ -30,11 +36,34 @@ class Code(ABC):
     def get_run_command(self):
         pass
 
-    def update_file(self, code):
+    def update_file(self, code: str) -> bool:
         filepath = self.binding.canonical_path
+        access_mode = self.code_files.get_access_mode(filepath)
+        if access_mode == CodeFileAccessMode.read_only:
+            logger.debug("Skipping write for read-only file %s", filepath)
+            return False
+
+        code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()
+
+        metadata: CodeFileMetadata | None = self.code_files.get_metadata(filepath)
+        content_already_synced = metadata is not None and (
+            metadata.last_read_hash == code_hash
+            or metadata.last_written_hash == code_hash
+        )
+
+        self.code_files.record_write(filepath, code_hash)
+        if content_already_synced:
+            logger.debug("Skipping write for %s; content hash unchanged", filepath)
+            return False
+
         logger.debug("Writing canonical file %s", filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.dbe.write(filepath, code)
+        return True
+
+    async def handle_external_reload(self, new_code: str) -> None:
+        """Refresh in-memory state after the canonical file was reloaded."""
+        setattr(self, "code", new_code)
 
     def write_to_folder(self, code: str, folder: Path) -> Path:
         folder.mkdir(parents=True, exist_ok=True)
@@ -47,18 +76,20 @@ class PythonCode(Code):
     def __init__(
         self,
         dbe: DBE,
-        binding: CodeFileBinding,
+        code_files: "CodeFiles",
+        binding: "CodeFileBinding",
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
     ):
-        super().__init__(dbe, binding)
+        super().__init__(dbe, code_files, binding)
         self.lsp_writer = lsp_writers.full
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
 
     async def update_file(self, code):
-        super().update_file(code)
-        await self.send_document_open_request(code)
+        wrote = super().update_file(code)
+        if wrote:
+            await self.send_document_open_request(code)
 
     async def send_document_open_request(self, code):
         filepath = self.binding.canonical_path
