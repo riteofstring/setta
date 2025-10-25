@@ -45,7 +45,7 @@ Addressing these questions will clarify whether additional telemetry or safety n
 - Updated the manual save routes (`SAVE_PROJECT`, `SAVE_AS_NEW_PROJECT_CONFIG`) to await the helper before invoking `perform_manual_save`.
 - Simplified manual save payloads to pass only `projectConfigId`, regenerating endpoint bindings and ensuring backend managers pull the authoritative state before saving.
 - Added real-manager fixtures for both settings and project managers plus queue-drain regression coverage verifying manual saves persist pending operations.
+- Removed the legacy frontend deep-clone helpers in manual save actions so the UI now sends only the authoritative `projectConfigId`.
 
 ## Next Steps
-- Consider removing the now-unused deep-clone helpers in frontend save actions once the save-as implementation lands and no longer depends on them.
 - Evaluate whether manual save notifications should include the drained frontend op IDs or broadcast updated project snapshots post-save.
