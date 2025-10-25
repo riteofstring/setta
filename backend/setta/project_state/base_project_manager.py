@@ -504,7 +504,6 @@ class BaseProjectManager(ABC):
             projectState.validate_yaml_values()
             projectState.validate_required_decoded_images()
             projectState.validate_code_file_bindings()
-            self.code_files.sync_bindings_for_config(projectState)
             dep_graph = DependencyGraph(projectState)
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id

@@ -125,23 +125,6 @@ class CodeFilesTests(unittest.TestCase):
         self.assertEqual(metadata.last_written_hash, "hash")
         self.assertFalse(metadata.has_conflict)
 
-    def test_sync_bindings_for_config_registers_bindings(self) -> None:
-        state, section_id, variant_id, project_config_id = self._build_project_state()
-
-        changed = self.manager.sync_bindings_for_config(state)
-
-        self.assertTrue(changed)
-        bindings = self.manager.get_bindings(self.path)
-        self.assertEqual(len(bindings), 1)
-        (binding,) = tuple(bindings)
-        self.assertEqual(binding.section_id, section_id)
-        self.assertEqual(binding.variant_id, variant_id)
-        self.assertEqual(binding.project_config_id, project_config_id)
-        self.assertEqual(binding.access_mode, CodeFileAccessMode.read_write)
-
-        changed_again = self.manager.sync_bindings_for_config(state)
-        self.assertFalse(changed_again)
-
     def test_watch_code_files_registers_callbacks(self) -> None:
         state, _, _, _ = self._build_project_state()
         backend = merge_single_config_into_backend(ProjectStateBackend(), state)
@@ -189,6 +172,37 @@ class CodeFilesTests(unittest.TestCase):
         self.assertEqual(callbacks_after, {})
         tracked_bindings = self.manager._category_to_bindings.get(category, {})
         self.assertEqual(tracked_bindings, {})
+
+    def test_watch_code_files_refreshes_bindings_from_backend(self) -> None:
+        state, section_id, variant_id, project_config_id = self._build_project_state()
+        backend = merge_single_config_into_backend(ProjectStateBackend(), state)
+
+        category = "TestCategory"
+
+        async def _reload(*args, **kwargs):  # pragma: no cover - stub
+            return None
+
+        # Pre-populate bindings with unrelated data to ensure the watcher refresh clears it.
+        stale_path = normalize_path(self.path.parent / "stale.py")
+        stale_binding = RegisteredCodeFileBinding(
+            section_id="old",
+            variant_id="old",
+            project_config_id="old-config",
+            access_mode=CodeFileAccessMode.read_only,
+        )
+        self.manager._bindings[stale_path] = {stale_binding}
+
+        self.manager.watch_code_files(category, lambda: backend, _reload)
+        self._loop.run_until_complete(asyncio.sleep(0))
+
+        bindings = self.manager.get_bindings(self.path)
+        self.assertEqual(len(bindings), 1)
+        (binding,) = tuple(bindings)
+        self.assertEqual(binding.section_id, section_id)
+        self.assertEqual(binding.variant_id, variant_id)
+        self.assertEqual(binding.project_config_id, project_config_id)
+        self.assertEqual(binding.access_mode, CodeFileAccessMode.read_write)
+        self.assertNotIn(stale_path, self.manager._bindings)
 
     def test_record_write_rejects_read_only(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)

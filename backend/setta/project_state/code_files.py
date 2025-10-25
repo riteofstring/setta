@@ -84,17 +84,6 @@ class CodeFiles:
         bucket.add(binding)
         self._metadata.setdefault(normalized, CodeFileMetadata())
 
-    def sync_bindings_for_config(
-        self, project_state: ProjectStateSingleConfig
-    ) -> bool:
-        """
-        Rebuild bindings for a single project config by walking its sections and
-        generated-code binding. Returns True when the binding set changed.
-        """
-        new_bindings = self._generate_bindings_for_config(project_state)
-        project_config_id = project_state.projectConfig.id
-        return self._replace_bindings_for_config(project_config_id, new_bindings)
-
     def _generate_bindings_for_config(
         self, project_state: ProjectStateSingleConfig
     ) -> dict[Path, set[RegisteredCodeFileBinding]]:
