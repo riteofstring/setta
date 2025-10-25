@@ -1,4 +1,3 @@
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
@@ -14,7 +13,7 @@ from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.section_impls import BaseCodeSectionImpl, CodeFileAccessMode
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
-from setta.utils.utils import normalize_path
+from setta.utils.utils import compute_md5_hex, normalize_path
 
 GEN_CODE_SECTION_ID = "__setta_gen_code__"
 GEN_CODE_VARIANT_ID = "__setta_gen_code__"
@@ -414,7 +413,7 @@ class CodeFiles:
 
             content_hash: str | None = None
             if raw_content is not None:
-                content_hash = hashlib.md5(raw_content.encode()).hexdigest()
+                content_hash = compute_md5_hex(raw_content)
 
             if not self.should_reload(normalized_path, content_hash):
                 return None

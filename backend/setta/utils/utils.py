@@ -1,3 +1,4 @@
+import hashlib
 import json
 from collections import defaultdict
 from json import JSONDecodeError
@@ -16,6 +17,19 @@ def try_json(x):
         return json.loads(x)
     except (JSONDecodeError, TypeError):
         return x
+
+
+def compute_md5_hex(data: bytes | str) -> str:
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return hashlib.md5(data).hexdigest()
+
+
+def compute_md5_prefix(data: bytes | str, length: int) -> str:
+    if length <= 0:
+        raise ValueError("length must be positive")
+    digest = compute_md5_hex(data)
+    return digest[:length]
 
 
 def replace_at_positions(input_string, replacements, return_positions=False):

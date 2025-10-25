@@ -1,5 +1,4 @@
 import base64
-import hashlib
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -32,7 +31,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
-from setta.utils.utils import normalize_path
+from setta.utils.utils import compute_md5_hex, normalize_path
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -197,14 +196,11 @@ class Artifacts:
 
         return path_and_types, path_to_types
 
-    def _compute_hash(self, data: bytes):
-        return hashlib.md5(data).hexdigest()
-
     def _compute_file_hash(self, path: Path):
         try:
             content = self.dbe.read(path, "rb")
             if content:
-                return self._compute_hash(content)
+                return compute_md5_hex(content)
         except:
             pass
         return None
@@ -218,7 +214,7 @@ class Artifacts:
             )
             self.images[path] = artifact
             self.image_metadata[path] = ArtifactMetadata(
-                last_read_hash=self._compute_hash(img),
+                last_read_hash=compute_md5_hex(img),
                 is_dirty=False,
             )
             return artifact
@@ -231,7 +227,7 @@ class Artifacts:
             artifact = ChartDataArtifact(id=str(normalize_path(path)), value=value)
             self.chart_data[path] = artifact
             self.chart_data_metadata[path] = ArtifactMetadata(
-                last_read_hash=self._compute_hash(x.encode()),
+                last_read_hash=compute_md5_hex(x),
                 is_dirty=False,
             )
             return artifact
@@ -246,7 +242,7 @@ class Artifacts:
             )
             self.brush_strokes[path] = artifact
             self.brush_stroke_metadata[path] = ArtifactMetadata(
-                last_read_hash=self._compute_hash(content.encode()),
+                last_read_hash=compute_md5_hex(content),
                 is_dirty=False,
             )
             return artifact
@@ -262,7 +258,7 @@ class Artifacts:
             )
             self.draw_area_layer_item_transforms[path] = artifact
             self.transform_metadata[path] = ArtifactMetadata(
-                last_read_hash=self._compute_hash(content.encode()),
+                last_read_hash=compute_md5_hex(content),
                 is_dirty=False,
             )
             return artifact
@@ -324,7 +320,7 @@ class Artifacts:
             return PreparedArtifact(
                 payload=binary_data,
                 mode="wb",
-                hash=self._compute_hash(binary_data),
+                hash=compute_md5_hex(binary_data),
             )
         if isinstance(artifact, ChartDataArtifact):
             csv_content = chart_data_to_csv(artifact.value)
@@ -332,7 +328,7 @@ class Artifacts:
             return PreparedArtifact(
                 payload=csv_content,
                 mode="w",
-                hash=self._compute_hash(encoded),
+                hash=compute_md5_hex(encoded),
             )
         if isinstance(artifact, BrushStrokeArtifact):
             data = artifact.value.model_dump()
@@ -341,7 +337,7 @@ class Artifacts:
             return PreparedArtifact(
                 payload=json_content,
                 mode="w",
-                hash=self._compute_hash(encoded),
+                hash=compute_md5_hex(encoded),
             )
         if isinstance(artifact, DrawAreaLayerItemTransformArtifact):
             data = artifact.value.model_dump()
@@ -350,7 +346,7 @@ class Artifacts:
             return PreparedArtifact(
                 payload=json_content,
                 mode="w",
-                hash=self._compute_hash(encoded),
+                hash=compute_md5_hex(encoded),
             )
         raise TypeError
 

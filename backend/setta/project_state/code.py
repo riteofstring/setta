@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import uuid
 from abc import ABC, abstractmethod
@@ -10,7 +9,7 @@ from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
 from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
-from setta.utils.utils import normalize_path
+from setta.utils.utils import compute_md5_hex, normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -43,7 +42,7 @@ class Code(ABC):
             logger.debug("Skipping write for read-only file %s", filepath)
             return False
 
-        code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()
+        code_hash = compute_md5_hex(code)
 
         metadata: CodeFileMetadata | None = self.code_files.get_metadata(filepath)
         content_already_synced = metadata is not None and (

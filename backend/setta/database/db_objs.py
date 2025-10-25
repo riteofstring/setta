@@ -1,4 +1,3 @@
-import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -9,7 +8,7 @@ from filelock import FileLock
 from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.utils.utils import normalize_path
+from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
 class DBE:
@@ -27,7 +26,7 @@ class DBE:
         locks_dir = self.path / "file_locks"
         locks_dir.mkdir(exist_ok=True)
         # Create a hash to avoid name conflicts
-        path_hash = hashlib.md5(str(path.absolute()).encode()).hexdigest()[:8]
+        path_hash = compute_md5_prefix(str(path.absolute()), 8)
         lock_filename = f"{path.name}_{path_hash}.lock"
         lock_path = locks_dir / lock_filename
         return FileLock(lock_path, timeout=10)
