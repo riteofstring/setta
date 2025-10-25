@@ -10,7 +10,9 @@ if TYPE_CHECKING:
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
-from setta.types.section_impls import CodeFileAccessMode
+from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
+from setta.types.section_impls import BaseCodeSectionImpl, CodeFileAccessMode
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
 
@@ -102,9 +104,6 @@ class CodeFiles:
     def _generate_bindings_for_config(
         self, project_state: ProjectStateSingleConfig
     ) -> dict[Path, set[RegisteredCodeFileBinding]]:
-        from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
-        from setta.types.section_impls import BaseCodeSectionImpl
-
         project_config = project_state.projectConfig
         project_config_id = project_config.id
 
@@ -262,8 +261,6 @@ class CodeFiles:
     def _refresh_bindings_from_backend(
         self, project_state_backend: ProjectStateBackend
     ) -> None:
-        from setta.types.helpers_lvl3 import convert_backend_to_single_config
-
         active_config_ids = set(project_state_backend.projectConfigs.keys())
 
         for project_config_id in active_config_ids:
