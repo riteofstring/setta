@@ -399,8 +399,3 @@ class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     newConfigName: str
     withRefs: bool
-
-
-class SaveAsExistingProjectConfigRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    configName: str

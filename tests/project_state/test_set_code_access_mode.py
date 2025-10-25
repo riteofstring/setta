@@ -66,9 +66,6 @@ class AccessModeTestManager(BaseProjectManager):
     async def save_as_new_project_config(self, x):  # pragma: no cover
         return None
 
-    def save_as_existing_project_config(self, x):  # pragma: no cover
-        return None
-
 
 class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

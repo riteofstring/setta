@@ -12,7 +12,6 @@ class Route(str, Enum):
     CREATE_PROJECT_CONFIG = "/createProjectConfig"
     DELETE_PROJECT_CONFIGS = "/deleteProjectConfigs"
     SAVE_AS_NEW_PROJECT_CONFIG = "/saveAsNewProjectConfig"
-    SAVE_AS_EXISTING_PROJECT_CONFIG = "/saveAsExistingProjectConfig"
     SET_PROJECT_CONFIG_NAME = "/setProjectConfigName"
     SAVE_SETTINGS = "/saveSettings"
     LOAD_SETTINGS = "/loadSettings"

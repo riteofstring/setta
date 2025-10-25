@@ -5,7 +5,6 @@ import {
   useSettings,
 } from "state/definitions";
 import {
-  route_save_as_existing_project_config,
   route_save_as_new_project_config,
   route_save_project,
 } from "utils/generatedEndpoints";
@@ -74,16 +73,6 @@ export async function saveAsNewProjectConfig(
     projectConfigId: data.projectConfig.id,
     newConfigName,
     withRefs,
-  });
-}
-
-export async function saveAsExistingProjectConfig(configName: string) {
-  addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
-  await flushQueuedArtifacts();
-  const data = await getProjectDataForSaving();
-  route_save_as_existing_project_config({
-    projectConfigId: data.projectConfig.id,
-    configName,
   });
 }
 

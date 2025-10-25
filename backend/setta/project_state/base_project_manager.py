@@ -65,7 +65,6 @@ from setta.project_state.project_manager_types import (
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
-    SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
@@ -1266,10 +1265,6 @@ class BaseProjectManager(ABC):
 
     @abstractmethod
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
-        pass
-
-    @abstractmethod
-    def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
         pass
 
     def perform_manual_save(self):

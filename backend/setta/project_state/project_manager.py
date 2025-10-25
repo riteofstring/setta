@@ -4,10 +4,7 @@ from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
-from setta.project_state.project_manager_types import (
-    SaveAsExistingProjectConfigRequest,
-    SaveAsNewProjectConfigRequest,
-)
+from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     copy_project,
@@ -59,6 +56,3 @@ class ProjectManager(BaseProjectManager):
             )
         self.perform_manual_save()
         await self.broadcast_all_project_metadata()
-
-    def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
-        pass

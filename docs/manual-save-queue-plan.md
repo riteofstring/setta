@@ -1,12 +1,11 @@
 # Manual Save Queue Drain Plan
 
 ## Goal
-Guarantee that manual save requests (save, save-as-new, save-as-existing) persist the latest backend state by waiting for in-flight frontend operations to finish before invoking `perform_manual_save`.
+Guarantee that manual save requests (save, save-as-new) persist the latest backend state by waiting for in-flight frontend operations to finish before invoking `perform_manual_save`.
 
 ## Current Pain Points
-- Routes `route_save_project`, `route_save_as_new_project_config`, and `route_save_as_existing_project_config` call `perform_manual_save` immediately, bypassing the `BaseProjectManager` message queue.
+- Routes `route_save_project` and `route_save_as_new_project_config` call `perform_manual_save` immediately, bypassing the `BaseProjectManager` message queue.
 - Pending operations live in `BaseProjectManager.pending_frontend_ops`, but there is no API to block until the queue drains.
-- `save_as_existing_project_config` is unimplemented, so the route is currently a no-op even after the queue issue is fixed.
 
 ## Proposed Changes
 1. **Queue Drain Helper** *(completed)*
@@ -19,16 +18,16 @@ Guarantee that manual save requests (save, save-as-new, save-as-existing) persis
    - Update request models and frontend callers accordingly, keeping compatibility shims if staged rollout is needed.
 
 3. **Router Integration**
-   - In each of the three save routes, await the new helper before calling `perform_manual_save`. *(completed)*
+   - In both manual-save routes, await the new helper before calling `perform_manual_save`. *(completed)*
    - Preserve notification behavior; only proceed to save if the queue drain succeeds.
 
 4. **Manual Save Semantics**
    - Consider moving the queue wait into `perform_manual_save` to centralize logic.
    - Maintain the current autosave cancelation semantics inside `perform_manual_save`.
 
-5. **Save-As Existing Implementation**
-   - Implement `ProjectManager.save_as_existing_project_config` to update the targeted config in-memory, then call `perform_manual_save`.
-   - Ensure it reuses existing helper functions for merging and metadata broadcast (similar to the "new" path).
+5. **Save-As Existing Implementation** *(removed)*
+   - The overwrite route and supporting UI were deleted because the workflow is risky and can be replicated via "save as new" plus rename/delete.
+   - Keep future work in mind should user demand materialize, but no backend surfacing remains today.
 
 6. **Testing & Validation**
    - Add regression tests under `tests/project_state/` that enqueue multiple operations, trigger a manual save, and assert the persisted state includes the queued changes.
@@ -43,10 +42,9 @@ Addressing these questions will clarify whether additional telemetry or safety n
 
 ## Progress
 - Added `finish_pending_operations` on `BaseProjectManager` with queue-task health checks and an idle event so callers can await pending work safely.
-- Updated the manual save routes (`SAVE_PROJECT`, `SAVE_AS_NEW_PROJECT_CONFIG`, `SAVE_AS_EXISTING_PROJECT_CONFIG`) to await the helper before invoking `perform_manual_save`.
+- Updated the manual save routes (`SAVE_PROJECT`, `SAVE_AS_NEW_PROJECT_CONFIG`) to await the helper before invoking `perform_manual_save`.
 - Simplified manual save payloads to pass only `projectConfigId`, regenerating endpoint bindings and ensuring backend managers pull the authoritative state before saving.
 
 ## Next Steps
-- Implement `ProjectManager.save_as_existing_project_config` and broadcast metadata updates.
 - Add regression coverage to verify manual saves persist queued operations for both project managers.
 - Consider removing the now-unused deep-clone helpers in frontend save actions once the save-as implementation lands and no longer depends on them.

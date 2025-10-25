@@ -25,12 +25,6 @@ export async function route_save_as_new_project_config(
   return await post("/saveAsNewProjectConfig", x);
 }
 
-export async function route_save_as_existing_project_config(
-  x: gt.SaveAsExistingProjectConfigRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/saveAsExistingProjectConfig", x);
-}
-
 export async function route_create_project_config(
   x: gt.CreateProjectConfigRequest,
 ): Promise<ResponseDataAndStatus<string>> {

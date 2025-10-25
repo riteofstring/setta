@@ -72,9 +72,6 @@ class TestProjectManager(BaseProjectManager):
     async def save_as_new_project_config(self, x):
         return None
 
-    def save_as_existing_project_config(self, x):
-        return None
-
 
 class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

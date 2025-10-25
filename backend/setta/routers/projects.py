@@ -3,10 +3,7 @@ import traceback
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.project_state.project_manager_types import (
-    SaveAsExistingProjectConfigRequest,
-    SaveAsNewProjectConfigRequest,
-)
+from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import (
@@ -127,15 +124,6 @@ async def route_save_as_new_project_config(
     project_manager = state.project_manager_switcher.get(x.projectConfigId)
     await project_manager.finish_pending_operations()
     await project_manager.save_as_new_project_config(x)
-
-
-@router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
-async def route_save_as_existing_project_config(
-    x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
-):
-    project_manager = state.project_manager_switcher.get(x.projectConfigId)
-    await project_manager.finish_pending_operations()
-    project_manager.save_as_existing_project_config(x)
 
 
 @router.post(Route.CREATE_PROJECT_CONFIG)
