@@ -172,8 +172,6 @@ def render_shared_modifier(field_infos: dict[str, FieldTypeInfo]) -> str:
                 annotation_str = (
                     f"{annotation_str} | None" if annotation_str else "None"
                 )
-        else:
-            annotation_str = f"{annotation_str} | None"
         annotation_str = f"NotRequired[{annotation_str}]"
         lines.append(f"    {field_name}: {annotation_str}")
 

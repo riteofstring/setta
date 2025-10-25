@@ -19,9 +19,7 @@ class _RenamePayload:
     frontendOpId: str | None = None
 
 
-OriginalSetProjectConfigName = Callable[
-    [BaseProjectManager, str, str], Awaitable[None]
-]
+OriginalSetProjectConfigName = Callable[[BaseProjectManager, str, str], Awaitable[None]]
 
 
 def _bind_delayed_set_project_config_name(
