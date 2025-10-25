@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 from contextlib import suppress
 import unittest
 from pathlib import Path
@@ -18,13 +19,18 @@ from setta.project_state.code_files import (
 )
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeSectionImpl,
 )
+from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -198,18 +204,50 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
 
         gen_binding = project_state.genCodeBinding
         self.assertIsNotNone(gen_binding)
-        assert gen_binding is not None
-        gen_bindings = self.manager.code_files.get_bindings(
-            gen_binding.canonical_path
+
+    async def test_reload_code_sections_updates_state(self):
+        project_state = self.project_state.model_copy(deep=True)
+        await self.manager.update(project_state)
+
+        new_code = "print('updated from disk')"
+        self.dbe.write(self.expected_code_path, new_code)
+
+        bindings = self.manager.code_files.get_bindings(self.expected_code_path)
+        self.assertTrue(bindings)
+
+        update = FileWatcherCoreUpdate(
+            absPath=self.expected_code_path,
+            relPath=self.expected_code_path,
+            eventType=FileEventType.modified,
+            matchingGlobPatterns=[],
+            fileToRead=self.expected_code_path,
         )
-        self.assertTrue(
-            any(
-                b.section_id == GEN_CODE_SECTION_ID
-                and b.project_config_id == self.project_config_id
-                and b.access_mode == CodeFileAccessMode.write_only
-                for b in gen_bindings
-            )
+
+        await self.manager.reload_code_sections(
+            self.expected_code_path,
+            set(bindings),
+            update,
         )
+
+        metadata = self.manager.code_files.get_metadata(self.expected_code_path)
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertFalse(metadata.has_conflict)
+        expected_hash = hashlib.md5(new_code.encode()).hexdigest()
+        self.assertEqual(metadata.last_read_hash, expected_hash)
+
+        single_state = convert_backend_to_single_config(
+            self.manager.project_state_backend, self.project_config_id
+        )
+        section_impl = get_curr_effective_section_impl(single_state, self.section_id)
+        self.assertIsInstance(section_impl, CodeSectionImpl)
+        assert isinstance(section_impl, CodeSectionImpl)
+        self.assertEqual(section_impl.code, new_code)
+
+        self.assertIn(self.project_config_id, self.manager.code_dict)
+        code_entries = self.manager.code_dict[self.project_config_id]
+        self.assertIn(self.section_id, code_entries)
+        self.assertEqual(code_entries[self.section_id].code, new_code)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution

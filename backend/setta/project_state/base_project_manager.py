@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import copy
+import hashlib
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
@@ -108,7 +109,7 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.types.specific_file_watcher import FileWatcherCoreUpdate
+from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -1134,6 +1135,11 @@ class BaseProjectManager(ABC):
         self, project_state: ProjectStateSingleConfig, updateFileWatcher: bool = True
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
+        await self._broadcast_project_state_snapshot(project_state)
+
+    async def _broadcast_project_state_snapshot(
+        self, project_state: ProjectStateSingleConfig
+    ) -> None:
         self._mark_current_frontend_op_completed_before_broadcast()
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
@@ -1275,8 +1281,8 @@ class BaseProjectManager(ABC):
         core_update: FileWatcherCoreUpdate,
     ) -> None:
         """
-        Placeholder reload handler invoked by CodeFiles watcher callbacks. The next
-        iteration will hydrate project state and broadcast updates.
+        Handle code file watcher events by hydrating project state, updating
+        cached code objects, and broadcasting the refreshed sections.
         """
         logger.debug(
             "Received code file watcher event for %s (%s) via %s",
@@ -1284,6 +1290,97 @@ class BaseProjectManager(ABC):
             {binding.section_id for binding in bindings},
             core_update.eventType.value,
         )
+
+        if not bindings:
+            return
+
+        if core_update.eventType == FileEventType.deleted:
+            raw_content: str | None = None
+        else:
+            raw = self.dbe.read(core_update.fileToRead)
+            raw_content = None if raw is None else str(raw)
+
+        content_hash: str | None = None
+        if raw_content is not None:
+            content_hash = hashlib.md5(raw_content.encode()).hexdigest()
+
+        self.code_files.record_read(path, content_hash)
+
+        if raw_content is None:
+            logger.debug(
+                "No on-disk content for %s; skipping project state reload", path
+            )
+            return
+
+        bindings_by_config: dict[str, list[RegisteredCodeFileBinding]] = {}
+        for binding in bindings:
+            if binding.section_id == GEN_CODE_SECTION_ID:
+                continue
+            bindings_by_config.setdefault(binding.project_config_id, []).append(
+                binding
+            )
+
+        if not bindings_by_config:
+            return
+
+        states_to_broadcast: list[ProjectStateSingleConfig] = []
+        async with self._project_state_lock.write_lock():
+            base_backend = self.project_state_backend
+            updated_configs: dict[str, ProjectStateSingleConfig] = {}
+            for project_config_id, config_bindings in bindings_by_config.items():
+                single_state = convert_backend_to_single_config(
+                    base_backend, project_config_id
+                )
+
+                for binding in config_bindings:
+                    section_id = binding.section_id
+                    if section_id not in single_state.sections:
+                        logger.debug(
+                            "Section %s not found in project config %s during reload",
+                            section_id,
+                            project_config_id,
+                        )
+                        continue
+                    set_code(single_state, section_id, raw_content)
+                if config_bindings:
+                    updated_configs[project_config_id] = single_state
+
+            if not updated_configs:
+                return
+
+            backend = base_backend
+            for single_state in updated_configs.values():
+                backend = merge_single_config_into_backend(backend, single_state)
+            self.project_state_backend = backend
+
+            for project_config_id, single_state in updated_configs.items():
+                code_entries = self.code_dict.setdefault(project_config_id, {})
+                for binding in bindings_by_config[project_config_id]:
+                    section_id = binding.section_id
+                    if section_id not in single_state.sections:
+                        continue
+                    section_impl = get_curr_effective_section_impl(
+                        single_state, section_id
+                    )
+                    if not isinstance(section_impl, CodeSectionImpl):
+                        continue
+                    code_entry = code_entries.get(section_id)
+                    if code_entry is None:
+                        code_entry = self.create_project_code(
+                            single_state, section_id, section_impl
+                        )
+                        if code_entry:
+                            code_entries[section_id] = code_entry
+                    if code_entry is None:
+                        continue
+                    code_entry.code = section_impl.code
+                    if isinstance(code_entry, ProjectPythonCode):
+                        await code_entry.send_document_open_request(section_impl.code)
+
+                states_to_broadcast.append(single_state)
+
+        for single_state in states_to_broadcast:
+            await self._broadcast_project_state_snapshot(single_state)
 
     def _register_code_file_bindings(
         self, project_state: ProjectStateSingleConfig
