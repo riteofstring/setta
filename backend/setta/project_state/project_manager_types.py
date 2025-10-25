@@ -396,11 +396,6 @@ class ProjectStateSingleConfigWithCompletedOpIds:
 
 
 class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithFrontendOp):
-    project: ProjectStateSingleConfig
+    projectConfigId: str
     newConfigName: str
     withRefs: bool
-
-
-class SaveAsExistingProjectConfigRequest(ProjectManagerRequestWithFrontendOp):
-    project: ProjectStateSingleConfig
-    configName: str
