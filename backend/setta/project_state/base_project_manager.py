@@ -108,6 +108,7 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
+from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -1264,6 +1265,24 @@ class BaseProjectManager(ABC):
         self.code_files.watch_code_files(
             f"{self.__class__.__name__}_CodeFiles",
             self.project_state_backend_getter_fn,
+            self.reload_code_sections,
+        )
+
+    async def reload_code_sections(
+        self,
+        path: Path,
+        bindings: set[RegisteredCodeFileBinding],
+        core_update: FileWatcherCoreUpdate,
+    ) -> None:
+        """
+        Placeholder reload handler invoked by CodeFiles watcher callbacks. The next
+        iteration will hydrate project state and broadcast updates.
+        """
+        logger.debug(
+            "Received code file watcher event for %s (%s) via %s",
+            path,
+            {binding.section_id for binding in bindings},
+            core_update.eventType.value,
         )
 
     def _register_code_file_bindings(

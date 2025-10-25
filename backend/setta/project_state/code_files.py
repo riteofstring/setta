@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.project_state import ProjectStateBackend
-    from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.section_impls import CodeFileAccessMode
 from setta.utils.utils import normalize_path
+from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 
 
 GEN_CODE_SECTION_ID = "__setta_gen_code__"
@@ -97,6 +98,10 @@ class CodeFiles:
         self,
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
+        reload_code_sections: Callable[
+            [Path, set[RegisteredCodeFileBinding], FileWatcherCoreUpdate],
+            Coroutine[Any, Any, None],
+        ],
     ) -> None:
         """
         Register callbacks with SpecificFileWatcher for any paths tracked under this
@@ -119,7 +124,9 @@ class CodeFiles:
             del self._category_to_bindings[callback_category]
 
         callback = self._build_file_watcher_callback(
-            callback_category, project_state_backend_getter_fn
+            callback_category,
+            project_state_backend_getter_fn,
+            reload_code_sections,
         )
         callbacks = {path: callback for path in current_paths}
 
@@ -250,12 +257,40 @@ class CodeFiles:
         self,
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
+        reload_code_sections: Callable[
+            [Path, set[RegisteredCodeFileBinding], FileWatcherCoreUpdate],
+            Coroutine[Any, Any, None],
+        ],
     ) -> FileWatcherCallback:
-        async def _callback(core_update: "FileWatcherCoreUpdate") -> None:
-            # Placeholder: once section reloads are wired, use category bindings to
-            # refresh project state.
+        async def _callback(core_update: FileWatcherCoreUpdate) -> None:
+            normalized_path = normalize_path(core_update.fileToRead)
+            bindings = self._get_category_bindings(callback_category).get(
+                normalized_path, set()
+            )
+            if not bindings:
+                return None
+
+            on_disk_hash = self._compute_file_hash(core_update.fileToRead)
+            if not self.should_reload(core_update.fileToRead, on_disk_hash):
+                return None
+
             project_state_backend = project_state_backend_getter_fn()
-            _ = (callback_category, core_update, project_state_backend)
-            return None
+            _ = project_state_backend  # eager resolution for parity with other watchers
+            await reload_code_sections(
+                normalized_path,
+                set(bindings),
+                core_update,
+            )
 
         return _callback
+
+    def _compute_file_hash(self, path: Path) -> str | None:
+        try:
+            raw = self.dbe.read(path, mode="rb")
+        except Exception:
+            return None
+        if raw in (None, b""):
+            return None
+        if not isinstance(raw, (bytes, bytearray)):
+            raw = str(raw).encode()
+        return hashlib.md5(raw).hexdigest()

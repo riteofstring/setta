@@ -12,6 +12,7 @@
 - Populated `CodeFiles` during project updates so existing bindings stay registered before watcher work lands.
 - Wired `watch_code_files()` through `SpecificFileWatcher` using the live `project_state_backend_getter_fn`, filtering callbacks by active project configs and covering the registration path with tests.
 - Cached per-category binding mappings within `CodeFiles.watch_code_files()` so watcher callbacks can resolve section ownership, and ensured initial callbacks fire for newly tracked paths.
+- Hooked `CodeFiles.watch_code_files()` up to `BaseProjectManager.reload_code_sections`, stubbing the reload coroutine and passing file hashes so upcoming reload logic can share a single read per event.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
@@ -30,6 +31,7 @@
   - Compare hashes against `CodeFiles` metadata to avoid redundant reloads.
   - Update `ProjectStateBackend` in place with `set_effective_impl_value`, refresh `self.code_dict`, and broadcast the new state without re-registering watchers (to avoid loops).
   - Surface conflicts by scheduling notifications when external edits diverge from the last known snapshot.
+  - Ensure file contents are only read once per watcher event (e.g., the watcher callback should pass both the bytes/string payload and the computed hash into `reload_code_sections()` so `should_reload` and the reload logic share the same read result).
 - **Fill in `CodeFiles.watch_code_files()`** (`backend/setta/project_state/code_files.py:88`):
   - Gather bindings from `_bindings`, diff against `_category_to_paths`, and call `SpecificFileWatcher.update_callbacks` with fire-immediately paths for uncached files.
   - Build the watcher coroutine so it forwards `FileWatcherCoreUpdate` payloads into `reload_code_sections()` once that API is available, mirroring the JSON source callback signature.
