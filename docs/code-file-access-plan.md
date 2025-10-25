@@ -25,7 +25,7 @@
 - **Centralize binding registration inside `CodeFiles`**:
   - ~~Add a `sync_bindings(project_state: ProjectStateSingleConfig)` API that walks sections and the generated-code binding, normalizes canonical paths, and installs/upgrades `RegisteredCodeFileBinding` entries (with per-project-config ownership).~~ ✅ `CodeFiles.sync_bindings_for_config()` now rebuilds bindings per project config and prunes stale watcher state.
   - ~~Call `code_files.sync_bindings()` from `BaseProjectManager.update()` immediately after `validate_code_file_bindings()` so watchers always operate on the latest metadata; delete the legacy `_register_code_file_bindings()` helper once parity is confirmed.~~ ✅ `BaseProjectManager.update()` now delegates binding maintenance to `CodeFiles`.
-  - **Next**: Collapse the binding refresh into `watch_code_files()` by teaching it to recompute the path/binding map directly from the latest `ProjectStateBackend`, mirroring the `JSONSource`/`Artifacts` pattern. Once the watcher pull-model is in place, expose a lightweight metadata-sync helper (if still needed) that shares the same source of truth.
+  - ~~**Next**: Collapse the binding refresh into `watch_code_files()` by teaching it to recompute the path/binding map directly from the latest `ProjectStateBackend`, mirroring the `JSONSource`/`Artifacts` pattern. Once the watcher pull-model is in place, expose a lightweight metadata-sync helper (if still needed) that shares the same source of truth.~~ ✅ `CodeFiles.watch_code_files()` now pulls bindings from the live backend and cleans up stale config entries before registering callbacks.
 - **Integrate with `SpecificFileWatcher`** via a new `BaseProjectManager.watch_code_files()` hook, parallel to `watch_json_source_files()` and `watch_artifact_files()` (`backend/setta/project_state/base_project_manager.py:1215`).
   - Reproduce the JSON-source lifecycle: compute per-category path→section/variant maps, consult `_should_defer_json_source_reload()` style heuristics when autosave is pending, and keep `_deferred_json_source_loads` in sync (`backend/setta/project_state/base_project_manager.py:1219`).
   - Ensure `watch_code_files()` runs whenever `updateFileWatcher=True` during project updates so binding changes propagate to the watcher layer.
@@ -37,7 +37,7 @@
   - Ensure file contents are only read once per watcher event (e.g., the watcher callback should pass both the bytes/string payload and the computed hash into `reload_code_sections()` so `should_reload` and the reload logic share the same read result).
   - **Follow-up discussion**: the pre-lock preparation (reading files, computing hashes, grouping bindings) now lives in `BaseProjectManager.reload_code_sections`; consider migrating that setup into `CodeFiles` so the watcher callback hands the manager a ready-to-apply reload plan.
 - **Fill in `CodeFiles.watch_code_files()`** (`backend/setta/project_state/code_files.py:88`):
-  - Gather bindings from `_bindings`, diff against `_category_to_paths`, and call `SpecificFileWatcher.update_callbacks` with fire-immediately paths for uncached files.
+  - ~~Gather bindings from `_bindings`, diff against `_category_to_paths`, and call `SpecificFileWatcher.update_callbacks` with fire-immediately paths for uncached files.~~ ✅ Bindings are now regenerated from fresh backend snapshots before updating watcher callbacks, and stale paths/configs are pruned automatically.
   - Build the watcher coroutine so it forwards `FileWatcherCoreUpdate` payloads into `reload_code_sections()` once that API is available, mirroring the JSON source callback signature.
 - **Model callbacks on JSONSource**: `get_json_source_file_watcher_callback()` (`backend/setta/project_state/jsonSource/jsonSource.py:105`) demonstrates how to read via `DBE`, refresh cached state, and broadcast change notifications; use the same shape for code files.
 - **Rewrite `Code.update_file()`** (`backend/setta/project_state/code.py:33`) to delegate writes to `CodeFiles`:
@@ -66,5 +66,6 @@
 - **Backend tests** (`tests/project_state/`):
   - Simulate file writes through `SpecificFileWatcher` to confirm read-write sections reload, write-only sections ignore, and read-only edits are blocked.
   - Validate hash bookkeeping: identical rewrites should not trigger reloads; `last_written_hash` prevents write loops.
+  - Extend watcher registration coverage to assert that removing project configs clears callbacks (`tests/project_state/test_code_files.py`).
 - **Leverage existing fixtures**: `tests/utils/manager_fixture.py` provisions a real `SettingsProjectManager` with live watchers, and `tests/project_state/test_code_files.py` already builds `CodeFiles` against `SpecificFileWatcher`; extend these to assert callback registration without new mocks.
 - **Developer docs**: Document the new manager, access-mode expectations, and manual override steps (e.g., how to transition a section from write-only to read/write).

@@ -91,21 +91,18 @@ class CodeFiles:
         Rebuild bindings for a single project config by walking its sections and
         generated-code binding. Returns True when the binding set changed.
         """
+        new_bindings = self._generate_bindings_for_config(project_state)
+        project_config_id = project_state.projectConfig.id
+        return self._replace_bindings_for_config(project_config_id, new_bindings)
+
+    def _generate_bindings_for_config(
+        self, project_state: ProjectStateSingleConfig
+    ) -> dict[Path, set[RegisteredCodeFileBinding]]:
         from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
         from setta.types.section_impls import BaseCodeSectionImpl
 
         project_config = project_state.projectConfig
         project_config_id = project_config.id
-
-        previous_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
-        for path, bindings in self._bindings.items():
-            relevant = {
-                binding
-                for binding in bindings
-                if binding.project_config_id == project_config_id
-            }
-            if relevant:
-                previous_bindings[path] = relevant
 
         new_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
 
@@ -141,6 +138,23 @@ class CodeFiles:
             )
             normalized = normalize_path(gen_code_binding.canonical_path)
             new_bindings.setdefault(normalized, set()).add(registered_gen_binding)
+
+        return new_bindings
+
+    def _replace_bindings_for_config(
+        self,
+        project_config_id: str,
+        new_bindings: dict[Path, set[RegisteredCodeFileBinding]],
+    ) -> bool:
+        previous_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
+        for path, bindings in self._bindings.items():
+            relevant = {
+                binding
+                for binding in bindings
+                if binding.project_config_id == project_config_id
+            }
+            if relevant:
+                previous_bindings[path] = relevant
 
         if previous_bindings == new_bindings:
             return False
@@ -211,14 +225,11 @@ class CodeFiles:
         """
         Register callbacks with SpecificFileWatcher for any paths tracked under this
         category. Mirrors watch_json_source_files/watch_artifact_files.
-
-        TODO: once reload_code_sections exists, pull the registered bindings and trigger
-        section reloads in response to filesystem events.
         """
         previous_paths = set(self._get_category_bindings(callback_category))
-        category_bindings = self._collect_bindings_for_backend(
-            project_state_backend_getter_fn()
-        )
+        project_state_backend = project_state_backend_getter_fn()
+        self._refresh_bindings_from_backend(project_state_backend)
+        category_bindings = self._collect_bindings_for_backend(project_state_backend)
 
         current_paths = set(category_bindings)
         if current_paths:
@@ -239,6 +250,32 @@ class CodeFiles:
         self.specific_file_watcher.update_callbacks(
             callbacks, callback_category, fire_immediately
         )
+
+    def _refresh_bindings_from_backend(
+        self, project_state_backend: ProjectStateBackend
+    ) -> None:
+        from setta.types.helpers_lvl3 import convert_backend_to_single_config
+
+        active_config_ids = set(project_state_backend.projectConfigs.keys())
+
+        for project_config_id in active_config_ids:
+            single_config = convert_backend_to_single_config(
+                project_state_backend, project_config_id
+            )
+            bindings = self._generate_bindings_for_config(single_config)
+            self._replace_bindings_for_config(project_config_id, bindings)
+
+        existing_config_ids = self._collect_config_ids()
+        removed_config_ids = existing_config_ids - active_config_ids
+        for project_config_id in removed_config_ids:
+            self._replace_bindings_for_config(project_config_id, {})
+
+    def _collect_config_ids(self) -> set[str]:
+        config_ids: set[str] = set()
+        for bindings in self._bindings.values():
+            for binding in bindings:
+                config_ids.add(binding.project_config_id)
+        return config_ids
 
     def record_read(self, path: Path, content_hash: str | None) -> None:
         """

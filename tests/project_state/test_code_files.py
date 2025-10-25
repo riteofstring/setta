@@ -17,6 +17,7 @@ from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding, CodeS
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.utils.utils import normalize_path
+from setta.types.helpers_lvl3 import merge_single_config_into_backend
 
 
 def register_binding(
@@ -142,9 +143,8 @@ class CodeFilesTests(unittest.TestCase):
         self.assertFalse(changed_again)
 
     def test_watch_code_files_registers_callbacks(self) -> None:
-        state, _, _, project_config_id = self._build_project_state()
-        self.manager.sync_bindings_for_config(state)
-        backend = ProjectStateBackend(projectConfigs={project_config_id: state.projectConfig})
+        state, _, _, _ = self._build_project_state()
+        backend = merge_single_config_into_backend(ProjectStateBackend(), state)
 
         category = "TestCategory"
         async def _reload(*args, **kwargs):  # pragma: no cover - stub
@@ -158,6 +158,37 @@ class CodeFilesTests(unittest.TestCase):
         self.assertIn(normalized, callbacks)
         tracked_bindings = self.manager._category_to_bindings.get(category, {})
         self.assertIn(normalized, tracked_bindings)
+
+    def test_watch_code_files_clears_callbacks_when_config_removed(self) -> None:
+        state, _, _, _ = self._build_project_state()
+        backend_holder = {
+            "value": merge_single_config_into_backend(ProjectStateBackend(), state)
+        }
+
+        category = "TestCategory"
+
+        async def _reload(*args, **kwargs):  # pragma: no cover - stub
+            return None
+
+        def _getter() -> ProjectStateBackend:
+            return backend_holder["value"]
+
+        self.manager.watch_code_files(category, _getter, _reload)
+        self._loop.run_until_complete(asyncio.sleep(0))
+        normalized = normalize_path(self.path)
+        callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
+        self.assertIn(normalized, callbacks)
+
+        backend_holder["value"] = ProjectStateBackend()
+        self.manager.watch_code_files(category, _getter, _reload)
+        self._loop.run_until_complete(asyncio.sleep(0))
+
+        callbacks_after = self.manager.specific_file_watcher.callbacks.get(
+            category, {}
+        )
+        self.assertEqual(callbacks_after, {})
+        tracked_bindings = self.manager._category_to_bindings.get(category, {})
+        self.assertEqual(tracked_bindings, {})
 
     def test_record_write_rejects_read_only(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
