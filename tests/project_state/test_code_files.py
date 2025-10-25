@@ -10,9 +10,10 @@ from setta.project_state.code_files import (
     CodeFiles,
     RegisteredCodeFileBinding,
 )
-from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
-from setta.types.section_impls import CodeFileAccessMode
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding, CodeSectionImpl
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.utils.utils import normalize_path
@@ -46,11 +47,46 @@ class CodeFilesTests(unittest.TestCase):
         self.manager = CodeFiles(frontend_sender, file_watcher, dbe)
         self.path = root / "code.py"
         self.path.touch()
+        self.snapshot_dir = root / "snapshots"
+        self.snapshot_dir.mkdir(exist_ok=True)
 
     def tearDown(self) -> None:
         asyncio.set_event_loop(None)
         self._loop.close()
         self._tmpdir.cleanup()
+
+    def _build_project_state(self) -> tuple[ProjectStateSingleConfig, str, str, str]:
+        code_impl = CodeSectionImpl(id="code-impl")
+        code_impl.code = "print('sync test')"
+        code_impl.codeFileBinding = CodeFileBinding(
+            canonical_path=self.path,
+            snapshot_dir=self.snapshot_dir,
+            access_mode=CodeFileAccessMode.read_write,
+        )
+        variant = Variant(
+            id="variant-main",
+            impl=code_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+        )
+        section = Core(
+            id="section-main",
+            name="Main Section",
+            variants=[variant.id],
+            defaultVariant=variant.id,
+        )
+        project_config = ProjectConfig(
+            id="config",
+            name="Demo Project",
+            sectionVariantMap={section.id: variant.id},
+            topLevelSections={section.id: TopLevelSectionLayout()},
+        )
+        project_state = ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section.id: section},
+            sectionImpls={code_impl.id: code_impl},
+            sectionVariants={variant.id: variant},
+        )
+        return project_state, section.id, variant.id, project_config.id
 
     def test_register_binding_tracks_metadata(self) -> None:
         binding = register_binding(
@@ -88,21 +124,40 @@ class CodeFilesTests(unittest.TestCase):
         self.assertEqual(metadata.last_written_hash, "hash")
         self.assertFalse(metadata.has_conflict)
 
+    def test_sync_bindings_for_config_registers_bindings(self) -> None:
+        state, section_id, variant_id, project_config_id = self._build_project_state()
+
+        changed = self.manager.sync_bindings_for_config(state)
+
+        self.assertTrue(changed)
+        bindings = self.manager.get_bindings(self.path)
+        self.assertEqual(len(bindings), 1)
+        (binding,) = tuple(bindings)
+        self.assertEqual(binding.section_id, section_id)
+        self.assertEqual(binding.variant_id, variant_id)
+        self.assertEqual(binding.project_config_id, project_config_id)
+        self.assertEqual(binding.access_mode, CodeFileAccessMode.read_write)
+
+        changed_again = self.manager.sync_bindings_for_config(state)
+        self.assertFalse(changed_again)
+
     def test_watch_code_files_registers_callbacks(self) -> None:
-        register_binding(self.manager, self.path, CodeFileAccessMode.read_write)
-        backend = ProjectStateBackend(
-            projectConfigs={"config": ProjectConfig(id="config")}
-        )
+        state, _, _, project_config_id = self._build_project_state()
+        self.manager.sync_bindings_for_config(state)
+        backend = ProjectStateBackend(projectConfigs={project_config_id: state.projectConfig})
 
         category = "TestCategory"
-        self.manager.watch_code_files(category, lambda: backend)
+        async def _reload(*args, **kwargs):  # pragma: no cover - stub
+            return None
+
+        self.manager.watch_code_files(category, lambda: backend, _reload)
         self._loop.run_until_complete(asyncio.sleep(0))
 
         normalized = normalize_path(self.path)
         callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
         self.assertIn(normalized, callbacks)
-        tracked_paths = self.manager._category_to_paths.get(category, set())
-        self.assertIn(normalized, tracked_paths)
+        tracked_bindings = self.manager._category_to_bindings.get(category, {})
+        self.assertIn(normalized, tracked_bindings)
 
     def test_record_write_rejects_read_only(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)

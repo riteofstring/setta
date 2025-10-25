@@ -14,6 +14,7 @@
 - Cached per-category binding mappings within `CodeFiles.watch_code_files()` so watcher callbacks can resolve section ownership, and ensured initial callbacks fire for newly tracked paths.
 - Hooked `CodeFiles.watch_code_files()` up to `BaseProjectManager.reload_code_sections`, stubbing the reload coroutine and passing file hashes so upcoming reload logic can share a single read per event.
 - Implemented `reload_code_sections()` with real disk reads, per-config state refresh, code cache updates, and frontend broadcasts; covered the happy path with `tests/project_state/test_code_file_binding_registration.py`.
+- Replaced the legacy `_register_code_file_bindings()` flow with `CodeFiles.sync_bindings_for_config()`, keeping binding metadata in the manager and refreshing watchers during `BaseProjectManager.update()`; updated unit coverage in `tests/project_state/test_code_files.py`.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
@@ -22,8 +23,9 @@
   - Maintains callback-category maps like `JSONSource` (`backend/setta/project_state/jsonSource/jsonSource.py:65`) so each watcher group stays isolated.
   - Exposes helpers to record writes, detect no-op rewrites, and skip processing when the access mode forbids changes.
 - **Centralize binding registration inside `CodeFiles`**:
-  - Add a `sync_bindings(project_state: ProjectStateSingleConfig)` API that walks sections and the generated-code binding, normalizes canonical paths, and installs/upgrades `RegisteredCodeFileBinding` entries (with per-project-config ownership).
-  - Call `code_files.sync_bindings()` from `BaseProjectManager.update()` immediately after `validate_code_file_bindings()` so watchers always operate on the latest metadata; delete the legacy `_register_code_file_bindings()` helper once parity is confirmed.
+  - ~~Add a `sync_bindings(project_state: ProjectStateSingleConfig)` API that walks sections and the generated-code binding, normalizes canonical paths, and installs/upgrades `RegisteredCodeFileBinding` entries (with per-project-config ownership).~~ ✅ `CodeFiles.sync_bindings_for_config()` now rebuilds bindings per project config and prunes stale watcher state.
+  - ~~Call `code_files.sync_bindings()` from `BaseProjectManager.update()` immediately after `validate_code_file_bindings()` so watchers always operate on the latest metadata; delete the legacy `_register_code_file_bindings()` helper once parity is confirmed.~~ ✅ `BaseProjectManager.update()` now delegates binding maintenance to `CodeFiles`.
+  - **Next**: Collapse the binding refresh into `watch_code_files()` by teaching it to recompute the path/binding map directly from the latest `ProjectStateBackend`, mirroring the `JSONSource`/`Artifacts` pattern. Once the watcher pull-model is in place, expose a lightweight metadata-sync helper (if still needed) that shares the same source of truth.
 - **Integrate with `SpecificFileWatcher`** via a new `BaseProjectManager.watch_code_files()` hook, parallel to `watch_json_source_files()` and `watch_artifact_files()` (`backend/setta/project_state/base_project_manager.py:1215`).
   - Reproduce the JSON-source lifecycle: compute per-category path→section/variant maps, consult `_should_defer_json_source_reload()` style heuristics when autosave is pending, and keep `_deferred_json_source_loads` in sync (`backend/setta/project_state/base_project_manager.py:1219`).
   - Ensure `watch_code_files()` runs whenever `updateFileWatcher=True` during project updates so binding changes propagate to the watcher layer.

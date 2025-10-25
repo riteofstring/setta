@@ -504,7 +504,7 @@ class BaseProjectManager(ABC):
             projectState.validate_yaml_values()
             projectState.validate_required_decoded_images()
             projectState.validate_code_file_bindings()
-            self._register_code_file_bindings(projectState)
+            self.code_files.sync_bindings_for_config(projectState)
             dep_graph = DependencyGraph(projectState)
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
@@ -560,6 +560,7 @@ class BaseProjectManager(ABC):
             if updateFileWatcher:
                 self.watch_json_source_files()
                 self.watch_artifact_files()
+                self.watch_code_files()
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: str):
@@ -1381,46 +1382,6 @@ class BaseProjectManager(ABC):
 
         for single_state in states_to_broadcast:
             await self._broadcast_project_state_snapshot(single_state)
-
-    def _register_code_file_bindings(
-        self, project_state: ProjectStateSingleConfig
-    ) -> None:
-        project_config_id = project_state.projectConfig.id
-        for section_id, core in project_state.sections.items():
-            variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
-            if variant_id is None:
-                continue
-            _, _, impl = get_variant_base_and_effective_section_impl(
-                project_state, core, variant_id
-            )
-            if not isinstance(impl, BaseCodeSectionImpl):
-                continue
-            binding = impl.codeFileBinding
-            if binding is None:
-                continue
-            registered_binding = RegisteredCodeFileBinding(
-                section_id=section_id,
-                variant_id=variant_id,
-                project_config_id=project_config_id,
-                access_mode=binding.access_mode,
-            )
-            self.code_files.register_binding(
-                binding.canonical_path, registered_binding
-            )
-
-        gen_code_binding = project_state.genCodeBinding
-        if gen_code_binding is None:
-            return
-
-        registered_gen_binding = RegisteredCodeFileBinding(
-            section_id=GEN_CODE_SECTION_ID,
-            variant_id=GEN_CODE_VARIANT_ID,
-            project_config_id=project_config_id,
-            access_mode=gen_code_binding.access_mode,
-        )
-        self.code_files.register_binding(
-            gen_code_binding.canonical_path, registered_gen_binding
-        )
 
     def _should_defer_json_source_reload(
         self,

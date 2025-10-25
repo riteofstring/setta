@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-    from setta.types.project_state import ProjectStateBackend
+    from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
@@ -83,6 +83,111 @@ class CodeFiles:
             )
         bucket.add(binding)
         self._metadata.setdefault(normalized, CodeFileMetadata())
+
+    def sync_bindings_for_config(
+        self, project_state: ProjectStateSingleConfig
+    ) -> bool:
+        """
+        Rebuild bindings for a single project config by walking its sections and
+        generated-code binding. Returns True when the binding set changed.
+        """
+        from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
+        from setta.types.section_impls import BaseCodeSectionImpl
+
+        project_config = project_state.projectConfig
+        project_config_id = project_config.id
+
+        previous_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
+        for path, bindings in self._bindings.items():
+            relevant = {
+                binding
+                for binding in bindings
+                if binding.project_config_id == project_config_id
+            }
+            if relevant:
+                previous_bindings[path] = relevant
+
+        new_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
+
+        for section_id, core in project_state.sections.items():
+            variant_id = project_config.sectionVariantMap.get(section_id)
+            if variant_id is None:
+                continue
+            _, _, impl = get_variant_base_and_effective_section_impl(
+                project_state, core, variant_id
+            )
+            if not isinstance(impl, BaseCodeSectionImpl):
+                continue
+            binding = impl.codeFileBinding
+            if binding is None:
+                continue
+
+            registered_binding = RegisteredCodeFileBinding(
+                section_id=section_id,
+                variant_id=variant_id,
+                project_config_id=project_config_id,
+                access_mode=binding.access_mode,
+            )
+            normalized = normalize_path(binding.canonical_path)
+            new_bindings.setdefault(normalized, set()).add(registered_binding)
+
+        gen_code_binding = project_state.genCodeBinding
+        if gen_code_binding is not None:
+            registered_gen_binding = RegisteredCodeFileBinding(
+                section_id=GEN_CODE_SECTION_ID,
+                variant_id=GEN_CODE_VARIANT_ID,
+                project_config_id=project_config_id,
+                access_mode=gen_code_binding.access_mode,
+            )
+            normalized = normalize_path(gen_code_binding.canonical_path)
+            new_bindings.setdefault(normalized, set()).add(registered_gen_binding)
+
+        if previous_bindings == new_bindings:
+            return False
+
+        # Drop bindings for this config before re-registering with the new snapshot.
+        paths_to_cleanup = set(previous_bindings.keys())
+        for path in paths_to_cleanup:
+            bucket = self._bindings.get(path)
+            if not bucket:
+                continue
+            bucket -= previous_bindings[path]
+            if bucket:
+                self._bindings[path] = bucket
+            else:
+                self._bindings.pop(path, None)
+                self._metadata.pop(path, None)
+
+        if paths_to_cleanup:
+            categories = list(self._category_to_bindings.items())
+            for callback_category, path_map in categories:
+                updated_map = dict(path_map)
+                mutated = False
+                for path in paths_to_cleanup:
+                    bindings = updated_map.get(path)
+                    if not bindings:
+                        continue
+                    pruned = {
+                        binding
+                        for binding in bindings
+                        if binding.project_config_id != project_config_id
+                    }
+                    if pruned:
+                        updated_map[path] = pruned
+                    else:
+                        updated_map.pop(path, None)
+                    mutated = True
+                if mutated:
+                    if updated_map:
+                        self._category_to_bindings[callback_category] = updated_map
+                    else:
+                        self._category_to_bindings.pop(callback_category, None)
+
+        for path, bindings in new_bindings.items():
+            for binding in bindings:
+                self.register_binding(path, binding)
+
+        return True
 
     def get_bindings(self, path: Path) -> set[RegisteredCodeFileBinding]:
         """Return the registered bindings for `path`."""
