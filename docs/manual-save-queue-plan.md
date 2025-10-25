@@ -9,7 +9,7 @@ Guarantee that manual save requests (save, save-as-new, save-as-existing) persis
 - `save_as_existing_project_config` is unimplemented, so the route is currently a no-op even after the queue issue is fixed.
 
 ## Proposed Changes
-1. **Queue Drain Helper**
+1. **Queue Drain Helper** *(completed)*
    - Add an async utility on `BaseProjectManager` that awaits the queue drain (likely via `self.message_queue.join()` and checks for completion of tracked operations).
    - Ensure the helper cooperates with the existing `_project_state_lock` to avoid deadlocks.
    - Expose a safe wrapper method, e.g. `await project_manager.finish_pending_operations()`.
@@ -19,7 +19,7 @@ Guarantee that manual save requests (save, save-as-new, save-as-existing) persis
    - Update request models and frontend callers accordingly, keeping compatibility shims if staged rollout is needed.
 
 3. **Router Integration**
-   - In each of the three save routes, await the new helper before calling `perform_manual_save`.
+   - In each of the three save routes, await the new helper before calling `perform_manual_save`. *(completed)*
    - Preserve notification behavior; only proceed to save if the queue drain succeeds.
 
 4. **Manual Save Semantics**
@@ -40,3 +40,12 @@ Guarantee that manual save requests (save, save-as-new, save-as-existing) persis
 - Do we need to surface a timeout for queue drain to avoid hanging when a handler stalls?
 
 Addressing these questions will clarify whether additional telemetry or safety nets are required once the base implementation lands.
+
+## Progress
+- Added `finish_pending_operations` on `BaseProjectManager` with queue-task health checks and an idle event so callers can await pending work safely.
+- Updated the manual save routes (`SAVE_PROJECT`, `SAVE_AS_NEW_PROJECT_CONFIG`, `SAVE_AS_EXISTING_PROJECT_CONFIG`) to await the helper before invoking `perform_manual_save`.
+
+## Next Steps
+- Simplify manual-save payloads now that backend state is authoritative.
+- Implement `ProjectManager.save_as_existing_project_config` and broadcast metadata updates.
+- Add regression coverage to verify manual saves persist queued operations for both project managers.

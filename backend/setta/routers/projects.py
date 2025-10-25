@@ -96,19 +96,12 @@ async def route_save_project(
 ):
     try:
         project_manager = state.project_manager_switcher.get(x)
-        # TODO: pending operations should finish first.
-        update_success = True
-        if not update_success:
-            notification = SettaNotification(
-                projectConfigId=x.projectConfig.id,
-                message="Save failed due to update conflict",
-            )
-        else:
-            project_manager.perform_manual_save()
-            notification = SettaNotification(
-                projectConfigId=x.projectConfig.id,
-                message="Saved!",
-            )
+        await project_manager.finish_pending_operations()
+        project_manager.perform_manual_save()
+        notification = SettaNotification(
+            projectConfigId=x.projectConfig.id,
+            message="Saved!",
+        )
 
     except Exception:
         notification = SettaNotification(
@@ -127,17 +120,17 @@ async def route_save_project(
 async def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
-    # TODO: pending operations should finish first.
     project_manager = state.project_manager_switcher.get(x.project)
+    await project_manager.finish_pending_operations()
     await project_manager.save_as_new_project_config(x)
 
 
 @router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
-def route_save_as_existing_project_config(
+async def route_save_as_existing_project_config(
     x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
 ):
-    # TODO: pending operations should finish first.
     project_manager = state.project_manager_switcher.get(x.project)
+    await project_manager.finish_pending_operations()
     project_manager.save_as_existing_project_config(x)
 
 
