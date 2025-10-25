@@ -63,6 +63,10 @@ class Code(ABC):
         self.dbe.write(filepath, code)
         return True
 
+    async def handle_external_reload(self, new_code: str) -> None:
+        """Refresh in-memory state after the canonical file was reloaded."""
+        setattr(self, "code", new_code)
+
     def write_to_folder(self, code: str, folder: Path) -> Path:
         folder.mkdir(parents=True, exist_ok=True)
         target_path = folder / self.binding.canonical_path.name

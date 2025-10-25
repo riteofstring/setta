@@ -340,6 +340,10 @@ class ProjectPythonCode(PythonCode):
     async def update_file(self):
         await super().update_file(self.code)
 
+    async def handle_external_reload(self, new_code: str) -> None:
+        await super().handle_external_reload(new_code)
+        await self.send_document_open_request(new_code)
+
     async def code_area_completion(self, fullText, position):
         line, col = position_to_line_col(fullText, position)
         async with self.temporary_document(fullText) as filepath:

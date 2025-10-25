@@ -1393,9 +1393,7 @@ class BaseProjectManager(ABC):
                             code_entries[section_id] = code_entry
                     if code_entry is None:
                         continue
-                    code_entry.code = section_impl.code
-                    if isinstance(code_entry, ProjectPythonCode):
-                        await code_entry.send_document_open_request(section_impl.code)
+                    await code_entry.handle_external_reload(section_impl.code)
 
                 states_to_broadcast.append(single_state)
 
