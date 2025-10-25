@@ -16,6 +16,7 @@
 - Implemented `reload_code_sections()` with real disk reads, per-config state refresh, code cache updates, and frontend broadcasts; covered the happy path with `tests/project_state/test_code_file_binding_registration.py`.
 - Removed the temporary `CodeFiles.sync_bindings_for_config()` hook and shifted binding refresh entirely into the watcher pull model; tightened test coverage so `watch_code_files()` now verifies stale bindings are purged before registering callbacks.
 - Enforced read-only access for `set_code` requests in `BaseProjectManager`, raising `PermissionError` when a section's binding disallows writes and covering the guard with `tests/project_state/test_set_code_access_mode.py`.
+- Routed all code-section writes through `CodeFiles`, seeding bindings when `ProjectGenPythonCode`/`ProjectPythonCode`/`ProjectBashCode` are created so `Code.update_file()` can enforce access modes, skip no-op writes, and record hashes; added focused unit tests in `tests/project_state/test_code_files.py`.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
@@ -39,10 +40,10 @@
   - ~~Gather bindings from `_bindings`, diff against `_category_to_paths`, and call `SpecificFileWatcher.update_callbacks` with fire-immediately paths for uncached files.~~ ✅ Bindings are now regenerated from fresh backend snapshots before updating watcher callbacks, and stale paths/configs are pruned automatically.
   - Build the watcher coroutine so it forwards `FileWatcherCoreUpdate` payloads into `reload_code_sections()` once that API is available, mirroring the JSON source callback signature.
 - **Model callbacks on JSONSource**: `get_json_source_file_watcher_callback()` (`backend/setta/project_state/jsonSource/jsonSource.py:105`) demonstrates how to read via `DBE`, refresh cached state, and broadcast change notifications; use the same shape for code files.
-- **Rewrite `Code.update_file()`** (`backend/setta/project_state/code.py:33`) to delegate writes to `CodeFiles`:
-  - Skip writes entirely for read-only bindings.
-  - Short-circuit when the code matches the last read hash to avoid needless churn.
-  - Record `last_written_hash` so the next `modified` event can be ignored.
+- **Write operations flow through `CodeFiles`**:
+  - `Code.update_file()` delegates hashing and metadata tracking to `CodeFiles`, skipping read-only bindings and no-op rewrites before touching disk.
+  - Project code constructors register their bindings immediately so the first write during `update()` succeeds even before watchers refresh.
+  - Subsequent writes reuse the cached hashes to avoid duplicate reloads and keep conflict flags in sync.
 - **Adjust binding validation** (`backend/setta/types/project_state.py:224`):
   - Keep `validate_code_file_bindings()` focused on enriching the project state; watcher refreshes now rebuild binding metadata on demand.
   - Trigger `CodeFiles.watch_code_files()` during every project-state update when `updateFileWatcher=True` so the regenerated bindings reach the watcher layer.

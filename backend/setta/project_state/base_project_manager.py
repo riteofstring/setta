@@ -525,6 +525,7 @@ class BaseProjectManager(ABC):
                 raise ValueError("Project state missing generated code binding")
             new_gen_code = ProjectGenPythonCode(
                 self.dbe,
+                self.code_files,
                 gen_code_binding,
                 self.lsp_writers,
                 self.websocket_msg_handler,
@@ -843,13 +844,19 @@ class BaseProjectManager(ABC):
         if codeLanguage == CodeLanguage.python:
             return ProjectPythonCode(
                 self.dbe,
+                self.code_files,
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 project_state,
                 sectionId,
             )
         if codeLanguage == CodeLanguage.bash:
-            return ProjectBashCode(self.dbe, project_state, sectionId)
+            return ProjectBashCode(
+                self.dbe,
+                self.code_files,
+                project_state,
+                sectionId,
+            )
         return None
 
     async def maybe_do_rename_refactor(

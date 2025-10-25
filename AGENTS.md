@@ -77,6 +77,7 @@ Tests should reflect production behavior as closely as possible. It's ok if this
 ## Python imports
 
 Use TYPE_CHECKING blocks when possible.
+Always put imports at the top of the file.
 
 ## Safety
 

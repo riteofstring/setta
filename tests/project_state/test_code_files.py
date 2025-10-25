@@ -1,10 +1,14 @@
 import asyncio
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import suppress
+from unittest.mock import patch
 
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.code import BashCode
 from setta.project_state.code_files import (
     CodeFileMetadata,
     CodeFiles,
@@ -260,6 +264,101 @@ class CodeFilesTests(unittest.TestCase):
         assert metadata is not None
         self.assertEqual(metadata.last_read_hash, "hash-new")
         self.assertFalse(metadata.has_conflict)
+
+
+class CodeUpdateFileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        root = Path(self._tmpdir.name).resolve()
+
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        self.websocket_manager = WebsocketManager()
+        self.frontend_sender = WMHFrontendSender(self.websocket_manager)
+        self.file_watcher = SpecificFileWatcher()
+        self.dbe = DBE(root)
+        self.code_files = CodeFiles(self.frontend_sender, self.file_watcher, self.dbe)
+        self.snapshot_dir = root / "snapshots"
+        self.snapshot_dir.mkdir(exist_ok=True)
+
+    def tearDown(self) -> None:
+        with suppress(RuntimeError):
+            self.file_watcher.stop()
+        asyncio.set_event_loop(None)
+        self._loop.close()
+        self._tmpdir.cleanup()
+
+    def _register_binding(
+        self, filename: str, access_mode: CodeFileAccessMode
+    ) -> CodeFileBinding:
+        path = normalize_path(Path(self._tmpdir.name) / filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.touch()
+        binding = CodeFileBinding(
+            canonical_path=path,
+            snapshot_dir=normalize_path(self.snapshot_dir),
+            access_mode=access_mode,
+        )
+        registered = RegisteredCodeFileBinding(
+            section_id="section",
+            variant_id="variant",
+            project_config_id="config",
+            access_mode=access_mode,
+        )
+        self.code_files.register_binding(path, registered)
+        return binding
+
+    def test_update_file_rejects_read_only_binding(self) -> None:
+        binding = self._register_binding("readonly.sh", CodeFileAccessMode.read_only)
+        code = BashCode(self.dbe, self.code_files, binding)
+
+        with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
+            wrote = code.update_file("echo 'blocked'")
+
+        self.assertFalse(wrote)
+        mock_write.assert_not_called()
+        metadata = self.code_files.get_metadata(binding.canonical_path)
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertIsNone(metadata.last_written_hash)
+
+    def test_update_file_skips_noop_writes(self) -> None:
+        binding = self._register_binding("noop.sh", CodeFileAccessMode.read_write)
+        initial_content = "echo 'hello'"
+        self.dbe.write(binding.canonical_path, initial_content)
+        initial_hash = hashlib.md5(initial_content.encode("utf-8")).hexdigest()
+        self.code_files.record_read(binding.canonical_path, initial_hash)
+        code = BashCode(self.dbe, self.code_files, binding)
+
+        with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
+            wrote = code.update_file(initial_content)
+
+        self.assertFalse(wrote)
+        mock_write.assert_not_called()
+        metadata = self.code_files.get_metadata(binding.canonical_path)
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertEqual(metadata.last_written_hash, initial_hash)
+
+    def test_update_file_records_write_metadata(self) -> None:
+        binding = self._register_binding("write.sh", CodeFileAccessMode.read_write)
+        code = BashCode(self.dbe, self.code_files, binding)
+        new_content = "echo 'updated'"
+        expected_hash = hashlib.md5(new_content.encode("utf-8")).hexdigest()
+
+        with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
+            wrote = code.update_file(new_content)
+
+        self.assertTrue(wrote)
+        mock_write.assert_called_once_with(binding.canonical_path, new_content)
+        metadata = self.code_files.get_metadata(binding.canonical_path)
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertEqual(metadata.last_written_hash, expected_hash)
+        self.assertFalse(metadata.has_conflict)
+        disk_content = self.dbe.read(binding.canonical_path)
+        self.assertEqual(disk_content, new_content)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution

@@ -202,6 +202,11 @@ class CodeFiles:
         normalized = normalize_path(path)
         return self._metadata.get(normalized)
 
+    def get_access_mode(self, path: Path) -> CodeFileAccessMode:
+        normalized = normalize_path(path)
+        self._ensure_registered(normalized)
+        return self._resolve_access_mode(normalized)
+
     def watch_code_files(
         self,
         callback_category: str,

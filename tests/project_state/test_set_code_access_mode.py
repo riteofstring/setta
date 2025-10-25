@@ -177,7 +177,7 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
             self.code_folder / "sections" / project_slug / f"{section_slug}.py"
         )
         canonical_path.parent.mkdir(parents=True, exist_ok=True)
-        canonical_path.touch()
+        self.dbe.write(canonical_path, self.initial_code)
 
         binding = CodeFileBinding(
             canonical_path=canonical_path,
