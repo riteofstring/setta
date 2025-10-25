@@ -107,10 +107,25 @@ class CodeFilesTests(unittest.TestCase):
         self.assertIsNone(metadata.last_read_hash)
         self.assertIsNone(metadata.last_written_hash)
 
-    def test_register_binding_rejects_conflicting_access_modes(self) -> None:
+    def test_register_binding_updates_existing_access_mode(self) -> None:
+        original = register_binding(
+            self.manager, self.path, CodeFileAccessMode.read_write
+        )
+        updated = RegisteredCodeFileBinding(
+            section_id=original.section_id,
+            variant_id=original.variant_id,
+            project_config_id=original.project_config_id,
+            access_mode=CodeFileAccessMode.read_only,
+        )
+
+        self.manager.register_binding(self.path, updated)
+
+        self.assertEqual(self.manager.get_bindings(self.path), {updated})
+
+    def test_register_binding_rejects_conflicts_for_other_sections(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
         conflicting = RegisteredCodeFileBinding(
-            section_id="section",
+            section_id="other-section",
             variant_id="variant",
             project_config_id="config",
             access_mode=CodeFileAccessMode.write_only,

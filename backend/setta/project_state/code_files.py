@@ -74,6 +74,18 @@ class CodeFiles:
         """
         normalized = normalize_path(path)
         bucket = self._bindings.setdefault(normalized, set())
+        to_replace = {
+            existing
+            for existing in bucket
+            if (
+                existing.section_id == binding.section_id
+                and existing.variant_id == binding.variant_id
+                and existing.project_config_id == binding.project_config_id
+            )
+        }
+        if to_replace:
+            bucket.difference_update(to_replace)
+
         existing_modes: set[CodeFileAccessMode] = {b.access_mode for b in bucket}
         if existing_modes and binding.access_mode not in existing_modes:
             raise ValueError(
