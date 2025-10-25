@@ -15,6 +15,7 @@
 - Hooked `CodeFiles.watch_code_files()` up to `BaseProjectManager.reload_code_sections`, stubbing the reload coroutine and passing file hashes so upcoming reload logic can share a single read per event.
 - Implemented `reload_code_sections()` with real disk reads, per-config state refresh, code cache updates, and frontend broadcasts; covered the happy path with `tests/project_state/test_code_file_binding_registration.py`.
 - Removed the temporary `CodeFiles.sync_bindings_for_config()` hook and shifted binding refresh entirely into the watcher pull model; tightened test coverage so `watch_code_files()` now verifies stale bindings are purged before registering callbacks.
+- Enforced read-only access for `set_code` requests in `BaseProjectManager`, raising `PermissionError` when a section's binding disallows writes and covering the guard with `tests/project_state/test_set_code_access_mode.py`.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):
@@ -47,7 +48,6 @@
   - Trigger `CodeFiles.watch_code_files()` during every project-state update when `updateFileWatcher=True` so the regenerated bindings reach the watcher layer.
 
 ## Access-mode enforcement
-- **Set-code API guard**: In `BaseProjectManager.set_code()` (`backend/setta/project_state/base_project_manager.py:647`), reject edits for read-only bindings and log or notify the user. Allow writes for write-only/read-write, forwarding them to the manager so we can mark files dirty.
 - **Watcher callback rules**:
   - Read-write & read-only bindings: load disk changes, update state, and broadcast the new content.
   - Write-only bindings: ignore external changes (or emit a notification), since those sections should only be mutated by Setta.

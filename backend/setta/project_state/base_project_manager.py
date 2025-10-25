@@ -117,6 +117,7 @@ from setta.types.clipboard import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl2 import (
@@ -179,6 +180,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
+    CodeFileAccessMode,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
@@ -662,6 +664,24 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_code(self, x: SetCodeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            BaseCodeSectionImpl,
+        )
+        binding = section_impl.codeFileBinding
+        if (
+            binding is not None
+            and binding.access_mode == CodeFileAccessMode.read_only
+        ):
+            logger.warning(
+                "Rejecting set_code for read-only binding: section %s (config %s)",
+                x.sectionId,
+                x.projectConfigId,
+            )
+            raise PermissionError(
+                f"Cannot edit read-only code section {x.sectionId}"
+            )
         set_code(project_state, x.sectionId, x.code)
         await self.update_and_broadcast_project_state(project_state)
 
