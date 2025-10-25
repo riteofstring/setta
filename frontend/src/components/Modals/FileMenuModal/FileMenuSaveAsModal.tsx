@@ -4,10 +4,12 @@ import {
 } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useModalData } from "state/actions/modal";
 import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
-import { saveAsNewProjectConfig, saveProject } from "state/actions/project/saveProject";
-import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  saveAsExistingProjectConfig,
+  saveAsNewProjectConfig,
+  saveProject,
+} from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
-import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
 import { useProjectMetadataForFileMenu } from "./utils";
 
@@ -27,19 +29,14 @@ export function FileMenuSaveProjectConfigAsModal({ open }) {
   }) {
     if (selected === useProjectState.getState().projectConfig.id) {
       saveProject();
-      return;
+    } else {
+      if (selected) {
+        await saveAsExistingProjectConfig(filename);
+      } else {
+        await saveAsNewProjectConfig(filename, saveWithRefs);
+      }
+      navigateToAnotherConfig(filename);
     }
-
-    if (selected) {
-      addTemporaryNotification(
-        "Overwriting an existing project config directly is disabled. Use Save As New, then rename or delete configs as needed.",
-        SettaNotificationTypeEnum.error,
-      );
-      return;
-    }
-
-    await saveAsNewProjectConfig(filename, saveWithRefs);
-    navigateToAnotherConfig(filename);
   }
 
   return (

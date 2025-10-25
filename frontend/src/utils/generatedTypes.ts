@@ -392,6 +392,7 @@ export const RouteEnum = {
   CREATE_PROJECT_CONFIG: "/createProjectConfig",
   DELETE_PROJECT_CONFIGS: "/deleteProjectConfigs",
   SAVE_AS_NEW_PROJECT_CONFIG: "/saveAsNewProjectConfig",
+  SAVE_AS_EXISTING_PROJECT_CONFIG: "/saveAsExistingProjectConfig",
   SET_PROJECT_CONFIG_NAME: "/setProjectConfigName",
   SAVE_SETTINGS: "/saveSettings",
   LOAD_SETTINGS: "/loadSettings",
@@ -9032,18 +9033,6 @@ export function createGetNotificationsRequest(
   return GetNotificationsRequestSchema.parse(options);
 }
 
-export const ManualSaveRequestSchema = z.object({
-  projectConfigId: z.string(),
-});
-
-export type ManualSaveRequest = z.infer<typeof ManualSaveRequestSchema>;
-
-export function createManualSaveRequest(
-  options: Partial<ManualSaveRequest> = {},
-): ManualSaveRequest {
-  return ManualSaveRequestSchema.parse(options);
-}
-
 export const ProjectLoadRequestSchema = z.object({
   projectConfigName: z.string(),
 });
@@ -9056,9 +9045,25 @@ export function createProjectLoadRequest(
   return ProjectLoadRequestSchema.parse(options);
 }
 
+export const SaveAsExistingProjectConfigRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  project: ProjectStateSingleConfigSchema,
+  configName: z.string(),
+});
+
+export type SaveAsExistingProjectConfigRequest = z.infer<
+  typeof SaveAsExistingProjectConfigRequestSchema
+>;
+
+export function createSaveAsExistingProjectConfigRequest(
+  options: Partial<SaveAsExistingProjectConfigRequest> = {},
+): SaveAsExistingProjectConfigRequest {
+  return SaveAsExistingProjectConfigRequestSchema.parse(options);
+}
+
 export const SaveAsNewProjectConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: z.string(),
+  project: ProjectStateSingleConfigSchema,
   newConfigName: z.string(),
   withRefs: z.boolean(),
 });

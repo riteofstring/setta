@@ -65,6 +65,7 @@ from setta.project_state.project_manager_types import (
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
+    SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
@@ -226,8 +227,6 @@ class BaseProjectManager(ABC):
         ] = asyncio.Queue()
         # Dict doubles as ordered set so pending op ids keep enqueue order when broadcast
         self.pending_frontend_ops: dict[str, None] = {}
-        self._pending_ops_idle: asyncio.Event = asyncio.Event()
-        self._pending_ops_idle.set()
         self._project_state_lock = AsyncReadWriteLock()
         self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
             contextvars.ContextVar("current_frontend_op_id", default=None)
@@ -394,12 +393,10 @@ class BaseProjectManager(ABC):
             self.pending_frontend_ops.pop(frontend_op_id, None)
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
-        self._update_pending_ops_idle_event()
 
     def _register_pending_frontend_op(self, frontend_op_id: str | None):
         if frontend_op_id:
             self.pending_frontend_ops[frontend_op_id] = None
-        self._update_pending_ops_idle_event()
 
     @asynccontextmanager
     async def _track_frontend_op(self, frontend_op_id: str | None):
@@ -423,13 +420,6 @@ class BaseProjectManager(ABC):
         if frontend_op_id and frontend_op_id in self.pending_frontend_ops:
             self.pending_frontend_ops.pop(frontend_op_id, None)
             self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
-        self._update_pending_ops_idle_event()
-
-    def _update_pending_ops_idle_event(self) -> None:
-        if self.pending_frontend_ops:
-            self._pending_ops_idle.clear()
-            return
-        self._pending_ops_idle.set()
 
     @enqueue_method
     async def create_run_command(
@@ -1267,36 +1257,14 @@ class BaseProjectManager(ABC):
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         pass
 
+    @abstractmethod
+    def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
+        pass
+
     def perform_manual_save(self):
         """Run a manual save, clearing any pending autosave first."""
         self.autosave_debouncer.cancel_pending()
         self.save()
-
-    async def finish_pending_operations(self, *, timeout: float | None = None) -> None:
-        """Await completion of all queued and in-flight frontend operations."""
-
-        async def _drain():
-            await self._process_queue_task_started.wait()
-            self._raise_queue_task_issue_if_any()
-            await self.message_queue.join()
-            while self.pending_frontend_ops:
-                self._raise_queue_task_issue_if_any()
-                await self._pending_ops_idle.wait()
-            self._raise_queue_task_issue_if_any()
-
-        if timeout is None:
-            await _drain()
-            return
-        await asyncio.wait_for(_drain(), timeout)
-
-    def _raise_queue_task_issue_if_any(self) -> None:
-        if not self.queue_task.done():
-            return
-        if self.queue_task.cancelled():
-            raise asyncio.CancelledError("BaseProjectManager queue task cancelled")
-        exception = self.queue_task.exception()
-        if exception:
-            raise exception
 
     def watch_json_source_files(self):
         callback_category = f"{self.__class__.__name__}_JSONSource"

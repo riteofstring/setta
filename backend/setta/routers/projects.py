@@ -3,7 +3,10 @@ import traceback
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
+from setta.project_state.project_manager_types import (
+    SaveAsExistingProjectConfigRequest,
+    SaveAsNewProjectConfigRequest,
+)
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import (
@@ -54,10 +57,6 @@ class DeleteNotificationRequest(BaseModel):
     notificationId: str
 
 
-class ManualSaveRequest(BaseModel):
-    projectConfigId: str
-
-
 @router.post(Route.LOAD_ALL_PROJECT_METADATA)
 def route_load_all_project_metadata(state: AppStateFromRequest) -> AllProjectMetadata:
     defaultProjectId, projectMetadata = (
@@ -91,22 +90,34 @@ async def route_load_project_config(
 
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
-    x: ManualSaveRequest,
+    x: ProjectStateSingleConfig,
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     try:
-        project_manager = state.project_manager_switcher.get(x.projectConfigId)
-        await project_manager.finish_pending_operations()
-        project_manager.perform_manual_save()
-        notification = SettaNotification(
-            projectConfigId=x.projectConfigId,
-            message="Saved!",
-        )
+        # req = UpdateFromFrontendRequest(projectState=x)
+        project_manager = state.project_manager_switcher.get(x)
+        # TODO: pending operations should finish first.
+        # This endpoint shouldn't just take frontend state as it could be incorrect.
+        # update_success = await project_manager.update_from_frontend(
+        #     req, trigger_autosave=False,
+        # )
+        update_success = True
+        if not update_success:
+            notification = SettaNotification(
+                projectConfigId=x.projectConfig.id,
+                message="Save failed due to update conflict",
+            )
+        else:
+            project_manager.perform_manual_save()
+            notification = SettaNotification(
+                projectConfigId=x.projectConfig.id,
+                message="Saved!",
+            )
 
     except Exception:
         notification = SettaNotification(
-            projectConfigId=x.projectConfigId,
+            projectConfigId=x.projectConfig.id,
             message="Failed to save",
             type=SettaNotificationType.error,
         )
@@ -121,9 +132,18 @@ async def route_save_project(
 async def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
-    project_manager = state.project_manager_switcher.get(x.projectConfigId)
-    await project_manager.finish_pending_operations()
+    # TODO: pending operations should finish first.
+    project_manager = state.project_manager_switcher.get(x.project)
     await project_manager.save_as_new_project_config(x)
+
+
+@router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
+def route_save_as_existing_project_config(
+    x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
+):
+    # TODO: pending operations should finish first.
+    project_manager = state.project_manager_switcher.get(x.project)
+    project_manager.save_as_existing_project_config(x)
 
 
 @router.post(Route.CREATE_PROJECT_CONFIG)
