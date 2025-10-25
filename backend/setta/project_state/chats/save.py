@@ -22,7 +22,7 @@ def create_new_chat_name(first_message: ChatMessage) -> str:
     return name
 
 
-def _persist_chat(dbe: DBE, chat: Chat) -> Chat:
+def _persist_chat(dbe: "DBE", chat: Chat) -> Chat:
     dbe.write_chat(chat.id, chat.model_dump(mode="json"))
     return chat
 
@@ -35,7 +35,7 @@ def _copy_messages(messages: list[ChatMessage]) -> list[ChatMessage]:
     return [_copy_message(message) for message in messages]
 
 
-def create_new_chat(dbe: DBE, first_message: ChatMessage) -> Chat:
+def create_new_chat(dbe: "DBE", first_message: ChatMessage) -> Chat:
     name = create_new_chat_name(first_message)
     chat = Chat(
         name=name,
@@ -44,11 +44,11 @@ def create_new_chat(dbe: DBE, first_message: ChatMessage) -> Chat:
     return _persist_chat(dbe, chat)
 
 
-def delete_chat(dbe: DBE, chat_id: str) -> None:
+def delete_chat(dbe: "DBE", chat_id: str) -> None:
     dbe.delete_chat_file(chat_id)
 
 
-def save_messages(dbe: DBE, chat_id: str, messages: list[ChatMessage]) -> Chat | None:
+def save_messages(dbe: "DBE", chat_id: str, messages: list[ChatMessage]) -> Chat | None:
     if len(messages) == 0:
         return load_chat(dbe, chat_id)
 

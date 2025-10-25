@@ -53,9 +53,9 @@ class CodeFiles:
 
     def __init__(
         self,
-        websocket_msg_handler: WMHFrontendSender,
-        specific_file_watcher: SpecificFileWatcher,
-        dbe: DBE,
+        websocket_msg_handler: "WMHFrontendSender",
+        specific_file_watcher: "SpecificFileWatcher",
+        dbe: "DBE",
     ):
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
@@ -102,7 +102,7 @@ class CodeFiles:
         self._metadata.setdefault(normalized, CodeFileMetadata())
 
     def _generate_bindings_for_config(
-        self, project_state: ProjectStateSingleConfig
+        self, project_state: "ProjectStateSingleConfig"
     ) -> dict[Path, set[RegisteredCodeFileBinding]]:
         project_config = project_state.projectConfig
         project_config_id = project_config.id
@@ -224,7 +224,7 @@ class CodeFiles:
     def watch_code_files(
         self,
         callback_category: str,
-        project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
+        project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
         reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
     ) -> None:
         """
@@ -259,7 +259,7 @@ class CodeFiles:
         )
 
     def _refresh_bindings_from_backend(
-        self, project_state_backend: ProjectStateBackend
+        self, project_state_backend: "ProjectStateBackend"
     ) -> None:
         active_config_ids = set(project_state_backend.projectConfigs.keys())
 
@@ -373,7 +373,7 @@ class CodeFiles:
             raise KeyError(f"No bindings registered for {normalized_path}")
 
     def _collect_bindings_for_backend(
-        self, project_state_backend: ProjectStateBackend
+        self, project_state_backend: "ProjectStateBackend"
     ) -> dict[Path, set[RegisteredCodeFileBinding]]:
         project_config_ids = set(project_state_backend.projectConfigs.keys())
         category_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
@@ -397,7 +397,7 @@ class CodeFiles:
     def _build_file_watcher_callback(
         self,
         callback_category: str,
-        project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
+        project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
         reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
     ) -> FileWatcherCallback:
         async def _callback(core_update: FileWatcherCoreUpdate) -> None:

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class Code(ABC):
-    def __init__(self, dbe: DBE, code_files: CodeFiles, binding: CodeFileBinding):
+    def __init__(self, dbe: DBE, code_files: "CodeFiles", binding: "CodeFileBinding"):
         self.dbe = dbe
         self.code_files = code_files
         self.binding = binding
@@ -76,8 +76,8 @@ class PythonCode(Code):
     def __init__(
         self,
         dbe: DBE,
-        code_files: CodeFiles,
-        binding: CodeFileBinding,
+        code_files: "CodeFiles",
+        binding: "CodeFileBinding",
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
     ):
