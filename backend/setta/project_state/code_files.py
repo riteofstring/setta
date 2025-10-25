@@ -75,9 +75,6 @@ class CodeFiles:
     ) -> None:
         """
         Store binding metadata so the watcher callback can reload the proper sections.
-
-        TODO: align this with validate_code_file_bindings once the binding schema is in
-        place, and ensure we normalize the path before persisting.
         """
         normalized = normalize_path(path)
         bucket = self._bindings.setdefault(normalized, set())
@@ -302,9 +299,6 @@ class CodeFiles:
         """
         Track the hash of writes issued by Setta so incoming watcher events can skip
         redundant reloads.
-
-        TODO: enforce access modes (e.g., reject writes for read-only bindings) and
-        coordinate with BaseProjectManager.set_code.
         """
         normalized = normalize_path(path)
         self._ensure_registered(normalized)
@@ -321,9 +315,6 @@ class CodeFiles:
     def should_reload(self, path: Path, on_disk_hash: str | None) -> bool:
         """
         Decide whether a filesystem event should trigger reloading the section.
-
-        TODO: compare the hash against last_written_hash/last_read_hash, update conflict
-        flags, and coordinate with reload_code_sections.
         """
         normalized = normalize_path(path)
         self._ensure_registered(normalized)
