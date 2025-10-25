@@ -1,0 +1,42 @@
+# Manual Save Queue Drain Plan
+
+## Goal
+Guarantee that manual save requests (save, save-as-new, save-as-existing) persist the latest backend state by waiting for in-flight frontend operations to finish before invoking `perform_manual_save`.
+
+## Current Pain Points
+- Routes `route_save_project`, `route_save_as_new_project_config`, and `route_save_as_existing_project_config` call `perform_manual_save` immediately, bypassing the `BaseProjectManager` message queue.
+- Pending operations live in `BaseProjectManager.pending_frontend_ops`, but there is no API to block until the queue drains.
+- `save_as_existing_project_config` is unimplemented, so the route is currently a no-op even after the queue issue is fixed.
+
+## Proposed Changes
+1. **Queue Drain Helper**
+   - Add an async utility on `BaseProjectManager` that awaits the queue drain (likely via `self.message_queue.join()` and checks for completion of tracked operations).
+   - Ensure the helper cooperates with the existing `_project_state_lock` to avoid deadlocks.
+   - Expose a safe wrapper method, e.g. `await project_manager.finish_pending_operations()`.
+
+2. **Route Payload Cleanup**
+   - Stop requiring a full `ProjectStateSingleConfig` payload for manual saves; only the `projectConfigId` (and any save-as metadata) should be necessary once the backend state is authoritative.
+   - Update request models and frontend callers accordingly, keeping compatibility shims if staged rollout is needed.
+
+3. **Router Integration**
+   - In each of the three save routes, await the new helper before calling `perform_manual_save`.
+   - Preserve notification behavior; only proceed to save if the queue drain succeeds.
+
+4. **Manual Save Semantics**
+   - Consider moving the queue wait into `perform_manual_save` to centralize logic.
+   - Maintain the current autosave cancelation semantics inside `perform_manual_save`.
+
+5. **Save-As Existing Implementation**
+   - Implement `ProjectManager.save_as_existing_project_config` to update the targeted config in-memory, then call `perform_manual_save`.
+   - Ensure it reuses existing helper functions for merging and metadata broadcast (similar to the "new" path).
+
+6. **Testing & Validation**
+   - Add regression tests under `tests/project_state/` that enqueue multiple operations, trigger a manual save, and assert the persisted state includes the queued changes.
+   - Exercise both main project and settings manager paths if applicable.
+
+## Open Questions
+- Should manual saves broadcast project state snapshots after completing the disk write?
+- Are there frontend expectations around immediate notifications that require extra error handling if the queue drain fails?
+- Do we need to surface a timeout for queue drain to avoid hanging when a handler stalls?
+
+Addressing these questions will clarify whether additional telemetry or safety nets are required once the base implementation lands.
