@@ -29,9 +29,9 @@ Guarantee that manual save requests (save, save-as-new) persist the latest backe
    - The overwrite route and supporting UI were deleted because the workflow is risky and can be replicated via "save as new" plus rename/delete.
    - Keep future work in mind should user demand materialize, but no backend surfacing remains today.
 
-6. **Testing & Validation**
-   - Add regression tests under `tests/project_state/` that enqueue multiple operations, trigger a manual save, and assert the persisted state includes the queued changes.
-   - Exercise both main project and settings manager paths if applicable.
+6. **Testing & Validation** *(completed)*
+   - Added regression tests under `tests/project_state/` that enqueue delayed rename operations, wait for the queue to drain, and assert the persisted state reflects the pending work.
+   - Exercised both the main project manager and the settings manager paths using real manager fixtures.
 
 ## Open Questions
 - Should manual saves broadcast project state snapshots after completing the disk write?
@@ -44,7 +44,8 @@ Addressing these questions will clarify whether additional telemetry or safety n
 - Added `finish_pending_operations` on `BaseProjectManager` with queue-task health checks and an idle event so callers can await pending work safely.
 - Updated the manual save routes (`SAVE_PROJECT`, `SAVE_AS_NEW_PROJECT_CONFIG`) to await the helper before invoking `perform_manual_save`.
 - Simplified manual save payloads to pass only `projectConfigId`, regenerating endpoint bindings and ensuring backend managers pull the authoritative state before saving.
+- Added real-manager fixtures for both settings and project managers plus queue-drain regression coverage verifying manual saves persist pending operations.
 
 ## Next Steps
-- Add regression coverage to verify manual saves persist queued operations for both project managers.
 - Consider removing the now-unused deep-clone helpers in frontend save actions once the save-as implementation lands and no longer depends on them.
+- Evaluate whether manual save notifications should include the drained frontend op IDs or broadcast updated project snapshots post-save.
