@@ -60,7 +60,7 @@ export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
   await flushQueuedArtifacts();
   const data = await getProjectDataForSaving();
-  route_save_project(data);
+  route_save_project({ projectConfigId: data.projectConfig.id });
 }
 
 export async function saveAsNewProjectConfig(
@@ -70,14 +70,21 @@ export async function saveAsNewProjectConfig(
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
   await flushQueuedArtifacts();
   const data = await getProjectDataForSaving();
-  route_save_as_new_project_config({ project: data, newConfigName, withRefs });
+  route_save_as_new_project_config({
+    projectConfigId: data.projectConfig.id,
+    newConfigName,
+    withRefs,
+  });
 }
 
 export async function saveAsExistingProjectConfig(configName: string) {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
   await flushQueuedArtifacts();
   const data = await getProjectDataForSaving();
-  route_save_as_existing_project_config({ project: data, configName });
+  route_save_as_existing_project_config({
+    projectConfigId: data.projectConfig.id,
+    configName,
+  });
 }
 
 export async function getProjectDataForSaving() {

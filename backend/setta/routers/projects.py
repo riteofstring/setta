@@ -57,6 +57,10 @@ class DeleteNotificationRequest(BaseModel):
     notificationId: str
 
 
+class ManualSaveRequest(BaseModel):
+    projectConfigId: str
+
+
 @router.post(Route.LOAD_ALL_PROJECT_METADATA)
 def route_load_all_project_metadata(state: AppStateFromRequest) -> AllProjectMetadata:
     defaultProjectId, projectMetadata = (
@@ -90,22 +94,22 @@ async def route_load_project_config(
 
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
-    x: ProjectStateSingleConfig,
+    x: ManualSaveRequest,
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     try:
-        project_manager = state.project_manager_switcher.get(x)
+        project_manager = state.project_manager_switcher.get(x.projectConfigId)
         await project_manager.finish_pending_operations()
         project_manager.perform_manual_save()
         notification = SettaNotification(
-            projectConfigId=x.projectConfig.id,
+            projectConfigId=x.projectConfigId,
             message="Saved!",
         )
 
     except Exception:
         notification = SettaNotification(
-            projectConfigId=x.projectConfig.id,
+            projectConfigId=x.projectConfigId,
             message="Failed to save",
             type=SettaNotificationType.error,
         )
@@ -120,7 +124,7 @@ async def route_save_project(
 async def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
-    project_manager = state.project_manager_switcher.get(x.project)
+    project_manager = state.project_manager_switcher.get(x.projectConfigId)
     await project_manager.finish_pending_operations()
     await project_manager.save_as_new_project_config(x)
 
@@ -129,7 +133,7 @@ async def route_save_as_new_project_config(
 async def route_save_as_existing_project_config(
     x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
 ):
-    project_manager = state.project_manager_switcher.get(x.project)
+    project_manager = state.project_manager_switcher.get(x.projectConfigId)
     await project_manager.finish_pending_operations()
     project_manager.save_as_existing_project_config(x)
 

@@ -14,7 +14,7 @@ Guarantee that manual save requests (save, save-as-new, save-as-existing) persis
    - Ensure the helper cooperates with the existing `_project_state_lock` to avoid deadlocks.
    - Expose a safe wrapper method, e.g. `await project_manager.finish_pending_operations()`.
 
-2. **Route Payload Cleanup**
+2. **Route Payload Cleanup** *(completed)*
    - Stop requiring a full `ProjectStateSingleConfig` payload for manual saves; only the `projectConfigId` (and any save-as metadata) should be necessary once the backend state is authoritative.
    - Update request models and frontend callers accordingly, keeping compatibility shims if staged rollout is needed.
 
@@ -44,8 +44,9 @@ Addressing these questions will clarify whether additional telemetry or safety n
 ## Progress
 - Added `finish_pending_operations` on `BaseProjectManager` with queue-task health checks and an idle event so callers can await pending work safely.
 - Updated the manual save routes (`SAVE_PROJECT`, `SAVE_AS_NEW_PROJECT_CONFIG`, `SAVE_AS_EXISTING_PROJECT_CONFIG`) to await the helper before invoking `perform_manual_save`.
+- Simplified manual save payloads to pass only `projectConfigId`, regenerating endpoint bindings and ensuring backend managers pull the authoritative state before saving.
 
 ## Next Steps
-- Simplify manual-save payloads now that backend state is authoritative.
 - Implement `ProjectManager.save_as_existing_project_config` and broadcast metadata updates.
 - Add regression coverage to verify manual saves persist queued operations for both project managers.
+- Consider removing the now-unused deep-clone helpers in frontend save actions once the save-as implementation lands and no longer depends on them.

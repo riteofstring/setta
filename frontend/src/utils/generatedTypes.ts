@@ -9033,6 +9033,18 @@ export function createGetNotificationsRequest(
   return GetNotificationsRequestSchema.parse(options);
 }
 
+export const ManualSaveRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type ManualSaveRequest = z.infer<typeof ManualSaveRequestSchema>;
+
+export function createManualSaveRequest(
+  options: Partial<ManualSaveRequest> = {},
+): ManualSaveRequest {
+  return ManualSaveRequestSchema.parse(options);
+}
+
 export const ProjectLoadRequestSchema = z.object({
   projectConfigName: z.string(),
 });
@@ -9047,7 +9059,7 @@ export function createProjectLoadRequest(
 
 export const SaveAsExistingProjectConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  project: ProjectStateSingleConfigSchema,
+  projectConfigId: z.string(),
   configName: z.string(),
 });
 
@@ -9063,7 +9075,7 @@ export function createSaveAsExistingProjectConfigRequest(
 
 export const SaveAsNewProjectConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
-  project: ProjectStateSingleConfigSchema,
+  projectConfigId: z.string(),
   newConfigName: z.string(),
   withRefs: z.boolean(),
 });

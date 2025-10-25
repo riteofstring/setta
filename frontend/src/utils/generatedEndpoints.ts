@@ -14,7 +14,7 @@ export async function route_load_project_config(
 }
 
 export async function route_save_project(
-  x: gt.ProjectStateSingleConfig,
+  x: gt.ManualSaveRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/saveProject", x);
 }
