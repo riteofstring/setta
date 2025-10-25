@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.section_impls import CodeFileAccessMode
-from setta.types.specific_file_watcher import FileWatcherCoreUpdate
+from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
 
 GEN_CODE_SECTION_ID = "__setta_gen_code__"
@@ -26,6 +26,15 @@ class RegisteredCodeFileBinding:
     variant_id: str
     project_config_id: str
     access_mode: CodeFileAccessMode
+
+
+@dataclass(frozen=True)
+class CodeFileReloadPlan:
+    path: Path
+    raw_content: str | None
+    content_hash: str | None
+    bindings_by_config: dict[str, list[RegisteredCodeFileBinding]]
+    core_update: FileWatcherCoreUpdate
 
 
 @dataclass
@@ -223,8 +232,7 @@ class CodeFiles:
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
         reload_code_sections: Callable[
-            [Path, set[RegisteredCodeFileBinding], FileWatcherCoreUpdate],
-            Coroutine[Any, Any, None],
+            [CodeFileReloadPlan], Coroutine[Any, Any, None]
         ],
     ) -> None:
         """
@@ -407,8 +415,7 @@ class CodeFiles:
         callback_category: str,
         project_state_backend_getter_fn: Callable[[], ProjectStateBackend],
         reload_code_sections: Callable[
-            [Path, set[RegisteredCodeFileBinding], FileWatcherCoreUpdate],
-            Coroutine[Any, Any, None],
+            [CodeFileReloadPlan], Coroutine[Any, Any, None]
         ],
     ) -> FileWatcherCallback:
         async def _callback(core_update: FileWatcherCoreUpdate) -> None:
@@ -419,27 +426,49 @@ class CodeFiles:
             if not bindings:
                 return None
 
-            on_disk_hash = self._compute_file_hash(core_update.fileToRead)
-            if not self.should_reload(core_update.fileToRead, on_disk_hash):
+            raw_content: str | None = None
+            if core_update.eventType != FileEventType.deleted:
+                raw_content = self._read_text_content(core_update.fileToRead)
+
+            content_hash: str | None = None
+            if raw_content is not None:
+                content_hash = hashlib.md5(raw_content.encode()).hexdigest()
+
+            if not self.should_reload(normalized_path, content_hash):
                 return None
 
             project_state_backend = project_state_backend_getter_fn()
             _ = project_state_backend  # eager resolution for parity with other watchers
-            await reload_code_sections(
-                normalized_path,
-                set(bindings),
-                core_update,
+            bindings_by_config = self._group_bindings_by_config(bindings)
+            if not bindings_by_config:
+                return None
+
+            plan = CodeFileReloadPlan(
+                path=normalized_path,
+                raw_content=raw_content,
+                content_hash=content_hash,
+                bindings_by_config=bindings_by_config,
+                core_update=core_update,
             )
+            await reload_code_sections(plan)
 
         return _callback
 
-    def _compute_file_hash(self, path: Path) -> str | None:
+    def _read_text_content(self, path: Path) -> str | None:
         try:
-            raw = self.dbe.read(path, mode="rb")
+            raw = self.dbe.read(path)
         except Exception:
             return None
-        if raw in (None, b""):
+        if raw in (None, b"", ""):
             return None
-        if not isinstance(raw, (bytes, bytearray)):
-            raw = str(raw).encode()
-        return hashlib.md5(raw).hexdigest()
+        return str(raw)
+
+    def _group_bindings_by_config(
+        self, bindings: set[RegisteredCodeFileBinding]
+    ) -> dict[str, list[RegisteredCodeFileBinding]]:
+        grouped: dict[str, list[RegisteredCodeFileBinding]] = {}
+        for binding in bindings:
+            if binding.section_id == GEN_CODE_SECTION_ID:
+                continue
+            grouped.setdefault(binding.project_config_id, []).append(binding)
+        return grouped

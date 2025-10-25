@@ -1,7 +1,6 @@
 import asyncio
 import contextvars
 import copy
-import hashlib
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
@@ -30,9 +29,8 @@ from setta.file_watchers.specific_file_watcher import (
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
-    GEN_CODE_SECTION_ID,
+    CodeFileReloadPlan,
     CodeFiles,
-    RegisteredCodeFileBinding,
 )
 from setta.project_state.history import History
 from setta.project_state.jsonSource.jsonSource import (
@@ -187,7 +185,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
-from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -1312,9 +1309,7 @@ class BaseProjectManager(ABC):
 
     async def reload_code_sections(
         self,
-        path: Path,
-        bindings: set[RegisteredCodeFileBinding],
-        core_update: FileWatcherCoreUpdate,
+        plan: CodeFileReloadPlan,
     ) -> None:
         """
         Handle code file watcher events by hydrating project state, updating
@@ -1322,46 +1317,34 @@ class BaseProjectManager(ABC):
         """
         logger.debug(
             "Received code file watcher event for %s (%s) via %s",
-            path,
-            {binding.section_id for binding in bindings},
-            core_update.eventType.value,
+            plan.path,
+            {
+                binding.section_id
+                for bindings in plan.bindings_by_config.values()
+                for binding in bindings
+            },
+            plan.core_update.eventType.value,
         )
 
-        if not bindings:
+        if not plan.bindings_by_config:
             return
 
-        if core_update.eventType == FileEventType.deleted:
-            raw_content: str | None = None
-        else:
-            raw = self.dbe.read(core_update.fileToRead)
-            raw_content = None if raw is None else str(raw)
+        self.code_files.record_read(plan.path, plan.content_hash)
 
-        content_hash: str | None = None
-        if raw_content is not None:
-            content_hash = hashlib.md5(raw_content.encode()).hexdigest()
-
-        self.code_files.record_read(path, content_hash)
-
-        if raw_content is None:
+        if plan.raw_content is None:
             logger.debug(
-                "No on-disk content for %s; skipping project state reload", path
+                "No on-disk content for %s; skipping project state reload", plan.path
             )
-            return
-
-        bindings_by_config: dict[str, list[RegisteredCodeFileBinding]] = {}
-        for binding in bindings:
-            if binding.section_id == GEN_CODE_SECTION_ID:
-                continue
-            bindings_by_config.setdefault(binding.project_config_id, []).append(binding)
-
-        if not bindings_by_config:
             return
 
         states_to_broadcast: list[ProjectStateSingleConfig] = []
         async with self._project_state_lock.write_lock():
             base_backend = self.project_state_backend
             updated_configs: dict[str, ProjectStateSingleConfig] = {}
-            for project_config_id, config_bindings in bindings_by_config.items():
+            for (
+                project_config_id,
+                config_bindings,
+            ) in plan.bindings_by_config.items():
                 single_state = convert_backend_to_single_config(
                     base_backend, project_config_id
                 )
@@ -1375,7 +1358,7 @@ class BaseProjectManager(ABC):
                             project_config_id,
                         )
                         continue
-                    set_code(single_state, section_id, raw_content)
+                    set_code(single_state, section_id, plan.raw_content)
                 if config_bindings:
                     updated_configs[project_config_id] = single_state
 
@@ -1389,7 +1372,10 @@ class BaseProjectManager(ABC):
 
             for project_config_id, single_state in updated_configs.items():
                 code_entries = self.code_dict.setdefault(project_config_id, {})
-                for binding in bindings_by_config[project_config_id]:
+                config_bindings_for_id = plan.bindings_by_config.get(
+                    project_config_id, []
+                )
+                for binding in config_bindings_for_id:
                     section_id = binding.section_id
                     if section_id not in single_state.sections:
                         continue

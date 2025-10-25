@@ -14,7 +14,9 @@ from setta.lsp.managers import LSPServers, LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import (
+    CodeFileReloadPlan,
     CodeFiles,
+    RegisteredCodeFileBinding,
 )
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -220,11 +222,19 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
             fileToRead=self.expected_code_path,
         )
 
-        await self.manager.reload_code_sections(
-            self.expected_code_path,
-            set(bindings),
-            update,
+        bindings_by_config: dict[str, list[RegisteredCodeFileBinding]] = {}
+        for binding in bindings:
+            bindings_by_config.setdefault(binding.project_config_id, []).append(binding)
+
+        plan = CodeFileReloadPlan(
+            path=self.expected_code_path,
+            raw_content=new_code,
+            content_hash=hashlib.md5(new_code.encode()).hexdigest(),
+            bindings_by_config=bindings_by_config,
+            core_update=update,
         )
+
+        await self.manager.reload_code_sections(plan)
 
         metadata = self.manager.code_files.get_metadata(self.expected_code_path)
         self.assertIsNotNone(metadata)
