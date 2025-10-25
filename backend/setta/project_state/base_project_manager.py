@@ -31,7 +31,6 @@ from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
     GEN_CODE_SECTION_ID,
-    GEN_CODE_VARIANT_ID,
     CodeFiles,
     RegisteredCodeFileBinding,
 )
@@ -78,6 +77,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetCodeFileBindingRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -109,7 +109,6 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -118,7 +117,6 @@ from setta.types.clipboard import (
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
-    get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
@@ -142,6 +140,7 @@ from setta.types.helpers_lvl2 import (
     set_chart_settings,
     set_chart_type,
     set_code,
+    set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
     set_param_entered_value,
@@ -181,15 +180,18 @@ from setta.types.project_state import (
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     CodeFileAccessMode,
+    CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
+from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -651,6 +653,23 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        canonical_path = normalize_path(x.binding.canonical_path)
+        if x.binding.snapshot_dir is None:
+            snapshot_dir = normalize_path(canonical_path.parent)
+        else:
+            snapshot_dir = normalize_path(x.binding.snapshot_dir)
+        updated_binding = CodeFileBinding(
+            canonical_path=canonical_path,
+            snapshot_dir=snapshot_dir,
+            access_mode=x.binding.access_mode,
+        )
+        set_code_file_binding(project_state, x.sectionId, updated_binding)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_lock(project_state, x.sectionId)
@@ -671,18 +690,13 @@ class BaseProjectManager(ABC):
             BaseCodeSectionImpl,
         )
         binding = section_impl.codeFileBinding
-        if (
-            binding is not None
-            and binding.access_mode == CodeFileAccessMode.read_only
-        ):
+        if binding is not None and binding.access_mode == CodeFileAccessMode.read_only:
             logger.warning(
                 "Rejecting set_code for read-only binding: section %s (config %s)",
                 x.sectionId,
                 x.projectConfigId,
             )
-            raise PermissionError(
-                f"Cannot edit read-only code section {x.sectionId}"
-            )
+            raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
         set_code(project_state, x.sectionId, x.code)
         await self.update_and_broadcast_project_state(project_state)
 
@@ -1343,9 +1357,7 @@ class BaseProjectManager(ABC):
         for binding in bindings:
             if binding.section_id == GEN_CODE_SECTION_ID:
                 continue
-            bindings_by_config.setdefault(binding.project_config_id, []).append(
-                binding
-            )
+            bindings_by_config.setdefault(binding.project_config_id, []).append(binding)
 
         if not bindings_by_config:
             return

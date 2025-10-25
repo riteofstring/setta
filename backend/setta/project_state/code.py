@@ -16,7 +16,7 @@ from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
-    from setta.project_state.code_files import CodeFiles, CodeFileMetadata
+    from setta.project_state.code_files import CodeFileMetadata, CodeFiles
 
 logger = logging.getLogger(__name__)
 
@@ -48,19 +48,14 @@ class Code(ABC):
         code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()
 
         metadata: CodeFileMetadata | None = self.code_files.get_metadata(filepath)
-        content_already_synced = (
-            metadata is not None
-            and (
-                metadata.last_read_hash == code_hash
-                or metadata.last_written_hash == code_hash
-            )
+        content_already_synced = metadata is not None and (
+            metadata.last_read_hash == code_hash
+            or metadata.last_written_hash == code_hash
         )
 
         self.code_files.record_write(filepath, code_hash)
         if content_already_synced:
-            logger.debug(
-                "Skipping write for %s; content hash unchanged", filepath
-            )
+            logger.debug("Skipping write for %s; content hash unchanged", filepath)
             return False
 
         logger.debug("Writing canonical file %s", filepath)

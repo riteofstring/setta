@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
-from contextlib import suppress
 import unittest
+from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -14,7 +14,6 @@ from setta.lsp.managers import LSPServers, LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import (
-    GEN_CODE_SECTION_ID,
     CodeFiles,
 )
 from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -192,9 +191,7 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         project_state = self.project_state.model_copy(deep=True)
         await self.manager.update(project_state)
 
-        section_bindings = self.manager.code_files.get_bindings(
-            self.expected_code_path
-        )
+        section_bindings = self.manager.code_files.get_bindings(self.expected_code_path)
         self.assertEqual(len(section_bindings), 1)
         (binding,) = tuple(section_bindings)
         self.assertEqual(binding.section_id, self.section_id)

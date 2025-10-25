@@ -16,6 +16,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    CodeFileAccessMode,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -212,6 +213,18 @@ class SetCodeRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     sectionId: str
     code: str
+
+
+class CodeFileBindingUpdate(BaseModel):
+    canonical_path: str
+    access_mode: CodeFileAccessMode
+    snapshot_dir: str | None = None
+
+
+class SetCodeFileBindingRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+    sectionId: str
+    binding: CodeFileBindingUpdate
 
 
 class SetSectionParamFilterRequest(ProjectManagerRequestWithFrontendOp):

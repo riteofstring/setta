@@ -17,6 +17,7 @@
 - Removed the temporary `CodeFiles.sync_bindings_for_config()` hook and shifted binding refresh entirely into the watcher pull model; tightened test coverage so `watch_code_files()` now verifies stale bindings are purged before registering callbacks.
 - Enforced read-only access for `set_code` requests in `BaseProjectManager`, raising `PermissionError` when a section's binding disallows writes and covering the guard with `tests/project_state/test_set_code_access_mode.py`.
 - Routed all code-section writes through `CodeFiles`, seeding bindings when `ProjectGenPythonCode`/`ProjectPythonCode`/`ProjectBashCode` are created so `Code.update_file()` can enforce access modes, skip no-op writes, and record hashes; added focused unit tests in `tests/project_state/test_code_files.py`.
+- Added backend endpoint `setCodeFileBinding` (plus helper logic) so bindings can be updated from the UI without optimistic state juggling; frontend `CodeAreaSettings` now defers normalization to the server with a minimal path + access-mode form.
 
 ## Backend architecture
 - **Create a single global `CodeFiles` manager** (`backend/setta/project_state/code_files.py`) and inject it into every project manager (mirroring how `Artifacts` and `JSONSource` are shared):

@@ -2,8 +2,8 @@ import asyncio
 import hashlib
 import tempfile
 import unittest
-from pathlib import Path
 from contextlib import suppress
+from pathlib import Path
 from unittest.mock import patch
 
 from setta.database.db_objs import DBE
@@ -15,13 +15,17 @@ from setta.project_state.code_files import (
     RegisteredCodeFileBinding,
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding, CodeSectionImpl
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeSectionImpl,
+)
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
-from setta.utils.utils import normalize_path
-from setta.types.helpers_lvl3 import merge_single_config_into_backend
 
 
 def register_binding(
@@ -134,6 +138,7 @@ class CodeFilesTests(unittest.TestCase):
         backend = merge_single_config_into_backend(ProjectStateBackend(), state)
 
         category = "TestCategory"
+
         async def _reload(*args, **kwargs):  # pragma: no cover - stub
             return None
 
@@ -170,9 +175,7 @@ class CodeFilesTests(unittest.TestCase):
         self.manager.watch_code_files(category, _getter, _reload)
         self._loop.run_until_complete(asyncio.sleep(0))
 
-        callbacks_after = self.manager.specific_file_watcher.callbacks.get(
-            category, {}
-        )
+        callbacks_after = self.manager.specific_file_watcher.callbacks.get(category, {})
         self.assertEqual(callbacks_after, {})
         tracked_bindings = self.manager._category_to_bindings.get(category, {})
         self.assertEqual(tracked_bindings, {})

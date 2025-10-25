@@ -13,9 +13,8 @@ if TYPE_CHECKING:
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.section_impls import CodeFileAccessMode
-from setta.utils.utils import normalize_path
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
-
+from setta.utils.utils import normalize_path
 
 GEN_CODE_SECTION_ID = "__setta_gen_code__"
 GEN_CODE_VARIANT_ID = "__setta_gen_code__"
@@ -240,7 +239,9 @@ class CodeFiles:
         )
         callbacks = {path: callback for path in current_paths}
 
-        fire_immediately = {path for path in current_paths if path not in previous_paths}
+        fire_immediately = {
+            path for path in current_paths if path not in previous_paths
+        }
         self.specific_file_watcher.update_callbacks(
             callbacks, callback_category, fire_immediately
         )
