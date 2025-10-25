@@ -226,7 +226,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         code_root = normalize_path(C.CODE_FOLDER)
         canonical_sections_dir = code_root / "sections" / project_slug
         gen_code_path = canonical_sections_dir / "setta_gen.py"
-        snapshot_temp_dir = code_root / "temp_folder" / project_slug
         gen_code_binding: CodeFileBinding | None = None
 
         for section_id, variant_id in self.projectConfig.sectionVariantMap.items():
@@ -245,7 +244,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
                 canonical_path = gen_code_path
-                snapshot_dir = snapshot_temp_dir
+                snapshot_dir = canonical_path.parent
                 access_mode = CodeFileAccessMode.write_only
             else:
                 section_full_name = get_section_path_full_name(self, section_id)
@@ -272,7 +271,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         if gen_code_binding is None:
             gen_code_binding = CodeFileBinding(
                 canonical_path=normalize_path(gen_code_path),
-                snapshot_dir=normalize_path(snapshot_temp_dir),
+                snapshot_dir=normalize_path(gen_code_path.parent),
                 access_mode=CodeFileAccessMode.write_only,
             )
         self.genCodeBinding = gen_code_binding

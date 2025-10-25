@@ -103,8 +103,7 @@ my_project/
 │   ├── setta-settings.json
 │   ├── setta-meta-settings.json
 │   └── code/
-│       ├── sections/
-│       └── temp_folder/
+│       └── sections/
 ```
 
 ### Create and run your first Setta project

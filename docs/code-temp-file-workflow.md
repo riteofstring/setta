@@ -35,9 +35,10 @@ temp-file split or bypassing the read/write lock accidentally.
   is issued, and we immediately send `didClose` and unlink the file. During
   validation, confirm the `didClose` messages appear in the LSP logs to avoid
   leaking temp state.
-- Generated code completion snapshots still live under
-  `setta_files/code/temp_folder/<projectConfigName>/` to keep throwaway files
-  separate from the canonical modules.
+- Generated code completion snapshots now reuse the canonical sections folder,
+  writing temporary files to
+  `setta_files/code/sections/<projectConfigName>/setta_gen__<uuid>.py` so every
+  snapshot follows the same import resolution rules.
 - Because the snapshots reuse the same base name prefix, the LSP can import
   symbols from the permanent files while we collect completions for the
   snapshot contents.
@@ -71,7 +72,7 @@ temp-file split or bypassing the read/write lock accidentally.
 | Serialized updates (`set_code`)  | `setta_files/code/sections/<projectConfigName>/<Section>.py`      |
 | Generated code rebuild           | `setta_files/code/sections/<projectConfigName>/setta_gen.py`      |
 | Section completion request       | `.../sections/<projectConfigName>/<Section>__<uuid>.py` (temp)     |
-| Generated code completion request| `.../temp_folder/<projectConfigName>/setta_gen__<uuid>.py` (temp)  |
+| Generated code completion request| `.../sections/<projectConfigName>/setta_gen__<uuid>.py` (temp)      |
 
 Keep this layout in mind when debugging LSP behaviour: if a completion resolves
 imports, it is because the canonical files stayed open, not because the snapshot
