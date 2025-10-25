@@ -78,6 +78,7 @@ Tests should reflect production behavior as closely as possible. It's ok if this
 
 Use TYPE_CHECKING blocks when possible.
 Always put imports at the top of the file.
+Never import annotations from __future__.
 
 ## Safety
 
