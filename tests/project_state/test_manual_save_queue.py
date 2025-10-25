@@ -2,6 +2,7 @@ import asyncio
 import types
 import unittest
 from dataclasses import dataclass
+from typing import Awaitable, Callable, cast
 
 from setta.project_state.base_project_manager import BaseProjectManager
 
@@ -18,10 +19,22 @@ class _RenamePayload:
     frontendOpId: str | None = None
 
 
+OriginalSetProjectConfigName = Callable[
+    [BaseProjectManager, str, str], Awaitable[None]
+]
+
+
 def _bind_delayed_set_project_config_name(
     manager: BaseProjectManager, *, delay: float = 0.05
 ):
-    original = BaseProjectManager.set_project_config_name.__wrapped__
+    maybe_original = getattr(
+        BaseProjectManager.set_project_config_name, "__wrapped__", None
+    )
+    if maybe_original is None or not callable(maybe_original):
+        raise TypeError("set_project_config_name.__wrapped__ must be callable")
+    original: OriginalSetProjectConfigName = cast(
+        "OriginalSetProjectConfigName", maybe_original
+    )
 
     @BaseProjectManager.enqueue_method
     async def delayed_set_project_config_name(
