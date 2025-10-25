@@ -966,7 +966,6 @@ def set_code_file_binding(
 ):
     normalized_binding = CodeFileBinding(
         canonical_path=normalize_path(binding.canonical_path),
-        snapshot_dir=normalize_path(binding.snapshot_dir),
         access_mode=binding.access_mode,
     )
     set_curr_effective_section_impl_value(

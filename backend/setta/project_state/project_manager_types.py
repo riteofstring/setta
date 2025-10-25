@@ -218,7 +218,6 @@ class SetCodeRequest(ProjectManagerRequestWithFrontendOp):
 class CodeFileBindingUpdate(BaseModel):
     canonical_path: str
     access_mode: CodeFileAccessMode
-    snapshot_dir: str | None = None
 
 
 class SetCodeFileBindingRequest(ProjectManagerRequestWithFrontendOp):

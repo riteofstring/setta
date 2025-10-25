@@ -22,6 +22,8 @@ temp-file split or bypassing the read/write lock accidentally.
   files stay open with the LSP (`PythonCode.update_file` →
   `send_document_open_request`) so cross-section imports (`from .Y import fn`)
   resolve against the latest state.
+- Bindings no longer expose a configurable `snapshot_dir`; the backend always
+  derives snapshot locations from each canonical path’s parent directory.
 
 ## Completion snapshots
 

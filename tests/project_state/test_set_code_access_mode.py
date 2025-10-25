@@ -181,7 +181,6 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
 
         binding = CodeFileBinding(
             canonical_path=canonical_path,
-            snapshot_dir=normalize_path(canonical_path.parent),
             access_mode=CodeFileAccessMode.read_only,
         )
         code_impl.codeFileBinding = binding

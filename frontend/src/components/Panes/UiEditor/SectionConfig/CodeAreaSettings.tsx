@@ -20,7 +20,6 @@ import {
 
 type CodeBindingState = {
   canonicalPath: string;
-  snapshotDir: string | null;
   accessMode: CodeFileAccessMode;
   isFrozen: boolean;
 };
@@ -32,7 +31,7 @@ const ACCESS_MODE_LABELS: Record<CodeFileAccessMode, string> = {
 };
 
 export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
-  const { canonicalPath, snapshotDir, accessMode, isFrozen } = useProjectState(
+  const { canonicalPath, accessMode, isFrozen } = useProjectState(
     (state): CodeBindingState => {
       const impl = getCurrEffectiveSectionImplOfType(
         state,
@@ -42,7 +41,6 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
       const binding = impl.codeFileBinding;
       return {
         canonicalPath: binding?.canonical_path ?? "",
-        snapshotDir: binding?.snapshot_dir ?? null,
         accessMode: binding?.access_mode ?? CodeFileAccessModeEnum.read_write,
         isFrozen: impl.isFrozen,
       };
@@ -69,7 +67,6 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
         sectionId,
         binding: {
           canonical_path: trimmedPath,
-          snapshot_dir: null,
           access_mode: nextAccessMode,
         },
       });
@@ -132,16 +129,6 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
           ))}
         </select>
       </div>
-      {snapshotDir ? (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-bold text-setta-700 dark:text-setta-300">
-            Snapshot Directory
-          </span>
-          <span className="truncate text-xs text-setta-500 dark:text-setta-500">
-            {snapshotDir}
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -657,13 +657,8 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         canonical_path = normalize_path(x.binding.canonical_path)
-        if x.binding.snapshot_dir is None:
-            snapshot_dir = normalize_path(canonical_path.parent)
-        else:
-            snapshot_dir = normalize_path(x.binding.snapshot_dir)
         updated_binding = CodeFileBinding(
             canonical_path=canonical_path,
-            snapshot_dir=snapshot_dir,
             access_mode=x.binding.access_mode,
         )
         set_code_file_binding(project_state, x.sectionId, updated_binding)

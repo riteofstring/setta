@@ -56,8 +56,6 @@ class CodeFilesTests(unittest.TestCase):
         self.manager = CodeFiles(frontend_sender, file_watcher, dbe)
         self.path = root / "code.py"
         self.path.touch()
-        self.snapshot_dir = root / "snapshots"
-        self.snapshot_dir.mkdir(exist_ok=True)
 
     def tearDown(self) -> None:
         asyncio.set_event_loop(None)
@@ -69,7 +67,6 @@ class CodeFilesTests(unittest.TestCase):
         code_impl.code = "print('sync test')"
         code_impl.codeFileBinding = CodeFileBinding(
             canonical_path=self.path,
-            snapshot_dir=self.snapshot_dir,
             access_mode=CodeFileAccessMode.read_write,
         )
         variant = Variant(
@@ -281,8 +278,6 @@ class CodeUpdateFileTests(unittest.TestCase):
         self.file_watcher = SpecificFileWatcher()
         self.dbe = DBE(root)
         self.code_files = CodeFiles(self.frontend_sender, self.file_watcher, self.dbe)
-        self.snapshot_dir = root / "snapshots"
-        self.snapshot_dir.mkdir(exist_ok=True)
 
     def tearDown(self) -> None:
         with suppress(RuntimeError):
@@ -300,7 +295,6 @@ class CodeUpdateFileTests(unittest.TestCase):
             path.touch()
         binding = CodeFileBinding(
             canonical_path=path,
-            snapshot_dir=normalize_path(self.snapshot_dir),
             access_mode=access_mode,
         )
         registered = RegisteredCodeFileBinding(

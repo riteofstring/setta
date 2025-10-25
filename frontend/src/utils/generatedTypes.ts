@@ -1658,7 +1658,6 @@ export function createBaseChartSettingsUnionWithDiscriminator(
 
 export const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
-  snapshot_dir: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
 });
 
@@ -8435,7 +8434,6 @@ export function createSetChartTypeRequest(
 export const CodeFileBindingUpdateSchema = z.object({
   canonical_path: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
-  snapshot_dir: z.union([z.string(), z.null()]).default(null),
 });
 
 export type CodeFileBindingUpdate = z.infer<typeof CodeFileBindingUpdateSchema>;
