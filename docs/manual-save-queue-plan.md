@@ -48,4 +48,4 @@ Addressing these questions will clarify whether additional telemetry or safety n
 - Removed the legacy frontend deep-clone helpers in manual save actions so the UI now sends only the authoritative `projectConfigId`.
 
 ## Next Steps
-- Evaluate whether manual save notifications should include the drained frontend op IDs or broadcast updated project snapshots post-save.
+- Optional future enhancement: enrich manual save notifications with queue drain metadata or refreshed snapshots once product requirements demand deeper visibility.
