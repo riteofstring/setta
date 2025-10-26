@@ -1,5 +1,4 @@
 import asyncio
-import copy
 import inspect
 import json
 import logging
@@ -43,8 +42,6 @@ class SettaListener:
         )
         self.fns = []
         self.dependencies_to_fns = defaultdict(set)
-        self._websocket = None
-        self._loop: asyncio.AbstractEventLoop | None = None
 
         # For debouncing/throttling
         self.pending_tasks = {}  # {fn_name: (task, token)}
@@ -138,24 +135,26 @@ class SettaListener:
 
     async def _connect_to_server(self):
         async with websockets.connect(self.endpoint) as websocket:
-            self._loop = asyncio.get_running_loop()
-            self._websocket = websocket
             self.logger.websocket = websocket
-            try:
-                await self._handle_websocket(websocket)
-            finally:
-                self._websocket = None
+            await self._handle_websocket(websocket)
 
     async def _handle_websocket(self, websocket):
+        await websocket.send(
+            json.dumps(
+                {"messageType": C.WS_SCRIPT_READY, "content": str(self.rel_path)}
+            )
+        )
+
         # Process incoming messages using async for
         async for message in websocket:
             message = json.loads(message)
             messageType = message["messageType"]
             content = message["content"]
             if messageType == C.WS_PROJECT_DATA:
+                # TODO
                 for fn in self.fns:
-                    fn._setta_data = copy.deepcopy(content)
-                    fn._setta_data_to_be_updated = {}
+                    pass
+                    # fn._setta_data = ...
                 self.dependencies_to_fns = self.get_mapped_dependencies_to_fns()
                 await websocket.send(
                     json.dumps(
@@ -379,110 +378,10 @@ class SettaListener:
     def update_stored_data(self, new_data, fn):
         key, value = new_data
         if fn._setta_is_running:
-            normalized_key = self._normalize_path(key)
-            fn._setta_data_to_be_updated[tuple(normalized_key)] = copy.deepcopy(value)
-            return
-
-        if fn._setta_data is None:
-            raise KeyError(
-                f"Attempted to update data for {fn.__name__} before initial project data was received."
-            )
-
-        path = self._normalize_path(key)
-        value_to_apply = copy.deepcopy(value)
-
-        if not path:
-            fn._setta_data = value_to_apply
-            return
-
-        self._apply_path_update(fn, path, value_to_apply)
-
-    def _normalize_path(self, key):
-        if isinstance(key, (list, tuple)):
-            return list(key)
-        if key is None:
-            return []
-        return [key]
-
-    def _apply_path_update(self, fn, path, value):
-        target = fn._setta_data
-        for idx, segment in enumerate(path):
-            is_last_segment = idx == len(path) - 1
-            if isinstance(target, dict):
-                if is_last_segment:
-                    target[segment] = value
-                    return
-
-                if segment not in target:
-                    raise KeyError(
-                        f"Missing key {segment!r} while updating path {path!r} for {fn.__name__}."
-                    )
-                target = target[segment]
-                continue
-
-            if isinstance(target, list):
-                if not isinstance(segment, int):
-                    raise TypeError(
-                        f"Expected integer index while updating path {path!r} for {fn.__name__}, received {type(segment).__name__}."
-                    )
-                if segment < 0:
-                    raise IndexError(
-                        f"Negative index {segment} while updating path {path!r} for {fn.__name__}."
-                    )
-
-                if is_last_segment:
-                    if segment == len(target):
-                        target.append(value)
-                    elif segment < len(target):
-                        target[segment] = value
-                    else:
-                        raise IndexError(
-                            f"Index {segment} out of range while updating path {path!r} for {fn.__name__}."
-                        )
-                    return
-
-                if segment >= len(target):
-                    raise IndexError(
-                        f"Index {segment} out of range while updating path {path!r} for {fn.__name__}."
-                    )
-                target = target[segment]
-                continue
-
-            raise TypeError(
-                f"Cannot descend into value of type {type(target).__name__} while updating path {path!r} for {fn.__name__}."
-            )
-
-        raise RuntimeError(
-            f"Failed to update path {path!r} for {fn.__name__}; no assignment performed."
-        )
-
-    def force_full_state(self, project_config_id: str | None = None) -> None:
-        if self._loop is None or self._websocket is None:
-            raise RuntimeError("SettaListener force_full_state called before connect.")
-        if self._loop.is_closed():
-            raise RuntimeError("SettaListener event loop is closed.")
-
-        content: dict[str, str] = {}
-        if project_config_id is not None:
-            content["projectConfigId"] = project_config_id
-
-        payload = {
-            "messageType": C.WS_SCRIPT_REQUEST_FULL_STATE,
-            "content": content,
-        }
-
-        async def _send_request() -> None:
-            await self._websocket.send(json.dumps(payload))
-
-        try:
-            running_loop = asyncio.get_running_loop()
-        except RuntimeError:
-            running_loop = None
-
-        if running_loop is self._loop:
-            self._loop.create_task(_send_request())
+            fn._setta_data_to_be_updated[tuple(key)] = value
         else:
-            asyncio.run_coroutine_threadsafe(_send_request(), self._loop)
+            # TODO
+            pass
 
 
 def get_interactive_functions(caller_frame):

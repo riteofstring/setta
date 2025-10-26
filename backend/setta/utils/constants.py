@@ -42,7 +42,6 @@ class C:
     WS_TERMINAL_RESIZE = "terminalResize"
     WS_SCRIPT_READY = "scriptReady"
     WS_SCRIPT_DEPENDENCIES = "scriptDependencies"
-    WS_SCRIPT_REQUEST_FULL_STATE = "requestFullState"
     WS_PROJECT_DATA = "projectData"
     WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS"
 
