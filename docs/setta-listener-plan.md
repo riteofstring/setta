@@ -167,9 +167,9 @@ Key concepts:
 - ✅ Listener client records per-callback registration metadata (stable IDs, feeds, debounce/throttle flags) and can serialize a full `ListenerRegister` payload for handshakes.
 - ✅ Listener client now sends the `ListenerRegister` handshake on connect, processes `ListenerRegisterAck` responses, and flips readiness/error state based on accepted or rejected callbacks.
 - ✅ Listener client rebuilds the generated `S` object on bootstrap/persisted snapshots, diffs registered dependencies, and invokes callbacks subscribed to persisted feeds with a structured context.
+- ✅ Added regression coverage for realtime listener handling (unit test simulating delta dispatch).
 
 ### Pending Work
-- Add regression coverage for realtime listener handling (unit test simulating delta dispatch).
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
 - Use the shared listener registry to scope realtime broadcasts only to callbacks that registered a matching dependency set.
