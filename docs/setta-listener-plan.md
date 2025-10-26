@@ -174,6 +174,7 @@ Key concepts:
 - ✅ Introduced `RealtimeEventHub` to sequence realtime deltas per project, with regression coverage.
 - ✅ Simplified `ListenerRealtimeEventContent` so realtime routing relies on `delta` keys rather than a duplicated `dependencyIds` list.
 - ✅ `WMHFrontendReceiver` now accepts `RealtimeUIChange` websocket messages and forwards them into `RealtimeEventHub`, which sequences and fans them out via `WMHPythonScriptSender`.
+- ✅ Extended `DependencyGraph` to maintain cached sanitized ↔ graph-key ↔ serialized `${sectionId}::${codeObjId}` mappings plus helpers for serializing/deserializing keys.
 
 #### Dependency Naming Rules
 - Generated dependency strings come directly from `DependencyGraph.create_full_path_name`, which first sanitizes each section or parameter name by swapping `[]"' ` for `_`, collapsing duplicate underscores, and trimming leading/trailing underscores.
@@ -189,13 +190,11 @@ Key concepts:
 - During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using the dependency graph once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
 
 ### Dependency ID Refactor Plan (In Progress)
-- Extend `DependencyGraph` so every node caches the sanitized attribute name, tuple graph key, and serialized `${sectionId}::${codeObjId}` form; expose readonly lookup maps for consumers.
-- During listener registration resolve user-provided sanitized dependencies through that cache, fail fast on unknown names, and send only serialized graph keys in `ListenerRegisterCallback.dependencies`.
-- Update websocket payloads (`ListenerRegister`, `ListenerRealtimeEventContent`) and the listener registry to index callbacks by serialized graph keys; keep a temporary normalization shim that accepts legacy sanitized ids with loud warnings until the frontend rollout finishes.
-- Adjust backend senders/receivers (`WMHPythonScriptSender`, `RealtimeEventHub`, persisted snapshot broadcast) to normalize incoming keys, include lookup hashes when sending snapshots, and request force refreshes when a listener references missing keys.
-- Regenerate frontend bindings so controls emit serialized graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the serialized key.
-- Make the listener runtime hydrate dual caches on bootstrap, translate realtime deltas back to sanitized names before mutating `s`, and trigger force refresh or error logs when deltas reference unknown keys.
-- Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and legacy-compat shim; document phased rollout steps (backend dual-acceptance → frontend emissions → shim removal) in release notes.
+- Update `SettaListener` so registration resolves sanitized dependency strings through its local `DependencyGraph`, emits serialized graph keys in `ListenerRegisterCallback.dependencies`, and logs a deprecation warning when legacy sanitized ids are supplied.
+- Keep backend listener registration/storage agnostic—`ListenerRegistry` continues to persist whatever serialized ids the client sends; backend senders assume serialized keys and no longer perform conversion.
+- Adjust realtime handling inside `SettaListener` to translate incoming serialized keys back to sanitized attribute names using the cached dependency graph map before mutating the generated `S` instance.
+- Regenerate frontend bindings so controls and the “Listener Mode” UI emit serialized graph keys (surfacing sanitized labels only for display/debugging).
+- Expand websocket/listener regression coverage to exercise the listener-side conversion, unknown-id failures, and the compatibility warning path; document the phased rollout (listener conversion → frontend emissions → eventual removal of sanitized shim) in release notes.
 
 ### Pending Work
 - Extend docs/examples after the client lands.
