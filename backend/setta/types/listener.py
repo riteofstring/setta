@@ -12,19 +12,9 @@ class ListenerFeed(str, Enum):
     BOTH = "both"
 
 
-class ListenerDependencyKey(BaseModel):
-    sectionId: str
-    codeObjId: str | None = None
-
-
-class ListenerRealtimeDelta(BaseModel):
-    dependency: ListenerDependencyKey
-    value: Any
-
-
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: str
-    delta: list[ListenerRealtimeDelta]
+    delta: dict[str, Any]
     sequence: int
     metadata: dict[str, Any] | None = None
 
@@ -47,7 +37,7 @@ class ListenerFrontendEmitContent(BaseModel):
 
 
 class ListenerRegisterCallback(BaseModel):
-    dependencies: list[ListenerDependencyKey]
+    dependencies: list[str]
     feed: ListenerFeed
     debounceMs: int | None = None
     throttleMs: int | None = None

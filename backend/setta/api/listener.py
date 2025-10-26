@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
 from uuid import uuid4
 
@@ -9,16 +9,14 @@ import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
 
-from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType
+from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.listener import (
-    ListenerDependencyKey,
     ListenerFeed,
     ListenerRealtimeEventContent,
-    ListenerRealtimeDelta,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
     ListenerRegisterContent,
@@ -63,7 +61,6 @@ class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
     register: ListenerRegisterCallback
-    requested_dependency_names: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(slots=True)
@@ -101,10 +98,8 @@ class SettaListener:
         self._registration_pending = False
         self._is_registered = False
         self._runtime_state: ListenerRuntimeState | None = None
-        self._dependency_cache: dict[GraphKeyType, Any] = {}
+        self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
-        self._dependency_name_to_graph_key: dict[str, GraphKeyType] = {}
-        self._callback_dependency_keys: dict[str, tuple[GraphKeyType, ...]] = {}
 
     @property
     def websocket_endpoint(self) -> str:
@@ -165,7 +160,7 @@ class SettaListener:
                     message = self._parse_websocket_payload(payload)
                     if message is None:
                         continue
-                    await self._dispatch_websocket_message(message, websocket)
+                    await self._dispatch_websocket_message(message)
             finally:
                 logger.info("Listener %s connection closed", self._project_id)
                 self._registration_pending = False
@@ -183,9 +178,7 @@ class SettaListener:
         )
         return message
 
-    async def _dispatch_websocket_message(
-        self, message: Any, websocket: "ClientConnection"
-    ) -> None:
+    async def _dispatch_websocket_message(self, message: Any) -> None:
         """Delegate parsed websocket messages to dedicated handlers."""
         if isinstance(message, WebsocketMsgListenerRegisterAck):
             self._handle_register_ack(message)
@@ -285,7 +278,7 @@ class SettaListener:
             dependencies = list(deps) if deps is not None else []
             callback_id = uuid4().hex
             register = ListenerRegisterCallback(
-                dependencies=[],
+                dependencies=dependencies,
                 feed=selection,
                 debounceMs=debounce_ms,
                 throttleMs=throttle_ms,
@@ -295,7 +288,6 @@ class SettaListener:
                 function=func,
                 callback_id=callback_id,
                 register=register,
-                requested_dependency_names=tuple(dependencies),
             )
             self._callbacks[callback_id] = spec
             return func
@@ -358,9 +350,7 @@ class SettaListener:
                 self._project_id,
             )
             return
-
-        self._resolve_callback_dependencies(runtime_state)
-        snapshot_values: dict[GraphKeyType, Any] = {}
+        snapshot_values: dict[str, Any] = {}
         updated_cache = dict(self._dependency_cache)
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
 
@@ -368,25 +358,22 @@ class SettaListener:
             if not self._callback_accepts_persisted(spec):
                 continue
 
-            dependencies = self._callback_dependency_keys.get(spec.callback_id, ())
+            dependencies = tuple(spec.register.dependencies)
             changed: dict[str, Any] = {}
             should_run = not dependencies
 
-            for graph_key in dependencies:
+            for dependency in dependencies:
                 value = self._get_dependency_value(
-                    runtime_state,
-                    graph_key,
+                    runtime_state.s_instance,
+                    dependency,
                     snapshot_values,
                 )
                 if value is _UNAVAILABLE:
                     continue
-                previous = self._dependency_cache.get(graph_key, _MISSING)
-                updated_cache[graph_key] = value
+                previous = self._dependency_cache.get(dependency, _MISSING)
+                updated_cache[dependency] = value
                 if previous is _MISSING or value != previous:
-                    dependency_name = self._graph_key_to_attr_name(
-                        runtime_state, graph_key
-                    )
-                    changed[dependency_name] = value
+                    changed[dependency] = value
                     should_run = True
 
             if is_bootstrap and spec.register.runOnRefresh:
@@ -438,53 +425,6 @@ class SettaListener:
             )
             return None
 
-    def _resolve_callback_dependencies(
-        self, runtime_state: ListenerRuntimeState
-    ) -> None:
-        """Resolve user-specified dependency names into graph keys."""
-        dep_graph = runtime_state.dependency_graph
-        name_to_key = dep_graph.full_path_name_to_graph_key
-        resolved_name_map: dict[str, GraphKeyType] = {}
-        callback_keys: dict[str, tuple[GraphKeyType, ...]] = {}
-        errors: list[str] = []
-
-        for spec in self._callbacks.values():
-            requested = spec.requested_dependency_names
-            if not requested:
-                spec.register.dependencies = []
-                callback_keys[spec.callback_id] = ()
-                continue
-
-            resolved_keys: list[GraphKeyType] = []
-            missing: list[str] = []
-            for dependency_name in requested:
-                graph_key = name_to_key.get(dependency_name)
-                if graph_key is None:
-                    missing.append(dependency_name)
-                    continue
-                resolved_keys.append(graph_key)
-                resolved_name_map[dependency_name] = graph_key
-
-            if missing:
-                missing_deps = ", ".join(sorted(missing))
-                errors.append(
-                    f"callback {spec.callback_id} missing dependencies: {missing_deps}"
-                )
-                continue
-
-            spec.register.dependencies = [
-                self._graph_key_to_listener_key(graph_key)
-                for graph_key in resolved_keys
-            ]
-            callback_keys[spec.callback_id] = tuple(resolved_keys)
-
-        if errors:
-            error_details = "; ".join(errors)
-            raise RuntimeError(error_details)
-
-        self._dependency_name_to_graph_key = resolved_name_map
-        self._callback_dependency_keys = callback_keys
-
     def _instantiate_s(self, generated_code: str) -> Any:
         namespace: dict[str, Any] = {"__builtins__": __builtins__}
         exec(generated_code, namespace)
@@ -497,32 +437,28 @@ class SettaListener:
 
     def _get_dependency_value(
         self,
-        runtime_state: ListenerRuntimeState,
-        graph_key: GraphKeyType,
-        snapshot_values: dict[GraphKeyType, Any],
+        s_instance: Any,
+        dependency: str,
+        snapshot_values: dict[str, Any],
     ) -> Any:
-        if graph_key in snapshot_values:
-            return snapshot_values[graph_key]
-        dependency_name = self._graph_key_to_attr_name(runtime_state, graph_key)
+        if dependency in snapshot_values:
+            return snapshot_values[dependency]
         try:
-            value = self._resolve_dependency_value(runtime_state, graph_key)
+            value = self._resolve_dependency_value(s_instance, dependency)
         except AttributeError as error:
             logger.warning(
                 "Listener %s missing dependency %s during snapshot: %s",
                 self._project_id,
-                dependency_name,
+                dependency,
                 error,
             )
-            snapshot_values[graph_key] = _UNAVAILABLE
+            snapshot_values[dependency] = _UNAVAILABLE
             return _UNAVAILABLE
-        snapshot_values[graph_key] = value
+        snapshot_values[dependency] = value
         return value
 
-    def _resolve_dependency_value(
-        self, runtime_state: ListenerRuntimeState, graph_key: GraphKeyType
-    ) -> Any:
-        dependency_name = self._graph_key_to_attr_name(runtime_state, graph_key)
-        return getattr(runtime_state.s_instance, dependency_name)
+    def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
+        return getattr(current, dependency)
 
     @staticmethod
     def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
@@ -581,21 +517,19 @@ class SettaListener:
             )
             return
 
-        applied_dependencies: dict[GraphKeyType, Any] = {}
-        for entry in content.delta:
-            graph_key = self._listener_key_to_graph_key(entry.dependency)
-            dependency_name = self._graph_key_to_attr_name(runtime_state, graph_key)
+        applied_dependencies: dict[str, Any] = {}
+        for dependency, value in content.delta.items():
             try:
-                self._set_dependency_value(runtime_state, graph_key, entry.value)
+                self._set_dependency_value(runtime_state.s_instance, dependency, value)
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
                     "Listener %s failed to apply realtime delta for %s: %s",
                     self._project_id,
-                    dependency_name,
+                    dependency,
                     error,
                 )
                 continue
-            applied_dependencies[graph_key] = entry.value
+            applied_dependencies[dependency] = value
 
         if not applied_dependencies:
             logger.debug(
@@ -612,31 +546,28 @@ class SettaListener:
             if not self._callback_accepts_realtime(spec):
                 continue
 
-            dependencies = self._callback_dependency_keys.get(spec.callback_id, ())
+            dependencies = tuple(spec.register.dependencies)
             if not dependencies:
-                changed = {
-                    self._graph_key_to_attr_name(runtime_state, graph_key): value
-                    for graph_key, value in applied_dependencies.items()
-                }
-                callbacks_to_run.append((spec, changed))
+                callbacks_to_run.append((spec, dict(applied_dependencies)))
                 continue
 
             changed: dict[str, Any] = {}
-            for graph_key in dependencies:
-                if graph_key not in applied_dependencies:
+            for dependency in dependencies:
+                if dependency not in applied_dependencies:
                     continue
                 try:
-                    value = self._resolve_dependency_value(runtime_state, graph_key)
+                    value = self._resolve_dependency_value(
+                        runtime_state.s_instance, dependency
+                    )
                 except (AttributeError, KeyError, IndexError, ValueError) as error:
                     logger.error(
                         "Listener %s failed to resolve dependency %s after realtime update: %s",
                         self._project_id,
-                        self._graph_key_to_attr_name(runtime_state, graph_key),
+                        dependency,
                         error,
                     )
                     continue
-                dependency_name = self._graph_key_to_attr_name(runtime_state, graph_key)
-                changed[dependency_name] = value
+                changed[dependency] = value
 
             if changed:
                 callbacks_to_run.append((spec, changed))
@@ -651,28 +582,6 @@ class SettaListener:
             )
             await self._invoke_callback(spec, runtime_state.s_instance, ctx)
 
-    def _set_dependency_value(
-        self, runtime_state: ListenerRuntimeState, graph_key: GraphKeyType, value: Any
-    ) -> None:
+    def _set_dependency_value(self, current: Any, dependency: str, value: Any) -> None:
         """Set a dependency value on the cached S instance."""
-        dependency_name = self._graph_key_to_attr_name(runtime_state, graph_key)
-        setattr(runtime_state.s_instance, dependency_name, value)
-
-    @staticmethod
-    def _graph_key_to_attr_name(
-        runtime_state: ListenerRuntimeState, graph_key: GraphKeyType
-    ) -> str:
-        try:
-            node = runtime_state.dependency_graph.graph[graph_key]
-        except KeyError as error:
-            raise KeyError(f"missing dependency graph node for {graph_key}") from error
-        return node.full_path_name
-
-    @staticmethod
-    def _graph_key_to_listener_key(graph_key: GraphKeyType) -> ListenerDependencyKey:
-        section_id, code_obj_id = graph_key
-        return ListenerDependencyKey(sectionId=section_id, codeObjId=code_obj_id)
-
-    @staticmethod
-    def _listener_key_to_graph_key(key: ListenerDependencyKey) -> GraphKeyType:
-        return (key.sectionId, key.codeObjId)
+        setattr(current, dependency, value)
