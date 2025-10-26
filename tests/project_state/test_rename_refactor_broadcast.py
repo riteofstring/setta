@@ -292,7 +292,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 self.manager.pending_rename_results,
                 "Rename acceptance should create a pending entry.",
             )
-            pending_project_config_id, pending_result = self.manager.pending_rename_results[
+            pending_project_config_id, pending_values = self.manager.pending_rename_results[
                 "rename-op-accept"
             ]
             self.assertEqual(
@@ -301,7 +301,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "Pending rename result should be keyed by the target project config.",
             )
             self.assertTrue(
-                pending_result.changed_node_values,
+                pending_values,
                 "Pending rename result should describe at least one changed node value.",
             )
 
@@ -417,7 +417,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 self.manager.pending_rename_results,
                 "Decline should enqueue a pending rename result.",
             )
-            pending_project_config_id, pending_result = self.manager.pending_rename_results[
+            pending_project_config_id, pending_values = self.manager.pending_rename_results[
                 "rename-op-decline"
             ]
             self.assertEqual(
@@ -426,7 +426,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "Pending rename decline entry should match the request project config.",
             )
             self.assertTrue(
-                pending_result.changed_node_values,
+                pending_values,
                 "Pending rename decline entry should describe at least one changed node value.",
             )
 

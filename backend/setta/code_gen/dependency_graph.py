@@ -87,11 +87,6 @@ class RenameReferenceChangedValue:
     newValue: str
 
 
-@dataclass
-class RenameReferencesResult:
-    changed_node_values: list[RenameReferenceChangedValue]
-
-
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = (
@@ -333,7 +328,7 @@ class DependencyGraph:
     # and then changes the values of nodes that contain those old names
     def rename_references(
         self, old_dep_graph: "DependencyGraph"
-    ) -> RenameReferencesResult:
+    ) -> list[RenameReferenceChangedValue]:
         renamings: dict[GraphKeyType, tuple[str, str]] = {}
         for k, v in old_dep_graph.graph.items():
             node = self.get_node(k)
@@ -373,9 +368,7 @@ class DependencyGraph:
                 )
 
         self.resolve_references()
-        return RenameReferencesResult(
-            changed_node_values=changed_node_values,
-        )
+        return changed_node_values
 
     def create_graph_key(self, section_id: str, param_info_id: str | None = None):
         return (section_id, param_info_id)

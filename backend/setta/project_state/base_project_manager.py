@@ -21,7 +21,7 @@ from typing import (
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
-    RenameReferencesResult,
+    RenameReferenceChangedValue,
 )
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db_objs import DBE
@@ -248,7 +248,9 @@ class BaseProjectManager(ABC):
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
-        self.pending_rename_results: dict[str, tuple[str, RenameReferencesResult]] = {}
+        self.pending_rename_results: dict[
+            str, tuple[str, list[RenameReferenceChangedValue]]
+        ] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
@@ -887,11 +889,11 @@ class BaseProjectManager(ABC):
     def _apply_rename_result_auto_mode(
         self,
         project_state: ProjectStateSingleConfig,
-        rename_result: RenameReferencesResult,
+        changed_values: list[RenameReferenceChangedValue],
     ):
-        if not rename_result.changed_node_values:
+        if not changed_values:
             return
-        for changed in rename_result.changed_node_values:
+        for changed in changed_values:
             section_id = changed.sectionId
             param_id = changed.paramInfoId
             new_value = changed.newValue
@@ -926,12 +928,12 @@ class BaseProjectManager(ABC):
             # immediately apply any of the renaming operations
             new_dep_graph = copy.deepcopy(new_dep_graph)
 
-        rename_result = new_dep_graph.rename_references(old_dep_graph)
+        changed_values = new_dep_graph.rename_references(old_dep_graph)
 
-        if not rename_result.changed_node_values:
+        if not changed_values:
             return
         if renameRefactorMode == RenameRefactorMode.ALWAYS_RENAME:
-            self._apply_rename_result_auto_mode(project_state, rename_result)
+            self._apply_rename_result_auto_mode(project_state, changed_values)
             frontend_op_id = self._current_frontend_op_id.get()
             if frontend_op_id:
                 self.pending_rename_results.pop(frontend_op_id, None)
@@ -941,14 +943,14 @@ class BaseProjectManager(ABC):
         if frontend_op_id:
             self.pending_rename_results[frontend_op_id] = (
                 projectConfigId,
-                rename_result,
+                changed_values,
             )
             await self.websocket_msg_handler.broadcast_rename_refactor_results(
                 RenameRefactorBroadcastContent(
                     projectConfigId=projectConfigId,
                     frontendOpId=frontend_op_id,
                     renameMode=renameRefactorMode,
-                    changedNodeValues=rename_result.changed_node_values,
+                    changedNodeValues=changed_values,
                 )
             )
 
@@ -960,14 +962,14 @@ class BaseProjectManager(ABC):
         pending = self.pending_rename_results.get(frontend_op_id)
         if not pending:
             raise KeyError(f"Pending rename result not found for op {frontend_op_id}.")
-        pending_project_config_id, rename_result = pending
+        pending_project_config_id, pending_values = pending
         if pending_project_config_id != x.projectConfigId:
             raise KeyError(
                 "Pending rename result projectConfigId mismatch; "
                 f"expected {pending_project_config_id}, got {x.projectConfigId}."
             )
         project_state = self.get_single_config_state(x.projectConfigId)
-        self._apply_rename_result_auto_mode(project_state, rename_result)
+        self._apply_rename_result_auto_mode(project_state, pending_values)
         self.pending_rename_results.pop(frontend_op_id, None)
         await self.update_and_broadcast_project_state(project_state)
 
