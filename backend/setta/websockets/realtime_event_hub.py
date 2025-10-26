@@ -1,5 +1,4 @@
-from typing import Any
-
+from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
@@ -22,16 +21,14 @@ class RealtimeEventHub:
         self,
         *,
         project_config_id: str,
-        delta: dict[str, Any],
-        metadata: dict[str, Any] | None = None,
+        deltas: list[ListenerRealtimeDelta],
     ) -> None:
-        if not delta:
-            raise ValueError("delta must contain at least one entry")
+        if not deltas:
+            raise ValueError("deltas must contain at least one entry")
         sequence = self._sequence_by_project.get(project_config_id, 0) + 1
         self._sequence_by_project[project_config_id] = sequence
         await self._python_script_sender.send_realtime_update(
             projectConfigId=project_config_id,
-            delta=delta,
+            deltas=deltas,
             sequence=sequence,
-            metadata=metadata,
         )

@@ -590,23 +590,37 @@ class SettaListener:
                 return
 
         self._last_realtime_sequence = content.sequence
-        if not content.delta:
+        if not content.deltas:
             logger.debug(
-                "Listener %s received realtime event with no delta (sequence=%s)",
+                "Listener %s received realtime event with no deltas (sequence=%s)",
                 self._project_id,
                 content.sequence,
             )
             return
 
         applied_dependencies: dict[str, Any] = {}
-        for dependency, value in content.delta.items():
+        for delta in content.deltas:
+            graph_key = delta.dependency.to_graph_key()
+            node = runtime_state.dependency_graph.graph.get(graph_key)
+            if node is None:
+                logger.error(
+                    "Listener %s received realtime delta for unknown graph key %s",
+                    self._project_id,
+                    graph_key,
+                )
+                continue
+            value = delta.value
+            dependency = node.full_path_name
             try:
                 self._set_dependency_value(runtime_state.s_instance, dependency, value)
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
-                    "Listener %s failed to apply realtime delta for %s: %s",
+                    (
+                        "Listener %s failed to apply realtime delta for %s (graph key %s): %s"
+                    ),
                     self._project_id,
                     dependency,
+                    graph_key,
                     error,
                 )
                 continue

@@ -2,11 +2,13 @@ import logging
 from typing import Any
 
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerErrorContent,
     ListenerFeed,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
     ListenerRealtimeEventContent,
+    ListenerRealtimeDelta,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
@@ -58,17 +60,15 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: str,
-        delta: dict[str, Any],
+        deltas: list[ListenerRealtimeDelta],
         sequence: int,
-        metadata: dict[str, Any] | None = None,
     ):
-        if not delta:
-            raise ValueError("delta must contain at least one entry")
+        if not deltas:
+            raise ValueError("deltas must contain at least one entry")
         content = ListenerRealtimeEventContent(
             projectConfigId=projectConfigId,
-            delta=delta,
+            deltas=deltas,
             sequence=sequence,
-            metadata=metadata,
         )
         logger.debug(
             "sending listener realtime event for project config %s (sequence=%s)",
@@ -81,7 +81,9 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             matching_callbacks,
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
-            dependency_ids=delta.keys(),
+            dependency_keys=(
+                delta.dependency.to_graph_key() for delta in deltas
+            ),
         ):
             if any(
                 registration.callbacks[callback_id].feed
@@ -94,7 +96,10 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             logger.debug(
                 "no listener sockets registered for realtime dependencies %s "
                 "(project config %s)",
-                list(delta.keys()),
+                [
+                    delta.dependency.to_graph_key()
+                    for delta in deltas
+                ],
                 projectConfigId,
             )
             return

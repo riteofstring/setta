@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from setta.code_gen.dependency_graph import GraphKeyType
 from setta.types.project_state import ProjectStateSingleConfig
 
 class ListenerFeed(str, Enum):
@@ -18,9 +19,8 @@ class ListenerInitContent(BaseModel):
 
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: str
-    delta: dict[str, Any]
+    deltas: list["ListenerRealtimeDelta"]
     sequence: int
-    metadata: dict[str, Any] | None = None
 
 
 class ListenerForceRefreshContent(BaseModel):
@@ -43,6 +43,19 @@ class ListenerFrontendEmitContent(BaseModel):
 class ListenerDependencyKey(BaseModel):
     sectionId: str
     codeObjId: str | None = None
+
+    def to_graph_key(self) -> GraphKeyType:
+        return (self.sectionId, self.codeObjId)
+
+    @classmethod
+    def from_graph_key(cls, key: GraphKeyType) -> "ListenerDependencyKey":
+        section_id, code_obj_id = key
+        return cls(sectionId=section_id, codeObjId=code_obj_id)
+
+
+class ListenerRealtimeDelta(BaseModel):
+    dependency: ListenerDependencyKey
+    value: Any
 
 
 class ListenerRegisterCallback(BaseModel):

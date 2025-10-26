@@ -172,7 +172,7 @@ Key concepts:
 
 ### Phase 2 Progress
 - ✅ Introduced `RealtimeEventHub` to sequence realtime deltas per project, with regression coverage.
-- ✅ Simplified `ListenerRealtimeEventContent` so realtime routing relies on `delta` keys rather than a duplicated `dependencyIds` list.
+- ✅ Normalized `ListenerRealtimeEventContent` so realtime routing now ships a `deltas` list of `ListenerRealtimeDelta` entries, each with a structured key and value.
 - ✅ `WMHFrontendReceiver` now accepts `RealtimeUIChange` websocket messages and forwards them into `RealtimeEventHub`, which sequences and fans them out via `WMHPythonScriptSender`.
 
 #### Dependency Naming Rules
@@ -182,7 +182,7 @@ Key concepts:
 - Listener authors continue to specify dependencies using these sanitized strings so the public API remains stable, but the listener runtime resolves them to dependency graph keys for transport and storage.
 
 #### Dependency Key Strategy (Updated)
-- Convert listener-specified dependency strings to graph keys `(sectionId, codeObjId | None)` during registration. Cache both directions so the runtime can mutate the generated `S` instance without re-traversing the dependency graph.
+- Convert listener-specified dependency strings to graph keys `(sectionId, codeObjId | None)` during registration. The listener runtime rehydrates sanitized attribute names on demand by looking up dependency graph nodes rather than maintaining a bespoke cache.
 - Websocket payloads carry graph keys as structured objects with `sectionId` and `codeObjId` fields. The backend hydrates them straight into tuples while the frontend sends what it already has on hand.
 - `ListenerRegisterCallback.dependencies` stores structured `ListenerDependencyKey` entries; realtime deltas hand the listener the same structured keys so it can patch cached dependency graphs without string parsing.
 - Frontend controls already know `sectionId`/`codeObjId`, so emitting a graph key only requires packaging the two fields. No tree walk is needed client side.
@@ -193,13 +193,12 @@ Key concepts:
   - ✅ Split the listener websocket handshake into two stages: a `ListenerInit` bootstrap (no callbacks, just project + default feed) followed by full callback registration after the first persisted snapshot rebuilds the dependency graph.
   - ✅ Translate listener dependency strings to dependency-graph keys during registration and emit structured `{sectionId, codeObjId}` dependencies in `ListenerRegisterCallback`.
 - **Next Steps**
-  1. Update websocket payloads (`ListenerRegister`, `ListenerRealtimeEventContent`) and the listener registry to index callbacks by tuple graph keys.
-  2. Adjust backend senders/receivers (`WMHPythonScriptSender`, `RealtimeEventHub`, persisted snapshot broadcast) to accept structured graph keys, convert to tuples immediately, and request force refreshes when a listener references missing keys.
-  3. Regenerate frontend bindings so controls emit structured graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
-  4. Update the listener runtime to hydrate dual caches on bootstrap, translate realtime deltas back to sanitized names before mutating `s`, and trigger force refresh or error logs when deltas reference unknown keys.
-  5. Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and error handling; document phased rollout steps (backend structured-keys → frontend emissions) in release notes.
+ 1. Regenerate frontend bindings so controls emit structured graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
+ 2. Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and error handling; document phased rollout steps (backend structured-keys → frontend emissions) in release notes.
 
 ### Pending Work
+- Regenerate websocket bindings (`source activate.sh && cd frontend && pnpm generate`) once the frontend is ready to consume structured dependency keys.
+- Add regression coverage around tuple-key listener indexing and realtime error paths.
 - Extend docs/examples after the client lands.
 
 ### Manual Validation

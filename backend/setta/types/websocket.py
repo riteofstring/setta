@@ -15,6 +15,7 @@ from setta.types.generated.unions import (
     BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
@@ -204,9 +205,8 @@ class WebsocketMsgListenerFrontendEmitForward(FrontendWebsocketMsg):
 
 class RealtimeUIChangeContent(BaseModel):
     projectConfigId: str
-    dependencyId: str
+    dependencyKey: ListenerDependencyKey
     value: Any
-    metadata: dict[str, Any] | None = None
 
 
 class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):

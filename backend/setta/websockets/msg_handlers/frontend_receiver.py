@@ -5,6 +5,7 @@ from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
 )
+from setta.types.listener import ListenerRealtimeDelta
 from setta.types.websocket import (
     RealtimeUIChangeContent,
     WebsocketMsgCurrentAddressUpdate,
@@ -46,8 +47,11 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         await self.project_manager.broadcast_all_project_metadata()
 
     async def _handle_realtime_ui_change(self, content: RealtimeUIChangeContent):
+        delta = ListenerRealtimeDelta(
+            dependency=content.dependencyKey,
+            value=content.value,
+        )
         await self.realtime_event_hub.emit_realtime_delta(
             project_config_id=content.projectConfigId,
-            delta={content.dependencyId: content.value},
-            metadata=content.metadata,
+            deltas=[delta],
         )
