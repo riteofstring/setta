@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
@@ -8,6 +9,8 @@ import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
 
+from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -16,6 +19,7 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     ListenerRegisterContent,
 )
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
@@ -29,6 +33,7 @@ if TYPE_CHECKING:
     from websockets import ClientConnection
 
 logger = logging.getLogger(__name__)
+_MISSING = object()
 
 
 # Listener callbacks may either complete synchronously or return an awaitable.
@@ -52,6 +57,20 @@ class ListenerCallbackSpec:
         return self.register.callbackId
 
 
+@dataclass(slots=True)
+class ListenerCallbackContext:
+    changed: dict[str, Any]
+    log: logging.Logger
+
+
+@dataclass(slots=True)
+class ListenerRuntimeState:
+    project_state: ProjectStateSingleConfig
+    dependency_graph: DependencyGraph
+    code_generator: PythonCodeGenerator
+    s_instance: Any
+
+
 class SettaListener:
     def __init__(
         self,
@@ -72,6 +91,8 @@ class SettaListener:
         self._socket_id = uuid4().hex
         self._registration_pending = False
         self._is_registered = False
+        self._runtime_state: ListenerRuntimeState | None = None
+        self._dependency_cache: dict[str, Any] = {}
 
     @property
     def websocket_endpoint(self) -> str:
@@ -156,8 +177,14 @@ class SettaListener:
             self._handle_register_ack(message)
             return
         if isinstance(message, WebsocketMsgListenerBootstrap):
+            await self._handle_persisted_snapshot(
+                message.content, is_bootstrap=True
+            )
             return
         if isinstance(message, WebsocketMsgListenerPersistedUpdate):
+            await self._handle_persisted_snapshot(
+                message.content, is_bootstrap=False
+            )
             return
         logger.debug(
             "Listener %s ignoring unsupported message type %s",
@@ -314,3 +341,137 @@ class SettaListener:
                 "Listener %s failed to send register payload", self._project_id
             )
             raise
+
+    async def _handle_persisted_snapshot(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        is_bootstrap: bool,
+    ) -> None:
+        """Refresh listener state from a persisted project snapshot."""
+        runtime_state = self._build_runtime_state(project_state)
+        snapshot_values: dict[str, Any] = {}
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        updated_cache = dict(self._dependency_cache)
+
+        for spec in self._callbacks.values():
+            if not self._callback_accepts_persisted(spec):
+                continue
+
+            dependencies = tuple(spec.register.dependencies)
+            changed: dict[str, Any] = {}
+            should_run = not dependencies
+
+            for dependency in dependencies:
+                value = self._get_dependency_value(
+                    runtime_state.s_instance,
+                    dependency,
+                    snapshot_values,
+                )
+                previous = self._dependency_cache.get(dependency, _MISSING)
+                updated_cache[dependency] = value
+                if previous is _MISSING or value != previous:
+                    changed[dependency] = value
+                    should_run = True
+
+            if is_bootstrap and spec.register.runOnRefresh:
+                should_run = True
+
+            if should_run:
+                callbacks_to_run.append((spec, changed))
+
+        self._runtime_state = runtime_state
+        self._dependency_cache = updated_cache
+
+        for spec, changed in callbacks_to_run:
+            ctx = ListenerCallbackContext(
+                changed=changed,
+                log=logger.getChild(f"callback.{spec.callback_id}"),
+            )
+            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
+
+    def _build_runtime_state(
+        self, project_state: ProjectStateSingleConfig
+    ) -> ListenerRuntimeState:
+        dep_graph = DependencyGraph(project_state)
+        project_config = project_state.projectConfig
+        code_generator = PythonCodeGenerator(
+            dep_graph,
+            project_config.genCodePrefix,
+            project_config.genCodeSuffix,
+        )
+        code_generator.generate_code()
+        s_instance = self._instantiate_s(code_generator.code)
+        return ListenerRuntimeState(
+            project_state=project_state,
+            dependency_graph=dep_graph,
+            code_generator=code_generator,
+            s_instance=s_instance,
+        )
+
+    def _instantiate_s(self, generated_code: str) -> Any:
+        namespace: dict[str, Any] = {"__builtins__": __builtins__}
+        exec(generated_code, namespace)
+        if "s" in namespace:
+            return namespace["s"]
+        S_cls = namespace.get("S")
+        if S_cls is None:
+            raise RuntimeError("Generated code missing S class definition")
+        return S_cls()
+
+    def _get_dependency_value(
+        self,
+        s_instance: Any,
+        dependency: str,
+        snapshot_values: dict[str, Any],
+    ) -> Any:
+        if dependency in snapshot_values:
+            return snapshot_values[dependency]
+        value = self._resolve_dependency_value(s_instance, dependency)
+        snapshot_values[dependency] = value
+        return value
+
+    def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
+        target = current
+        for segment in dependency.split("."):
+            if isinstance(target, dict):
+                if segment not in target:
+                    raise KeyError(
+                        f"Dependency '{dependency}' missing key '{segment}'"
+                    )
+                target = target[segment]
+                continue
+            if isinstance(target, list):
+                try:
+                    index = int(segment)
+                except ValueError as error:
+                    raise KeyError(
+                        f"Dependency '{dependency}' requires integer index for list access"
+                    ) from error
+                try:
+                    target = target[index]
+                except IndexError as error:
+                    raise KeyError(
+                        f"Dependency '{dependency}' list index '{segment}' out of range"
+                    ) from error
+                continue
+            if not hasattr(target, segment):
+                raise AttributeError(
+                    f"Dependency '{dependency}' missing attribute '{segment}'"
+                )
+            target = getattr(target, segment)
+        return target
+
+    @staticmethod
+    def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
+        return spec.register.feed in {ListenerFeed.PERSISTED, ListenerFeed.BOTH}
+
+    async def _invoke_callback(
+        self,
+        spec: ListenerCallbackSpec,
+        state: Any,
+        ctx: ListenerCallbackContext,
+    ) -> None:
+        result = spec.function(state, ctx)
+        if inspect.isawaitable(result):
+            await result
