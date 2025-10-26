@@ -14,7 +14,6 @@ class ListenerFeed(str, Enum):
 
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: str
-    dependencyIds: list[str]
     delta: dict[str, Any]
     sequence: int
     metadata: dict[str, Any] | None = None

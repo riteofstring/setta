@@ -75,7 +75,6 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         content = ListenerRealtimeEventContent(
             projectConfigId="project-1",
-            dependencyIds=["Welcome"],
             delta={"Welcome": "Updated"},
             sequence=1,
         )

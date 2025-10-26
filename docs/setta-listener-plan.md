@@ -101,8 +101,7 @@ Key concepts:
 ### Listener Message Payload Notes
 - `ListenerRealtimeEventContent`:
   - `projectConfigId` identifies which listener session should process the delta.
-  - `dependencyIds` are the generated `S` attribute names (double-underscore hierarchy) so the client can trigger only the callbacks that registered for those identifiers.
-  - `delta` is a dict keyed by the same attribute names with JSON-serializable new values; listeners update the cached dependency graph/generator before invoking callbacks.
+  - `delta` is a dict keyed by generated `S` attribute names (double-underscore hierarchy) with JSON-serializable new values; listeners update the cached dependency graph/generator before invoking callbacks.
   - `sequence` monotonically increases per project; gaps signal missed events and prompt a force refresh.
   - `metadata` is optional context from the frontend (e.g., emitting control, timestamps); scripts may ignore it.
 - `ListenerForceRefreshContent`:
@@ -172,6 +171,10 @@ Key concepts:
 - ✅ Backend listener emit flow now forwards `ListenerFrontendEmit` payloads to frontend sockets, emits structured errors for invalid registrations, and omits success acknowledgements to keep realtime paths lean.
 - ✅ Documented a manual listener smoke workflow and introduced `tests/manual_listener_smoke.py` to exercise persisted updates end to end.
 - ✅ Hardened listener snapshot handling so invalid state values no longer crash `SettaListener` during `S` rebuilding; guard skips bad snapshots, reuses cached dependency values, and only skips individual missing dependencies.
+
+### Phase 2 Progress
+- ✅ Introduced `RealtimeEventHub` to sequence realtime deltas per project, with regression coverage.
+- ✅ Simplified `ListenerRealtimeEventContent` so realtime routing relies on `delta` keys rather than a duplicated `dependencyIds` list.
 
 ### Pending Work
 - Extend docs/examples after the client lands.

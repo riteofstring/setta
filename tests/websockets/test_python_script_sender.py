@@ -65,20 +65,17 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         await sender.send_realtime_update(
             projectConfigId="proj-1",
-            dependencyIds=["dep-a"],
             delta={"dep-a": "value-a"},
             sequence=1,
             metadata={"source": "slider"},
         )
         await sender.send_realtime_update(
             projectConfigId="proj-1",
-            dependencyIds=["dep-b"],
             delta={"dep-b": "value-b"},
             sequence=2,
         )
         await sender.send_realtime_update(
             projectConfigId="proj-1",
-            dependencyIds=["dep-unmatched"],
             delta={"dep-unmatched": "value-c"},
             sequence=3,
         )
@@ -126,7 +123,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         await sender.send_realtime_update(
             projectConfigId="proj-1",
-            dependencyIds=["dep-a"],
             delta={"dep-a": "value-a"},
             sequence=1,
         )

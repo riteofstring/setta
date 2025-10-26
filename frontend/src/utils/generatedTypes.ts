@@ -5637,7 +5637,6 @@ export function createWebsocketMsgListenerPersistedUpdate(
 
 export const ListenerRealtimeEventContentSchema = z.object({
   projectConfigId: z.string(),
-  dependencyIds: z.array(z.string()),
   delta: z.record(z.string(), z.any()),
   sequence: z.int(),
   metadata: z.union([z.record(z.string(), z.any()), z.null()]).default(null),

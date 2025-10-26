@@ -58,14 +58,14 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: str,
-        dependencyIds: list[str],
         delta: dict[str, Any],
         sequence: int,
         metadata: dict[str, Any] | None = None,
     ):
+        if not delta:
+            raise ValueError("delta must contain at least one entry")
         content = ListenerRealtimeEventContent(
             projectConfigId=projectConfigId,
-            dependencyIds=dependencyIds,
             delta=delta,
             sequence=sequence,
             metadata=metadata,
@@ -81,7 +81,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             matching_callbacks,
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
-            dependency_ids=dependencyIds,
+            dependency_ids=delta.keys(),
         ):
             if any(
                 registration.callbacks[callback_id].feed
@@ -94,7 +94,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             logger.debug(
                 "no listener sockets registered for realtime dependencies %s "
                 "(project config %s)",
-                dependencyIds,
+                list(delta.keys()),
                 projectConfigId,
             )
             return
