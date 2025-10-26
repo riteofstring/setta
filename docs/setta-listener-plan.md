@@ -188,6 +188,15 @@ Key concepts:
 - Frontend controls already know `sectionId`/`codeObjId`, so emitting a graph key only requires concatenation. No tree walk is needed client side.
 - During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using `DependencyGraph`/`PythonCodeGenerator` once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
 
+### Dependency ID Refactor Plan (In Progress)
+- Extend `DependencyGraph`/`PythonCodeGenerator` so every node caches the sanitized attribute name, tuple graph key, and serialized `${sectionId}::${codeObjId}` form; expose readonly lookup maps for consumers.
+- During listener registration resolve user-provided sanitized dependencies through that cache, fail fast on unknown names, and send only serialized graph keys in `ListenerRegisterCallback.dependencies`.
+- Update websocket payloads (`ListenerRegister`, `ListenerRealtimeEventContent`) and the listener registry to index callbacks by serialized graph keys; keep a temporary normalization shim that accepts legacy sanitized ids with loud warnings until the frontend rollout finishes.
+- Adjust backend senders/receivers (`WMHPythonScriptSender`, `RealtimeEventHub`, persisted snapshot broadcast) to normalize incoming keys, include lookup hashes when sending snapshots, and request force refreshes when a listener references missing keys.
+- Regenerate frontend bindings so controls emit serialized graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the serialized key.
+- Make the listener runtime hydrate dual caches on bootstrap, translate realtime deltas back to sanitized names before mutating `s`, and trigger force refresh or error logs when deltas reference unknown keys.
+- Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and legacy-compat shim; document phased rollout steps (backend dual-acceptance → frontend emissions → shim removal) in release notes.
+
 ### Pending Work
 - Extend docs/examples after the client lands.
 
