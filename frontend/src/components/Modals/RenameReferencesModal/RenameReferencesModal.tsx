@@ -5,6 +5,7 @@ import { closeModal, useModalData } from "state/actions/modal";
 import {
   acceptRenameRefactor,
   declineRenameRefactor,
+  maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
 import { useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
@@ -32,6 +33,7 @@ export function RenameReferencesModal() {
 
       route_save_settings({ settings: useSettings.getState() });
     }
+    maybeOpenNextRenamePrompt();
   };
 
   const handleConfirm = async () => {
@@ -50,6 +52,7 @@ export function RenameReferencesModal() {
       modalData.frontendOpId,
     );
     closeModal();
+    maybeOpenNextRenamePrompt();
   };
 
   return (

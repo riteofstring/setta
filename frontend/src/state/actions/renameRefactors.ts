@@ -1,5 +1,8 @@
+import { ModalTypeEnum } from "components/Modals/types";
+import { openRenameReferencesModal } from "state/actions/modal";
 import {
   NULL_PROJECT_CONFIG_ID,
+  useModal,
   useProjectState,
   useRenameRefactors,
 } from "state/definitions";
@@ -31,39 +34,42 @@ export function handleRenameRefactorBroadcast(
 export function saveRenameBroadcast(
   content: RenameRefactorBroadcastContent,
 ) {
-  useRenameRefactors.setState((state) => ({
-    byOpId: { ...state.byOpId, [content.frontendOpId]: content },
-  }));
-}
-
-export function getRenameBroadcast(frontendOpId: string) {
-  return useRenameRefactors.getState().byOpId[frontendOpId];
-}
-
-export function popRenameBroadcast(frontendOpId: string) {
-  const existing = getRenameBroadcast(frontendOpId);
-  if (!existing) {
-    return undefined;
-  }
-
   useRenameRefactors.setState((state) => {
-    const next = { ...state.byOpId };
-    delete next[frontendOpId];
-    return { byOpId: next };
+    const nextQueue = state.queue.includes(content.frontendOpId)
+      ? state.queue
+      : [...state.queue, content.frontendOpId];
+    const { [content.frontendOpId]: _removed, ...restReady } =
+      state.readyOpIds;
+    return {
+      byOpId: { ...state.byOpId, [content.frontendOpId]: content },
+      queue: nextQueue,
+      readyOpIds: restReady,
+    };
   });
-
-  return existing;
 }
 
 export function clearRenameBroadcast(frontendOpId: string) {
   useRenameRefactors.setState((state) => {
-    if (!state.byOpId[frontendOpId]) {
+    const existsInState =
+      state.byOpId[frontendOpId] ||
+      state.queue.includes(frontendOpId) ||
+      state.readyOpIds[frontendOpId];
+    if (!existsInState) {
       return state;
     }
 
-    const next = { ...state.byOpId };
-    delete next[frontendOpId];
-    return { byOpId: next };
+    const nextByOpId = { ...state.byOpId };
+    delete nextByOpId[frontendOpId];
+
+    const nextQueue = state.queue.filter((opId) => opId !== frontendOpId);
+
+    const { [frontendOpId]: _removedReady, ...restReady } = state.readyOpIds;
+
+    return {
+      byOpId: nextByOpId,
+      queue: nextQueue,
+      readyOpIds: restReady,
+    };
   });
 }
 
@@ -71,11 +77,98 @@ export function resetRenameBroadcasts() {
   useRenameRefactors.getState().reset();
 }
 
+export function markRenameBroadcastsReady(
+  completedOpIds: Iterable<string>,
+) {
+  const ids = Array.from(completedOpIds);
+  if (ids.length === 0) {
+    return;
+  }
+
+  useRenameRefactors.setState((state) => {
+    let changed = false;
+    const nextReady = { ...state.readyOpIds };
+
+    for (const id of ids) {
+      if (
+        state.byOpId[id] &&
+        state.queue.includes(id) &&
+        !nextReady[id]
+      ) {
+        changed = true;
+        nextReady[id] = true;
+      }
+    }
+
+    if (!changed) {
+      return state;
+    }
+
+    return {
+      byOpId: state.byOpId,
+      queue: state.queue,
+      readyOpIds: nextReady,
+    };
+  });
+}
+
+function shiftNextReadyRenameBroadcast() {
+  let nextPrompt: RenameRefactorBroadcastContent | undefined;
+
+  useRenameRefactors.setState((state) => {
+    if (state.queue.length === 0) {
+      return state;
+    }
+
+    const [head, ...restQueue] = state.queue;
+    if (!state.readyOpIds[head]) {
+      return state;
+    }
+
+    nextPrompt = state.byOpId[head];
+
+    const nextByOpId = { ...state.byOpId };
+    delete nextByOpId[head];
+
+    const { [head]: _removedReady, ...restReady } = state.readyOpIds;
+
+    return {
+      byOpId: nextByOpId,
+      queue: restQueue,
+      readyOpIds: restReady,
+    };
+  });
+
+  return nextPrompt;
+}
+
+export function maybeOpenNextRenamePrompt() {
+  const modalState = useModal.getState();
+  if (
+    modalState.open &&
+    modalState.modalInfo?.type === ModalTypeEnum.RENAME_REFERENCES
+  ) {
+    return;
+  }
+
+  const nextPrompt = shiftNextReadyRenameBroadcast();
+  if (!nextPrompt) {
+    return;
+  }
+
+  openRenameReferencesModal({
+    frontendOpId: nextPrompt.frontendOpId,
+    projectConfigId: nextPrompt.projectConfigId,
+    changedValues: nextPrompt.changedNodeValues,
+  });
+}
+
 export async function acceptRenameRefactor(
   projectConfigId: string,
   frontendOpId: string,
 ) {
   await post("/acceptRenameRefactor", { projectConfigId, frontendOpId });
+  clearRenameBroadcast(frontendOpId);
 }
 
 export async function declineRenameRefactor(
@@ -83,4 +176,5 @@ export async function declineRenameRefactor(
   frontendOpId: string,
 ) {
   await post("/declineRenameRefactor", { projectConfigId, frontendOpId });
+  clearRenameBroadcast(frontendOpId);
 }

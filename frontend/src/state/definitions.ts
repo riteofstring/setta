@@ -128,11 +128,17 @@ export const usePendingOperations = withProjectState(
 
 type ZustandRenameRefactors = {
   byOpId: Record<string, RenameRefactorBroadcastContent>;
+  queue: Array<string>;
+  readyOpIds: Record<string, boolean>;
 };
 
 export const useRenameRefactors = withProjectState(
   createWithEqualityFn(
-    withResetFn<ZustandRenameRefactors>(() => ({ byOpId: {} })),
+    withResetFn<ZustandRenameRefactors>(() => ({
+      byOpId: {},
+      queue: [],
+      readyOpIds: {},
+    })),
   ),
 );
 

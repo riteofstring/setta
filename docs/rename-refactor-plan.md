@@ -24,7 +24,7 @@
 - Extend the websocket handler layer to capture the rename broadcast, store it in a dedicated rename state keyed by `frontendOpId`, and launch `RenameReferencesModal` once the associated op completes.
 - ✅ Replace `processRenameRefactorResults` with a centralized handler that accepts the broadcast payload, filters by active project, persists prompts, and lets later stages decide how to respond.
 - ✅ Remove the legacy `makeReplacements` local mutations in favor of backend-powered accept/decline flows; modal buttons now call the new endpoints directly.
-- Queue multiple pending rename prompts so the modal can walk through each `frontendOpId` sequentially instead of discarding extras when the backend completes several ops at once.
+- ✅ Queue multiple pending rename prompts so the modal can walk through each `frontendOpId` sequentially instead of discarding extras when the backend completes several ops at once (rename refactor state now maintains a queue and ready set, and the modal advances via `maybeOpenNextRenamePrompt`).
 - Update the modal UI to display both old/new identifiers and affected locations so users understand the impact before confirming.
 
 ## Follow-Up
