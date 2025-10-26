@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping
+from typing import Iterable
 
 from setta.types.listener import ListenerRegisterCallback
 
@@ -18,7 +18,7 @@ class ListenerRegistration:
         *,
         websocket_id: str,
         project_config_id: str,
-        callbacks: Mapping[str, ListenerRegisterCallback],
+        callbacks: dict[str, ListenerRegisterCallback],
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
         dependency_index: dict[str, set[str]] = {}
@@ -47,7 +47,7 @@ class ListenerRegistry:
         *,
         websocket_id: str,
         project_config_id: str,
-        callbacks: Mapping[str, ListenerRegisterCallback],
+        callbacks: dict[str, ListenerRegisterCallback],
     ) -> ListenerRegistration:
         registration = ListenerRegistration.build_from_callbacks(
             websocket_id=websocket_id,

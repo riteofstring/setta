@@ -1,4 +1,4 @@
-from typing import Any, Mapping
+from typing import Any
 
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 

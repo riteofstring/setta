@@ -86,3 +86,7 @@ Never import annotations from __future__.
 ## Safety
 
 Do not add try/except and try/catch blocks unless absolutely necessary.
+
+
+## Python type annotations
+Do not use Iterable and Mapping unless really necessary.
