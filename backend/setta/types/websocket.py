@@ -43,6 +43,11 @@ class WebsocketMsgTypeForBackend(str, Enum):
 class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerBootstrap = "ListenerBootstrap"
     ListenerPersistedUpdate = "ListenerPersistedUpdate"
+    ListenerRealtimeEvent = "ListenerRealtimeEvent"
+    ListenerForceRefresh = "ListenerForceRefresh"
+    ListenerAck = "ListenerAck"
+    ListenerError = "ListenerError"
+    ListenerFrontendEmit = "ListenerFrontendEmit"
 
 
 class WebsocketConnectionType(str, Enum):
@@ -195,4 +200,69 @@ class WebsocketMsgListenerPersistedUpdate(PythonScriptWebsocketMsg):
     content: ProjectStateSingleConfigWithCompletedOpIds
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate] = (
         WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate
+    )
+
+
+class ListenerRealtimeEventContent(BaseModel):
+    projectConfigId: str
+    dependencyIds: list[str]
+    delta: dict[str, Any]
+    sequence: int
+    metadata: dict[str, Any] | None = None
+
+
+class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
+    content: ListenerRealtimeEventContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent] = (
+        WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent
+    )
+
+
+class ListenerForceRefreshContent(BaseModel):
+    projectState: ProjectStateSingleConfigWithCompletedOpIds | None = None
+    reason: str | None = None
+    schemaHash: str | None = None
+
+
+class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
+    content: ListenerForceRefreshContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerForceRefresh] = (
+        WebsocketMsgTypeForPythonScript.ListenerForceRefresh
+    )
+
+
+class ListenerAckContent(BaseModel):
+    message: str | None = None
+    heartbeatIntervalSec: float | None = None
+
+
+class WebsocketMsgListenerAck(PythonScriptWebsocketMsg):
+    content: ListenerAckContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerAck] = (
+        WebsocketMsgTypeForPythonScript.ListenerAck
+    )
+
+
+class ListenerErrorContent(BaseModel):
+    error: str
+    details: Any | None = None
+
+
+class WebsocketMsgListenerError(PythonScriptWebsocketMsg):
+    content: ListenerErrorContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerError] = (
+        WebsocketMsgTypeForPythonScript.ListenerError
+    )
+
+
+class ListenerFrontendEmitContent(BaseModel):
+    projectConfigId: str
+    payload: dict[str, Any]
+    target: str | None = None
+
+
+class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
+    content: ListenerFrontendEmitContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
+        WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
     )

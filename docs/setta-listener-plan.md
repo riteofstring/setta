@@ -83,6 +83,18 @@ Key concepts:
 - `ListenerAck` / `ListenerError`: handshake, heartbeat, and error reporting.
 - `ListenerFrontendEmit`: forwarded script→frontend payloads.
 
+### Listener Message Payload Notes
+- `ListenerRealtimeEventContent`:
+  - `projectConfigId` identifies which listener session should process the delta.
+  - `dependencyIds` are the resolved dependency-graph ids (e.g., section/param tuples) so the client can trigger only the callbacks that registered for those ids.
+  - `delta` is a dict keyed by the same dependency ids with JSON-serializable new values; listeners patch their cached `S` snapshot before invoking callbacks.
+  - `sequence` monotonically increases per project; gaps signal missed events and prompt a force refresh.
+  - `metadata` is optional context from the frontend (e.g., emitting control, timestamps); scripts may ignore it.
+- `ListenerForceRefreshContent`:
+  - ships an optional authoritative `ProjectStateSingleConfigWithCompletedOpIds` snapshot.
+  - includes `reason` strings for logging/UX and `schemaHash` that increments whenever the backend regenerates the `S` bundle so listeners reload the matching generated module.
+- `ListenerFrontendEmitContent` wraps listener `emit_to_frontend` calls with `projectConfigId`, an arbitrary payload dict, and an optional `target` routing hint for the UI.
+
 ### Force Refresh & Reconciliation
 - Listener keeps track of the last `sequence` per feed.
 - Missing or out-of-order sequence → listener requests `force_refresh`.
@@ -128,6 +140,8 @@ Key concepts:
   - `WMHPythonScriptSender` broadcasts persisted snapshots alongside existing frontend payloads.
   - `BaseProjectManager._broadcast_project_state_snapshot` now targets the python-script channel.
   - `WMHPythonScriptReceiver` tracks connected script sockets.
+- ✅ Defined additional listener websocket enums/models (`ListenerRealtimeEvent`, `ListenerForceRefresh`, `ListenerAck`, `ListenerError`, `ListenerFrontendEmit`) and registered them in the discriminated unions.
+- ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, ack/error, and listener→frontend emissions.
 - ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ⏳ Listener client and tooling are not yet implemented; frontend endpoints remain unchanged.
 
@@ -135,6 +149,8 @@ Key concepts:
 - Implement the `SettaListener` client handshake, dependency resolution, and websocket session management.
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
+- Track listener dependency registrations server-side so realtime broadcasts can target only interested sockets.
+- Flesh out `WMHPythonScriptReceiver` message handling (register, emit, heartbeat) to pair with the new sender helpers.
 
 ### Manual Validation
 - Deferred until the listener client is implemented; no CLI helper exists yet.

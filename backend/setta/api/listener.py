@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 # Listener callbacks may either complete synchronously or return an awaitable.
 ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 
+
 class ListenerFeed(str, Enum):
     PERSISTED = "persisted"
     REALTIME = "realtime"

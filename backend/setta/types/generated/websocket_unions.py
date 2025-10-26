@@ -6,8 +6,13 @@ from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgListenerAck,
     WebsocketMsgListenerBootstrap,
+    WebsocketMsgListenerError,
+    WebsocketMsgListenerForceRefresh,
+    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerPersistedUpdate,
+    WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -34,6 +39,11 @@ WebsocketMsgUnion = (
     | WebsocketMsgCurrentAddressUpdate
     | WebsocketMsgListenerBootstrap
     | WebsocketMsgListenerPersistedUpdate
+    | WebsocketMsgListenerRealtimeEvent
+    | WebsocketMsgListenerForceRefresh
+    | WebsocketMsgListenerAck
+    | WebsocketMsgListenerError
+    | WebsocketMsgListenerFrontendEmit
 )
 
 WebsocketMsgUnionWithDiscriminator = Annotated[
@@ -58,6 +68,11 @@ WebsocketMsgTypeSet = set(
         "CurrentAddressUpdate",
         "ListenerBootstrap",
         "ListenerPersistedUpdate",
+        "ListenerRealtimeEvent",
+        "ListenerForceRefresh",
+        "ListenerAck",
+        "ListenerError",
+        "ListenerFrontendEmit",
     ]
 )
 
@@ -110,7 +125,13 @@ BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscrim
 BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate"])
 
 PythonScriptWebsocketMsgUnion = (
-    WebsocketMsgListenerBootstrap | WebsocketMsgListenerPersistedUpdate
+    WebsocketMsgListenerBootstrap
+    | WebsocketMsgListenerPersistedUpdate
+    | WebsocketMsgListenerRealtimeEvent
+    | WebsocketMsgListenerForceRefresh
+    | WebsocketMsgListenerAck
+    | WebsocketMsgListenerError
+    | WebsocketMsgListenerFrontendEmit
 )
 
 PythonScriptWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -121,4 +142,14 @@ PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(
     PythonScriptWebsocketMsgUnionWithDiscriminator
 )
 
-PythonScriptWebsocketMsgTypeSet = set(["ListenerBootstrap", "ListenerPersistedUpdate"])
+PythonScriptWebsocketMsgTypeSet = set(
+    [
+        "ListenerBootstrap",
+        "ListenerPersistedUpdate",
+        "ListenerRealtimeEvent",
+        "ListenerForceRefresh",
+        "ListenerAck",
+        "ListenerError",
+        "ListenerFrontendEmit",
+    ]
+)
