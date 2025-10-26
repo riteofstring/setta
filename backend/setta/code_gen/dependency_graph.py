@@ -88,8 +88,6 @@ class RenameReferenceChangedValue:
 
 
 class DependencyGraph:
-    SERIALIZED_GRAPH_KEY_DELIMITER = "::"
-
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = (
             CallableSectionImpl,
@@ -105,9 +103,6 @@ class DependencyGraph:
     def reset(self):
         self.graph: dict[GraphKeyType, Node] = {}
         self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
-        self.graph_key_to_full_path_name: dict[GraphKeyType, str] = {}
-        self.graph_key_to_serialized_id: dict[GraphKeyType, str] = {}
-        self.serialized_id_to_graph_key: dict[str, GraphKeyType] = {}
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
 
     def construct_graph(self, p: ProjectStateSingleConfig):
@@ -277,12 +272,8 @@ class DependencyGraph:
         return output_deps
 
     def add_to_graph(self, graph_key, node: Node):
-        serialized = self.serialize_graph_key(graph_key)
         self.graph[graph_key] = node
         self.full_path_name_to_graph_key[node.full_path_name] = graph_key
-        self.graph_key_to_full_path_name[graph_key] = node.full_path_name
-        self.graph_key_to_serialized_id[graph_key] = serialized
-        self.serialized_id_to_graph_key[serialized] = graph_key
 
     def change_value(self, graph_key, value):
         node = self.graph[graph_key]
@@ -378,24 +369,3 @@ class DependencyGraph:
 
     def extract_ids_from_graph_key(self, graph_key: GraphKeyType) -> GraphKeySeparated:
         return GraphKeySeparated(sectionId=graph_key[0], paramInfoId=graph_key[1])
-
-    @classmethod
-    def serialize_graph_key(cls, graph_key: GraphKeyType) -> str:
-        section_id, param_info_id = graph_key
-        serialized_param = "" if param_info_id is None else param_info_id
-        return f"{section_id}{cls.SERIALIZED_GRAPH_KEY_DELIMITER}{serialized_param}"
-
-    @classmethod
-    def deserialize_graph_key(cls, serialized: str) -> GraphKeyType:
-        if cls.SERIALIZED_GRAPH_KEY_DELIMITER not in serialized:
-            raise ValueError(
-                f"Serialized graph key '{serialized}' is missing delimiter "
-                f"'{cls.SERIALIZED_GRAPH_KEY_DELIMITER}'"
-            )
-        section_id, param_info_id = serialized.split(
-            cls.SERIALIZED_GRAPH_KEY_DELIMITER, maxsplit=1
-        )
-        if not section_id:
-            raise ValueError("Serialized graph key must include a section id")
-        param_info_id = param_info_id or None
-        return (section_id, param_info_id)
