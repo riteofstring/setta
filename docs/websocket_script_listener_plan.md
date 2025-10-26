@@ -8,6 +8,11 @@ We will modernize the Python script listener mode so user-authored scripts can s
 
 - Audit the current websocket lifecycle across `backend/setta/api/listener.py`, `backend/setta/websockets/msg_handlers/python_script_receiver.py`, and `frontend/src/state/actions/websocketReceive.ts` to document existing handshakes, message payloads, and state-diff broadcasts.
 - Introduce or clarify message types covering script readiness, dependency registration, targeted diffs, full-state payloads, and force-refresh responses; update the shared enums/constants once the shapes are finalized.
+- Current code path recap:
+  - `SettaListener.start` immediately emits `scriptReady` with the script’s module path, then waits for a `projectData` payload that is currently unimplemented before responding with `scriptDependencies` (`backend/setta/api/listener.py`).
+  - Incremental updates arrive via `WS_CALL_INTERACTIVE_FNS`; the listener throttles/debounces callbacks but still needs logic to seed `_setta_data` and update dependency maps (`backend/setta/api/listener.py`).
+  - `WMHPythonScriptReceiver.process_json_str` is a TODO, so the server never reacts to `scriptReady` or dependency messages, and only disconnect cleanup currently works (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
+  - Treat existing constants/enums (`WS_PROJECT_DATA`, `WS_CALL_INTERACTIVE_FNS`, etc.) as historical; we can redefine the taxonomy if newer flows require different shapes.
 
 ## Backend Updates
 
