@@ -35,6 +35,8 @@ from setta.types.websocket import (
 )
 from setta.utils.constants import C
 
+from .scheduling import ListenerCallbackScheduler
+
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
@@ -69,6 +71,7 @@ class ListenerCallbackSpec:
     throttle_ms: int | None
     run_on_refresh: bool
     structured_dependencies: tuple[ListenerDependencyKey, ...] = ()
+    logger: logging.Logger | None = None
 
 
 @dataclass(slots=True)
@@ -109,6 +112,7 @@ class SettaListener:
         self._runtime_state: ListenerRuntimeState | None = None
         self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
+        self._scheduler = ListenerCallbackScheduler()
 
     @property
     def websocket_endpoint(self) -> str:
@@ -314,7 +318,9 @@ class SettaListener:
                 throttle_ms=throttle_ms,
                 run_on_refresh=run_on_refresh,
             )
+            spec.logger = logger.getChild(f"callback.{callback_id}")
             self._callbacks[callback_id] = spec
+            self._register_scheduler_callback(spec)
             return func
 
         return decorator
@@ -434,6 +440,7 @@ class SettaListener:
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
 
         for spec in self._callbacks.values():
+            self._scheduler.reset(spec.callback_id)
             if not self._callback_accepts_persisted(spec):
                 continue
             dependencies = spec.declared_dependencies
@@ -467,10 +474,7 @@ class SettaListener:
             await self._send_listener_register(websocket)
 
         for spec, changed in callbacks_to_run:
-            ctx = ListenerCallbackContext(
-                changed=changed,
-                log=logger.getChild(f"callback.{spec.callback_id}"),
-            )
+            ctx = self._build_callback_context(spec, changed)
             await self._invoke_callback(spec, runtime_state.s_instance, ctx)
 
     def _build_runtime_state(
@@ -671,12 +675,42 @@ class SettaListener:
             return
 
         for spec, changed in callbacks_to_run:
-            ctx = ListenerCallbackContext(
-                changed=changed,
-                log=logger.getChild(f"callback.{spec.callback_id}"),
-            )
-            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
+            self._scheduler.submit(spec.callback_id, dict(changed))
 
     def _set_dependency_value(self, current: Any, dependency: str, value: Any) -> None:
         """Set a dependency value on the cached S instance."""
         setattr(current, dependency, value)
+
+    def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
+        async def executor(changed: dict[str, Any]) -> None:
+            runtime_state = self._runtime_state
+            if runtime_state is None:
+                return
+            ctx = self._build_callback_context(spec, changed)
+            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
+
+        try:
+            self._scheduler.register_callback(
+                spec.callback_id,
+                executor=executor,
+                debounce_ms=spec.debounce_ms,
+                throttle_ms=spec.throttle_ms,
+            )
+        except ValueError:
+            # Re-registering should overwrite prior scheduling state.
+            self._scheduler.unregister_callback(spec.callback_id)
+            self._scheduler.register_callback(
+                spec.callback_id,
+                executor=executor,
+                debounce_ms=spec.debounce_ms,
+                throttle_ms=spec.throttle_ms,
+            )
+
+    def _build_callback_context(
+        self, spec: ListenerCallbackSpec, changed: dict[str, Any]
+    ) -> ListenerCallbackContext:
+        spec_logger = spec.logger
+        if spec_logger is None:
+            spec_logger = logger.getChild(f"callback.{spec.callback_id}")
+            spec.logger = spec_logger
+        return ListenerCallbackContext(changed=changed, log=spec_logger)

@@ -15,8 +15,8 @@
 ### Phase Progress
 - **Phase 1 – persisted pipeline** ✅ Complete. Websocket session handling, listener client skeleton, snapshot broadcasting, and persisted callback execution are wired and covered by the manual smoke workflow.
 - **Phase 2 – realtime feed** ✅ Complete. Structured dependency keys flow end-to-end, realtime sequencing is enforced, and listeners receive deltas only when subscribed via `realtime` or `both` feeds.
-- **Phase 3 – listener UX & emit helpers** ⏳ Outstanding. Need per-callback debounce/throttle scheduling for the existing `debounce_ms`/`throttle_ms` spec, typed delta application that mirrors `PythonCodeGenerator.get_param_value` (re-hydrating string payloads via `eval` where appropriate), public-facing emit helpers (`emit_to_frontend`, `force_refresh`, etc.), and documentation polish; UI exposure is still under discussion.
-- **Phase 4 – reliability & tests** ⏳ Outstanding. Pending work includes schema hot-reload behavior, richer error handling, integration tests that exercise listener scripts, and broader monitoring.
+- **Phase 3 – listener UX & emit helpers** ⏳ Outstanding. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; still need typed delta application that mirrors `PythonCodeGenerator.get_param_value` (re-hydrating string payloads via `eval` where appropriate), public-facing emit helpers (`emit_to_frontend`, `force_refresh`, etc.), and documentation polish; UI exposure is still under discussion.
+- **Phase 4 – reliability & tests** ⏳ Outstanding. New async suites cover scheduler edge cases and realtime debounce handling; still pending are schema hot-reload behavior, richer error handling, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
 
 ### Dependency Key Refactor Status
 - **Done**: Listener registration now resolves sanitized dependency strings to graph keys, websocket payloads ship structured keys, and frontend controls emit the same structure.
@@ -31,6 +31,7 @@
 ### Manual Validation
 1. Stack: `source activate.sh && cd frontend && pnpm start`.
 2. Listener: `source activate.sh && python tests/manual_listener_smoke.py`.
+   - For callbacks with `debounce_ms`/`throttle_ms`, expect grouped console output rather than one line per UI change; deja-vu entries are now coalesced before dispatch.
 3. In the UI, switch to the matching project and edit a control covered by the listener dependency; confirm the listener prints the new value and `ctx.changed`.
 4. Stop both processes with `Ctrl+C`.
 
