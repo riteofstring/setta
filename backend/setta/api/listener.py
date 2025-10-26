@@ -15,6 +15,7 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerFeed,
     ListenerInitContent,
     ListenerRealtimeEventContent,
@@ -62,8 +63,12 @@ ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
-    register: ListenerRegisterCallback
     declared_dependencies: tuple[str, ...]
+    feed: ListenerFeed
+    debounce_ms: int | None
+    throttle_ms: int | None
+    run_on_refresh: bool
+    structured_dependencies: tuple[ListenerDependencyKey, ...] = ()
 
 
 @dataclass(slots=True)
@@ -300,18 +305,14 @@ class SettaListener:
         def decorator(func: ListenerCallback) -> ListenerCallback:
             dependencies = list(deps) if deps is not None else []
             callback_id = uuid4().hex
-            register = ListenerRegisterCallback(
-                dependencies=dependencies,
-                feed=selection,
-                debounceMs=debounce_ms,
-                throttleMs=throttle_ms,
-                runOnRefresh=run_on_refresh,
-            )
             spec = ListenerCallbackSpec(
                 function=func,
                 callback_id=callback_id,
-                register=register,
                 declared_dependencies=tuple(dependencies),
+                feed=selection,
+                debounce_ms=debounce_ms,
+                throttle_ms=throttle_ms,
+                run_on_refresh=run_on_refresh,
             )
             self._callbacks[callback_id] = spec
             return func
@@ -320,13 +321,48 @@ class SettaListener:
 
     def _build_register_content(self) -> ListenerRegisterContent:
         """Serialize callback metadata into a register payload."""
-        callbacks = {
-            spec.callback_id: spec.register for spec in self._callbacks.values()
-        }
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            raise RuntimeError(
+                "Listener runtime state unavailable during registration payload build"
+            )
+        dependency_graph = runtime_state.dependency_graph
+        callbacks: dict[str, ListenerRegisterCallback] = {}
+        for spec in self._callbacks.values():
+            structured_dependencies: list[ListenerDependencyKey] = []
+            for dependency in spec.declared_dependencies:
+                structured_dependencies.append(
+                    self._translate_dependency_name(
+                        dependency=dependency,
+                        dependency_graph=dependency_graph,
+                    )
+                )
+            callbacks[spec.callback_id] = ListenerRegisterCallback(
+                dependencies=list(structured_dependencies),
+                feed=spec.feed,
+                debounceMs=spec.debounce_ms,
+                throttleMs=spec.throttle_ms,
+                runOnRefresh=spec.run_on_refresh,
+            )
+            spec.structured_dependencies = tuple(structured_dependencies)
         return ListenerRegisterContent(
             projectConfigId=self._project_id,
             callbacks=callbacks,
         )
+
+    def _translate_dependency_name(
+        self,
+        *,
+        dependency: str,
+        dependency_graph: DependencyGraph,
+    ) -> ListenerDependencyKey:
+        graph_key = dependency_graph.full_path_name_to_graph_key.get(dependency)
+        if graph_key is None:
+            raise KeyError(
+                f"Unknown listener dependency {dependency!r} for project {self._project_id}"
+            )
+        section_id, code_obj_id = graph_key
+        return ListenerDependencyKey(sectionId=section_id, codeObjId=code_obj_id)
 
     @staticmethod
     def _normalize_feed(
@@ -400,8 +436,7 @@ class SettaListener:
         for spec in self._callbacks.values():
             if not self._callback_accepts_persisted(spec):
                 continue
-
-            dependencies = tuple(spec.register.dependencies)
+            dependencies = spec.declared_dependencies
             changed: dict[str, Any] = {}
             should_run = not dependencies
 
@@ -419,7 +454,7 @@ class SettaListener:
                     changed[dependency] = value
                     should_run = True
 
-            if is_bootstrap and spec.register.runOnRefresh:
+            if is_bootstrap and spec.run_on_refresh:
                 should_run = True
 
             if should_run:
@@ -508,11 +543,11 @@ class SettaListener:
 
     @staticmethod
     def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
-        return spec.register.feed in {ListenerFeed.PERSISTED, ListenerFeed.BOTH}
+        return spec.feed in {ListenerFeed.PERSISTED, ListenerFeed.BOTH}
 
     @staticmethod
     def _callback_accepts_realtime(spec: ListenerCallbackSpec) -> bool:
-        return spec.register.feed in {ListenerFeed.REALTIME, ListenerFeed.BOTH}
+        return spec.feed in {ListenerFeed.REALTIME, ListenerFeed.BOTH}
 
     async def _invoke_callback(
         self,
@@ -592,7 +627,7 @@ class SettaListener:
             if not self._callback_accepts_realtime(spec):
                 continue
 
-            dependencies = tuple(spec.register.dependencies)
+            dependencies = spec.declared_dependencies
             if not dependencies:
                 callbacks_to_run.append((spec, dict(applied_dependencies)))
                 continue

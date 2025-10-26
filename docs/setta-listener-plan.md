@@ -184,20 +184,20 @@ Key concepts:
 #### Dependency Key Strategy (Updated)
 - Convert listener-specified dependency strings to graph keys `(sectionId, codeObjId | None)` during registration. Cache both directions so the runtime can mutate the generated `S` instance without re-traversing the dependency graph.
 - Websocket payloads carry graph keys as structured objects with `sectionId` and `codeObjId` fields. The backend hydrates them straight into tuples while the frontend sends what it already has on hand.
-- `ListenerRegisterCallback.dependencies` stores tuples internally; realtime deltas hand the listener the same structured keys so it can patch cached dependency graphs without string parsing.
+- `ListenerRegisterCallback.dependencies` stores structured `ListenerDependencyKey` entries; realtime deltas hand the listener the same structured keys so it can patch cached dependency graphs without string parsing.
 - Frontend controls already know `sectionId`/`codeObjId`, so emitting a graph key only requires packaging the two fields. No tree walk is needed client side.
 - During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using the dependency graph once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
 
 ### Dependency ID Refactor Plan (In Progress)
 - **Completed**
   - ✅ Split the listener websocket handshake into two stages: a `ListenerInit` bootstrap (no callbacks, just project + default feed) followed by full callback registration after the first persisted snapshot rebuilds the dependency graph.
+  - ✅ Translate listener dependency strings to dependency-graph keys during registration and emit structured `{sectionId, codeObjId}` dependencies in `ListenerRegisterCallback`.
 - **Next Steps**
-  1. Use the existing `DependencyGraph.full_path_name_to_graph_key` lookup to translate listener dependency strings into graph keys during registration; fail fast on unknown names and send structured `{sectionId, codeObjId}` entries in `ListenerRegisterCallback.dependencies`.
-  2. Update websocket payloads (`ListenerRegister`, `ListenerRealtimeEventContent`) and the listener registry to index callbacks by tuple graph keys; keep a temporary normalization shim that accepts legacy sanitized ids with loud warnings until the frontend rollout finishes.
-  3. Adjust backend senders/receivers (`WMHPythonScriptSender`, `RealtimeEventHub`, persisted snapshot broadcast) to accept structured graph keys, convert to tuples immediately, and request force refreshes when a listener references missing keys.
-  4. Regenerate frontend bindings so controls emit structured graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
-  5. Update the listener runtime to hydrate dual caches on bootstrap, translate realtime deltas back to sanitized names before mutating `s`, and trigger force refresh or error logs when deltas reference unknown keys.
-  6. Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and legacy-compat shim; document phased rollout steps (backend dual-acceptance → frontend emissions → shim removal) in release notes.
+  1. Update websocket payloads (`ListenerRegister`, `ListenerRealtimeEventContent`) and the listener registry to index callbacks by tuple graph keys.
+  2. Adjust backend senders/receivers (`WMHPythonScriptSender`, `RealtimeEventHub`, persisted snapshot broadcast) to accept structured graph keys, convert to tuples immediately, and request force refreshes when a listener references missing keys.
+  3. Regenerate frontend bindings so controls emit structured graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
+  4. Update the listener runtime to hydrate dual caches on bootstrap, translate realtime deltas back to sanitized names before mutating `s`, and trigger force refresh or error logs when deltas reference unknown keys.
+  5. Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and error handling; document phased rollout steps (backend structured-keys → frontend emissions) in release notes.
 
 ### Pending Work
 - Extend docs/examples after the client lands.

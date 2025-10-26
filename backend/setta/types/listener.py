@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from setta.types.project_state import ProjectStateSingleConfig
 
-
 class ListenerFeed(str, Enum):
     PERSISTED = "persisted"
     REALTIME = "realtime"
@@ -41,8 +40,13 @@ class ListenerFrontendEmitContent(BaseModel):
     target: str | None = None
 
 
+class ListenerDependencyKey(BaseModel):
+    sectionId: str
+    codeObjId: str | None = None
+
+
 class ListenerRegisterCallback(BaseModel):
-    dependencies: list[str]
+    dependencies: list[ListenerDependencyKey]
     feed: ListenerFeed
     debounceMs: int | None = None
     throttleMs: int | None = None
