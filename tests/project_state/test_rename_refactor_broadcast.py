@@ -5,6 +5,7 @@ from contextlib import AsyncExitStack
 from setta.code_gen.utils import sanitize_name
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
+    DeclineRenameRefactorRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
 )
@@ -255,6 +256,121 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 impl_after.value,
                 f"s.{sanitize_name(new_name)}",
                 "Acceptance should update dependent values to the renamed token.",
+            )
+        finally:
+            backend_settings.renameRefactorMode = previous_mode
+
+    async def test_decline_rename_refactor_clears_pending_entry(self):
+        backend_settings = self.manager.settings_file.settings.backend
+        previous_mode = backend_settings.renameRefactorMode
+        backend_settings.renameRefactorMode = RenameRefactorMode.ALWAYS_ASK
+        try:
+            state_before = await self.manager.load_project_config(
+                self.project_config_id
+            )
+            target_section_id = None
+            target_param_id = None
+            original_name = None
+
+            for section_id, section_core in state_before.sections.items():
+                try:
+                    param_ids = get_curr_top_level_param_ids(state_before, section_id)
+                except TypeError:
+                    continue
+                for param_id in param_ids:
+                    try:
+                        get_curr_effective_code_obj_impl_with_type_guard(
+                            state_before,
+                            section_id,
+                            param_id,
+                            BaseChildlessCodeObjImpl,
+                        )
+                    except (TypeError, ValueError):
+                        continue
+                    target_section_id = section_id
+                    target_param_id = param_id
+                    original_name = section_core.name
+                    break
+                if target_section_id:
+                    break
+
+            if (
+                target_section_id is None
+                or target_param_id is None
+                or original_name is None
+            ):
+                self.fail(
+                    "Expected section and parameter ids to exercise rename decline."
+                )
+
+            old_token = f"s.{sanitize_name(original_name)}"
+            await self.manager.set_param_entered_value(
+                SetParamEnteredValueRequest(
+                    frontendOpId="set-param-decline",
+                    projectConfigId=self.project_config_id,
+                    sectionId=target_section_id,
+                    paramInfoId=target_param_id,
+                    value=old_token,
+                )
+            )
+
+            new_name = f"{original_name}_decline"
+            await self.manager.set_section_name(
+                SetSectionNameRequest(
+                    frontendOpId="rename-op-decline",
+                    projectConfigId=self.project_config_id,
+                    sectionId=target_section_id,
+                    name=new_name,
+                )
+            )
+
+            self.assertIn(
+                "rename-op-decline",
+                self.manager.pending_rename_results,
+                "Decline should enqueue a pending rename result.",
+            )
+
+            state_mid = await self.manager.load_project_config(self.project_config_id)
+            impl_mid = get_curr_effective_code_obj_impl_with_type_guard(
+                state_mid,
+                target_section_id,
+                target_param_id,
+                BaseChildlessCodeObjImpl,
+            )
+            self.assertIsInstance(impl_mid.value, str)
+            self.assertEqual(
+                impl_mid.value,
+                old_token,
+                "Values should remain unchanged before declining the rename.",
+            )
+
+            await self.manager.decline_rename_refactor(
+                DeclineRenameRefactorRequest(
+                    frontendOpId="rename-op-decline",
+                    projectConfigId=self.project_config_id,
+                )
+            )
+
+            self.assertNotIn(
+                "rename-op-decline",
+                self.manager.pending_rename_results,
+                "Decline should clear the pending entry.",
+            )
+
+            state_after = await self.manager.load_project_config(
+                self.project_config_id
+            )
+            impl_after = get_curr_effective_code_obj_impl_with_type_guard(
+                state_after,
+                target_section_id,
+                target_param_id,
+                BaseChildlessCodeObjImpl,
+            )
+            self.assertIsInstance(impl_after.value, str)
+            self.assertEqual(
+                impl_after.value,
+                old_token,
+                "Decline should not apply rename-related changes.",
             )
         finally:
             backend_settings.renameRefactorMode = previous_mode

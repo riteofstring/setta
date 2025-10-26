@@ -65,6 +65,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    DeclineRenameRefactorRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -968,6 +969,22 @@ class BaseProjectManager(ABC):
         self._apply_rename_result_auto_mode(project_state, rename_result)
         self.pending_rename_results.pop(frontend_op_id, None)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def decline_rename_refactor(self, x: DeclineRenameRefactorRequest):
+        frontend_op_id = x.frontendOpId
+        if not frontend_op_id:
+            raise KeyError("Expected frontendOpId when declining rename refactor.")
+        pending = self.pending_rename_results.get(frontend_op_id)
+        if not pending:
+            raise KeyError(f"Pending rename result not found for op {frontend_op_id}.")
+        pending_project_config_id, _ = pending
+        if pending_project_config_id != x.projectConfigId:
+            raise KeyError(
+                "Pending rename result projectConfigId mismatch; "
+                f"expected {pending_project_config_id}, got {x.projectConfigId}."
+            )
+        self.pending_rename_results.pop(frontend_op_id, None)
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):

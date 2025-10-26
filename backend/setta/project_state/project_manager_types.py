@@ -275,7 +275,12 @@ class SetSectionNameRequest(ProjectManagerRequestWithFrontendOp):
     sectionId: str
     name: str
 
+
 class AcceptRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+
+
+class DeclineRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
 
 

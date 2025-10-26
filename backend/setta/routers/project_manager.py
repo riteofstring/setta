@@ -2,6 +2,7 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
     AcceptRenameRefactorRequest,
+    DeclineRenameRefactorRequest,
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -400,6 +401,15 @@ async def route_accept_rename_refactor(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).accept_rename_refactor(x)
+
+
+@router.post(Route.DECLINE_RENAME_REFACTOR)
+async def route_decline_rename_refactor(
+    x: DeclineRenameRefactorRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).decline_rename_refactor(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_DISPLAY_MODE)

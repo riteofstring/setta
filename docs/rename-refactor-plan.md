@@ -18,7 +18,7 @@
 - ✅ When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, renamedNodes[], changedNodeValues[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
 - ✅ When mode is `ALWAYS_RENAME`, apply the replacements directly to the in-flight `ProjectStateSingleConfig` before `update_and_broadcast_project_state` runs, using the same helpers the UI endpoints call (`set_param_entered_value`, `get_curr_section_callable_code_obj`, etc.).
 - ✅ Track pending rename prompts server-side (keyed by `frontendOpId`) and expose an accept endpoint that applies queued renames and clears the pending entry.
-- Add a companion decline endpoint so the frontend can dismiss prompts and clear pending state without applying changes.
+- ✅ Add a companion decline endpoint so the frontend can dismiss prompts and clear pending state without applying changes.
 
 ### Frontend
 - Extend the websocket handler layer to capture the rename broadcast, store it in a dedicated rename state keyed by `frontendOpId`, and launch `RenameReferencesModal` once the associated op completes.
