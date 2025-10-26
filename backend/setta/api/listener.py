@@ -14,7 +14,13 @@ from setta.types.listener import (
     ListenerRegisterContent,
 )
 from setta.types.routes import Route
-from setta.types.websocket import WebsocketMsg, WebsocketMsgListenerRegister
+from setta.types.generated.websocket_unions import (
+    PythonScriptWebsocketMsgTypeAdapter,
+)
+from setta.types.websocket import (
+    WebsocketMsgListenerRegister,
+    WebsocketMsgListenerRegisterAck,
+)
 from setta.utils.constants import C
 
 if TYPE_CHECKING:
@@ -128,14 +134,83 @@ class SettaListener:
                 self._is_registered = False
 
     def _handle_websocket_payload(self, payload: str) -> None:
-        """Parse and log raw websocket payloads."""
+        """Parse websocket payloads and delegate to specific handlers."""
         try:
-            message = WebsocketMsg.model_validate_json(payload)
+            message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
         except ValidationError:
             logger.warning("Received malformed listener payload: %s", payload)
             return
         logger.debug(
             "Listener %s received %s message", self._project_id, message.messageType
+        )
+        if isinstance(message, WebsocketMsgListenerRegisterAck):
+            self._handle_register_ack(message)
+
+    def _handle_register_ack(
+        self, message: WebsocketMsgListenerRegisterAck
+    ) -> None:
+        """Handle ListenerRegisterAck responses from the server."""
+        if message.content.projectConfigId != self._project_id:
+            logger.warning(
+                "Listener %s received register ack for unexpected project %s",
+                self._project_id,
+                message.content.projectConfigId,
+            )
+        if not self._registration_pending:
+            logger.debug(
+                "Listener %s received register ack without pending registration",
+                self._project_id,
+            )
+        self._registration_pending = False
+
+        known_ids = set(self._callbacks.keys())
+        ack_statuses = message.content.callbacks
+        ack_ids = {status.callbackId for status in ack_statuses}
+
+        missing_ids = known_ids - ack_ids
+        if missing_ids:
+            logger.warning(
+                "Listener %s missing register ack for callbacks: %s",
+                self._project_id,
+                ", ".join(sorted(missing_ids)),
+            )
+
+        unknown_ids = ack_ids - known_ids
+        for callback_id in sorted(unknown_ids):
+            logger.warning(
+                "Listener %s received register ack for unknown callback %s",
+                self._project_id,
+                callback_id,
+            )
+
+        rejected = [
+            status for status in ack_statuses if status.status == "rejected"
+        ]
+        accepted_count = sum(
+            1 for status in ack_statuses if status.status == "accepted"
+        )
+
+        if rejected:
+            self._is_registered = False
+            error_details = ", ".join(
+                f"{status.callbackId} ({status.message or 'no details'})"
+                for status in rejected
+            )
+            logger.error(
+                "Listener %s registration rejected for %d callback(s): %s",
+                self._project_id,
+                len(rejected),
+                error_details,
+            )
+            raise RuntimeError(
+                f"Listener registration rejected: {error_details}"
+            )
+
+        self._is_registered = True
+        logger.info(
+            "Listener %s registered %d callback(s)",
+            self._project_id,
+            accepted_count,
         )
 
     def listen(

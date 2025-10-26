@@ -146,11 +146,11 @@ Key concepts:
 - ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ✅ Implemented the `SettaListener` websocket connection loop plus `start/stop` helpers so scripts can connect, reconnect, and observe incoming message types using the shared host/port defaults.
 - ✅ Listener client records per-callback registration metadata (stable IDs, feeds, debounce/throttle flags) and can serialize a full `ListenerRegister` payload for handshakes.
-- ✅ Listener client now sends the `ListenerRegister` handshake on connect and tracks registration readiness state.
-- ⏳ Listener client tooling still lacks ack/dispatch handling and frontend endpoints remain unchanged.
+- ✅ Listener client now sends the `ListenerRegister` handshake on connect, processes `ListenerRegisterAck` responses, and flips readiness/error state based on accepted or rejected callbacks.
+- ⏳ Listener client tooling still lacks message dispatch for bootstrap/persisted payloads and frontend endpoints remain unchanged.
 
 ### Pending Work
-- Handle `ListenerRegisterAck`, wire dependency resolution, and implement message dispatch so callbacks receive bootstrap/persisted events.
+- Wire dependency resolution and implement message dispatch so callbacks receive bootstrap/persisted events.
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
 - Track listener dependency registrations server-side so realtime broadcasts can target only interested sockets.
