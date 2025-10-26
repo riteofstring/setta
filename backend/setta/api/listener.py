@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Awaitable, Callable, Iterable
 from uuid import uuid4
 
@@ -9,6 +8,7 @@ import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
 
+from setta.types.listener import ListenerFeed
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketMsg
 from setta.utils.constants import C
@@ -18,12 +18,6 @@ logger = logging.getLogger(__name__)
 
 # Listener callbacks may either complete synchronously or return an awaitable.
 ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
-
-
-class ListenerFeed(str, Enum):
-    PERSISTED = "persisted"
-    REALTIME = "realtime"
-    BOTH = "both"
 
 
 @dataclass(slots=True)
@@ -74,12 +68,12 @@ class SettaListener:
                 await self._connect_once()
             except ConnectionRefusedError:
                 logger.warning(
-                    "Listener %s connection refused at %s", self._project_id, self.websocket_endpoint
+                    "Listener %s connection refused at %s",
+                    self._project_id,
+                    self.websocket_endpoint,
                 )
             except ConnectionClosedError:
-                logger.debug(
-                    "Listener %s websocket closed", self._project_id
-                )
+                logger.debug("Listener %s websocket closed", self._project_id)
             except Exception:
                 logger.exception("Unexpected error in listener connection loop")
             if not self._stop_event.is_set():

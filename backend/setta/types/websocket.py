@@ -14,6 +14,15 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseArtifactUnionWithDiscriminator,
 )
+from setta.types.listener import (
+    ListenerAckContent,
+    ListenerErrorContent,
+    ListenerForceRefreshContent,
+    ListenerFrontendEmitContent,
+    ListenerRealtimeEventContent,
+    ListenerRegisterAckContent,
+    ListenerRegisterContent,
+)
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -41,6 +50,8 @@ class WebsocketMsgTypeForBackend(str, Enum):
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
+    ListenerRegister = "ListenerRegister"
+    ListenerRegisterAck = "ListenerRegisterAck"
     ListenerBootstrap = "ListenerBootstrap"
     ListenerPersistedUpdate = "ListenerPersistedUpdate"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
@@ -203,25 +214,11 @@ class WebsocketMsgListenerPersistedUpdate(PythonScriptWebsocketMsg):
     )
 
 
-class ListenerRealtimeEventContent(BaseModel):
-    projectConfigId: str
-    dependencyIds: list[str]
-    delta: dict[str, Any]
-    sequence: int
-    metadata: dict[str, Any] | None = None
-
-
 class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
     content: ListenerRealtimeEventContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent] = (
         WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent
     )
-
-
-class ListenerForceRefreshContent(BaseModel):
-    projectState: ProjectStateSingleConfigWithCompletedOpIds | None = None
-    reason: str | None = None
-    schemaHash: str | None = None
 
 
 class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
@@ -231,21 +228,11 @@ class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
     )
 
 
-class ListenerAckContent(BaseModel):
-    message: str | None = None
-    heartbeatIntervalSec: float | None = None
-
-
 class WebsocketMsgListenerAck(PythonScriptWebsocketMsg):
     content: ListenerAckContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerAck] = (
         WebsocketMsgTypeForPythonScript.ListenerAck
     )
-
-
-class ListenerErrorContent(BaseModel):
-    error: str
-    details: Any | None = None
 
 
 class WebsocketMsgListenerError(PythonScriptWebsocketMsg):
@@ -255,14 +242,22 @@ class WebsocketMsgListenerError(PythonScriptWebsocketMsg):
     )
 
 
-class ListenerFrontendEmitContent(BaseModel):
-    projectConfigId: str
-    payload: dict[str, Any]
-    target: str | None = None
-
-
 class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
     content: ListenerFrontendEmitContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
         WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
+    )
+
+
+class WebsocketMsgListenerRegister(PythonScriptWebsocketMsg):
+    content: ListenerRegisterContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegister] = (
+        WebsocketMsgTypeForPythonScript.ListenerRegister
+    )
+
+
+class WebsocketMsgListenerRegisterAck(PythonScriptWebsocketMsg):
+    content: ListenerRegisterAckContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegisterAck] = (
+        WebsocketMsgTypeForPythonScript.ListenerRegisterAck
     )

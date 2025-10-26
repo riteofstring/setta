@@ -205,6 +205,8 @@ export const PythonScriptWebsocketMsgTypeSet = new Set([
   "ListenerFrontendEmit",
   "ListenerPersistedUpdate",
   "ListenerRealtimeEvent",
+  "ListenerRegister",
+  "ListenerRegisterAck",
 ]);
 
 export const WebsocketMsgTypeSet = new Set([
@@ -220,6 +222,8 @@ export const WebsocketMsgTypeSet = new Set([
   "ListenerFrontendEmit",
   "ListenerPersistedUpdate",
   "ListenerRealtimeEvent",
+  "ListenerRegister",
+  "ListenerRegisterAck",
   "Notification",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
@@ -375,6 +379,14 @@ export const ViewingEditingModeEnum = {
 } as const;
 
 export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
+
+export const ListenerFeedEnum = {
+  PERSISTED: "persisted",
+  REALTIME: "realtime",
+  BOTH: "both",
+} as const;
+
+export type ListenerFeed = ObjectValues<typeof ListenerFeedEnum>;
 
 export const SettaNotificationTypeEnum = {
   success: "success",
@@ -608,6 +620,8 @@ export type WebsocketMsgTypeForFrontend = ObjectValues<
 >;
 
 export const WebsocketMsgTypeForPythonScriptEnum = {
+  ListenerRegister: "ListenerRegister",
+  ListenerRegisterAck: "ListenerRegisterAck",
   ListenerBootstrap: "ListenerBootstrap",
   ListenerPersistedUpdate: "ListenerPersistedUpdate",
   ListenerRealtimeEvent: "ListenerRealtimeEvent",
@@ -5753,6 +5767,107 @@ export function createWebsocketMsgListenerFrontendEmit(
   return WebsocketMsgListenerFrontendEmitSchema.parse(options);
 }
 
+export const ListenerRegisterCallbackSchema = z.object({
+  callbackId: z.string(),
+  dependencies: z.array(z.string()),
+  feed: z.enum(ListenerFeedEnum),
+  debounceMs: z.union([z.int(), z.null()]).default(null),
+  throttleMs: z.union([z.int(), z.null()]).default(null),
+  runOnRefresh: z.boolean().default(false),
+});
+
+export type ListenerRegisterCallback = z.infer<
+  typeof ListenerRegisterCallbackSchema
+>;
+
+export function createListenerRegisterCallback(
+  options: Partial<ListenerRegisterCallback> = {},
+): ListenerRegisterCallback {
+  return ListenerRegisterCallbackSchema.parse(options);
+}
+
+export const ListenerRegisterContentSchema = z.object({
+  projectConfigId: z.string(),
+  callbacks: z.array(ListenerRegisterCallbackSchema),
+});
+
+export type ListenerRegisterContent = z.infer<
+  typeof ListenerRegisterContentSchema
+>;
+
+export function createListenerRegisterContent(
+  options: Partial<ListenerRegisterContent> = {},
+): ListenerRegisterContent {
+  return ListenerRegisterContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerRegisterSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerRegisterContentSchema,
+  messageType: z
+    .literal("ListenerRegister")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerRegister),
+});
+
+export type WebsocketMsgListenerRegister = z.infer<
+  typeof WebsocketMsgListenerRegisterSchema
+>;
+
+export function createWebsocketMsgListenerRegister(
+  options: Partial<WebsocketMsgListenerRegister> = {},
+): WebsocketMsgListenerRegister {
+  return WebsocketMsgListenerRegisterSchema.parse(options);
+}
+
+export const ListenerRegisterAckStatusSchema = z.object({
+  callbackId: z.string(),
+  status: z.literal(["accepted", "rejected"]),
+  message: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ListenerRegisterAckStatus = z.infer<
+  typeof ListenerRegisterAckStatusSchema
+>;
+
+export function createListenerRegisterAckStatus(
+  options: Partial<ListenerRegisterAckStatus> = {},
+): ListenerRegisterAckStatus {
+  return ListenerRegisterAckStatusSchema.parse(options);
+}
+
+export const ListenerRegisterAckContentSchema = z.object({
+  projectConfigId: z.string(),
+  callbacks: z.array(ListenerRegisterAckStatusSchema),
+});
+
+export type ListenerRegisterAckContent = z.infer<
+  typeof ListenerRegisterAckContentSchema
+>;
+
+export function createListenerRegisterAckContent(
+  options: Partial<ListenerRegisterAckContent> = {},
+): ListenerRegisterAckContent {
+  return ListenerRegisterAckContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerRegisterAckSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerRegisterAckContentSchema,
+  messageType: z
+    .literal("ListenerRegisterAck")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerRegisterAck),
+});
+
+export type WebsocketMsgListenerRegisterAck = z.infer<
+  typeof WebsocketMsgListenerRegisterAckSchema
+>;
+
+export function createWebsocketMsgListenerRegisterAck(
+  options: Partial<WebsocketMsgListenerRegisterAck> = {},
+): WebsocketMsgListenerRegisterAck {
+  return WebsocketMsgListenerRegisterAckSchema.parse(options);
+}
+
 export const PythonScriptWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerBootstrapSchema,
   WebsocketMsgListenerPersistedUpdateSchema,
@@ -5761,6 +5876,8 @@ export const PythonScriptWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerAckSchema,
   WebsocketMsgListenerErrorSchema,
   WebsocketMsgListenerFrontendEmitSchema,
+  WebsocketMsgListenerRegisterSchema,
+  WebsocketMsgListenerRegisterAckSchema,
 ]);
 
 export type PythonScriptWebsocketMsgUnion = z.infer<
@@ -5776,6 +5893,8 @@ export const PythonScriptWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgListenerAckSchema,
     WebsocketMsgListenerErrorSchema,
     WebsocketMsgListenerFrontendEmitSchema,
+    WebsocketMsgListenerRegisterSchema,
+    WebsocketMsgListenerRegisterAckSchema,
   ]);
 
 export type PythonScriptWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5808,6 +5927,8 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerAckSchema,
   WebsocketMsgListenerErrorSchema,
   WebsocketMsgListenerFrontendEmitSchema,
+  WebsocketMsgListenerRegisterSchema,
+  WebsocketMsgListenerRegisterAckSchema,
 ]);
 
 export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
@@ -5834,6 +5955,8 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgListenerAckSchema,
     WebsocketMsgListenerErrorSchema,
     WebsocketMsgListenerFrontendEmitSchema,
+    WebsocketMsgListenerRegisterSchema,
+    WebsocketMsgListenerRegisterAckSchema,
   ],
 );
 

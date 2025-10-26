@@ -141,13 +141,14 @@ Key concepts:
   - `BaseProjectManager._broadcast_project_state_snapshot` now targets the python-script channel.
   - `WMHPythonScriptReceiver` tracks connected script sockets.
 - ✅ Defined additional listener websocket enums/models (`ListenerRealtimeEvent`, `ListenerForceRefresh`, `ListenerAck`, `ListenerError`, `ListenerFrontendEmit`) and registered them in the discriminated unions.
+- ✅ Centralized listener payload models (feed enum, realtime/force refresh/ack/error/frontend emit, register/ack) under `backend/setta/types/listener.py` and added `ListenerRegister` / `ListenerRegisterAck` websocket message types.
 - ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, ack/error, and listener→frontend emissions.
 - ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ✅ Implemented the `SettaListener` websocket connection loop plus `start/stop` helpers so scripts can connect, reconnect, and observe incoming message types using the shared host/port defaults.
 - ⏳ Listener client and tooling are not yet implemented; frontend endpoints remain unchanged.
 
 ### Pending Work
-- Complete the `SettaListener` client handshake, dependency resolution, and message dispatch so callbacks receive bootstrap/persisted events.
+- Complete the `SettaListener` client handshake, dependency resolution, and message dispatch (using the `ListenerRegister` / `ListenerRegisterAck` messages) so callbacks receive bootstrap/persisted events.
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
 - Track listener dependency registrations server-side so realtime broadcasts can target only interested sockets.
