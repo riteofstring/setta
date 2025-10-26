@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Iterable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
 from uuid import uuid4
 
 import websockets
@@ -14,8 +14,11 @@ from setta.types.listener import (
     ListenerRegisterContent,
 )
 from setta.types.routes import Route
-from setta.types.websocket import WebsocketMsg
+from setta.types.websocket import WebsocketMsg, WebsocketMsgListenerRegister
 from setta.utils.constants import C
+
+if TYPE_CHECKING:
+    from websockets import ClientConnection
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,8 @@ class SettaListener:
         self._reconnect_delay = reconnect_delay
         self._stop_event = asyncio.Event()
         self._socket_id = uuid4().hex
+        self._registration_pending = False
+        self._is_registered = False
 
     @property
     def websocket_endpoint(self) -> str:
@@ -111,6 +116,7 @@ class SettaListener:
         logger.debug("Listener %s connecting to %s", self._project_id, endpoint)
         async with websockets.connect(endpoint) as websocket:
             logger.info("Listener %s connected", self._project_id)
+            await self._send_register_message(websocket)
             try:
                 async for payload in websocket:
                     if self._stop_event.is_set():
@@ -118,6 +124,8 @@ class SettaListener:
                     self._handle_websocket_payload(payload)
             finally:
                 logger.info("Listener %s connection closed", self._project_id)
+                self._registration_pending = False
+                self._is_registered = False
 
     def _handle_websocket_payload(self, payload: str) -> None:
         """Parse and log raw websocket payloads."""
@@ -198,3 +206,22 @@ class SettaListener:
             msg = "Unknown feed selection %r. Expected one of %s."
             choices = tuple(member.value for member in ListenerFeed)
             raise ValueError(msg % (value, choices)) from error
+
+    async def _send_register_message(self, websocket: "ClientConnection") -> None:
+        """Send a ListenerRegister handshake when a websocket connection opens."""
+        content = self._build_register_content()
+        message = WebsocketMsgListenerRegister(content=content)
+        payload = message.model_dump_json()
+        logger.debug(
+            "Listener %s registering %d callbacks",
+            self._project_id,
+            len(content.callbacks),
+        )
+        self._registration_pending = True
+        self._is_registered = False
+        try:
+            await websocket.send(payload)
+        except Exception:
+            self._registration_pending = False
+            logger.exception("Listener %s failed to send register payload", self._project_id)
+            raise
