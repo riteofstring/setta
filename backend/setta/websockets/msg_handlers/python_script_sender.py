@@ -7,6 +7,7 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
     ListenerRealtimeEventContent,
+    ListenerFeed,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
@@ -19,12 +20,21 @@ from setta.types.websocket import (
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
 )
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
 
 logger = logging.getLogger(__name__)
 
 
 class WMHPythonScriptSender(BaseWebsocketMsgSender):
+    def __init__(
+        self,
+        websocket_manager,
+        listener_registry: ListenerRegistry,
+    ):
+        super().__init__(websocket_manager)
+        self.listener_registry = listener_registry
+
     async def send_persisted_update(
         self,
         projectState: ProjectStateSingleConfig,
@@ -67,10 +77,32 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             projectConfigId,
             sequence,
         )
-        await self.websocket_manager.broadcast(
-            WebsocketMsgListenerRealtimeEvent(content=content),
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-        )
+        sockets_to_notify = set()
+        for registration, matching_callbacks in (
+            self.listener_registry.iter_callbacks_matching_dependencies(
+                project_config_id=projectConfigId,
+                dependency_ids=dependencyIds,
+            )
+        ):
+            if any(
+                registration.callbacks[callback_id].feed
+                in (ListenerFeed.REALTIME, ListenerFeed.BOTH)
+                for callback_id in matching_callbacks
+            ):
+                sockets_to_notify.add(registration.websocket_id)
+
+        if not sockets_to_notify:
+            logger.debug(
+                "no listener sockets registered for realtime dependencies %s "
+                "(project config %s)",
+                dependencyIds,
+                projectConfigId,
+            )
+            return
+
+        message = WebsocketMsgListenerRealtimeEvent(content=content)
+        for websocket_id in sockets_to_notify:
+            await self.websocket_manager.send_message(message, websocket_id)
 
     async def send_force_refresh(
         self,

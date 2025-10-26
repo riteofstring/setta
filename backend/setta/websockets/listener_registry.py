@@ -9,6 +9,8 @@ class ListenerRegistration:
     websocket_id: str
     project_config_id: str
     callbacks: dict[str, ListenerRegisterCallback] = field(default_factory=dict)
+    dependency_index: dict[str, set[str]] = field(default_factory=dict)
+    wildcard_callbacks: set[str] = field(default_factory=set)
 
     @classmethod
     def build_from_callbacks(
@@ -19,10 +21,20 @@ class ListenerRegistration:
         callbacks: Mapping[str, ListenerRegisterCallback],
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
+        dependency_index: dict[str, set[str]] = {}
+        wildcard_callbacks: set[str] = set()
+        for callback_id, callback in callback_map.items():
+            if not callback.dependencies:
+                wildcard_callbacks.add(callback_id)
+                continue
+            for dependency_id in callback.dependencies:
+                dependency_index.setdefault(dependency_id, set()).add(callback_id)
         return cls(
             websocket_id=websocket_id,
             project_config_id=project_config_id,
             callbacks=callback_map,
+            dependency_index=dependency_index,
+            wildcard_callbacks=wildcard_callbacks,
         )
 
 
@@ -57,3 +69,19 @@ class ListenerRegistry:
         for registration in self._registrations.values():
             if registration.project_config_id == project_config_id:
                 yield registration
+
+    def iter_callbacks_matching_dependencies(
+        self,
+        *,
+        project_config_id: str,
+        dependency_ids: Iterable[str],
+    ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
+        dependency_filter = set(dependency_ids)
+        for registration in self.iter_registrations_for_project(project_config_id):
+            matching_callbacks: set[str] = set(registration.wildcard_callbacks)
+            for dependency_id in dependency_filter:
+                matching_callbacks.update(
+                    registration.dependency_index.get(dependency_id, set())
+                )
+            if matching_callbacks:
+                yield registration, matching_callbacks

@@ -32,8 +32,12 @@ from setta.websockets.websocket_manager import WebsocketManager
 class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
+        self.listener_registry = ListenerRegistry()
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.wmh_python_script_sender = WMHPythonScriptSender(self.websocket_manager)
+        self.wmh_python_script_sender = WMHPythonScriptSender(
+            self.websocket_manager,
+            self.listener_registry,
+        )
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
@@ -83,7 +87,6 @@ class SettaFastAPIState:
             project_manager,
         )
         self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
-        self.listener_registry = ListenerRegistry()
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
             self.websocket_manager,
             self.listener_registry,
