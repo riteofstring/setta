@@ -103,7 +103,6 @@ class SettaListener:
         self._expected_ack_callback_ids: set[str] = set()
         self._runtime_state: ListenerRuntimeState | None = None
         self._dependency_cache: dict[str, Any] = {}
-        self._graph_key_to_dependency: dict[tuple[str, str | None], str] = {}
         self._last_realtime_sequence: int | None = None
 
     @property
@@ -302,7 +301,7 @@ class SettaListener:
             dependencies = list(deps) if deps is not None else []
             callback_id = uuid4().hex
             register = ListenerRegisterCallback(
-                dependencies=[],
+                dependencies=dependencies,
                 feed=selection,
                 debounceMs=debounce_ms,
                 throttleMs=throttle_ms,
@@ -402,7 +401,7 @@ class SettaListener:
             if not self._callback_accepts_persisted(spec):
                 continue
 
-            dependencies = spec.declared_dependencies
+            dependencies = tuple(spec.register.dependencies)
             changed: dict[str, Any] = {}
             should_run = not dependencies
 
@@ -428,8 +427,6 @@ class SettaListener:
 
         self._runtime_state = runtime_state
         self._dependency_cache = updated_cache
-
-        self._resolve_listener_dependencies(runtime_state)
 
         if is_bootstrap:
             await self._send_listener_register(websocket)
@@ -509,46 +506,6 @@ class SettaListener:
     def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
         return getattr(current, dependency)
 
-    def _resolve_listener_dependencies(
-        self, runtime_state: ListenerRuntimeState
-    ) -> None:
-        """Translate declared dependency strings to structured graph keys."""
-        graph_lookup = runtime_state.dependency_graph.full_path_name_to_graph_key
-        graph_key_to_dependency: dict[tuple[str, str | None], str] = {}
-        for spec in self._callbacks.values():
-            if not spec.declared_dependencies:
-                spec.register.dependencies = []
-                continue
-            structured: list[ListenerDependencyKey] = []
-            for dependency in spec.declared_dependencies:
-                try:
-                    section_id, code_obj_id = graph_lookup[dependency]
-                except KeyError as error:
-                    raise KeyError(
-                        f"Unknown listener dependency {dependency!r} "
-                        f"for project {self._project_id}"
-                    ) from error
-                graph_key = (section_id, code_obj_id)
-                existing = graph_key_to_dependency.get(graph_key)
-                if existing is not None and existing != dependency:
-                    logger.warning(
-                        "Listener %s dependency %s maps to duplicate graph key %s "
-                        "(existing=%s)",
-                        self._project_id,
-                        dependency,
-                        graph_key,
-                        existing,
-                    )
-                graph_key_to_dependency[graph_key] = dependency
-                structured.append(
-                    ListenerDependencyKey(
-                        sectionId=section_id,
-                        codeObjId=code_obj_id,
-                    )
-                )
-            spec.register.dependencies = structured
-        self._graph_key_to_dependency = graph_key_to_dependency
-
     @staticmethod
     def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
         return spec.register.feed in {ListenerFeed.PERSISTED, ListenerFeed.BOTH}
@@ -607,18 +564,7 @@ class SettaListener:
             return
 
         applied_dependencies: dict[str, Any] = {}
-        for delta in content.delta:
-            dependency_key = delta.dependency
-            graph_key = (dependency_key.sectionId, dependency_key.codeObjId)
-            dependency = self._graph_key_to_dependency.get(graph_key)
-            if dependency is None:
-                logger.warning(
-                    "Listener %s received realtime delta for unknown graph key %s",
-                    self._project_id,
-                    graph_key,
-                )
-                continue
-            value = delta.value
+        for dependency, value in content.delta.items():
             try:
                 self._set_dependency_value(runtime_state.s_instance, dependency, value)
             except (AttributeError, KeyError, IndexError, ValueError) as error:

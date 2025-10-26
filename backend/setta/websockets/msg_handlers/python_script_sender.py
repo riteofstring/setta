@@ -6,7 +6,6 @@ from setta.types.listener import (
     ListenerFeed,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
-    ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
@@ -59,7 +58,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: str,
-        delta: list[ListenerRealtimeDelta],
+        delta: dict[str, Any],
         sequence: int,
         metadata: dict[str, Any] | None = None,
     ):
@@ -76,16 +75,13 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             projectConfigId,
             sequence,
         )
-        dependency_keys = [
-            (entry.dependency.sectionId, entry.dependency.codeObjId) for entry in delta
-        ]
         sockets_to_notify = set()
         for (
             registration,
             matching_callbacks,
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
-            dependency_ids=dependency_keys,
+            dependency_ids=delta.keys(),
         ):
             if any(
                 registration.callbacks[callback_id].feed
@@ -98,7 +94,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             logger.debug(
                 "no listener sockets registered for realtime dependencies %s "
                 "(project config %s)",
-                dependency_keys,
+                list(delta.keys()),
                 projectConfigId,
             )
             return

@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 
 from setta.types.listener import (
-    ListenerDependencyKey,
     ListenerFeed,
     ListenerFrontendEmitContent,
     ListenerRegisterCallback,
@@ -50,12 +49,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             websocket_manager, listener_registry, frontend_sender
         )
         callback = ListenerRegisterCallback(
-            dependencies=[
-                ListenerDependencyKey(
-                    sectionId="section-homepage",
-                    codeObjId="code-title",
-                )
-            ],
+            dependencies=["Homepage__hero__title"],
             feed=ListenerFeed.BOTH,
         )
         content = ListenerRegisterContent(

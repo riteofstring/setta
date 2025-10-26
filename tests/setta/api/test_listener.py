@@ -3,22 +3,12 @@ import unittest
 from setta.api import SettaListener
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
-    ListenerDependencyKey,
     ListenerFeed,
-    ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
-
-
-class _StubWebsocket:
-    def __init__(self) -> None:
-        self.sent: list[str] = []
-
-    async def send(self, payload: str) -> None:
-        self.sent.append(payload)
 
 
 class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
@@ -40,49 +30,17 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
-        note_impl = TextBlockSectionImpl(
-            id="note-impl",
-            name="Note",
-            text="Sticky",
-        )
-        note_variant = Variant(
-            id="note-variant",
-            name="Note Variant",
-            impl=note_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(note_impl),
-        )
-        note_core = Core(
-            id="section-note",
-            name="Note",
-            variants=[note_variant.id],
-            defaultVariant=note_variant.id,
-        )
         project_config = ProjectConfig(
             id="project-1",
             name="Demo Project",
-            sectionVariantMap={
-                section_core.id: section_variant.id,
-                note_core.id: note_variant.id,
-            },
-            topLevelSections={
-                section_core.id: TopLevelSectionLayout(),
-                note_core.id: TopLevelSectionLayout(),
-            },
+            sectionVariantMap={section_core.id: section_variant.id},
+            topLevelSections={section_core.id: TopLevelSectionLayout()},
         )
         return ProjectStateSingleConfig(
             projectConfig=project_config,
-            sections={
-                section_core.id: section_core,
-                note_core.id: note_core,
-            },
-            sectionImpls={
-                section_impl.id: section_impl,
-                note_impl.id: note_impl,
-            },
-            sectionVariants={
-                section_variant.id: section_variant,
-                note_variant.id: note_variant,
-            },
+            sections={section_core.id: section_core},
+            sectionImpls={section_impl.id: section_impl},
+            sectionVariants={section_variant.id: section_variant},
         )
 
     async def test_realtime_event_invokes_registered_callbacks(self) -> None:
@@ -104,17 +62,12 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
         def handle_persisted(state, ctx):
             persisted_calls.append(dict(ctx.changed))
 
-        @listener.listen(deps=["Note"], feed=ListenerFeed.REALTIME)
+        @listener.listen(deps=["OtherDependency"], feed=ListenerFeed.REALTIME)
         def handle_ignored(state, ctx):
             ignored_calls.append(dict(ctx.changed))
 
         project_state = self._build_project_state()
-        websocket = _StubWebsocket()
-        await listener._handle_persisted_snapshot(
-            project_state,
-            is_bootstrap=True,
-            websocket=websocket,
-        )
+        await listener._handle_persisted_snapshot(project_state, is_bootstrap=True)
 
         initial_persisted_count = len(persisted_calls)
         self.assertEqual(initial_persisted_count, 1)
@@ -122,15 +75,7 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         content = ListenerRealtimeEventContent(
             projectConfigId="project-1",
-            delta=[
-                ListenerRealtimeDelta(
-                    dependency=ListenerDependencyKey(
-                        sectionId="section-welcome",
-                        codeObjId=None,
-                    ),
-                    value="Updated",
-                )
-            ],
+            delta={"Welcome": "Updated"},
             sequence=1,
         )
 
@@ -170,12 +115,7 @@ class SettaListenerPersistedResilienceTests(unittest.IsolatedAsyncioTestCase):
             persisted_calls.append(dict(ctx.changed))
 
         valid_state = self._build_empty_project_state("project-1")
-        websocket = _StubWebsocket()
-        await listener._handle_persisted_snapshot(
-            valid_state,
-            is_bootstrap=True,
-            websocket=websocket,
-        )
+        await listener._handle_persisted_snapshot(valid_state, is_bootstrap=True)
         self.assertIsNotNone(listener._runtime_state)
         assert listener._runtime_state is not None
         previous_runtime = listener._runtime_state
@@ -185,22 +125,14 @@ class SettaListenerPersistedResilienceTests(unittest.IsolatedAsyncioTestCase):
         bad_state = self._build_empty_project_state(
             "project-1", gen_code_suffix="s = S(unknown_kw=1)"
         )
-        await listener._handle_persisted_snapshot(
-            bad_state,
-            is_bootstrap=False,
-            websocket=websocket,
-        )
+        await listener._handle_persisted_snapshot(bad_state, is_bootstrap=False)
 
         self.assertIs(listener._runtime_state, previous_runtime)
         self.assertEqual(listener._dependency_cache, previous_cache)
         self.assertEqual(persisted_calls, [{}])
 
         followup_state = self._build_empty_project_state("project-1")
-        await listener._handle_persisted_snapshot(
-            followup_state,
-            is_bootstrap=False,
-            websocket=websocket,
-        )
+        await listener._handle_persisted_snapshot(followup_state, is_bootstrap=False)
 
         self.assertIsNot(listener._runtime_state, previous_runtime)
         self.assertEqual(persisted_calls, [{}, {}])
@@ -216,42 +148,23 @@ class SettaListenerPersistedResilienceTests(unittest.IsolatedAsyncioTestCase):
         initial_state = self._build_empty_project_state(
             "project-1", gen_code_suffix="s = S()\ns.missing = 1"
         )
-        websocket = _StubWebsocket()
-        await listener._handle_persisted_snapshot(
-            initial_state,
-            is_bootstrap=True,
-            websocket=websocket,
-        )
+        await listener._handle_persisted_snapshot(initial_state, is_bootstrap=True)
         self.assertEqual(changed_calls, [{"missing": 1}])
         self.assertEqual(listener._dependency_cache.get("missing"), 1)
         first_runtime = listener._runtime_state
 
         missing_state = self._build_empty_project_state("project-1")
-        try:
-            await listener._handle_persisted_snapshot(
-                missing_state,
-                is_bootstrap=False,
-                websocket=websocket,
-            )
-        except KeyError:
-            pass
-        else:
-            self.fail("Expected KeyError for missing dependency")
+        await listener._handle_persisted_snapshot(missing_state, is_bootstrap=False)
 
-        self.assertIs(listener._runtime_state, first_runtime)
+        self.assertIsNot(listener._runtime_state, first_runtime)
         self.assertEqual(changed_calls, [{"missing": 1}])
         self.assertEqual(listener._dependency_cache.get("missing"), 1)
 
         restored_state = self._build_empty_project_state(
             "project-1", gen_code_suffix="s = S()\ns.missing = 2"
         )
-        await listener._handle_persisted_snapshot(
-            restored_state,
-            is_bootstrap=False,
-            websocket=websocket,
-        )
+        await listener._handle_persisted_snapshot(restored_state, is_bootstrap=False)
 
-        self.assertIsNot(listener._runtime_state, first_runtime)
         self.assertEqual(changed_calls, [{"missing": 1}, {"missing": 2}])
         self.assertEqual(listener._dependency_cache.get("missing"), 2)
 
