@@ -18,6 +18,7 @@ from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
 )
+from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
 from tests.utils.manager_fixture import real_settings_manager
@@ -32,11 +33,10 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
         self.websocket_manager = fixture.websocket_manager
-        self.project_config_id = (
-            self.manager.project_state_backend.defaultProjectConfigId
-        )
-        if not self.project_config_id:
+        project_config_id = self.manager.project_state_backend.defaultProjectConfigId
+        if not project_config_id:
             self.fail("Expected default project config id for rename test.")
+        self.project_config_id: str = project_config_id
 
         self.project_state = await self.manager.load_project_config(
             self.project_config_id
@@ -44,20 +44,20 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         self.manager.completed_op_ids_since_last_broadcast.clear()
 
         self.websocket_id = "rename-refactor-test-socket"
-        self._sent_messages: list[dict] = []
+        self._sent_messages: list[Message] = []
 
         self._receive_counter = 0
 
-        async def _receive():
+        async def _receive() -> Message:
             if self._receive_counter == 0:
                 self._receive_counter += 1
                 return {"type": "websocket.connect"}
             return {"type": "websocket.receive"}
 
-        async def _send(message: dict):
+        async def _send(message: Message) -> None:
             self._sent_messages.append(message)
 
-        scope = {
+        scope: Scope = {
             "type": "websocket",
             "asgi": {"version": "3.0"},
             "scheme": "ws",
