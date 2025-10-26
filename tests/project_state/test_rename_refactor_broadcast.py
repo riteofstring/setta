@@ -1,6 +1,7 @@
 import json
 import unittest
 from contextlib import AsyncExitStack
+from typing import TYPE_CHECKING
 
 from setta.code_gen.utils import sanitize_name
 from setta.project_state.project_manager_types import (
@@ -20,6 +21,9 @@ from setta.types.websocket import (
 from starlette.websockets import WebSocket
 
 from tests.utils.manager_fixture import real_settings_manager
+
+if TYPE_CHECKING:
+    from setta.types.project_state import ProjectStateSingleConfig
 
 
 class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
@@ -80,94 +84,95 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         self.websocket_manager.sockets.pop(self.websocket_id, None)
         await self._exit_stack.aclose()
 
+    def _find_section_param_with_childless_impl(
+        self, state: "ProjectStateSingleConfig"
+    ) -> tuple[str, str, str]:
+        for section_id, section_core in state.sections.items():
+            try:
+                param_ids = get_curr_top_level_param_ids(state, section_id)
+            except TypeError:
+                continue
+            for param_id in param_ids:
+                try:
+                    get_curr_effective_code_obj_impl_with_type_guard(
+                        state,
+                        section_id,
+                        param_id,
+                        BaseChildlessCodeObjImpl,
+                    )
+                except (TypeError, ValueError):
+                    continue
+                return section_id, param_id, section_core.name
+        self.fail(
+            "Expected to locate a section parameter pair with a childless implementation."
+        )
+
     async def test_broadcasts_payload_for_always_ask(self):
         backend_settings = self.manager.settings_file.settings.backend
         previous_mode = backend_settings.renameRefactorMode
         backend_settings.renameRefactorMode = RenameRefactorMode.ALWAYS_ASK
-        section_ids = list(self.project_state.projectConfig.topLevelSections.keys())
-        self.assertTrue(
-            section_ids, "Expected at least one section to trigger rename broadcast."
-        )
-        selected_data: tuple[
-            str, str, str, str, dict
-        ] | None = None  # section_id, old_name, new_name, op_id, payload
+        section_id: str | None = None
+        param_id: str | None = None
+        original_param_value: str | None = None
         try:
-            for idx, section_id in enumerate(section_ids):
-                current_name = self.manager.project_state_backend.sections[
-                    section_id
-                ].name
-                new_name = f"{current_name}_renamed"
-                frontend_op_id = f"rename-op-{idx}"
-                prev_message_count = len(self._sent_messages)
-                await self.manager.set_section_name(
-                    SetSectionNameRequest(
-                        frontendOpId=frontend_op_id,
-                        projectConfigId=self.project_config_id,
-                        sectionId=section_id,
-                        name=new_name,
-                    )
-                )
-
-                pending_entry = self.manager.pending_rename_results.get(
-                    frontend_op_id
-                )
-                texts = [
-                    message["text"]
-                    for message in self._sent_messages[prev_message_count:]
-                    if message["type"] == "websocket.send" and "text" in message
-                ]
-                rename_payloads = [
-                    json.loads(text)
-                    for text in texts
-                    if json.loads(text)["messageType"]
-                    == "ReturnRenameRefactorResults"
-                ]
-                if not pending_entry:
-                    backend_settings.renameRefactorMode = (
-                        RenameRefactorMode.NEVER_RENAME
-                    )
-                    await self.manager.set_section_name(
-                        SetSectionNameRequest(
-                            frontendOpId=f"{frontend_op_id}-revert",
-                            projectConfigId=self.project_config_id,
-                            sectionId=section_id,
-                            name=current_name,
-                        )
-                    )
-                    backend_settings.renameRefactorMode = (
-                        RenameRefactorMode.ALWAYS_ASK
-                    )
-                    continue
-
-                if not rename_payloads:
-                    self.fail(
-                        "Received pending rename result without broadcast payload."
-                    )
-
-                content = rename_payloads[-1]["content"]
-                selected_data = (
-                    section_id,
-                    current_name,
-                    new_name,
-                    frontend_op_id,
-                    content,
-                )
-                break
-
-            if selected_data is None:
-                self.skipTest(
-                    "No sections produced rename refactor results with dependent updates."
-                )
-
-            (
+            state_before = await self.manager.load_project_config(
+                self.project_config_id
+            )
+            section_id, param_id, current_name = (
+                self._find_section_param_with_childless_impl(state_before)
+            )
+            impl_before = get_curr_effective_code_obj_impl_with_type_guard(
+                state_before,
                 section_id,
-                current_name,
-                new_name,
-                frontend_op_id,
-                content,
-            ) = selected_data
+                param_id,
+                BaseChildlessCodeObjImpl,
+            )
+            self.assertIsInstance(impl_before.value, str)
+            original_param_value = impl_before.value
 
-            self.assertIn(frontend_op_id, self.manager.pending_rename_results)
+            old_token = f"s.{sanitize_name(current_name)}"
+            await self.manager.set_param_entered_value(
+                SetParamEnteredValueRequest(
+                    frontendOpId="set-param-always-ask",
+                    projectConfigId=self.project_config_id,
+                    sectionId=section_id,
+                    paramInfoId=param_id,
+                    value=old_token,
+                )
+            )
+
+            new_name = f"{current_name}_renamed"
+            frontend_op_id = "rename-op-always-ask"
+            prev_message_count = len(self._sent_messages)
+            await self.manager.set_section_name(
+                SetSectionNameRequest(
+                    frontendOpId=frontend_op_id,
+                    projectConfigId=self.project_config_id,
+                    sectionId=section_id,
+                    name=new_name,
+                )
+            )
+
+            self.assertIn(
+                frontend_op_id,
+                self.manager.pending_rename_results,
+                "Rename prompt should enqueue a pending entry.",
+            )
+
+            rename_payloads: list[dict] = []
+            for message in self._sent_messages[prev_message_count:]:
+                if message.get("type") != "websocket.send" or "text" not in message:
+                    continue
+                payload = json.loads(message["text"])
+                if payload.get("messageType") == "ReturnRenameRefactorResults":
+                    rename_payloads.append(payload)
+
+            self.assertTrue(
+                rename_payloads,
+                "Expected rename refactor results broadcast for ALWAYS_ASK mode.",
+            )
+            content = rename_payloads[-1]["content"]
+
             self.assertEqual(content["projectConfigId"], self.project_config_id)
             self.assertEqual(content["frontendOpId"], frontend_op_id)
             self.assertEqual(content["renameMode"], "ALWAYS_ASK")
@@ -203,6 +208,20 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             )
         finally:
             backend_settings.renameRefactorMode = previous_mode
+            if (
+                section_id is not None
+                and param_id is not None
+                and original_param_value is not None
+            ):
+                await self.manager.set_param_entered_value(
+                    SetParamEnteredValueRequest(
+                        frontendOpId="set-param-reset-always-ask",
+                        projectConfigId=self.project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=param_id,
+                        value=original_param_value,
+                    )
+                )
 
     async def test_accept_rename_refactor_applies_pending_changes(self):
         backend_settings = self.manager.settings_file.settings.backend
