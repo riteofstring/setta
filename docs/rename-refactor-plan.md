@@ -13,8 +13,8 @@
 ## Proposed Direction
 
 ### Backend
-- Use the per-request `frontendOpId` (tracked via `ProjectManagerRequestWithFrontendOp` and `_current_frontend_op_id`) as the correlation key for rename payloads.
-- After `DependencyGraph.rename_references` runs, emit a structured list of changes that includes section/param identifiers plus both old and new names.
+- ✅ Use the per-request `frontendOpId` (tracked via `ProjectManagerRequestWithFrontendOp` and `_current_frontend_op_id`) as the correlation key for rename payloads; store pending results in manager state.
+- ✅ After `DependencyGraph.rename_references` runs, emit a structured list of changes that includes section/param identifiers plus both old and new names.
 - When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, changes[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
 - When mode is `ALWAYS_RENAME`, apply the replacements directly to the in-flight `ProjectStateSingleConfig` before `update_and_broadcast_project_state` runs, using the same helpers the UI endpoints call (`set_section_name`, `set_curr_effective_code_obj_impl_value`, etc.).
 - Track pending rename prompts server-side (keyed by `frontendOpId`) and expose follow-up endpoints for the frontend to accept/decline changes; clear the pending queue once a decision arrives.

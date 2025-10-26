@@ -80,6 +80,20 @@ class GraphKeySeparated:
     paramInfoId: str | None
 
 
+@dataclass
+class RenameReferenceChange:
+    sectionId: str
+    paramInfoId: str | None
+    oldFullPathName: str
+    newFullPathName: str
+
+
+@dataclass
+class RenameReferencesResult:
+    renamed_nodes: list[RenameReferenceChange]
+    changed_node_values: dict[GraphKeyType, str]
+
+
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = (
@@ -319,8 +333,10 @@ class DependencyGraph:
 
     # compares with "previous" dep graph to find nodes that have been renamed
     # and then changes the values of nodes that contain those old names
-    def rename_references(self, old_dep_graph: "DependencyGraph"):
-        renamings = {}
+    def rename_references(
+        self, old_dep_graph: "DependencyGraph"
+    ) -> RenameReferencesResult:
+        renamings: dict[GraphKeyType, tuple[str, str]] = {}
         for k, v in old_dep_graph.graph.items():
             node = self.get_node(k)
             if not node:
@@ -328,7 +344,7 @@ class DependencyGraph:
             if v.full_path_name != node.full_path_name:
                 renamings[k] = (v.full_path_name, node.full_path_name)
 
-        changed_node_values = {}
+        changed_node_values: dict[GraphKeyType, str] = {}
         for k, v in self.nodes_with_potential_refs.items():
             replacements = []
             for ref, location in v.items():
@@ -352,7 +368,21 @@ class DependencyGraph:
                 changed_node_values[k] = node.value
 
         self.resolve_references()
-        return changed_node_values
+        renamed_nodes: list[RenameReferenceChange] = []
+        for graph_key, (old_name, new_name) in renamings.items():
+            ids = self.extract_ids_from_graph_key(graph_key)
+            renamed_nodes.append(
+                RenameReferenceChange(
+                    sectionId=ids.sectionId,
+                    paramInfoId=ids.paramInfoId,
+                    oldFullPathName=old_name,
+                    newFullPathName=new_name,
+                )
+            )
+        return RenameReferencesResult(
+            renamed_nodes=renamed_nodes,
+            changed_node_values=changed_node_values,
+        )
 
     def create_graph_key(self, section_id: str, param_info_id: str | None = None):
         return (section_id, param_info_id)

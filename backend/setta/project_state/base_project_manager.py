@@ -19,7 +19,10 @@ from typing import (
     overload,
 )
 
-from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.dependency_graph import (
+    DependencyGraph,
+    RenameReferencesResult,
+)
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -239,6 +242,9 @@ class BaseProjectManager(ABC):
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
+        self.pending_rename_results: dict[
+            str, tuple[str, RenameReferencesResult]
+        ] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
@@ -505,8 +511,7 @@ class BaseProjectManager(ABC):
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
-        messageId: str | None = None,
-        updateFileWatcher=True,
+        updateFileWatcher: bool = True,
     ):
         async with self._project_state_lock.write_lock():
             projectState.validate_singleton_sections()
@@ -519,9 +524,7 @@ class BaseProjectManager(ABC):
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
             if self.gen_code.get(projectConfigId):
-                await self.maybe_do_rename_refactor(
-                    messageId, projectConfigId, dep_graph
-                )
+                await self.maybe_do_rename_refactor(projectConfigId, dep_graph)
                 self.gen_code[projectConfigId].callback_cleanup()
 
             code_generator = PythonCodeGenerator(
@@ -877,7 +880,6 @@ class BaseProjectManager(ABC):
 
     async def maybe_do_rename_refactor(
         self,
-        messageId: str | None,
         projectConfigId: str,
         new_dep_graph: DependencyGraph,
     ):
@@ -894,20 +896,18 @@ class BaseProjectManager(ABC):
             # immediately apply any of the renaming operations
             new_dep_graph = copy.deepcopy(new_dep_graph)
 
-        changed_node_values = new_dep_graph.rename_references(old_dep_graph)
+        rename_result = new_dep_graph.rename_references(old_dep_graph)
 
-        # messageId can be None when update() is called from backend
-        if len(changed_node_values) > 0 and messageId:
-            # convert to a list of dicts, where each dict has keys "sectionId", "paramInfoId", "value"
-            changed_node_values = [
-                {**new_dep_graph.extract_ids_from_graph_key(k), "value": v}
-                for k, v in changed_node_values.items()
-            ]
+        if not rename_result.renamed_nodes and not rename_result.changed_node_values:
+            return
 
-            await self.websocket_msg_handler.return_rename_refactor_results(
-                changed_node_values,
-                messageId,
+        frontend_op_id = self._current_frontend_op_id.get()
+        if frontend_op_id:
+            self.pending_rename_results[frontend_op_id] = (
+                projectConfigId,
+                rename_result,
             )
+
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):

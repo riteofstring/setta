@@ -23,7 +23,6 @@ from setta.types.websocket import (
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
-    WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
@@ -81,12 +80,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         await self.websocket_manager.broadcast(
             WebsocketMsgLSPDiagnostics(content=content),
             connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def return_rename_refactor_results(self, content, messageId):
-        await self.websocket_manager.return_to_requester(
-            WebsocketMsgReturnRenameRefactorResults(content=content),
-            messageId,
         )
 
     async def broadcast_project_state(
