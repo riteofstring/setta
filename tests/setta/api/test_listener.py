@@ -48,6 +48,7 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
         realtime_calls: list[tuple[str, dict[str, str]]] = []
         realtime_all_calls: list[dict[str, str]] = []
         persisted_calls: list[dict[str, str]] = []
+        ignored_calls: list[dict[str, str]] = []
 
         @listener.listen(deps=["Welcome"], feed=ListenerFeed.REALTIME)
         def handle_specific(state, ctx):
@@ -61,20 +62,12 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
         def handle_persisted(state, ctx):
             persisted_calls.append(dict(ctx.changed))
 
+        @listener.listen(deps=["OtherDependency"], feed=ListenerFeed.REALTIME)
+        def handle_ignored(state, ctx):
+            ignored_calls.append(dict(ctx.changed))
+
         project_state = self._build_project_state()
         await listener._handle_persisted_snapshot(project_state, is_bootstrap=True)
-        self.assertIn("Welcome", listener._sanitized_to_serialized)
-        welcome_serialized_id = listener._sanitized_to_serialized["Welcome"]
-        self.assertEqual(welcome_serialized_id, "section-welcome::")
-        welcome_dependency_lists = [
-            spec.register.dependencies
-            for spec in listener._callbacks.values()
-            if spec.sanitized_dependencies == ("Welcome",)
-        ]
-        self.assertTrue(welcome_dependency_lists)
-        for dependencies in welcome_dependency_lists:
-            self.assertEqual(dependencies, [welcome_serialized_id])
-        self.assertTrue(listener._pending_register_refresh)
 
         initial_persisted_count = len(persisted_calls)
         self.assertEqual(initial_persisted_count, 1)
@@ -82,7 +75,7 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         content = ListenerRealtimeEventContent(
             projectConfigId="project-1",
-            delta={welcome_serialized_id: "Updated"},
+            delta={"Welcome": "Updated"},
             sequence=1,
         )
 
@@ -96,6 +89,7 @@ class SettaListenerRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(realtime_calls, [("Updated", {"Welcome": "Updated"})])
         self.assertEqual(realtime_all_calls, [{"Welcome": "Updated"}])
+        self.assertEqual(ignored_calls, [])
         self.assertEqual(len(persisted_calls), initial_persisted_count)
 
 
@@ -143,18 +137,36 @@ class SettaListenerPersistedResilienceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNot(listener._runtime_state, previous_runtime)
         self.assertEqual(persisted_calls, [{}, {}])
 
-    async def test_snapshot_raises_for_unknown_dependency(self) -> None:
+    async def test_snapshot_uses_cached_value_when_dependency_missing(self) -> None:
         listener = SettaListener(project_id="project-1")
-        listener.listen(deps=["missing"], feed=ListenerFeed.PERSISTED)(
-            lambda state, ctx: None
-        )
+        changed_calls: list[dict[str, int]] = []
 
-        state = self._build_empty_project_state(
+        @listener.listen(deps=["missing"], feed=ListenerFeed.PERSISTED)
+        def handle_missing(state, ctx):
+            changed_calls.append(dict(ctx.changed))
+
+        initial_state = self._build_empty_project_state(
             "project-1", gen_code_suffix="s = S()\ns.missing = 1"
         )
+        await listener._handle_persisted_snapshot(initial_state, is_bootstrap=True)
+        self.assertEqual(changed_calls, [{"missing": 1}])
+        self.assertEqual(listener._dependency_cache.get("missing"), 1)
+        first_runtime = listener._runtime_state
 
-        with self.assertRaises(KeyError):
-            await listener._handle_persisted_snapshot(state, is_bootstrap=True)
+        missing_state = self._build_empty_project_state("project-1")
+        await listener._handle_persisted_snapshot(missing_state, is_bootstrap=False)
+
+        self.assertIsNot(listener._runtime_state, first_runtime)
+        self.assertEqual(changed_calls, [{"missing": 1}])
+        self.assertEqual(listener._dependency_cache.get("missing"), 1)
+
+        restored_state = self._build_empty_project_state(
+            "project-1", gen_code_suffix="s = S()\ns.missing = 2"
+        )
+        await listener._handle_persisted_snapshot(restored_state, is_bootstrap=False)
+
+        self.assertEqual(changed_calls, [{"missing": 1}, {"missing": 2}])
+        self.assertEqual(listener._dependency_cache.get("missing"), 2)
 
 
 if __name__ == "__main__":  # pragma: no cover
