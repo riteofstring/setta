@@ -48,6 +48,7 @@ from setta.project_state.project_code import (
 )
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
+    AcceptRenameRefactorRequest,
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -948,6 +949,25 @@ class BaseProjectManager(ABC):
                     changedNodeValues=rename_result.changed_node_values,
                 )
             )
+
+    @enqueue_method
+    async def accept_rename_refactor(self, x: AcceptRenameRefactorRequest):
+        frontend_op_id = x.frontendOpId
+        if not frontend_op_id:
+            raise KeyError("Expected frontendOpId when accepting rename refactor.")
+        pending = self.pending_rename_results.get(frontend_op_id)
+        if not pending:
+            raise KeyError(f"Pending rename result not found for op {frontend_op_id}.")
+        pending_project_config_id, rename_result = pending
+        if pending_project_config_id != x.projectConfigId:
+            raise KeyError(
+                "Pending rename result projectConfigId mismatch; "
+                f"expected {pending_project_config_id}, got {x.projectConfigId}."
+            )
+        project_state = self.get_single_config_state(x.projectConfigId)
+        self._apply_rename_result_auto_mode(project_state, rename_result)
+        self.pending_rename_results.pop(frontend_op_id, None)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
