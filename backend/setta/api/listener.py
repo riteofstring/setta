@@ -45,7 +45,6 @@ ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 @dataclass(slots=True)
 class ListenerCallbackSpec:
     function: ListenerCallback
-    dependencies: tuple[str, ...] = field(default_factory=tuple)
     register: ListenerRegisterCallback = field(
         default_factory=lambda: ListenerRegisterCallback(
             callbackId=uuid4().hex,
@@ -278,7 +277,6 @@ class SettaListener:
             )
             spec = ListenerCallbackSpec(
                 function=func,
-                dependencies=tuple(dependencies),
                 register=register,
             )
             self._callbacks[spec.callback_id] = spec
@@ -290,7 +288,6 @@ class SettaListener:
         """Serialize callback metadata into a register payload."""
         callbacks: list[ListenerRegisterCallback] = []
         for spec in self._callbacks.values():
-            spec.register.dependencies = list(spec.dependencies)
             callbacks.append(spec.register)
         return ListenerRegisterContent(
             projectConfigId=self._project_id,
