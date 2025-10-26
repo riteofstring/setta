@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from setta.code_gen.dependency_graph import GraphKeyType
 from setta.types.project_state import ProjectStateSingleConfig
 
+
 class ListenerFeed(str, Enum):
     PERSISTED = "persisted"
     REALTIME = "realtime"

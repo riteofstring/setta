@@ -2,13 +2,12 @@ import logging
 from typing import Any
 
 from setta.types.listener import (
-    ListenerDependencyKey,
     ListenerErrorContent,
     ListenerFeed,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
-    ListenerRealtimeEventContent,
     ListenerRealtimeDelta,
+    ListenerRealtimeEventContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
@@ -81,9 +80,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             matching_callbacks,
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
-            dependency_keys=(
-                delta.dependency.to_graph_key() for delta in deltas
-            ),
+            dependency_keys=(delta.dependency.to_graph_key() for delta in deltas),
         ):
             if any(
                 registration.callbacks[callback_id].feed
@@ -96,10 +93,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             logger.debug(
                 "no listener sockets registered for realtime dependencies %s "
                 "(project config %s)",
-                [
-                    delta.dependency.to_graph_key()
-                    for delta in deltas
-                ],
+                [delta.dependency.to_graph_key() for delta in deltas],
                 projectConfigId,
             )
             return
