@@ -170,11 +170,16 @@ Key concepts:
 - ✅ Added regression coverage for realtime listener handling (unit test simulating delta dispatch).
 - ✅ Listener registry indexes callback dependencies and `WMHPythonScriptSender` filters realtime broadcasts to sockets with matching realtime feeds.
 - ✅ Backend listener emit flow now forwards `ListenerFrontendEmit` payloads to frontend sockets, emits structured errors for invalid registrations, and omits success acknowledgements to keep realtime paths lean.
+- ✅ Documented a manual listener smoke workflow and introduced `tests/manual_listener_smoke.py` to exercise persisted updates end to end.
 
 ### Pending Work
-- Provide a replacement manual smoke test once the listener client exists.
+- Harden listener snapshot handling so transient invalid values (e.g., empty numeric fields) do not crash `SettaListener` during `S` instantiation.
 - Extend docs/examples after the client lands.
 - Flesh out `WMHPythonScriptReceiver` heartbeat handling to pair with the sender helpers once heartbeats are introduced.
 
 ### Manual Validation
-- Deferred until the listener client is implemented; no CLI helper exists yet.
+- Terminal A (stack): `source activate.sh && cd frontend && pnpm start`. Wait for FastAPI (`127.0.0.1:8000`) and Vite (`127.0.0.1:3000`) to report ready.
+- Terminal B (listener): `source activate.sh && python tests/manual_listener_smoke.py`. The helper script loads the fixture project and registers a sample dependency; tweak the callback in that file if your fixture watches a different attribute.
+- Frontend trigger: open `http://localhost:3000`, switch to the project the listener targets, and change a value that matches one of the registered dependencies. The listener terminal should log the updated value along with the `ctx.changed` map.
+- Cleanup: `Ctrl+C` in both terminals once you confirm the persisted update flowed through.
+- Note: if a callback depends on a typed value (e.g., expecting a number), leave the field in a valid state while editing—sending an empty value can make the generated `S` class raise during instantiation.
