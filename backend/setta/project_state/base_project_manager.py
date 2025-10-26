@@ -131,6 +131,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
+    get_curr_section_callable_code_obj,
     group_sections,
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
@@ -525,7 +526,7 @@ class BaseProjectManager(ABC):
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
             if self.gen_code.get(projectConfigId):
-                await self.maybe_do_rename_refactor(projectConfigId, dep_graph)
+                await self.maybe_do_rename_refactor(projectState, projectConfigId, dep_graph)
                 self.gen_code[projectConfigId].callback_cleanup()
 
             code_generator = PythonCodeGenerator(
@@ -879,8 +880,32 @@ class BaseProjectManager(ABC):
             )
         return None
 
+    def _apply_rename_result_auto_mode(
+        self,
+        project_state: ProjectStateSingleConfig,
+        rename_result: RenameReferencesResult,
+    ):
+        if not rename_result.changed_node_values:
+            return
+        for changed in rename_result.changed_node_values:
+            section_id = changed.sectionId
+            param_id = changed.paramInfoId
+            new_value = changed.newValue
+            if param_id is not None:
+                set_param_entered_value(project_state, section_id, param_id, new_value)
+                continue
+            callable_code_obj = get_curr_section_callable_code_obj(
+                project_state, section_id
+            )
+            if not callable_code_obj:
+                raise KeyError(
+                    f"Expected callable code object for section {section_id}"
+                )
+            project_state.codeObjs[callable_code_obj.id].name = new_value
+
     async def maybe_do_rename_refactor(
         self,
+        project_state: ProjectStateSingleConfig,
         projectConfigId: str,
         new_dep_graph: DependencyGraph,
     ):
@@ -901,6 +926,12 @@ class BaseProjectManager(ABC):
 
         if not rename_result.renamed_nodes and not rename_result.changed_node_values:
             return
+        if renameRefactorMode == RenameRefactorMode.ALWAYS_RENAME:
+            self._apply_rename_result_auto_mode(project_state, rename_result)
+            frontend_op_id = self._current_frontend_op_id.get()
+            if frontend_op_id:
+                self.pending_rename_results.pop(frontend_op_id, None)
+            return
 
         frontend_op_id = self._current_frontend_op_id.get()
         if frontend_op_id:
@@ -908,16 +939,15 @@ class BaseProjectManager(ABC):
                 projectConfigId,
                 rename_result,
             )
-            if renameRefactorMode == RenameRefactorMode.ALWAYS_ASK:
-                await self.websocket_msg_handler.broadcast_rename_refactor_results(
-                    RenameRefactorBroadcastContent(
-                        projectConfigId=projectConfigId,
-                        frontendOpId=frontend_op_id,
-                        renameMode=renameRefactorMode,
-                        renamedNodes=rename_result.renamed_nodes,
-                        changedNodeValues=rename_result.changed_node_values,
-                    )
+            await self.websocket_msg_handler.broadcast_rename_refactor_results(
+                RenameRefactorBroadcastContent(
+                    projectConfigId=projectConfigId,
+                    frontendOpId=frontend_op_id,
+                    renameMode=renameRefactorMode,
+                    renamedNodes=rename_result.renamed_nodes,
+                    changedNodeValues=rename_result.changed_node_values,
                 )
+            )
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
