@@ -9,6 +9,7 @@ We will modernize the Python script listener mode so user-authored scripts can s
 - `WMHPythonScriptReceiver` now streams the initial `projectData` snapshot during `on_connect`, and `SettaListener` hydrates without emitting `scriptReady` before registering dependencies.
 - Dependency lists broadcast via websocket now travel through the typed `WebsocketMsgAllDependencies`, ready for the frontend handler to be revived.
 - Scripts can explicitly resync via the new `requestFullState` verb; `SettaListener.force_full_state` wraps the send and tests assert the server snapshot response.
+- `SettaListener.update_stored_data` merges nested dict/list diffs into `_setta_data`, validates keys/indexes, and drains deferred updates queued while callbacks run.
 
 ## Protocol & Data Flow
 
@@ -16,7 +17,7 @@ We will modernize the Python script listener mode so user-authored scripts can s
 - Introduce or clarify message types covering script readiness, dependency registration, targeted diffs, full-state payloads, and force-refresh responses; update the shared enums/constants once the shapes are finalized.
 - Current code path recap:
 - `SettaListener.start` now waits for the first `projectData` payload to populate `_setta_data` before responding with `scriptDependencies` (`backend/setta/api/listener.py`).
-- Incremental updates arrive via `WS_CALL_INTERACTIVE_FNS`; the listener throttles/debounces callbacks but still needs logic to seed `_setta_data` and update dependency maps (`backend/setta/api/listener.py`).
+- Incremental updates arrive via `WS_CALL_INTERACTIVE_FNS`; the listener throttles/debounces callbacks and hydrates `_setta_data` on the initial snapshot before dependency registration (`backend/setta/api/listener.py`).
 - `WMHPythonScriptReceiver` pushes the bootstrap snapshot from `on_connect`, stores dependency registrations, and now handles `requestFullState` resyncs (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
 - Treat existing constants/enums (`WS_PROJECT_DATA`, `WS_CALL_INTERACTIVE_FNS`, etc.) as historical; we can redefine the taxonomy as we align backend/frontend/script message shapes.
 - Ensure websocket payloads are emitted via the Pydantic models in `backend/setta/types/websocket.py` (e.g., `_send_project_state_snapshot` should return a `WebsocketMsg` subclass) and carry forward the project-wide level of type annotations showcased in the surrounding modules.
@@ -33,7 +34,7 @@ We will modernize the Python script listener mode so user-authored scripts can s
   - Discover decorated interactive functions, maintain local debounce/throttle scheduling, and execute callbacks without involving the backend for rate limiting.
   - Track dependency keys, reconcile incoming diffs/full snapshots, and update both scalar data and the cached `S` instance before invoking user callbacks.
   - Provide imperative utilities such as `force_full_state()` (✅) and dependency re-registration so scripts can resync on demand.
-- Fill in the TODO blocks responsible for maintaining per-function state (`update_stored_data`, dependency mapping) while keeping asyncio task management robust.
+- Finish the remaining TODO blocks responsible for dependency mapping and S-helper hydration while keeping asyncio task management robust.
 
 ## Frontend & Tooling
 
@@ -46,17 +47,18 @@ We will modernize the Python script listener mode so user-authored scripts can s
 - Supply an example listener script in docs/tests showcasing debounce/throttle behavior living entirely client-side.
 - Update README or developer docs to walk through the new listener mode, decorator options, and integration with generated code.
 - ✅ Added unit coverage for `requestFullState` ensuring websocket responses include the targeted project config metadata.
+- ✅ Added unit coverage for `SettaListener.update_stored_data`, covering nested merges, deferred updates, and error cases.
 
 ### Current Handshake Snapshot
 
 - Python scripts connect to `/api/pythonScript/{module_path}` and immediately receive `{"messageType": "projectData", "content": {"projectConfigId": <default>, "projectState": …}}` from `WMHPythonScriptReceiver.on_connect`.
 - After hydrating local state, the listener responds with `scriptDependencies`, allowing the backend to rebroadcast the merged set to frontend clients.
-- Incremental updates are expected to use `{"messageType": "WS_CALL_INTERACTIVE_FNS", "content": [key, value]}` with `key` representing the S-tree path, yet no existing server code emits that message and `SettaListener.update_stored_data` still needs the logic to merge the diff.
+- Incremental updates are expected to use `{"messageType": "WS_CALL_INTERACTIVE_FNS", "content": [key, value]}` with `key` representing the S-tree path; server support for emitting these diffs is still pending, but the listener now applies them locally.
 - Frontend receivers broadcast `AllDependencies` to UI clients on connect, but `frontend/src/state/actions/websocketReceive.ts` currently comments out the handler so dependency metadata never surfaces.
 
 ### File Trace Notes
 
-- `backend/setta/api/listener.py:101-206` gathers decorated functions before dialing `Route.WEBSOCKET_PYTHON_SCRIPT`, hydrates on the first `WS_PROJECT_DATA` frame, rebuilds `dependencies_to_fns`, echoes back a `scriptDependencies` list, and kicks off `_run_functions_on_init`; follow-on diffs are funneled through `_run_functions_with_new_data`, but `update_stored_data` is still a stub so cache hydration never happens.
+- `backend/setta/api/listener.py:101-206` gathers decorated functions before dialing `Route.WEBSOCKET_PYTHON_SCRIPT`, hydrates on the first `WS_PROJECT_DATA` frame, rebuilds `dependencies_to_fns`, echoes back a `scriptDependencies` list, and kicks off `_run_functions_on_init`; follow-on diffs flow through `_run_functions_with_new_data`, and `update_stored_data` now mutates cached state eagerly.
 - `backend/setta/websockets/msg_handlers/python_script_receiver.py:23-96` now streams either the default config snapshot or the full backend state via `WS_PROJECT_DATA` from `on_connect`, and on `scriptDependencies` wipes/re-adds entries in `ScriptMetadata` before broadcasting `WebsocketMsgAllDependencies` to every frontend websocket.
 - `backend/setta/websockets/script_metadata.py:1-37` normalizes dependency keys to tuples, tracks wildcard listeners under `None`, and exposes `dependencies` for the frontend broadcast while `get_websocket_ids_listening_to_data` merges wildcard and keyed subscribers.
 - `frontend/src/state/actions/websocketReceive.ts:101-134` still logs every payload but leaves the `AllDependencies` handler commented out, so dependency broadcasts never update the UI.
