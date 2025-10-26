@@ -204,7 +204,7 @@ class WebsocketMsgListenerFrontendEmitForward(FrontendWebsocketMsg):
 
 class RealtimeUIChangeContent(BaseModel):
     projectConfigId: str
-    dependencyId: str
+    dependency: ListenerDependencyKey
     value: Any
     metadata: dict[str, Any] | None = None
 

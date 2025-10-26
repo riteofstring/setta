@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from setta.types.listener import ListenerRegisterCallback
+from setta.types.listener import ListenerDependencyKey, ListenerRegisterCallback
+
+GraphKey = tuple[str, str | None]
 
 
 @dataclass
@@ -9,7 +11,7 @@ class ListenerRegistration:
     websocket_id: str
     project_config_id: str
     callbacks: dict[str, ListenerRegisterCallback] = field(default_factory=dict)
-    dependency_index: dict[str, set[str]] = field(default_factory=dict)
+    dependency_index: dict[GraphKey, set[str]] = field(default_factory=dict)
     wildcard_callbacks: set[str] = field(default_factory=set)
 
     @classmethod
@@ -21,14 +23,15 @@ class ListenerRegistration:
         callbacks: dict[str, ListenerRegisterCallback],
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
-        dependency_index: dict[str, set[str]] = {}
+        dependency_index: dict[GraphKey, set[str]] = {}
         wildcard_callbacks: set[str] = set()
         for callback_id, callback in callback_map.items():
             if not callback.dependencies:
                 wildcard_callbacks.add(callback_id)
                 continue
-            for dependency_id in callback.dependencies:
-                dependency_index.setdefault(dependency_id, set()).add(callback_id)
+            for dependency in callback.dependencies:
+                graph_key = cls._normalize_dependency(dependency)
+                dependency_index.setdefault(graph_key, set()).add(callback_id)
         return cls(
             websocket_id=websocket_id,
             project_config_id=project_config_id,
@@ -36,6 +39,10 @@ class ListenerRegistration:
             dependency_index=dependency_index,
             wildcard_callbacks=wildcard_callbacks,
         )
+
+    @staticmethod
+    def _normalize_dependency(dependency: ListenerDependencyKey) -> GraphKey:
+        return (dependency.sectionId, dependency.codeObjId)
 
 
 class ListenerRegistry:
@@ -87,7 +94,7 @@ class ListenerRegistry:
         self,
         *,
         project_config_id: str,
-        dependency_ids: Iterable[str],
+        dependency_ids: Iterable[GraphKey],
     ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
         dependency_filter = set(dependency_ids)
         for registration in self.iter_registrations_for_project(project_config_id):

@@ -17,13 +17,6 @@ class ListenerInitContent(BaseModel):
     defaultFeed: ListenerFeed | None = None
 
 
-class ListenerRealtimeEventContent(BaseModel):
-    projectConfigId: str
-    delta: dict[str, Any]
-    sequence: int
-    metadata: dict[str, Any] | None = None
-
-
 class ListenerForceRefreshContent(BaseModel):
     projectState: ProjectStateSingleConfig | None = None
     reason: str | None = None
@@ -41,8 +34,25 @@ class ListenerFrontendEmitContent(BaseModel):
     target: str | None = None
 
 
+class ListenerDependencyKey(BaseModel):
+    sectionId: str
+    codeObjId: str | None = None
+
+
+class ListenerRealtimeDelta(BaseModel):
+    dependency: ListenerDependencyKey
+    value: Any
+
+
+class ListenerRealtimeEventContent(BaseModel):
+    projectConfigId: str
+    delta: list[ListenerRealtimeDelta]
+    sequence: int
+    metadata: dict[str, Any] | None = None
+
+
 class ListenerRegisterCallback(BaseModel):
-    dependencies: list[str]
+    dependencies: list[ListenerDependencyKey]
     feed: ListenerFeed
     debounceMs: int | None = None
     throttleMs: int | None = None

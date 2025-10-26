@@ -1,5 +1,6 @@
 from typing import Any
 
+from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
@@ -22,7 +23,7 @@ class RealtimeEventHub:
         self,
         *,
         project_config_id: str,
-        delta: dict[str, Any],
+        delta: list[ListenerRealtimeDelta],
         metadata: dict[str, Any] | None = None,
     ) -> None:
         if not delta:

@@ -48,6 +48,11 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
     async def _handle_realtime_ui_change(self, content: RealtimeUIChangeContent):
         await self.realtime_event_hub.emit_realtime_delta(
             project_config_id=content.projectConfigId,
-            delta={content.dependencyId: content.value},
+            delta=[
+                ListenerRealtimeDelta(
+                    dependency=content.dependency,
+                    value=content.value,
+                )
+            ],
             metadata=content.metadata,
         )
