@@ -1280,8 +1280,6 @@ class BaseProjectManager(ABC):
             ),
             self.python_script_sender.send_persisted_update(
                 project_state,
-                completed_op_ids,
-                pending_op_ids,
                 is_bootstrap=is_bootstrap,
             ),
         )

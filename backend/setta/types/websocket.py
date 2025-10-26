@@ -27,7 +27,7 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import AllProjectMetadata
+from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.settings_state import RenameRefactorMode
 
 
@@ -201,14 +201,14 @@ class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
 
 
 class WebsocketMsgListenerBootstrap(PythonScriptWebsocketMsg):
-    content: ProjectStateSingleConfigWithCompletedOpIds
+    content: ProjectStateSingleConfig
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerBootstrap] = (
         WebsocketMsgTypeForPythonScript.ListenerBootstrap
     )
 
 
 class WebsocketMsgListenerPersistedUpdate(PythonScriptWebsocketMsg):
-    content: ProjectStateSingleConfigWithCompletedOpIds
+    content: ProjectStateSingleConfig
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate] = (
         WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate
     )

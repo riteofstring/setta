@@ -5565,7 +5565,7 @@ export function createFrontendWebsocketMsgUnionWithDiscriminator(
 
 export const WebsocketMsgListenerBootstrapSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigWithCompletedOpIdsSchema,
+  content: ProjectStateSingleConfigSchema,
   messageType: z
     .literal("ListenerBootstrap")
     .default(WebsocketMsgTypeForPythonScriptEnum.ListenerBootstrap),
@@ -5583,7 +5583,7 @@ export function createWebsocketMsgListenerBootstrap(
 
 export const WebsocketMsgListenerPersistedUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigWithCompletedOpIdsSchema,
+  content: ProjectStateSingleConfigSchema,
   messageType: z
     .literal("ListenerPersistedUpdate")
     .default(WebsocketMsgTypeForPythonScriptEnum.ListenerPersistedUpdate),
@@ -5637,7 +5637,7 @@ export function createWebsocketMsgListenerRealtimeEvent(
 
 export const ListenerForceRefreshContentSchema = z.object({
   projectState: z
-    .union([ProjectStateSingleConfigWithCompletedOpIdsSchema, z.null()])
+    .union([ProjectStateSingleConfigSchema, z.null()])
     .default(null),
   reason: z.union([z.string(), z.null()]).default(null),
   schemaHash: z.union([z.string(), z.null()]).default(null),

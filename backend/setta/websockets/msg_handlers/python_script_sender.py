@@ -1,9 +1,6 @@
 import logging
 from typing import Any
 
-from setta.project_state.project_manager_types import (
-    ProjectStateSingleConfigWithCompletedOpIds,
-)
 from setta.types.listener import (
     ListenerAckContent,
     ListenerErrorContent,
@@ -31,16 +28,9 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
     async def send_persisted_update(
         self,
         projectState: ProjectStateSingleConfig,
-        completedOpIds: list[str],
-        pendingOpIds: list[str],
         *,
         is_bootstrap: bool,
     ):
-        payload = ProjectStateSingleConfigWithCompletedOpIds(
-            projectState=projectState,
-            completedOpIds=completedOpIds,
-            pendingOpIds=pendingOpIds,
-        )
         logger.debug(
             "sending listener persisted update (bootstrap=%s) for project config %s",
             is_bootstrap,
@@ -52,7 +42,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             else WebsocketMsgListenerPersistedUpdate
         )
         await self.websocket_manager.broadcast(
-            message_cls(content=payload),
+            message_cls(content=projectState),
             connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
         )
 
@@ -85,7 +75,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
     async def send_force_refresh(
         self,
         *,
-        projectState: ProjectStateSingleConfigWithCompletedOpIds | None = None,
+        projectState: ProjectStateSingleConfig | None = None,
         reason: str | None = None,
         schemaHash: str | None = None,
     ):
@@ -96,9 +86,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         )
         logger.debug(
             "sending listener force refresh for project config %s",
-            projectState.projectState.projectConfig.id
-            if projectState is not None
-            else "unknown",
+            projectState.projectConfig.id if projectState is not None else "unknown",
         )
         await self.websocket_manager.broadcast(
             WebsocketMsgListenerForceRefresh(content=content),

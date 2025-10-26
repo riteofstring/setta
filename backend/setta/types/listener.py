@@ -3,9 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from setta.project_state.project_manager_types import (
-    ProjectStateSingleConfigWithCompletedOpIds,
-)
+from setta.types.project_state import ProjectStateSingleConfig
 
 
 class ListenerFeed(str, Enum):
@@ -23,7 +21,7 @@ class ListenerRealtimeEventContent(BaseModel):
 
 
 class ListenerForceRefreshContent(BaseModel):
-    projectState: ProjectStateSingleConfigWithCompletedOpIds | None = None
+    projectState: ProjectStateSingleConfig | None = None
     reason: str | None = None
     schemaHash: str | None = None
 

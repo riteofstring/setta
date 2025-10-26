@@ -78,7 +78,7 @@ Key concepts:
 ### Message Types (new enums in `types.websocket`)
 - `ListenerBootstrap`: full project state + schema hash + sequence.
 - `ListenerRealtimeEvent`: realtime delta, dependency ids, sequence number.
-- `ListenerPersistedEvent`: authoritative update with completed/pending op ids.
+- `ListenerPersistedEvent`: authoritative project state snapshot from the persisted pipeline.
 - `ListenerForceRefresh`: instructs listener to discard cache and request fresh state.
 - `ListenerAck` / `ListenerError`: handshake, heartbeat, and error reporting.
 - `ListenerFrontendEmit`: forwarded script→frontend payloads.
@@ -91,7 +91,7 @@ Key concepts:
   - `sequence` monotonically increases per project; gaps signal missed events and prompt a force refresh.
   - `metadata` is optional context from the frontend (e.g., emitting control, timestamps); scripts may ignore it.
 - `ListenerForceRefreshContent`:
-  - ships an optional authoritative `ProjectStateSingleConfigWithCompletedOpIds` snapshot.
+  - ships an optional authoritative `ProjectStateSingleConfig` snapshot.
   - includes `reason` strings for logging/UX and `schemaHash` that increments whenever the backend regenerates the `S` bundle so listeners reload the matching generated module.
 - `ListenerFrontendEmitContent` wraps listener `emit_to_frontend` calls with `projectConfigId`, an arbitrary payload dict, and an optional `target` routing hint for the UI.
 
@@ -143,6 +143,8 @@ Key concepts:
 - ✅ Defined additional listener websocket enums/models (`ListenerRealtimeEvent`, `ListenerForceRefresh`, `ListenerAck`, `ListenerError`, `ListenerFrontendEmit`) and registered them in the discriminated unions.
 - ✅ Centralized listener payload models (feed enum, realtime/force refresh/ack/error/frontend emit, register/ack) under `backend/setta/types/listener.py` and added `ListenerRegister` / `ListenerRegisterAck` websocket message types.
 - ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, ack/error, and listener→frontend emissions.
+- ✅ Simplified listener websocket payloads to send bare `ProjectStateSingleConfig` snapshots (persisted, bootstrap, force refresh).
+- ✅ Listener client currently parses websocket payloads and acknowledges registration; state dispatch is deferred.
 - ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ✅ Implemented the `SettaListener` websocket connection loop plus `start/stop` helpers so scripts can connect, reconnect, and observe incoming message types using the shared host/port defaults.
 - ✅ Listener client records per-callback registration metadata (stable IDs, feeds, debounce/throttle flags) and can serialize a full `ListenerRegister` payload for handshakes.

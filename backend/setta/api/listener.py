@@ -8,16 +8,18 @@ import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
 
+from setta.types.generated.websocket_unions import (
+    PythonScriptWebsocketMsgTypeAdapter,
+)
 from setta.types.listener import (
     ListenerFeed,
     ListenerRegisterCallback,
     ListenerRegisterContent,
 )
 from setta.types.routes import Route
-from setta.types.generated.websocket_unions import (
-    PythonScriptWebsocketMsgTypeAdapter,
-)
 from setta.types.websocket import (
+    WebsocketMsgListenerBootstrap,
+    WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
 )
@@ -127,28 +129,43 @@ class SettaListener:
                 async for payload in websocket:
                     if self._stop_event.is_set():
                         break
-                    self._handle_websocket_payload(payload)
+                    message = self._parse_websocket_payload(payload)
+                    if message is None:
+                        continue
+                    await self._dispatch_websocket_message(message)
             finally:
                 logger.info("Listener %s connection closed", self._project_id)
                 self._registration_pending = False
                 self._is_registered = False
 
-    def _handle_websocket_payload(self, payload: str) -> None:
-        """Parse websocket payloads and delegate to specific handlers."""
+    def _parse_websocket_payload(self, payload: str) -> Any | None:
+        """Parse raw websocket payloads into typed messages."""
         try:
             message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
         except ValidationError:
             logger.warning("Received malformed listener payload: %s", payload)
-            return
+            return None
         logger.debug(
             "Listener %s received %s message", self._project_id, message.messageType
         )
+        return message
+
+    async def _dispatch_websocket_message(self, message: Any) -> None:
+        """Delegate parsed websocket messages to dedicated handlers."""
         if isinstance(message, WebsocketMsgListenerRegisterAck):
             self._handle_register_ack(message)
+            return
+        if isinstance(message, WebsocketMsgListenerBootstrap):
+            return
+        if isinstance(message, WebsocketMsgListenerPersistedUpdate):
+            return
+        logger.debug(
+            "Listener %s ignoring unsupported message type %s",
+            self._project_id,
+            getattr(message, "messageType", type(message)),
+        )
 
-    def _handle_register_ack(
-        self, message: WebsocketMsgListenerRegisterAck
-    ) -> None:
+    def _handle_register_ack(self, message: WebsocketMsgListenerRegisterAck) -> None:
         """Handle ListenerRegisterAck responses from the server."""
         if message.content.projectConfigId != self._project_id:
             logger.warning(
@@ -183,9 +200,7 @@ class SettaListener:
                 callback_id,
             )
 
-        rejected = [
-            status for status in ack_statuses if status.status == "rejected"
-        ]
+        rejected = [status for status in ack_statuses if status.status == "rejected"]
         accepted_count = sum(
             1 for status in ack_statuses if status.status == "accepted"
         )
@@ -202,9 +217,7 @@ class SettaListener:
                 len(rejected),
                 error_details,
             )
-            raise RuntimeError(
-                f"Listener registration rejected: {error_details}"
-            )
+            raise RuntimeError(f"Listener registration rejected: {error_details}")
 
         self._is_registered = True
         logger.info(
@@ -245,14 +258,13 @@ class SettaListener:
 
     def _build_register_content(self) -> ListenerRegisterContent:
         """Serialize callback metadata into a register payload."""
-        callbacks = []
+        callbacks: list[ListenerRegisterCallback] = []
         for spec in self._callbacks.values():
             dependencies = [
                 self._stringify_dependency(dep) for dep in spec.raw_dependencies
             ]
-            callbacks.append(
-                spec.register.model_copy(update={"dependencies": dependencies})
-            )
+            spec.register.dependencies = dependencies
+            callbacks.append(spec.register)
         return ListenerRegisterContent(
             projectConfigId=self._project_id,
             callbacks=callbacks,
@@ -298,5 +310,7 @@ class SettaListener:
             await websocket.send(payload)
         except Exception:
             self._registration_pending = False
-            logger.exception("Listener %s failed to send register payload", self._project_id)
+            logger.exception(
+                "Listener %s failed to send register payload", self._project_id
+            )
             raise
