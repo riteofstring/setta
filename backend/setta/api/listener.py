@@ -8,7 +8,11 @@ import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
 
-from setta.types.listener import ListenerFeed
+from setta.types.listener import (
+    ListenerFeed,
+    ListenerRegisterCallback,
+    ListenerRegisterContent,
+)
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketMsg
 from setta.utils.constants import C
@@ -23,11 +27,18 @@ ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 @dataclass(slots=True)
 class ListenerCallbackSpec:
     function: ListenerCallback
-    dependencies: tuple[Any, ...] = field(default_factory=tuple)
-    feed: ListenerFeed = ListenerFeed.PERSISTED
-    debounce_ms: int | None = None
-    throttle_ms: int | None = None
-    run_on_refresh: bool = False
+    raw_dependencies: tuple[Any, ...] = field(default_factory=tuple)
+    register: ListenerRegisterCallback = field(
+        default_factory=lambda: ListenerRegisterCallback(
+            callbackId=uuid4().hex,
+            dependencies=[],
+            feed=ListenerFeed.PERSISTED,
+        )
+    )
+
+    @property
+    def callback_id(self) -> str:
+        return self.register.callbackId
 
 
 class SettaListener:
@@ -42,7 +53,7 @@ class SettaListener:
     ) -> None:
         self._project_id = project_id
         self._feed = self._normalize_feed(default_feed)
-        self._callbacks: list[ListenerCallbackSpec] = []
+        self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
         self._reconnect_delay = reconnect_delay
@@ -131,18 +142,51 @@ class SettaListener:
         selection = self._normalize_feed(feed if feed is not None else self._feed)
 
         def decorator(func: ListenerCallback) -> ListenerCallback:
+            register = ListenerRegisterCallback(
+                callbackId=uuid4().hex,
+                dependencies=[],
+                feed=selection,
+                debounceMs=debounce_ms,
+                throttleMs=throttle_ms,
+                runOnRefresh=run_on_refresh,
+            )
             spec = ListenerCallbackSpec(
                 function=func,
-                dependencies=tuple(deps) if deps is not None else (),
-                feed=selection,
-                debounce_ms=debounce_ms,
-                throttle_ms=throttle_ms,
-                run_on_refresh=run_on_refresh,
+                raw_dependencies=tuple(deps) if deps is not None else (),
+                register=register,
             )
-            self._callbacks.append(spec)
+            self._callbacks[spec.callback_id] = spec
             return func
 
         return decorator
+
+    def _build_register_content(self) -> ListenerRegisterContent:
+        """Serialize callback metadata into a register payload."""
+        callbacks = []
+        for spec in self._callbacks.values():
+            dependencies = [
+                self._stringify_dependency(dep) for dep in spec.raw_dependencies
+            ]
+            callbacks.append(
+                spec.register.model_copy(update={"dependencies": dependencies})
+            )
+        return ListenerRegisterContent(
+            projectConfigId=self._project_id,
+            callbacks=callbacks,
+        )
+
+    @staticmethod
+    def _stringify_dependency(value: Any) -> str:
+        """Convert dependency descriptors into canonical strings."""
+        if isinstance(value, str):
+            return value
+        path_attr = getattr(value, "path", None)
+        if isinstance(path_attr, str):
+            return path_attr
+        identifier = getattr(value, "id", None)
+        if isinstance(identifier, str):
+            return identifier
+        return str(value)
 
     @staticmethod
     def _normalize_feed(

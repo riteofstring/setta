@@ -145,7 +145,8 @@ Key concepts:
 - ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, ack/error, and listener→frontend emissions.
 - ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ✅ Implemented the `SettaListener` websocket connection loop plus `start/stop` helpers so scripts can connect, reconnect, and observe incoming message types using the shared host/port defaults.
-- ⏳ Listener client and tooling are not yet implemented; frontend endpoints remain unchanged.
+- ✅ Listener client records per-callback registration metadata (stable IDs, feeds, debounce/throttle flags) and can serialize a full `ListenerRegister` payload for handshakes.
+- ⏳ Listener client and tooling are not yet implemented beyond registration metadata; frontend endpoints remain unchanged.
 
 ### Pending Work
 - Complete the `SettaListener` client handshake, dependency resolution, and message dispatch (using the `ListenerRegister` / `ListenerRegisterAck` messages) so callbacks receive bootstrap/persisted events.
