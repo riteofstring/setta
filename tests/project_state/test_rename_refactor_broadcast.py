@@ -5,7 +5,10 @@ from contextlib import AsyncExitStack
 from setta.code_gen.utils import sanitize_name
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
+    AddKwargRequest,
+    CreateTopLevelSectionRequest,
     DeclineRenameRefactorRequest,
+    SetCodeObjNameRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
 )
@@ -13,6 +16,8 @@ from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.helpers_lvl2 import get_curr_top_level_param_ids
 from setta.types.settings_state import RenameRefactorMode
+from setta.types.simplified_states import Position
+from setta.types.section_impls import SectionType
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
@@ -256,6 +261,75 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 impl_after.value,
                 f"s.{sanitize_name(new_name)}",
                 "Acceptance should update dependent values to the renamed token.",
+            )
+        finally:
+            backend_settings.renameRefactorMode = previous_mode
+
+    async def test_naming_new_kwarg_does_not_trigger_rename_prompt(self):
+        backend_settings = self.manager.settings_file.settings.backend
+        previous_mode = backend_settings.renameRefactorMode
+        backend_settings.renameRefactorMode = RenameRefactorMode.ALWAYS_ASK
+        try:
+            dict_section_id = await self.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    frontendOpId="create-dict-section",
+                    projectConfigId=self.project_config_id,
+                    implType=SectionType.Dict,
+                    implOverrides={"type": SectionType.Dict},
+                    position=Position(),
+                )
+            )
+
+            await self.manager.add_kwarg(
+                AddKwargRequest(
+                    frontendOpId="add-dict-kwarg",
+                    projectConfigId=self.project_config_id,
+                    sectionId=dict_section_id,
+                )
+            )
+
+            project_state = await self.manager.load_project_config(
+                self.project_config_id
+            )
+            kwarg_ids = get_curr_top_level_param_ids(project_state, dict_section_id)
+            self.assertEqual(
+                len(kwarg_ids),
+                1,
+                "Expected dict section to have exactly one kwarg after creation.",
+            )
+            kwarg_id = kwarg_ids[0]
+
+            self._sent_messages.clear()
+
+            await self.manager.set_code_obj_name(
+                SetCodeObjNameRequest(
+                    frontendOpId="name-dict-kwarg",
+                    projectConfigId=self.project_config_id,
+                    codeObjId=kwarg_id,
+                    name="foo_kwarg",
+                )
+            )
+
+            self.assertNotIn(
+                "name-dict-kwarg",
+                self.manager.pending_rename_results,
+                "Naming a new kwarg should not create pending rename work.",
+            )
+
+            texts = [
+                message["text"]
+                for message in self._sent_messages
+                if message["type"] == "websocket.send" and "text" in message
+            ]
+            rename_payloads = []
+            for text in texts:
+                parsed = json.loads(text)
+                if parsed.get("messageType") == "ReturnRenameRefactorResults":
+                    rename_payloads.append(parsed)
+
+            self.assertFalse(
+                rename_payloads,
+                "Expected no rename refactor broadcast when naming a brand new kwarg.",
             )
         finally:
             backend_settings.renameRefactorMode = previous_mode
