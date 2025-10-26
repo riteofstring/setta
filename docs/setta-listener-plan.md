@@ -99,7 +99,7 @@ Key concepts:
 ### Listener Message Payload Notes
 - `ListenerRealtimeEventContent`:
   - `projectConfigId` identifies which listener session should process the delta.
-  - `delta` is a dict keyed by serialized dependency graph keys (see “Dependency Key Strategy”) with JSON-serializable new values; listeners update the cached dependency graph/generator before invoking callbacks.
+  - `delta` is currently a dict keyed by sanitized dependency names so existing listeners continue to function. As part of the dependency-key refactor we will swap this for a list of realtime dependency payloads, each entry providing `sectionId`, `codeObjId` (optional for section-level values), and the JSON-serializable `value`; the listener will convert each entry into a graph key tuple before updating the cached dependency graph/generator and invoking callbacks.
   - `sequence` monotonically increases per project; gaps signal missed events and prompt a force refresh.
   - `metadata` is optional context from the frontend (e.g., emitting control, timestamps); scripts may ignore it.
 - `ListenerForceRefreshContent`:
@@ -174,7 +174,7 @@ Key concepts:
 - ✅ Introduced `RealtimeEventHub` to sequence realtime deltas per project, with regression coverage.
 - ✅ Simplified `ListenerRealtimeEventContent` so realtime routing relies on `delta` keys rather than a duplicated `dependencyIds` list.
 - ✅ `WMHFrontendReceiver` now accepts `RealtimeUIChange` websocket messages and forwards them into `RealtimeEventHub`, which sequences and fans them out via `WMHPythonScriptSender`.
-- ✅ Extended `DependencyGraph` to maintain cached sanitized ↔ graph-key ↔ serialized `${sectionId}::${codeObjId}` mappings plus helpers for serializing/deserializing keys.
+- ✅ Extended `DependencyGraph` to maintain cached sanitized ↔ graph-key mappings plus helpers for constructing `GraphKey` tuples.
 
 #### Dependency Naming Rules
 - Generated dependency strings come directly from `DependencyGraph.create_full_path_name`, which first sanitizes each section or parameter name by swapping `[]"' ` for `_`, collapsing duplicate underscores, and trimming leading/trailing underscores.
@@ -183,17 +183,20 @@ Key concepts:
 - Listener authors continue to specify dependencies using these sanitized strings so the public API remains stable, but the listener runtime resolves them to dependency graph keys for transport and storage.
 
 #### Dependency Key Strategy (Updated)
-- Convert listener-specified dependency strings to graph keys `(sectionId, codeObjId | None)` during registration. Cache both directions so the runtime can mutate the generated `S` instance without re-traversing the dependency graph.
-- Represent graph keys on the wire as `${sectionId}::${codeObjId or ""}`. The backend stores them as tuples; the frontend emits the same serialized form without running the sanitizer.
-- `ListenerRegisterCallback.dependencies` and `ListenerRealtimeEventContent.delta` now operate on serialized graph keys. The backend moves between tuples and serialized strings inside websocket senders/receivers.
-- Frontend controls already know `sectionId`/`codeObjId`, so emitting a graph key only requires concatenation. No tree walk is needed client side.
-- During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using the dependency graph once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
+- Current shape: callbacks register sanitized dependency strings, realtime deltas use the same strings as dict keys, and `DependencyGraph` maintains serialized `${sectionId}::${codeObjId}` helpers so IDs can be shipped over the wire.
+- Refactor goal: convert listener-specified dependency strings to graph keys `(sectionId, codeObjId | None)` during registration, cache both directions, and keep tuple storage end to end so the runtime can mutate the generated `S` instance without re-traversing the dependency graph.
+- Send dependency keys over the wire as structured payloads `{sectionId, codeObjId}` (omitting `codeObjId` or setting it to `null` for section-level dependencies). Backend services store them as tuples while transport layers work with explicit fields, eliminating the string serialization step once all callers transition.
+- `ListenerRegisterCallback.dependencies` becomes a list of these structured graph key payloads. `ListenerRealtimeEventContent.delta` reuses the same shape alongside the new value so the listener and backend can convert to tuples in O(1) time.
+- Frontend controls already know `sectionId`/`codeObjId`, so emitting a dependency key only requires packaging the existing identifiers—no concatenation or sanitizer knowledge client side.
+- During bootstrap the listener builds a map `{sanitizedName -> GraphKey}` using the dependency graph once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
 
 ### Dependency ID Refactor Plan (In Progress)
-- Update `SettaListener` so registration resolves sanitized dependency strings through its local `DependencyGraph`, emits serialized graph keys in `ListenerRegisterCallback.dependencies`, and logs a deprecation warning when legacy sanitized ids are supplied.
-- Keep backend listener registration/storage agnostic—`ListenerRegistry` continues to persist whatever serialized ids the client sends; backend senders assume serialized keys and no longer perform conversion.
-- Adjust realtime handling inside `SettaListener` to translate incoming serialized keys back to sanitized attribute names using the cached dependency graph map before mutating the generated `S` instance.
-- Regenerate frontend bindings so controls and the “Listener Mode” UI emit serialized graph keys (surfacing sanitized labels only for display/debugging).
+- Update `SettaListener` so registration resolves sanitized dependency strings through its local `DependencyGraph`, emits structured `{sectionId, codeObjId}` payloads in `ListenerRegisterCallback.dependencies`, and logs a deprecation warning when legacy sanitized ids are supplied.
+- Keep backend listener registration/storage tuple-native—`ListenerRegistry`, `RealtimeEventHub`, and `WMHPythonScriptSender` persist `GraphKey` tuples and only unwrap them when crossing JSON boundaries.
+- Adjust realtime handling inside `SettaListener` to translate incoming structured keys back to sanitized attribute names using the cached dependency graph map before mutating the generated `S` instance.
+- Regenerate frontend bindings so controls and the “Listener Mode” UI emit structured dependency key payloads (surfacing sanitized labels only for display/debugging).
+- Update backend/frontend listener schemas (`backend/setta/types/listener.py`, `backend/setta/types/websocket.py`, generated TS bindings) so `ListenerRegisterCallback.dependencies` and `ListenerRealtimeEventContent.delta` accept the structured key objects instead of strings. Maintain a compatibility shim that still accepts plain strings until the rollout completes.
+- Remove the serialized-ID caches from `DependencyGraph` once no callers rely on `${sectionId}::${codeObjId}` strings, and adjust any helper APIs that expose those conversions.
 - Expand websocket/listener regression coverage to exercise the listener-side conversion, unknown-id failures, and the compatibility warning path; document the phased rollout (listener conversion → frontend emissions → eventual removal of sanitized shim) in release notes.
 
 ### Pending Work
