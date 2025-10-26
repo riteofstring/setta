@@ -26,9 +26,7 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             dummy_path.write_text("{}")
             dummy_section_id = "json-source-section"
             dummy_variant_id = "json-source-variant"
-            category_mapping = {
-                dummy_path: {(dummy_section_id, dummy_variant_id)}
-            }
+            category_mapping = {dummy_path: {(dummy_section_id, dummy_variant_id)}}
             self.manager.json_source._set_category_section_variants(
                 self.category, category_mapping
             )

@@ -70,7 +70,6 @@ class SettingsShortcuts(BaseModel):
     showProjectOverviewTabShortcut: str = "O"
     runCodeShortcut: str = "Mod + Enter"
     runEntryCodeBlockShortcut: str = "Mod + Shift + Enter"
-    sendProjectToAllInteractiveCode: str = "Alt + I"
     paramSelect: str = "Mod + Shift"
     formatCode: str = "Shift + Alt + F"
     selectionKeyCode: str = "Shift"

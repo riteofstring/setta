@@ -3,9 +3,12 @@ import {
   SaveLoadModalModeEnum,
 } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useModalData } from "state/actions/modal";
-import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
-import { saveAsNewProjectConfig, saveProject } from "state/actions/project/saveProject";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
+import {
+  saveAsNewProjectConfig,
+  saveProject,
+} from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";

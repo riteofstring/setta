@@ -3,8 +3,8 @@ import { openRenameReferencesModal } from "state/actions/modal";
 import {
   NULL_PROJECT_CONFIG_ID,
   useModal,
-  useProjectState,
   usePendingOperations,
+  useProjectState,
   useRenameRefactors,
 } from "state/definitions";
 import { post } from "utils/endpointUtils";
@@ -32,15 +32,12 @@ export function handleRenameRefactorBroadcast(
   clearRenameBroadcast(content.frontendOpId);
 }
 
-export function saveRenameBroadcast(
-  content: RenameRefactorBroadcastContent,
-) {
+export function saveRenameBroadcast(content: RenameRefactorBroadcastContent) {
   useRenameRefactors.setState((state) => {
     const nextQueue = state.queue.includes(content.frontendOpId)
       ? state.queue
       : [...state.queue, content.frontendOpId];
-    const { [content.frontendOpId]: _removed, ...restReady } =
-      state.readyOpIds;
+    const { [content.frontendOpId]: _removed, ...restReady } = state.readyOpIds;
     return {
       byOpId: { ...state.byOpId, [content.frontendOpId]: content },
       queue: nextQueue,
@@ -87,9 +84,7 @@ export function resetRenameBroadcasts() {
   useRenameRefactors.getState().reset();
 }
 
-export function markRenameBroadcastsReady(
-  completedOpIds: Iterable<string>,
-) {
+export function markRenameBroadcastsReady(completedOpIds: Iterable<string>) {
   const ids = Array.from(completedOpIds);
   if (ids.length === 0) {
     return;
@@ -100,11 +95,7 @@ export function markRenameBroadcastsReady(
     const nextReady = { ...state.readyOpIds };
 
     for (const id of ids) {
-      if (
-        state.byOpId[id] &&
-        state.queue.includes(id) &&
-        !nextReady[id]
-      ) {
+      if (state.byOpId[id] && state.queue.includes(id) && !nextReady[id]) {
         changed = true;
         nextReady[id] = true;
       }

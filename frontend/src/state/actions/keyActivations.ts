@@ -42,7 +42,6 @@ import {
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
 import { copy, paste } from "./copyPaste";
-import { formatCode } from "./interactive";
 import { restartLanguageServer } from "./lsp";
 import {
   openFileMenuLoadProjectConfigModal,
@@ -487,7 +486,7 @@ export function attachKeyEventListeners() {
     //   shortcuts.sendProjectToAllInteractiveCode,
     //   sendProjectToAllInteractiveCode,
     // ],
-    [shortcuts.formatCode, formatCode],
+    // [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],

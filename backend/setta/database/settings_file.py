@@ -32,9 +32,7 @@ class SettingsFile:
         for settings_slice, path in paths.items():
             if path not in to_be_saved:
                 to_be_saved[path] = {}
-            to_be_saved[path].update(
-                {settings_slice: settings_dump[settings_slice]}
-            )
+            to_be_saved[path].update({settings_slice: settings_dump[settings_slice]})
 
         for filename, data in to_be_saved.items():
             self.dbe.write_json(filename, data)

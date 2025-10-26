@@ -24,7 +24,6 @@ import {
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
-import { updateInteractiveDependencies } from "./interactive";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
@@ -105,8 +104,8 @@ function receiveMessage(message: string) {
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AllDependencies:
-      return updateInteractiveDependencies(m.content);
+    // case WebsocketMsgTypeForFrontendEnum.AllDependencies:
+    // return updateInteractiveDependencies(m.content);
     // case WebsocketMsgTypeForFrontendEnum.Artifact:
     //   return updateInteractiveArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:

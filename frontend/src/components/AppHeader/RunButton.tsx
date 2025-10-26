@@ -5,8 +5,6 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useState } from "react";
 import { RiArrowDownSLine, RiPlayMiniFill } from "react-icons/ri";
 import { runEntryCodeBlock } from "state/actions/runOrImportCode";
-import { useSettings } from "state/definitions";
-import { shortcutPrettified } from "utils/utils";
 
 export function RunButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,9 +28,9 @@ export function RunButton() {
     },
   ];
 
-  const sendProjectToAllInteractiveCodeShortcut = useSettings((x) =>
-    shortcutPrettified(x.shortcuts.sendProjectToAllInteractiveCode),
-  );
+  // const sendProjectToAllInteractiveCodeShortcut = useSettings((x) =>
+  //   shortcutPrettified(x.shortcuts.sendProjectToAllInteractiveCode),
+  // );
 
   return (
     <div className="flex justify-stretch">
@@ -53,7 +51,7 @@ export function RunButton() {
             key={index}
             className={menuItemClasses}
             onClick={action.action}
-            shortcut={sendProjectToAllInteractiveCodeShortcut}
+            // shortcut={sendProjectToAllInteractiveCodeShortcut}
           >
             <i className="w-2 opacity-50">{action.icon}</i>
 
