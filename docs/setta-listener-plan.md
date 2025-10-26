@@ -128,10 +128,11 @@ Key concepts:
   - `WMHPythonScriptSender` broadcasts persisted snapshots alongside existing frontend payloads.
   - `BaseProjectManager._broadcast_project_state_snapshot` now targets the python-script channel.
   - `WMHPythonScriptReceiver` tracks connected script sockets.
+- ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ⏳ Listener client and tooling are not yet implemented; frontend endpoints remain unchanged.
 
 ### Pending Work
-- Implement the `SettaListener` client API plus registration/dependency handling.
+- Implement the `SettaListener` client handshake, dependency resolution, and websocket session management.
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
 
