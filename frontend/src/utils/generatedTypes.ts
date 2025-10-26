@@ -486,8 +486,6 @@ export const RouteEnum = {
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
-  ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
-  DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
@@ -4358,42 +4356,9 @@ export function createWebsocketMsgLSPDiagnostics(
   return WebsocketMsgLSPDiagnosticsSchema.parse(options);
 }
 
-export const RenameReferenceChangedValueSchema = z.object({
-  sectionId: z.string(),
-  paramInfoId: z.union([z.string(), z.null()]),
-  newValue: z.string(),
-});
-
-export type RenameReferenceChangedValue = z.infer<
-  typeof RenameReferenceChangedValueSchema
->;
-
-export function createRenameReferenceChangedValue(
-  options: Partial<RenameReferenceChangedValue> = {},
-): RenameReferenceChangedValue {
-  return RenameReferenceChangedValueSchema.parse(options);
-}
-
-export const RenameRefactorBroadcastContentSchema = z.object({
-  projectConfigId: z.string(),
-  frontendOpId: z.string(),
-  renameMode: z.enum(RenameRefactorModeEnum),
-  changedNodeValues: z.array(RenameReferenceChangedValueSchema),
-});
-
-export type RenameRefactorBroadcastContent = z.infer<
-  typeof RenameRefactorBroadcastContentSchema
->;
-
-export function createRenameRefactorBroadcastContent(
-  options: Partial<RenameRefactorBroadcastContent> = {},
-): RenameRefactorBroadcastContent {
-  return RenameRefactorBroadcastContentSchema.parse(options);
-}
-
 export const WebsocketMsgReturnRenameRefactorResultsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: RenameRefactorBroadcastContentSchema,
+  content: z.any(),
   messageType: z
     .literal("ReturnRenameRefactorResults")
     .default(WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults),
@@ -7957,21 +7922,6 @@ export function createTypeCheckRequest(
   return TypeCheckRequestSchema.parse(options);
 }
 
-export const AcceptRenameRefactorRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: z.string(),
-});
-
-export type AcceptRenameRefactorRequest = z.infer<
-  typeof AcceptRenameRefactorRequestSchema
->;
-
-export function createAcceptRenameRefactorRequest(
-  options: Partial<AcceptRenameRefactorRequest> = {},
-): AcceptRenameRefactorRequest {
-  return AcceptRenameRefactorRequestSchema.parse(options);
-}
-
 export const AddKwargRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: z.string(),
@@ -8144,21 +8094,6 @@ export function createCreateTopLevelSectionRequest(
   options: Partial<CreateTopLevelSectionRequest> = {},
 ): CreateTopLevelSectionRequest {
   return CreateTopLevelSectionRequestSchema.parse(options);
-}
-
-export const DeclineRenameRefactorRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: z.string(),
-});
-
-export type DeclineRenameRefactorRequest = z.infer<
-  typeof DeclineRenameRefactorRequestSchema
->;
-
-export function createDeclineRenameRefactorRequest(
-  options: Partial<DeclineRenameRefactorRequest> = {},
-): DeclineRenameRefactorRequest {
-  return DeclineRenameRefactorRequestSchema.parse(options);
 }
 
 export const DeleteChildSectionsViaDecrementerRequestSchema = z.object({

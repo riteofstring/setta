@@ -4,7 +4,6 @@ import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal"
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
-import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
@@ -43,8 +42,6 @@ function ModalContent({ open }: { open: boolean }) {
       return <FileMenuLoadProjectConfigModal open={open} />;
     case ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS:
       return <FileMenuSaveProjectConfigAsModal open={open} />;
-    case ModalTypeEnum.RENAME_REFERENCES:
-      return <RenameReferencesModal />;
     default:
       return modalInfo satisfies never;
   }

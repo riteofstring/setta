@@ -1,6 +1,5 @@
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
-    AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
@@ -10,7 +9,6 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
-    DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
@@ -392,24 +390,6 @@ async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
 @router.post(Route.SET_SECTION_NAME)
 async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_section_name(x)
-
-
-@router.post(Route.ACCEPT_RENAME_REFACTOR)
-async def route_accept_rename_refactor(
-    x: AcceptRenameRefactorRequest, state: AppStateFromRequest
-) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).accept_rename_refactor(
-        x
-    )
-
-
-@router.post(Route.DECLINE_RENAME_REFACTOR)
-async def route_decline_rename_refactor(
-    x: DeclineRenameRefactorRequest, state: AppStateFromRequest
-) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).decline_rename_refactor(
-        x
-    )
 
 
 @router.post(Route.SET_TEXT_BLOCK_DISPLAY_MODE)

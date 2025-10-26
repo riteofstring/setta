@@ -27,13 +27,12 @@ class SettingsFile:
     async def save_settings(self, settings: SettingsState):
         logger.debug("Saving settings")
         paths = self.get_settings_paths()
-        settings_dump = settings.model_dump(mode="json")
         to_be_saved = {}
         for settings_slice, path in paths.items():
             if path not in to_be_saved:
                 to_be_saved[path] = {}
             to_be_saved[path].update(
-                {settings_slice: settings_dump[settings_slice]}
+                {settings_slice: getattr(settings, settings_slice)}
             )
 
         for filename, data in to_be_saved.items():

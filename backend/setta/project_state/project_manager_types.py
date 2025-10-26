@@ -276,14 +276,6 @@ class SetSectionNameRequest(ProjectManagerRequestWithFrontendOp):
     name: str
 
 
-class AcceptRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-
-
-class DeclineRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-
-
 class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     sectionId: str

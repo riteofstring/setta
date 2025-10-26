@@ -45,12 +45,6 @@ export function openFileMenuSaveProjectConfigAsWithRefsModal() {
   });
 }
 
-export function openRenameReferencesModal(
-  data: ModalDataMap["RENAME_REFERENCES"],
-) {
-  openModal({ type: ModalTypeEnum.RENAME_REFERENCES, data });
-}
-
 export function useModalData<T extends ModalType>(
   modalType: T,
 ): ModalDataMap[T] {
