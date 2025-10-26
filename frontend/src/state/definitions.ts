@@ -202,10 +202,6 @@ export const useArtifacts = withProjectState(
   ),
 );
 
-export const useInteractiveDependencies = withProjectState(
-  createWithEqualityFn(withResetFn(() => ({ dependencies: new Set() }))),
-);
-
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;

@@ -104,10 +104,6 @@ function receiveMessage(message: string) {
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
-    // case WebsocketMsgTypeForFrontendEnum.AllDependencies:
-    // return updateInteractiveDependencies(m.content);
-    // case WebsocketMsgTypeForFrontendEnum.Artifact:
-    //   return updateInteractiveArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:

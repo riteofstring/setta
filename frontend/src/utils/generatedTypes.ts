@@ -185,7 +185,6 @@ export const BackendWebsocketMsgTypeSet = new Set(["CurrentAddressUpdate"]);
 
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
-  "AllDependencies",
   "AllProjectMetadata",
   "LLMStreamingResponse",
   "LSPDiagnostics",
@@ -200,7 +199,6 @@ export const FrontendWebsocketMsgTypeSet = new Set([
 
 export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
-  "AllDependencies",
   "AllProjectMetadata",
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
@@ -403,7 +401,6 @@ export const RouteEnum = {
   WEBSOCKET_CLI: "/cli",
   WEBSOCKET_CLI_WITH_ID: "/cli/{id}",
   WEBSOCKET_PYTHON_SCRIPT: "/pythonScript/{id}",
-  WEBSOCKET_PYTHON_LOGGER: "/pythonLogger",
   SAVE_CODE_INFO: "/codeInfo/save",
   KILL_SUBPROCESSES: "/killSubprocesses",
   FORMAT_CODE: "/formatCode",
@@ -560,7 +557,6 @@ export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
   PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
   FRONTEND: "FRONTEND",
 } as const;
 
@@ -580,7 +576,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
   LSPDiagnostics: "LSPDiagnostics",
   TerminalMetadata: "TerminalMetadata",
-  AllDependencies: "AllDependencies",
   Notification: "Notification",
   LLMStreamingResponse: "LLMStreamingResponse",
   UUIDMappingForLLM: "UUIDMappingForLLM",
@@ -4605,24 +4600,6 @@ export function createWebsocketMsgUpdateFrontendProjectState(
   return WebsocketMsgUpdateFrontendProjectStateSchema.parse(options);
 }
 
-export const WebsocketMsgAllDependenciesSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("AllDependencies")
-    .default(WebsocketMsgTypeForFrontendEnum.AllDependencies),
-});
-
-export type WebsocketMsgAllDependencies = z.infer<
-  typeof WebsocketMsgAllDependenciesSchema
->;
-
-export function createWebsocketMsgAllDependencies(
-  options: Partial<WebsocketMsgAllDependencies> = {},
-): WebsocketMsgAllDependencies {
-  return WebsocketMsgAllDependenciesSchema.parse(options);
-}
-
 export const WebsocketMsgTerminalMetadataSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -5506,7 +5483,6 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
@@ -5526,7 +5502,6 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
@@ -5551,7 +5526,6 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
@@ -5571,7 +5545,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,

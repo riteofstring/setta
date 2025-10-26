@@ -21,9 +21,7 @@ from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_logger_receiver import WMHPythonLoggerReceiver
 from setta.websockets.msg_handlers.python_script_receiver import WMHPythonScriptReceiver
-from setta.websockets.script_metadata import ScriptMetadata
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -35,7 +33,6 @@ class SettaFastAPIState:
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
         self.lsp_writers = LSPWriters(self.lsps)
-        self.script_metadata = ScriptMetadata()
 
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.specific_file_watcher = SpecificFileWatcher()
@@ -77,13 +74,9 @@ class SettaFastAPIState:
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,
             project_manager,
-            self.script_metadata,
         )
         self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager, self.script_metadata, project_manager
-        )
-        self.wmh_python_logger_receiver = WMHPythonLoggerReceiver(
             self.websocket_manager
         )
 

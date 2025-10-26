@@ -26,7 +26,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
-    AllDependencies = "AllDependencies"
     Notification = "Notification"
     LLMStreamingResponse = "LLMStreamingResponse"
     UUIDMappingForLLM = "UUIDMappingForLLM"
@@ -45,7 +44,6 @@ class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
     PYTHON_SCRIPT = "PYTHON_SCRIPT"
-    PYTHON_LOGGER = "PYTHON_LOGGER"
     FRONTEND = "FRONTEND"
 
 
@@ -139,13 +137,6 @@ class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     content: ProjectStateSingleConfigWithCompletedOpIds
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
-    )
-
-
-class WebsocketMsgAllDependencies(FrontendWebsocketMsg):
-    content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.AllDependencies] = (
-        WebsocketMsgTypeForFrontend.AllDependencies
     )
 
 

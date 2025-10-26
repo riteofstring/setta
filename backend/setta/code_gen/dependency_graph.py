@@ -200,12 +200,6 @@ class DependencyGraph:
                     deps={},
                 )
                 self.add_to_graph(graph_key, node)
-            #     variant = get_selected_section_variant(p, id)
-            #     info["value"] = variant["description"]
-            #     info["dependencies"] = []
-            #     self.output[output_key] = info
-            # else:
-            #     raise ValueError
         return graph_key
 
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):

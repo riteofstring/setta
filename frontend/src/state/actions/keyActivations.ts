@@ -482,10 +482,6 @@ export function attachKeyEventListeners() {
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
-    // [
-    //   shortcuts.sendProjectToAllInteractiveCode,
-    //   sendProjectToAllInteractiveCode,
-    // ],
     // [shortcuts.formatCode, formatCode],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, onFitViewHandler],

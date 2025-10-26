@@ -4,7 +4,6 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
     WebsocketMsgAllConnections,
-    WebsocketMsgAllDependencies,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgLLMStreamingResponse,
@@ -26,7 +25,6 @@ WebsocketMsgUnion = (
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
-    | WebsocketMsgAllDependencies
     | WebsocketMsgTerminalMetadata
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
@@ -49,7 +47,6 @@ WebsocketMsgTypeSet = set(
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
-        "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
         "AllProjectMetadata",
@@ -66,7 +63,6 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
-    | WebsocketMsgAllDependencies
     | WebsocketMsgTerminalMetadata
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
@@ -90,7 +86,6 @@ FrontendWebsocketMsgTypeSet = set(
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
-        "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
         "AllProjectMetadata",
