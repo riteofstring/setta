@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { closeModal, useModalData } from "state/actions/modal";
 import {
@@ -7,15 +7,100 @@ import {
   declineRenameRefactor,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { useSettings } from "state/definitions";
+import {
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
+import { useProjectState, useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
 
 export function RenameReferencesModal() {
   const modalData = useModalData(ModalTypeEnum.RENAME_REFERENCES);
+  const projectState = useProjectState();
 
   const [doNotAsk, setDoNotAsk] = useState(false);
+
+  const renameEntries = useMemo(() => {
+    return modalData.changedValues.map((changed) => {
+      const sectionId = changed.sectionId;
+      const sectionCore = projectState.sections[sectionId];
+      const sectionName = sectionCore?.name ?? sectionId;
+      const paramId = changed.paramInfoId;
+
+      if (paramId) {
+        const paramCore = projectState.codeObjs[paramId];
+        const paramName = paramCore?.name ?? paramId;
+        let previousValue: string | undefined;
+        try {
+          const impl = getCurrEffectiveCodeObjImpl(
+            projectState,
+            sectionId,
+            paramId,
+          );
+          const maybeValue =
+            typeof impl === "object" && impl !== null
+              ? (impl as { value?: unknown }).value
+              : undefined;
+          if (
+            typeof maybeValue === "string" ||
+            typeof maybeValue === "number" ||
+            typeof maybeValue === "boolean"
+          ) {
+            previousValue = String(maybeValue);
+          }
+        } catch {
+          // Ignore missing param preview data; fallback to showing the proposed value only.
+        }
+
+        return {
+          key: `${sectionId}-${paramId}`,
+          sectionId,
+          sectionName,
+          targetLabel: paramName,
+          scope: "parameter" as const,
+          previousValue,
+          nextValue: changed.newValue,
+        };
+      }
+
+      let previousValue: string | undefined;
+      let targetLabel = sectionName;
+      try {
+        const sectionImpl = getCurrEffectiveSectionImpl(projectState, sectionId);
+        if (
+          sectionImpl &&
+          typeof sectionImpl === "object" &&
+          "callable" in sectionImpl &&
+          sectionImpl.callable
+        ) {
+          const callableId = (sectionImpl as { callable?: string }).callable;
+          if (callableId) {
+            const callableCore = projectState.codeObjs[callableId];
+            targetLabel = callableCore?.name ?? targetLabel;
+            previousValue = callableCore?.name;
+          }
+        }
+      } catch {
+        // Ignore missing callable preview data; fallback to section metadata.
+      }
+
+      if (!previousValue) {
+        previousValue = sectionCore?.name;
+      }
+
+      return {
+        key: `${sectionId}-callable`,
+        sectionId,
+        sectionName,
+        targetLabel,
+        scope: "section" as const,
+        previousValue,
+        nextValue: changed.newValue,
+      };
+    });
+  }, [modalData.changedValues, projectState]);
 
   const handleCancel = async () => {
     closeModal();
@@ -70,22 +155,50 @@ export function RenameReferencesModal() {
         </Dialog.Description>
       </header>
       {/* Scrollable content section */}
-      {/* <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
-        <h4 className="mb-2 text-sm font-medium text-setta-700 dark:text-setta-300">
-          References to be updated:
-        </h4>
-        <ul className="space-y-2">
-          {referencesToBeUpdated.map((r) => (
-            <li
-              key={r}
-              className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400"
-            >
-              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
-              <span>{r}</span>
-            </li>
-          ))}
-        </ul>
-      </div> */}
+      {renameEntries.length > 0 && (
+        <div className="mb-6 w-full flex-grow overflow-auto rounded-lg bg-setta-50 p-4 dark:bg-setta-900">
+          <h4 className="mb-3 text-sm font-medium text-setta-700 dark:text-setta-300">
+            References to be updated:
+          </h4>
+          <ul className="space-y-3">
+            {renameEntries.map((entry) => (
+              <li
+                key={entry.key}
+                className="rounded-md border border-setta-200 bg-white p-3 text-sm text-setta-600 shadow-sm dark:border-setta-700 dark:bg-setta-800 dark:text-setta-300"
+              >
+                <div className="mb-2 flex flex-wrap gap-x-2 gap-y-1 text-xs uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                  <span>Section: {entry.sectionName}</span>
+                  <span>&middot;</span>
+                  <span>
+                    {entry.scope === "parameter" ? "Parameter" : "Callable"}:{" "}
+                    {entry.targetLabel}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {entry.previousValue !== undefined && (
+                    <div>
+                      <div className="mb-1 text-xs font-semibold uppercase text-setta-500 dark:text-setta-400">
+                        Current
+                      </div>
+                      <pre className="max-h-32 overflow-auto rounded bg-setta-100 p-2 text-xs leading-tight text-setta-700 dark:bg-setta-900 dark:text-setta-200">
+                        {entry.previousValue}
+                      </pre>
+                    </div>
+                  )}
+                  <div>
+                    <div className="mb-1 text-xs font-semibold uppercase text-setta-500 dark:text-setta-400">
+                      Proposed
+                    </div>
+                    <pre className="max-h-32 overflow-auto rounded bg-blue-50 p-2 text-xs leading-tight text-blue-700 dark:bg-blue-950 dark:text-blue-200">
+                      {entry.nextValue}
+                    </pre>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/* Fixed footer section */}
       <div className="flex w-full flex-col space-y-3 border-t border-setta-200 pt-4 dark:border-setta-700">
         <label className="flex items-center space-x-2 text-sm text-setta-600 dark:text-setta-400">
