@@ -16,6 +16,7 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.listener import (
     ListenerFeed,
+    ListenerInitContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
@@ -25,6 +26,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
+    WebsocketMsgListenerInit,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
@@ -61,6 +63,7 @@ class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
     register: ListenerRegisterCallback
+    declared_dependencies: tuple[str, ...]
 
 
 @dataclass(slots=True)
@@ -97,6 +100,7 @@ class SettaListener:
         self._socket_id = uuid4().hex
         self._registration_pending = False
         self._is_registered = False
+        self._expected_ack_callback_ids: set[str] = set()
         self._runtime_state: ListenerRuntimeState | None = None
         self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
@@ -152,7 +156,7 @@ class SettaListener:
         logger.debug("Listener %s connecting to %s", self._project_id, endpoint)
         async with websockets.connect(endpoint) as websocket:
             logger.info("Listener %s connected", self._project_id)
-            await self._send_register_message(websocket)
+            await self._send_bootstrap_init(websocket)
             try:
                 async for payload in websocket:
                     if self._stop_event.is_set():
@@ -160,11 +164,12 @@ class SettaListener:
                     message = self._parse_websocket_payload(payload)
                     if message is None:
                         continue
-                    await self._dispatch_websocket_message(message)
+                    await self._dispatch_websocket_message(message, websocket)
             finally:
                 logger.info("Listener %s connection closed", self._project_id)
                 self._registration_pending = False
                 self._is_registered = False
+                self._expected_ack_callback_ids = set()
 
     def _parse_websocket_payload(self, payload: str) -> Any | None:
         """Parse raw websocket payloads into typed messages."""
@@ -178,16 +183,28 @@ class SettaListener:
         )
         return message
 
-    async def _dispatch_websocket_message(self, message: Any) -> None:
+    async def _dispatch_websocket_message(
+        self,
+        message: Any,
+        websocket: "ClientConnection",
+    ) -> None:
         """Delegate parsed websocket messages to dedicated handlers."""
         if isinstance(message, WebsocketMsgListenerRegisterAck):
             self._handle_register_ack(message)
             return
         if isinstance(message, WebsocketMsgListenerBootstrap):
-            await self._handle_persisted_snapshot(message.content, is_bootstrap=True)
+            await self._handle_persisted_snapshot(
+                message.content,
+                is_bootstrap=True,
+                websocket=websocket,
+            )
             return
         if isinstance(message, WebsocketMsgListenerPersistedUpdate):
-            await self._handle_persisted_snapshot(message.content, is_bootstrap=False)
+            await self._handle_persisted_snapshot(
+                message.content,
+                is_bootstrap=False,
+                websocket=websocket,
+            )
             return
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
@@ -213,11 +230,16 @@ class SettaListener:
             )
         self._registration_pending = False
 
-        known_ids = set(self._callbacks.keys())
+        expected_ids = set(self._expected_ack_callback_ids)
+        if not expected_ids:
+            logger.debug(
+                "Listener %s received register ack with no expected callback ids",
+                self._project_id,
+            )
         ack_statuses = message.content.callbacks
         ack_ids = set(ack_statuses.keys())
 
-        missing_ids = known_ids - ack_ids
+        missing_ids = expected_ids - ack_ids
         if missing_ids:
             logger.warning(
                 "Listener %s missing register ack for callbacks: %s",
@@ -225,7 +247,7 @@ class SettaListener:
                 ", ".join(sorted(missing_ids)),
             )
 
-        unknown_ids = ack_ids - known_ids
+        unknown_ids = ack_ids - expected_ids
         for callback_id in sorted(unknown_ids):
             logger.warning(
                 "Listener %s received register ack for unknown callback %s",
@@ -256,6 +278,7 @@ class SettaListener:
             )
             raise RuntimeError(f"Listener registration rejected: {error_details}")
 
+        self._expected_ack_callback_ids = set()
         self._is_registered = True
         logger.info(
             "Listener %s registered %d callback(s)",
@@ -288,6 +311,7 @@ class SettaListener:
                 function=func,
                 callback_id=callback_id,
                 register=register,
+                declared_dependencies=tuple(dependencies),
             )
             self._callbacks[callback_id] = spec
             return func
@@ -296,9 +320,9 @@ class SettaListener:
 
     def _build_register_content(self) -> ListenerRegisterContent:
         """Serialize callback metadata into a register payload."""
-        callbacks: dict[str, ListenerRegisterCallback] = {}
-        for spec in self._callbacks.values():
-            callbacks[spec.callback_id] = spec.register
+        callbacks = {
+            spec.callback_id: spec.register for spec in self._callbacks.values()
+        }
         return ListenerRegisterContent(
             projectConfigId=self._project_id,
             callbacks=callbacks,
@@ -315,8 +339,25 @@ class SettaListener:
             choices = tuple(member.value for member in ListenerFeed)
             raise ValueError(msg % (value, choices)) from error
 
-    async def _send_register_message(self, websocket: "ClientConnection") -> None:
-        """Send a ListenerRegister handshake when a websocket connection opens."""
+    async def _send_bootstrap_init(self, websocket: "ClientConnection") -> None:
+        """Send an initial bootstrap handshake to identify the target project."""
+        content = ListenerInitContent(
+            projectConfigId=self._project_id,
+            defaultFeed=self._feed,
+        )
+        message = WebsocketMsgListenerInit(content=content)
+        payload = message.model_dump_json()
+        logger.debug("Listener %s sending bootstrap init", self._project_id)
+        try:
+            await websocket.send(payload)
+        except Exception:
+            logger.exception(
+                "Listener %s failed to send bootstrap init", self._project_id
+            )
+            raise
+
+    async def _send_listener_register(self, websocket: "ClientConnection") -> None:
+        """Send the full callback registration after bootstrap completes."""
         content = self._build_register_content()
         message = WebsocketMsgListenerRegister(content=content)
         payload = message.model_dump_json()
@@ -327,6 +368,7 @@ class SettaListener:
         )
         self._registration_pending = True
         self._is_registered = False
+        self._expected_ack_callback_ids = set(content.callbacks.keys())
         try:
             await websocket.send(payload)
         except Exception:
@@ -341,6 +383,7 @@ class SettaListener:
         project_state: ProjectStateSingleConfig,
         *,
         is_bootstrap: bool,
+        websocket: "ClientConnection",
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
         runtime_state = self._build_runtime_state_with_guard(project_state)
@@ -384,6 +427,9 @@ class SettaListener:
 
         self._runtime_state = runtime_state
         self._dependency_cache = updated_cache
+
+        if is_bootstrap:
+            await self._send_listener_register(websocket)
 
         for spec, changed in callbacks_to_run:
             ctx = ListenerCallbackContext(

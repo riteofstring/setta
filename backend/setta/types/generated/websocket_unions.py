@@ -11,6 +11,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerFrontendEmitForward,
+    WebsocketMsgListenerInit,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
@@ -50,6 +51,7 @@ WebsocketMsgUnion = (
     | WebsocketMsgListenerFrontendEmit
     | WebsocketMsgListenerRegister
     | WebsocketMsgListenerRegisterAck
+    | WebsocketMsgListenerInit
 )
 
 WebsocketMsgUnionWithDiscriminator = Annotated[
@@ -82,6 +84,7 @@ WebsocketMsgTypeSet = set(
         "ListenerFrontendEmit",
         "ListenerRegister",
         "ListenerRegisterAck",
+        "ListenerInit",
     ]
 )
 
@@ -146,6 +149,7 @@ PythonScriptWebsocketMsgUnion = (
     | WebsocketMsgListenerFrontendEmit
     | WebsocketMsgListenerRegister
     | WebsocketMsgListenerRegisterAck
+    | WebsocketMsgListenerInit
 )
 
 PythonScriptWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -166,5 +170,6 @@ PythonScriptWebsocketMsgTypeSet = set(
         "ListenerFrontendEmit",
         "ListenerRegister",
         "ListenerRegisterAck",
+        "ListenerInit",
     ]
 )

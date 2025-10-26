@@ -41,6 +41,18 @@ class ListenerRegistration:
 class ListenerRegistry:
     def __init__(self) -> None:
         self._registrations: dict[str, ListenerRegistration] = {}
+        self._project_config_by_socket: dict[str, str] = {}
+
+    def record_bootstrap(
+        self,
+        *,
+        websocket_id: str,
+        project_config_id: str,
+    ) -> None:
+        self._project_config_by_socket[websocket_id] = project_config_id
+
+    def get_bootstrap_project_config(self, websocket_id: str) -> str | None:
+        return self._project_config_by_socket.get(websocket_id)
 
     def upsert_registration(
         self,
@@ -59,6 +71,7 @@ class ListenerRegistry:
 
     def remove_registration(self, websocket_id: str) -> None:
         self._registrations.pop(websocket_id, None)
+        self._project_config_by_socket.pop(websocket_id, None)
 
     def get_registration(self, websocket_id: str) -> ListenerRegistration | None:
         return self._registrations.get(websocket_id)

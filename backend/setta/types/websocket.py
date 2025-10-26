@@ -18,6 +18,7 @@ from setta.types.listener import (
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
+    ListenerInitContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
     ListenerRegisterContent,
@@ -51,6 +52,7 @@ class WebsocketMsgTypeForBackend(str, Enum):
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
+    ListenerInit = "ListenerInit"
     ListenerRegister = "ListenerRegister"
     ListenerRegisterAck = "ListenerRegisterAck"
     ListenerBootstrap = "ListenerBootstrap"
@@ -274,4 +276,11 @@ class WebsocketMsgListenerRegisterAck(PythonScriptWebsocketMsg):
     content: ListenerRegisterAckContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegisterAck] = (
         WebsocketMsgTypeForPythonScript.ListenerRegisterAck
+    )
+
+
+class WebsocketMsgListenerInit(PythonScriptWebsocketMsg):
+    content: ListenerInitContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerInit] = (
+        WebsocketMsgTypeForPythonScript.ListenerInit
     )

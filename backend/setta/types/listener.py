@@ -12,6 +12,11 @@ class ListenerFeed(str, Enum):
     BOTH = "both"
 
 
+class ListenerInitContent(BaseModel):
+    projectConfigId: str
+    defaultFeed: ListenerFeed | None = None
+
+
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: str
     delta: dict[str, Any]

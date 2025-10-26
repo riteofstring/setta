@@ -12,6 +12,7 @@ from setta.types.listener import (
 from setta.types.websocket import (
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
+    WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
 )
@@ -41,10 +42,25 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             PythonScriptWebsocketMsgTypeAdapter.validate_json(json_str)
         )
 
-        if isinstance(message, WebsocketMsgListenerRegister):
+        if isinstance(message, WebsocketMsgListenerInit):
+            await self._handle_listener_init(message, fromWebsocketId)
+        elif isinstance(message, WebsocketMsgListenerRegister):
             await self._handle_listener_register(message, fromWebsocketId)
         elif isinstance(message, WebsocketMsgListenerFrontendEmit):
             await self._handle_listener_frontend_emit(message, fromWebsocketId)
+
+    async def _handle_listener_init(
+        self, message: WebsocketMsgListenerInit, websocket_id: str
+    ) -> None:
+        project_config_id = message.content.projectConfigId
+        self.listener_registry.record_bootstrap(
+            websocket_id=websocket_id, project_config_id=project_config_id
+        )
+        logger.debug(
+            "recorded listener bootstrap for websocket %s (project %s)",
+            websocket_id,
+            project_config_id,
+        )
 
     async def _handle_listener_register(
         self, message: WebsocketMsgListenerRegister, websocket_id: str
@@ -54,6 +70,21 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             project_config_id=message.content.projectConfigId,
             callbacks=message.content.callbacks,
         )
+        bootstrap_project = self.listener_registry.get_bootstrap_project_config(
+            websocket_id
+        )
+        if (bootstrap_project is not None) and (
+            bootstrap_project != registration.project_config_id
+        ):
+            logger.warning(
+                (
+                    "listener websocket %s registered for project %s but "
+                    "bootstrap targeted project %s"
+                ),
+                websocket_id,
+                registration.project_config_id,
+                bootstrap_project,
+            )
         ack_statuses = {
             callback_id: ListenerRegisterAckStatus(status="accepted")
             for callback_id in message.content.callbacks
