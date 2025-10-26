@@ -29,4 +29,10 @@ class ScriptMetadata:
 
     @property
     def dependencies(self):
-        return list(self.deps_to_websocket_ids.keys())
+        output = []
+        for dep in self.deps_to_websocket_ids.keys():
+            if isinstance(dep, tuple):
+                output.append(list(dep))
+            else:
+                output.append(dep)
+        return output
