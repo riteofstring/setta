@@ -4,10 +4,7 @@ from typing import Any, Literal
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
-from setta.code_gen.dependency_graph import (
-    RenameReferenceChange,
-    RenameReferenceChangedValue,
-)
+from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -128,7 +125,6 @@ class RenameRefactorBroadcastContent(BaseModel):
     projectConfigId: str
     frontendOpId: str
     renameMode: RenameRefactorMode
-    renamedNodes: list[RenameReferenceChange]
     changedNodeValues: list[RenameReferenceChangedValue]
 
 

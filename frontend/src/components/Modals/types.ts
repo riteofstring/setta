@@ -13,7 +13,7 @@ export type ModalType = ObjectValues<typeof ModalTypeEnum>;
 export type RenameReferenceChangedValue = {
   sectionId: string;
   paramInfoId: string | null;
-  value: string;
+  newValue: string;
 };
 
 export type ModalDataMap = {

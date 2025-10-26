@@ -47,8 +47,8 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.project_manager_types import (
-    AddKwargRequest,
     AcceptRenameRefactorRequest,
+    AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -57,6 +57,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
@@ -65,7 +66,6 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
-    DeclineRenameRefactorRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -528,7 +528,9 @@ class BaseProjectManager(ABC):
             projectConfig = projectState.projectConfig
             projectConfigId = projectConfig.id
             if self.gen_code.get(projectConfigId):
-                await self.maybe_do_rename_refactor(projectState, projectConfigId, dep_graph)
+                await self.maybe_do_rename_refactor(
+                    projectState, projectConfigId, dep_graph
+                )
                 self.gen_code[projectConfigId].callback_cleanup()
 
             code_generator = PythonCodeGenerator(
@@ -926,7 +928,7 @@ class BaseProjectManager(ABC):
 
         rename_result = new_dep_graph.rename_references(old_dep_graph)
 
-        if not rename_result.renamed_nodes and not rename_result.changed_node_values:
+        if not rename_result.changed_node_values:
             return
         if renameRefactorMode == RenameRefactorMode.ALWAYS_RENAME:
             self._apply_rename_result_auto_mode(project_state, rename_result)
@@ -946,7 +948,6 @@ class BaseProjectManager(ABC):
                     projectConfigId=projectConfigId,
                     frontendOpId=frontend_op_id,
                     renameMode=renameRefactorMode,
-                    renamedNodes=rename_result.renamed_nodes,
                     changedNodeValues=rename_result.changed_node_values,
                 )
             )

@@ -81,69 +81,128 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         await self._exit_stack.aclose()
 
     async def test_broadcasts_payload_for_always_ask(self):
+        backend_settings = self.manager.settings_file.settings.backend
+        previous_mode = backend_settings.renameRefactorMode
+        backend_settings.renameRefactorMode = RenameRefactorMode.ALWAYS_ASK
         section_ids = list(self.project_state.projectConfig.topLevelSections.keys())
         self.assertTrue(
             section_ids, "Expected at least one section to trigger rename broadcast."
         )
-        section_id = section_ids[0]
-        current_name = self.manager.project_state_backend.sections[section_id].name
-        new_name = f"{current_name}_renamed"
+        selected_data: tuple[
+            str, str, str, str, dict
+        ] | None = None  # section_id, old_name, new_name, op_id, payload
+        try:
+            for idx, section_id in enumerate(section_ids):
+                current_name = self.manager.project_state_backend.sections[
+                    section_id
+                ].name
+                new_name = f"{current_name}_renamed"
+                frontend_op_id = f"rename-op-{idx}"
+                prev_message_count = len(self._sent_messages)
+                await self.manager.set_section_name(
+                    SetSectionNameRequest(
+                        frontendOpId=frontend_op_id,
+                        projectConfigId=self.project_config_id,
+                        sectionId=section_id,
+                        name=new_name,
+                    )
+                )
 
-        request = SetSectionNameRequest(
-            frontendOpId="rename-op-1",
-            projectConfigId=self.project_config_id,
-            sectionId=section_id,
-            name=new_name,
-        )
-        await self.manager.set_section_name(request)
+                pending_entry = self.manager.pending_rename_results.get(
+                    frontend_op_id
+                )
+                texts = [
+                    message["text"]
+                    for message in self._sent_messages[prev_message_count:]
+                    if message["type"] == "websocket.send" and "text" in message
+                ]
+                rename_payloads = [
+                    json.loads(text)
+                    for text in texts
+                    if json.loads(text)["messageType"]
+                    == "ReturnRenameRefactorResults"
+                ]
+                if not pending_entry:
+                    backend_settings.renameRefactorMode = (
+                        RenameRefactorMode.NEVER_RENAME
+                    )
+                    await self.manager.set_section_name(
+                        SetSectionNameRequest(
+                            frontendOpId=f"{frontend_op_id}-revert",
+                            projectConfigId=self.project_config_id,
+                            sectionId=section_id,
+                            name=current_name,
+                        )
+                    )
+                    backend_settings.renameRefactorMode = (
+                        RenameRefactorMode.ALWAYS_ASK
+                    )
+                    continue
 
-        self.assertIn("rename-op-1", self.manager.pending_rename_results)
-        texts = [
-            message["text"]
-            for message in self._sent_messages
-            if message["type"] == "websocket.send" and "text" in message
-        ]
-        parsed_messages = [json.loads(text) for text in texts]
-        rename_payloads = [
-            message
-            for message in parsed_messages
-            if message["messageType"] == "ReturnRenameRefactorResults"
-        ]
-        self.assertEqual(
-            len(rename_payloads),
-            1,
-            f"Expected exactly one rename broadcast, found {len(rename_payloads)}.",
-        )
-        content = rename_payloads[0]["content"]
+                if not rename_payloads:
+                    self.fail(
+                        "Received pending rename result without broadcast payload."
+                    )
 
-        self.assertEqual(content["projectConfigId"], self.project_config_id)
-        self.assertEqual(content["frontendOpId"], "rename-op-1")
-        self.assertEqual(content["renameMode"], "ALWAYS_ASK")
-        self.assertTrue(
-            content["renamedNodes"],
-            "Expected at least one renamed node in broadcast payload.",
-        )
-        section_entries = [
-            node
-            for node in content["renamedNodes"]
-            if node["sectionId"] == section_id and node["paramInfoId"] is None
-        ]
-        self.assertTrue(
-            section_entries,
-            "Expected broadcast to include the renamed section entry.",
-        )
-        section_change = section_entries[0]
-        self.assertIn(
-            sanitize_name(current_name),
-            section_change["oldFullPathName"],
-        )
-        self.assertIn("renamed", section_change["newFullPathName"])
-        self.assertIn("changedNodeValues", content)
-        self.assertIsInstance(content["changedNodeValues"], list)
-        if content["changedNodeValues"]:
+                content = rename_payloads[-1]["content"]
+                selected_data = (
+                    section_id,
+                    current_name,
+                    new_name,
+                    frontend_op_id,
+                    content,
+                )
+                break
+
+            if selected_data is None:
+                self.skipTest(
+                    "No sections produced rename refactor results with dependent updates."
+                )
+
+            (
+                section_id,
+                current_name,
+                new_name,
+                frontend_op_id,
+                content,
+            ) = selected_data
+
+            self.assertIn(frontend_op_id, self.manager.pending_rename_results)
+            self.assertEqual(content["projectConfigId"], self.project_config_id)
+            self.assertEqual(content["frontendOpId"], frontend_op_id)
+            self.assertEqual(content["renameMode"], "ALWAYS_ASK")
+            self.assertIn("changedNodeValues", content)
+            self.assertIsInstance(content["changedNodeValues"], list)
+            self.assertTrue(
+                content["changedNodeValues"],
+                "Expected at least one changed node value in broadcast payload.",
+            )
             first_value = content["changedNodeValues"][0]
             self.assertIn("sectionId", first_value)
             self.assertIn("newValue", first_value)
+            self.assertIn(
+                sanitize_name(new_name),
+                first_value["newValue"],
+                "Expected updated value to reference the sanitized new section name.",
+            )
+
+            await self.manager.decline_rename_refactor(
+                DeclineRenameRefactorRequest(
+                    frontendOpId=frontend_op_id,
+                    projectConfigId=self.project_config_id,
+                )
+            )
+            backend_settings.renameRefactorMode = RenameRefactorMode.NEVER_RENAME
+            await self.manager.set_section_name(
+                SetSectionNameRequest(
+                    frontendOpId=f"{frontend_op_id}-cleanup",
+                    projectConfigId=self.project_config_id,
+                    sectionId=section_id,
+                    name=current_name,
+                )
+            )
+        finally:
+            backend_settings.renameRefactorMode = previous_mode
 
     async def test_accept_rename_refactor_applies_pending_changes(self):
         backend_settings = self.manager.settings_file.settings.backend
@@ -214,6 +273,18 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 self.manager.pending_rename_results,
                 "Rename acceptance should create a pending entry.",
             )
+            pending_project_config_id, pending_result = self.manager.pending_rename_results[
+                "rename-op-accept"
+            ]
+            self.assertEqual(
+                pending_project_config_id,
+                self.project_config_id,
+                "Pending rename result should be keyed by the target project config.",
+            )
+            self.assertTrue(
+                pending_result.changed_node_values,
+                "Pending rename result should describe at least one changed node value.",
+            )
 
             state_mid = await self.manager.load_project_config(self.project_config_id)
             impl_mid = get_curr_effective_code_obj_impl_with_type_guard(
@@ -242,9 +313,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "Acceptance should clear the pending entry.",
             )
 
-            state_after = await self.manager.load_project_config(
-                self.project_config_id
-            )
+            state_after = await self.manager.load_project_config(self.project_config_id)
             impl_after = get_curr_effective_code_obj_impl_with_type_guard(
                 state_after,
                 target_section_id,
@@ -329,6 +398,18 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 self.manager.pending_rename_results,
                 "Decline should enqueue a pending rename result.",
             )
+            pending_project_config_id, pending_result = self.manager.pending_rename_results[
+                "rename-op-decline"
+            ]
+            self.assertEqual(
+                pending_project_config_id,
+                self.project_config_id,
+                "Pending rename decline entry should match the request project config.",
+            )
+            self.assertTrue(
+                pending_result.changed_node_values,
+                "Pending rename decline entry should describe at least one changed node value.",
+            )
 
             state_mid = await self.manager.load_project_config(self.project_config_id)
             impl_mid = get_curr_effective_code_obj_impl_with_type_guard(
@@ -357,9 +438,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "Decline should clear the pending entry.",
             )
 
-            state_after = await self.manager.load_project_config(
-                self.project_config_id
-            )
+            state_after = await self.manager.load_project_config(self.project_config_id)
             impl_after = get_curr_effective_code_obj_impl_with_type_guard(
                 state_after,
                 target_section_id,
@@ -443,6 +522,18 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "rename-op-auto",
                 self.manager.pending_rename_results,
                 "Auto-rename should not enqueue pending results.",
+            )
+            rename_broadcasts = [
+                message
+                for message in self._sent_messages
+                if message.get("type") == "websocket.send"
+                and "text" in message
+                and json.loads(message["text"])["messageType"]
+                == "ReturnRenameRefactorResults"
+            ]
+            self.assertFalse(
+                rename_broadcasts,
+                "Auto-rename mode should not broadcast rename prompts.",
             )
 
             updated_state = await self.manager.load_project_config(

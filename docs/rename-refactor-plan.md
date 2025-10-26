@@ -15,7 +15,7 @@
 ### Backend
 - ✅ Use the per-request `frontendOpId` (tracked via `ProjectManagerRequestWithFrontendOp` and `_current_frontend_op_id`) as the correlation key for rename payloads; store pending results in manager state.
 - ✅ After `DependencyGraph.rename_references` runs, emit a structured list of changes that includes section/param identifiers plus both old and new names.
-- ✅ When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, renamedNodes[], changedNodeValues[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
+- ✅ When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, changedNodeValues[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
 - ✅ When mode is `ALWAYS_RENAME`, apply the replacements directly to the in-flight `ProjectStateSingleConfig` before `update_and_broadcast_project_state` runs, using the same helpers the UI endpoints call (`set_param_entered_value`, `get_curr_section_callable_code_obj`, etc.).
 - ✅ Track pending rename prompts server-side (keyed by `frontendOpId`) and expose an accept endpoint that applies queued renames and clears the pending entry.
 - ✅ Add a companion decline endpoint so the frontend can dismiss prompts and clear pending state without applying changes.
@@ -32,4 +32,4 @@
 - ✅ Add backend regression coverage for the ALWAYS_RENAME auto-apply path.
 - Add a Vitest store/modal test that simulates the rename broadcast across each rename mode and ensures the modal launches or auto-applies correctly.
 - Audit console logging added during debugging (e.g., websocket receivers) and remove or guard it before shipping.
-- Revisit the backend rename result shape: if we only surface prompts when `changed_node_values` is non-empty, we can probably drop the `RenameReferenceChange` dataclass entirely and remove special-case logic (like the kwarg guard). The dependency graph only records relationships it discovered while scanning other nodes’ text, so a non-empty `changed_node_values` already captures every case where downstream code needs attention. Document and implement that simplification once we confirm no other code paths rely on `renamed_nodes`.
+- ✅ Simplified the backend rename result shape to rely solely on `changed_node_values`, dropped the `RenameReferenceChange` dataclass, and removed related special-case handling so downstream flows only surface prompts when changes exist.

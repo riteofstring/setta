@@ -81,14 +81,6 @@ class GraphKeySeparated:
 
 
 @dataclass
-class RenameReferenceChange:
-    sectionId: str
-    paramInfoId: str | None
-    oldFullPathName: str
-    newFullPathName: str
-
-
-@dataclass
 class RenameReferenceChangedValue:
     sectionId: str
     paramInfoId: str | None
@@ -97,7 +89,6 @@ class RenameReferenceChangedValue:
 
 @dataclass
 class RenameReferencesResult:
-    renamed_nodes: list[RenameReferenceChange]
     changed_node_values: list[RenameReferenceChangedValue]
 
 
@@ -382,19 +373,7 @@ class DependencyGraph:
                 )
 
         self.resolve_references()
-        renamed_nodes: list[RenameReferenceChange] = []
-        for graph_key, (old_name, new_name) in renamings.items():
-            ids = self.extract_ids_from_graph_key(graph_key)
-            renamed_nodes.append(
-                RenameReferenceChange(
-                    sectionId=ids.sectionId,
-                    paramInfoId=ids.paramInfoId,
-                    oldFullPathName=old_name,
-                    newFullPathName=new_name,
-                )
-            )
         return RenameReferencesResult(
-            renamed_nodes=renamed_nodes,
             changed_node_values=changed_node_values,
         )
 
