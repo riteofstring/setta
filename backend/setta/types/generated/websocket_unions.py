@@ -6,11 +6,11 @@ from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
-    WebsocketMsgListenerAck,
     WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
+    WebsocketMsgListenerFrontendEmitForward,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
@@ -38,12 +38,12 @@ WebsocketMsgUnion = (
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
+    | WebsocketMsgListenerFrontendEmitForward
     | WebsocketMsgCurrentAddressUpdate
     | WebsocketMsgListenerBootstrap
     | WebsocketMsgListenerPersistedUpdate
     | WebsocketMsgListenerRealtimeEvent
     | WebsocketMsgListenerForceRefresh
-    | WebsocketMsgListenerAck
     | WebsocketMsgListenerError
     | WebsocketMsgListenerFrontendEmit
     | WebsocketMsgListenerRegister
@@ -69,12 +69,12 @@ WebsocketMsgTypeSet = set(
         "UpdateSettings",
         "AllProjectMetadata",
         "UpdateArtifacts",
+        "ListenerFrontendEmitForward",
         "CurrentAddressUpdate",
         "ListenerBootstrap",
         "ListenerPersistedUpdate",
         "ListenerRealtimeEvent",
         "ListenerForceRefresh",
-        "ListenerAck",
         "ListenerError",
         "ListenerFrontendEmit",
         "ListenerRegister",
@@ -94,6 +94,7 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
+    | WebsocketMsgListenerFrontendEmitForward
 )
 
 FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -117,6 +118,7 @@ FrontendWebsocketMsgTypeSet = set(
         "UpdateSettings",
         "AllProjectMetadata",
         "UpdateArtifacts",
+        "ListenerFrontendEmitForward",
     ]
 )
 
@@ -135,7 +137,6 @@ PythonScriptWebsocketMsgUnion = (
     | WebsocketMsgListenerPersistedUpdate
     | WebsocketMsgListenerRealtimeEvent
     | WebsocketMsgListenerForceRefresh
-    | WebsocketMsgListenerAck
     | WebsocketMsgListenerError
     | WebsocketMsgListenerFrontendEmit
     | WebsocketMsgListenerRegister
@@ -156,7 +157,6 @@ PythonScriptWebsocketMsgTypeSet = set(
         "ListenerPersistedUpdate",
         "ListenerRealtimeEvent",
         "ListenerForceRefresh",
-        "ListenerAck",
         "ListenerError",
         "ListenerFrontendEmit",
         "ListenerRegister",

@@ -26,11 +26,6 @@ class ListenerForceRefreshContent(BaseModel):
     schemaHash: str | None = None
 
 
-class ListenerAckContent(BaseModel):
-    message: str | None = None
-    heartbeatIntervalSec: float | None = None
-
-
 class ListenerErrorContent(BaseModel):
     error: str
     details: Any | None = None

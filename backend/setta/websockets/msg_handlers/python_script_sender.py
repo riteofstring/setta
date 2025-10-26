@@ -2,17 +2,15 @@ import logging
 from typing import Any
 
 from setta.types.listener import (
-    ListenerAckContent,
     ListenerErrorContent,
+    ListenerFeed,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
     ListenerRealtimeEventContent,
-    ListenerFeed,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
     WebsocketConnectionType,
-    WebsocketMsgListenerAck,
     WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
@@ -78,11 +76,12 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             sequence,
         )
         sockets_to_notify = set()
-        for registration, matching_callbacks in (
-            self.listener_registry.iter_callbacks_matching_dependencies(
-                project_config_id=projectConfigId,
-                dependency_ids=dependencyIds,
-            )
+        for (
+            registration,
+            matching_callbacks,
+        ) in self.listener_registry.iter_callbacks_matching_dependencies(
+            project_config_id=projectConfigId,
+            dependency_ids=dependencyIds,
         ):
             if any(
                 registration.callbacks[callback_id].feed
@@ -122,22 +121,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         )
         await self.websocket_manager.broadcast(
             WebsocketMsgListenerForceRefresh(content=content),
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-        )
-
-    async def send_ack(
-        self,
-        *,
-        message: str | None = None,
-        heartbeatIntervalSec: float | None = None,
-    ):
-        content = ListenerAckContent(
-            message=message,
-            heartbeatIntervalSec=heartbeatIntervalSec,
-        )
-        logger.debug("sending listener ack: %s", message)
-        await self.websocket_manager.broadcast(
-            WebsocketMsgListenerAck(content=content),
             connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
         )
 

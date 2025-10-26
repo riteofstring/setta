@@ -90,6 +90,7 @@ class SettaFastAPIState:
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
             self.websocket_manager,
             self.listener_registry,
+            self.wmh_frontend_sender,
         )
 
         self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)

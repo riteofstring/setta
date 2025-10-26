@@ -15,7 +15,6 @@ from setta.types.generated.unions import (
     BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.listener import (
-    ListenerAckContent,
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
@@ -43,6 +42,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
+    ListenerFrontendEmitForward = "ListenerFrontendEmitForward"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -56,7 +56,6 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerPersistedUpdate = "ListenerPersistedUpdate"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
     ListenerForceRefresh = "ListenerForceRefresh"
-    ListenerAck = "ListenerAck"
     ListenerError = "ListenerError"
     ListenerFrontendEmit = "ListenerFrontendEmit"
 
@@ -193,6 +192,13 @@ class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
     )
 
 
+class WebsocketMsgListenerFrontendEmitForward(FrontendWebsocketMsg):
+    content: ListenerFrontendEmitContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward] = (
+        WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward
+    )
+
+
 class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
@@ -225,13 +231,6 @@ class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
     content: ListenerForceRefreshContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerForceRefresh] = (
         WebsocketMsgTypeForPythonScript.ListenerForceRefresh
-    )
-
-
-class WebsocketMsgListenerAck(PythonScriptWebsocketMsg):
-    content: ListenerAckContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerAck] = (
-        WebsocketMsgTypeForPythonScript.ListenerAck
     )
 
 

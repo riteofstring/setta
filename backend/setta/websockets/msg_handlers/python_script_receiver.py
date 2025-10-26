@@ -4,13 +4,20 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
     PythonScriptWebsocketMsgUnion,
 )
-from setta.types.listener import ListenerRegisterAckContent, ListenerRegisterAckStatus
+from setta.types.listener import (
+    ListenerErrorContent,
+    ListenerRegisterAckContent,
+    ListenerRegisterAckStatus,
+)
 from setta.types.websocket import (
+    WebsocketMsgListenerError,
+    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
 )
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +27,11 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self,
         websocket_manager,
         listener_registry: ListenerRegistry,
+        frontend_sender: WMHFrontendSender,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
+        self.frontend_sender = frontend_sender
 
     async def on_disconnect(self, websocket_id):
         self.listener_registry.remove_registration(websocket_id)
@@ -34,6 +43,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(message, WebsocketMsgListenerRegister):
             await self._handle_listener_register(message, fromWebsocketId)
+        elif isinstance(message, WebsocketMsgListenerFrontendEmit):
+            await self._handle_listener_frontend_emit(message, fromWebsocketId)
 
     async def _handle_listener_register(
         self, message: WebsocketMsgListenerRegister, websocket_id: str
@@ -53,3 +64,50 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         )
         ack_message = WebsocketMsgListenerRegisterAck(content=ack_content)
         await self.websocket_manager.send_message(ack_message, websocket_id)
+
+    async def _handle_listener_frontend_emit(
+        self, message: WebsocketMsgListenerFrontendEmit, websocket_id: str
+    ) -> None:
+        registration = self.listener_registry.get_registration(websocket_id)
+        if registration is None:
+            logger.warning(
+                "dropping listener frontend emit for unregistered websocket %s",
+                websocket_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_not_registered",
+                    details={"websocketId": websocket_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        expected_project_config_id = registration.project_config_id
+        project_config_id = message.content.projectConfigId
+        if project_config_id != expected_project_config_id:
+            logger.warning(
+                (
+                    "dropping listener frontend emit for websocket %s "
+                    "(expected project config %s, got %s)"
+                ),
+                websocket_id,
+                expected_project_config_id,
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_config_mismatch",
+                    details={
+                        "expectedProjectConfigId": expected_project_config_id,
+                        "receivedProjectConfigId": project_config_id,
+                    },
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
+        await self.frontend_sender.broadcast_listener_emit(
+            projectConfigId=project_config_id,
+            payload=message.content.payload,
+            target=message.content.target,
+        )

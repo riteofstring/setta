@@ -188,6 +188,7 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "AllProjectMetadata",
   "LLMStreamingResponse",
   "LSPDiagnostics",
+  "ListenerFrontendEmitForward",
   "Notification",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
@@ -198,7 +199,6 @@ export const FrontendWebsocketMsgTypeSet = new Set([
 ]);
 
 export const PythonScriptWebsocketMsgTypeSet = new Set([
-  "ListenerAck",
   "ListenerBootstrap",
   "ListenerError",
   "ListenerForceRefresh",
@@ -215,11 +215,11 @@ export const WebsocketMsgTypeSet = new Set([
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
   "LSPDiagnostics",
-  "ListenerAck",
   "ListenerBootstrap",
   "ListenerError",
   "ListenerForceRefresh",
   "ListenerFrontendEmit",
+  "ListenerFrontendEmitForward",
   "ListenerPersistedUpdate",
   "ListenerRealtimeEvent",
   "ListenerRegister",
@@ -613,6 +613,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
+  ListenerFrontendEmitForward: "ListenerFrontendEmitForward",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -626,7 +627,6 @@ export const WebsocketMsgTypeForPythonScriptEnum = {
   ListenerPersistedUpdate: "ListenerPersistedUpdate",
   ListenerRealtimeEvent: "ListenerRealtimeEvent",
   ListenerForceRefresh: "ListenerForceRefresh",
-  ListenerAck: "ListenerAck",
   ListenerError: "ListenerError",
   ListenerFrontendEmit: "ListenerFrontendEmit",
 } as const;
@@ -5520,6 +5520,40 @@ export function createWebsocketMsgUpdateArtifacts(
   return WebsocketMsgUpdateArtifactsSchema.parse(options);
 }
 
+export const ListenerFrontendEmitContentSchema = z.object({
+  projectConfigId: z.string(),
+  payload: z.record(z.string(), z.any()),
+  target: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ListenerFrontendEmitContent = z.infer<
+  typeof ListenerFrontendEmitContentSchema
+>;
+
+export function createListenerFrontendEmitContent(
+  options: Partial<ListenerFrontendEmitContent> = {},
+): ListenerFrontendEmitContent {
+  return ListenerFrontendEmitContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerFrontendEmitForwardSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerFrontendEmitContentSchema,
+  messageType: z
+    .literal("ListenerFrontendEmitForward")
+    .default(WebsocketMsgTypeForFrontendEnum.ListenerFrontendEmitForward),
+});
+
+export type WebsocketMsgListenerFrontendEmitForward = z.infer<
+  typeof WebsocketMsgListenerFrontendEmitForwardSchema
+>;
+
+export function createWebsocketMsgListenerFrontendEmitForward(
+  options: Partial<WebsocketMsgListenerFrontendEmitForward> = {},
+): WebsocketMsgListenerFrontendEmitForward {
+  return WebsocketMsgListenerFrontendEmitForwardSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5532,6 +5566,7 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
+  WebsocketMsgListenerFrontendEmitForwardSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5551,6 +5586,7 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
+    WebsocketMsgListenerFrontendEmitForwardSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5671,37 +5707,6 @@ export function createWebsocketMsgListenerForceRefresh(
   return WebsocketMsgListenerForceRefreshSchema.parse(options);
 }
 
-export const ListenerAckContentSchema = z.object({
-  message: z.union([z.string(), z.null()]).default(null),
-  heartbeatIntervalSec: z.union([z.number(), z.null()]).default(null),
-});
-
-export type ListenerAckContent = z.infer<typeof ListenerAckContentSchema>;
-
-export function createListenerAckContent(
-  options: Partial<ListenerAckContent> = {},
-): ListenerAckContent {
-  return ListenerAckContentSchema.parse(options);
-}
-
-export const WebsocketMsgListenerAckSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ListenerAckContentSchema,
-  messageType: z
-    .literal("ListenerAck")
-    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerAck),
-});
-
-export type WebsocketMsgListenerAck = z.infer<
-  typeof WebsocketMsgListenerAckSchema
->;
-
-export function createWebsocketMsgListenerAck(
-  options: Partial<WebsocketMsgListenerAck> = {},
-): WebsocketMsgListenerAck {
-  return WebsocketMsgListenerAckSchema.parse(options);
-}
-
 export const ListenerErrorContentSchema = z.object({
   error: z.string(),
   details: z.union([z.any(), z.null()]).default(null),
@@ -5731,22 +5736,6 @@ export function createWebsocketMsgListenerError(
   options: Partial<WebsocketMsgListenerError> = {},
 ): WebsocketMsgListenerError {
   return WebsocketMsgListenerErrorSchema.parse(options);
-}
-
-export const ListenerFrontendEmitContentSchema = z.object({
-  projectConfigId: z.string(),
-  payload: z.record(z.string(), z.any()),
-  target: z.union([z.string(), z.null()]).default(null),
-});
-
-export type ListenerFrontendEmitContent = z.infer<
-  typeof ListenerFrontendEmitContentSchema
->;
-
-export function createListenerFrontendEmitContent(
-  options: Partial<ListenerFrontendEmitContent> = {},
-): ListenerFrontendEmitContent {
-  return ListenerFrontendEmitContentSchema.parse(options);
 }
 
 export const WebsocketMsgListenerFrontendEmitSchema = z.object({
@@ -5871,7 +5860,6 @@ export const PythonScriptWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerPersistedUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
   WebsocketMsgListenerForceRefreshSchema,
-  WebsocketMsgListenerAckSchema,
   WebsocketMsgListenerErrorSchema,
   WebsocketMsgListenerFrontendEmitSchema,
   WebsocketMsgListenerRegisterSchema,
@@ -5888,7 +5876,6 @@ export const PythonScriptWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgListenerPersistedUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
     WebsocketMsgListenerForceRefreshSchema,
-    WebsocketMsgListenerAckSchema,
     WebsocketMsgListenerErrorSchema,
     WebsocketMsgListenerFrontendEmitSchema,
     WebsocketMsgListenerRegisterSchema,
@@ -5917,12 +5904,12 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
+  WebsocketMsgListenerFrontendEmitForwardSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgListenerBootstrapSchema,
   WebsocketMsgListenerPersistedUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
   WebsocketMsgListenerForceRefreshSchema,
-  WebsocketMsgListenerAckSchema,
   WebsocketMsgListenerErrorSchema,
   WebsocketMsgListenerFrontendEmitSchema,
   WebsocketMsgListenerRegisterSchema,
@@ -5945,12 +5932,12 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
+    WebsocketMsgListenerFrontendEmitForwardSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgListenerBootstrapSchema,
     WebsocketMsgListenerPersistedUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
     WebsocketMsgListenerForceRefreshSchema,
-    WebsocketMsgListenerAckSchema,
     WebsocketMsgListenerErrorSchema,
     WebsocketMsgListenerFrontendEmitSchema,
     WebsocketMsgListenerRegisterSchema,

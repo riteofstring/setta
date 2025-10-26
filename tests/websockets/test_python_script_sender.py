@@ -1,9 +1,9 @@
 import unittest
 
 from setta.types.listener import ListenerFeed, ListenerRegisterCallback
+from setta.types.websocket import WebsocketMsgListenerRealtimeEvent
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-from setta.types.websocket import WebsocketMsgListenerRealtimeEvent
 
 
 class _StubWebsocketManager:
@@ -84,7 +84,9 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(3, len(websocket_manager.sent_messages))
-        for idx, (message, websocket_id) in enumerate(websocket_manager.sent_messages, 1):
+        for idx, (message, websocket_id) in enumerate(
+            websocket_manager.sent_messages, 1
+        ):
             self.assertIsInstance(message, WebsocketMsgListenerRealtimeEvent)
             self.assertEqual("socket-1", websocket_id)
             self.assertEqual(idx, message.content.sequence)

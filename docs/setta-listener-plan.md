@@ -95,7 +95,7 @@ Key concepts:
 - `ListenerRealtimeEvent`: realtime delta, dependency attribute names, sequence number.
 - `ListenerPersistedEvent`: authoritative project state snapshot from the persisted pipeline.
 - `ListenerForceRefresh`: instructs listener to discard cache and request fresh state.
-- `ListenerAck` / `ListenerError`: handshake, heartbeat, and error reporting.
+- `ListenerError`: error reporting for listener connections.
 - `ListenerFrontendEmit`: forwarded script→frontend payloads.
 
 ### Listener Message Payload Notes
@@ -156,9 +156,9 @@ Key concepts:
   - `WMHPythonScriptSender` broadcasts persisted snapshots alongside existing frontend payloads.
   - `BaseProjectManager._broadcast_project_state_snapshot` now targets the python-script channel.
   - `WMHPythonScriptReceiver` tracks connected script sockets.
-- ✅ Defined additional listener websocket enums/models (`ListenerRealtimeEvent`, `ListenerForceRefresh`, `ListenerAck`, `ListenerError`, `ListenerFrontendEmit`) and registered them in the discriminated unions.
-- ✅ Centralized listener payload models (feed enum, realtime/force refresh/ack/error/frontend emit, register/ack) under `backend/setta/types/listener.py` and added `ListenerRegister` / `ListenerRegisterAck` websocket message types.
-- ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, ack/error, and listener→frontend emissions.
+- ✅ Defined additional listener websocket enums/models (`ListenerRealtimeEvent`, `ListenerForceRefresh`, `ListenerError`, `ListenerFrontendEmit`) and registered them in the discriminated unions.
+- ✅ Centralized listener payload models (feed enum, realtime/force refresh/error/frontend emit, register/ack) under `backend/setta/types/listener.py` and added `ListenerRegister` / `ListenerRegisterAck` websocket message types.
+- ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, error, and listener→frontend emissions.
 - ✅ Simplified listener websocket payloads to send bare `ProjectStateSingleConfig` snapshots (persisted, bootstrap, force refresh).
 - ✅ `WMHPythonScriptReceiver` persists listener registrations via a shared `ListenerRegistry`, responds with targeted `ListenerRegisterAck` messages, and has regression coverage for the register flow.
 - ✅ Listener client handles realtime events: sequence-order enforcement, in-place `S` instance patching for dependency deltas, and invocation of callbacks subscribed to realtime feeds.
@@ -169,11 +169,12 @@ Key concepts:
 - ✅ Listener client rebuilds the generated `S` object on bootstrap/persisted snapshots, diffs registered dependencies, and invokes callbacks subscribed to persisted feeds with a structured context.
 - ✅ Added regression coverage for realtime listener handling (unit test simulating delta dispatch).
 - ✅ Listener registry indexes callback dependencies and `WMHPythonScriptSender` filters realtime broadcasts to sockets with matching realtime feeds.
+- ✅ Backend listener emit flow now forwards `ListenerFrontendEmit` payloads to frontend sockets, emits structured errors for invalid registrations, and omits success acknowledgements to keep realtime paths lean.
 
 ### Pending Work
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
-- Flesh out `WMHPythonScriptReceiver` message handling (register, emit, heartbeat) to pair with the new sender helpers.
+- Flesh out `WMHPythonScriptReceiver` heartbeat handling to pair with the sender helpers once heartbeats are introduced.
 
 ### Manual Validation
 - Deferred until the listener client is implemented; no CLI helper exists yet.

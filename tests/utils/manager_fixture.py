@@ -25,9 +25,9 @@ from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.utils.constants import C
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.websocket_manager import WebsocketManager
 
 __all__ = [

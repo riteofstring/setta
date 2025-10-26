@@ -34,9 +34,9 @@ from setta.types.section_impls import (
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.websocket_manager import WebsocketManager
 
 
