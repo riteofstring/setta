@@ -193,14 +193,15 @@ Key concepts:
   - ✅ Split the listener websocket handshake into two stages: a `ListenerInit` bootstrap (no callbacks, just project + default feed) followed by full callback registration after the first persisted snapshot rebuilds the dependency graph.
   - ✅ Translate listener dependency strings to dependency-graph keys during registration and emit structured `{sectionId, codeObjId}` dependencies in `ListenerRegisterCallback`.
   - ✅ Frontend controls now emit structured dependency keys in realtime: `ParamInput` sends `RealtimeUIChange` payloads with `{sectionId, codeObjId}` via `sendRealtimeUIChange`, ensuring every param edit mirrors the listener key format.
-- **Next Steps**
- 1. Regenerate frontend bindings so generated typing reflects the structured realtime payloads; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
- 2. Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and error handling; document phased rollout steps (backend structured-keys → frontend emissions) in release notes.
+- **Future Plans**
+ 1. Audit websocket payload schemas (`ListenerRealtimeDelta`, `RealtimeUIChange`, related generators) to ensure every path now ships `{sectionId, codeObjId}` pairs and adjust generator inputs where legacy strings linger.
+ 2. Regenerate frontend bindings (`source activate.sh && cd frontend && pnpm generate`), review the resulting TypeScript diffs under `frontend/src/generated`, and confirm structured dependency keys flow through the websocket typings and endpoint helpers.
+ 3. Implement the “Listener Mode” UI toggle so the app exposes both sanitized dependency strings and structured keys for debugging while only transmitting the structured form; ensure realtime emissions rely exclusively on the structured key path.
+ 4. Update `tests/manual_listener_smoke.py` (and companion helpers) to log both representations drawn from `ctx.changed`, documenting how to exercise the mode toggle during manual smoke runs.
+ 5. Expand websocket/listener unit coverage to assert the sanitized-name ↔ structured-key bijection, duplicate-name handling, and error paths, then note the regeneration requirement and rollout sequencing in docs or release notes.
 
 ### Pending Work
-- Regenerate websocket bindings (`source activate.sh && cd frontend && pnpm generate`) once the frontend is ready to consume structured dependency keys.
-- Add regression coverage around tuple-key listener indexing and realtime error paths.
-- Extend docs/examples after the client lands.
+- See “Future Plans” above for the remaining dependency-ID tasks slated for upcoming milestones.
 
 ### Manual Validation
 - Terminal A (stack): `source activate.sh && cd frontend && pnpm start`. Wait for FastAPI (`127.0.0.1:8000`) and Vite (`127.0.0.1:3000`) to report ready.
