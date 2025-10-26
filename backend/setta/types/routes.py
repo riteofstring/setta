@@ -106,6 +106,8 @@ class Route(str, Enum):
     SET_BROWSER_HIDE_COLUMN = "/setBrowserHideColumn"
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_SOCIAL_URL = "/setSocialUrl"
+    ACCEPT_RENAME_REFACTOR = "/acceptRenameRefactor"
+    DECLINE_RENAME_REFACTOR = "/declineRenameRefactor"
     APPEND_DRAW_AREA_LAYER_ITEM = "/appendDrawAreaLayerItem"
     GROUP_SECTIONS = "/groupSections"
     UNGROUP_GROUPS = "/ungroupGroups"

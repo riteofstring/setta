@@ -18,6 +18,7 @@ import {
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
+  RenameRefactorBroadcastContent,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
@@ -122,6 +123,22 @@ type ZustandPendingOperations = {
 export const usePendingOperations = withProjectState(
   createWithEqualityFn(
     withResetFn<ZustandPendingOperations>(() => ({ pending: [] })),
+  ),
+);
+
+type ZustandRenameRefactors = {
+  byOpId: Record<string, RenameRefactorBroadcastContent>;
+  queue: Array<string>;
+  readyOpIds: Record<string, boolean>;
+};
+
+export const useRenameRefactors = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ZustandRenameRefactors>(() => ({
+      byOpId: {},
+      queue: [],
+      readyOpIds: {},
+    })),
   ),
 );
 

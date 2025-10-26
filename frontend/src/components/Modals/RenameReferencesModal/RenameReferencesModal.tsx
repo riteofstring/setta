@@ -1,44 +1,56 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
-import { closeModal } from "state/actions/modal";
-import { makeReplacements } from "state/actions/referenceRenaming";
-import { useModal, useSettings } from "state/definitions";
+import { closeModal, useModalData } from "state/actions/modal";
+import {
+  acceptRenameRefactor,
+  declineRenameRefactor,
+  maybeOpenNextRenamePrompt,
+} from "state/actions/renameRefactors";
+import { useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
-import { RenameRefactorModeEnum } from "utils/generatedTypes";
+import {
+  RenameRefactorMode,
+  RenameRefactorModeEnum,
+} from "utils/generatedTypes";
+import { ModalTypeEnum } from "../types";
 
 export function RenameReferencesModal() {
-  const modalData = useModal((x) => x.modalData);
+  const modalData = useModalData(ModalTypeEnum.RENAME_REFERENCES);
 
   const [doNotAsk, setDoNotAsk] = useState(false);
 
-  const handleCancel = () => {
-    closeModal();
-    if (doNotAsk) {
-      useSettings.setState((state) => ({
-        backend: {
-          ...state.backend,
-          renameRefactorMode: RenameRefactorModeEnum.NEVER_RENAME,
-        },
-      }));
-
-      route_save_settings({ settings: useSettings.getState() });
+  const persistRenamePreference = (mode: RenameRefactorMode) => {
+    if (!doNotAsk) {
+      return;
     }
+    useSettings.setState((state) => ({
+      backend: {
+        ...state.backend,
+        renameRefactorMode: mode,
+      },
+    }));
+    route_save_settings({ settings: useSettings.getState() });
+  };
+
+  const handleCancel = async () => {
+    closeModal();
+    await declineRenameRefactor(
+      modalData.projectConfigId,
+      modalData.frontendOpId,
+    );
+    persistRenamePreference(RenameRefactorModeEnum.NEVER_RENAME);
+    maybeOpenNextRenamePrompt();
   };
 
   const handleConfirm = async () => {
-    if (doNotAsk) {
-      useSettings.setState((state) => ({
-        backend: {
-          ...state.backend,
-          renameRefactorMode: RenameRefactorModeEnum.ALWAYS_RENAME,
-        },
-      }));
-
-      route_save_settings({ settings: useSettings.getState() });
-    }
-    await makeReplacements(modalData);
+    persistRenamePreference(RenameRefactorModeEnum.ALWAYS_RENAME);
+    await acceptRenameRefactor(
+      modalData.projectConfigId,
+      modalData.frontendOpId,
+    );
     closeModal();
+    maybeOpenNextRenamePrompt();
   };
 
   return (

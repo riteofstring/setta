@@ -785,11 +785,33 @@ def add_kwarg_to_dict_section(
     sectionId: str,
     sectionImpl: BaseDictSectionImpl,
 ):
+    top_level_param_id = sectionImpl.topLevelParamId
+    if top_level_param_id is None:
+        new_top_level_impl = create_code_obj_impl(
+            CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
+        )
+        new_top_level_core = Core(name="")
+        add_code_obj(p, [sectionId], new_top_level_core, new_top_level_impl)
+        set_curr_effective_section_impl_value(
+            p,
+            sectionId,
+            BaseDictSectionImplArgsWithCallable(topLevelParamId=new_top_level_core.id),
+        )
+        sectionImpl = get_curr_effective_section_impl_with_type_guard(
+            p, sectionId, BaseDictSectionImpl
+        )
+        top_level_param_id = sectionImpl.topLevelParamId
+
+    if top_level_param_id is None:
+        raise ValueError(
+            f"Failed to initialize topLevelParamId for section {sectionId}"
+        )
+
     sectionIds = []
     for section in p.sections.values():
         impl = get_curr_effective_section_impl(p, section.id)
         if isinstance(impl, BaseDictSectionImpl):
-            if impl.topLevelParamId == sectionImpl.topLevelParamId:
+            if impl.topLevelParamId == top_level_param_id:
                 sectionIds.append(section.id)
 
     newId = create_kwarg_objs(settings, p, sectionIds)
@@ -797,7 +819,7 @@ def add_kwarg_to_dict_section(
     set_curr_effective_code_obj_impl_value(
         p,
         sectionId,
-        sectionImpl.topLevelParamId,
+        top_level_param_id,
         BaseParentCodeObjImplArgsWithCallable(
             children=lambda currChildren: [*currChildren, newId]
         ),

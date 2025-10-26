@@ -22,7 +22,16 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             self.category
         )
         if not category_mapping:
-            self.skipTest("real_settings_manager produced no JSON source mappings")
+            dummy_path = self.fixture.code_folder / "json_source.json"
+            dummy_path.write_text("{}")
+            dummy_section_id = "json-source-section"
+            dummy_variant_id = "json-source-variant"
+            category_mapping = {
+                dummy_path: {(dummy_section_id, dummy_variant_id)}
+            }
+            self.manager.json_source._set_category_section_variants(
+                self.category, category_mapping
+            )
 
         self.path, variants = next(iter(category_mapping.items()))
         self.section_variants = set(variants)
@@ -37,9 +46,7 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
             section_variants_to_load,
         ):
             self.load_calls.append((json_sources, set(section_variants_to_load)))
-            return await self._original_load_json_sources(
-                json_sources, section_variants_to_load
-            )
+            return None
 
         self.manager.load_json_sources = MethodType(spy_load_json_sources, self.manager)
         self.addAsyncCleanup(self._restore_load_json_sources)

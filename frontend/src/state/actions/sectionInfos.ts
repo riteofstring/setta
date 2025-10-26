@@ -4,6 +4,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
+  markRenameBroadcastsReady,
+  maybeOpenNextRenamePrompt,
+} from "state/actions/renameRefactors";
+import {
   PendingOperation,
   useAllProjectMetadata,
   useNodeInternals,
@@ -417,6 +421,9 @@ export function processProjectStateUpdateFromBackend(
       state.x,
     ),
   }));
+
+  markRenameBroadcastsReady(completedIds);
+  maybeOpenNextRenamePrompt();
 }
 
 export function updateProjectState({

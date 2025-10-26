@@ -19,7 +19,10 @@ from typing import (
     overload,
 )
 
-from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.dependency_graph import (
+    DependencyGraph,
+    RenameReferenceChangedValue,
+)
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -44,6 +47,7 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.project_manager_types import (
+    AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
@@ -53,6 +57,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
@@ -128,6 +133,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
+    get_curr_section_callable_code_obj,
     group_sections,
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
@@ -184,6 +190,9 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
+from setta.types.websocket import (
+    RenameRefactorBroadcastContent,
+)
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -239,6 +248,9 @@ class BaseProjectManager(ABC):
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
+        self.pending_rename_results: dict[
+            str, tuple[str, list[RenameReferenceChangedValue]]
+        ] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
@@ -505,8 +517,7 @@ class BaseProjectManager(ABC):
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
-        messageId: str | None = None,
-        updateFileWatcher=True,
+        updateFileWatcher: bool = True,
     ):
         async with self._project_state_lock.write_lock():
             projectState.validate_singleton_sections()
@@ -520,7 +531,7 @@ class BaseProjectManager(ABC):
             projectConfigId = projectConfig.id
             if self.gen_code.get(projectConfigId):
                 await self.maybe_do_rename_refactor(
-                    messageId, projectConfigId, dep_graph
+                    projectState, projectConfigId, dep_graph
                 )
                 self.gen_code[projectConfigId].callback_cleanup()
 
@@ -875,9 +886,32 @@ class BaseProjectManager(ABC):
             )
         return None
 
+    def _apply_rename_result_auto_mode(
+        self,
+        project_state: ProjectStateSingleConfig,
+        changed_values: list[RenameReferenceChangedValue],
+    ):
+        if not changed_values:
+            return
+        for changed in changed_values:
+            section_id = changed.sectionId
+            param_id = changed.paramInfoId
+            new_value = changed.newValue
+            if param_id is not None:
+                set_param_entered_value(project_state, section_id, param_id, new_value)
+                continue
+            callable_code_obj = get_curr_section_callable_code_obj(
+                project_state, section_id
+            )
+            if not callable_code_obj:
+                raise KeyError(
+                    f"Expected callable code object for section {section_id}"
+                )
+            project_state.codeObjs[callable_code_obj.id].name = new_value
+
     async def maybe_do_rename_refactor(
         self,
-        messageId: str | None,
+        project_state: ProjectStateSingleConfig,
         projectConfigId: str,
         new_dep_graph: DependencyGraph,
     ):
@@ -894,20 +928,66 @@ class BaseProjectManager(ABC):
             # immediately apply any of the renaming operations
             new_dep_graph = copy.deepcopy(new_dep_graph)
 
-        changed_node_values = new_dep_graph.rename_references(old_dep_graph)
+        changed_values = new_dep_graph.rename_references(old_dep_graph)
 
-        # messageId can be None when update() is called from backend
-        if len(changed_node_values) > 0 and messageId:
-            # convert to a list of dicts, where each dict has keys "sectionId", "paramInfoId", "value"
-            changed_node_values = [
-                {**new_dep_graph.extract_ids_from_graph_key(k), "value": v}
-                for k, v in changed_node_values.items()
-            ]
+        if not changed_values:
+            return
+        if renameRefactorMode == RenameRefactorMode.ALWAYS_RENAME:
+            self._apply_rename_result_auto_mode(project_state, changed_values)
+            frontend_op_id = self._current_frontend_op_id.get()
+            if frontend_op_id:
+                self.pending_rename_results.pop(frontend_op_id, None)
+            return
 
-            await self.websocket_msg_handler.return_rename_refactor_results(
-                changed_node_values,
-                messageId,
+        frontend_op_id = self._current_frontend_op_id.get()
+        if frontend_op_id:
+            self.pending_rename_results[frontend_op_id] = (
+                projectConfigId,
+                changed_values,
             )
+            await self.websocket_msg_handler.broadcast_rename_refactor_results(
+                RenameRefactorBroadcastContent(
+                    projectConfigId=projectConfigId,
+                    frontendOpId=frontend_op_id,
+                    renameMode=renameRefactorMode,
+                    changedNodeValues=changed_values,
+                )
+            )
+
+    @enqueue_method
+    async def accept_rename_refactor(self, x: AcceptRenameRefactorRequest):
+        frontend_op_id = x.frontendOpId
+        if not frontend_op_id:
+            raise KeyError("Expected frontendOpId when accepting rename refactor.")
+        pending = self.pending_rename_results.get(frontend_op_id)
+        if not pending:
+            raise KeyError(f"Pending rename result not found for op {frontend_op_id}.")
+        pending_project_config_id, pending_values = pending
+        if pending_project_config_id != x.projectConfigId:
+            raise KeyError(
+                "Pending rename result projectConfigId mismatch; "
+                f"expected {pending_project_config_id}, got {x.projectConfigId}."
+            )
+        project_state = self.get_single_config_state(x.projectConfigId)
+        self._apply_rename_result_auto_mode(project_state, pending_values)
+        self.pending_rename_results.pop(frontend_op_id, None)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def decline_rename_refactor(self, x: DeclineRenameRefactorRequest):
+        frontend_op_id = x.frontendOpId
+        if not frontend_op_id:
+            raise KeyError("Expected frontendOpId when declining rename refactor.")
+        pending = self.pending_rename_results.get(frontend_op_id)
+        if not pending:
+            raise KeyError(f"Pending rename result not found for op {frontend_op_id}.")
+        pending_project_config_id, _ = pending
+        if pending_project_config_id != x.projectConfigId:
+            raise KeyError(
+                "Pending rename result projectConfigId mismatch; "
+                f"expected {pending_project_config_id}, got {x.projectConfigId}."
+            )
+        self.pending_rename_results.pop(frontend_op_id, None)
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):

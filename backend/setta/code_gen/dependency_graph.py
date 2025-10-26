@@ -80,6 +80,13 @@ class GraphKeySeparated:
     paramInfoId: str | None
 
 
+@dataclass
+class RenameReferenceChangedValue:
+    sectionId: str
+    paramInfoId: str | None
+    newValue: str
+
+
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = (
@@ -319,8 +326,10 @@ class DependencyGraph:
 
     # compares with "previous" dep graph to find nodes that have been renamed
     # and then changes the values of nodes that contain those old names
-    def rename_references(self, old_dep_graph: "DependencyGraph"):
-        renamings = {}
+    def rename_references(
+        self, old_dep_graph: "DependencyGraph"
+    ) -> list[RenameReferenceChangedValue]:
+        renamings: dict[GraphKeyType, tuple[str, str]] = {}
         for k, v in old_dep_graph.graph.items():
             node = self.get_node(k)
             if not node:
@@ -328,7 +337,7 @@ class DependencyGraph:
             if v.full_path_name != node.full_path_name:
                 renamings[k] = (v.full_path_name, node.full_path_name)
 
-        changed_node_values = {}
+        changed_node_values: list[RenameReferenceChangedValue] = []
         for k, v in self.nodes_with_potential_refs.items():
             replacements = []
             for ref, location in v.items():
@@ -349,7 +358,14 @@ class DependencyGraph:
                 self.nodes_with_potential_refs[k] = {
                     name: position for position, name in positions
                 }
-                changed_node_values[k] = node.value
+                ids = self.extract_ids_from_graph_key(k)
+                changed_node_values.append(
+                    RenameReferenceChangedValue(
+                        sectionId=ids.sectionId,
+                        paramInfoId=ids.paramInfoId,
+                        newValue=node.value,
+                    )
+                )
 
         self.resolve_references()
         return changed_node_values

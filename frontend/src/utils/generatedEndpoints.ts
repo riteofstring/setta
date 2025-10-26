@@ -467,6 +467,18 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
+export async function route_accept_rename_refactor(
+  x: gt.AcceptRenameRefactorRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/acceptRenameRefactor", x);
+}
+
+export async function route_decline_rename_refactor(
+  x: gt.DeclineRenameRefactorRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/declineRenameRefactor", x);
+}
+
 export async function route_set_text_block_display_mode(
   x: gt.SetTextBlockDisplayModeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
