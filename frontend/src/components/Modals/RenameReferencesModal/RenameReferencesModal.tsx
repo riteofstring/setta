@@ -9,7 +9,10 @@ import {
 } from "state/actions/renameRefactors";
 import { useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
-import { RenameRefactorModeEnum } from "utils/generatedTypes";
+import {
+  RenameRefactorMode,
+  RenameRefactorModeEnum,
+} from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
 
 export function RenameReferencesModal() {
@@ -17,36 +20,31 @@ export function RenameReferencesModal() {
 
   const [doNotAsk, setDoNotAsk] = useState(false);
 
+  const persistRenamePreference = (mode: RenameRefactorMode) => {
+    if (!doNotAsk) {
+      return;
+    }
+    useSettings.setState((state) => ({
+      backend: {
+        ...state.backend,
+        renameRefactorMode: mode,
+      },
+    }));
+    route_save_settings({ settings: useSettings.getState() });
+  };
+
   const handleCancel = async () => {
     closeModal();
     await declineRenameRefactor(
       modalData.projectConfigId,
       modalData.frontendOpId,
     );
-    if (doNotAsk) {
-      useSettings.setState((state) => ({
-        backend: {
-          ...state.backend,
-          renameRefactorMode: RenameRefactorModeEnum.NEVER_RENAME,
-        },
-      }));
-
-      route_save_settings({ settings: useSettings.getState() });
-    }
+    persistRenamePreference(RenameRefactorModeEnum.NEVER_RENAME);
     maybeOpenNextRenamePrompt();
   };
 
   const handleConfirm = async () => {
-    if (doNotAsk) {
-      useSettings.setState((state) => ({
-        backend: {
-          ...state.backend,
-          renameRefactorMode: RenameRefactorModeEnum.ALWAYS_RENAME,
-        },
-      }));
-
-      route_save_settings({ settings: useSettings.getState() });
-    }
+    persistRenamePreference(RenameRefactorModeEnum.ALWAYS_RENAME);
     await acceptRenameRefactor(
       modalData.projectConfigId,
       modalData.frontendOpId,
