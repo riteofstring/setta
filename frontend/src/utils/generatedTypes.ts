@@ -4356,9 +4356,58 @@ export function createWebsocketMsgLSPDiagnostics(
   return WebsocketMsgLSPDiagnosticsSchema.parse(options);
 }
 
+export const RenameReferenceChangeSchema = z.object({
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
+  oldFullPathName: z.string(),
+  newFullPathName: z.string(),
+});
+
+export type RenameReferenceChange = z.infer<typeof RenameReferenceChangeSchema>;
+
+export function createRenameReferenceChange(
+  options: Partial<RenameReferenceChange> = {},
+): RenameReferenceChange {
+  return RenameReferenceChangeSchema.parse(options);
+}
+
+export const RenameReferenceChangedValueSchema = z.object({
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
+  newValue: z.string(),
+});
+
+export type RenameReferenceChangedValue = z.infer<
+  typeof RenameReferenceChangedValueSchema
+>;
+
+export function createRenameReferenceChangedValue(
+  options: Partial<RenameReferenceChangedValue> = {},
+): RenameReferenceChangedValue {
+  return RenameReferenceChangedValueSchema.parse(options);
+}
+
+export const RenameRefactorBroadcastContentSchema = z.object({
+  projectConfigId: z.string(),
+  frontendOpId: z.string(),
+  renameMode: z.enum(RenameRefactorModeEnum),
+  renamedNodes: z.array(RenameReferenceChangeSchema),
+  changedNodeValues: z.array(RenameReferenceChangedValueSchema),
+});
+
+export type RenameRefactorBroadcastContent = z.infer<
+  typeof RenameRefactorBroadcastContentSchema
+>;
+
+export function createRenameRefactorBroadcastContent(
+  options: Partial<RenameRefactorBroadcastContent> = {},
+): RenameRefactorBroadcastContent {
+  return RenameRefactorBroadcastContentSchema.parse(options);
+}
+
 export const WebsocketMsgReturnRenameRefactorResultsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
+  content: RenameRefactorBroadcastContentSchema,
   messageType: z
     .literal("ReturnRenameRefactorResults")
     .default(WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults),

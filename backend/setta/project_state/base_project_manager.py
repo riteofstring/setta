@@ -187,6 +187,9 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
+from setta.types.websocket import (
+    RenameRefactorBroadcastContent,
+)
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -242,9 +245,7 @@ class BaseProjectManager(ABC):
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
-        self.pending_rename_results: dict[
-            str, tuple[str, RenameReferencesResult]
-        ] = {}
+        self.pending_rename_results: dict[str, tuple[str, RenameReferencesResult]] = {}
         self.watch_json_source_files()
         self.watch_artifact_files()
         self.watch_code_files()
@@ -907,7 +908,16 @@ class BaseProjectManager(ABC):
                 projectConfigId,
                 rename_result,
             )
-
+            if renameRefactorMode == RenameRefactorMode.ALWAYS_ASK:
+                await self.websocket_msg_handler.broadcast_rename_refactor_results(
+                    RenameRefactorBroadcastContent(
+                        projectConfigId=projectConfigId,
+                        frontendOpId=frontend_op_id,
+                        renameMode=renameRefactorMode,
+                        renamedNodes=rename_result.renamed_nodes,
+                        changedNodeValues=rename_result.changed_node_values,
+                    )
+                )
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):

@@ -15,7 +15,7 @@
 ### Backend
 - ✅ Use the per-request `frontendOpId` (tracked via `ProjectManagerRequestWithFrontendOp` and `_current_frontend_op_id`) as the correlation key for rename payloads; store pending results in manager state.
 - ✅ After `DependencyGraph.rename_references` runs, emit a structured list of changes that includes section/param identifiers plus both old and new names.
-- When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, changes[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
+- ✅ When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, renamedNodes[], changedNodeValues[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
 - When mode is `ALWAYS_RENAME`, apply the replacements directly to the in-flight `ProjectStateSingleConfig` before `update_and_broadcast_project_state` runs, using the same helpers the UI endpoints call (`set_section_name`, `set_curr_effective_code_obj_impl_value`, etc.).
 - Track pending rename prompts server-side (keyed by `frontendOpId`) and expose follow-up endpoints for the frontend to accept/decline changes; clear the pending queue once a decision arrives.
 
@@ -26,6 +26,6 @@
 - Update the modal UI to display both old/new identifiers and affected locations so users understand the impact before confirming.
 
 ## Follow-Up
-- Add backend unit coverage that exercises `DependencyGraph.rename_references` and verifies the emitted payload.
+- ✅ Add backend unit coverage that exercises `DependencyGraph.rename_references` and verifies the emitted payload.
 - Add a Vitest store/modal test that simulates the rename broadcast across each rename mode and ensures the modal launches or auto-applies correctly.
 - Audit console logging added during debugging (e.g., websocket receivers) and remove or guard it before shipping.

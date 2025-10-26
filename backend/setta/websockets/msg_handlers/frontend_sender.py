@@ -17,12 +17,14 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
+    RenameRefactorBroadcastContent,
     UpdateArtifactMsgContent,
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
+    WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
@@ -50,6 +52,14 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     artifacts=artifacts, updateType=updateType
                 )
             ),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_rename_refactor_results(
+        self, content: RenameRefactorBroadcastContent
+    ):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgReturnRenameRefactorResults(content=content),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 

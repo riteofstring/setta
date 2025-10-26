@@ -89,9 +89,16 @@ class RenameReferenceChange:
 
 
 @dataclass
+class RenameReferenceChangedValue:
+    sectionId: str
+    paramInfoId: str | None
+    newValue: str
+
+
+@dataclass
 class RenameReferencesResult:
     renamed_nodes: list[RenameReferenceChange]
-    changed_node_values: dict[GraphKeyType, str]
+    changed_node_values: list[RenameReferenceChangedValue]
 
 
 class DependencyGraph:
@@ -344,7 +351,7 @@ class DependencyGraph:
             if v.full_path_name != node.full_path_name:
                 renamings[k] = (v.full_path_name, node.full_path_name)
 
-        changed_node_values: dict[GraphKeyType, str] = {}
+        changed_node_values: list[RenameReferenceChangedValue] = []
         for k, v in self.nodes_with_potential_refs.items():
             replacements = []
             for ref, location in v.items():
@@ -365,7 +372,14 @@ class DependencyGraph:
                 self.nodes_with_potential_refs[k] = {
                     name: position for position, name in positions
                 }
-                changed_node_values[k] = node.value
+                ids = self.extract_ids_from_graph_key(k)
+                changed_node_values.append(
+                    RenameReferenceChangedValue(
+                        sectionId=ids.sectionId,
+                        paramInfoId=ids.paramInfoId,
+                        newValue=node.value,
+                    )
+                )
 
         self.resolve_references()
         renamed_nodes: list[RenameReferenceChange] = []

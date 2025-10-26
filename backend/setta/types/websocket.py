@@ -4,6 +4,10 @@ from typing import Any, Literal
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
+from setta.code_gen.dependency_graph import (
+    RenameReferenceChange,
+    RenameReferenceChangedValue,
+)
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -18,6 +22,7 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import AllProjectMetadata
+from setta.types.settings_state import RenameRefactorMode
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -119,8 +124,16 @@ class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
     )
 
 
+class RenameRefactorBroadcastContent(BaseModel):
+    projectConfigId: str
+    frontendOpId: str
+    renameMode: RenameRefactorMode
+    renamedNodes: list[RenameReferenceChange]
+    changedNodeValues: list[RenameReferenceChangedValue]
+
+
 class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
-    content: Any
+    content: RenameRefactorBroadcastContent
     messageType: Literal[WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults] = (
         WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults
     )
