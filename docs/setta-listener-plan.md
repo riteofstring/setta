@@ -41,6 +41,13 @@ Key concepts:
 - Persisted state updates originate in `BaseProjectManager._broadcast_project_state_snapshot` (`backend/setta/project_state/base_project_manager.py:1257`), which calls `WMHFrontendSender.broadcast_project_state`. This is the hook for a new `WMHPythonScriptSender.send_persisted_update`.
 - Other broadcast producers (settings reloads, artifact watchers, LLM streaming) also route through the shared websocket manager, so introducing a listener-specific sender keeps responsibilities clear.
 
+### Project State Access Model
+- `ProjectStateSingleConfig` stores sections, impls, variants, and code objects in parallel dicts (`sections`, `sectionImpls`, `sectionVariants`, `codeObjs`, `codeObjImpls`, `codeObjVariants`). The active variant for each section lives in `projectConfig.sectionVariantMap`, so there is no single nested structure to index like `state.sections.Homepage.hero.title`.
+- Reading a “value” requires resolving the active variant and merging modifiers. Helpers such as `get_curr_effective_section_impl` and `get_curr_effective_code_obj_impl` copy the base impl and apply overrides from `Core.sharedModifier` and `Variant.modifier` before exposing attributes. Type guards (e.g., `get_curr_effective_section_impl_with_type_guard`) are the preferred way to assert expected impl types.
+- Parameters inside sections are themselves code objects. Section impls carry `codeObjVariantMap` so we can locate the current variant for each param and again merge through the helper layer before accessing `.value`.
+- The generated `S` class that scripts consume today is produced by building a `DependencyGraph` over the project state and then emitting assignments via `PythonCodeGenerator`. Each graph node is keyed by `(sectionId, paramId)` (param id may be `None` for section-level values) and is turned into a sanitized dotted path like `s.sections_Homepage__hero__title`.
+- `SPath` strings represent those generated attribute paths. To keep the listener experience consistent with generated scripts, we must maintain a mapping between `SPath` and the canonical dependency ids rather than exposing raw project-state internals.
+
 ### Frontend Changes
 - When a UI control mutates state, continue sending the canonical HTTP/project-manager request, **and** emit a `RealtimeUIChange` websocket message containing:
   - `projectConfigId`, `sectionId`, `paramId`, `value`, optional metadata (source component, timestamp)
@@ -68,12 +75,18 @@ Key concepts:
   - On disconnect: clean session, release dependency subscriptions.
 
 ### Dependency Tracking
-- During code generation, emit companion metadata (`setta_gen_meta.json`) mapping `SPath` strings to dependency graph keys (`(sectionId, paramId)` tuples).
-- On listener registration:
-  - Resolve user-provided dependency specs (`SPath`, request types, etc.) to canonical dependency ids.
-  - Store indices for the persisted feed (hooks into the existing dependency_graph diff) and for the realtime feed (directly map section/param pairs).
-- When the project manager broadcasts updates, include the changed dependency ids so we can route persisted updates quickly.
-- For realtime deltas, read directly from the `RealtimeEventHub` mapping.
+- During code generation, emit companion metadata (`setta_gen_meta.json`) mapping `SPath` strings to dependency graph keys (`(sectionId, paramId)` tuples); ship this with the wheel so `SettaListener` can resolve dependencies locally without a round-trip to the backend.
+- On listener registration, use that metadata to translate user-provided specs (`SPath`, request types, etc.) into canonical dependency ids and record them alongside the callback metadata.
+- Persisted snapshots sent to listeners are the same `ProjectStateSingleConfig` payloads the frontend receives; after each persisted update the client rebuilds its own `DependencyGraph` and `PythonCodeGenerator` to hydrate the generated `S` class before dispatching callbacks.
+- Realtime deltas carry dependency ids plus raw values; the listener keeps the most recent dependency graph/generator in memory and patches it via `DependencyGraph.change_value`. If a delta cannot be reconciled (sequence gap, missing id), the listener triggers `force_refresh()` and performs a full rebuild from the next persisted snapshot.
+- The backend still tracks dependency registrations per listener so realtime emissions can be filtered to the interested sockets, but the heavy dependency walk lives entirely on the client.
+
+### Listener State Hydration Strategy
+- Bootstrap flow: server sends `ListenerBootstrap` containing the authoritative `ProjectStateSingleConfig`. The client rebuilds `DependencyGraph(project_state)` and a fresh `PythonCodeGenerator`, then instantiates or reloads the generated `S` module so callbacks can reference familiar attributes.
+- Persisted updates: triggered every time `_broadcast_project_state_snapshot` runs. After receiving the snapshot, the listener repeats the dependency walk and regenerates the `S` instance. Because the backend already computed this snapshot for the frontend, no additional server-side work is required beyond routing it to listener sockets.
+- Persisted feed rationale: keeping the listener subscribed to every authoritative broadcast guarantees scripts stay current with changes triggered outside the realtime channel (undo/redo, LLM completions, artifact watchers, other clients). To avoid wasted work when no listeners are connected, `WMHPythonScriptSender.send_persisted_update` should bail early if a project has no registered python-script sockets.
+- Realtime updates: contain only the affected dependency ids plus raw values. The listener applies them via `DependencyGraph.change_value` and reuses the cached generator to update the in-memory `S` before invoking callbacks. If the update references an unknown dependency or arrives out of order, the listener issues `force_refresh()` and waits for the next persisted snapshot to rebuild ground truth.
+- Manual refresh UX (“Refresh Listener Scripts”) simply calls `force_refresh`, causing the backend to send the latest persisted snapshot. This lets users opt into explicit rebuilds without suspending the automatic persisted feed.
 
 ### Message Types (new enums in `types.websocket`)
 - `ListenerBootstrap`: full project state + schema hash + sequence.
@@ -87,7 +100,7 @@ Key concepts:
 - `ListenerRealtimeEventContent`:
   - `projectConfigId` identifies which listener session should process the delta.
   - `dependencyIds` are the resolved dependency-graph ids (e.g., section/param tuples) so the client can trigger only the callbacks that registered for those ids.
-  - `delta` is a dict keyed by the same dependency ids with JSON-serializable new values; listeners patch their cached `S` snapshot before invoking callbacks.
+  - `delta` is a dict keyed by the same dependency ids with JSON-serializable new values; listeners update the cached dependency graph/generator before invoking callbacks.
   - `sequence` monotonically increases per project; gaps signal missed events and prompt a force refresh.
   - `metadata` is optional context from the frontend (e.g., emitting control, timestamps); scripts may ignore it.
 - `ListenerForceRefreshContent`:
@@ -98,7 +111,8 @@ Key concepts:
 ### Force Refresh & Reconciliation
 - Listener keeps track of the last `sequence` per feed.
 - Missing or out-of-order sequence → listener requests `force_refresh`.
-- Backend responds with `ListenerForceRefresh` that includes the latest project state and `S` bundle; listener reruns callbacks marked `run_on_refresh`.
+- Backend responds with `ListenerForceRefresh` that includes the latest project state and `S` bundle; listener rebuilds its dependency graph/`S` instance and reruns callbacks marked `run_on_refresh`.
+- Frontend “Refresh Listener Scripts” UI simply triggers `force_refresh` so scripts can opt in to a manual rebuild without waiting for the next persisted update.
 - Once the persisted pipeline confirms a change (e.g., after slider release), the listener can run heavier tasks in callbacks subscribed to the persisted feed.
 
 ### Execution Model & Reliability
@@ -113,7 +127,7 @@ Key concepts:
   - When code generation outputs new schema, backend pushes updated blob; listener reloads module via importlib and rebinds dependencies.
 
 ### Next Implementation Notes
-- Phase 1 should wire `BaseProjectManager._broadcast_project_state_snapshot` to call the new `WMHPythonScriptSender` so listener sockets receive the same persisted snapshots the frontend does.
+- Phase 1 should wire `BaseProjectManager._broadcast_project_state_snapshot` to call the new `WMHPythonScriptSender` so listener sockets receive the same persisted snapshots the frontend does. `WMHPythonScriptSender.send_persisted_update` should fast-exit when no listeners are registered for a project, but remain wired so active listeners automatically stay in sync.
 - Realtime emission from the frontend will mirror the existing `WMHFrontendReceiver` flow, but the listener bridge should live in a new `RealtimeEventHub` (or similar service) that the receiver calls into; the hub can then forward deltas via `WMHPythonScriptSender.send_realtime_update`.
 - Keep websocket type unions (`backend/setta/types/generated/websocket_unions.py`) in sync as listener message types are added so FastAPI validation works for both frontend and script connections.
 
