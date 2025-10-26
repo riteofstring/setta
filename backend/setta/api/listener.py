@@ -139,12 +139,6 @@ class SettaListener:
             await self._handle_websocket(websocket)
 
     async def _handle_websocket(self, websocket):
-        await websocket.send(
-            json.dumps(
-                {"messageType": C.WS_SCRIPT_READY, "content": str(self.rel_path)}
-            )
-        )
-
         # Process incoming messages using async for
         async for message in websocket:
             message = json.loads(message)

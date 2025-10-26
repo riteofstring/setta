@@ -20,6 +20,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.script_metadata = script_metadata
         self.project_manager = project_manager
 
+    async def on_connect(self, websocket_id: str) -> None:
+        await self._send_project_state_snapshot(websocket_id)
+
     async def process_json_str(self, json_str, fromWebsocketId):
         try:
             message = WebsocketMsg.model_validate_json(json_str)
@@ -31,10 +34,6 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
 
         message_type = message.messageType
         content = message.content
-
-        if message_type == C.WS_SCRIPT_READY:
-            await self._handle_script_ready(fromWebsocketId)
-            return
 
         if message_type == C.WS_SCRIPT_DEPENDENCIES:
             await self._handle_script_dependencies(fromWebsocketId, content)
@@ -56,7 +55,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def _handle_script_ready(self, websocket_id: str) -> None:
+    async def _send_project_state_snapshot(self, websocket_id: str) -> None:
         backend_state = self.project_manager.project_state_backend
         default_config_id = backend_state.defaultProjectConfigId
 
