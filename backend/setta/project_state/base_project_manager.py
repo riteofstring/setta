@@ -926,16 +926,8 @@ class BaseProjectManager(ABC):
 
         rename_result = new_dep_graph.rename_references(old_dep_graph)
 
-        if not rename_result.changed_node_values:
-            has_prior_named_node = False
-            for renamed in rename_result.renamed_nodes:
-                graph_key = (renamed.sectionId, renamed.paramInfoId)
-                old_node = old_dep_graph.graph.get(graph_key)
-                if old_node and old_node.has_name_and_value:
-                    has_prior_named_node = True
-                    break
-            if not has_prior_named_node:
-                return
+        if not rename_result.renamed_nodes and not rename_result.changed_node_values:
+            return
         if renameRefactorMode == RenameRefactorMode.ALWAYS_RENAME:
             self._apply_rename_result_auto_mode(project_state, rename_result)
             frontend_op_id = self._current_frontend_op_id.get()
