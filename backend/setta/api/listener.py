@@ -16,9 +16,10 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.listener import (
     ListenerFeed,
+    ListenerRealtimeEventContent,
+    ListenerRegisterAckStatus,
     ListenerRegisterCallback,
     ListenerRegisterContent,
-    ListenerRealtimeEventContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
@@ -210,7 +211,7 @@ class SettaListener:
 
         known_ids = set(self._callbacks.keys())
         ack_statuses = message.content.callbacks
-        ack_ids = {status.callbackId for status in ack_statuses}
+        ack_ids = set(ack_statuses.keys())
 
         missing_ids = known_ids - ack_ids
         if missing_ids:
@@ -228,16 +229,20 @@ class SettaListener:
                 callback_id,
             )
 
-        rejected = [status for status in ack_statuses if status.status == "rejected"]
+        rejected: list[tuple[str, ListenerRegisterAckStatus]] = [
+            (callback_id, status)
+            for callback_id, status in ack_statuses.items()
+            if status.status == "rejected"
+        ]
         accepted_count = sum(
-            1 for status in ack_statuses if status.status == "accepted"
+            1 for status in ack_statuses.values() if status.status == "accepted"
         )
 
         if rejected:
             self._is_registered = False
             error_details = ", ".join(
-                f"{status.callbackId} ({status.message or 'no details'})"
-                for status in rejected
+                f"{callback_id} ({status.message or 'no details'})"
+                for callback_id, status in rejected
             )
             logger.error(
                 "Listener %s registration rejected for %d callback(s): %s",
@@ -286,9 +291,9 @@ class SettaListener:
 
     def _build_register_content(self) -> ListenerRegisterContent:
         """Serialize callback metadata into a register payload."""
-        callbacks: list[ListenerRegisterCallback] = []
+        callbacks: dict[str, ListenerRegisterCallback] = {}
         for spec in self._callbacks.values():
-            callbacks.append(spec.register)
+            callbacks[spec.callback_id] = spec.register
         return ListenerRegisterContent(
             projectConfigId=self._project_id,
             callbacks=callbacks,

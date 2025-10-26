@@ -53,15 +53,14 @@ class ListenerRegisterCallback(BaseModel):
 
 class ListenerRegisterContent(BaseModel):
     projectConfigId: str
-    callbacks: list[ListenerRegisterCallback]
+    callbacks: dict[str, ListenerRegisterCallback]
 
 
 class ListenerRegisterAckStatus(BaseModel):
-    callbackId: str
     status: Literal["accepted", "rejected"]
     message: str | None = None
 
 
 class ListenerRegisterAckContent(BaseModel):
     projectConfigId: str
-    callbacks: list[ListenerRegisterAckStatus]
+    callbacks: dict[str, ListenerRegisterAckStatus]

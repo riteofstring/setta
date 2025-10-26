@@ -43,10 +43,10 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             project_config_id=message.content.projectConfigId,
             callbacks=message.content.callbacks,
         )
-        ack_statuses = [
-            ListenerRegisterAckStatus(callbackId=cb.callbackId, status="accepted")
-            for cb in message.content.callbacks
-        ]
+        ack_statuses = {
+            callback_id: ListenerRegisterAckStatus(status="accepted")
+            for callback_id in message.content.callbacks
+        }
         ack_content = ListenerRegisterAckContent(
             projectConfigId=registration.project_config_id,
             callbacks=ack_statuses,

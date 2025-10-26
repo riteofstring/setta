@@ -37,7 +37,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         content = ListenerRegisterContent(
             projectConfigId="proj-123",
-            callbacks=[callback],
+            callbacks={"cb-1": callback},
         )
         message = WebsocketMsgListenerRegister(content=content)
 
@@ -62,8 +62,8 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(ack_message, WebsocketMsgListenerRegisterAck)
         self.assertEqual("proj-123", ack_message.content.projectConfigId)
         self.assertEqual(1, len(ack_message.content.callbacks))
-        self.assertEqual("cb-1", ack_message.content.callbacks[0].callbackId)
-        self.assertEqual("accepted", ack_message.content.callbacks[0].status)
+        self.assertIn("cb-1", ack_message.content.callbacks)
+        self.assertEqual("accepted", ack_message.content.callbacks["cb-1"].status)
 
         await receiver.on_disconnect("socket-1")
         self.assertIsNone(listener_registry.get_registration("socket-1"))

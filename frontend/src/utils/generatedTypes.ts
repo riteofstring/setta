@@ -5788,7 +5788,7 @@ export function createListenerRegisterCallback(
 
 export const ListenerRegisterContentSchema = z.object({
   projectConfigId: z.string(),
-  callbacks: z.array(ListenerRegisterCallbackSchema),
+  callbacks: z.record(z.string(), ListenerRegisterCallbackSchema),
 });
 
 export type ListenerRegisterContent = z.infer<
@@ -5820,7 +5820,6 @@ export function createWebsocketMsgListenerRegister(
 }
 
 export const ListenerRegisterAckStatusSchema = z.object({
-  callbackId: z.string(),
   status: z.literal(["accepted", "rejected"]),
   message: z.union([z.string(), z.null()]).default(null),
 });
@@ -5837,7 +5836,7 @@ export function createListenerRegisterAckStatus(
 
 export const ListenerRegisterAckContentSchema = z.object({
   projectConfigId: z.string(),
-  callbacks: z.array(ListenerRegisterAckStatusSchema),
+  callbacks: z.record(z.string(), ListenerRegisterAckStatusSchema),
 });
 
 export type ListenerRegisterAckContent = z.infer<
