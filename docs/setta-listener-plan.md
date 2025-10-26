@@ -13,15 +13,13 @@ from setta.api import SettaListener
 
 listener = SettaListener(project_id="...", mode="interactive")
 
-@listener.listen(deps=["sections_Homepage__hero__title"], feeds="realtime")
+@listener.listen(deps=["Homepage__hero__title"], feeds="realtime")
 def on_title_drag(state, ctx):
-    ctx.log.info("hero title is now %s", state.sections.Homepage.hero.title)
+    ctx.log.info("hero title is now %s", state.Homepage__hero__title)
 
-@listener.listen(
-    deps=["sections_Chat__input"], feeds="both", debounce_ms=150
-)
+@listener.listen(deps=["Chat__input"], feeds="both", debounce_ms=150)
 def on_chat_change(state, ctx):
-    listener.emit_to_frontend({"panel": "chat", "value": state.sections.Chat.input})
+    listener.emit_to_frontend({"panel": "chat", "value": state.Chat__input})
 
 if __name__ == "__main__":
     listener.start()
@@ -47,7 +45,7 @@ Key concepts:
 - `ProjectStateSingleConfig` stores sections, impls, variants, and code objects in parallel dicts (`sections`, `sectionImpls`, `sectionVariants`, `codeObjs`, `codeObjImpls`, `codeObjVariants`). The active variant for each section lives in `projectConfig.sectionVariantMap`, so there is no single nested structure to index like `state.sections.Homepage.hero.title`.
 - Reading a “value” requires resolving the active variant and merging modifiers. Helpers such as `get_curr_effective_section_impl` and `get_curr_effective_code_obj_impl` copy the base impl and apply overrides from `Core.sharedModifier` and `Variant.modifier` before exposing attributes. Type guards (e.g., `get_curr_effective_section_impl_with_type_guard`) are the preferred way to assert expected impl types.
 - Parameters inside sections are themselves code objects. Section impls carry `codeObjVariantMap` so we can locate the current variant for each param and again merge through the helper layer before accessing `.value`.
-- The generated `S` class that scripts consume today is produced by building a `DependencyGraph` over the project state and then emitting assignments via `PythonCodeGenerator`. Each graph node is keyed by `(sectionId, paramId)` (param id may be `None` for section-level values) and is turned into a sanitized attribute name like `s.sections_Homepage__hero__title`, using double underscores to encode hierarchy.
+- The generated `S` class that scripts consume today is produced by building a `DependencyGraph` over the project state and then emitting assignments via `PythonCodeGenerator`. Each graph node is keyed by `(sectionId, paramId)` (param id may be `None` for section-level values) and is turned into a sanitized attribute name like `s.Homepage__hero__title`, using double underscores to encode hierarchy.
 - Dependency strings represent those generated attribute names exactly; listeners and realtime events reference the same identifiers without any additional dot-notation conversion layer.
 
 ### Frontend Changes
@@ -175,6 +173,12 @@ Key concepts:
 ### Phase 2 Progress
 - ✅ Introduced `RealtimeEventHub` to sequence realtime deltas per project, with regression coverage.
 - ✅ Simplified `ListenerRealtimeEventContent` so realtime routing relies on `delta` keys rather than a duplicated `dependencyIds` list.
+
+#### Dependency Naming Rules
+- Generated dependency strings come directly from `DependencyGraph.create_full_path_name`, which first sanitizes each section or parameter name by swapping `[]"' ` for `_`, collapsing duplicate underscores, and trimming leading/trailing underscores.
+- Parent/child boundaries are encoded with double underscores (`__`). For example, a section named `Homepage` with a child param `hero title` produces `Homepage__hero__title`, yielding an attribute `s.Homepage__hero__title`.
+- List-like parents append the zero-based index (`Items__0`) while dict/callable/nested parents ensure uniqueness via `_2`, `_3`, etc., when siblings sanitize to the same label.
+- Listener dependencies, realtime delta keys, and the attributes on the generated `S` instance all reuse these exact strings—there is no extra conversion layer—so frontend emitters and listener callbacks must reference the sanitized identifiers verbatim.
 
 ### Pending Work
 - Extend docs/examples after the client lands.

@@ -49,7 +49,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             websocket_manager, listener_registry, frontend_sender
         )
         callback = ListenerRegisterCallback(
-            dependencies=["sections_Homepage__hero__title"],
+            dependencies=["Homepage__hero__title"],
             feed=ListenerFeed.BOTH,
         )
         content = ListenerRegisterContent(
