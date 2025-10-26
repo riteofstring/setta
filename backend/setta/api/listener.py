@@ -61,6 +61,7 @@ class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
     register: ListenerRegisterCallback
+    sanitized_dependencies: tuple[str, ...]
 
 
 @dataclass(slots=True)
@@ -100,6 +101,10 @@ class SettaListener:
         self._runtime_state: ListenerRuntimeState | None = None
         self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
+        self._sanitized_to_serialized: dict[str, str] = {}
+        self._serialized_to_sanitized: dict[str, str] = {}
+        self._warned_missing_dependencies: set[str] = set()
+        self._pending_register_refresh = False
 
     @property
     def websocket_endpoint(self) -> str:
@@ -152,6 +157,7 @@ class SettaListener:
         logger.debug("Listener %s connecting to %s", self._project_id, endpoint)
         async with websockets.connect(endpoint) as websocket:
             logger.info("Listener %s connected", self._project_id)
+            self._pending_register_refresh = False
             await self._send_register_message(websocket)
             try:
                 async for payload in websocket:
@@ -161,6 +167,7 @@ class SettaListener:
                     if message is None:
                         continue
                     await self._dispatch_websocket_message(message)
+                    await self._maybe_send_updated_registration(websocket)
             finally:
                 logger.info("Listener %s connection closed", self._project_id)
                 self._registration_pending = False
@@ -275,10 +282,12 @@ class SettaListener:
         selection = self._normalize_feed(feed if feed is not None else self._feed)
 
         def decorator(func: ListenerCallback) -> ListenerCallback:
-            dependencies = list(deps) if deps is not None else []
+            sanitized_dependencies = (
+                tuple(deps) if deps is not None else tuple()
+            )
             callback_id = uuid4().hex
             register = ListenerRegisterCallback(
-                dependencies=dependencies,
+                dependencies=list(sanitized_dependencies),
                 feed=selection,
                 debounceMs=debounce_ms,
                 throttleMs=throttle_ms,
@@ -288,6 +297,7 @@ class SettaListener:
                 function=func,
                 callback_id=callback_id,
                 register=register,
+                sanitized_dependencies=sanitized_dependencies,
             )
             self._callbacks[callback_id] = spec
             return func
@@ -303,6 +313,108 @@ class SettaListener:
             projectConfigId=self._project_id,
             callbacks=callbacks,
         )
+
+    def _refresh_dependency_mappings(
+        self, runtime_state: ListenerRuntimeState
+    ) -> None:
+        """Rebuild caches linking sanitized dependency names to serialized graph keys."""
+        dep_graph = runtime_state.dependency_graph
+        sanitized_to_serialized: dict[str, str] = {}
+        for (
+            sanitized,
+            graph_key,
+        ) in dep_graph.full_path_name_to_graph_key.items():
+            serialized = dep_graph.graph_key_to_serialized_id.get(graph_key)
+            if serialized is None:
+                continue
+            sanitized_to_serialized[sanitized] = serialized
+        self._sanitized_to_serialized = sanitized_to_serialized
+        self._serialized_to_sanitized = {
+            serialized: sanitized
+            for sanitized, serialized in sanitized_to_serialized.items()
+        }
+        self._warned_missing_dependencies = {
+            dependency
+            for dependency in self._warned_missing_dependencies
+            if dependency not in sanitized_to_serialized
+        }
+
+    def _resolve_and_update_callback_dependencies(self) -> bool:
+        """Ensure registered callbacks emit serialized dependency ids."""
+        updated = False
+        for spec in self._callbacks.values():
+            if not spec.sanitized_dependencies:
+                continue
+            resolved: list[str] = []
+            for dependency in spec.sanitized_dependencies:
+                serialized = self._sanitized_to_serialized.get(dependency)
+                if serialized is None:
+                    raise KeyError(
+                        f"Listener dependency '{dependency}' not found for project "
+                        f"{self._project_id}"
+                    )
+                resolved.append(serialized)
+            current = list(spec.register.dependencies)
+            if current != resolved:
+                spec.register.dependencies = resolved
+                updated = True
+        return updated
+
+    def _normalize_incoming_dependency_id(self, dependency: str) -> str | None:
+        """Translate serialized dependency ids back to sanitized attribute names."""
+        if dependency in self._serialized_to_sanitized:
+            return self._serialized_to_sanitized[dependency]
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            logger.warning(
+                "Listener %s received dependency %s before runtime initialization",
+                self._project_id,
+                dependency,
+            )
+            return None
+        delimiter = DependencyGraph.SERIALIZED_GRAPH_KEY_DELIMITER
+        if delimiter in dependency:
+            try:
+                graph_key = runtime_state.dependency_graph.deserialize_graph_key(
+                    dependency
+                )
+            except ValueError:
+                logger.warning(
+                    "Listener %s received malformed dependency id %s",
+                    self._project_id,
+                    dependency,
+                )
+                return None
+            sanitized = runtime_state.dependency_graph.graph_key_to_full_path_name.get(
+                graph_key
+            )
+            if sanitized is None:
+                logger.warning(
+                    "Listener %s received unknown dependency id %s",
+                    self._project_id,
+                    dependency,
+                )
+                return None
+            self._sanitized_to_serialized[sanitized] = dependency
+            self._serialized_to_sanitized[dependency] = sanitized
+            return sanitized
+        logger.warning(
+            "Listener %s received invalid dependency id %s",
+            self._project_id,
+            dependency,
+        )
+        return None
+
+    async def _maybe_send_updated_registration(
+        self, websocket: "ClientConnection"
+    ) -> None:
+        """Re-register callbacks when dependency identifiers change."""
+        if not self._pending_register_refresh:
+            return
+        if self._registration_pending:
+            return
+        self._pending_register_refresh = False
+        await self._send_register_message(websocket)
 
     @staticmethod
     def _normalize_feed(
@@ -350,6 +462,10 @@ class SettaListener:
                 self._project_id,
             )
             return
+        self._runtime_state = runtime_state
+        self._refresh_dependency_mappings(runtime_state)
+        if self._resolve_and_update_callback_dependencies():
+            self._pending_register_refresh = True
         snapshot_values: dict[str, Any] = {}
         updated_cache = dict(self._dependency_cache)
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
@@ -358,7 +474,7 @@ class SettaListener:
             if not self._callback_accepts_persisted(spec):
                 continue
 
-            dependencies = tuple(spec.register.dependencies)
+            dependencies = spec.sanitized_dependencies
             changed: dict[str, Any] = {}
             should_run = not dependencies
 
@@ -382,7 +498,6 @@ class SettaListener:
             if should_run:
                 callbacks_to_run.append((spec, changed))
 
-        self._runtime_state = runtime_state
         self._dependency_cache = updated_cache
 
         for spec, changed in callbacks_to_run:
@@ -519,8 +634,13 @@ class SettaListener:
 
         applied_dependencies: dict[str, Any] = {}
         for dependency, value in content.delta.items():
+            sanitized_dependency = self._normalize_incoming_dependency_id(dependency)
+            if sanitized_dependency is None:
+                continue
             try:
-                self._set_dependency_value(runtime_state.s_instance, dependency, value)
+                self._set_dependency_value(
+                    runtime_state.s_instance, sanitized_dependency, value
+                )
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
                     "Listener %s failed to apply realtime delta for %s: %s",
@@ -529,7 +649,7 @@ class SettaListener:
                     error,
                 )
                 continue
-            applied_dependencies[dependency] = value
+            applied_dependencies[sanitized_dependency] = value
 
         if not applied_dependencies:
             logger.debug(
@@ -546,7 +666,7 @@ class SettaListener:
             if not self._callback_accepts_realtime(spec):
                 continue
 
-            dependencies = tuple(spec.register.dependencies)
+            dependencies = spec.sanitized_dependencies
             if not dependencies:
                 callbacks_to_run.append((spec, dict(applied_dependencies)))
                 continue
