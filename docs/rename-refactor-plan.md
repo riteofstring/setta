@@ -32,3 +32,4 @@
 - ✅ Add backend regression coverage for the ALWAYS_RENAME auto-apply path.
 - Add a Vitest store/modal test that simulates the rename broadcast across each rename mode and ensures the modal launches or auto-applies correctly.
 - Audit console logging added during debugging (e.g., websocket receivers) and remove or guard it before shipping.
+- Revisit the backend rename result shape: if we only surface prompts when `changed_node_values` is non-empty, we can probably drop the `RenameReferenceChange` dataclass entirely and remove special-case logic (like the kwarg guard). The dependency graph only records relationships it discovered while scanning other nodes’ text, so a non-empty `changed_node_values` already captures every case where downstream code needs attention. Document and implement that simplification once we confirm no other code paths rely on `renamed_nodes`.
