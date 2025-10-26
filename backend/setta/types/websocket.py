@@ -40,6 +40,11 @@ class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
 
 
+class WebsocketMsgTypeForPythonScript(str, Enum):
+    ListenerBootstrap = "ListenerBootstrap"
+    ListenerPersistedUpdate = "ListenerPersistedUpdate"
+
+
 class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
@@ -69,6 +74,10 @@ class FrontendWebsocketMsg(WebsocketMsg):
 
 
 class BackendWebsocketMsg(WebsocketMsg):
+    pass
+
+
+class PythonScriptWebsocketMsg(WebsocketMsg):
     pass
 
 
@@ -172,4 +181,18 @@ class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
         WebsocketMsgTypeForBackend.CurrentAddressUpdate
+    )
+
+
+class WebsocketMsgListenerBootstrap(PythonScriptWebsocketMsg):
+    content: ProjectStateSingleConfigWithCompletedOpIds
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerBootstrap] = (
+        WebsocketMsgTypeForPythonScript.ListenerBootstrap
+    )
+
+
+class WebsocketMsgListenerPersistedUpdate(PythonScriptWebsocketMsg):
+    content: ProjectStateSingleConfigWithCompletedOpIds
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate] = (
+        WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate
     )

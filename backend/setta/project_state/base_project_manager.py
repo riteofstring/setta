@@ -198,6 +198,7 @@ from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +213,7 @@ class BaseProjectManager(ABC):
         self,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
+        python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
@@ -221,6 +223,7 @@ class BaseProjectManager(ABC):
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
+        self.python_script_sender = python_script_sender
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
@@ -1261,13 +1264,26 @@ class BaseProjectManager(ABC):
         await self._broadcast_project_state_snapshot(project_state)
 
     async def _broadcast_project_state_snapshot(
-        self, project_state: ProjectStateSingleConfig
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        is_bootstrap: bool = False,
     ) -> None:
         self._mark_current_frontend_op_completed_before_broadcast()
-        await self.websocket_msg_handler.broadcast_project_state(
-            project_state,
-            self.completed_op_ids_since_last_broadcast,
-            list(self.pending_frontend_ops.keys()),
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
+        await asyncio.gather(
+            self.websocket_msg_handler.broadcast_project_state(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+            ),
+            self.python_script_sender.send_persisted_update(
+                project_state,
+                completed_op_ids,
+                pending_op_ids,
+                is_bootstrap=is_bootstrap,
+            ),
         )
         self.completed_op_ids_since_last_broadcast = []
 

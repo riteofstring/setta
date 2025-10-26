@@ -121,3 +121,19 @@ Key concepts:
 - Mutation rights: should scripts be allowed to call back into the backend to mutate project state, or remain read-only initially?
 - Payload limits: define acceptable frequency/size for realtime events; may need throttling for extreme sliders.
 - Multi-project listeners: should one listener handle multiple project configs simultaneously, or require separate sessions?
+
+### Phase 1 Progress
+- ✅ Added backend plumbing for listener-specific websocket messages:
+  - `WebsocketMsgListenerBootstrap` / `WebsocketMsgListenerPersistedUpdate`.
+  - `WMHPythonScriptSender` broadcasts persisted snapshots alongside existing frontend payloads.
+  - `BaseProjectManager._broadcast_project_state_snapshot` now targets the python-script channel.
+  - `WMHPythonScriptReceiver` tracks connected script sockets.
+- ⏳ Listener client and tooling are not yet implemented; frontend endpoints remain unchanged.
+
+### Pending Work
+- Implement the `SettaListener` client API plus registration/dependency handling.
+- Provide a replacement manual smoke test once the listener client exists.
+- Extend docs/examples after the client lands.
+
+### Manual Validation
+- Deferred until the listener client is implemented; no CLI helper exists yet.

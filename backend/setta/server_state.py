@@ -21,7 +21,10 @@ from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_receiver import WMHPythonScriptReceiver
+from setta.websockets.msg_handlers.python_script_receiver import (
+    WMHPythonScriptReceiver,
+)
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -29,6 +32,7 @@ class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
+        self.wmh_python_script_sender = WMHPythonScriptSender(self.websocket_manager)
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
@@ -51,6 +55,7 @@ class SettaFastAPIState:
         project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
+            self.wmh_python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
@@ -61,6 +66,7 @@ class SettaFastAPIState:
         settings_project_manager = SettingsProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
+            self.wmh_python_script_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,

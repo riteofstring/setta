@@ -197,12 +197,19 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "UpdateSettings",
 ]);
 
+export const PythonScriptWebsocketMsgTypeSet = new Set([
+  "ListenerBootstrap",
+  "ListenerPersistedUpdate",
+]);
+
 export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
   "LSPDiagnostics",
+  "ListenerBootstrap",
+  "ListenerPersistedUpdate",
   "Notification",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
@@ -588,6 +595,15 @@ export const WebsocketMsgTypeForFrontendEnum = {
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
   typeof WebsocketMsgTypeForFrontendEnum
+>;
+
+export const WebsocketMsgTypeForPythonScriptEnum = {
+  ListenerBootstrap: "ListenerBootstrap",
+  ListenerPersistedUpdate: "ListenerPersistedUpdate",
+} as const;
+
+export type WebsocketMsgTypeForPythonScript = ObjectValues<
+  typeof WebsocketMsgTypeForPythonScriptEnum
 >;
 
 export const SaveConflictStrategyEnum = {
@@ -5518,6 +5534,67 @@ export function createFrontendWebsocketMsgUnionWithDiscriminator(
   return FrontendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const WebsocketMsgListenerBootstrapSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateSingleConfigWithCompletedOpIdsSchema,
+  messageType: z
+    .literal("ListenerBootstrap")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerBootstrap),
+});
+
+export type WebsocketMsgListenerBootstrap = z.infer<
+  typeof WebsocketMsgListenerBootstrapSchema
+>;
+
+export function createWebsocketMsgListenerBootstrap(
+  options: Partial<WebsocketMsgListenerBootstrap> = {},
+): WebsocketMsgListenerBootstrap {
+  return WebsocketMsgListenerBootstrapSchema.parse(options);
+}
+
+export const WebsocketMsgListenerPersistedUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateSingleConfigWithCompletedOpIdsSchema,
+  messageType: z
+    .literal("ListenerPersistedUpdate")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerPersistedUpdate),
+});
+
+export type WebsocketMsgListenerPersistedUpdate = z.infer<
+  typeof WebsocketMsgListenerPersistedUpdateSchema
+>;
+
+export function createWebsocketMsgListenerPersistedUpdate(
+  options: Partial<WebsocketMsgListenerPersistedUpdate> = {},
+): WebsocketMsgListenerPersistedUpdate {
+  return WebsocketMsgListenerPersistedUpdateSchema.parse(options);
+}
+
+export const PythonScriptWebsocketMsgUnionSchema = z.union([
+  WebsocketMsgListenerBootstrapSchema,
+  WebsocketMsgListenerPersistedUpdateSchema,
+]);
+
+export type PythonScriptWebsocketMsgUnion = z.infer<
+  typeof PythonScriptWebsocketMsgUnionSchema
+>;
+
+export const PythonScriptWebsocketMsgUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgListenerBootstrapSchema,
+    WebsocketMsgListenerPersistedUpdateSchema,
+  ]);
+
+export type PythonScriptWebsocketMsgUnionWithDiscriminator = z.infer<
+  typeof PythonScriptWebsocketMsgUnionWithDiscriminatorSchema
+>;
+
+export function createPythonScriptWebsocketMsgUnionWithDiscriminator(
+  options: Partial<PythonScriptWebsocketMsgUnionWithDiscriminator> = {},
+): PythonScriptWebsocketMsgUnionWithDiscriminator {
+  return PythonScriptWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5531,6 +5608,8 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
+  WebsocketMsgListenerBootstrapSchema,
+  WebsocketMsgListenerPersistedUpdateSchema,
 ]);
 
 export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
@@ -5550,6 +5629,8 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
+    WebsocketMsgListenerBootstrapSchema,
+    WebsocketMsgListenerPersistedUpdateSchema,
   ],
 );
 
@@ -7693,6 +7774,22 @@ export function createFrontendWebsocketMsg(
   options: Partial<FrontendWebsocketMsg> = {},
 ): FrontendWebsocketMsg {
   return FrontendWebsocketMsgSchema.parse(options);
+}
+
+export const PythonScriptWebsocketMsgSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z.any(),
+});
+
+export type PythonScriptWebsocketMsg = z.infer<
+  typeof PythonScriptWebsocketMsgSchema
+>;
+
+export function createPythonScriptWebsocketMsg(
+  options: Partial<PythonScriptWebsocketMsg> = {},
+): PythonScriptWebsocketMsg {
+  return PythonScriptWebsocketMsgSchema.parse(options);
 }
 
 export const WebsocketConnectionInfoWithSocketSchema = z.object({

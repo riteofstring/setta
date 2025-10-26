@@ -6,6 +6,8 @@ from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgListenerBootstrap,
+    WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -30,6 +32,8 @@ WebsocketMsgUnion = (
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
     | WebsocketMsgCurrentAddressUpdate
+    | WebsocketMsgListenerBootstrap
+    | WebsocketMsgListenerPersistedUpdate
 )
 
 WebsocketMsgUnionWithDiscriminator = Annotated[
@@ -52,6 +56,8 @@ WebsocketMsgTypeSet = set(
         "AllProjectMetadata",
         "UpdateArtifacts",
         "CurrentAddressUpdate",
+        "ListenerBootstrap",
+        "ListenerPersistedUpdate",
     ]
 )
 
@@ -102,3 +108,17 @@ BackendWebsocketMsgUnionWithDiscriminator = Annotated[
 BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscriminator)
 
 BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate"])
+
+PythonScriptWebsocketMsgUnion = (
+    WebsocketMsgListenerBootstrap | WebsocketMsgListenerPersistedUpdate
+)
+
+PythonScriptWebsocketMsgUnionWithDiscriminator = Annotated[
+    PythonScriptWebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(
+    PythonScriptWebsocketMsgUnionWithDiscriminator
+)
+
+PythonScriptWebsocketMsgTypeSet = set(["ListenerBootstrap", "ListenerPersistedUpdate"])
