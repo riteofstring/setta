@@ -33,7 +33,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         pendingOpIds: list[str],
         *,
         is_bootstrap: bool,
-        websocket_id: str | None = None,
     ):
         payload = ProjectStateSingleConfigWithCompletedOpIds(
             projectState=projectState,
@@ -50,14 +49,10 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             if is_bootstrap
             else WebsocketMsgListenerPersistedUpdate
         )
-        message = message_cls(content=payload)
-        if websocket_id is None:
-            await self.websocket_manager.broadcast(
-                message,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
-        else:
-            await self.websocket_manager.send_message(message, websocket_id)
+        await self.websocket_manager.broadcast(
+            message_cls(content=payload),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
     async def send_realtime_update(
         self,
@@ -67,7 +62,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         delta: dict[str, Any],
         sequence: int,
         metadata: dict[str, Any] | None = None,
-        websocket_id: str | None = None,
     ):
         content = ListenerRealtimeEventContent(
             projectConfigId=projectConfigId,
@@ -81,14 +75,10 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             projectConfigId,
             sequence,
         )
-        message = WebsocketMsgListenerRealtimeEvent(content=content)
-        if websocket_id is None:
-            await self.websocket_manager.broadcast(
-                message,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
-        else:
-            await self.websocket_manager.send_message(message, websocket_id)
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerRealtimeEvent(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
     async def send_force_refresh(
         self,
@@ -96,7 +86,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectState: ProjectStateSingleConfigWithCompletedOpIds | None = None,
         reason: str | None = None,
         schemaHash: str | None = None,
-        websocket_id: str | None = None,
     ):
         content = ListenerForceRefreshContent(
             projectState=projectState,
@@ -109,53 +98,34 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             if projectState is not None
             else "unknown",
         )
-        message = WebsocketMsgListenerForceRefresh(content=content)
-        if websocket_id is None:
-            await self.websocket_manager.broadcast(
-                message,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
-        else:
-            await self.websocket_manager.send_message(message, websocket_id)
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerForceRefresh(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
     async def send_ack(
         self,
         *,
         message: str | None = None,
         heartbeatIntervalSec: float | None = None,
-        websocket_id: str | None = None,
     ):
         content = ListenerAckContent(
             message=message,
             heartbeatIntervalSec=heartbeatIntervalSec,
         )
         logger.debug("sending listener ack: %s", message)
-        ws_message = WebsocketMsgListenerAck(content=content)
-        if websocket_id is None:
-            await self.websocket_manager.broadcast(
-                ws_message,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
-        else:
-            await self.websocket_manager.send_message(ws_message, websocket_id)
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerAck(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
-    async def send_error(
-        self,
-        *,
-        error: str,
-        details: Any | None = None,
-        websocket_id: str | None = None,
-    ):
+    async def send_error(self, *, error: str, details: Any | None = None):
         content = ListenerErrorContent(error=error, details=details)
         logger.error("sending listener error: %s", error)
-        message = WebsocketMsgListenerError(content=content)
-        if websocket_id is None:
-            await self.websocket_manager.broadcast(
-                message,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
-        else:
-            await self.websocket_manager.send_message(message, websocket_id)
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerError(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
     async def broadcast_listener_event(
         self,
@@ -163,7 +133,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectConfigId: str,
         payload: dict[str, Any],
         target: str | None = None,
-        websocket_id: str | None = None,
     ):
         content = ListenerFrontendEmitContent(
             projectConfigId=projectConfigId,
@@ -175,11 +144,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             projectConfigId,
             target,
         )
-        message = WebsocketMsgListenerFrontendEmit(content=content)
-        if websocket_id is None:
-            await self.websocket_manager.broadcast(
-                message,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
-        else:
-            await self.websocket_manager.send_message(message, websocket_id)
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerFrontendEmit(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )

@@ -231,26 +231,6 @@ class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
     )
 
 
-class ListenerFeedSelection(str, Enum):
-    PERSISTED = "persisted"
-    REALTIME = "realtime"
-    BOTH = "both"
-
-
-class ListenerCallbackRegistration(BaseModel):
-    callbackId: str
-    dependencyIds: list[str]
-    feed: ListenerFeedSelection
-    debounceMs: int | None = None
-    throttleMs: int | None = None
-    runOnRefresh: bool = False
-
-
-class ListenerRegisterContent(BaseModel):
-    projectConfigId: str
-    listeners: list[ListenerCallbackRegistration]
-
-
 class ListenerAckContent(BaseModel):
     message: str | None = None
     heartbeatIntervalSec: float | None = None
