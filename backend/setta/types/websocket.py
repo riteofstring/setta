@@ -41,6 +41,7 @@ class WebsocketMsgTypeForBackend(str, Enum):
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
+    ListenerRegister = "ListenerRegister"
     ListenerBootstrap = "ListenerBootstrap"
     ListenerPersistedUpdate = "ListenerPersistedUpdate"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
@@ -265,4 +266,30 @@ class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
     content: ListenerFrontendEmitContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
         WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
+    )
+
+
+class ListenerRegisterCallback(BaseModel):
+    callback_id: str
+    dependencies: tuple[Any, ...] = ()
+    feed: str = "persisted"
+    debounce_ms: int | None = None
+    throttle_ms: int | None = None
+    run_on_refresh: bool = False
+
+    model_config = ConfigDict(extra="allow")
+
+
+class ListenerRegisterContent(BaseModel):
+    project_config_id: str
+    callbacks: tuple[ListenerRegisterCallback, ...] = ()
+    metadata: dict[str, Any] | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WebsocketMsgListenerRegister(PythonScriptWebsocketMsg):
+    content: ListenerRegisterContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegister] = (
+        WebsocketMsgTypeForPythonScript.ListenerRegister
     )
