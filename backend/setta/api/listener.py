@@ -45,7 +45,7 @@ ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 @dataclass(slots=True)
 class ListenerCallbackSpec:
     function: ListenerCallback
-    raw_dependencies: tuple[Any, ...] = field(default_factory=tuple)
+    dependencies: tuple[str, ...] = field(default_factory=tuple)
     register: ListenerRegisterCallback = field(
         default_factory=lambda: ListenerRegisterCallback(
             callbackId=uuid4().hex,
@@ -180,14 +180,10 @@ class SettaListener:
             self._handle_register_ack(message)
             return
         if isinstance(message, WebsocketMsgListenerBootstrap):
-            await self._handle_persisted_snapshot(
-                message.content, is_bootstrap=True
-            )
+            await self._handle_persisted_snapshot(message.content, is_bootstrap=True)
             return
         if isinstance(message, WebsocketMsgListenerPersistedUpdate):
-            await self._handle_persisted_snapshot(
-                message.content, is_bootstrap=False
-            )
+            await self._handle_persisted_snapshot(message.content, is_bootstrap=False)
             return
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
@@ -262,7 +258,7 @@ class SettaListener:
     def listen(
         self,
         *,
-        deps: Iterable[Any] | None = None,
+        deps: Iterable[str] | None = None,
         feed: ListenerFeed | str | None = None,
         debounce_ms: int | None = None,
         throttle_ms: int | None = None,
@@ -271,9 +267,10 @@ class SettaListener:
         selection = self._normalize_feed(feed if feed is not None else self._feed)
 
         def decorator(func: ListenerCallback) -> ListenerCallback:
+            dependencies = list(deps) if deps is not None else []
             register = ListenerRegisterCallback(
                 callbackId=uuid4().hex,
-                dependencies=[],
+                dependencies=dependencies,
                 feed=selection,
                 debounceMs=debounce_ms,
                 throttleMs=throttle_ms,
@@ -281,7 +278,7 @@ class SettaListener:
             )
             spec = ListenerCallbackSpec(
                 function=func,
-                raw_dependencies=tuple(deps) if deps is not None else (),
+                dependencies=tuple(dependencies),
                 register=register,
             )
             self._callbacks[spec.callback_id] = spec
@@ -293,28 +290,12 @@ class SettaListener:
         """Serialize callback metadata into a register payload."""
         callbacks: list[ListenerRegisterCallback] = []
         for spec in self._callbacks.values():
-            dependencies = [
-                self._stringify_dependency(dep) for dep in spec.raw_dependencies
-            ]
-            spec.register.dependencies = dependencies
+            spec.register.dependencies = list(spec.dependencies)
             callbacks.append(spec.register)
         return ListenerRegisterContent(
             projectConfigId=self._project_id,
             callbacks=callbacks,
         )
-
-    @staticmethod
-    def _stringify_dependency(value: Any) -> str:
-        """Convert dependency descriptors into canonical strings."""
-        if isinstance(value, str):
-            return value
-        path_attr = getattr(value, "path", None)
-        if isinstance(path_attr, str):
-            return path_attr
-        identifier = getattr(value, "id", None)
-        if isinstance(identifier, str):
-            return identifier
-        return str(value)
 
     @staticmethod
     def _normalize_feed(
@@ -438,35 +419,7 @@ class SettaListener:
         return value
 
     def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
-        target = current
-        for segment in dependency.split("."):
-            if isinstance(target, dict):
-                if segment not in target:
-                    raise KeyError(
-                        f"Dependency '{dependency}' missing key '{segment}'"
-                    )
-                target = target[segment]
-                continue
-            if isinstance(target, list):
-                try:
-                    index = int(segment)
-                except ValueError as error:
-                    raise KeyError(
-                        f"Dependency '{dependency}' requires integer index for list access"
-                    ) from error
-                try:
-                    target = target[index]
-                except IndexError as error:
-                    raise KeyError(
-                        f"Dependency '{dependency}' list index '{segment}' out of range"
-                    ) from error
-                continue
-            if not hasattr(target, segment):
-                raise AttributeError(
-                    f"Dependency '{dependency}' missing attribute '{segment}'"
-                )
-            target = getattr(target, segment)
-        return target
+        return getattr(current, dependency)
 
     @staticmethod
     def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
@@ -590,66 +543,6 @@ class SettaListener:
             )
             await self._invoke_callback(spec, runtime_state.s_instance, ctx)
 
-    def _set_dependency_value(
-        self, current: Any, dependency: str, value: Any
-    ) -> None:
+    def _set_dependency_value(self, current: Any, dependency: str, value: Any) -> None:
         """Set a dependency value on the cached S instance."""
-        segments = dependency.split(".")
-        if not segments:
-            raise ValueError("Dependency path is empty")
-
-        target = current
-        for segment in segments[:-1]:
-            if isinstance(target, dict):
-                if segment not in target:
-                    raise KeyError(
-                        f"Dependency '{dependency}' missing intermediate key '{segment}'"
-                    )
-                target = target[segment]
-                continue
-            if isinstance(target, list):
-                try:
-                    index = int(segment)
-                except ValueError as error:
-                    raise KeyError(
-                        f"Dependency '{dependency}' requires integer index for list access"
-                    ) from error
-                try:
-                    target = target[index]
-                except IndexError as error:
-                    raise IndexError(
-                        f"Dependency '{dependency}' list index '{segment}' out of range"
-                    ) from error
-                continue
-            if not hasattr(target, segment):
-                raise AttributeError(
-                    f"Dependency '{dependency}' missing attribute '{segment}'"
-                )
-            target = getattr(target, segment)
-
-        final_segment = segments[-1]
-        if isinstance(target, dict):
-            if final_segment not in target:
-                raise KeyError(
-                    f"Dependency '{dependency}' missing leaf key '{final_segment}'"
-                )
-            target[final_segment] = value
-            return
-        if isinstance(target, list):
-            try:
-                index = int(final_segment)
-            except ValueError as error:
-                raise KeyError(
-                    f"Dependency '{dependency}' requires integer index for list access"
-                ) from error
-            if index < 0 or index >= len(target):
-                raise IndexError(
-                    f"Dependency '{dependency}' list index '{final_segment}' out of range"
-                )
-            target[index] = value
-            return
-        if not hasattr(target, final_segment):
-            raise AttributeError(
-                f"Dependency '{dependency}' missing attribute '{final_segment}'"
-            )
-        setattr(target, final_segment, value)
+        setattr(current, dependency, value)
