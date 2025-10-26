@@ -37,6 +37,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _MISSING = object()
+_UNAVAILABLE = object()
+
+_RECOVERABLE_SNAPSHOT_ERRORS: tuple[type[Exception], ...] = (
+    ValidationError,
+    SyntaxError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    KeyError,
+    IndexError,
+    NameError,
+    RuntimeError,
+)
 
 
 # Listener callbacks may either complete synchronously or return an awaitable.
@@ -330,10 +343,16 @@ class SettaListener:
         is_bootstrap: bool,
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
-        runtime_state = self._build_runtime_state(project_state)
+        runtime_state = self._build_runtime_state_with_guard(project_state)
+        if runtime_state is None:
+            logger.warning(
+                "Listener %s skipped persisted snapshot due to build failure",
+                self._project_id,
+            )
+            return
         snapshot_values: dict[str, Any] = {}
-        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         updated_cache = dict(self._dependency_cache)
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
 
         for spec in self._callbacks.values():
             if not self._callback_accepts_persisted(spec):
@@ -349,6 +368,8 @@ class SettaListener:
                     dependency,
                     snapshot_values,
                 )
+                if value is _UNAVAILABLE:
+                    continue
                 previous = self._dependency_cache.get(dependency, _MISSING)
                 updated_cache[dependency] = value
                 if previous is _MISSING or value != previous:
@@ -390,6 +411,20 @@ class SettaListener:
             s_instance=s_instance,
         )
 
+    def _build_runtime_state_with_guard(
+        self, project_state: ProjectStateSingleConfig
+    ) -> ListenerRuntimeState | None:
+        try:
+            return self._build_runtime_state(project_state)
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+            logger.warning(
+                "Listener %s failed to build runtime state: %s",
+                self._project_id,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            return None
+
     def _instantiate_s(self, generated_code: str) -> Any:
         namespace: dict[str, Any] = {"__builtins__": __builtins__}
         exec(generated_code, namespace)
@@ -408,7 +443,17 @@ class SettaListener:
     ) -> Any:
         if dependency in snapshot_values:
             return snapshot_values[dependency]
-        value = self._resolve_dependency_value(s_instance, dependency)
+        try:
+            value = self._resolve_dependency_value(s_instance, dependency)
+        except AttributeError as error:
+            logger.warning(
+                "Listener %s missing dependency %s during snapshot: %s",
+                self._project_id,
+                dependency,
+                error,
+            )
+            snapshot_values[dependency] = _UNAVAILABLE
+            return _UNAVAILABLE
         snapshot_values[dependency] = value
         return value
 

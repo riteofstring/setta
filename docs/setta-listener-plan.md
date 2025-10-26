@@ -171,9 +171,9 @@ Key concepts:
 - ✅ Listener registry indexes callback dependencies and `WMHPythonScriptSender` filters realtime broadcasts to sockets with matching realtime feeds.
 - ✅ Backend listener emit flow now forwards `ListenerFrontendEmit` payloads to frontend sockets, emits structured errors for invalid registrations, and omits success acknowledgements to keep realtime paths lean.
 - ✅ Documented a manual listener smoke workflow and introduced `tests/manual_listener_smoke.py` to exercise persisted updates end to end.
+- ✅ Hardened listener snapshot handling so invalid state values no longer crash `SettaListener` during `S` rebuilding; guard skips bad snapshots, reuses cached dependency values, and only skips individual missing dependencies.
 
 ### Pending Work
-- Harden listener snapshot handling so transient invalid values (e.g., empty numeric fields) do not crash `SettaListener` during `S` instantiation.
 - Extend docs/examples after the client lands.
 - Flesh out `WMHPythonScriptReceiver` heartbeat handling to pair with the sender helpers once heartbeats are introduced.
 
@@ -182,4 +182,4 @@ Key concepts:
 - Terminal B (listener): `source activate.sh && python tests/manual_listener_smoke.py`. The helper script loads the fixture project and registers a sample dependency; tweak the callback in that file if your fixture watches a different attribute.
 - Frontend trigger: open `http://localhost:3000`, switch to the project the listener targets, and change a value that matches one of the registered dependencies. The listener terminal should log the updated value along with the `ctx.changed` map.
 - Cleanup: `Ctrl+C` in both terminals once you confirm the persisted update flowed through.
-- Note: if a callback depends on a typed value (e.g., expecting a number), leave the field in a valid state while editing—sending an empty value can make the generated `S` class raise during instantiation.
+- Note: if a callback depends on a typed value (e.g., expecting a number), leave the field in a valid state while editing—the listener now keeps running on empty values, but it reuses the cached value until a valid update arrives.
