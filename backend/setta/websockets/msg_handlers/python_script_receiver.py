@@ -39,6 +39,21 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self._handle_script_dependencies(fromWebsocketId, content)
             return
 
+        if message_type == C.WS_SCRIPT_REQUEST_FULL_STATE:
+            project_config_id: str | None = None
+            if isinstance(content, dict):
+                project_config_id = content.get("projectConfigId")
+            elif content is not None:
+                logger.warning(
+                    "Expected dict content for requestFullState from %s, received %s",
+                    fromWebsocketId,
+                    type(content).__name__,
+                )
+            await self._send_project_state_snapshot(
+                fromWebsocketId, project_config_id=project_config_id
+            )
+            return
+
         logger.debug(
             "Ignoring unsupported python script message %s from %s",
             message_type,
@@ -55,22 +70,30 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def _send_project_state_snapshot(self, websocket_id: str) -> None:
+    async def _send_project_state_snapshot(
+        self, websocket_id: str, project_config_id: str | None = None
+    ) -> None:
         backend_state = self.project_manager.project_state_backend
-        default_config_id = backend_state.defaultProjectConfigId
+        target_config_id = project_config_id or backend_state.defaultProjectConfigId
 
         content: Any
-        if default_config_id and default_config_id in backend_state.projectConfigs:
+        if target_config_id and target_config_id in backend_state.projectConfigs:
             single_config = convert_backend_to_single_config(
-                backend_state, default_config_id
+                backend_state, target_config_id
             )
             content = {
-                "projectConfigId": default_config_id,
+                "projectConfigId": target_config_id,
                 "projectState": single_config.model_dump(mode="json"),
             }
         else:
+            if project_config_id and project_config_id != backend_state.defaultProjectConfigId:
+                logger.warning(
+                    "Unknown projectConfigId %s requested by %s; falling back to default snapshot",
+                    project_config_id,
+                    websocket_id,
+                )
             content = {
-                "projectConfigId": default_config_id,
+                "projectConfigId": backend_state.defaultProjectConfigId,
                 "projectState": backend_state.model_dump(mode="json"),
             }
 

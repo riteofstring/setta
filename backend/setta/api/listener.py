@@ -42,6 +42,8 @@ class SettaListener:
         )
         self.fns = []
         self.dependencies_to_fns = defaultdict(set)
+        self._websocket = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
         # For debouncing/throttling
         self.pending_tasks = {}  # {fn_name: (task, token)}
@@ -135,8 +137,13 @@ class SettaListener:
 
     async def _connect_to_server(self):
         async with websockets.connect(self.endpoint) as websocket:
+            self._loop = asyncio.get_running_loop()
+            self._websocket = websocket
             self.logger.websocket = websocket
-            await self._handle_websocket(websocket)
+            try:
+                await self._handle_websocket(websocket)
+            finally:
+                self._websocket = None
 
     async def _handle_websocket(self, websocket):
         # Process incoming messages using async for
@@ -376,6 +383,34 @@ class SettaListener:
         else:
             # TODO
             pass
+
+    def force_full_state(self, project_config_id: str | None = None) -> None:
+        if self._loop is None or self._websocket is None:
+            raise RuntimeError("SettaListener force_full_state called before connect.")
+        if self._loop.is_closed():
+            raise RuntimeError("SettaListener event loop is closed.")
+
+        content: dict[str, str] = {}
+        if project_config_id is not None:
+            content["projectConfigId"] = project_config_id
+
+        payload = {
+            "messageType": C.WS_SCRIPT_REQUEST_FULL_STATE,
+            "content": content,
+        }
+
+        async def _send_request() -> None:
+            await self._websocket.send(json.dumps(payload))
+
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is self._loop:
+            self._loop.create_task(_send_request())
+        else:
+            asyncio.run_coroutine_threadsafe(_send_request(), self._loop)
 
 
 def get_interactive_functions(caller_frame):
