@@ -12,11 +12,10 @@
 - `ALWAYS_RENAME` mode silently mutates the frontend store without informing the backend; state divergence occurs after any rename.
 
 ## Recovery Steps
-1. **Modal Plumbing**
-   - Add a `RENAME_REFERENCES` entry to `ModalTypeEnum` and extend `ModalDataMap` to accept the rename payload.
-   - Update `ModalContainer` to render `RenameReferencesModal` when the type matches.
-   - Replace `useModal((x) => x.modalData)` with `useModalData(ModalTypeEnum.RENAME_REFERENCES)` so the modal receives structured data.
-   - Reintroduce an `openRenameReferencesModal` helper that stores `{ changedValues }` in the modal state and opens the dialog.
+1. **Modal Plumbing** ✅
+   - `ModalTypeEnum` now includes `RENAME_REFERENCES`, and `ModalDataMap` stores `{ changedValues }`.
+   - `ModalContainer` renders `RenameReferencesModal` and the modal consumes data via `useModalData(ModalTypeEnum.RENAME_REFERENCES)`.
+   - `openRenameReferencesModal` is restored; it persists `{ changedValues }` and opens the dialog.
 2. **State Updates for Replacements**
    - Redesign `makeReplacements` to translate the backend payload into the current project-state schema:
      - Resolve the section variant via `getCurrSectionVariantId(state, sectionId)`.

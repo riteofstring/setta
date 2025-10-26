@@ -1,14 +1,15 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
-import { closeModal } from "state/actions/modal";
+import { closeModal, useModalData } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
-import { useModal, useSettings } from "state/definitions";
+import { useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
+import { ModalTypeEnum } from "../types";
 
 export function RenameReferencesModal() {
-  const modalData = useModal((x) => x.modalData);
+  const modalData = useModalData(ModalTypeEnum.RENAME_REFERENCES);
 
   const [doNotAsk, setDoNotAsk] = useState(false);
 
@@ -37,7 +38,7 @@ export function RenameReferencesModal() {
 
       route_save_settings({ settings: useSettings.getState() });
     }
-    await makeReplacements(modalData);
+    await makeReplacements(modalData.changedValues);
     closeModal();
   };
 

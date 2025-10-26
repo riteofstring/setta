@@ -5,9 +5,16 @@ export const ModalTypeEnum = {
   DELETE_JSON_SOURCE_FILE: "DELETE_JSON_SOURCE_FILE",
   FILE_MENU_LOAD_PROJECT_CONFIG: "FILE_MENU_LOAD_PROJECT_CONFIG",
   FILE_MENU_SAVE_PROJECT_CONFIG_AS: "FILE_MENU_SAVE_PROJECT_CONFIG_AS",
+  RENAME_REFERENCES: "RENAME_REFERENCES",
 } as const;
 
 export type ModalType = ObjectValues<typeof ModalTypeEnum>;
+
+export type RenameReferenceChangedValue = {
+  sectionId: string;
+  paramInfoId: string | null;
+  value: string;
+};
 
 export type ModalDataMap = {
   [ModalTypeEnum.DELETE_PROJECT_WARNING]: {
@@ -21,6 +28,9 @@ export type ModalDataMap = {
   };
   [ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG]: null;
   [ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS]: { saveWithRefs: boolean };
+  [ModalTypeEnum.RENAME_REFERENCES]: {
+    changedValues: Array<RenameReferenceChangedValue>;
+  };
 };
 
 // Then generate the union type from the map
