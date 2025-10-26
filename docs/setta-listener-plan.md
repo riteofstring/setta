@@ -34,6 +34,13 @@ Key concepts:
   - structured logger scoped to the callback
 - `SettaListener` manages the websocket lifecycle, reconnection, and exposes helpers like `force_refresh()` and `stop()`.
 
+### Current Backend Websocket Flow
+- `backend/setta/routers/websocket.py:51` funnels all sockets through a shared `websocket_route_loop`; the existing `Route.WEBSOCKET_PYTHON_SCRIPT` entry is wired but its handler stub does nothing yet.
+- `backend/setta/websockets/websocket_manager.py:26` centralizes connection tracking and broadcasting. Each message can be targeted by `WebsocketConnectionType`; `PYTHON_SCRIPT` is defined but unused.
+- `backend/setta/websockets/msg_handlers/frontend_receiver.py:24` only accepts `WebsocketMsgCurrentAddressUpdate` today. We should keep it focused on frontend control messages and forward any new realtime payloads to a dedicated hub rather than overloading this class.
+- Persisted state updates originate in `BaseProjectManager._broadcast_project_state_snapshot` (`backend/setta/project_state/base_project_manager.py:1257`), which calls `WMHFrontendSender.broadcast_project_state`. This is the hook for a new `WMHPythonScriptSender.send_persisted_update`.
+- Other broadcast producers (settings reloads, artifact watchers, LLM streaming) also route through the shared websocket manager, so introducing a listener-specific sender keeps responsibilities clear.
+
 ### Frontend Changes
 - When a UI control mutates state, continue sending the canonical HTTP/project-manager request, **and** emit a `RealtimeUIChange` websocket message containing:
   - `projectConfigId`, `sectionId`, `paramId`, `value`, optional metadata (source component, timestamp)
@@ -92,6 +99,11 @@ Key concepts:
 - Schema hot-reload:
   - `ListenerBootstrap` ships `schemaHash`.
   - When code generation outputs new schema, backend pushes updated blob; listener reloads module via importlib and rebinds dependencies.
+
+### Next Implementation Notes
+- Phase 1 should wire `BaseProjectManager._broadcast_project_state_snapshot` to call the new `WMHPythonScriptSender` so listener sockets receive the same persisted snapshots the frontend does.
+- Realtime emission from the frontend will mirror the existing `WMHFrontendReceiver` flow, but the listener bridge should live in a new `RealtimeEventHub` (or similar service) that the receiver calls into; the hub can then forward deltas via `WMHPythonScriptSender.send_realtime_update`.
+- Keep websocket type unions (`backend/setta/types/generated/websocket_unions.py`) in sync as listener message types are added so FastAPI validation works for both frontend and script connections.
 
 ### Modes of Operation
 - `mode="persisted"`: only consume project-manager updates. Lowest complexity, good for today’s generated scripts.
