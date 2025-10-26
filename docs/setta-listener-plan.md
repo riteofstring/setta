@@ -99,7 +99,7 @@ Key concepts:
 ### Listener Message Payload Notes
 - `ListenerRealtimeEventContent`:
   - `projectConfigId` identifies which listener session should process the delta.
-  - `delta` is a dict keyed by generated `S` attribute names (double-underscore hierarchy) with JSON-serializable new values; listeners update the cached dependency graph/generator before invoking callbacks.
+  - `delta` is a dict keyed by serialized dependency graph keys (see “Dependency Key Strategy”) with JSON-serializable new values; listeners update the cached dependency graph/generator before invoking callbacks.
   - `sequence` monotonically increases per project; gaps signal missed events and prompt a force refresh.
   - `metadata` is optional context from the frontend (e.g., emitting control, timestamps); scripts may ignore it.
 - `ListenerForceRefreshContent`:
@@ -179,7 +179,14 @@ Key concepts:
 - Generated dependency strings come directly from `DependencyGraph.create_full_path_name`, which first sanitizes each section or parameter name by swapping `[]"' ` for `_`, collapsing duplicate underscores, and trimming leading/trailing underscores.
 - Parent/child boundaries are encoded with double underscores (`__`). For example, a section named `Homepage` with a child param `hero title` produces `Homepage__hero__title`, yielding an attribute `s.Homepage__hero__title`.
 - List-like parents append the zero-based index (`Items__0`) while dict/callable/nested parents ensure uniqueness via `_2`, `_3`, etc., when siblings sanitize to the same label.
-- Listener dependencies, realtime delta keys, and the attributes on the generated `S` instance all reuse these exact strings—there is no extra conversion layer—so frontend emitters and listener callbacks must reference the sanitized identifiers verbatim.
+- Listener authors continue to specify dependencies using these sanitized strings so the public API remains stable, but the listener runtime resolves them to dependency graph keys for transport and storage.
+
+#### Dependency Key Strategy (Updated)
+- Convert listener-specified dependency strings to graph keys `(sectionId, codeObjId | None)` during registration. Cache both directions so the runtime can mutate the generated `S` instance without re-traversing the dependency graph.
+- Represent graph keys on the wire as `${sectionId}::${codeObjId or ""}`. The backend stores them as tuples; the frontend emits the same serialized form without running the sanitizer.
+- `ListenerRegisterCallback.dependencies` and `ListenerRealtimeEventContent.delta` now operate on serialized graph keys. The backend moves between tuples and serialized strings inside websocket senders/receivers.
+- Frontend controls already know `sectionId`/`codeObjId`, so emitting a graph key only requires concatenation. No tree walk is needed client side.
+- During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using `DependencyGraph`/`PythonCodeGenerator` once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
 
 ### Pending Work
 - Extend docs/examples after the client lands.
