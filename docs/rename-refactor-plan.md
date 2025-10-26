@@ -1,34 +1,31 @@
 # Rename Refactor Flow Recovery Plan
 
 ## Background
-- Rename refactors rely on backend `DependencyGraph.rename_references` to detect changed identifiers and broadcast `{sectionId, paramInfoId, value}` replacements (see `backend/setta/project_state/base_project_manager.py:522`, `backend/setta/code_gen/dependency_graph.py:322`).
-- Frontend modal+state plumbing for rename confirmations has drifted, so rename prompts never appear and the app throws when rename messages arrive.
-- The `makeReplacements` helper predates the current project-state shape and only performs local mutations, leaving the backend out of sync.
+- The backend relies on `DependencyGraph.rename_references` to detect renames and produce replacement suggestions (see `backend/setta/project_state/base_project_manager.py:878` and `backend/setta/code_gen/dependency_graph.py:322`).
+- The previous round-trip depended on websocket `messageId`s that never exist for REST requests, so rename prompts silently dropped when a user renamed a section via the UI.
+- Frontend helpers such as `makeReplacements` predate the current project-state schema and apply local mutations that the backend never sees.
 
-## Current Breakages
-- `openRenameReferencesModal` is missing, causing runtime errors the first time we process rename refactor results (`frontend/src/state/actions/referenceRenaming.ts`).
-- The modal store does not expose `modalData`, the modal type enum lacks a rename entry, and `ModalContainer` cannot render `RenameReferencesModal`.
-- `makeReplacements` fetches variants with the wrong identifier (expects section variants rather than section IDs) and mutates `state.codeInfo`/variant `values` fields that no longer exist.
-- `ALWAYS_RENAME` mode silently mutates the frontend store without informing the backend; state divergence occurs after any rename.
+## Observed Gaps
+- Rename refactors are never surfaced because the backend will not emit results unless a `messageId` is present; REST calls (e.g., `route_set_section_name`) do not provide one.
+- When rename mode is `ALWAYS_RENAME`, the frontend mutates stale store fields instead of delegating to the backend, causing divergence.
+- The existing modal plumbing is only partially wired and cannot render rename confirmations even if a payload arrived.
 
-## Recovery Steps
-1. **Modal Plumbing** ✅
-   - `ModalTypeEnum` now includes `RENAME_REFERENCES`, and `ModalDataMap` stores `{ changedValues }`.
-   - `ModalContainer` renders `RenameReferencesModal` and the modal consumes data via `useModalData(ModalTypeEnum.RENAME_REFERENCES)`.
-   - `openRenameReferencesModal` is restored; it persists `{ changedValues }` and opens the dialog.
-2. **State Updates for Replacements**
-   - Redesign `makeReplacements` to translate the backend payload into the current project-state schema:
-     - Resolve the section variant via `getCurrSectionVariantId(state, sectionId)`.
-     - For callable renames (`paramInfoId` null) update `state.sections[sectionId].name` plus any dependent shared modifiers (if needed).
-     - For param renames, route through `setCurrEffectiveCodeObjImplValue` with a `dispatchOptimisticProjectStateUpdate` wrapper so we get backend parity.
-   - When the rename mode is `ALWAYS_RENAME`, call the rewritten `makeReplacements` immediately from `processRenameRefactorResults`.
-3. **Backend Synchronization**
-   - Decide whether renames should be applied server-side:
-     - **Option A:** Frontend sends `route_set_section_name` / `route_set_code_obj_name` for each change (reuse optimistic pattern).
-     - **Option B:** Backend applies replacements to `projectState` directly when mode is `ALWAYS_RENAME` so broadcast snapshots already contain the new names.
-   - Update `SettingsState.renameRefactorMode` handling to keep mode changes persisted when users tick “Don’t ask again”.
+## Proposed Direction
 
-## Follow-Up Considerations
-- Add regression coverage that simulates a rename notification and asserts modal behavior across the three modes.
-- Ensure websocket logging (currently `console.log` in `receiveMessage`) is gated or removed once debugging is complete.
-- Audit other state helpers for lingering references to the old `variants`/`values` fields to prevent similar drift.
+### Backend
+- Use the per-request `frontendOpId` (tracked via `ProjectManagerRequestWithFrontendOp` and `_current_frontend_op_id`) as the correlation key for rename payloads.
+- After `DependencyGraph.rename_references` runs, emit a structured list of changes that includes section/param identifiers plus both old and new names.
+- When mode is `ALWAYS_ASK`, broadcast a websocket message (reuse or replace `WebsocketMsgReturnRenameRefactorResults`) that carries `{ projectConfigId, frontendOpId, renameMode, changes[] }`. Treat it as a broadcast so transport (REST vs websocket) no longer matters.
+- When mode is `ALWAYS_RENAME`, apply the replacements directly to the in-flight `ProjectStateSingleConfig` before `update_and_broadcast_project_state` runs, using the same helpers the UI endpoints call (`set_section_name`, `set_curr_effective_code_obj_impl_value`, etc.).
+- Track pending rename prompts server-side (keyed by `frontendOpId`) and expose follow-up endpoints for the frontend to accept/decline changes; clear the pending queue once a decision arrives.
+
+### Frontend
+- Extend the websocket handler layer to capture the rename broadcast, store it in a dedicated rename state keyed by `frontendOpId`, and launch `RenameReferencesModal` once the associated op completes.
+- Rework `processRenameRefactorResults` to consume the new payload: confirmation should call the appropriate generated endpoints (`route_set_section_name`, `route_set_param_entered_value`, etc.), while rejection can optionally notify the backend to discard the pending prompt.
+- Remove the legacy `makeReplacements` local mutations—trust the backend snapshot (for auto-renames) and follow the optimistic-dispatch pattern for user-approved updates.
+- Update the modal UI to display both old/new identifiers and affected locations so users understand the impact before confirming.
+
+## Follow-Up
+- Add backend unit coverage that exercises `DependencyGraph.rename_references` and verifies the emitted payload.
+- Add a Vitest store/modal test that simulates the rename broadcast across each rename mode and ensures the modal launches or auto-applies correctly.
+- Audit console logging added during debugging (e.g., websocket receivers) and remove or guard it before shipping.
