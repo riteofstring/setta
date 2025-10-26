@@ -18,6 +18,7 @@ from setta.types.websocket import (
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
+    WebsocketMsgRealtimeUIChange,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
@@ -39,6 +40,7 @@ WebsocketMsgUnion = (
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
     | WebsocketMsgListenerFrontendEmitForward
+    | WebsocketMsgRealtimeUIChange
     | WebsocketMsgCurrentAddressUpdate
     | WebsocketMsgListenerBootstrap
     | WebsocketMsgListenerPersistedUpdate
@@ -70,6 +72,7 @@ WebsocketMsgTypeSet = set(
         "AllProjectMetadata",
         "UpdateArtifacts",
         "ListenerFrontendEmitForward",
+        "RealtimeUIChange",
         "CurrentAddressUpdate",
         "ListenerBootstrap",
         "ListenerPersistedUpdate",
@@ -122,7 +125,9 @@ FrontendWebsocketMsgTypeSet = set(
     ]
 )
 
-BackendWebsocketMsgUnion = WebsocketMsgCurrentAddressUpdate
+BackendWebsocketMsgUnion = (
+    WebsocketMsgRealtimeUIChange | WebsocketMsgCurrentAddressUpdate
+)
 
 BackendWebsocketMsgUnionWithDiscriminator = Annotated[
     BackendWebsocketMsgUnion, Field(discriminator="messageType")
@@ -130,7 +135,7 @@ BackendWebsocketMsgUnionWithDiscriminator = Annotated[
 
 BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscriminator)
 
-BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate"])
+BackendWebsocketMsgTypeSet = set(["RealtimeUIChange", "CurrentAddressUpdate"])
 
 PythonScriptWebsocketMsgUnion = (
     WebsocketMsgListenerBootstrap

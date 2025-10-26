@@ -26,6 +26,7 @@ from setta.websockets.msg_handlers.python_script_receiver import (
     WMHPythonScriptReceiver,
 )
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -38,6 +39,7 @@ class SettaFastAPIState:
             self.websocket_manager,
             self.listener_registry,
         )
+        self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
@@ -85,6 +87,7 @@ class SettaFastAPIState:
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,
             project_manager,
+            self.realtime_event_hub,
         )
         self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(

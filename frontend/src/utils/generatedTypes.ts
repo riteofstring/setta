@@ -181,7 +181,10 @@ export const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
-export const BackendWebsocketMsgTypeSet = new Set(["CurrentAddressUpdate"]);
+export const BackendWebsocketMsgTypeSet = new Set([
+  "CurrentAddressUpdate",
+  "RealtimeUIChange",
+]);
 
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
@@ -225,6 +228,7 @@ export const WebsocketMsgTypeSet = new Set([
   "ListenerRegister",
   "ListenerRegisterAck",
   "Notification",
+  "RealtimeUIChange",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
   "UUIDMappingForLLM",
@@ -595,6 +599,7 @@ export type WebsocketConnectionType = ObjectValues<
 
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
+  RealtimeUIChange: "RealtimeUIChange",
 } as const;
 
 export type WebsocketMsgTypeForBackend = ObjectValues<
@@ -4188,6 +4193,41 @@ export function createBaseSectionWithParamsImplUnionWithDiscriminator(
   return BaseSectionWithParamsImplUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const RealtimeUIChangeContentSchema = z.object({
+  projectConfigId: z.string(),
+  dependencyId: z.string(),
+  value: z.any(),
+  metadata: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+});
+
+export type RealtimeUIChangeContent = z.infer<
+  typeof RealtimeUIChangeContentSchema
+>;
+
+export function createRealtimeUIChangeContent(
+  options: Partial<RealtimeUIChangeContent> = {},
+): RealtimeUIChangeContent {
+  return RealtimeUIChangeContentSchema.parse(options);
+}
+
+export const WebsocketMsgRealtimeUIChangeSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: RealtimeUIChangeContentSchema,
+  messageType: z
+    .literal("RealtimeUIChange")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeUIChange),
+});
+
+export type WebsocketMsgRealtimeUIChange = z.infer<
+  typeof WebsocketMsgRealtimeUIChangeSchema
+>;
+
+export function createWebsocketMsgRealtimeUIChange(
+  options: Partial<WebsocketMsgRealtimeUIChange> = {},
+): WebsocketMsgRealtimeUIChange {
+  return WebsocketMsgRealtimeUIChangeSchema.parse(options);
+}
+
 export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.string(),
@@ -4206,12 +4246,30 @@ export function createWebsocketMsgCurrentAddressUpdate(
   return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
 }
 
+export const BackendWebsocketMsgUnionSchema = z.union([
+  WebsocketMsgRealtimeUIChangeSchema,
+  WebsocketMsgCurrentAddressUpdateSchema,
+]);
+
+export type BackendWebsocketMsgUnion = z.infer<
+  typeof BackendWebsocketMsgUnionSchema
+>;
+
 export const BackendWebsocketMsgUnionWithDiscriminatorSchema =
-  WebsocketMsgCurrentAddressUpdateSchema;
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgRealtimeUIChangeSchema,
+    WebsocketMsgCurrentAddressUpdateSchema,
+  ]);
 
 export type BackendWebsocketMsgUnionWithDiscriminator = z.infer<
   typeof BackendWebsocketMsgUnionWithDiscriminatorSchema
 >;
+
+export function createBackendWebsocketMsgUnionWithDiscriminator(
+  options: Partial<BackendWebsocketMsgUnionWithDiscriminator> = {},
+): BackendWebsocketMsgUnionWithDiscriminator {
+  return BackendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
@@ -5904,6 +5962,7 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerFrontendEmitForwardSchema,
+  WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgListenerBootstrapSchema,
   WebsocketMsgListenerPersistedUpdateSchema,
@@ -5932,6 +5991,7 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerFrontendEmitForwardSchema,
+    WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgListenerBootstrapSchema,
     WebsocketMsgListenerPersistedUpdateSchema,

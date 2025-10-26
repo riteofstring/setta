@@ -47,6 +47,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
 
 class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
+    RealtimeUIChange = "RealtimeUIChange"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -196,6 +197,20 @@ class WebsocketMsgListenerFrontendEmitForward(FrontendWebsocketMsg):
     content: ListenerFrontendEmitContent
     messageType: Literal[WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward] = (
         WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward
+    )
+
+
+class RealtimeUIChangeContent(BaseModel):
+    projectConfigId: str
+    dependencyId: str
+    value: Any
+    metadata: dict[str, Any] | None = None
+
+
+class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):
+    content: RealtimeUIChangeContent
+    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeUIChange] = (
+        WebsocketMsgTypeForBackend.RealtimeUIChange
     )
 
 
