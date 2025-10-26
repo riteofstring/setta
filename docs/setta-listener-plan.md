@@ -192,8 +192,9 @@ Key concepts:
 - **Completed**
   - ✅ Split the listener websocket handshake into two stages: a `ListenerInit` bootstrap (no callbacks, just project + default feed) followed by full callback registration after the first persisted snapshot rebuilds the dependency graph.
   - ✅ Translate listener dependency strings to dependency-graph keys during registration and emit structured `{sectionId, codeObjId}` dependencies in `ListenerRegisterCallback`.
+  - ✅ Frontend controls now emit structured dependency keys in realtime: `ParamInput` sends `RealtimeUIChange` payloads with `{sectionId, codeObjId}` via `sendRealtimeUIChange`, ensuring every param edit mirrors the listener key format.
 - **Next Steps**
- 1. Regenerate frontend bindings so controls emit structured graph keys alongside sanitized labels; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
+ 1. Regenerate frontend bindings so generated typing reflects the structured realtime payloads; wire the “Listener Mode” UI and manual smoke script to surface both forms for debugging while transmitting only the structured key.
  2. Expand websocket/listener unit coverage to assert the bijection, duplicate-name behavior, and error handling; document phased rollout steps (backend structured-keys → frontend emissions) in release notes.
 
 ### Pending Work

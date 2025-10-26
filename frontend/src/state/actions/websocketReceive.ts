@@ -20,6 +20,8 @@ import {
   RouteEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
+  WebsocketMsgRealtimeUIChange,
+  WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
@@ -134,6 +136,34 @@ export function sendCurrentAddress(currentAddress: string) {
   sendMessage(
     createWebsocketMsgCurrentAddressUpdate({ content: currentAddress }),
   );
+}
+
+export function sendRealtimeUIChange({
+  sectionId,
+  codeObjId = null,
+  value,
+}: {
+  sectionId: string;
+  codeObjId?: string | null;
+  value: unknown;
+}) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  const message: WebsocketMsgRealtimeUIChange = {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
+    content: {
+      projectConfigId,
+      dependencyKey: {
+        sectionId,
+        codeObjId: codeObjId ?? null,
+      },
+      value,
+    },
+  };
+  sendMessage(message);
 }
 
 export function sendMessage(message: WebsocketMsg) {
