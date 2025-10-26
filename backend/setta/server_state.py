@@ -19,6 +19,7 @@ from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_receiver import (
@@ -82,8 +83,10 @@ class SettaFastAPIState:
             project_manager,
         )
         self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
+        self.listener_registry = ListenerRegistry()
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager
+            self.websocket_manager,
+            self.listener_registry,
         )
 
         self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)

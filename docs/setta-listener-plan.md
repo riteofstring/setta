@@ -160,6 +160,7 @@ Key concepts:
 - ✅ Centralized listener payload models (feed enum, realtime/force refresh/ack/error/frontend emit, register/ack) under `backend/setta/types/listener.py` and added `ListenerRegister` / `ListenerRegisterAck` websocket message types.
 - ✅ Stubbed `WMHPythonScriptSender` helpers for realtime events, force refresh, ack/error, and listener→frontend emissions.
 - ✅ Simplified listener websocket payloads to send bare `ProjectStateSingleConfig` snapshots (persisted, bootstrap, force refresh).
+- ✅ `WMHPythonScriptReceiver` persists listener registrations via a shared `ListenerRegistry`, responds with targeted `ListenerRegisterAck` messages, and has regression coverage for the register flow.
 - ✅ Listener client handles realtime events: sequence-order enforcement, in-place `S` instance patching for dependency deltas, and invocation of callbacks subscribed to realtime feeds.
 - ✅ Began `SettaListener` client scaffolding with callback registration metadata (dependencies, feed selection, debounce/throttle, refresh flags).
 - ✅ Implemented the `SettaListener` websocket connection loop plus `start/stop` helpers so scripts can connect, reconnect, and observe incoming message types using the shared host/port defaults.
@@ -171,7 +172,7 @@ Key concepts:
 - Add regression coverage for realtime listener handling (unit test simulating delta dispatch).
 - Provide a replacement manual smoke test once the listener client exists.
 - Extend docs/examples after the client lands.
-- Track listener dependency registrations server-side so realtime broadcasts can target only interested sockets.
+- Use the shared listener registry to scope realtime broadcasts only to callbacks that registered a matching dependency set.
 - Flesh out `WMHPythonScriptReceiver` message handling (register, emit, heartbeat) to pair with the new sender helpers.
 
 ### Manual Validation
