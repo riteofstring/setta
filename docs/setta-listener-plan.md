@@ -73,7 +73,7 @@ Key concepts:
   - `send_force_refresh`, `send_error`, `broadcast_listener_event` → support force refreshes, error propagation, and script → frontend emissions.
 - Flesh out `WMHPythonScriptReceiver` to manage listener sessions:
   - On connect: perform handshake, register dependencies, select feeds.
-  - Handle messages: `RegisterListeners`, `Unregister`, `Emit`, `RequestRefresh`, `Heartbeat`.
+  - Handle messages: `RegisterListeners`, `Unregister`, `Emit`, `RequestRefresh`.
   - On disconnect: clean session, release dependency subscriptions.
 
 ### Dependency Tracking
@@ -120,7 +120,7 @@ Key concepts:
 ### Execution Model & Reliability
 - Default single-threaded callback execution to preserve ordering; optional executor for CPU-bound work with max concurrency caps per listener.
 - Debounce/throttle enforced client side (per callback metadata) and optionally server side to avoid overwhelming scripts.
-- Heartbeats: listener sends periodic pings; backend drops stale sessions after timeout.
+- Connection lifecycle: rely on transport-level ping/pong and `on_disconnect` cleanup for stale session removal.
 - Error propagation:
   - Callback exceptions captured, logged, and forwarded as `ListenerError`.
   - Option to auto-disable faulty callbacks until manual refresh.
@@ -142,7 +142,7 @@ Key concepts:
 1. **Phase 1**: Implement websocket session plumbing, `SettaListener` client skeleton, basic persisted updates (no realtime yet).
 2. **Phase 2**: Add realtime feed (frontend emission, `RealtimeEventHub`, selective callback trigger). Document sanitization rules so dependency names stay intuitive.
 3. **Phase 3**: Wire frontend UI controls (toggle, force refresh), expose script emission to frontend, polish API docs/examples.
-4. **Phase 4**: Harden reliability (heartbeats, schema reload, error handling), add integration tests simulating listener scripts, and document end-to-end workflow.
+4. **Phase 4**: Harden reliability (connection monitoring, schema reload, error handling), add integration tests simulating listener scripts, and document end-to-end workflow.
 
 ### Open Questions
 - Authentication/authorization: do listener sessions require project secrets or rely on local dev trust?
@@ -175,7 +175,6 @@ Key concepts:
 
 ### Pending Work
 - Extend docs/examples after the client lands.
-- Flesh out `WMHPythonScriptReceiver` heartbeat handling to pair with the sender helpers once heartbeats are introduced.
 
 ### Manual Validation
 - Terminal A (stack): `source activate.sh && cd frontend && pnpm start`. Wait for FastAPI (`127.0.0.1:8000`) and Vite (`127.0.0.1:3000`) to report ready.
