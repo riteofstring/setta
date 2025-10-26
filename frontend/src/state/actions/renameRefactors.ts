@@ -4,6 +4,7 @@ import {
   NULL_PROJECT_CONFIG_ID,
   useModal,
   useProjectState,
+  usePendingOperations,
   useRenameRefactors,
 } from "state/definitions";
 import { post } from "utils/endpointUtils";
@@ -46,6 +47,15 @@ export function saveRenameBroadcast(
       readyOpIds: restReady,
     };
   });
+
+  const isOpStillPending = usePendingOperations
+    .getState()
+    .pending.some((op) => op.opId === content.frontendOpId);
+
+  if (!isOpStillPending) {
+    markRenameBroadcastsReady([content.frontendOpId]);
+    maybeOpenNextRenamePrompt();
+  }
 }
 
 export function clearRenameBroadcast(frontendOpId: string) {
