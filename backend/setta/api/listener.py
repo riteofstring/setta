@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
 from uuid import uuid4
 
@@ -46,17 +46,8 @@ ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
 @dataclass(slots=True)
 class ListenerCallbackSpec:
     function: ListenerCallback
-    register: ListenerRegisterCallback = field(
-        default_factory=lambda: ListenerRegisterCallback(
-            callbackId=uuid4().hex,
-            dependencies=[],
-            feed=ListenerFeed.PERSISTED,
-        )
-    )
-
-    @property
-    def callback_id(self) -> str:
-        return self.register.callbackId
+    callback_id: str
+    register: ListenerRegisterCallback
 
 
 @dataclass(slots=True)
@@ -272,8 +263,8 @@ class SettaListener:
 
         def decorator(func: ListenerCallback) -> ListenerCallback:
             dependencies = list(deps) if deps is not None else []
+            callback_id = uuid4().hex
             register = ListenerRegisterCallback(
-                callbackId=uuid4().hex,
                 dependencies=dependencies,
                 feed=selection,
                 debounceMs=debounce_ms,
@@ -282,9 +273,10 @@ class SettaListener:
             )
             spec = ListenerCallbackSpec(
                 function=func,
+                callback_id=callback_id,
                 register=register,
             )
-            self._callbacks[spec.callback_id] = spec
+            self._callbacks[callback_id] = spec
             return func
 
         return decorator

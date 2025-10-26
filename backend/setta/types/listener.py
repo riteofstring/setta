@@ -43,7 +43,6 @@ class ListenerFrontendEmitContent(BaseModel):
 
 
 class ListenerRegisterCallback(BaseModel):
-    callbackId: str
     dependencies: list[str]
     feed: ListenerFeed
     debounceMs: int | None = None

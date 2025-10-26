@@ -31,7 +31,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager = _StubWebsocketManager()
         receiver = WMHPythonScriptReceiver(websocket_manager, listener_registry)
         callback = ListenerRegisterCallback(
-            callbackId="cb-1",
             dependencies=["sections_Homepage__hero__title"],
             feed=ListenerFeed.BOTH,
         )

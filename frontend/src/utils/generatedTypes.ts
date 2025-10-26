@@ -5768,7 +5768,6 @@ export function createWebsocketMsgListenerFrontendEmit(
 }
 
 export const ListenerRegisterCallbackSchema = z.object({
-  callbackId: z.string(),
   dependencies: z.array(z.string()),
   feed: z.enum(ListenerFeedEnum),
   debounceMs: z.union([z.int(), z.null()]).default(null),
