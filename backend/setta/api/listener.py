@@ -18,12 +18,14 @@ from setta.types.listener import (
     ListenerFeed,
     ListenerRegisterCallback,
     ListenerRegisterContent,
+    ListenerRealtimeEventContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerPersistedUpdate,
+    WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
 )
@@ -93,6 +95,7 @@ class SettaListener:
         self._is_registered = False
         self._runtime_state: ListenerRuntimeState | None = None
         self._dependency_cache: dict[str, Any] = {}
+        self._last_realtime_sequence: int | None = None
 
     @property
     def websocket_endpoint(self) -> str:
@@ -185,6 +188,9 @@ class SettaListener:
             await self._handle_persisted_snapshot(
                 message.content, is_bootstrap=False
             )
+            return
+        if isinstance(message, WebsocketMsgListenerRealtimeEvent):
+            await self._handle_realtime_event(message.content)
             return
         logger.debug(
             "Listener %s ignoring unsupported message type %s",
@@ -466,6 +472,10 @@ class SettaListener:
     def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
         return spec.register.feed in {ListenerFeed.PERSISTED, ListenerFeed.BOTH}
 
+    @staticmethod
+    def _callback_accepts_realtime(spec: ListenerCallbackSpec) -> bool:
+        return spec.register.feed in {ListenerFeed.REALTIME, ListenerFeed.BOTH}
+
     async def _invoke_callback(
         self,
         spec: ListenerCallbackSpec,
@@ -475,3 +485,171 @@ class SettaListener:
         result = spec.function(state, ctx)
         if inspect.isawaitable(result):
             await result
+
+    async def _handle_realtime_event(
+        self, content: ListenerRealtimeEventContent
+    ) -> None:
+        """Apply realtime deltas and invoke interested callbacks."""
+        if content.projectConfigId != self._project_id:
+            logger.debug(
+                "Listener %s ignoring realtime event for project %s",
+                self._project_id,
+                content.projectConfigId,
+            )
+            return
+
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            logger.debug(
+                "Listener %s received realtime event before bootstrap; ignoring",
+                self._project_id,
+            )
+            return
+
+        if self._last_realtime_sequence is not None:
+            if content.sequence <= self._last_realtime_sequence:
+                logger.debug(
+                    "Listener %s ignoring out-of-order realtime sequence %s (last=%s)",
+                    self._project_id,
+                    content.sequence,
+                    self._last_realtime_sequence,
+                )
+                return
+
+        self._last_realtime_sequence = content.sequence
+        if not content.delta:
+            logger.debug(
+                "Listener %s received realtime event with no delta (sequence=%s)",
+                self._project_id,
+                content.sequence,
+            )
+            return
+
+        applied_dependencies: dict[str, Any] = {}
+        for dependency, value in content.delta.items():
+            try:
+                self._set_dependency_value(runtime_state.s_instance, dependency, value)
+            except (AttributeError, KeyError, IndexError, ValueError) as error:
+                logger.error(
+                    "Listener %s failed to apply realtime delta for %s: %s",
+                    self._project_id,
+                    dependency,
+                    error,
+                )
+                continue
+            applied_dependencies[dependency] = value
+
+        if not applied_dependencies:
+            logger.debug(
+                "Listener %s applied no realtime changes for sequence %s",
+                self._project_id,
+                content.sequence,
+            )
+            return
+
+        self._dependency_cache.update(applied_dependencies)
+
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        for spec in self._callbacks.values():
+            if not self._callback_accepts_realtime(spec):
+                continue
+
+            dependencies = tuple(spec.register.dependencies)
+            if not dependencies:
+                callbacks_to_run.append((spec, dict(applied_dependencies)))
+                continue
+
+            changed: dict[str, Any] = {}
+            for dependency in dependencies:
+                if dependency not in applied_dependencies:
+                    continue
+                try:
+                    value = self._resolve_dependency_value(
+                        runtime_state.s_instance, dependency
+                    )
+                except (AttributeError, KeyError, IndexError, ValueError) as error:
+                    logger.error(
+                        "Listener %s failed to resolve dependency %s after realtime update: %s",
+                        self._project_id,
+                        dependency,
+                        error,
+                    )
+                    continue
+                changed[dependency] = value
+
+            if changed:
+                callbacks_to_run.append((spec, changed))
+
+        if not callbacks_to_run:
+            return
+
+        for spec, changed in callbacks_to_run:
+            ctx = ListenerCallbackContext(
+                changed=changed,
+                log=logger.getChild(f"callback.{spec.callback_id}"),
+            )
+            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
+
+    def _set_dependency_value(
+        self, current: Any, dependency: str, value: Any
+    ) -> None:
+        """Set a dependency value on the cached S instance."""
+        segments = dependency.split(".")
+        if not segments:
+            raise ValueError("Dependency path is empty")
+
+        target = current
+        for segment in segments[:-1]:
+            if isinstance(target, dict):
+                if segment not in target:
+                    raise KeyError(
+                        f"Dependency '{dependency}' missing intermediate key '{segment}'"
+                    )
+                target = target[segment]
+                continue
+            if isinstance(target, list):
+                try:
+                    index = int(segment)
+                except ValueError as error:
+                    raise KeyError(
+                        f"Dependency '{dependency}' requires integer index for list access"
+                    ) from error
+                try:
+                    target = target[index]
+                except IndexError as error:
+                    raise IndexError(
+                        f"Dependency '{dependency}' list index '{segment}' out of range"
+                    ) from error
+                continue
+            if not hasattr(target, segment):
+                raise AttributeError(
+                    f"Dependency '{dependency}' missing attribute '{segment}'"
+                )
+            target = getattr(target, segment)
+
+        final_segment = segments[-1]
+        if isinstance(target, dict):
+            if final_segment not in target:
+                raise KeyError(
+                    f"Dependency '{dependency}' missing leaf key '{final_segment}'"
+                )
+            target[final_segment] = value
+            return
+        if isinstance(target, list):
+            try:
+                index = int(final_segment)
+            except ValueError as error:
+                raise KeyError(
+                    f"Dependency '{dependency}' requires integer index for list access"
+                ) from error
+            if index < 0 or index >= len(target):
+                raise IndexError(
+                    f"Dependency '{dependency}' list index '{final_segment}' out of range"
+                )
+            target[index] = value
+            return
+        if not hasattr(target, final_segment):
+            raise AttributeError(
+                f"Dependency '{dependency}' missing attribute '{final_segment}'"
+            )
+        setattr(target, final_segment, value)
