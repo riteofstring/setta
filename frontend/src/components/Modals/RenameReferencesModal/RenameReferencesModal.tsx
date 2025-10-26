@@ -2,7 +2,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { closeModal, useModalData } from "state/actions/modal";
-import { makeReplacements } from "state/actions/referenceRenaming";
+import {
+  acceptRenameRefactor,
+  declineRenameRefactor,
+} from "state/actions/renameRefactors";
 import { useSettings } from "state/definitions";
 import { route_save_settings } from "utils/generatedEndpoints";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
@@ -13,8 +16,12 @@ export function RenameReferencesModal() {
 
   const [doNotAsk, setDoNotAsk] = useState(false);
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     closeModal();
+    await declineRenameRefactor(
+      modalData.projectConfigId,
+      modalData.frontendOpId,
+    );
     if (doNotAsk) {
       useSettings.setState((state) => ({
         backend: {
@@ -38,7 +45,10 @@ export function RenameReferencesModal() {
 
       route_save_settings({ settings: useSettings.getState() });
     }
-    await makeReplacements(modalData.changedValues);
+    await acceptRenameRefactor(
+      modalData.projectConfigId,
+      modalData.frontendOpId,
+    );
     closeModal();
   };
 

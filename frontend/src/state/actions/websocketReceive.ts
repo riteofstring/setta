@@ -25,7 +25,7 @@ import {
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
 import { updateInteractiveDependencies } from "./interactive";
-import { processRenameRefactorResults } from "./referenceRenaming";
+import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
@@ -116,7 +116,7 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
     case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
-      return processRenameRefactorResults(m.content);
+      return handleRenameRefactorBroadcast(m.content);
     case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
       // TODO
       return null;

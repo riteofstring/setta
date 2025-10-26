@@ -29,6 +29,8 @@ export type ModalDataMap = {
   [ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG]: null;
   [ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS]: { saveWithRefs: boolean };
   [ModalTypeEnum.RENAME_REFERENCES]: {
+    frontendOpId: string;
+    projectConfigId: string;
     changedValues: Array<RenameReferenceChangedValue>;
   };
 };

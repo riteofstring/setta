@@ -3,6 +3,8 @@ import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
+import { openRenameReferencesModal } from "state/actions/modal";
+import { popRenameBroadcast } from "state/actions/renameRefactors";
 import {
   PendingOperation,
   useAllProjectMetadata,
@@ -30,6 +32,8 @@ import {
   ImplArgsBundleMap,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
+  RenameRefactorModeEnum,
+  RenameRefactorBroadcastContent,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
@@ -385,6 +389,7 @@ export function processProjectStateUpdateFromBackend(
   }
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
+  let renamePrompt: RenameRefactorBroadcastContent | undefined;
   const currentPending = usePendingOperations.getState().pending;
   const nextPending = currentPending.reduce<PendingOperation[]>(
     (acc, opInfo) => {
@@ -417,6 +422,24 @@ export function processProjectStateUpdateFromBackend(
       state.x,
     ),
   }));
+
+  for (const opId of completedIds) {
+    const entry = popRenameBroadcast(opId);
+    if (!entry || renamePrompt) {
+      continue;
+    }
+    if (entry.renameMode === RenameRefactorModeEnum.ALWAYS_ASK) {
+      renamePrompt = entry;
+    }
+  }
+
+  if (renamePrompt) {
+    openRenameReferencesModal({
+      frontendOpId: renamePrompt.frontendOpId,
+      projectConfigId: renamePrompt.projectConfigId,
+      changedValues: renamePrompt.changedNodeValues,
+    });
+  }
 }
 
 export function updateProjectState({
