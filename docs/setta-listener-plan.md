@@ -186,10 +186,10 @@ Key concepts:
 - Represent graph keys on the wire as `${sectionId}::${codeObjId or ""}`. The backend stores them as tuples; the frontend emits the same serialized form without running the sanitizer.
 - `ListenerRegisterCallback.dependencies` and `ListenerRealtimeEventContent.delta` now operate on serialized graph keys. The backend moves between tuples and serialized strings inside websocket senders/receivers.
 - Frontend controls already know `sectionId`/`codeObjId`, so emitting a graph key only requires concatenation. No tree walk is needed client side.
-- During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using `DependencyGraph`/`PythonCodeGenerator` once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
+- During bootstrap the listener builds a map `{sanitizedName -> graphKey}` using the dependency graph once, so realtime updates can convert incoming graph keys back to attribute names in O(1) time.
 
 ### Dependency ID Refactor Plan (In Progress)
-- Extend `DependencyGraph`/`PythonCodeGenerator` so every node caches the sanitized attribute name, tuple graph key, and serialized `${sectionId}::${codeObjId}` form; expose readonly lookup maps for consumers.
+- Extend `DependencyGraph` so every node caches the sanitized attribute name, tuple graph key, and serialized `${sectionId}::${codeObjId}` form; expose readonly lookup maps for consumers.
 - During listener registration resolve user-provided sanitized dependencies through that cache, fail fast on unknown names, and send only serialized graph keys in `ListenerRegisterCallback.dependencies`.
 - Update websocket payloads (`ListenerRegister`, `ListenerRealtimeEventContent`) and the listener registry to index callbacks by serialized graph keys; keep a temporary normalization shim that accepts legacy sanitized ids with loud warnings until the frontend rollout finishes.
 - Adjust backend senders/receivers (`WMHPythonScriptSender`, `RealtimeEventHub`, persisted snapshot broadcast) to normalize incoming keys, include lookup hashes when sending snapshots, and request force refreshes when a listener references missing keys.
