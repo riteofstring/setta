@@ -19,6 +19,7 @@ We will modernize the Python script listener mode so user-authored scripts can s
 - Incremental updates arrive via `WS_CALL_INTERACTIVE_FNS`; the listener throttles/debounces callbacks but still needs logic to seed `_setta_data` and update dependency maps (`backend/setta/api/listener.py`).
 - `WMHPythonScriptReceiver` pushes the bootstrap snapshot from `on_connect`, stores dependency registrations, and now handles `requestFullState` resyncs (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
 - Treat existing constants/enums (`WS_PROJECT_DATA`, `WS_CALL_INTERACTIVE_FNS`, etc.) as historical; we can redefine the taxonomy as we align backend/frontend/script message shapes.
+- Ensure websocket payloads are emitted via the Pydantic models in `backend/setta/types/websocket.py` (e.g., `_send_project_state_snapshot` should return a `WebsocketMsg` subclass) and carry forward the project-wide level of type annotations showcased in the surrounding modules.
 
 ## Backend Updates
 
