@@ -108,39 +108,24 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         *,
         message: str | None = None,
         heartbeatIntervalSec: float | None = None,
-        to_websocket_id: str | None = None,
     ):
         content = ListenerAckContent(
             message=message,
             heartbeatIntervalSec=heartbeatIntervalSec,
         )
         logger.debug("sending listener ack: %s", message)
-        ack = WebsocketMsgListenerAck(content=content)
-        if to_websocket_id is not None:
-            await self.websocket_manager.send_message(ack, to_websocket_id)
-        else:
-            await self.websocket_manager.broadcast(
-                ack,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerAck(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
-    async def send_error(
-        self,
-        *,
-        error: str,
-        details: Any | None = None,
-        to_websocket_id: str | None = None,
-    ):
+    async def send_error(self, *, error: str, details: Any | None = None):
         content = ListenerErrorContent(error=error, details=details)
         logger.error("sending listener error: %s", error)
-        error_msg = WebsocketMsgListenerError(content=content)
-        if to_websocket_id is not None:
-            await self.websocket_manager.send_message(error_msg, to_websocket_id)
-        else:
-            await self.websocket_manager.broadcast(
-                error_msg,
-                connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-            )
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerError(content=content),
+            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        )
 
     async def broadcast_listener_event(
         self,
