@@ -18,6 +18,12 @@
 - **Phase 3 – listener UX & emit helpers** ⏳ Outstanding. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; realtime deltas now hydrate into typed values inside `SettaListener`, with a follow-up to consolidate the conversion logic into a shared helper instead of duplicating `PythonCodeGenerator.get_param_value`; still pending are public-facing emit helpers (`emit_to_frontend`, `force_refresh`, etc.) and documentation polish; UI exposure is still under discussion.
 - **Phase 4 – reliability & tests** ⏳ Outstanding. New async suites cover scheduler edge cases and realtime debounce handling; still pending are schema hot-reload behavior, richer error handling, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
 
+### Value Conversion Centralization
+- Introduce `setta/code_gen/value_codec.py` with a `format_param_expression(node, dep_graph, var_lookup)` helper that mirrors the logic from `PythonCodeGenerator.get_param_value`, including nested dict/list composition and quoting/boolean handling.
+- Refactor the generator so `get_param_value` simply delegates to the codec while `construct_dict`, `construct_list`, and existing position bookkeeping stay untouched; the codec receives callbacks for dict/list assembly so we do not break current emitted code.
+- Rework the listener hydration path to call the codec for every realtime delta: produce the canonical expression string, cache its `compile` result per dependency, evaluate it with a minimal namespace rooted at the cached `S` instance, and update both the runtime state and the underlying `ParamNode.value`.
+- Expand the realtime listener tests to cover nested params and non-string payloads, add targeted unit tests for the codec comparing its output against the generator, and include a quick benchmark-style assertion to keep eval overhead within interactive tolerances.
+
 ### Dependency Key Refactor Status
 - **Done**: Listener registration now resolves sanitized dependency strings to graph keys, websocket payloads ship structured keys, and frontend controls emit the same structure.
 - **Next**:
