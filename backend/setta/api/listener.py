@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import inspect
 import logging
@@ -9,8 +10,9 @@ import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
 
-from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.dependency_graph import DependencyGraph, Node, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -616,7 +618,12 @@ class SettaListener:
             value = delta.value
             dependency = node.full_path_name
             try:
-                self._set_dependency_value(runtime_state.s_instance, dependency, value)
+                hydrated_value = self._set_dependency_value(
+                    runtime_state.s_instance,
+                    dependency,
+                    value,
+                    node,
+                )
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
                     (
@@ -628,7 +635,7 @@ class SettaListener:
                     error,
                 )
                 continue
-            applied_dependencies[dependency] = value
+            applied_dependencies[dependency] = hydrated_value
 
         if not applied_dependencies:
             logger.debug(
@@ -677,9 +684,197 @@ class SettaListener:
         for spec, changed in callbacks_to_run:
             self._scheduler.submit(spec.callback_id, dict(changed))
 
-    def _set_dependency_value(self, current: Any, dependency: str, value: Any) -> None:
+    def _set_dependency_value(
+        self,
+        current: Any,
+        dependency: str,
+        value: Any,
+        node: Node | None,
+    ) -> Any:
         """Set a dependency value on the cached S instance."""
-        setattr(current, dependency, value)
+        previous = getattr(current, dependency, _MISSING)
+        hydrated = self._rehydrate_realtime_value(
+            node=node,
+            raw_value=value,
+            current_value=previous,
+        )
+        setattr(current, dependency, hydrated)
+        if isinstance(node, ParamNode):
+            if isinstance(value, str):
+                node.value = value
+            else:
+                node.value = repr(hydrated)
+        return hydrated
+
+    def _rehydrate_realtime_value(
+        self,
+        *,
+        node: Node | None,
+        raw_value: Any,
+        current_value: Any,
+    ) -> Any:
+        if not isinstance(raw_value, str):
+            return raw_value
+
+        trimmed = raw_value.strip()
+        existing = None if current_value is _MISSING else current_value
+
+        if isinstance(node, ParamNode):
+            candidate = self._rehydrate_param_value(
+                node=node,
+                raw_value=raw_value,
+                trimmed_value=trimmed,
+                current_value=existing,
+            )
+            if candidate is not _MISSING:
+                return candidate
+
+        coerced = self._coerce_like_current(
+            raw_value=raw_value,
+            trimmed_value=trimmed,
+            current_value=existing,
+        )
+        if coerced is _MISSING:
+            return raw_value
+        return coerced
+
+    def _rehydrate_param_value(
+        self,
+        *,
+        node: ParamNode,
+        raw_value: str,
+        trimmed_value: str,
+        current_value: Any,
+    ) -> Any:
+        param_type = node.type
+
+        if param_type == CodeObjType.SwitchParam:
+            parsed = self._parse_bool_literal(trimmed_value)
+            if parsed is not _MISSING:
+                return parsed
+            return self._coerce_like_current(
+                raw_value=raw_value,
+                trimmed_value=trimmed_value,
+                current_value=current_value,
+            )
+
+        if param_type == CodeObjType.SliderParam:
+            parsed = self._parse_numeric_literal(trimmed_value)
+            if parsed is not _MISSING:
+                return parsed
+            return self._coerce_like_current(
+                raw_value=raw_value,
+                trimmed_value=trimmed_value,
+                current_value=current_value,
+            )
+
+        if param_type == CodeObjType.ColorPickerParam:
+            return raw_value
+
+        if param_type == CodeObjType.DropdownParam:
+            return raw_value
+
+        if param_type in {CodeObjType.TextParam, CodeObjType.CodeParam}:
+            return raw_value
+
+        if param_type == CodeObjType.NestedParam:
+            parsed = self._literal_eval(trimmed_value)
+            if parsed is not _MISSING:
+                return parsed
+            return self._coerce_like_current(
+                raw_value=raw_value,
+                trimmed_value=trimmed_value,
+                current_value=current_value,
+            )
+
+        return self._coerce_like_current(
+            raw_value=raw_value,
+            trimmed_value=trimmed_value,
+            current_value=current_value,
+        )
+
+    def _coerce_like_current(
+        self,
+        *,
+        raw_value: str,
+        trimmed_value: str,
+        current_value: Any,
+    ) -> Any:
+        if isinstance(current_value, bool):
+            parsed = self._parse_bool_literal(trimmed_value)
+            if parsed is not _MISSING:
+                return parsed
+            return bool(trimmed_value)
+
+        if isinstance(current_value, int):
+            parsed = self._parse_numeric_literal(trimmed_value)
+            if parsed is not _MISSING:
+                return int(parsed)
+            return raw_value
+
+        if isinstance(current_value, float):
+            parsed = self._parse_numeric_literal(trimmed_value)
+            if parsed is not _MISSING:
+                return float(parsed)
+            return raw_value
+
+        if current_value is None:
+            parsed_null = self._parse_null_literal(trimmed_value)
+            if parsed_null is not _MISSING:
+                return None
+
+        parsed_literal = self._literal_eval(trimmed_value)
+        if parsed_literal is not _MISSING:
+            return parsed_literal
+
+        return raw_value
+
+    @staticmethod
+    def _parse_bool_literal(value: str) -> bool | object:
+        if not value:
+            return _MISSING
+        lowered = value.lower()
+        if lowered in {"true", "1", "yes", "on"}:
+            return True
+        if lowered in {"false", "0", "no", "off"}:
+            return False
+        return _MISSING
+
+    @staticmethod
+    def _parse_numeric_literal(value: str) -> int | float | object:
+        if not value:
+            return _MISSING
+        try:
+            literal = ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            literal = _MISSING
+        if isinstance(literal, (int, float)):
+            return literal
+        try:
+            if any(char in value for char in (".", "e", "E")):
+                return float(value)
+            return int(value)
+        except ValueError:
+            return _MISSING
+
+    @staticmethod
+    def _parse_null_literal(value: str) -> object:
+        if not value:
+            return _MISSING
+        if value.lower() in {"none", "null"}:
+            return None
+        return _MISSING
+
+    @staticmethod
+    def _literal_eval(value: str) -> Any:
+        if not value:
+            return _MISSING
+        try:
+            return ast.literal_eval(value)
+        except (SyntaxError, ValueError):
+            if value.lower() in {"none", "null"}:
+                return None
+            return _MISSING
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(changed: dict[str, Any]) -> None:

@@ -1,9 +1,16 @@
 import asyncio
 import json
 import unittest
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock
 
-from setta.api.listener import ListenerCallbackSpec, SettaListener
+from setta.api.listener import (
+    ListenerCallbackSpec,
+    ListenerRuntimeState,
+    SettaListener,
+)
+from setta.code_gen.dependency_graph import ParamNode
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
@@ -14,6 +21,7 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 
 
 class _StubWebsocket:
@@ -136,7 +144,112 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         callback_payloads = list(register_payload["content"]["callbacks"].values())
         self.assertEqual(callback_payloads[0]["debounceMs"], 50)
 
+    async def test_realtime_delta_rehydrates_typed_values(self) -> None:
+        listener = SettaListener(project_id="project-typed")
+        slider_events: list[tuple[Any, Any]] = []
+        switch_events: list[tuple[Any, Any]] = []
+
+        @listener.listen(
+            deps=("section__slider",),
+            feed=ListenerFeed.REALTIME,
+        )
+        def on_slider(state, ctx):
+            slider_events.append((state.section__slider, ctx.changed["section__slider"]))
+
+        @listener.listen(
+            deps=("section__switch",),
+            feed=ListenerFeed.REALTIME,
+        )
+        def on_switch(state, ctx):
+            switch_events.append((state.section__switch, ctx.changed["section__switch"]))
+
+        slider_node = ParamNode(
+            id="param-slider",
+            name="slider",
+            full_path_name="section__slider",
+            type=CodeObjType.SliderParam,
+            isTopLevel=True,
+            value="1",
+            deps={},
+            passing_style=ParameterPassingStyle.DEFAULT,
+        )
+        switch_node = ParamNode(
+            id="param-switch",
+            name="switch",
+            full_path_name="section__switch",
+            type=CodeObjType.SwitchParam,
+            isTopLevel=True,
+            value="false",
+            deps={},
+            passing_style=ParameterPassingStyle.DEFAULT,
+        )
+
+        graph = {
+            ("section-1", "param-slider"): slider_node,
+            ("section-1", "param-switch"): switch_node,
+        }
+
+        state = SimpleNamespace(section__slider=1, section__switch=False)
+
+        listener._runtime_state = ListenerRuntimeState(
+            project_state=MagicMock(),
+            dependency_graph=SimpleNamespace(graph=graph),
+            code_generator=MagicMock(),
+            s_instance=state,
+        )
+        listener._dependency_cache = {
+            "section__slider": 1,
+            "section__switch": False,
+        }
+
+        event = ListenerRealtimeEventContent(
+            projectConfigId="project-typed",
+            deltas=[
+                ListenerRealtimeDelta(
+                    dependency=ListenerDependencyKey(
+                        sectionId="section-1",
+                        codeObjId="param-slider",
+                    ),
+                    value="5",
+                ),
+                ListenerRealtimeDelta(
+                    dependency=ListenerDependencyKey(
+                        sectionId="section-1",
+                        codeObjId="param-switch",
+                    ),
+                    value="true",
+                ),
+            ],
+            sequence=1,
+        )
+
+        await listener._handle_realtime_event(event)
+
+        slider_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.declared_dependencies == ("section__slider",)
+        )
+        switch_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.declared_dependencies == ("section__switch",)
+        )
+
+        await listener._scheduler.flush(slider_spec.callback_id)
+        await listener._scheduler.flush(switch_spec.callback_id)
+
+        self.assertEqual(state.section__slider, 5)
+        self.assertIsInstance(state.section__slider, int)
+        self.assertEqual(slider_events, [(5, 5)])
+        self.assertEqual(listener._dependency_cache["section__slider"], 5)
+
+        self.assertTrue(state.section__switch)
+        self.assertIsInstance(state.section__switch, bool)
+        self.assertEqual(switch_events, [(True, True)])
+        self.assertTrue(listener._dependency_cache["section__switch"])
+        self.assertEqual(listener._last_realtime_sequence, 1)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

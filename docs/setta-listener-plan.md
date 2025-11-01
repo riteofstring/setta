@@ -15,7 +15,7 @@
 ### Phase Progress
 - **Phase 1 – persisted pipeline** ✅ Complete. Websocket session handling, listener client skeleton, snapshot broadcasting, and persisted callback execution are wired and covered by the manual smoke workflow.
 - **Phase 2 – realtime feed** ✅ Complete. Structured dependency keys flow end-to-end, realtime sequencing is enforced, and listeners receive deltas only when subscribed via `realtime` or `both` feeds.
-- **Phase 3 – listener UX & emit helpers** ⏳ Outstanding. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; still need typed delta application that mirrors `PythonCodeGenerator.get_param_value` (re-hydrating string payloads via `eval` where appropriate), public-facing emit helpers (`emit_to_frontend`, `force_refresh`, etc.), and documentation polish; UI exposure is still under discussion.
+- **Phase 3 – listener UX & emit helpers** ⏳ Outstanding. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; realtime deltas now hydrate into typed values inside `SettaListener`, with a follow-up to consolidate the conversion logic into a shared helper instead of duplicating `PythonCodeGenerator.get_param_value`; still pending are public-facing emit helpers (`emit_to_frontend`, `force_refresh`, etc.) and documentation polish; UI exposure is still under discussion.
 - **Phase 4 – reliability & tests** ⏳ Outstanding. New async suites cover scheduler edge cases and realtime debounce handling; still pending are schema hot-reload behavior, richer error handling, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
 
 ### Dependency Key Refactor Status
