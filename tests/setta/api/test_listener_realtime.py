@@ -73,10 +73,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         return spec.structured_dependencies[0]
 
     async def test_realtime_callback_respects_debounce_scheduler(self) -> None:
-        listener = SettaListener(
-            project_name="Demo Project",
-            project_id="project-1",
-        )
+        listener = SettaListener(project_id="project-1")
         realtime_calls: list[dict[str, Any]] = []
         persisted_calls: list[dict[str, Any]] = []
 
@@ -149,10 +146,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(callback_payloads[0]["debounceMs"], 50)
 
     async def test_realtime_delta_rehydrates_typed_values(self) -> None:
-        listener = SettaListener(
-            project_name="Typed Project",
-            project_id="project-typed",
-        )
+        listener = SettaListener(project_id="project-typed")
         slider_events: list[tuple[Any, Any]] = []
         switch_events: list[tuple[Any, Any]] = []
 
@@ -311,10 +305,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
-        listener = SettaListener(
-            project_name="Failing Project",
-            project_id="project-fail",
-        )
+        listener = SettaListener(project_id="project-fail")
 
         @listener.listen(deps=("Welcome",), feed=ListenerFeed.BOTH)
         def on_change(state, ctx):  # pragma: no cover - invoked only on success
