@@ -41,6 +41,13 @@ class ListenerFrontendEmitContent(BaseModel):
     target: str | None = None
 
 
+class ListenerCoverageSnapshot(BaseModel):
+    projectConfigId: str
+    revision: int
+    dependencies: list["ListenerDependencyKey"]
+    hasRealtimeWildcard: bool
+
+
 class ListenerDependencyKey(BaseModel):
     sectionId: str
     codeObjId: str | None = None

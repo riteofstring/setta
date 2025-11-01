@@ -4,6 +4,7 @@ import unittest
 
 from setta.types.listener import (
     ListenerFeed,
+    ListenerDependencyKey,
     ListenerFrontendEmitContent,
     ListenerRegisterCallback,
     ListenerRegisterContent,
@@ -46,10 +47,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         frontend_sender = WMHFrontendSender(websocket_manager)
         listener_registry = ListenerRegistry()
         receiver = WMHPythonScriptReceiver(
-            websocket_manager, listener_registry, frontend_sender
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
         )
         callback = ListenerRegisterCallback(
-            dependencies=["Homepage__hero__title"],
+            dependencies=[
+                ListenerDependencyKey(sectionId="Homepage__hero__title", codeObjId=None)
+            ],
             feed=ListenerFeed.BOTH,
         )
         content = ListenerRegisterContent(
@@ -109,6 +114,8 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             fromWebsocketId="socket-1",
         )
         websocket_manager.sent_messages.clear()
+        websocket_manager.broadcasts.clear()
+        websocket_manager.broadcasts.clear()
 
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitContent(
@@ -190,6 +197,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             fromWebsocketId="socket-1",
         )
         websocket_manager.sent_messages.clear()
+        websocket_manager.broadcasts.clear()
 
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitContent(

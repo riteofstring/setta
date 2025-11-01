@@ -15,6 +15,7 @@ from setta.types.generated.unions import (
     BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.listener import (
+    ListenerCoverageSnapshot,
     ListenerDependencyKey,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -45,6 +46,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
     ListenerFrontendEmitForward = "ListenerFrontendEmitForward"
+    ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -200,6 +202,13 @@ class WebsocketMsgListenerFrontendEmitForward(FrontendWebsocketMsg):
     content: ListenerFrontendEmitContent
     messageType: Literal[WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward] = (
         WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward
+    )
+
+
+class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
+    content: ListenerCoverageSnapshot
+    messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
+        WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
     )
 
 

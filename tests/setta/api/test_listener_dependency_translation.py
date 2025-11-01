@@ -125,7 +125,9 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
     def test_sanitized_name_round_trip_maps_back_to_graph_key(self) -> None:
         listener = self._create_listener()
         sanitized_child = "Settings_Group__Data_Source"
-        original_key = self.dependency_graph.full_path_name_to_graph_key[sanitized_child]
+        original_key = self.dependency_graph.full_path_name_to_graph_key[
+            sanitized_child
+        ]
 
         @listener.listen(deps=(sanitized_child,), feed=None)
         def _callback(state, ctx):

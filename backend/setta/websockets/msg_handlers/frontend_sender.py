@@ -7,7 +7,7 @@ from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
-from setta.types.listener import ListenerFrontendEmitContent
+from setta.types.listener import ListenerCoverageSnapshot, ListenerFrontendEmitContent
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -23,6 +23,7 @@ from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgListenerFrontendEmitForward,
+    WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -151,5 +152,13 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     target=target,
                 )
             ),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_listener_coverage_snapshot(
+        self, snapshot: ListenerCoverageSnapshot
+    ):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerCoverageSnapshot(content=snapshot),
             connectionType=WebsocketConnectionType.FRONTEND,
         )

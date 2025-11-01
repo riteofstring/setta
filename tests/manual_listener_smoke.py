@@ -22,7 +22,9 @@ sys.path.insert(0, BACKEND_PATH)
 from setta.api import SettaListener
 
 
-def _structured_dependency_map(listener: SettaListener, callback: Any) -> dict[str, str]:
+def _structured_dependency_map(
+    listener: SettaListener, callback: Any
+) -> dict[str, str]:
     """Return structured dependency identifiers keyed by declared dependency."""
     for spec in listener._callbacks.values():
         if spec.function is callback and spec.structured_dependencies:
@@ -46,12 +48,11 @@ def build_listener(project_id: str) -> SettaListener:
     """Wire the example callback that watches the Channel Shuffle groups param."""
     listener = SettaListener(project_id=project_id)
 
-    @listener.listen(deps=["hiding_river__x"], feed="persisted")
+    @listener.listen(deps=["hiding_river__x"], feed="both")
     def on_groups_change(state: Any, ctx: Any) -> None:
         structured = _structured_dependency_map(listener, on_groups_change)
         structured_changed = {
-            dep: structured.get(dep, "<pending>")
-            for dep in ctx.changed
+            dep: structured.get(dep, "<pending>") for dep in ctx.changed
         }
         print(f"[listener] groups -> {state.hiding_river__x}")
         print(f"[listener] delta  -> {ctx.changed}")

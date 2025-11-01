@@ -28,6 +28,7 @@ import {
   WebsocketConnectionInfo,
   ListenerFrontendEmitContent,
   ListenerDependencyKey,
+  ListenerCoverageSnapshot,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -145,9 +146,9 @@ export const usePendingOperations = withProjectState(
 export type ListenerCoverageStatus = "unknown" | "fetching" | "ready" | "stale";
 
 export type ListenerCoverageRecord = {
-  revision: number | null;
+  revision: ListenerCoverageSnapshot["revision"] | null;
+  hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
   status: ListenerCoverageStatus;
-  hasRealtimeWildcard: boolean;
   dependenciesByKey: Record<string, ListenerDependencyKey>;
 };
 

@@ -16,6 +16,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
 )
+from setta.websockets.listener_coverage import ListenerCoverageTracker
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -29,13 +30,20 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         websocket_manager,
         listener_registry: ListenerRegistry,
         frontend_sender: WMHFrontendSender,
+        listener_coverage_tracker: ListenerCoverageTracker | None = None,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
         self.frontend_sender = frontend_sender
+        self.listener_coverage_tracker = (
+            listener_coverage_tracker or ListenerCoverageTracker()
+        )
 
     async def on_disconnect(self, websocket_id):
+        registration = self.listener_registry.get_registration(websocket_id)
         self.listener_registry.remove_registration(websocket_id)
+        if registration is not None:
+            await self._sync_listener_coverage(registration.project_config_id)
 
     async def process_json_str(self, json_str, fromWebsocketId):
         message: PythonScriptWebsocketMsgUnion = (
@@ -65,6 +73,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
     async def _handle_listener_register(
         self, message: WebsocketMsgListenerRegister, websocket_id: str
     ) -> None:
+        previous_registration = self.listener_registry.get_registration(websocket_id)
         registration = self.listener_registry.upsert_registration(
             websocket_id=websocket_id,
             project_config_id=message.content.projectConfigId,
@@ -95,6 +104,15 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         )
         ack_message = WebsocketMsgListenerRegisterAck(content=ack_content)
         await self.websocket_manager.send_message(ack_message, websocket_id)
+        await self._sync_listener_coverage(registration.project_config_id)
+        if (
+            previous_registration is not None
+            and previous_registration.project_config_id
+            != registration.project_config_id
+        ):
+            await self._sync_listener_coverage(
+                previous_registration.project_config_id
+            )
 
     async def _handle_listener_frontend_emit(
         self, message: WebsocketMsgListenerFrontendEmit, websocket_id: str
@@ -142,3 +160,11 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             payload=message.content.payload,
             target=message.content.target,
         )
+
+    async def _sync_listener_coverage(self, project_config_id: str) -> None:
+        snapshot = self.listener_coverage_tracker.update_for_project(
+            project_config_id,
+            self.listener_registry.iter_registrations_for_project(project_config_id),
+        )
+        if snapshot is not None:
+            await self.frontend_sender.broadcast_listener_coverage_snapshot(snapshot)

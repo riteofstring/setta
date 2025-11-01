@@ -1,16 +1,9 @@
-import { ListenerDependencyKey } from "utils/generatedTypes";
+import { ListenerCoverageSnapshot, ListenerDependencyKey } from "utils/generatedTypes";
 import {
   ListenerCoverageRecord,
   ListenerCoverageStatus,
   useListenerCoverage,
 } from "state/definitions";
-
-export type ListenerCoverageSnapshotInput = {
-  projectConfigId: string;
-  revision: number;
-  dependencies: Array<ListenerDependencyKey>;
-  hasRealtimeWildcard: boolean;
-};
 
 function serializeListenerDependencyKey(key: ListenerDependencyKey): string {
   return key.codeObjId ? `${key.sectionId}::${key.codeObjId}` : `${key.sectionId}::`;
@@ -29,8 +22,8 @@ function buildDependencyLookup(
 function initializeRecord(status: ListenerCoverageStatus): ListenerCoverageRecord {
   return {
     revision: null,
-    status,
     hasRealtimeWildcard: false,
+    status,
     dependenciesByKey: {},
   };
 }
@@ -54,13 +47,11 @@ export function setListenerCoverageStatus(
   });
 }
 
-export function applyListenerCoverageSnapshot({
-  projectConfigId,
-  revision,
-  dependencies,
-  hasRealtimeWildcard,
-}: ListenerCoverageSnapshotInput): void {
+export function applyListenerCoverageSnapshot(
+  snapshot: ListenerCoverageSnapshot,
+): void {
   useListenerCoverage.setState((state) => {
+    const { projectConfigId, revision, dependencies, hasRealtimeWildcard } = snapshot;
     const current = state.byProjectId[projectConfigId];
     const dependencyLookup = buildDependencyLookup(dependencies);
 
@@ -77,16 +68,16 @@ export function applyListenerCoverageSnapshot({
         return;
       }
       current.revision = revision;
-      current.status = "ready";
       current.hasRealtimeWildcard = hasRealtimeWildcard;
+      current.status = "ready";
       current.dependenciesByKey = dependencyLookup;
       return;
     }
 
     state.byProjectId[projectConfigId] = {
       revision,
-      status: "ready",
       hasRealtimeWildcard,
+      status: "ready",
       dependenciesByKey: dependencyLookup,
     };
   });

@@ -28,6 +28,7 @@ import {
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
 import {
+  applyListenerCoverageSnapshot,
   dependencyKeyCovered,
   getListenerCoverageRecord,
 } from "./listenerCoverage";
@@ -135,6 +136,8 @@ function receiveMessage(message: string) {
       return updateArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerFrontendEmitForward:
       return addListenerFrontendEvent(m.content);
+    case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
+      return applyListenerCoverageSnapshot(m.content);
     default:
       return m satisfies never;
   }

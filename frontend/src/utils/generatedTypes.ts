@@ -191,6 +191,7 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "AllProjectMetadata",
   "LLMStreamingResponse",
   "LSPDiagnostics",
+  "ListenerCoverageSnapshot",
   "ListenerFrontendEmitForward",
   "Notification",
   "ReturnRenameRefactorResults",
@@ -220,6 +221,7 @@ export const WebsocketMsgTypeSet = new Set([
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerBootstrap",
+  "ListenerCoverageSnapshot",
   "ListenerError",
   "ListenerForceRefresh",
   "ListenerFrontendEmit",
@@ -621,6 +623,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
   ListenerFrontendEmitForward: "ListenerFrontendEmitForward",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -5627,6 +5630,41 @@ export function createWebsocketMsgListenerFrontendEmitForward(
   return WebsocketMsgListenerFrontendEmitForwardSchema.parse(options);
 }
 
+export const ListenerCoverageSnapshotSchema = z.object({
+  projectConfigId: z.string(),
+  revision: z.int(),
+  dependencies: z.array(z.any()),
+  hasRealtimeWildcard: z.boolean(),
+});
+
+export type ListenerCoverageSnapshot = z.infer<
+  typeof ListenerCoverageSnapshotSchema
+>;
+
+export function createListenerCoverageSnapshot(
+  options: Partial<ListenerCoverageSnapshot> = {},
+): ListenerCoverageSnapshot {
+  return ListenerCoverageSnapshotSchema.parse(options);
+}
+
+export const WebsocketMsgListenerCoverageSnapshotSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerCoverageSnapshotSchema,
+  messageType: z
+    .literal("ListenerCoverageSnapshot")
+    .default(WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot),
+});
+
+export type WebsocketMsgListenerCoverageSnapshot = z.infer<
+  typeof WebsocketMsgListenerCoverageSnapshotSchema
+>;
+
+export function createWebsocketMsgListenerCoverageSnapshot(
+  options: Partial<WebsocketMsgListenerCoverageSnapshot> = {},
+): WebsocketMsgListenerCoverageSnapshot {
+  return WebsocketMsgListenerCoverageSnapshotSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5640,6 +5678,7 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerFrontendEmitForwardSchema,
+  WebsocketMsgListenerCoverageSnapshotSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5660,6 +5699,7 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerFrontendEmitForwardSchema,
+    WebsocketMsgListenerCoverageSnapshotSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -6009,6 +6049,7 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerFrontendEmitForwardSchema,
+  WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgListenerBootstrapSchema,
@@ -6039,6 +6080,7 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerFrontendEmitForwardSchema,
+    WebsocketMsgListenerCoverageSnapshotSchema,
     WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgListenerBootstrapSchema,
