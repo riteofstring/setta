@@ -3,7 +3,7 @@ import json
 import unittest
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from setta.api.listener import (
     ListenerCallbackSpec,
@@ -270,6 +270,68 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(switch_events, [(True, True)])
         self.assertTrue(listener._dependency_cache["section__switch"])
         self.assertEqual(listener._last_realtime_sequence, 1)
+
+
+class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
+    def _build_project_state(self) -> ProjectStateSingleConfig:
+        section_impl = TextBlockSectionImpl(
+            id="section-impl",
+            name="Welcome",
+            text="Hello",
+        )
+        section_variant = Variant(
+            id="section-variant",
+            name="Variant",
+            impl=section_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+        )
+        section_core = Core(
+            id="section-welcome",
+            name="Welcome",
+            variants=[section_variant.id],
+            defaultVariant=section_variant.id,
+        )
+        project_config = ProjectConfig(
+            id="project-fail",
+            name="Demo Project",
+            sectionVariantMap={section_core.id: section_variant.id},
+            topLevelSections={section_core.id: TopLevelSectionLayout()},
+        )
+        return ProjectStateSingleConfig(
+            projectConfig=project_config,
+            sections={section_core.id: section_core},
+            sectionImpls={section_impl.id: section_impl},
+            sectionVariants={section_variant.id: section_variant},
+        )
+
+    async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
+        listener = SettaListener(project_id="project-fail")
+
+        @listener.listen(deps=("Welcome",), feed=ListenerFeed.BOTH)
+        def on_change(state, ctx):  # pragma: no cover - invoked only on success
+            raise AssertionError("callback should not execute when runtime state fails")
+
+        project_state = self._build_project_state()
+
+        register_payloads: list[dict[str, Any]] = []
+
+        async def capture_payload(payload: str) -> None:
+            register_payloads.append(json.loads(payload))
+
+        listener._instantiate_s = MagicMock(side_effect=ValueError("math domain error"))
+        listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
+
+        await listener._handle_persisted_snapshot(
+            project_state,
+            is_bootstrap=True,
+        )
+
+        self.assertIsNotNone(listener._runtime_state)
+        assert listener._runtime_state is not None  # help type checkers
+        self.assertIsNone(listener._runtime_state.s_instance)
+        self.assertTrue(listener._registration_pending)
+        self.assertEqual(1, len(register_payloads))
+        self.assertEqual("ListenerRegister", register_payloads[0]["messageType"])
 
 
 if __name__ == "__main__":  # pragma: no cover

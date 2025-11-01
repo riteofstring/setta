@@ -40,20 +40,29 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         *,
         is_bootstrap: bool,
     ):
+        project_config_id = projectState.projectConfig.id
         logger.debug(
             "sending listener persisted update (bootstrap=%s) for project config %s",
             is_bootstrap,
-            projectState.projectConfig.id,
+            project_config_id,
         )
         message_cls = (
             WebsocketMsgListenerBootstrap
             if is_bootstrap
             else WebsocketMsgListenerPersistedUpdate
         )
-        await self.websocket_manager.broadcast(
-            message_cls(content=projectState),
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
+        socket_ids = list(
+            self.listener_registry.iter_socket_ids_for_project(project_config_id)
         )
+        if not socket_ids:
+            logger.debug(
+                "no python script sockets recorded for project config %s; skipping persisted update",
+                project_config_id,
+            )
+            return
+        message = message_cls(content=projectState)
+        for websocket_id in socket_ids:
+            await self.websocket_manager.send_message(message, websocket_id)
 
     async def send_realtime_update(
         self,

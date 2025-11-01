@@ -8,7 +8,7 @@
 
 ### Architecture Highlights
 - **Websocket plumbing**: `Route.WEBSOCKET_PYTHON_SCRIPT` routes through `websocket_route_loop`, `WMHPythonScriptReceiver`, and a shared `ListenerRegistry` for registration bookkeeping.
-- **Persisted feed**: `BaseProjectManager._broadcast_project_state_snapshot` now fans out snapshots to the Python script channel via `WMHPythonScriptSender.send_persisted_update`.
+- **Persisted feed**: `BaseProjectManager._broadcast_project_state_snapshot` now fans out snapshots to the Python script channel via `WMHPythonScriptSender.send_persisted_update`, which unicasts only to sockets that have bootstrapped the matching project. `WMHPythonScriptReceiver` replays the latest snapshot immediately during `ListenerInit`, and surfaces errors back to the listener when the project state can’t be loaded.
 - **Realtime feed**: The frontend emits structured `{sectionId, codeObjId}` keys through `sendRealtimeUIChange`. `WMHFrontendReceiver` forwards events to `RealtimeEventHub`, which sequences them per project before `WMHPythonScriptSender.send_realtime_update` notifies matching listeners.
 - **Listener runtime**: `SettaListener` handles bootstrap/init, callback registration, dependency translation, persisted snapshot rebuilds, realtime mutation of the cached `S` instance, reconnects, and callback invocation.
 
@@ -16,7 +16,7 @@
 - **Phase 1 – persisted pipeline** ✅ Complete. Websocket session handling, listener client skeleton, snapshot broadcasting, and persisted callback execution are wired and covered by the manual smoke workflow.
 - **Phase 2 – realtime feed** ✅ Complete. Structured dependency keys flow end-to-end, realtime sequencing is enforced, and listeners receive deltas only when subscribed via `realtime` or `both` feeds.
 - **Phase 3 – listener UX & emit helpers** ⏳ In progress. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; realtime deltas now hydrate into typed values inside `SettaListener` via the shared value codec. `emit_to_frontend` is available on the listener (and exposed via `ctx.emit_to_frontend`), payloads now accept arbitrary JSON-serializable values (not just dicts), and the frontend queues incoming listener payloads by `target`. Still pending: wiring an explicit listener-facing `force_refresh` trigger from the UI, finalizing how the queued payloads are consumed/rendered, and documentation polish; UI exposure is still under discussion.
-- **Phase 4 – reliability & tests** ⏳ Outstanding. New async suites cover scheduler edge cases and realtime debounce handling; still pending are schema hot-reload behavior, richer error handling, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
+- **Phase 4 – reliability & tests** ⏳ In progress. New async suites cover scheduler edge cases, realtime debounce handling, bootstrap replay, and server-side routing. Listener registration now tolerates generated-code build failures by deferring callback execution until the next clean snapshot. Still pending are schema hot-reload behavior, richer error handling across generator rebuilds, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
 
 ### Value Conversion Centralization
 - ✅ Introduced `setta/code_gen/value_codec.py` as a `PythonValueCodec` class that mirrors `PythonCodeGenerator.get_param_value` logic, including dict/list composition and quoting semantics.

@@ -91,7 +91,7 @@ class ListenerRuntimeState:
     project_state: ProjectStateSingleConfig
     dependency_graph: DependencyGraph
     code_generator: PythonCodeGenerator
-    s_instance: Any
+    s_instance: Any | None
 
 
 class SettaListener:
@@ -434,12 +434,36 @@ class SettaListener:
         is_bootstrap: bool,
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
-        runtime_state = self._build_runtime_state_with_guard(project_state)
-        if runtime_state is None:
+        try:
+            runtime_state = self._build_runtime_state(project_state)
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
             logger.warning(
-                "Listener %s skipped persisted snapshot due to build failure",
+                "Listener %s skipped persisted snapshot due to build failure: %s",
                 self._project_id,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
             )
+            return
+        if runtime_state.s_instance is None:
+            self._runtime_state = runtime_state
+            self._dependency_cache = {}
+            if is_bootstrap:
+                logger.warning(
+                    (
+                        "Listener %s skipping snapshot hydration due to missing runtime "
+                        "state; callbacks will run once the project rebuilds successfully"
+                    ),
+                    self._project_id,
+                )
+                await self._send_listener_register()
+            else:
+                logger.debug(
+                    (
+                        "Listener %s ignoring persisted update because runtime state "
+                        "is unavailable"
+                    ),
+                    self._project_id,
+                )
             return
         snapshot_values: dict[str, Any] = {}
         updated_cache = dict(self._dependency_cache)
@@ -493,28 +517,37 @@ class SettaListener:
             project_config.genCodePrefix,
             project_config.genCodeSuffix,
         )
-        code_generator.generate_code()
-        s_instance = self._instantiate_s(code_generator.code)
+        try:
+            code_generator.generate_code()
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+            logger.warning(
+                "Listener %s failed to generate code: %s",
+                self._project_id,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            return ListenerRuntimeState(
+                project_state=project_state,
+                dependency_graph=dep_graph,
+                code_generator=code_generator,
+                s_instance=None,
+            )
+        try:
+            s_instance = self._instantiate_s(code_generator.code)
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+            logger.warning(
+                "Listener %s failed to instantiate generated state: %s",
+                self._project_id,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            s_instance = None
         return ListenerRuntimeState(
             project_state=project_state,
             dependency_graph=dep_graph,
             code_generator=code_generator,
             s_instance=s_instance,
         )
-
-    def _build_runtime_state_with_guard(
-        self, project_state: ProjectStateSingleConfig
-    ) -> ListenerRuntimeState | None:
-        try:
-            return self._build_runtime_state(project_state)
-        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
-            logger.warning(
-                "Listener %s failed to build runtime state: %s",
-                self._project_id,
-                error,
-                exc_info=logger.isEnabledFor(logging.DEBUG),
-            )
-            return None
 
     def _instantiate_s(self, generated_code: str) -> Any:
         namespace: dict[str, Any] = {"__builtins__": __builtins__}
@@ -585,6 +618,13 @@ class SettaListener:
         if runtime_state is None:
             logger.debug(
                 "Listener %s received realtime event before bootstrap; ignoring",
+                self._project_id,
+            )
+            return
+
+        if runtime_state.s_instance is None:
+            logger.debug(
+                "Listener %s ignoring realtime event because runtime state is unavailable",
                 self._project_id,
             )
             return
@@ -765,7 +805,7 @@ class SettaListener:
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(changed: dict[str, Any]) -> None:
             runtime_state = self._runtime_state
-            if runtime_state is None:
+            if runtime_state is None or runtime_state.s_instance is None:
                 return
             ctx = self._build_callback_context(spec, changed)
             await self._invoke_callback(spec, runtime_state.s_instance, ctx)

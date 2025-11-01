@@ -1,5 +1,6 @@
 import logging
 
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
     PythonScriptWebsocketMsgUnion,
@@ -20,6 +21,7 @@ from setta.websockets.listener_coverage import ListenerCoverageTracker
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +32,14 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         websocket_manager,
         listener_registry: ListenerRegistry,
         frontend_sender: WMHFrontendSender,
+        python_script_sender: WMHPythonScriptSender,
+        project_manager_switcher: ProjectManagerSwitcher,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
         self.frontend_sender = frontend_sender
+        self.python_script_sender = python_script_sender
+        self.project_manager_switcher = project_manager_switcher
         self.listener_coverage_tracker = ListenerCoverageTracker()
 
     async def on_disconnect(self, websocket_id):
@@ -65,6 +71,42 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             "recorded listener bootstrap for websocket %s (project %s)",
             websocket_id,
             project_config_id,
+        )
+        try:
+            manager = self.project_manager_switcher.get(project_config_id)
+            project_state = manager.get_single_config_state(project_config_id)
+        except KeyError:
+            logger.warning(
+                "failed to load project state for listener websocket %s (project %s)",
+                websocket_id,
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except Exception:
+            logger.exception(
+                "unexpected error while preparing bootstrap snapshot for listener websocket %s (project %s)",
+                websocket_id,
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
+        await self.python_script_sender.send_persisted_update(
+            project_state,
+            is_bootstrap=True,
         )
 
     async def _handle_listener_register(
