@@ -7,7 +7,6 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.types.code_obj_impls import CodeObjType
 
-
 VarLookup = Callable[[GraphKeyType], str]
 
 

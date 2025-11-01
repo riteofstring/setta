@@ -8,10 +8,32 @@ listener receives persisted updates when a control changes in the UI.
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = ROOT_DIR / "backend"
+BACKEND_PATH = str(BACKEND_DIR)
+if BACKEND_PATH in sys.path:
+    sys.path.remove(BACKEND_PATH)
+sys.path.insert(0, BACKEND_PATH)
+
 from setta.api import SettaListener
+
+
+def _structured_dependency_map(listener: SettaListener, callback: Any) -> dict[str, str]:
+    """Return structured dependency identifiers keyed by declared dependency."""
+    for spec in listener._callbacks.values():
+        if spec.function is callback and spec.structured_dependencies:
+            return {
+                declared: f"{key.sectionId}:{key.codeObjId or '*'}"
+                for declared, key in zip(
+                    spec.declared_dependencies,
+                    spec.structured_dependencies,
+                )
+            }
+    return {}
 
 
 def load_default_project_id() -> str:
@@ -24,10 +46,16 @@ def build_listener(project_id: str) -> SettaListener:
     """Wire the example callback that watches the Channel Shuffle groups param."""
     listener = SettaListener(project_id=project_id)
 
-    @listener.listen(deps=["coding_sand__groups"])
+    @listener.listen(deps=["hiding_river__x"], feed="persisted")
     def on_groups_change(state: Any, ctx: Any) -> None:
-        print(f"[listener] groups -> {state.coding_sand__groups}")
+        structured = _structured_dependency_map(listener, on_groups_change)
+        structured_changed = {
+            dep: structured.get(dep, "<pending>")
+            for dep in ctx.changed
+        }
+        print(f"[listener] groups -> {state.hiding_river__x}")
         print(f"[listener] delta  -> {ctx.changed}")
+        print(f"[listener] keys   -> {structured_changed}")
 
     return listener
 
