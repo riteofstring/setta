@@ -14,20 +14,25 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
-  createWebsocketConnectionInfo,
-  createWebsocketMsgCurrentAddressUpdate,
   FrontendWebsocketMsgUnion,
+  ListenerDependencyKey,
   RouteEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
+  createWebsocketConnectionInfo,
+  createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
-import { handleRenameRefactorBroadcast } from "./renameRefactors";
+import {
+  dependencyKeyCovered,
+  getListenerCoverageRecord,
+} from "./listenerCoverage";
 import { addListenerFrontendEvent } from "./listenerEvents";
+import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
@@ -154,15 +159,26 @@ export function sendRealtimeUIChange({
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
+  const dependencyKey: ListenerDependencyKey = {
+    sectionId,
+    codeObjId: codeObjId ?? null,
+  };
+  const coverage = getListenerCoverageRecord(projectConfigId);
+  if (coverage) {
+    if (coverage.status === "ready") {
+      if (!dependencyKeyCovered(projectConfigId, dependencyKey)) {
+        return;
+      }
+    } else if (coverage.status === "fetching") {
+      return;
+    }
+  }
   const message: WebsocketMsgRealtimeUIChange = {
     id: null,
     messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
     content: {
       projectConfigId,
-      dependencyKey: {
-        sectionId,
-        codeObjId: codeObjId ?? null,
-      },
+      dependencyKey,
       value,
     },
   };

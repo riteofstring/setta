@@ -27,6 +27,7 @@ import {
   SettingsState,
   WebsocketConnectionInfo,
   ListenerFrontendEmitContent,
+  ListenerDependencyKey,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -138,6 +139,29 @@ type ZustandPendingOperations = {
 export const usePendingOperations = withProjectState(
   createWithEqualityFn(
     withResetFn<ZustandPendingOperations>(() => ({ pending: [] })),
+  ),
+);
+
+export type ListenerCoverageStatus = "unknown" | "fetching" | "ready" | "stale";
+
+export type ListenerCoverageRecord = {
+  revision: number | null;
+  status: ListenerCoverageStatus;
+  hasRealtimeWildcard: boolean;
+  dependenciesByKey: Record<string, ListenerDependencyKey>;
+};
+
+type ListenerCoverageState = {
+  byProjectId: Record<string, ListenerCoverageRecord>;
+};
+
+export const useListenerCoverage = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<ListenerCoverageState>(() => ({
+        byProjectId: {},
+      })),
+    ),
   ),
 );
 
