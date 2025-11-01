@@ -25,15 +25,14 @@
 - ⏳ Still outstanding: broaden realtime listener coverage for nested params/non-string payloads, add codec-focused unit tests comparing generator output, and capture a lightweight perf assertion once profiling resumes.
 
 ### Dependency Key Refactor Status
-- **Done**: Listener registration now resolves sanitized dependency strings to graph keys, websocket payloads ship structured keys, and frontend controls emit the same structure.
+- **Done**: Listener registration now resolves sanitized dependency strings to graph keys, websocket payloads ship structured keys, and frontend controls emit the same structure. Confirmed all websocket payload schemas (`ListenerRealtimeDelta`, `RealtimeUIChange`, generators) already use structured keys.
 - **Next**:
-  1. Audit all websocket payload schemas (`ListenerRealtimeDelta`, `RealtimeUIChange`, generators) so every path uses structured keys.
-  2. Regenerate TypeScript bindings (`source activate.sh && cd frontend && pnpm generate`) and verify the generated websocket helpers.
-  3. Expand listener/manual tooling (`tests/manual_listener_smoke.py`) to log both sanitized names and structured keys for debugging.
-  4. Add regression coverage for sanitized-name ↔ structured-key round-trips and duplicate-name handling.
-  5. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change.
-  6. Extend `RealtimeEventHub` so it can batch multiple deltas that arrive in quick succession before notifying listeners, instead of emitting one websocket message per change.
-  7. Define the stable contract for frontend listener payload processing (selection/filtering APIs, retention policy) and surface consumption helpers once UX is decided.
+  1. Regenerate TypeScript bindings (`source activate.sh && cd frontend && pnpm generate`) and verify the generated websocket helpers.
+  2. Expand listener/manual tooling (`tests/manual_listener_smoke.py`) to log both sanitized names and structured keys for debugging.
+  3. Add regression coverage for sanitized-name ↔ structured-key round-trips and duplicate-name handling.
+  4. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change.
+  5. Extend `RealtimeEventHub` so it can batch multiple deltas that arrive in quick succession before notifying listeners, instead of emitting one websocket message per change.
+  6. Define the stable contract for frontend listener payload processing (selection/filtering APIs, retention policy) and surface consumption helpers once UX is decided.
 
 ### Manual Validation
 1. Stack: `source activate.sh && cd frontend && pnpm start`.
