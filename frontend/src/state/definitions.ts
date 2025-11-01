@@ -26,6 +26,7 @@ import {
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
+  ListenerFrontendEmitContent,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -117,7 +118,7 @@ export type PendingOperation = {
 };
 
 type ListenerEventsState = {
-  eventsByTarget: Record<string, Array<Record<string, unknown>>>;
+  eventsByTarget: Record<string, Array<ListenerFrontendEmitContent["payload"]>>;
 };
 
 export const useListenerEvents = withProjectState(

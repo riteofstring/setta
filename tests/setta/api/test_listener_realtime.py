@@ -12,6 +12,7 @@ from setta.api.listener import (
 )
 from setta.code_gen.dependency_graph import ParamNode
 from setta.code_gen.value_codec import PythonValueCodec
+from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
@@ -22,7 +23,6 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
-from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 
 
 class _StubWebsocket:
@@ -155,14 +155,18 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             feed=ListenerFeed.REALTIME,
         )
         def on_slider(state, ctx):
-            slider_events.append((state.section__slider, ctx.changed["section__slider"]))
+            slider_events.append(
+                (state.section__slider, ctx.changed["section__slider"])
+            )
 
         @listener.listen(
             deps=("section__switch",),
             feed=ListenerFeed.REALTIME,
         )
         def on_switch(state, ctx):
-            switch_events.append((state.section__switch, ctx.changed["section__switch"]))
+            switch_events.append(
+                (state.section__switch, ctx.changed["section__switch"])
+            )
 
         slider_node = ParamNode(
             id="param-slider",

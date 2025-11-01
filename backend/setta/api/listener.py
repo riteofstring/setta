@@ -12,7 +12,6 @@ from websockets.exceptions import ConnectionClosedError
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
-    ParamNode,
 )
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.types.generated.websocket_unions import (
@@ -20,8 +19,8 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.listener import (
     ListenerDependencyKey,
-    ListenerFrontendEmitContent,
     ListenerFeed,
+    ListenerFrontendEmitContent,
     ListenerInitContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
@@ -32,8 +31,8 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
-    WebsocketMsgListenerInit,
     WebsocketMsgListenerFrontendEmit,
+    WebsocketMsgListenerInit,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
@@ -84,7 +83,7 @@ class ListenerCallbackSpec:
 class ListenerCallbackContext:
     changed: dict[str, Any]
     log: logging.Logger
-    emit_to_frontend: Callable[[dict[str, Any], str | None], Awaitable[None]]
+    emit_to_frontend: Callable[[Any, str | None], Awaitable[None]]
 
 
 @dataclass(slots=True)
@@ -693,13 +692,9 @@ class SettaListener:
     async def emit_to_frontend(
         self,
         *,
-        payload: dict[str, Any],
+        payload: Any,
         target: str | None = None,
     ) -> None:
-        if not isinstance(payload, dict):
-            raise TypeError("emit_to_frontend payload must be a dict[str, Any]")
-        if not payload:
-            raise ValueError("emit_to_frontend payload must not be empty")
         if self._runtime_state is None:
             raise RuntimeError(
                 "Listener project state is unavailable; wait for bootstrap before emitting"
@@ -799,13 +794,11 @@ class SettaListener:
         if spec_logger is None:
             spec_logger = logger.getChild(f"callback.{spec.callback_id}")
             spec.logger = spec_logger
-        async def emit(payload: dict[str, Any], target: str | None = None) -> None:
-            await self.emit_to_frontend(payload=payload, target=target)
 
         return ListenerCallbackContext(
             changed=changed,
             log=spec_logger,
-            emit_to_frontend=emit,
+            emit_to_frontend=self.emit_to_frontend,
         )
 
     async def _send_websocket_payload(self, payload: str) -> None:

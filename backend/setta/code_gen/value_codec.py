@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
@@ -7,9 +6,6 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
 )
 from setta.types.code_obj_impls import CodeObjType
-
-if TYPE_CHECKING:
-    from setta.code_gen.dependency_graph import Node
 
 
 VarLookup = Callable[[GraphKeyType], str]
@@ -61,8 +57,6 @@ class PythonValueCodec:
 
     def format_list(self, deps: dict[GraphKeyType, bool]) -> str:
         items = [
-            self.var_lookup(graph_key)
-            for graph_key, is_used in deps.items()
-            if is_used
+            self.var_lookup(graph_key) for graph_key, is_used in deps.items() if is_used
         ]
         return "[" + ", ".join(items) + "]"

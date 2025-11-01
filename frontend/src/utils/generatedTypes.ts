@@ -5595,7 +5595,7 @@ export function createWebsocketMsgUpdateArtifacts(
 
 export const ListenerFrontendEmitContentSchema = z.object({
   projectConfigId: z.string(),
-  payload: z.record(z.string(), z.any()),
+  payload: z.any(),
   target: z.union([z.string(), z.null()]).default(null),
 });
 

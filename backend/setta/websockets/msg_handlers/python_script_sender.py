@@ -135,7 +135,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: str,
-        payload: dict[str, Any],
+        payload: Any,
         target: str | None = None,
     ):
         content = ListenerFrontendEmitContent(

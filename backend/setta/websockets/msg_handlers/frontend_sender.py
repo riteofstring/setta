@@ -140,7 +140,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: str,
-        payload: dict[str, Any],
+        payload: Any,
         target: str | None = None,
     ):
         await self.websocket_manager.broadcast(

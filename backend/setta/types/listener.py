@@ -37,7 +37,7 @@ class ListenerErrorContent(BaseModel):
 
 class ListenerFrontendEmitContent(BaseModel):
     projectConfigId: str
-    payload: dict[str, Any]
+    payload: Any
     target: str | None = None
 
 

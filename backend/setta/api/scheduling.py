@@ -98,9 +98,7 @@ class ListenerCallbackScheduler:
         if entry.debounce_seconds is not None:
             target_time = max(target_time, now + entry.debounce_seconds)
         if entry.throttle_seconds is not None and entry.last_invoked is not None:
-            target_time = max(
-                target_time, entry.last_invoked + entry.throttle_seconds
-            )
+            target_time = max(target_time, entry.last_invoked + entry.throttle_seconds)
         entry.next_scheduled_time = target_time
         if entry.is_running:
             if entry.timer_handle is not None:
@@ -170,4 +168,3 @@ class ListenerCallbackScheduler:
             self._loop = asyncio.get_running_loop()
             return self._loop
         return loop
-
