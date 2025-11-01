@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import logging
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
 from uuid import uuid4
@@ -37,6 +38,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgListenerError,
 )
 from setta.utils.constants import C
 
@@ -98,13 +100,14 @@ class SettaListener:
     def __init__(
         self,
         *,
-        project_id: str,
+        project_name: str,
         default_feed: ListenerFeed = ListenerFeed.PERSISTED,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
     ) -> None:
-        self._project_id = project_id
+        self._project_name = project_name
+        self._project_id: str | None = None
         self._feed = self._normalize_feed(default_feed)
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
@@ -121,6 +124,18 @@ class SettaListener:
         self._scheduler = ListenerCallbackScheduler()
         self._websocket: "ClientConnection" | None = None
         self._send_lock = asyncio.Lock()
+
+    @property
+    def _log_identifier(self) -> str:
+        return self._project_id or f"name:{self._project_name}"
+
+    def _require_project_id(self) -> str:
+        project_id = self._project_id
+        if project_id is None:
+            raise RuntimeError(
+                "Listener project config id is not yet available; wait for bootstrap to complete"
+            )
+        return project_id
 
     @property
     def websocket_endpoint(self) -> str:
@@ -142,11 +157,11 @@ class SettaListener:
             except ConnectionRefusedError:
                 logger.warning(
                     "Listener %s connection refused at %s",
-                    self._project_id,
+                    self._log_identifier,
                     self.websocket_endpoint,
                 )
             except ConnectionClosedError:
-                logger.debug("Listener %s websocket closed", self._project_id)
+                logger.debug("Listener %s websocket closed", self._log_identifier)
             except Exception:
                 logger.exception("Unexpected error in listener connection loop")
             if not self._stop_event.is_set():
@@ -159,7 +174,7 @@ class SettaListener:
         try:
             asyncio.run(self.run_forever())
         except KeyboardInterrupt:
-            logger.info("Listener %s interrupted by user", self._project_id)
+            logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
             self.stop()
 
@@ -170,9 +185,9 @@ class SettaListener:
     async def _connect_once(self) -> None:
         """Open the websocket once and process messages until it closes."""
         endpoint = self.websocket_endpoint
-        logger.debug("Listener %s connecting to %s", self._project_id, endpoint)
+        logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
         async with websockets.connect(endpoint) as websocket:
-            logger.info("Listener %s connected", self._project_id)
+            logger.info("Listener %s connected", self._log_identifier)
             self._websocket = websocket
             await self._send_bootstrap_init()
             try:
@@ -184,7 +199,7 @@ class SettaListener:
                         continue
                     await self._dispatch_websocket_message(message)
             finally:
-                logger.info("Listener %s connection closed", self._project_id)
+                logger.info("Listener %s connection closed", self._log_identifier)
                 self._websocket = None
                 self._registration_pending = False
                 self._is_registered = False
@@ -198,7 +213,9 @@ class SettaListener:
             logger.warning("Received malformed listener payload: %s", payload)
             return None
         logger.debug(
-            "Listener %s received %s message", self._project_id, message.messageType
+            "Listener %s received %s message",
+            self._log_identifier,
+            message.messageType,
         )
         return message
 
@@ -225,24 +242,30 @@ class SettaListener:
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
             return
+        if isinstance(message, WebsocketMsgListenerError):
+            self._handle_listener_error(message)
+            return
         logger.debug(
             "Listener %s ignoring unsupported message type %s",
-            self._project_id,
+            self._log_identifier,
             getattr(message, "messageType", type(message)),
         )
 
     def _handle_register_ack(self, message: WebsocketMsgListenerRegisterAck) -> None:
         """Handle ListenerRegisterAck responses from the server."""
-        if message.content.projectConfigId != self._project_id:
+        received_project_id = message.content.projectConfigId
+        if self._project_id is None:
+            self._project_id = received_project_id
+        elif received_project_id != self._project_id:
             logger.warning(
                 "Listener %s received register ack for unexpected project %s",
-                self._project_id,
-                message.content.projectConfigId,
+                self._log_identifier,
+                received_project_id,
             )
         if not self._registration_pending:
             logger.debug(
                 "Listener %s received register ack without pending registration",
-                self._project_id,
+                self._log_identifier,
             )
         self._registration_pending = False
 
@@ -250,7 +273,7 @@ class SettaListener:
         if not expected_ids:
             logger.debug(
                 "Listener %s received register ack with no expected callback ids",
-                self._project_id,
+                self._log_identifier,
             )
         ack_statuses = message.content.callbacks
         ack_ids = set(ack_statuses.keys())
@@ -259,7 +282,7 @@ class SettaListener:
         if missing_ids:
             logger.warning(
                 "Listener %s missing register ack for callbacks: %s",
-                self._project_id,
+                self._log_identifier,
                 ", ".join(sorted(missing_ids)),
             )
 
@@ -267,7 +290,7 @@ class SettaListener:
         for callback_id in sorted(unknown_ids):
             logger.warning(
                 "Listener %s received register ack for unknown callback %s",
-                self._project_id,
+                self._log_identifier,
                 callback_id,
             )
 
@@ -288,7 +311,7 @@ class SettaListener:
             )
             logger.error(
                 "Listener %s registration rejected for %d callback(s): %s",
-                self._project_id,
+                self._log_identifier,
                 len(rejected),
                 error_details,
             )
@@ -298,9 +321,35 @@ class SettaListener:
         self._is_registered = True
         logger.info(
             "Listener %s registered %d callback(s)",
-            self._project_id,
+            self._log_identifier,
             accepted_count,
         )
+
+    def _handle_listener_error(self, message: WebsocketMsgListenerError) -> None:
+        """Surface listener errors even when logging is not configured."""
+        detail_suffix = ""
+        if message.content.details is not None:
+            detail_suffix = f" (details={message.content.details!r})"
+        text = (
+            f"Listener {self._log_identifier} received error "
+            f"{message.content.error}{detail_suffix}"
+        )
+        current_logger = logger
+        has_real_handler = False
+        while current_logger is not None:
+            for handler in current_logger.handlers:
+                if not isinstance(handler, logging.NullHandler):
+                    has_real_handler = True
+                    break
+            if has_real_handler or not current_logger.propagate:
+                break
+            current_logger = current_logger.parent
+
+        if has_real_handler:
+            logger.error(text)
+        else:
+            sys.stderr.write(text + "\n")
+            sys.stderr.flush()
 
     def listen(
         self,
@@ -359,8 +408,7 @@ class SettaListener:
             )
             spec.structured_dependencies = tuple(structured_dependencies)
         return ListenerRegisterContent(
-            projectConfigId=self._project_id,
-            callbacks=callbacks,
+            projectConfigId=self._require_project_id(), callbacks=callbacks
         )
 
     def _translate_dependency_name(
@@ -372,7 +420,7 @@ class SettaListener:
         graph_key = dependency_graph.full_path_name_to_graph_key.get(dependency)
         if graph_key is None:
             raise KeyError(
-                f"Unknown listener dependency {dependency!r} for project {self._project_id}"
+                f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
             )
         section_id, code_obj_id = graph_key
         return ListenerDependencyKey(sectionId=section_id, codeObjId=code_obj_id)
@@ -392,16 +440,17 @@ class SettaListener:
         """Send an initial bootstrap handshake to identify the target project."""
         content = ListenerInitContent(
             projectConfigId=self._project_id,
+            projectName=self._project_name,
             defaultFeed=self._feed,
         )
         message = WebsocketMsgListenerInit(content=content)
         payload = message.model_dump_json()
-        logger.debug("Listener %s sending bootstrap init", self._project_id)
+        logger.debug("Listener %s sending bootstrap init", self._log_identifier)
         try:
             await self._send_websocket_payload(payload)
         except Exception:
             logger.exception(
-                "Listener %s failed to send bootstrap init", self._project_id
+                "Listener %s failed to send bootstrap init", self._log_identifier
             )
             raise
 
@@ -412,7 +461,7 @@ class SettaListener:
         payload = message.model_dump_json()
         logger.debug(
             "Listener %s registering %d callbacks",
-            self._project_id,
+            self._log_identifier,
             len(content.callbacks),
         )
         self._registration_pending = True
@@ -423,7 +472,7 @@ class SettaListener:
         except Exception:
             self._registration_pending = False
             logger.exception(
-                "Listener %s failed to send register payload", self._project_id
+                "Listener %s failed to send register payload", self._log_identifier
             )
             raise
 
@@ -434,12 +483,23 @@ class SettaListener:
         is_bootstrap: bool,
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
+        incoming_project_id = project_state.projectConfig.id
+        if self._project_id is None:
+            self._project_id = incoming_project_id
+        elif incoming_project_id != self._project_id:
+            logger.warning(
+                "Listener %s received persisted snapshot for unexpected project %s",
+                self._log_identifier,
+                incoming_project_id,
+            )
+            self._project_id = incoming_project_id
+
         try:
             runtime_state = self._build_runtime_state(project_state)
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
             logger.warning(
                 "Listener %s skipped persisted snapshot due to build failure: %s",
-                self._project_id,
+                self._log_identifier,
                 error,
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
@@ -453,7 +513,7 @@ class SettaListener:
                         "Listener %s skipping snapshot hydration due to missing runtime "
                         "state; callbacks will run once the project rebuilds successfully"
                     ),
-                    self._project_id,
+                    self._log_identifier,
                 )
                 await self._send_listener_register()
             else:
@@ -462,7 +522,7 @@ class SettaListener:
                         "Listener %s ignoring persisted update because runtime state "
                         "is unavailable"
                     ),
-                    self._project_id,
+                    self._log_identifier,
                 )
             return
         snapshot_values: dict[str, Any] = {}
@@ -522,7 +582,7 @@ class SettaListener:
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
             logger.warning(
                 "Listener %s failed to generate code: %s",
-                self._project_id,
+                self._log_identifier,
                 error,
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
@@ -537,7 +597,7 @@ class SettaListener:
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
             logger.warning(
                 "Listener %s failed to instantiate generated state: %s",
-                self._project_id,
+                self._log_identifier,
                 error,
                 exc_info=logger.isEnabledFor(logging.DEBUG),
             )
@@ -572,7 +632,7 @@ class SettaListener:
         except AttributeError as error:
             logger.warning(
                 "Listener %s missing dependency %s during snapshot: %s",
-                self._project_id,
+                self._log_identifier,
                 dependency,
                 error,
             )
@@ -606,10 +666,11 @@ class SettaListener:
         self, content: ListenerRealtimeEventContent
     ) -> None:
         """Apply realtime deltas and invoke interested callbacks."""
-        if content.projectConfigId != self._project_id:
+        project_id = self._project_id
+        if project_id is not None and content.projectConfigId != project_id:
             logger.debug(
                 "Listener %s ignoring realtime event for project %s",
-                self._project_id,
+                self._log_identifier,
                 content.projectConfigId,
             )
             return
@@ -618,14 +679,14 @@ class SettaListener:
         if runtime_state is None:
             logger.debug(
                 "Listener %s received realtime event before bootstrap; ignoring",
-                self._project_id,
+                self._log_identifier,
             )
             return
 
         if runtime_state.s_instance is None:
             logger.debug(
                 "Listener %s ignoring realtime event because runtime state is unavailable",
-                self._project_id,
+                self._log_identifier,
             )
             return
 
@@ -633,7 +694,7 @@ class SettaListener:
             if content.sequence <= self._last_realtime_sequence:
                 logger.debug(
                     "Listener %s ignoring out-of-order realtime sequence %s (last=%s)",
-                    self._project_id,
+                    self._log_identifier,
                     content.sequence,
                     self._last_realtime_sequence,
                 )
@@ -643,7 +704,7 @@ class SettaListener:
         if not content.deltas:
             logger.debug(
                 "Listener %s received realtime event with no deltas (sequence=%s)",
-                self._project_id,
+                self._log_identifier,
                 content.sequence,
             )
             return
@@ -655,7 +716,7 @@ class SettaListener:
             if node is None:
                 logger.error(
                     "Listener %s received realtime delta for unknown graph key %s",
-                    self._project_id,
+                    self._log_identifier,
                     graph_key,
                 )
                 continue
@@ -674,7 +735,7 @@ class SettaListener:
                     (
                         "Listener %s failed to apply realtime delta for %s (graph key %s): %s"
                     ),
-                    self._project_id,
+                    self._log_identifier,
                     dependency,
                     graph_key,
                     error,
@@ -685,7 +746,7 @@ class SettaListener:
         if not applied_dependencies:
             logger.debug(
                 "Listener %s applied no realtime changes for sequence %s",
-                self._project_id,
+                self._log_identifier,
                 content.sequence,
             )
             return
@@ -713,7 +774,7 @@ class SettaListener:
                 except (AttributeError, KeyError, IndexError, ValueError) as error:
                     logger.error(
                         "Listener %s failed to resolve dependency %s after realtime update: %s",
-                        self._project_id,
+                        self._log_identifier,
                         dependency,
                         error,
                     )
@@ -743,16 +804,17 @@ class SettaListener:
             raise RuntimeError(
                 "Listener is not registered with the server; wait for registration to complete before emitting"
             )
+        project_id = self._require_project_id()
         message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitContent(
-                projectConfigId=self._project_id,
+                projectConfigId=project_id,
                 payload=payload,
                 target=target,
             )
         )
         logger.debug(
             "Listener %s emitting frontend payload (target=%s)",
-            self._project_id,
+            self._log_identifier,
             target,
         )
         await self._send_websocket_payload(message.model_dump_json())
@@ -785,7 +847,7 @@ class SettaListener:
     ) -> Any:
         if not expression:
             raise ValueError(
-                f"Listener {self._project_id} missing expression for dependency {dependency}"
+                f"Listener {self._log_identifier} missing expression for dependency {dependency}"
             )
 
         try:
@@ -796,7 +858,7 @@ class SettaListener:
         except Exception as error:
             logger.error(
                 "Listener %s failed to evaluate expression for %s: %s",
-                self._project_id,
+                self._log_identifier,
                 dependency,
                 error,
             )
@@ -845,13 +907,14 @@ class SettaListener:
         websocket = self._websocket
         if websocket is None:
             raise RuntimeError(
-                f"Listener {self._project_id} is not connected to the websocket"
+                f"Listener {self._log_identifier} is not connected to the websocket"
             )
         async with self._send_lock:
             try:
                 await websocket.send(payload)
             except Exception:
                 logger.exception(
-                    "Listener %s failed to send websocket payload", self._project_id
+                    "Listener %s failed to send websocket payload",
+                    self._log_identifier,
                 )
                 raise

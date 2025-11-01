@@ -5,6 +5,7 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
     PythonScriptWebsocketMsgUnion,
 )
+from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerErrorContent,
     ListenerRegisterAckContent,
@@ -64,6 +65,65 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self, message: WebsocketMsgListenerInit, websocket_id: str
     ) -> None:
         project_config_id = message.content.projectConfigId
+        project_name = message.content.projectName
+
+        if project_config_id is None:
+            if project_name is None:
+                logger.warning(
+                    "listener websocket %s missing both project config id and project name",
+                    websocket_id,
+                )
+                error_message = WebsocketMsgListenerError(
+                    content=ListenerErrorContent(
+                        error="project_state_unavailable",
+                        details={"websocketId": websocket_id},
+                    )
+                )
+                await self.websocket_manager.send_message(error_message, websocket_id)
+                return
+            try:
+                project_config_id = self.project_manager_switcher.get_config_id_by_name(
+                    project_name
+                )
+            except ProjectNotFound:
+                logger.warning(
+                    "failed to resolve project name %s for listener websocket %s",
+                    project_name,
+                    websocket_id,
+                )
+                error_message = WebsocketMsgListenerError(
+                    content=ListenerErrorContent(
+                        error="project_state_unavailable",
+                        details={"projectName": project_name},
+                    )
+                )
+                await self.websocket_manager.send_message(error_message, websocket_id)
+                return
+        elif project_name is not None:
+            try:
+                resolved_id = self.project_manager_switcher.get_config_id_by_name(
+                    project_name
+                )
+            except ProjectNotFound:
+                logger.warning(
+                    "listener websocket %s provided projectConfigId %s with unknown project name %s",
+                    websocket_id,
+                    project_config_id,
+                    project_name,
+                )
+            else:
+                if resolved_id != project_config_id:
+                    logger.warning(
+                        (
+                            "listener websocket %s provided projectConfigId %s but "
+                            "name %s resolved to %s; using provided id"
+                        ),
+                        websocket_id,
+                        project_config_id,
+                        project_name,
+                        resolved_id,
+                    )
+
         self.listener_registry.record_bootstrap(
             websocket_id=websocket_id, project_config_id=project_config_id
         )

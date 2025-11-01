@@ -11,15 +11,16 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     ListenerRegisterContent,
 )
+from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
     WebsocketConnectionType,
+    WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerFrontendEmitForward,
-    WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
@@ -97,6 +98,12 @@ class _StubProjectManagerSwitcher:
     def get(self, project_config_id: str) -> _StubProjectManager:
         return self._manager
 
+    def get_config_id_by_name(self, project_name: str) -> str:
+        for state in self._manager._states.values():
+            if state.projectConfig.name == project_name:
+                return state.projectConfig.id
+        raise ProjectNotFound
+
 
 class _StubWebsocketManager:
     def __init__(self) -> None:
@@ -122,7 +129,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         listener_registry = ListenerRegistry()
         python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state("proj-123")
-        project_manager_switcher = _StubProjectManagerSwitcher({"proj-123": project_state})
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
         receiver = WMHPythonScriptReceiver(
             websocket_manager,
             listener_registry,
@@ -175,7 +184,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         listener_registry = ListenerRegistry()
         project_state = _build_project_state("proj-init")
         python_script_sender = _StubPythonScriptSender()
-        project_manager_switcher = _StubProjectManagerSwitcher({"proj-init": project_state})
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-init": project_state}
+        )
         receiver = WMHPythonScriptReceiver(
             websocket_manager,
             listener_registry,
@@ -185,7 +196,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
-                projectConfigId="proj-init",
+                projectName=project_state.projectConfig.name,
                 defaultFeed=ListenerFeed.BOTH,
             )
         )
@@ -240,13 +251,51 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             error_message.content.details,
         )
 
+    async def test_listener_init_sends_error_when_project_name_missing(self):
+        websocket_manager = _StubWebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        listener_registry = ListenerRegistry()
+        python_script_sender = _StubPythonScriptSender()
+        project_manager_switcher = _StubProjectManagerSwitcher({})
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_script_sender,
+            project_manager_switcher,
+        )
+        init_message = WebsocketMsgListenerInit(
+            content=ListenerInitContent(
+                projectName="Nonexistent Project",
+                defaultFeed=None,
+            )
+        )
+
+        await receiver.process_json_str(
+            init_message.model_dump_json(),
+            fromWebsocketId="socket-missing-name",
+        )
+
+        self.assertEqual([], python_script_sender.calls)
+        self.assertEqual(1, len(websocket_manager.sent_messages))
+        error_message, websocket_id = websocket_manager.sent_messages[0]
+        self.assertEqual("socket-missing-name", websocket_id)
+        self.assertIsInstance(error_message, WebsocketMsgListenerError)
+        self.assertEqual("project_state_unavailable", error_message.content.error)
+        self.assertEqual(
+            {"projectName": "Nonexistent Project"},
+            error_message.content.details,
+        )
+
     async def test_listener_frontend_emit_forwards_to_frontend_without_ack(self):
         websocket_manager = _StubWebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         listener_registry = ListenerRegistry()
         python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state("proj-123")
-        project_manager_switcher = _StubProjectManagerSwitcher({"proj-123": project_state})
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
         receiver = WMHPythonScriptReceiver(
             websocket_manager,
             listener_registry,
@@ -301,7 +350,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         listener_registry = ListenerRegistry()
         python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state("proj-123")
-        project_manager_switcher = _StubProjectManagerSwitcher({"proj-123": project_state})
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
         receiver = WMHPythonScriptReceiver(
             websocket_manager,
             listener_registry,
@@ -339,7 +390,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         listener_registry = ListenerRegistry()
         python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state("proj-123")
-        project_manager_switcher = _StubProjectManagerSwitcher({"proj-123": project_state})
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
         receiver = WMHPythonScriptReceiver(
             websocket_manager,
             listener_registry,

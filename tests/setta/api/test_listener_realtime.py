@@ -1,5 +1,8 @@
 import asyncio
+import contextlib
+import io
 import json
+import logging
 import unittest
 from types import SimpleNamespace
 from typing import Any
@@ -16,6 +19,7 @@ from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
+    ListenerErrorContent,
     ListenerFeed,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
@@ -23,6 +27,7 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from setta.types.websocket import WebsocketMsgListenerError
 
 
 class _StubWebsocket:
@@ -73,7 +78,10 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         return spec.structured_dependencies[0]
 
     async def test_realtime_callback_respects_debounce_scheduler(self) -> None:
-        listener = SettaListener(project_id="project-1")
+        project_state = self._build_project_state()
+        listener = SettaListener(
+            project_name=project_state.projectConfig.name,
+        )
         realtime_calls: list[dict[str, Any]] = []
         persisted_calls: list[dict[str, Any]] = []
 
@@ -89,7 +97,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         def on_persisted(state, ctx):
             persisted_calls.append(dict(ctx.changed))
 
-        project_state = self._build_project_state()
         websocket = _StubWebsocket()
         listener._websocket = websocket
 
@@ -146,7 +153,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(callback_payloads[0]["debounceMs"], 50)
 
     async def test_realtime_delta_rehydrates_typed_values(self) -> None:
-        listener = SettaListener(project_id="project-typed")
+        listener = SettaListener(project_name="Project project-typed")
         slider_events: list[tuple[Any, Any]] = []
         switch_events: list[tuple[Any, Any]] = []
 
@@ -271,6 +278,43 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(listener._dependency_cache["section__switch"])
         self.assertEqual(listener._last_realtime_sequence, 1)
 
+    async def test_listener_error_prints_when_logging_unconfigured(self) -> None:
+        listener = SettaListener(project_name="Project Missing")
+        error_message = WebsocketMsgListenerError(
+            content=ListenerErrorContent(
+                error="project_state_unavailable",
+                details={"projectName": "dog"},
+            )
+        )
+        root_logger = logging.getLogger()
+        module_logger = logging.getLogger("setta.api.listener")
+
+        root_handlers = list(root_logger.handlers)
+        module_handlers = list(module_logger.handlers)
+        original_propagate = module_logger.propagate
+
+        for handler in module_handlers:
+            module_logger.removeHandler(handler)
+        for handler in root_handlers:
+            root_logger.removeHandler(handler)
+
+        stream = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stream):
+                await listener._dispatch_websocket_message(error_message)
+        finally:
+            for handler in module_handlers:
+                module_logger.addHandler(handler)
+            module_logger.propagate = original_propagate
+            for handler in root_handlers:
+                root_logger.addHandler(handler)
+
+        output = stream.getvalue()
+        self.assertIn(
+            "Listener name:Project Missing received error project_state_unavailable",
+            output,
+        )
+
 
 class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
     def _build_project_state(self) -> ProjectStateSingleConfig:
@@ -305,7 +349,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
-        listener = SettaListener(project_id="project-fail")
+        listener = SettaListener(project_name="Demo Project")
 
         @listener.listen(deps=("Welcome",), feed=ListenerFeed.BOTH)
         def on_change(state, ctx):  # pragma: no cover - invoked only on success

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from setta.code_gen.dependency_graph import GraphKeyType
 from setta.types.project_state import ProjectStateSingleConfig
@@ -14,8 +14,17 @@ class ListenerFeed(str, Enum):
 
 
 class ListenerInitContent(BaseModel):
-    projectConfigId: str
+    projectConfigId: str | None = None
+    projectName: str | None = None
     defaultFeed: ListenerFeed | None = None
+
+    @model_validator(mode="after")
+    def _validate_identifier(self):
+        if self.projectConfigId is None and self.projectName is None:
+            raise ValueError(
+                "ListenerInitContent requires either projectConfigId or projectName"
+            )
+        return self
 
 
 class ListenerRealtimeEventContent(BaseModel):

@@ -5967,7 +5967,8 @@ export function createWebsocketMsgListenerRegisterAck(
 }
 
 export const ListenerInitContentSchema = z.object({
-  projectConfigId: z.string(),
+  projectConfigId: z.union([z.string(), z.null()]).default(null),
+  projectName: z.union([z.string(), z.null()]).default(null),
   defaultFeed: z.union([z.enum(ListenerFeedEnum), z.null()]).default(null),
 });
 

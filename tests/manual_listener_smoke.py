@@ -38,15 +38,20 @@ def _structured_dependency_map(
     return {}
 
 
-def load_default_project_id() -> str:
-    """Read the project config id that ships with the repository fixtures."""
+def load_default_project_name() -> str:
+    """Read the project name that ships with the repository fixtures."""
     data = json.loads(Path("setta_files/project.json").read_text())
-    return data["defaultProjectConfigId"]
+    project_config_id = data["defaultProjectConfigId"]
+    try:
+        project_config = data["projectConfigs"][project_config_id]
+    except KeyError as error:
+        raise ValueError("Default project config missing from project.json") from error
+    return project_config["name"]
 
 
-def build_listener(project_id: str) -> SettaListener:
+def build_listener(project_name: str) -> SettaListener:
     """Wire the example callback that watches the Channel Shuffle groups param."""
-    listener = SettaListener(project_id=project_id)
+    listener = SettaListener(project_name=project_name)
 
     @listener.listen(deps=["hiding_river__x"], feed="both")
     def on_groups_change(state: Any, ctx: Any) -> None:
@@ -66,16 +71,16 @@ def main() -> None:
         description="Manual smoke test for SettaListener persisted updates."
     )
     parser.add_argument(
-        "--project-id",
+        "--project-name",
         default=None,
-        help="Override the project config to watch (defaults to repository fixture).",
+        help="Override the project config name to watch (defaults to repository fixture).",
     )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
 
-    project_id = args.project_id or load_default_project_id()
-    listener = build_listener(project_id)
+    project_name = args.project_name or load_default_project_name()
+    listener = build_listener(project_name)
 
     try:
         listener.start()

@@ -85,9 +85,7 @@ class ListenerRegistry:
             if registration.project_config_id == project_config_id:
                 yield registration
 
-    def iter_socket_ids_for_project(
-        self, project_config_id: str
-    ) -> Iterable[str]:
+    def iter_socket_ids_for_project(self, project_config_id: str) -> Iterable[str]:
         for websocket_id, stored_project_id in self._project_config_by_socket.items():
             if stored_project_id == project_config_id:
                 yield websocket_id
