@@ -1,9 +1,5 @@
 import { ListenerCoverageSnapshot, ListenerDependencyKey } from "utils/generatedTypes";
-import {
-  ListenerCoverageRecord,
-  ListenerCoverageStatus,
-  useListenerCoverage,
-} from "state/definitions";
+import { type ListenerCoverageRecord, useListenerCoverage } from "state/definitions";
 
 function serializeListenerDependencyKey(key: ListenerDependencyKey): string {
   return key.codeObjId ? `${key.sectionId}::${key.codeObjId}` : `${key.sectionId}::`;
@@ -19,65 +15,32 @@ function buildDependencyLookup(
   return lookup;
 }
 
-function initializeRecord(status: ListenerCoverageStatus): ListenerCoverageRecord {
-  return {
-    revision: null,
-    hasRealtimeWildcard: false,
-    status,
-    dependenciesByKey: {},
-  };
-}
-
-export function setListenerCoverageStatus(
-  projectConfigId: string,
-  status: ListenerCoverageStatus,
-): void {
-  useListenerCoverage.setState((state) => {
-    const current = state.byProjectId[projectConfigId];
-    if (current) {
-      current.status = status;
-      if (status === "unknown") {
-        current.revision = null;
-        current.hasRealtimeWildcard = false;
-        current.dependenciesByKey = {};
-      }
-    } else {
-      state.byProjectId[projectConfigId] = initializeRecord(status);
-    }
-  });
-}
-
 export function applyListenerCoverageSnapshot(
   snapshot: ListenerCoverageSnapshot,
 ): void {
   useListenerCoverage.setState((state) => {
-    const { projectConfigId, revision, dependencies, hasRealtimeWildcard } = snapshot;
+    const { projectConfigId, dependencies, hasRealtimeWildcard } = snapshot;
     const current = state.byProjectId[projectConfigId];
     const dependencyLookup = buildDependencyLookup(dependencies);
 
     if (current) {
-      const sameRevision =
-        current.revision === revision &&
+      const matchesExisting =
         current.hasRealtimeWildcard === hasRealtimeWildcard &&
         Object.keys(current.dependenciesByKey).length ===
           Object.keys(dependencyLookup).length &&
         Object.keys(dependencyLookup).every(
           (key) => current.dependenciesByKey[key] !== undefined,
         );
-      if (sameRevision && current.status === "ready") {
+      if (matchesExisting) {
         return;
       }
-      current.revision = revision;
       current.hasRealtimeWildcard = hasRealtimeWildcard;
-      current.status = "ready";
       current.dependenciesByKey = dependencyLookup;
       return;
     }
 
     state.byProjectId[projectConfigId] = {
-      revision,
       hasRealtimeWildcard,
-      status: "ready",
       dependenciesByKey: dependencyLookup,
     };
   });
@@ -94,7 +57,7 @@ export function dependencyKeyCovered(
   dependency: ListenerDependencyKey,
 ): boolean {
   const record = getListenerCoverageRecord(projectConfigId);
-  if (!record || record.status !== "ready") {
+  if (!record) {
     return false;
   }
   if (record.hasRealtimeWildcard) {

@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 
 from setta.types.listener import (
-    ListenerFeed,
     ListenerDependencyKey,
+    ListenerFeed,
     ListenerFrontendEmitContent,
     ListenerRegisterCallback,
     ListenerRegisterContent,

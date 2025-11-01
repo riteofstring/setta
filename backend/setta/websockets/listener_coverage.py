@@ -18,7 +18,6 @@ class _CoverageSignature:
 
 @dataclass
 class _CoverageState:
-    revision: int
     signature: _CoverageSignature
 
 
@@ -53,11 +52,6 @@ class ListenerCoverageTracker:
         if prev_state and prev_state.signature == signature:
             return None
 
-        if prev_state:
-            revision = prev_state.revision + 1
-        else:
-            revision = 1
-
         serialized_dependencies = [
             ListenerDependencyKey.from_graph_key(graph_key)
             for graph_key in signature.dependency_keys
@@ -65,13 +59,11 @@ class ListenerCoverageTracker:
 
         snapshot = ListenerCoverageSnapshot(
             projectConfigId=project_config_id,
-            revision=revision,
             dependencies=serialized_dependencies,
             hasRealtimeWildcard=signature.has_realtime_wildcard,
         )
 
         self._state_by_project[project_config_id] = _CoverageState(
-            revision=revision,
             signature=signature,
         )
         return snapshot

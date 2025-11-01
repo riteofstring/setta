@@ -43,7 +43,6 @@ class ListenerFrontendEmitContent(BaseModel):
 
 class ListenerCoverageSnapshot(BaseModel):
     projectConfigId: str
-    revision: int
     dependencies: list["ListenerDependencyKey"]
     hasRealtimeWildcard: bool
 

@@ -167,14 +167,8 @@ export function sendRealtimeUIChange({
     codeObjId: codeObjId ?? null,
   };
   const coverage = getListenerCoverageRecord(projectConfigId);
-  if (coverage) {
-    if (coverage.status === "ready") {
-      if (!dependencyKeyCovered(projectConfigId, dependencyKey)) {
-        return;
-      }
-    } else if (coverage.status === "fetching") {
-      return;
-    }
+  if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
+    return;
   }
   const message: WebsocketMsgRealtimeUIChange = {
     id: null,

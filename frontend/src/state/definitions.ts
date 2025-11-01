@@ -143,12 +143,8 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
-export type ListenerCoverageStatus = "unknown" | "fetching" | "ready" | "stale";
-
 export type ListenerCoverageRecord = {
-  revision: ListenerCoverageSnapshot["revision"] | null;
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
-  status: ListenerCoverageStatus;
   dependenciesByKey: Record<string, ListenerDependencyKey>;
 };
 

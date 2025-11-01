@@ -110,9 +110,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             and previous_registration.project_config_id
             != registration.project_config_id
         ):
-            await self._sync_listener_coverage(
-                previous_registration.project_config_id
-            )
+            await self._sync_listener_coverage(previous_registration.project_config_id)
 
     async def _handle_listener_frontend_emit(
         self, message: WebsocketMsgListenerFrontendEmit, websocket_id: str

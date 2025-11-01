@@ -36,7 +36,9 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        ListenerDependencyKey(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     feed=ListenerFeed.REALTIME,
                 )
@@ -50,7 +52,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
 
         assert snapshot is not None
         self.assertEqual(self.project_id, snapshot.projectConfigId)
-        self.assertEqual(1, snapshot.revision)
         self.assertFalse(snapshot.hasRealtimeWildcard)
         self.assertEqual(
             [{"sectionId": "section-A", "codeObjId": "param-1"}],
@@ -64,13 +65,17 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        ListenerDependencyKey(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     feed=ListenerFeed.REALTIME,
                 )
             },
         )
-        first_snapshot = self.tracker.update_for_project(self.project_id, [registration])
+        first_snapshot = self.tracker.update_for_project(
+            self.project_id, [registration]
+        )
         assert first_snapshot is not None
 
         second_snapshot = self.tracker.update_for_project(
@@ -79,14 +84,16 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         )
         self.assertIsNone(second_snapshot)
 
-    def test_increments_revision_when_dependencies_change(self):
+    def test_emits_snapshot_when_dependencies_change(self):
         registration = build_registration(
             websocket_id="socket-1",
             project_config_id=self.project_id,
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        ListenerDependencyKey(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     feed=ListenerFeed.REALTIME,
                 )
@@ -110,14 +117,12 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             [registration],
         )
         assert first_snapshot is not None
-        self.assertEqual(1, first_snapshot.revision)
 
         second_snapshot = self.tracker.update_for_project(
             self.project_id,
             [registration, second_registration],
         )
         assert second_snapshot is not None
-        self.assertEqual(2, second_snapshot.revision)
         self.assertCountEqual(
             [
                 {"sectionId": "section-A", "codeObjId": "param-1"},
@@ -144,7 +149,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         )
 
         assert snapshot is not None
-        self.assertEqual(1, snapshot.revision)
         self.assertTrue(snapshot.hasRealtimeWildcard)
         self.assertEqual([], snapshot.dependencies)
 
@@ -155,7 +159,9 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        ListenerDependencyKey(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     feed=ListenerFeed.REALTIME,
                 )
@@ -169,6 +175,5 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
 
         reset_snapshot = self.tracker.update_for_project(self.project_id, [])
         assert reset_snapshot is not None
-        self.assertEqual(2, reset_snapshot.revision)
         self.assertEqual([], reset_snapshot.dependencies)
         self.assertFalse(reset_snapshot.hasRealtimeWildcard)

@@ -5632,7 +5632,6 @@ export function createWebsocketMsgListenerFrontendEmitForward(
 
 export const ListenerCoverageSnapshotSchema = z.object({
   projectConfigId: z.string(),
-  revision: z.int(),
   dependencies: z.array(z.any()),
   hasRealtimeWildcard: z.boolean(),
 });
