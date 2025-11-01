@@ -15,7 +15,7 @@
 ### Phase Progress
 - **Phase 1 – persisted pipeline** ✅ Complete. Websocket session handling, listener client skeleton, snapshot broadcasting, and persisted callback execution are wired and covered by the manual smoke workflow.
 - **Phase 2 – realtime feed** ✅ Complete. Structured dependency keys flow end-to-end, realtime sequencing is enforced, and listeners receive deltas only when subscribed via `realtime` or `both` feeds.
-- **Phase 3 – listener UX & emit helpers** ⏳ Outstanding. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; realtime deltas now hydrate into typed values inside `SettaListener` via the shared value codec; still pending are public-facing emit helpers (`emit_to_frontend` from listener scripts, frontend-side trigger for `force_refresh`) and documentation polish; UI exposure is still under discussion.
+- **Phase 3 – listener UX & emit helpers** ⏳ In progress. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; realtime deltas now hydrate into typed values inside `SettaListener` via the shared value codec. `emit_to_frontend` is available on the listener (and exposed via `ctx.emit_to_frontend`) and the frontend now queues incoming listener payloads by `target`. Still pending: wiring an explicit listener-facing `force_refresh` trigger from the UI, finalizing how the queued payloads are consumed/rendered, and documentation polish; UI exposure is still under discussion.
 - **Phase 4 – reliability & tests** ⏳ Outstanding. New async suites cover scheduler edge cases and realtime debounce handling; still pending are schema hot-reload behavior, richer error handling, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
 
 ### Value Conversion Centralization
@@ -33,6 +33,7 @@
   4. Add regression coverage for sanitized-name ↔ structured-key round-trips and duplicate-name handling.
   5. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change.
   6. Extend `RealtimeEventHub` so it can batch multiple deltas that arrive in quick succession before notifying listeners, instead of emitting one websocket message per change.
+  7. Define the stable contract for frontend listener payload processing (selection/filtering APIs, retention policy) and surface consumption helpers once UX is decided.
 
 ### Manual Validation
 1. Stack: `source activate.sh && cd frontend && pnpm start`.

@@ -116,6 +116,20 @@ export type PendingOperation = {
   acknowledged: boolean;
 };
 
+type ListenerEventsState = {
+  eventsByTarget: Record<string, Array<Record<string, unknown>>>;
+};
+
+export const useListenerEvents = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<ListenerEventsState>(() => ({
+        eventsByTarget: {},
+      })),
+    ),
+  ),
+);
+
 type ZustandPendingOperations = {
   pending: Array<PendingOperation>;
 };

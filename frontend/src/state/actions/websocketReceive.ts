@@ -27,6 +27,7 @@ import {
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
+import { addListenerFrontendEvent } from "./listenerEvents";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
@@ -127,6 +128,8 @@ function receiveMessage(message: string) {
       return updateAllProjectMetadata(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
       return updateArtifacts(m.content);
+    case WebsocketMsgTypeForFrontendEnum.ListenerFrontendEmitForward:
+      return addListenerFrontendEvent(m.content);
     default:
       return m satisfies never;
   }

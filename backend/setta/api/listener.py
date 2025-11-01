@@ -20,6 +20,7 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.listener import (
     ListenerDependencyKey,
+    ListenerFrontendEmitContent,
     ListenerFeed,
     ListenerInitContent,
     ListenerRealtimeEventContent,
@@ -32,6 +33,7 @@ from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerInit,
+    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
@@ -82,6 +84,7 @@ class ListenerCallbackSpec:
 class ListenerCallbackContext:
     changed: dict[str, Any]
     log: logging.Logger
+    emit_to_frontend: Callable[[dict[str, Any], str | None], Awaitable[None]]
 
 
 @dataclass(slots=True)
@@ -687,6 +690,38 @@ class SettaListener:
         for spec, changed in callbacks_to_run:
             self._scheduler.submit(spec.callback_id, dict(changed))
 
+    async def emit_to_frontend(
+        self,
+        *,
+        payload: dict[str, Any],
+        target: str | None = None,
+    ) -> None:
+        if not isinstance(payload, dict):
+            raise TypeError("emit_to_frontend payload must be a dict[str, Any]")
+        if not payload:
+            raise ValueError("emit_to_frontend payload must not be empty")
+        if self._runtime_state is None:
+            raise RuntimeError(
+                "Listener project state is unavailable; wait for bootstrap before emitting"
+            )
+        if not self._is_registered and not self._registration_pending:
+            raise RuntimeError(
+                "Listener is not registered with the server; wait for registration to complete before emitting"
+            )
+        message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitContent(
+                projectConfigId=self._project_id,
+                payload=payload,
+                target=target,
+            )
+        )
+        logger.debug(
+            "Listener %s emitting frontend payload (target=%s)",
+            self._project_id,
+            target,
+        )
+        await self._send_websocket_payload(message.model_dump_json())
+
     def _set_dependency_value(
         self,
         runtime_state: ListenerRuntimeState,
@@ -764,7 +799,14 @@ class SettaListener:
         if spec_logger is None:
             spec_logger = logger.getChild(f"callback.{spec.callback_id}")
             spec.logger = spec_logger
-        return ListenerCallbackContext(changed=changed, log=spec_logger)
+        async def emit(payload: dict[str, Any], target: str | None = None) -> None:
+            await self.emit_to_frontend(payload=payload, target=target)
+
+        return ListenerCallbackContext(
+            changed=changed,
+            log=spec_logger,
+            emit_to_frontend=emit,
+        )
 
     async def _send_websocket_payload(self, payload: str) -> None:
         websocket = self._websocket
