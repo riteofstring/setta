@@ -86,6 +86,7 @@ Never import annotations from __future__.
 ## Safety
 
 Do not add try/except and try/catch blocks unless absolutely necessary.
+Avoid being overly cautious about everything. I don't want endless safety checks everywhere.
 
 
 ## Python type annotations

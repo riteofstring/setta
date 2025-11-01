@@ -11,6 +11,7 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import ParamNode
+from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
@@ -191,10 +192,23 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         state = SimpleNamespace(section__slider=1, section__switch=False)
 
+        dep_graph = SimpleNamespace(graph=graph)
+        value_codec = PythonValueCodec(
+            dep_graph,
+            lambda key: f"s.{dep_graph.graph[key].full_path_name}",
+        )
+
+        code_generator = SimpleNamespace(
+            value_codec=value_codec,
+            get_value=lambda node: value_codec.format_param_expression(node)
+            if isinstance(node, ParamNode)
+            else None,
+        )
+
         listener._runtime_state = ListenerRuntimeState(
             project_state=MagicMock(),
-            dependency_graph=SimpleNamespace(graph=graph),
-            code_generator=MagicMock(),
+            dependency_graph=dep_graph,
+            code_generator=code_generator,
             s_instance=state,
         )
         listener._dependency_cache = {

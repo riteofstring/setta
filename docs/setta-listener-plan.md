@@ -19,10 +19,10 @@
 - **Phase 4 – reliability & tests** ⏳ Outstanding. New async suites cover scheduler edge cases and realtime debounce handling; still pending are schema hot-reload behavior, richer error handling, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
 
 ### Value Conversion Centralization
-- Introduce `setta/code_gen/value_codec.py` with a `format_param_expression(node, dep_graph, var_lookup)` helper that mirrors the logic from `PythonCodeGenerator.get_param_value`, including nested dict/list composition and quoting/boolean handling.
-- Refactor the generator so `get_param_value` simply delegates to the codec while `construct_dict`, `construct_list`, and existing position bookkeeping stay untouched; the codec receives callbacks for dict/list assembly so we do not break current emitted code.
-- Rework the listener hydration path to call the codec for every realtime delta: produce the canonical expression string, cache its `compile` result per dependency, evaluate it with a minimal namespace rooted at the cached `S` instance, and update both the runtime state and the underlying `ParamNode.value`.
-- Expand the realtime listener tests to cover nested params and non-string payloads, add targeted unit tests for the codec comparing its output against the generator, and include a quick benchmark-style assertion to keep eval overhead within interactive tolerances.
+- ✅ Introduced `setta/code_gen/value_codec.py` as a `PythonValueCodec` class that mirrors `PythonCodeGenerator.get_param_value` logic, including dict/list composition and quoting semantics.
+- ✅ Updated `PythonCodeGenerator` to delegate param/list/dict formatting to the codec while preserving existing callable construction and position bookkeeping.
+- ✅ Swapped the listener hydration path to reuse the generator’s value codec: param nodes receive the new string value, we reuse `PythonCodeGenerator.get_value` to build the canonical expression, and evaluate it directly (no more per-dependency compile cache).
+- ⏳ Still outstanding: broaden realtime listener coverage for nested params/non-string payloads, add codec-focused unit tests comparing generator output, and capture a lightweight perf assertion once profiling resumes.
 
 ### Dependency Key Refactor Status
 - **Done**: Listener registration now resolves sanitized dependency strings to graph keys, websocket payloads ship structured keys, and frontend controls emit the same structure.

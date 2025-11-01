@@ -11,7 +11,8 @@ from setta.code_gen.utils import (
     CLASS_DEF,
     SELF_IDENTIFIER,
 )
-from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
+from setta.code_gen.value_codec import PythonValueCodec
+from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.section_impls import SectionType
 
 
@@ -39,6 +40,10 @@ class PythonCodeGenerator:
         self.dep_graph = dep_graph
         self.gen_code_prefix = gen_code_prefix
         self.gen_code_suffix = gen_code_suffix
+        self.value_codec = PythonValueCodec(
+            self.dep_graph,
+            self._lookup_var_name,
+        )
         self.reset()
 
     def reset(self):
@@ -148,6 +153,9 @@ class PythonCodeGenerator:
         self.reverse_var_name_mapping[var_name] = graph_key
         return var_name
 
+    def _lookup_var_name(self, graph_key: GraphKeyType) -> str:
+        return self.var_name_mapping[graph_key]
+
     def get_value(self, node: Node):
         if isinstance(node, SectionNode):
             return self.get_section_value(node)
@@ -164,50 +172,16 @@ class PythonCodeGenerator:
                     return self.construct_callable(node.value, node.deps)
                 return "None"
             case SectionType.ListRoot:
-                return self.construct_list(node.deps)
+                return self.value_codec.format_list(node.deps)
             case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
-                return self.construct_dict(node.deps)
+                return self.value_codec.format_dict(node.deps)
             case SectionType.TextBlock:
                 return repr(node.value)
             case _:
                 return None
 
     def get_param_value(self, node: ParamNode):
-        t = node.type
-        if (
-            t == CodeObjType.TextParam
-            or t == CodeObjType.CodeParam
-            or t == CodeObjType.SliderParam
-            or t == CodeObjType.DropdownParam
-        ):
-            return node.value
-        elif t == CodeObjType.SwitchParam:
-            return "True" if node.value == "true" else "False"
-        elif t == CodeObjType.ColorPickerParam:
-            return f'"{node.value}"'
-        elif t == CodeObjType.NestedParam:
-            return self.construct_dict(node.deps)
-        else:
-            raise ValueError
-
-    def construct_dict(self, deps):
-        output = ""
-        idx = 0
-        for d, is_used in deps.items():
-            if not is_used:
-                continue
-            prefix = "" if idx == 0 else ", "
-            name = self.dep_graph.graph[d].name
-            var_name = self.var_name_mapping[d]
-            output += f'{prefix}"{name}": {var_name}'
-            idx += 1
-        return "{" + output + "}"
-
-    def construct_list(self, deps):
-        output = ", ".join(
-            self.var_name_mapping[d] for d, is_used in deps.items() if is_used
-        )
-        return f"[{output}]"
+        return self.value_codec.format_param_expression(node)
 
     def construct_callable(self, value, deps):
         output = ""
