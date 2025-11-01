@@ -117,6 +117,8 @@ class SettaListener:
         self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
         self._scheduler = ListenerCallbackScheduler()
+        self._websocket: "ClientConnection" | None = None
+        self._send_lock = asyncio.Lock()
 
     @property
     def websocket_endpoint(self) -> str:
@@ -169,7 +171,8 @@ class SettaListener:
         logger.debug("Listener %s connecting to %s", self._project_id, endpoint)
         async with websockets.connect(endpoint) as websocket:
             logger.info("Listener %s connected", self._project_id)
-            await self._send_bootstrap_init(websocket)
+            self._websocket = websocket
+            await self._send_bootstrap_init()
             try:
                 async for payload in websocket:
                     if self._stop_event.is_set():
@@ -177,9 +180,10 @@ class SettaListener:
                     message = self._parse_websocket_payload(payload)
                     if message is None:
                         continue
-                    await self._dispatch_websocket_message(message, websocket)
+                    await self._dispatch_websocket_message(message)
             finally:
                 logger.info("Listener %s connection closed", self._project_id)
+                self._websocket = None
                 self._registration_pending = False
                 self._is_registered = False
                 self._expected_ack_callback_ids = set()
@@ -199,7 +203,6 @@ class SettaListener:
     async def _dispatch_websocket_message(
         self,
         message: Any,
-        websocket: "ClientConnection",
     ) -> None:
         """Delegate parsed websocket messages to dedicated handlers."""
         if isinstance(message, WebsocketMsgListenerRegisterAck):
@@ -209,14 +212,12 @@ class SettaListener:
             await self._handle_persisted_snapshot(
                 message.content,
                 is_bootstrap=True,
-                websocket=websocket,
             )
             return
         if isinstance(message, WebsocketMsgListenerPersistedUpdate):
             await self._handle_persisted_snapshot(
                 message.content,
                 is_bootstrap=False,
-                websocket=websocket,
             )
             return
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
@@ -385,7 +386,7 @@ class SettaListener:
             choices = tuple(member.value for member in ListenerFeed)
             raise ValueError(msg % (value, choices)) from error
 
-    async def _send_bootstrap_init(self, websocket: "ClientConnection") -> None:
+    async def _send_bootstrap_init(self) -> None:
         """Send an initial bootstrap handshake to identify the target project."""
         content = ListenerInitContent(
             projectConfigId=self._project_id,
@@ -395,14 +396,14 @@ class SettaListener:
         payload = message.model_dump_json()
         logger.debug("Listener %s sending bootstrap init", self._project_id)
         try:
-            await websocket.send(payload)
+            await self._send_websocket_payload(payload)
         except Exception:
             logger.exception(
                 "Listener %s failed to send bootstrap init", self._project_id
             )
             raise
 
-    async def _send_listener_register(self, websocket: "ClientConnection") -> None:
+    async def _send_listener_register(self) -> None:
         """Send the full callback registration after bootstrap completes."""
         content = self._build_register_content()
         message = WebsocketMsgListenerRegister(content=content)
@@ -416,7 +417,7 @@ class SettaListener:
         self._is_registered = False
         self._expected_ack_callback_ids = set(content.callbacks.keys())
         try:
-            await websocket.send(payload)
+            await self._send_websocket_payload(payload)
         except Exception:
             self._registration_pending = False
             logger.exception(
@@ -429,7 +430,6 @@ class SettaListener:
         project_state: ProjectStateSingleConfig,
         *,
         is_bootstrap: bool,
-        websocket: "ClientConnection",
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
         runtime_state = self._build_runtime_state_with_guard(project_state)
@@ -475,7 +475,7 @@ class SettaListener:
         self._dependency_cache = updated_cache
 
         if is_bootstrap:
-            await self._send_listener_register(websocket)
+            await self._send_listener_register()
 
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed)
@@ -765,3 +765,18 @@ class SettaListener:
             spec_logger = logger.getChild(f"callback.{spec.callback_id}")
             spec.logger = spec_logger
         return ListenerCallbackContext(changed=changed, log=spec_logger)
+
+    async def _send_websocket_payload(self, payload: str) -> None:
+        websocket = self._websocket
+        if websocket is None:
+            raise RuntimeError(
+                f"Listener {self._project_id} is not connected to the websocket"
+            )
+        async with self._send_lock:
+            try:
+                await websocket.send(payload)
+            except Exception:
+                logger.exception(
+                    "Listener %s failed to send websocket payload", self._project_id
+                )
+                raise
