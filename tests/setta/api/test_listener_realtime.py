@@ -91,11 +91,11 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         project_state = self._build_project_state()
         websocket = _StubWebsocket()
+        listener._websocket = websocket
 
         await listener._handle_persisted_snapshot(
             project_state,
             is_bootstrap=True,
-            websocket=websocket,
         )
 
         self.assertEqual(persisted_calls, [{"Welcome": "Hello"}])
@@ -219,6 +219,9 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             "section__slider": 1,
             "section__switch": False,
         }
+
+        websocket = _StubWebsocket()
+        listener._websocket = websocket
 
         event = ListenerRealtimeEventContent(
             projectConfigId="project-typed",

@@ -27,11 +27,11 @@
 ### Dependency Key Refactor Status
 - **Done**: Listener registration now resolves sanitized dependency strings to graph keys, websocket payloads ship structured keys, and frontend controls emit the same structure. Confirmed all websocket payload schemas (`ListenerRealtimeDelta`, `RealtimeUIChange`, generators) already use structured keys. Regenerated TypeScript bindings (`source activate.sh && cd frontend && pnpm generate`) and verified the websocket helpers.
 - **Done**: `tests/manual_listener_smoke.py` now logs both sanitized dependency names and structured graph keys for each callback delta to aid debugging.
+- **Done**: Added backend regression coverage validating sanitized-name ↔ structured-key round-trips and duplicate-name handling during listener registration.
 - **Next**:
-  1. Add regression coverage for sanitized-name ↔ structured-key round-trips and duplicate-name handling.
-  2. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change.
-  3. Extend `RealtimeEventHub` so it can batch multiple deltas that arrive in quick succession before notifying listeners, instead of emitting one websocket message per change.
-  4. Define the stable contract for frontend listener payload processing (selection/filtering APIs, retention policy) and surface consumption helpers once UX is decided.
+  1. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change.
+  2. Extend `RealtimeEventHub` so it can batch multiple deltas that arrive in quick succession before notifying listeners, instead of emitting one websocket message per change.
+  3. Define the stable contract for frontend listener payload processing (selection/filtering APIs, retention policy) and surface consumption helpers once UX is decided.
 
 ### Manual Validation
 1. Stack: `source activate.sh && cd frontend && pnpm start`.
