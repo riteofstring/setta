@@ -29,7 +29,7 @@
 - **Done**: `tests/manual_listener_smoke.py` now logs both sanitized dependency names and structured graph keys for each callback delta to aid debugging.
 - **Done**: Added backend regression coverage validating sanitized-name ↔ structured-key round-trips and duplicate-name handling during listener registration.
 - **Next**:
-  1. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change. ✅ Added frontend coverage caching and emission gating; awaiting backend coverage snapshots & websocket broadcast to activate it. ⚠️ Follow-up: trigger an initial snapshot fetch (or force a bootstrap broadcast) when the frontend connects to avoid staying stuck in `"fetching"`.
+  1. Teach the frontend to emit realtime UI changes only for dependencies that currently have listeners; when no specific dependencies are registered (i.e., a wildcard listener), fall back to emitting every UI change. ✅ Added frontend coverage caching and emission gating; awaiting backend coverage snapshots & websocket broadcast to activate it. ⚠️ Follow-up: trigger an initial snapshot fetch (or force a bootstrap broadcast) when the frontend loads a project.
   2. Extend `RealtimeEventHub` so it can batch multiple deltas that arrive in quick succession before notifying listeners, instead of emitting one websocket message per change.
   3. Define the stable contract for frontend listener payload processing (selection/filtering APIs, retention policy) and surface consumption helpers once UX is decided.
 
