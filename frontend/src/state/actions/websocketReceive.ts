@@ -167,9 +167,11 @@ export function sendRealtimeUIChange({
     codeObjId: codeObjId ?? null,
   };
   const coverage = getListenerCoverageRecord(projectConfigId);
+  console.log("coverage", coverage)
   if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
     return;
   }
+  
   const message: WebsocketMsgRealtimeUIChange = {
     id: null,
     messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
@@ -179,6 +181,7 @@ export function sendRealtimeUIChange({
       value,
     },
   };
+  console.log('sending real time update', message)
   sendMessage(message);
 }
 

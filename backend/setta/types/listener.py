@@ -41,6 +41,10 @@ class ListenerFrontendEmitContent(BaseModel):
     target: str | None = None
 
 
+class ListenerCoverageRequest(BaseModel):
+    projectConfigId: str
+
+
 class ListenerCoverageSnapshot(BaseModel):
     projectConfigId: str
     dependencies: list["ListenerDependencyKey"]

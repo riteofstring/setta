@@ -463,6 +463,7 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
+  GET_LISTENER_COVERAGE: "/getListenerCoverage",
   SET_LLM_API_KEYS: "/setLLMApiKeys",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
@@ -8138,6 +8139,20 @@ export function createProjectStateBackend(
   options: Partial<ProjectStateBackend> = {},
 ): ProjectStateBackend {
   return ProjectStateBackendSchema.parse(options);
+}
+
+export const ListenerCoverageRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type ListenerCoverageRequest = z.infer<
+  typeof ListenerCoverageRequestSchema
+>;
+
+export function createListenerCoverageRequest(
+  options: Partial<ListenerCoverageRequest> = {},
+): ListenerCoverageRequest {
+  return ListenerCoverageRequestSchema.parse(options);
 }
 
 export const ListenerRealtimeDeltaSchema = z.object({

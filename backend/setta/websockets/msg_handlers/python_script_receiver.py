@@ -30,14 +30,11 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         websocket_manager,
         listener_registry: ListenerRegistry,
         frontend_sender: WMHFrontendSender,
-        listener_coverage_tracker: ListenerCoverageTracker | None = None,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
         self.frontend_sender = frontend_sender
-        self.listener_coverage_tracker = (
-            listener_coverage_tracker or ListenerCoverageTracker()
-        )
+        self.listener_coverage_tracker = ListenerCoverageTracker()
 
     async def on_disconnect(self, websocket_id):
         registration = self.listener_registry.get_registration(websocket_id)

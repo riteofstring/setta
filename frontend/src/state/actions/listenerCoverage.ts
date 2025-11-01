@@ -1,8 +1,19 @@
-import { ListenerCoverageSnapshot, ListenerDependencyKey } from "utils/generatedTypes";
-import { type ListenerCoverageRecord, useListenerCoverage } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useListenerCoverage,
+  type ListenerCoverageRecord,
+} from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_get_listener_coverage } from "utils/generatedEndpoints";
+import {
+  ListenerCoverageSnapshot,
+  ListenerDependencyKey,
+} from "utils/generatedTypes";
 
 function serializeListenerDependencyKey(key: ListenerDependencyKey): string {
-  return key.codeObjId ? `${key.sectionId}::${key.codeObjId}` : `${key.sectionId}::`;
+  return key.codeObjId
+    ? `${key.sectionId}::${key.codeObjId}`
+    : `${key.sectionId}::`;
 }
 
 function buildDependencyLookup(
@@ -20,25 +31,7 @@ export function applyListenerCoverageSnapshot(
 ): void {
   useListenerCoverage.setState((state) => {
     const { projectConfigId, dependencies, hasRealtimeWildcard } = snapshot;
-    const current = state.byProjectId[projectConfigId];
     const dependencyLookup = buildDependencyLookup(dependencies);
-
-    if (current) {
-      const matchesExisting =
-        current.hasRealtimeWildcard === hasRealtimeWildcard &&
-        Object.keys(current.dependenciesByKey).length ===
-          Object.keys(dependencyLookup).length &&
-        Object.keys(dependencyLookup).every(
-          (key) => current.dependenciesByKey[key] !== undefined,
-        );
-      if (matchesExisting) {
-        return;
-      }
-      current.hasRealtimeWildcard = hasRealtimeWildcard;
-      current.dependenciesByKey = dependencyLookup;
-      return;
-    }
-
     state.byProjectId[projectConfigId] = {
       hasRealtimeWildcard,
       dependenciesByKey: dependencyLookup,
@@ -67,6 +60,23 @@ export function dependencyKeyCovered(
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
 
-export function serializeCoverageKey(dependency: ListenerDependencyKey): string {
+export function serializeCoverageKey(
+  dependency: ListenerDependencyKey,
+): string {
   return serializeListenerDependencyKey(dependency);
+}
+
+export async function fetchListenerCoverageSnapshot(
+  projectConfigId: string,
+): Promise<void> {
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  console.log("fetchListenerCoverageSnapshot");
+  const res = await route_get_listener_coverage({ projectConfigId });
+  console.log("res", res);
+  if (!res200(res)) {
+    return;
+  }
+  applyListenerCoverageSnapshot(res.data);
 }

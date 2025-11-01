@@ -48,6 +48,7 @@ class Route(str, Enum):
     GET_NOTIFICATIONS = "/getNotifications"
     DELETE_NOTIFICATION = "/deleteNotification"
     GET_LLM_RESPONSE = "/getLLMResponse"
+    GET_LISTENER_COVERAGE = "/getListenerCoverage"
     SET_LLM_API_KEYS = "/setLLMApiKeys"
     GET_ALL_LLM_CHAT_METADATA = "/getAllLLMChatMetadata"
     DELETE_LLM_CHAT = "/deleteLLMChat"

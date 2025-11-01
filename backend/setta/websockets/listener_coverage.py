@@ -19,17 +19,18 @@ class _CoverageSignature:
 @dataclass
 class _CoverageState:
     signature: _CoverageSignature
+    snapshot: ListenerCoverageSnapshot
 
 
 class ListenerCoverageTracker:
     def __init__(self) -> None:
         self._state_by_project: dict[str, _CoverageState] = {}
 
-    def update_for_project(
+    def _build_signature_and_snapshot(
         self,
         project_config_id: str,
         registrations: Iterable[ListenerRegistration],
-    ) -> ListenerCoverageSnapshot | None:
+    ) -> tuple[_CoverageSignature, ListenerCoverageSnapshot]:
         dependency_keys: set[GraphKeyType] = set()
         has_realtime_wildcard = False
 
@@ -48,10 +49,6 @@ class ListenerCoverageTracker:
             has_realtime_wildcard=has_realtime_wildcard,
         )
 
-        prev_state = self._state_by_project.get(project_config_id)
-        if prev_state and prev_state.signature == signature:
-            return None
-
         serialized_dependencies = [
             ListenerDependencyKey.from_graph_key(graph_key)
             for graph_key in signature.dependency_keys
@@ -63,7 +60,44 @@ class ListenerCoverageTracker:
             hasRealtimeWildcard=signature.has_realtime_wildcard,
         )
 
+        return signature, snapshot
+
+    def update_for_project(
+        self,
+        project_config_id: str,
+        registrations: Iterable[ListenerRegistration],
+    ) -> ListenerCoverageSnapshot | None:
+        signature, snapshot = self._build_signature_and_snapshot(
+            project_config_id,
+            registrations,
+        )
+
+        prev_state = self._state_by_project.get(project_config_id)
+        if prev_state and prev_state.signature == signature:
+            return None
+
         self._state_by_project[project_config_id] = _CoverageState(
             signature=signature,
+            snapshot=snapshot,
+        )
+        return snapshot
+
+    def get_snapshot_for_project(
+        self,
+        project_config_id: str,
+        registrations: Iterable[ListenerRegistration],
+    ) -> ListenerCoverageSnapshot:
+        signature, snapshot = self._build_signature_and_snapshot(
+            project_config_id,
+            registrations,
+        )
+
+        prev_state = self._state_by_project.get(project_config_id)
+        if prev_state and prev_state.signature == signature:
+            return prev_state.snapshot
+
+        self._state_by_project[project_config_id] = _CoverageState(
+            signature=signature,
+            snapshot=snapshot,
         )
         return snapshot
