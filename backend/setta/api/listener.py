@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
 from uuid import uuid4
 
+import requests
 import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
@@ -98,18 +99,30 @@ class SettaListener:
     def __init__(
         self,
         *,
-        project_id: str,
+        project_name: str | None = None,
+        project_id: str | None = None,
         default_feed: ListenerFeed = ListenerFeed.PERSISTED,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
+        http_timeout: float = 5.0,
     ) -> None:
-        self._project_id = project_id
+        if project_id is None and project_name is None:
+            raise ValueError("SettaListener requires either project_name or project_id")
+        self._project_name = project_name
+        if project_id is None:
+            # Use the provided name for logging until the real id is resolved.
+            self._project_id = project_name
+            self._needs_project_id_resolution = True
+        else:
+            self._project_id = project_id
+            self._needs_project_id_resolution = False
         self._feed = self._normalize_feed(default_feed)
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
         self._reconnect_delay = reconnect_delay
+        self._http_timeout = http_timeout
         self._stop_event = asyncio.Event()
         self._socket_id = uuid4().hex
         self._registration_pending = False
@@ -388,15 +401,89 @@ class SettaListener:
             choices = tuple(member.value for member in ListenerFeed)
             raise ValueError(msg % (value, choices)) from error
 
+    def _http_api_base(self) -> str:
+        if self._host == C.HOST and self._port == C.PORT:
+            return f"{C.BACKEND}{Route.PREFIX.value}"
+        if self._host.startswith(("http://", "https://")):
+            return f"{self._host.rstrip('/')}{Route.PREFIX.value}"
+        return f"http://{self._host}:{self._port}{Route.PREFIX.value}"
+
+    async def _ensure_project_id(self) -> str:
+        project_id = self._project_id
+        if self._needs_project_id_resolution:
+            if self._project_name is None:
+                raise RuntimeError(
+                    "Listener cannot resolve project id without a project name"
+                )
+            project_id = await asyncio.to_thread(
+                self._resolve_project_id_by_name,
+                self._project_name,
+            )
+            self._project_id = project_id
+            self._needs_project_id_resolution = False
+        if project_id is None:
+            raise RuntimeError("Listener project id is unavailable")
+        return project_id
+
+    def _resolve_project_id_by_name(self, project_name: str) -> str:
+        api_base = self._http_api_base()
+        metadata_url = f"{api_base}{Route.LOAD_ALL_PROJECT_METADATA.value}"
+        try:
+            response = requests.post(metadata_url, timeout=self._http_timeout)
+            response.raise_for_status()
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"Failed to load project metadata while resolving {project_name!r}"
+            ) from error
+
+        payload = response.json()
+        for config in payload.get("projectMetadata", []):
+            if config.get("name") == project_name:
+                project_id = config.get("id")
+                if project_id:
+                    return project_id
+
+        project_config_url = f"{api_base}{Route.LOAD_PROJECT_CONFIG.value}"
+        try:
+            response = requests.post(
+                project_config_url,
+                json={"projectConfigName": project_name},
+                timeout=self._http_timeout,
+            )
+            response.raise_for_status()
+        except requests.HTTPError as error:
+            status_code = error.response.status_code if error.response else None
+            if status_code == 404:
+                raise KeyError(
+                    f"Project named {project_name!r} does not exist"
+                ) from error
+            raise RuntimeError(
+                f"Failed to resolve project id for {project_name!r}"
+            ) from error
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"Failed to resolve project id for {project_name!r}"
+            ) from error
+
+        project_state = response.json()
+        project_config = project_state.get("projectConfig")
+        if isinstance(project_config, dict):
+            project_id = project_config.get("id")
+            if project_id:
+                return project_id
+
+        raise KeyError(f"Project named {project_name!r} does not exist")
+
     async def _send_bootstrap_init(self) -> None:
         """Send an initial bootstrap handshake to identify the target project."""
+        project_id = await self._ensure_project_id()
         content = ListenerInitContent(
-            projectConfigId=self._project_id,
+            projectConfigId=project_id,
             defaultFeed=self._feed,
         )
         message = WebsocketMsgListenerInit(content=content)
         payload = message.model_dump_json()
-        logger.debug("Listener %s sending bootstrap init", self._project_id)
+        logger.debug("Listener %s sending bootstrap init", project_id)
         try:
             await self._send_websocket_payload(payload)
         except Exception:

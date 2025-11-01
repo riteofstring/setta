@@ -38,15 +38,20 @@ def _structured_dependency_map(
     return {}
 
 
-def load_default_project_id() -> str:
-    """Read the project config id that ships with the repository fixtures."""
+def load_default_project_identifiers() -> tuple[str, str]:
+    """Read the fixture project id and name that ship with the repository."""
     data = json.loads(Path("setta_files/project.json").read_text())
-    return data["defaultProjectConfigId"]
+    project_id = data["defaultProjectConfigId"]
+    project_config = data["projectConfigs"][project_id]
+    return project_id, project_config["name"]
 
 
-def build_listener(project_id: str) -> SettaListener:
+def build_listener(project_name: str, project_id: str | None) -> SettaListener:
     """Wire the example callback that watches the Channel Shuffle groups param."""
-    listener = SettaListener(project_id=project_id)
+    listener = SettaListener(
+        project_name=project_name,
+        project_id=project_id,
+    )
 
     @listener.listen(deps=["hiding_river__x"], feed="both")
     def on_groups_change(state: Any, ctx: Any) -> None:
@@ -66,16 +71,31 @@ def main() -> None:
         description="Manual smoke test for SettaListener persisted updates."
     )
     parser.add_argument(
+        "--project-name",
+        default=None,
+        help=(
+            "Override the project config name to watch (defaults to repository fixture)."
+        ),
+    )
+    parser.add_argument(
         "--project-id",
         default=None,
-        help="Override the project config to watch (defaults to repository fixture).",
+        help=("Optionally provide a project config id hint to skip name resolution."),
     )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
 
-    project_id = args.project_id or load_default_project_id()
-    listener = build_listener(project_id)
+    default_project_id, default_project_name = load_default_project_identifiers()
+    project_name = args.project_name or default_project_name
+    if args.project_id:
+        project_id_hint = args.project_id
+    elif project_name == default_project_name:
+        project_id_hint = default_project_id
+    else:
+        project_id_hint = None
+
+    listener = build_listener(project_name, project_id_hint)
 
     try:
         listener.start()
