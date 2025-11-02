@@ -70,15 +70,11 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         module_path.write_text(
             textwrap.dedent(
                 f"""
-                from setta.types.listener import ListenerFeed
-
-
                 def build_callbacks(listener):
                     record = listener._test_invocations
 
                     @listener.listen(
                         deps=("Welcome",),
-                        feed=ListenerFeed.REALTIME,
                         run_on_refresh=True,
                     )
                     def on_change(state, ctx):

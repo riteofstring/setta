@@ -398,10 +398,6 @@ export type ListenerDependencyMode = ObjectValues<
   typeof ListenerDependencyModeEnum
 >;
 
-export const ListenerFeedEnum = { REALTIME: "realtime" } as const;
-
-export type ListenerFeed = ObjectValues<typeof ListenerFeedEnum>;
-
 export const SettaNotificationTypeEnum = {
   success: "success",
   error: "error",
@@ -5875,7 +5871,6 @@ export function createWebsocketMsgListenerFrontendEmit(
 
 export const ListenerRegisterCallbackSchema = z.object({
   dependencies: z.array(ListenerDependencyKeySchema),
-  feed: z.enum(ListenerFeedEnum),
   dependencyMode: z.enum(ListenerDependencyModeEnum),
   debounceMs: z.union([z.int(), z.null()]).default(null),
   throttleMs: z.union([z.int(), z.null()]).default(null),
@@ -5976,7 +5971,6 @@ export function createWebsocketMsgListenerRegisterAck(
 export const ListenerInitContentSchema = z.object({
   projectConfigId: z.union([z.string(), z.null()]).default(null),
   projectName: z.union([z.string(), z.null()]).default(null),
-  defaultFeed: z.enum(ListenerFeedEnum).default(ListenerFeedEnum.REALTIME),
 });
 
 export type ListenerInitContent = z.infer<typeof ListenerInitContentSchema>;

@@ -132,7 +132,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
             sanitized_child
         ]
 
-        @listener.listen(deps=(sanitized_child,), feed=None)
+        @listener.listen(deps=(sanitized_child,))
         def _callback(state, ctx):
             return None
 
@@ -163,7 +163,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
             ["Settings_Group__Data_Source", "Settings_Group__Data_Source_2"],
         )
 
-        @listener.listen(deps=tuple(sanitized_names), feed=None)
+        @listener.listen(deps=tuple(sanitized_names))
         def _callback(state, ctx):
             return None
 

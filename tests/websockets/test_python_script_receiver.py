@@ -7,7 +7,6 @@ from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerDependencyMode,
-    ListenerFeed,
     ListenerFrontendEmitContent,
     ListenerInitContent,
     ListenerRegisterCallback,
@@ -144,7 +143,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             dependencies=[
                 ListenerDependencyKey(sectionId="Homepage__hero__title", codeObjId=None)
             ],
-            feed=ListenerFeed.REALTIME,
             dependencyMode=ListenerDependencyMode.SPECIFIC,
         )
         content = ListenerRegisterContent(
@@ -163,10 +161,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         assert registration is not None  # help type checkers
         self.assertEqual("proj-123", registration.project_config_id)
         self.assertIn("cb-1", registration.callbacks)
-        self.assertEqual(
-            ListenerFeed.REALTIME,
-            registration.callbacks["cb-1"].feed,
-        )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
         ack_message, websocket_id = websocket_manager.sent_messages[0]
@@ -199,7 +193,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectName=project_state.projectConfig.name,
-                defaultFeed=ListenerFeed.REALTIME,
             )
         )
 
@@ -305,7 +298,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         callback = ListenerRegisterCallback(
             dependencies=[],
-            feed=ListenerFeed.REALTIME,
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
         )
         register_message = WebsocketMsgListenerRegister(
@@ -403,7 +395,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         callback = ListenerRegisterCallback(
             dependencies=[],
-            feed=ListenerFeed.REALTIME,
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
         )
         register_message = WebsocketMsgListenerRegister(

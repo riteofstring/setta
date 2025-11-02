@@ -23,7 +23,6 @@ from setta.types.generated.websocket_unions import (
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerDependencyMode,
-    ListenerFeed,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
     ListenerInitContent,
@@ -109,14 +108,12 @@ class SettaListener:
         self,
         *,
         project_name: str,
-        default_feed: ListenerFeed = ListenerFeed.REALTIME,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
     ) -> None:
         self._project_name = project_name
         self._project_id: str | None = None
-        self._feed = self._normalize_feed(default_feed)
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
@@ -461,14 +458,11 @@ class SettaListener:
         self,
         *,
         deps: Iterable[str] | None = None,
-        feed: ListenerFeed | str | None = None,
         dependency_mode: ListenerDependencyMode | str | None = None,
         debounce_ms: int | None = None,
         throttle_ms: int | None = None,
         run_on_refresh: bool = False,
     ) -> Callable[[ListenerCallback], ListenerCallback]:
-        self._normalize_feed(feed if feed is not None else self._feed)
-
         def decorator(func: ListenerCallback) -> ListenerCallback:
             dependencies = tuple(deps) if deps is not None else ()
             normalized_mode = self._normalize_dependency_mode(
@@ -555,7 +549,6 @@ class SettaListener:
                 )
             callbacks[spec.callback_id] = ListenerRegisterCallback(
                 dependencies=list(structured_dependencies),
-                feed=ListenerFeed.REALTIME,
                 dependencyMode=spec.dependency_mode,
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
@@ -579,17 +572,6 @@ class SettaListener:
             )
         section_id, code_obj_id = graph_key
         return ListenerDependencyKey(sectionId=section_id, codeObjId=code_obj_id)
-
-    @staticmethod
-    def _normalize_feed(
-        value: ListenerFeed | str,
-    ) -> ListenerFeed:
-        try:
-            return ListenerFeed(value)
-        except ValueError as error:
-            msg = "Unknown feed selection %r. Expected one of %s."
-            choices = tuple(member.value for member in ListenerFeed)
-            raise ValueError(msg % (value, choices)) from error
 
     @staticmethod
     def _normalize_dependency_mode(
@@ -626,7 +608,6 @@ class SettaListener:
         content = ListenerInitContent(
             projectConfigId=self._project_id,
             projectName=self._project_name,
-            defaultFeed=self._feed,
         )
         message = WebsocketMsgListenerInit(content=content)
         payload = message.model_dump_json()

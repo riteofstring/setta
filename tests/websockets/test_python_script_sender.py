@@ -3,7 +3,6 @@ import unittest
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerDependencyMode,
-    ListenerFeed,
     ListenerRealtimeDelta,
     ListenerRegisterCallback,
 )
@@ -37,7 +36,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-1",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
                 "cb-additional": ListenerRegisterCallback(
@@ -47,12 +45,10 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-2",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
                 "cb-any": ListenerRegisterCallback(
                     dependencies=[],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
                 ),
                 "cb-refresh-only": ListenerRegisterCallback(
@@ -62,7 +58,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-1",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
                 ),
             },
@@ -78,7 +73,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-3",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
@@ -94,7 +88,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-1",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
@@ -184,7 +177,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-1",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
                 ),
                 "cb-other": ListenerRegisterCallback(
@@ -194,7 +186,6 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                             codeObjId="param-2",
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },

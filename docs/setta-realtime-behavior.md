@@ -10,7 +10,7 @@ This page explains how realtime listener updates move through the system, how ca
 
 ## Realtime delta pipeline
 - Producer side: code that mutates project state calls `RealtimeEventHub.emit_realtime_delta`. The hub increments per-project sequence numbers and delegates to `WMHPythonScriptSender.send_realtime_update`.
-- The sender filters listener registrations so only sockets with realtime feeds and matching dependencies receive the `WebsocketMsgListenerRealtimeEvent` payload.
+- The sender filters listener registrations so only sockets with matching dependencies receive the `WebsocketMsgListenerRealtimeEvent` payload.
 - Consumer side: `_handle_realtime_event` enforces sequencing (`sequence` must advance, otherwise the event is ignored) and rejects deltas for unknown dependency keys.
 - Each `ListenerRealtimeDelta` encodes a `ListenerDependencyKey` plus a canonical value. `_set_dependency_value` updates the generated `s` instance, rehydrating typed values via `PythonCodeGenerator.get_value`.
 - `_dependency_cache` keeps the latest values per dependency. When deltas arrive, the cache is updated so subsequent snapshots can detect whether a value actually changed.

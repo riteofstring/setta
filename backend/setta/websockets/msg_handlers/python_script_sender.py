@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any
 
 from setta.types.listener import (
     ListenerErrorContent,
-    ListenerFeed,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
     ListenerRealtimeDelta,
@@ -98,10 +97,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             project_config_id=projectConfigId,
             dependency_keys=(delta.dependency.to_graph_key() for delta in deltas),
         ):
-            if any(
-                registration.callbacks[callback_id].feed is ListenerFeed.REALTIME
-                for callback_id in matching_callbacks
-            ):
+            if matching_callbacks:
                 sockets_to_notify.add(registration.websocket_id)
 
         if not sockets_to_notify:

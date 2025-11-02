@@ -5,7 +5,6 @@ import unittest
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerDependencyMode,
-    ListenerFeed,
     ListenerRegisterCallback,
 )
 from setta.websockets.listener_coverage import ListenerCoverageTracker
@@ -41,7 +40,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId="section-A", codeObjId="param-1"
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
@@ -71,7 +69,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId="section-A", codeObjId="param-1"
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
@@ -98,7 +95,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId="section-A", codeObjId="param-1"
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
@@ -111,7 +107,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                     dependencies=[
                         ListenerDependencyKey(sectionId="section-B", codeObjId=None)
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
@@ -143,7 +138,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
                 )
             },
@@ -169,7 +163,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                             sectionId="section-A", codeObjId="param-1"
                         )
                     ],
-                    feed=ListenerFeed.REALTIME,
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },

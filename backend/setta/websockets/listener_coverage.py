@@ -6,7 +6,6 @@ from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerDependencyKey,
     ListenerDependencyMode,
-    ListenerFeed,
 )
 from setta.websockets.listener_registry import ListenerRegistration
 
@@ -37,8 +36,6 @@ class ListenerCoverageTracker:
 
         for registration in registrations:
             for callback in registration.callbacks.values():
-                if callback.feed is not ListenerFeed.REALTIME:
-                    continue
                 if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
                     continue
                 if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:

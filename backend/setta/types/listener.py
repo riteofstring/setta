@@ -7,10 +7,6 @@ from setta.code_gen.dependency_graph import GraphKeyType
 from setta.types.project_state import ProjectStateSingleConfig
 
 
-class ListenerFeed(str, Enum):
-    REALTIME = "realtime"
-
-
 class ListenerDependencyMode(str, Enum):
     SPECIFIC = "specific"
     ANY_DEPENDENCY = "any_dependency"
@@ -20,7 +16,6 @@ class ListenerDependencyMode(str, Enum):
 class ListenerInitContent(BaseModel):
     projectConfigId: str | None = None
     projectName: str | None = None
-    defaultFeed: ListenerFeed = ListenerFeed.REALTIME
 
     @model_validator(mode="after")
     def _validate_identifier(self):
@@ -84,7 +79,6 @@ class ListenerRealtimeDelta(BaseModel):
 
 class ListenerRegisterCallback(BaseModel):
     dependencies: list[ListenerDependencyKey]
-    feed: ListenerFeed
     dependencyMode: ListenerDependencyMode
     debounceMs: int | None = None
     throttleMs: int | None = None
