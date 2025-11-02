@@ -3,6 +3,7 @@ import contextlib
 import inspect
 import logging
 import sys
+from ast import literal_eval
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
 from uuid import uuid4
@@ -1001,10 +1002,7 @@ class SettaListener:
             )
 
         try:
-            return eval(
-                expression,
-                {"s": s_instance, "__builtins__": __builtins__},
-            )
+            return literal_eval(expression)
         except Exception as error:
             logger.error(
                 "Listener %s failed to evaluate expression for %s: %s",
