@@ -66,6 +66,7 @@ _RECOVERABLE_SNAPSHOT_ERRORS: tuple[type[Exception], ...] = (
 
 # Listener callbacks may either complete synchronously or return an awaitable.
 ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
+ListenerCallbackBuilder = Callable[["SettaListener"], None]
 
 
 @dataclass(slots=True)
@@ -124,6 +125,8 @@ class SettaListener:
         self._scheduler = ListenerCallbackScheduler()
         self._websocket: "ClientConnection" | None = None
         self._send_lock = asyncio.Lock()
+        self._callback_lock = asyncio.Lock()
+        self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
 
     @property
     def _log_identifier(self) -> str:
@@ -381,6 +384,50 @@ class SettaListener:
 
         return decorator
 
+    def clear_callbacks(self) -> None:
+        """Remove every registered callback and scheduler entry."""
+        if not self._callbacks:
+            return
+        for callback_id in list(self._callbacks.keys()):
+            self._remove_callback(callback_id)
+
+    def _remove_callback(self, callback_id: str) -> None:
+        """Drop a single callback and its scheduler registration."""
+        spec = self._callbacks.pop(callback_id, None)
+        if spec is None:
+            return
+        self._scheduler.unregister_callback(callback_id)
+
+    async def reload_callbacks(
+        self,
+        builder: ListenerCallbackBuilder,
+        *,
+        trigger_refresh: bool = True,
+    ) -> None:
+        async with self._callback_lock:
+            previous_callbacks = dict(self._callbacks)
+            previous_is_registered = self._is_registered
+            previous_registration_pending = self._registration_pending
+            previous_expected_ids = set(self._expected_ack_callback_ids)
+            try:
+                self.clear_callbacks()
+                builder(self)
+                self._is_registered = False
+                self._registration_pending = False
+                self._expected_ack_callback_ids = set()
+                await self._send_listener_register()
+                if trigger_refresh:
+                    await self._replay_cached_snapshot()
+            except Exception:
+                self.clear_callbacks()
+                for spec in previous_callbacks.values():
+                    self._callbacks[spec.callback_id] = spec
+                    self._register_scheduler_callback(spec)
+                self._is_registered = previous_is_registered
+                self._registration_pending = previous_registration_pending
+                self._expected_ack_callback_ids = previous_expected_ids
+                raise
+
     def _build_register_content(self) -> ListenerRegisterContent:
         """Serialize callback metadata into a register payload."""
         runtime_state = self._runtime_state
@@ -456,6 +503,12 @@ class SettaListener:
 
     async def _send_listener_register(self) -> None:
         """Send the full callback registration after bootstrap completes."""
+        if self._runtime_state is None:
+            logger.debug(
+                "Listener %s skipping register because runtime state is unavailable",
+                self._log_identifier,
+            )
+            return
         content = self._build_register_content()
         message = WebsocketMsgListenerRegister(content=content)
         payload = message.model_dump_json()
@@ -483,6 +536,7 @@ class SettaListener:
         is_bootstrap: bool,
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
+        self._latest_persisted_snapshot = project_state
         incoming_project_id = project_state.projectConfig.id
         if self._project_id is None:
             self._project_id = incoming_project_id
@@ -918,3 +972,79 @@ class SettaListener:
                     self._log_identifier,
                 )
                 raise
+
+    async def _replay_cached_snapshot(self) -> None:
+        """Replay the most recent persisted snapshot for newly registered callbacks."""
+        runtime_state = self._runtime_state
+        snapshot = self._latest_persisted_snapshot
+        if runtime_state is None or runtime_state.s_instance is None:
+            if snapshot is None:
+                logger.debug(
+                    "Listener %s cannot replay snapshot without persisted state",
+                    self._log_identifier,
+                )
+                return
+            try:
+                runtime_state = self._build_runtime_state(snapshot)
+            except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+                logger.warning(
+                    "Listener %s skipped snapshot replay due to build failure: %s",
+                    self._log_identifier,
+                    error,
+                    exc_info=logger.isEnabledFor(logging.DEBUG),
+                )
+                return
+            if runtime_state.s_instance is None:
+                self._runtime_state = runtime_state
+                self._dependency_cache = {}
+                logger.warning(
+                    (
+                        "Listener %s cannot replay snapshot because runtime state "
+                        "remains unavailable"
+                    ),
+                    self._log_identifier,
+                )
+                return
+            self._runtime_state = runtime_state
+
+        state_instance = runtime_state.s_instance
+        if state_instance is None:
+            logger.debug(
+                "Listener %s cannot replay snapshot because runtime state is unavailable",
+                self._log_identifier,
+            )
+            return
+
+        snapshot_values: dict[str, Any] = {}
+        updated_cache = dict(self._dependency_cache)
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+
+        for spec in self._callbacks.values():
+            self._scheduler.reset(spec.callback_id)
+            if not self._callback_accepts_persisted(spec):
+                continue
+            dependencies = spec.declared_dependencies
+            if not dependencies:
+                callbacks_to_run.append((spec, {}))
+                continue
+
+            changed: dict[str, Any] = {}
+            for dependency in dependencies:
+                value = self._get_dependency_value(
+                    state_instance,
+                    dependency,
+                    snapshot_values,
+                )
+                if value is _UNAVAILABLE:
+                    continue
+                updated_cache[dependency] = value
+                changed[dependency] = value
+
+            if changed or spec.run_on_refresh:
+                callbacks_to_run.append((spec, changed))
+
+        self._dependency_cache = updated_cache
+
+        for spec, changed in callbacks_to_run:
+            ctx = self._build_callback_context(spec, changed)
+            await self._invoke_callback(spec, state_instance, ctx)

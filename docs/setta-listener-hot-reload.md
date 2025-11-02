@@ -11,20 +11,17 @@ objects (ML models, caches, etc.) survive code edits.
 ## Listener API Extensions
 Add guarded management helpers inside `SettaListener`:
 
-- `self._callback_lock = asyncio.Lock()` protects callback mutations.
+- `self._callback_lock = asyncio.Lock()` protects callback mutations. **Done.**
 - `clear_callbacks()` and `_remove_callback(callback_id)` drop scheduler entries via
-  `ListenerCallbackScheduler.unregister_callback` and update `_callbacks`.
+  `ListenerCallbackScheduler.unregister_callback` and update `_callbacks`. **Done.**
 - `async reload_callbacks(builder, *, trigger_refresh=True)`:
-  1. Acquire the lock and snapshot `_runtime_state` / `_dependency_cache`.
-  2. Clear existing callbacks, run `builder(self)` to register new ones,
-     rewire the scheduler via `_register_scheduler_callback`.
-  3. Reset `_registration_pending` / `_expected_ack_callback_ids`, resend registration
-     through `_send_listener_register()`.
-  4. Optionally replay cached persisted state with `_replay_cached_snapshot()` so new
-     callbacks see current values immediately.
+  1. Acquire the lock and rebuild callbacks using the supplied builder. **Done.**
+  2. Reset registration bookkeeping and resend the register payload. **Done.**
+  3. Optionally replay cached persisted state with `_replay_cached_snapshot()` so new
+     callbacks see current values immediately. **Done.**
 
-`_build_register_content` must tolerate being called while `_runtime_state` is `None`
-and skip registration if the listener is not yet bootstrapped.
+`_send_listener_register()` now skips quietly when the listener has not bootstrapped,
+so `_build_register_content` continues to require a populated `_runtime_state`.
 
 ## Script Integration
 Keep heavyweight objects outside the reloadable builder and wrap the listener with a
@@ -59,8 +56,9 @@ should run inside the same event loop so websocket traffic continues uninterrupt
 
 ## Backend Support Work
 - Store the most recent persisted snapshot and reuse it for `_replay_cached_snapshot`.
+  **Done.**
 - Ensure `_send_listener_register()` can run multiple times per connection without
-  leaking scheduler state (`ListenerCallbackScheduler.reset` handles this today).
+  leaking scheduler state (`ListenerCallbackScheduler.reset` handles this today). **Done.**
 - Preserve `run_on_refresh` semantics during bootstrap by invoking callbacks after
   `reload_callbacks` completes when `trigger_refresh=True`.
 
@@ -69,7 +67,11 @@ should run inside the same event loop so websocket traffic continues uninterrupt
   `ListenerRegistry` sees updated callback IDs while the websocket remains open.
 - Document the workflow in `docs/` (this file) and link from `docs/setta-listener-plan.md`.
 
+## Progress
+- Listener core now supports hot reload: callback mutation lock, reload workflow, and cached snapshot replay are implemented.
+- Registration flow tolerates multiple register attempts without losing state.
+- Latest persisted project snapshot is cached and replayed after reloads to hydrate new callbacks immediately.
+
 ## Next Steps
-1. Implement the listener API changes and cached snapshot replay.
-2. Ship `ListenerHotReloader` and `listener.start_with_hot_reload`.
-3. Add regression coverage plus manual instructions for testing with a slow model.
+1. Ship `ListenerHotReloader` and expose `listener.start_with_hot_reload` so scripts can opt in easily.
+2. Add regression coverage for multiple reload cycles plus documentation for manual hot-reload testing with a slow model.
