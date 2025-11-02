@@ -11,6 +11,12 @@ class ListenerFeed(str, Enum):
     REALTIME = "realtime"
 
 
+class ListenerDependencyMode(str, Enum):
+    SPECIFIC = "specific"
+    ANY_DEPENDENCY = "any_dependency"
+    REFRESH_ONLY = "refresh_only"
+
+
 class ListenerInitContent(BaseModel):
     projectConfigId: str | None = None
     projectName: str | None = None
@@ -79,6 +85,7 @@ class ListenerRealtimeDelta(BaseModel):
 class ListenerRegisterCallback(BaseModel):
     dependencies: list[ListenerDependencyKey]
     feed: ListenerFeed
+    dependencyMode: ListenerDependencyMode
     debounceMs: int | None = None
     throttleMs: int | None = None
     runOnRefresh: bool = False

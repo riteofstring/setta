@@ -1,6 +1,12 @@
 import unittest
 
-from setta.types.listener import ListenerFeed, ListenerRegisterCallback
+from setta.types.listener import (
+    ListenerDependencyKey,
+    ListenerDependencyMode,
+    ListenerFeed,
+    ListenerRealtimeDelta,
+    ListenerRegisterCallback,
+)
 from setta.types.websocket import WebsocketMsgListenerRealtimeEvent
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -15,7 +21,7 @@ class _StubWebsocketManager:
 
 
 class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_send_realtime_update_filters_and_respects_feeds(self):
+    async def test_send_realtime_update_filters_and_respects_modes(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(websocket_manager, listener_registry)
@@ -24,21 +30,40 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             websocket_id="socket-1",
             project_config_id="proj-1",
             callbacks={
-                "cb-realtime": ListenerRegisterCallback(
-                    dependencies=["dep-a"],
+                "cb-specific": ListenerRegisterCallback(
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-A",
+                            codeObjId="param-1",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
-                "cb-both": ListenerRegisterCallback(
-                    dependencies=["dep-b"],
+                "cb-additional": ListenerRegisterCallback(
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-A",
+                            codeObjId="param-2",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
-                "cb-wildcard": ListenerRegisterCallback(
+                "cb-any": ListenerRegisterCallback(
                     dependencies=[],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
                 ),
-                "cb-persisted": ListenerRegisterCallback(
-                    dependencies=["dep-a"],
+                "cb-refresh-only": ListenerRegisterCallback(
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-A",
+                            codeObjId="param-1",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
                 ),
             },
         )
@@ -47,8 +72,14 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             project_config_id="proj-1",
             callbacks={
                 "cb-unrelated": ListenerRegisterCallback(
-                    dependencies=["dep-other"],
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-B",
+                            codeObjId="param-3",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
         )
@@ -57,30 +88,49 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             project_config_id="other-proj",
             callbacks={
                 "cb-other-project": ListenerRegisterCallback(
-                    dependencies=["dep-a"],
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-A",
+                            codeObjId="param-1",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
         )
 
+        deltas_specific = [
+            ListenerRealtimeDelta(
+                dependency=ListenerDependencyKey(
+                    sectionId="section-A",
+                    codeObjId="param-1",
+                ),
+                value="value-a",
+            )
+        ]
         await sender.send_realtime_update(
             projectConfigId="proj-1",
-            delta={"dep-a": "value-a"},
+            deltas=deltas_specific,
             sequence=1,
-            metadata={"source": "slider"},
-        )
-        await sender.send_realtime_update(
-            projectConfigId="proj-1",
-            delta={"dep-b": "value-b"},
-            sequence=2,
-        )
-        await sender.send_realtime_update(
-            projectConfigId="proj-1",
-            delta={"dep-unmatched": "value-c"},
-            sequence=3,
         )
 
-        self.assertEqual(3, len(websocket_manager.sent_messages))
+        deltas_unmatched = [
+            ListenerRealtimeDelta(
+                dependency=ListenerDependencyKey(
+                    sectionId="section-Z",
+                    codeObjId="param-9",
+                ),
+                value="value-unmatched",
+            )
+        ]
+        await sender.send_realtime_update(
+            projectConfigId="proj-1",
+            deltas=deltas_unmatched,
+            sequence=2,
+        )
+
+        self.assertEqual(2, len(websocket_manager.sent_messages))
         for idx, (message, websocket_id) in enumerate(
             websocket_manager.sent_messages, 1
         ):
@@ -89,16 +139,33 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(idx, message.content.sequence)
 
         first_message = websocket_manager.sent_messages[0][0]
-        self.assertEqual({"dep-a": "value-a"}, first_message.content.delta)
-        self.assertEqual({"source": "slider"}, first_message.content.metadata)
+        self.assertEqual(
+            [
+                ("section-A", "param-1", "value-a"),
+            ],
+            [
+                (
+                    delta.dependency.sectionId,
+                    delta.dependency.codeObjId,
+                    delta.value,
+                )
+                for delta in first_message.content.deltas
+            ],
+        )
 
         second_message = websocket_manager.sent_messages[1][0]
-        self.assertEqual({"dep-b": "value-b"}, second_message.content.delta)
-
-        third_message = websocket_manager.sent_messages[2][0]
         self.assertEqual(
-            {"dep-unmatched": "value-c"},
-            third_message.content.delta,
+            [
+                ("section-Z", "param-9", "value-unmatched"),
+            ],
+            [
+                (
+                    delta.dependency.sectionId,
+                    delta.dependency.codeObjId,
+                    delta.value,
+                )
+                for delta in second_message.content.deltas
+            ],
         )
 
     async def test_send_realtime_update_skips_when_no_callbacks_match(self):
@@ -110,20 +177,40 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             websocket_id="socket-1",
             project_config_id="proj-1",
             callbacks={
-                "cb-persisted": ListenerRegisterCallback(
-                    dependencies=["dep-a"],
+                "cb-refresh-only": ListenerRegisterCallback(
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-A",
+                            codeObjId="param-1",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
                 ),
-                "cb-realtime-other": ListenerRegisterCallback(
-                    dependencies=["dep-other"],
+                "cb-other": ListenerRegisterCallback(
+                    dependencies=[
+                        ListenerDependencyKey(
+                            sectionId="section-B",
+                            codeObjId="param-2",
+                        )
+                    ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 ),
             },
         )
 
         await sender.send_realtime_update(
             projectConfigId="proj-1",
-            delta={"dep-a": "value-a"},
+            deltas=[
+                ListenerRealtimeDelta(
+                    dependency=ListenerDependencyKey(
+                        sectionId="section-A",
+                        codeObjId="param-1",
+                    ),
+                    value="value-a",
+                )
+            ],
             sequence=1,
         )
 

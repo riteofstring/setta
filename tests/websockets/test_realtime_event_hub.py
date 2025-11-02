@@ -104,9 +104,7 @@ class _StubWebsocketManager:
         pass
 
     async def broadcast(self, message, connectionType):
-        self.broadcasts.append(
-            {"message": message, "connectionType": connectionType}
-        )
+        self.broadcasts.append({"message": message, "connectionType": connectionType})
 
 
 class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):

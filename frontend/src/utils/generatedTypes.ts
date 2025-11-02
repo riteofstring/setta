@@ -388,6 +388,16 @@ export const ViewingEditingModeEnum = {
 
 export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
+export const ListenerDependencyModeEnum = {
+  SPECIFIC: "specific",
+  ANY_DEPENDENCY: "any_dependency",
+  REFRESH_ONLY: "refresh_only",
+} as const;
+
+export type ListenerDependencyMode = ObjectValues<
+  typeof ListenerDependencyModeEnum
+>;
+
 export const ListenerFeedEnum = { REALTIME: "realtime" } as const;
 
 export type ListenerFeed = ObjectValues<typeof ListenerFeedEnum>;
@@ -5866,6 +5876,7 @@ export function createWebsocketMsgListenerFrontendEmit(
 export const ListenerRegisterCallbackSchema = z.object({
   dependencies: z.array(ListenerDependencyKeySchema),
   feed: z.enum(ListenerFeedEnum),
+  dependencyMode: z.enum(ListenerDependencyModeEnum),
   debounceMs: z.union([z.int(), z.null()]).default(null),
   throttleMs: z.union([z.int(), z.null()]).default(null),
   runOnRefresh: z.boolean().default(false),

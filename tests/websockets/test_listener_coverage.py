@@ -4,6 +4,7 @@ import unittest
 
 from setta.types.listener import (
     ListenerDependencyKey,
+    ListenerDependencyMode,
     ListenerFeed,
     ListenerRegisterCallback,
 )
@@ -41,6 +42,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                         )
                     ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -70,6 +72,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                         )
                     ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -96,6 +99,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                         )
                     ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -108,6 +112,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                         ListenerDependencyKey(sectionId="section-B", codeObjId=None)
                     ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )
@@ -139,6 +144,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.ANY_DEPENDENCY,
                 )
             },
         )
@@ -164,6 +170,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                         )
                     ],
                     feed=ListenerFeed.REALTIME,
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
             },
         )

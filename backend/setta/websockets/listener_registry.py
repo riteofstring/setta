@@ -2,7 +2,10 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from setta.code_gen.dependency_graph import GraphKeyType
-from setta.types.listener import ListenerRegisterCallback
+from setta.types.listener import (
+    ListenerDependencyMode,
+    ListenerRegisterCallback,
+)
 
 
 @dataclass
@@ -25,6 +28,11 @@ class ListenerRegistration:
         dependency_index: dict[GraphKeyType, set[str]] = {}
         wildcard_callbacks: set[str] = set()
         for callback_id, callback in callback_map.items():
+            if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
+                continue
+            if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:
+                wildcard_callbacks.add(callback_id)
+                continue
             if not callback.dependencies:
                 wildcard_callbacks.add(callback_id)
                 continue

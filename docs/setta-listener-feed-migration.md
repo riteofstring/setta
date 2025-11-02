@@ -29,12 +29,12 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
 - Updated existing listener/websocket unit tests and manual helpers to use the realtime-only feed.
 - ✅ Adjusted realtime integration tests to cover bootstrap invocation after the feed collapse.
 - ✅ Added unit coverage that force refreshes replay snapshots, clear sequence counters, and respect refresh-only callbacks (`tests/setta/api/test_listener_realtime.py`, `tests/websockets/test_realtime_event_hub.py`).
-- TODO: run `source activate.sh && python -m unittest discover` once any additional listener changes land, then perform a manual listener smoke pass if warranted.
+- 🚧 `source activate.sh && python -m unittest discover` currently fails locally because watchdog cannot start an FSEvents stream inside the harness; rerun on a host with working file watching (or force polling) before shipping.
 
 ## Listener Callback Dependency Modes
-- Preserve the current “specific dependencies” flow but make it realtime-only.
-- Introduce a way to express “any dependency” callbacks (e.g. wildcard deps or an explicit scope flag) so observers can react to every realtime delta without enumerating sections.
-- Redefine “no dependencies” to mean “run on bootstrap and force-refresh only” for refresh-driven tasks that should skip realtime noise.
+- ✅ Preserve the current “specific dependencies” flow but make it realtime-only. Implemented via `ListenerDependencyMode.SPECIFIC`, which requires explicit deps and continues to hydrate caches on snapshots.
+- ✅ Introduce a way to express “any dependency” callbacks (e.g. wildcard deps or an explicit scope flag) so observers can react to every realtime delta without enumerating sections. The new `ListenerDependencyMode.ANY_DEPENDENCY` routes all deltas to the callback and marks coverage as wildcard.
+- ✅ Redefine “no dependencies” to mean “run on bootstrap and force-refresh only” for refresh-driven tasks that should skip realtime noise. `ListenerDependencyMode.REFRESH_ONLY` skips realtime submissions, but still runs on bootstrap/force refresh.
 - Consider future enhancements: fine-grained trigger controls (initial vs refresh vs realtime), manual-only callbacks, or reusable dependency groups if new use cases demand them.
 
 ## Follow-ups

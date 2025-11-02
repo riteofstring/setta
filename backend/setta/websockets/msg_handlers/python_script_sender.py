@@ -38,9 +38,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self.listener_registry = listener_registry
         self._realtime_event_hub: "RealtimeEventHub" | None = None
 
-    def register_realtime_event_hub(
-        self, event_hub: "RealtimeEventHub"
-    ) -> None:
+    def register_realtime_event_hub(self, event_hub: "RealtimeEventHub") -> None:
         self._realtime_event_hub = event_hub
 
     async def send_persisted_update(

@@ -6,6 +6,7 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerDependencyKey,
+    ListenerDependencyMode,
     ListenerFeed,
     ListenerFrontendEmitContent,
     ListenerInitContent,
@@ -144,6 +145,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
                 ListenerDependencyKey(sectionId="Homepage__hero__title", codeObjId=None)
             ],
             feed=ListenerFeed.REALTIME,
+            dependencyMode=ListenerDependencyMode.SPECIFIC,
         )
         content = ListenerRegisterContent(
             projectConfigId="proj-123",
@@ -304,6 +306,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         callback = ListenerRegisterCallback(
             dependencies=[],
             feed=ListenerFeed.REALTIME,
+            dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
         )
         register_message = WebsocketMsgListenerRegister(
             content=ListenerRegisterContent(
@@ -401,6 +404,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         callback = ListenerRegisterCallback(
             dependencies=[],
             feed=ListenerFeed.REALTIME,
+            dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
         )
         register_message = WebsocketMsgListenerRegister(
             content=ListenerRegisterContent(

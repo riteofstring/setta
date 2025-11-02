@@ -19,6 +19,7 @@ from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
+    ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerRealtimeDelta,
@@ -183,9 +184,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
 
         refresh_spec = next(
-            spec
-            for spec in listener._callbacks.values()
-            if spec.function is on_refresh
+            spec for spec in listener._callbacks.values() if spec.function is on_refresh
         )
         dependency_key = self._get_structured_dependency(refresh_spec)
 
@@ -227,6 +226,137 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             standard_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
+
+    async def test_refresh_only_callbacks_ignore_realtime(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        refresh_calls: list[dict[str, Any]] = []
+        realtime_calls: list[dict[str, Any]] = []
+
+        @listener.listen(
+            deps=("Welcome",),
+            dependency_mode=ListenerDependencyMode.REFRESH_ONLY,
+        )
+        def on_refresh(state, ctx):
+            refresh_calls.append(dict(ctx.changed))
+
+        @listener.listen(deps=("Welcome",))
+        def on_realtime(state, ctx):
+            realtime_calls.append(dict(ctx.changed))
+
+        websocket = _StubWebsocket()
+        listener._websocket = websocket
+
+        await listener._handle_persisted_snapshot(
+            project_state,
+            is_bootstrap=True,
+        )
+
+        self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
+        self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
+
+        realtime_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_realtime
+        )
+        dependency_key = self._get_structured_dependency(realtime_spec)
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId="project-1",
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=dependency_key,
+                        value="Updated",
+                    )
+                ],
+                sequence=1,
+            )
+        )
+        await listener._scheduler.flush(realtime_spec.callback_id)
+
+        self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
+        self.assertEqual(
+            realtime_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
+
+        refreshed_state = project_state.model_copy(deep=True)
+        section_impl_id = next(iter(refreshed_state.sectionImpls))
+        refreshed_state.sectionImpls[section_impl_id].text = "Updated"
+
+        await listener._handle_force_refresh(
+            ListenerForceRefreshContent(projectState=refreshed_state)
+        )
+
+        self.assertEqual(
+            refresh_calls,
+            [{"Welcome": "Hello"}, {}],
+        )
+        self.assertEqual(
+            realtime_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
+
+    async def test_any_dependency_callbacks_receive_all_deltas(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(project_name=project_state.projectConfig.name)
+        any_calls: list[dict[str, Any]] = []
+        specific_calls: list[dict[str, Any]] = []
+
+        @listener.listen(dependency_mode=ListenerDependencyMode.ANY_DEPENDENCY)
+        def on_any(state, ctx):
+            any_calls.append(dict(ctx.changed))
+
+        @listener.listen(deps=("Welcome",))
+        def on_specific(state, ctx):
+            specific_calls.append(dict(ctx.changed))
+
+        websocket = _StubWebsocket()
+        listener._websocket = websocket
+
+        await listener._handle_persisted_snapshot(
+            project_state,
+            is_bootstrap=True,
+        )
+
+        self.assertEqual(any_calls, [{}])
+        self.assertEqual(specific_calls, [{"Welcome": "Hello"}])
+
+        specific_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_specific
+        )
+        any_spec = next(
+            spec for spec in listener._callbacks.values() if spec.function is on_any
+        )
+        dependency_key = self._get_structured_dependency(specific_spec)
+
+        await listener._handle_realtime_event(
+            ListenerRealtimeEventContent(
+                projectConfigId="project-1",
+                deltas=[
+                    ListenerRealtimeDelta(
+                        dependency=dependency_key,
+                        value="Updated",
+                    )
+                ],
+                sequence=1,
+            )
+        )
+        await listener._scheduler.flush(specific_spec.callback_id)
+        await listener._scheduler.flush(any_spec.callback_id)
+
+        self.assertEqual(
+            any_calls,
+            [{}, {"Welcome": "Updated"}],
+        )
+        self.assertEqual(
+            specific_calls,
             [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
         )
 

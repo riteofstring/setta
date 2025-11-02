@@ -5,6 +5,7 @@ from setta.code_gen.dependency_graph import GraphKeyType
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerDependencyKey,
+    ListenerDependencyMode,
     ListenerFeed,
 )
 from setta.websockets.listener_registry import ListenerRegistration
@@ -38,8 +39,12 @@ class ListenerCoverageTracker:
             for callback in registration.callbacks.values():
                 if callback.feed is not ListenerFeed.REALTIME:
                     continue
-                if not callback.dependencies:
+                if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
+                    continue
+                if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:
                     has_realtime_wildcard = True
+                    continue
+                if not callback.dependencies:
                     continue
                 for dependency in callback.dependencies:
                     dependency_keys.add(dependency.to_graph_key())
