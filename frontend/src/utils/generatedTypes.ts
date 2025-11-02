@@ -8106,9 +8106,31 @@ export function createListenerCoverageRequest(
   return ListenerCoverageRequestSchema.parse(options);
 }
 
+export const DependencyValueKindEnum = {
+  LITERAL: "literal",
+  DRAW_LAYER: "draw_layer",
+  ARTIFACT_REF: "artifact_ref",
+} as const;
+
+export type DependencyValueKind = ObjectValues<typeof DependencyValueKindEnum>;
+
+export const DependencyValueSchema = z.object({
+  kind: z.enum(DependencyValueKindEnum),
+  payload: z.string(),
+  metadata: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
+});
+
+export type DependencyValue = z.infer<typeof DependencyValueSchema>;
+
+export function createDependencyValue(
+  options: Partial<DependencyValue> = {},
+): DependencyValue {
+  return DependencyValueSchema.parse(options);
+}
+
 export const ListenerRealtimeDeltaSchema = z.object({
   dependency: ListenerDependencyKeySchema,
-  value: z.any(),
+  value: DependencyValueSchema,
 });
 
 export type ListenerRealtimeDelta = z.infer<typeof ListenerRealtimeDeltaSchema>;

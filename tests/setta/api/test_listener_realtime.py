@@ -14,6 +14,7 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import ParamNode
+from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -118,7 +119,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value="Updated-1",
+                    value=DependencyValue.literal("Updated-1"),
                 )
             ],
             sequence=1,
@@ -132,7 +133,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value="Updated-2",
+                    value=DependencyValue.literal("Updated-2"),
                 )
             ],
             sequence=2,
@@ -187,7 +188,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value="Updated",
+                    value=DependencyValue.literal("Updated"),
                 )
             ],
             sequence=1,
@@ -261,7 +262,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value="Updated",
+                        value=DependencyValue.literal("Updated"),
                     )
                 ],
                 sequence=1,
@@ -330,7 +331,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value="Updated",
+                        value=DependencyValue.literal("Updated"),
                     )
                 ],
                 sequence=1,
@@ -375,7 +376,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             full_path_name="section__slider",
             type=CodeObjType.SliderParam,
             isTopLevel=True,
-            value="1",
+            value=DependencyValue.literal("1"),
             deps={},
             passing_style=ParameterPassingStyle.DEFAULT,
         )
@@ -385,7 +386,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             full_path_name="section__switch",
             type=CodeObjType.SwitchParam,
             isTopLevel=True,
-            value="false",
+            value=DependencyValue.literal("false"),
             deps={},
             passing_style=ParameterPassingStyle.DEFAULT,
         )
@@ -432,14 +433,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         sectionId="section-1",
                         codeObjId="param-slider",
                     ),
-                    value="5",
+                    value=DependencyValue.literal("5"),
                 ),
                 ListenerRealtimeDelta(
                     dependency=ListenerDependencyKey(
                         sectionId="section-1",
                         codeObjId="param-switch",
                     ),
-                    value="true",
+                    value=DependencyValue.literal("true"),
                 ),
             ],
             sequence=1,

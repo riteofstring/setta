@@ -1,9 +1,10 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from setta.code_gen.dependency_graph import GraphKeyType
+from setta.code_gen.dependency_value import DependencyValue
 from setta.types.project_state import ProjectStateSingleConfig
 
 
@@ -71,8 +72,10 @@ class ListenerDependencyKey(BaseModel):
 
 
 class ListenerRealtimeDelta(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     dependency: ListenerDependencyKey
-    value: Any
+    value: DependencyValue
 
 
 class ListenerRegisterCallback(BaseModel):

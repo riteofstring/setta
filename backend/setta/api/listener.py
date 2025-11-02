@@ -16,6 +16,7 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
 )
+from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -1025,11 +1026,11 @@ class SettaListener:
         runtime_state: ListenerRuntimeState,
         current: Any,
         dependency: str,
-        value: Any,
+        value: DependencyValue,
         node: Node,
     ) -> Any:
         """Set a dependency value on the cached S instance."""
-        node.value = value  # realtime payloads are already canonical strings
+        node.value = value
         expression = runtime_state.code_generator.get_value(node)
         hydrated = self._evaluate_expression(
             dependency=dependency,

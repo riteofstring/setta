@@ -1,5 +1,6 @@
 import unittest
 
+from setta.code_gen.dependency_value import DependencyValue
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerDependencyMode,
@@ -99,7 +100,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                     sectionId="section-A",
                     codeObjId="param-1",
                 ),
-                value="value-a",
+                value=DependencyValue.literal("value-a"),
             )
         ]
         await sender.send_realtime_update(
@@ -114,7 +115,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                     sectionId="section-Z",
                     codeObjId="param-9",
                 ),
-                value="value-unmatched",
+                value=DependencyValue.literal("value-unmatched"),
             )
         ]
         await sender.send_realtime_update(
@@ -140,7 +141,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 (
                     delta.dependency.sectionId,
                     delta.dependency.codeObjId,
-                    delta.value,
+                    delta.value.payload,
                 )
                 for delta in first_message.content.deltas
             ],
@@ -155,7 +156,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 (
                     delta.dependency.sectionId,
                     delta.dependency.codeObjId,
-                    delta.value,
+                    delta.value.payload,
                 )
                 for delta in second_message.content.deltas
             ],
@@ -199,7 +200,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                         sectionId="section-A",
                         codeObjId="param-1",
                     ),
-                    value="value-a",
+                    value=DependencyValue.literal("value-a"),
                 )
             ],
             sequence=1,

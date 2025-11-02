@@ -18,7 +18,8 @@
 - Packaged scripts and live runtime likely need diverging IO strategies (e.g. write PNG to disk for packaged, stream base64 for live), but the generator has no notion of runtime mode.
 
 ## Proposed Model
-### 1. Structured Dependency Values
+### 1. Structured Dependency Values **(backend literals completed)**
+- ✅ `DependencyValue` dataclass now wraps node payloads in the graph/listener code paths.
 - Introduce a lightweight `DependencyValue` dataclass (or Pydantic model) that wraps:
   - `kind`: literal identifier (e.g. `literal`, `draw_layer`, `json_source`, `env_var`).
   - `payload`: canonical string/expression used by current generator.
@@ -27,7 +28,7 @@
 - Draw/Image/Chart exporters populate richer kinds (`draw_layer` with base64 or artifact references).
 
 ### 2. Mode-Aware Codec
-- Extend `PythonValueCodec` with a `PythonValueMode` enum (`LIVE_RUNTIME`, `PACKAGED_RUNTIME`, `TEST`).
+- Extend `PythonValueCodec` with a `PythonValueMode` enum (`LIVE_RUNTIME`, `PACKAGED_RUNTIME` for now).
 - For `kind="literal"`, preserve existing behavior.
 - For richer kinds, select the correct representation per mode:
   - `LIVE_RUNTIME`: return expressions that can be `literal_eval`'d directly (e.g. inline base64 dict).
@@ -40,7 +41,7 @@
 - Export granular nodes (e.g. `drawCanvas__render_png`, `drawCanvas__layers__0`) by leveraging `create_unique_name` to stay collision-safe.
 - Ensure `ListenerDependencyKey` names remain stable between front/back ends; extend coverage snapshots to include new nodes.
 
-### 4. Realtime Delta Schema
+### 4. Realtime Delta Schema **(backend using `DependencyValue`; TS union pending)**
 - Replace the plain `value: Any` field with a `ListenerRealtimeValue` union:
   - Variant `Literal` containing the existing string.
   - Variant(s) for draw layers, chart data, json sources, etc.
@@ -57,16 +58,16 @@
 - Environment variables (future section) can emit `kind="env_var"` with optional scoping hints. Consider allowing packaged runtime to read from `.env` or OS environment while live runtime uses in-memory overrides.
 
 ## Implementation Roadmap
-1. **Scaffold value types**
+1. **Scaffold value types** *(DONE – backend now stores `DependencyValue` literals and threads mode enum)*
    - Introduce `DependencyValue` and `PythonValueMode`.
    - Adapt `PythonCodeGenerator` and `SettaListener` to consume the new structure while preserving current behavior for literals.
 2. **Graph exporter registry**
    - Refactor `DependencyGraph` exports into per-section hooks.
    - Add exporters for `TextBlock` and `Draw` to validate naming and listener flow.
 3. **Realtime schema upgrade**
-   - Define `ListenerRealtimeValue` union (Python + generated TS).
-   - Adjust frontend emission and backend validation.
-   - Update tests (`tests/setta/api/test_listener_realtime.py`, websocket integration suites) for the new schema.
+   - Define `ListenerRealtimeValue` union (Python + generated TS). *(Python now enforces `DependencyValue`; TS generation still pending.)*
+   - Adjust frontend emission and backend validation. *(Backend listeners and websocket handlers already emit/expect `DependencyValue.literal`.)*
+   - Update tests (`tests/setta/api/test_listener_realtime.py`, websocket integration suites) for the new schema. *(Backend tests updated; regenerate TS + frontend fixtures next.)*
 4. **Mode-specific rendering**
    - Teach the codec how to emit draw/image payloads differently per mode.
    - Provide helper utilities for packaged runtime (e.g. `write_base64_png`).

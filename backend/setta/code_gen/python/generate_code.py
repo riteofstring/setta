@@ -12,6 +12,7 @@ from setta.code_gen.utils import (
     SELF_IDENTIFIER,
 )
 from setta.code_gen.value_codec import PythonValueCodec
+from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.section_impls import SectionType
 
@@ -43,6 +44,7 @@ class PythonCodeGenerator:
         self.value_codec = PythonValueCodec(
             self.dep_graph,
             self._lookup_var_name,
+            mode=PythonValueMode.LIVE_RUNTIME,
         )
         self.reset()
 
@@ -169,14 +171,16 @@ class PythonCodeGenerator:
         match t:
             case SectionType.Callable:
                 if node.value:
-                    return self.construct_callable(node.value, node.deps)
+                    return self.construct_callable(node.value.payload, node.deps)
                 return "None"
             case SectionType.ListRoot:
                 return self.value_codec.format_list(node.deps)
             case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
                 return self.value_codec.format_dict(node.deps)
             case SectionType.TextBlock:
-                return repr(node.value)
+                if node.value:
+                    return repr(node.value.payload)
+                return "None"
             case _:
                 return None
 

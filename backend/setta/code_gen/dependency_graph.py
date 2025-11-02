@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from setta.code_gen.dependency_value import DependencyValue, DependencyValueKind
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
@@ -49,7 +50,7 @@ class Node(ABC):
     type: str
     isTopLevel: bool
     deps: dict
-    value: str | None
+    value: DependencyValue | None
 
     @property
     @abstractmethod
@@ -66,12 +67,15 @@ class SectionNode(Node):
 
 @dataclass
 class ParamNode(Node):
-    value: str  # type: ignore
     passing_style: ParameterPassingStyle
 
     @property
     def has_name_and_value(self):
-        return bool(self.name) and self.value is not None and self.value != ""
+        if not self.name:
+            return False
+        if self.value is None:
+            return False
+        return self.value.payload != ""
 
 
 @dataclass
@@ -150,7 +154,7 @@ class DependencyGraph:
                     full_path_name=full_path_name,
                     type=sectionImpl.type,
                     isTopLevel=isTopLevel,
-                    value=value,
+                    value=DependencyValue.literal(value) if value is not None else None,
                     deps={},
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
@@ -196,7 +200,7 @@ class DependencyGraph:
                     full_path_name=full_path_name,
                     type=sectionImpl.type,
                     isTopLevel=isTopLevel,
-                    value=sectionImpl.text,
+                    value=DependencyValue.literal(sectionImpl.text),
                     deps={},
                 )
                 self.add_to_graph(graph_key, node)
@@ -244,12 +248,12 @@ class DependencyGraph:
                     p, sectionId, pid, BaseParamCodeObjImpl
                 )
                 name = p.codeObjs[pid].name
-                value = ""
+                raw_value = ""
                 if isinstance(code_obj_impl, BaseChildlessCodeObjImpl):
-                    value = code_obj_impl.value
+                    raw_value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
-                    value, SELF_IDENTIFIER, keep_attr_only=True
+                    raw_value, SELF_IDENTIFIER, keep_attr_only=True
                 )
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
@@ -259,7 +263,9 @@ class DependencyGraph:
                     full_path_name=full_path_name,
                     type=code_obj_impl.type,
                     isTopLevel=isTopLevel,
-                    value=value,
+                    value=DependencyValue.literal(raw_value)
+                    if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
+                    else None,
                     passing_style=code_obj_impl.passingStyle,
                     deps={},
                 )
@@ -277,7 +283,7 @@ class DependencyGraph:
 
     def change_value(self, graph_key, value):
         node = self.graph[graph_key]
-        node.value = value
+        node.value = self._coerce_dependency_value(value)
         is_used = node.has_name_and_value
         for other_node in self.graph.values():
             if graph_key in other_node.deps:
@@ -311,6 +317,8 @@ class DependencyGraph:
         """Resolve all potential references and update dependencies."""
         for graph_key, potential_refs in self.nodes_with_potential_refs.items():
             node = self.graph[graph_key]
+            if node.value is None or node.value.kind is not DependencyValueKind.LITERAL:
+                continue
             for ref in potential_refs.keys():
                 if ref in self.full_path_name_to_graph_key:
                     # Found a reference, add it to dependencies if not already there
@@ -346,8 +354,18 @@ class DependencyGraph:
                 node = self.get_node(k)
                 if not node:
                     continue
-                node.value, positions = replace_at_positions(
-                    node.value, replacements, return_positions=True
+                literal_value = node.value
+                if (
+                    literal_value is None
+                    or literal_value.kind is not DependencyValueKind.LITERAL
+                ):
+                    continue
+                new_payload, positions = replace_at_positions(
+                    literal_value.payload, replacements, return_positions=True
+                )
+                node.value = replace(
+                    literal_value,
+                    payload=new_payload,
                 )
                 self.nodes_with_potential_refs[k] = {
                     name: position for position, name in positions
@@ -357,7 +375,7 @@ class DependencyGraph:
                     RenameReferenceChangedValue(
                         sectionId=ids.sectionId,
                         paramInfoId=ids.paramInfoId,
-                        newValue=node.value,
+                        newValue=node.value.payload if node.value else "",
                     )
                 )
 
@@ -369,3 +387,12 @@ class DependencyGraph:
 
     def extract_ids_from_graph_key(self, graph_key: GraphKeyType) -> GraphKeySeparated:
         return GraphKeySeparated(sectionId=graph_key[0], paramInfoId=graph_key[1])
+
+    def _coerce_dependency_value(
+        self, value: DependencyValue | str | None
+    ) -> DependencyValue | None:
+        if value is None:
+            return None
+        if isinstance(value, DependencyValue):
+            return value
+        return DependencyValue.literal(value)
