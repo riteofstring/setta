@@ -99,11 +99,15 @@ replays the cached persisted snapshot after each reload when `trigger_refresh=Tr
 - Linked this doc from `docs/setta-listener-plan.md` so the broader listener roadmap
   references the hot-reload workflow.
 
+## Manual Verification
+- `tests/manual_listener_smoke.py --hot-reload` now wires `ListenerHotReloader` into a manual script. It watches `tests/manual_listener_hot_reload_callbacks.py` by default so you can edit the `VERSION` label (or callback body) and observe the listener reload in place without dropping the websocket.
+- The script accepts `--watch-path` to add extra files or directories, `--no-refresh` to skip replaying cached snapshots between reloads, and `--settle-delay` to tune how quickly file saves trigger refreshes.
+
 ## Progress
-- Listener core now supports hot reload end-to-end: callback mutation lock, reload workflow, cached snapshot replay, and `start_with_hot_reload` orchestration with `ListenerHotReloader` are implemented.
+- Listener core supports hot reload end-to-end: callback mutation lock, reload workflow, cached snapshot replay, and `start_with_hot_reload` orchestration with `ListenerHotReloader` are implemented.
 - Registration flow tolerates multiple register attempts without losing state.
 - Latest persisted project snapshot is cached and replayed after reloads to hydrate new callbacks immediately.
+- Manual smoke script exercises `ListenerHotReloader.watch()` against the fixture project for quick verification.
 
 ## Next Steps
-1. Extend `tests/manual_listener_smoke.py` (or add a new sample script) to exercise `ListenerHotReloader.watch()` against a real project for manual verification.
-2. Evaluate support for directory-level watch globs and project-specific ignore patterns so large listener repos can opt in without enumerating every file.
+1. Evaluate support for directory-level watch globs and project-specific ignore patterns so large listener repos can opt in without enumerating every file.
