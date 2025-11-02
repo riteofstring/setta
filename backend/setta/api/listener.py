@@ -32,13 +32,13 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
+    WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
-    WebsocketMsgListenerError,
 )
 from setta.utils.constants import C
 

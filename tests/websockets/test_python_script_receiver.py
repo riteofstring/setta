@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerFeed,
@@ -11,7 +12,6 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     ListenerRegisterContent,
 )
-from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl

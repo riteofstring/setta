@@ -40,6 +40,17 @@
 3. In the UI, switch to the matching project and edit a control covered by the listener dependency; confirm the listener prints the new value and `ctx.changed`.
 4. Stop both processes with `Ctrl+C`.
 
+### Programmatic Launch
+- When running against the packaged frontend bundle (after `./build.sh`), start the backend directly from your listener script with `setta.start_backend()`. The helper returns a context-managed handle that stops uvicorn automatically:
+  ```python
+  from setta import start_backend
+  from setta.api import SettaListener
+
+  with start_backend(open_browser=True):
+      listener = SettaListener(project_name="Demo Project")
+      listener.start()
+  ```
+
 ### Open Questions
 - Should listeners require auth or secrets outside local dev?
 - Are scripts allowed to mutate backend state, or remain read-only for now?
