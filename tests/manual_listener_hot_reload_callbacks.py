@@ -17,7 +17,7 @@ def build_callbacks(listener: SettaListener) -> None:
     """Register a sample callback that reports the current VERSION label."""
 
     @listener.listen(
-        deps=("hiding_river__y",),
+        deps=("hiding_river__x",),
         feed=ListenerFeed.BOTH,
         run_on_refresh=True,
     )

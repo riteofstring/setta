@@ -7,6 +7,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from watchfiles import Change
+
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -175,3 +177,96 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 sys.modules.pop(module_name, None)
                 if tmp_dir in sys.path:
                     sys.path.remove(tmp_dir)
+
+    async def test_reloader_supports_glob_paths_and_ignore_patterns(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+        module_name = "hot_reload_glob_listener"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            module_dir = Path(tmp_dir)
+            module_path = module_dir / f"{module_name}.py"
+            callbacks_dir = module_dir / "callbacks"
+            callbacks_dir.mkdir()
+            nested_dir = callbacks_dir / "nested"
+            nested_dir.mkdir()
+            nested_module = nested_dir / "extra.py"
+            nested_module.write_text("# sample nested module\n")
+            sys.path.insert(0, tmp_dir)
+            try:
+                self._write_listener_module(module_path, "glob")
+                module = importlib.import_module(module_name)
+                glob_pattern = str((callbacks_dir / "**" / "*.py"))
+                reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                    extra_watch_paths=[glob_pattern],
+                )
+                spec_by_root = {spec.root: spec for spec in reloader._watch_specs}
+                callbacks_root = callbacks_dir.resolve()
+                self.assertIn(callbacks_root, spec_by_root)
+                callbacks_spec = spec_by_root[callbacks_root]
+                self.assertFalse(callbacks_spec.is_file)
+                self.assertIn("**/*.py", callbacks_spec.includes)
+
+                ignored_path = callbacks_dir / "ignored.tmp"
+                allowed_path = callbacks_dir / "allowed.cfg"
+                ignored_path.write_text("")
+                allowed_path.write_text("")
+
+                filtered_reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                    extra_watch_paths=[str(callbacks_dir)],
+                    ignore_patterns=["*.tmp"],
+                )
+                self.assertFalse(
+                    filtered_reloader._watch_filter(Change.modified, str(ignored_path))
+                )
+                self.assertTrue(
+                    filtered_reloader._watch_filter(Change.modified, str(allowed_path))
+                )
+            finally:
+                sys.modules.pop(module_name, None)
+                if tmp_dir in sys.path:
+                    sys.path.remove(tmp_dir)
+
+    async def test_start_hot_reload_convenience_path(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        def builder(target: SettaListener) -> None:
+            target  # keep signature explicit; builder not executed during test
+
+        captured: dict[str, ListenerHotReloader] = {}
+
+        def fake_start_with_hot_reload(reloader: ListenerHotReloader) -> None:
+            captured["reloader"] = reloader
+
+        listener.start_with_hot_reload = fake_start_with_hot_reload  # type: ignore[assignment]
+
+        listener.start(
+            hot_reload=True,
+            builder=builder,
+            extra_watch_paths=["callbacks/**/*.py"],
+            ignore_patterns=["*.tmp"],
+            trigger_refresh=False,
+            settle_delay=0.25,
+        )
+
+        reloader = captured["reloader"]
+        self.assertIs(reloader.listener, listener)
+        self.assertIs(reloader._builder, builder)
+        self.assertFalse(reloader._trigger_refresh)
+        self.assertEqual(reloader._settle_delay, 0.25)
+        glob_spec = next(
+            spec for spec in reloader._watch_specs if "**/*.py" in spec.includes
+        )
+        self.assertIn("*.tmp", glob_spec.ignores)
+
+    async def test_start_requires_hot_reload_for_builder(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        def builder(target: SettaListener) -> None:
+            target
+
+        with self.assertRaises(ValueError):
+            listener.start(builder=builder)

@@ -30,9 +30,9 @@ watcher that reloads the module in-place.
 
 ```python
 from setta.api import SettaListener
-from setta.api.hot_reload import ListenerHotReloader
 
 model = load_model_once()
+
 
 def build_callbacks(listener: SettaListener) -> None:
     @listener.listen(deps=["foo.bar"], feed="both")
@@ -40,13 +40,14 @@ def build_callbacks(listener: SettaListener) -> None:
         prediction = model.predict(state.foo.bar)
         ctx.log.info("prediction=%s", prediction)
 
-listener = SettaListener(project_name="Demo Project")
-reloader = ListenerHotReloader(
-    listener=listener,
-    builder=build_callbacks,
-)
 
-listener.start_with_hot_reload(reloader)
+listener = SettaListener(project_name="Demo Project")
+listener.start(
+    hot_reload=True,
+    builder=build_callbacks,
+    extra_watch_paths=["callbacks/**/*.py"],
+    ignore_patterns=["tests/**"],
+)
 ```
 
 `ListenerHotReloader.watch()` now uses `watchfiles.awatch` with a short settle delay
@@ -57,7 +58,8 @@ replays the cached persisted snapshot after each reload when `trigger_refresh=Tr
 
 ## ListenerHotReloader Helper
 - Accepts the callback builder callable and infers the originating module path (and package directory when applicable).
-- Provides `extra_watch_paths` so scripts can add more files or directories without replacing the defaults.
+- Provides `extra_watch_paths` so scripts can add more files, directories, or glob patterns without replacing the defaults.
+- Supports directory-level glob matching and `ignore_patterns` so large projects can exclude generated or transient files without expanding every path manually.
 - Offers `reload_now(reload_module=False)` so scripts can build callbacks before the
   websocket connects.
 - Exposes `trigger_refresh` (default `True`) to control whether the cached snapshot is
@@ -100,15 +102,16 @@ replays the cached persisted snapshot after each reload when `trigger_refresh=Tr
 
 ## Manual Verification
 - `tests/manual_listener_smoke.py --hot-reload` now wires `ListenerHotReloader` into a manual script. It watches `tests/manual_listener_hot_reload_callbacks.py` by default so you can edit the `VERSION` label (or callback body) and observe the listener reload in place without dropping the websocket.
-- The script accepts `--watch-path` to add extra files or directories, `--no-refresh` to skip replaying cached snapshots between reloads, and `--settle-delay` to tune how quickly file saves trigger refreshes.
+- The script accepts `--watch-path` to add extra files, directories, or glob patterns, `--ignore-pattern` to drop noisy paths, `--no-refresh` to skip replaying cached snapshots between reloads, and `--settle-delay` to tune how quickly file saves trigger refreshes.
 
 ## Progress
 - Listener core supports hot reload end-to-end: callback mutation lock, reload workflow, cached snapshot replay, and `start_with_hot_reload` orchestration with `ListenerHotReloader` are implemented.
-- `ListenerHotReloader` accepts builder callables directly and infers default watch paths, reducing script boilerplate.
+- `ListenerHotReloader` accepts builder callables directly, infers default watch paths, and now handles directory globs plus ignore patterns to reduce boilerplate in large repos.
+- `SettaListener.start(hot_reload=True, builder=...)` wraps the helper so scripts opt in with a single flag instead of instantiating the reloader manually.
 - Registration flow tolerates multiple register attempts without losing state.
 - Latest persisted project snapshot is cached and replayed after reloads to hydrate new callbacks immediately.
 - Manual smoke script exercises `ListenerHotReloader.watch()` against the fixture project for quick verification.
 
 ## Next Steps
-1. Evaluate support for directory-level watch globs and project-specific ignore patterns so large listener repos can opt in without enumerating every file.
-2. Explore a `SettaListener.start(hot_reload=True, builder=..., extra_watch_paths=...)` entry point that wraps `ListenerHotReloader` behind one flag to streamline listener scripts.
+1. Evaluate a persistent configuration surface (e.g., `listener.toml`) so common watch/ignore patterns can be shared across scripts without re-declaring arguments.
+2. Decide whether hot-reload defaults (glob patterns, settle delay, ignore list) should live in project metadata or remain per-script overrides.

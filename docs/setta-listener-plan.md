@@ -36,6 +36,7 @@
 ### Manual Validation
 1. Stack: `source activate.sh && cd frontend && pnpm start`.
 2. Listener: `source activate.sh && python tests/manual_listener_smoke.py`.
+   - Pass `--hot-reload` (plus optional `--watch-path` / `--ignore-pattern`) to exercise the in-process watcher when validating callback updates.
    - For callbacks with `debounce_ms`/`throttle_ms`, expect grouped console output rather than one line per UI change; deja-vu entries are now coalesced before dispatch.
 3. In the UI, switch to the matching project and edit a control covered by the listener dependency; confirm the listener prints the new value and `ctx.changed`.
 4. Stop both processes with `Ctrl+C`.
@@ -48,7 +49,10 @@
 
   with start_backend(open_browser=True):
       listener = SettaListener(project_name="Demo Project")
-      listener.start()
+      listener.start(
+          hot_reload=True,
+          builder=build_callbacks,
+      )
   ```
 
 ### Open Questions

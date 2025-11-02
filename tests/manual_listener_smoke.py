@@ -24,7 +24,6 @@ if ROOT_PATH not in sys.path:
 sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
-from setta.api.hot_reload import ListenerHotReloader
 
 logger = logging.getLogger(__name__)
 
@@ -73,48 +72,6 @@ def build_listener(project_name: str) -> SettaListener:
     return listener
 
 
-def _configure_hot_reload(
-    listener: SettaListener,
-    *,
-    module_name: str,
-    builder_name: str,
-    watch_paths: list[str] | None,
-    trigger_refresh: bool,
-    settle_delay: float | None,
-) -> ListenerHotReloader:
-    module = importlib.import_module(module_name)
-    try:
-        builder = getattr(module, builder_name)
-    except AttributeError as error:
-        raise ValueError(
-            f"Listener builder attribute {builder_name!r} missing in module {module_name!r}"
-        ) from error
-    if not callable(builder):
-        raise TypeError(
-            f"Listener builder attribute {builder_name!r} in module {module_name!r} is not callable"
-        )
-    extra_paths: set[str] | None = None
-    if watch_paths:
-        extra_paths = {
-            str(Path(raw_path).expanduser())
-            for raw_path in watch_paths
-        }
-    kwargs: dict[str, Any] = {"trigger_refresh": trigger_refresh}
-    if settle_delay is not None:
-        kwargs["settle_delay"] = settle_delay
-    reloader = ListenerHotReloader(
-        listener=listener,
-        builder=builder,
-        extra_watch_paths=extra_paths,
-        **kwargs,
-    )
-    logger.info(
-        "Hot reload watching: %s",
-        ", ".join(str(path) for path in sorted(reloader._paths)),
-    )
-    return reloader
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Manual smoke test for SettaListener persisted updates."
@@ -143,7 +100,13 @@ def main() -> None:
         "--watch-path",
         action="append",
         dest="watch_paths",
-        help="Additional files or directories to watch for edits (used with --hot-reload).",
+        help="Additional files, directories, or glob patterns to watch for edits (used with --hot-reload).",
+    )
+    parser.add_argument(
+        "--ignore-pattern",
+        action="append",
+        dest="ignore_patterns",
+        help="Glob patterns to ignore relative to watched directories (used with --hot-reload).",
     )
     parser.add_argument(
         "--no-refresh",
@@ -164,20 +127,24 @@ def main() -> None:
     listener = build_listener(project_name)
 
     if args.hot_reload:
-        reloader = _configure_hot_reload(
-            listener,
-            module_name=args.builder_module,
-            builder_name=args.builder_name,
-            watch_paths=args.watch_paths,
-            trigger_refresh=not args.no_refresh,
-            settle_delay=args.settle_delay,
-        )
+        builder = _resolve_builder(args.builder_module, args.builder_name)
         logger.info(
             "Hot reload enabled: edit %s to trigger callback refresh.",
             args.builder_module,
         )
+        if args.watch_paths:
+            logger.info("Additional watch targets: %s", ", ".join(args.watch_paths))
+        if args.ignore_patterns:
+            logger.info("Ignored patterns: %s", ", ".join(args.ignore_patterns))
         try:
-            listener.start_with_hot_reload(reloader)
+            listener.start(
+                hot_reload=True,
+                builder=builder,
+                extra_watch_paths=args.watch_paths,
+                ignore_patterns=args.ignore_patterns,
+                trigger_refresh=not args.no_refresh,
+                settle_delay=args.settle_delay,
+            )
         except KeyboardInterrupt:
             logger.info("Listener stopped via keyboard interrupt.")
         return
@@ -186,6 +153,21 @@ def main() -> None:
         listener.start()
     except KeyboardInterrupt:
         logger.info("Listener stopped via keyboard interrupt.")
+
+
+def _resolve_builder(module_name: str, builder_name: str):
+    module = importlib.import_module(module_name)
+    try:
+        builder = getattr(module, builder_name)
+    except AttributeError as error:
+        raise ValueError(
+            f"Listener builder attribute {builder_name!r} missing in module {module_name!r}"
+        ) from error
+    if not callable(builder):
+        raise TypeError(
+            f"Listener builder attribute {builder_name!r} in module {module_name!r} is not callable"
+        )
+    return builder
 
 
 if __name__ == "__main__":

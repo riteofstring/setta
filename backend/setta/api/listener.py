@@ -173,8 +173,52 @@ class SettaListener:
             if not self._stop_event.is_set():
                 await asyncio.sleep(self._reconnect_delay)
 
-    def start(self) -> None:
-        """Run the listener until stop() is called or interrupted."""
+    def start(
+        self,
+        *,
+        hot_reload: bool = False,
+        builder: ListenerCallbackBuilder | None = None,
+        extra_watch_paths: Iterable[str] | None = None,
+        ignore_patterns: Iterable[str] | None = None,
+        trigger_refresh: bool = True,
+        settle_delay: float | None = None,
+    ) -> None:
+        """Run the listener until stop() is called or interrupted.
+
+        When `hot_reload` is True, the listener will wrap the provided builder in a
+        `ListenerHotReloader` instance and reuse the existing hot reload workflow.
+        """
+        if hot_reload:
+            if builder is None:
+                raise ValueError("hot_reload=True requires a callback builder")
+            from .hot_reload import ListenerHotReloader
+
+            reloader_kwargs: dict[str, Any] = {
+                "listener": self,
+                "builder": builder,
+                "trigger_refresh": trigger_refresh,
+            }
+            if extra_watch_paths is not None:
+                reloader_kwargs["extra_watch_paths"] = extra_watch_paths
+            if ignore_patterns is not None:
+                reloader_kwargs["ignore_patterns"] = ignore_patterns
+            if settle_delay is not None:
+                reloader_kwargs["settle_delay"] = settle_delay
+            reloader = ListenerHotReloader(**reloader_kwargs)
+            self.start_with_hot_reload(reloader)
+            return
+
+        if builder is not None:
+            raise ValueError("Provide hot_reload=True when passing a callback builder")
+        if extra_watch_paths is not None:
+            raise ValueError("Provide hot_reload=True when configuring watch paths")
+        if ignore_patterns is not None:
+            raise ValueError("Provide hot_reload=True when configuring ignore patterns")
+        if not trigger_refresh:
+            raise ValueError("trigger_refresh is only meaningful with hot_reload=True")
+        if settle_delay is not None:
+            raise ValueError("settle_delay is only meaningful with hot_reload=True")
+
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
