@@ -111,3 +111,4 @@ replays the cached persisted snapshot after each reload when `trigger_refresh=Tr
 
 ## Next Steps
 1. Evaluate support for directory-level watch globs and project-specific ignore patterns so large listener repos can opt in without enumerating every file.
+2. Simplify `ListenerHotReloader` setup so callers can pass the builder callable directly, letting the helper infer the module and default watch paths instead of requiring `module_name`/`paths`.
