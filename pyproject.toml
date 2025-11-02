@@ -33,7 +33,6 @@ dependencies = [
     "ruff==0.12.12",
     "pydantic==2.11.5",
     "lsprotocol==2023.0.1",
-    "watchfiles==0.24.0",
 ]
 
 [project.urls]
