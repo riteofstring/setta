@@ -1132,7 +1132,7 @@ class SettaListener:
         if runtime_state is None or runtime_state.s_instance is None:
             if snapshot is None:
                 logger.debug(
-                "Listener %s cannot replay snapshot without cached state",
+                    "Listener %s cannot replay snapshot without cached state",
                     self._log_identifier,
                 )
                 return

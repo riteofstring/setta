@@ -4,7 +4,7 @@ import { useState } from "react";
 import { RiRefreshLine } from "react-icons/ri";
 import { triggerListenerForceRefresh } from "state/actions/listeners";
 
-export function ForceRefreshButton() {
+export function ListenerForceRefreshButton() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleClick = async () => {
@@ -32,7 +32,7 @@ export function ForceRefreshButton() {
       })}
     >
       <RiRefreshLine className="text-sm" />
-      {isRefreshing ? "Refreshing..." : "Force Refresh"}
+      {isRefreshing ? "Refreshing..." : "Listener Force Refresh"}
     </Button>
   );
 }

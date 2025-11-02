@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from fastapi import HTTPException
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import ForceRefreshProjectRequest
-from setta.routers.project_manager import route_force_refresh_project
+from setta.routers.project_manager import route_force_refresh_listener
 from setta.types.project_state import ProjectStateSingleConfig
 
 from tests.utils.manager_fixture import (
@@ -14,7 +14,7 @@ from tests.utils.manager_fixture import (
 )
 
 
-class RouteForceRefreshProjectTests(unittest.IsolatedAsyncioTestCase):
+class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
     async def test_force_refresh_broadcasts_latest_snapshot(self) -> None:
         try:
             async with (
@@ -63,7 +63,7 @@ class RouteForceRefreshProjectTests(unittest.IsolatedAsyncioTestCase):
                     request = ForceRefreshProjectRequest(
                         projectConfigId=default_project_config_id
                     )
-                    await route_force_refresh_project(request, state)
+                    await route_force_refresh_listener(request, state)
                 finally:
                     sender.send_force_refresh = original_send_force_refresh
 
@@ -97,7 +97,7 @@ class RouteForceRefreshProjectTests(unittest.IsolatedAsyncioTestCase):
 
                 request = ForceRefreshProjectRequest(projectConfigId="missing-project")
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_force_refresh_project(request, state)
+                    await route_force_refresh_listener(request, state)
                 self.assertEqual(404, ctx.exception.status_code)
         except RuntimeError as exc:
             self.skipTest(str(exc))

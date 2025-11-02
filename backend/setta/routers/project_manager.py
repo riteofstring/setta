@@ -227,8 +227,8 @@ async def route_get_latest_project_state(
     )
 
 
-@router.post(Route.FORCE_REFRESH_PROJECT)
-async def route_force_refresh_project(
+@router.post(Route.FORCE_REFRESH_LISTENER)
+async def route_force_refresh_listener(
     x: ForceRefreshProjectRequest, state: AppStateFromRequest
 ) -> None:
     manager = state.project_manager_switcher.get(x.projectConfigId)

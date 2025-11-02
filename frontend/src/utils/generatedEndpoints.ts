@@ -329,10 +329,10 @@ export async function route_get_latest_project_state(
   return await post("/getLatestProjectState", x);
 }
 
-export async function route_force_refresh_project(
+export async function route_force_refresh_listener(
   x: gt.ForceRefreshProjectRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/forceRefreshProject", x);
+  return await post("/forceRefreshListener", x);
 }
 
 export async function route_set_top_level_section_layout(
