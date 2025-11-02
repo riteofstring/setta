@@ -78,7 +78,6 @@ class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
     declared_dependencies: tuple[str, ...]
-    feed: ListenerFeed
     debounce_ms: int | None
     throttle_ms: int | None
     run_on_refresh: bool
@@ -460,7 +459,7 @@ class SettaListener:
         throttle_ms: int | None = None,
         run_on_refresh: bool = False,
     ) -> Callable[[ListenerCallback], ListenerCallback]:
-        selection = self._normalize_feed(feed if feed is not None else self._feed)
+        self._normalize_feed(feed if feed is not None else self._feed)
 
         def decorator(func: ListenerCallback) -> ListenerCallback:
             dependencies = list(deps) if deps is not None else []
@@ -469,7 +468,6 @@ class SettaListener:
                 function=func,
                 callback_id=callback_id,
                 declared_dependencies=tuple(dependencies),
-                feed=selection,
                 debounce_ms=debounce_ms,
                 throttle_ms=throttle_ms,
                 run_on_refresh=run_on_refresh,
@@ -545,7 +543,7 @@ class SettaListener:
                 )
             callbacks[spec.callback_id] = ListenerRegisterCallback(
                 dependencies=list(structured_dependencies),
-                feed=spec.feed,
+                feed=ListenerFeed.REALTIME,
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
                 runOnRefresh=spec.run_on_refresh,
@@ -682,8 +680,6 @@ class SettaListener:
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
-            if not self._callback_accepts_persisted(spec):
-                continue
             dependencies = spec.declared_dependencies
             changed: dict[str, Any] = {}
             should_run = not dependencies
@@ -795,14 +791,6 @@ class SettaListener:
     def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
         return getattr(current, dependency)
 
-    @staticmethod
-    def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
-        return spec.feed is ListenerFeed.REALTIME
-
-    @staticmethod
-    def _callback_accepts_realtime(spec: ListenerCallbackSpec) -> bool:
-        return spec.feed is ListenerFeed.REALTIME
-
     async def _invoke_callback(
         self,
         spec: ListenerCallbackSpec,
@@ -906,9 +894,6 @@ class SettaListener:
 
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         for spec in self._callbacks.values():
-            if not self._callback_accepts_realtime(spec):
-                continue
-
             dependencies = spec.declared_dependencies
             if not dependencies:
                 callbacks_to_run.append((spec, dict(applied_dependencies)))
@@ -1115,8 +1100,6 @@ class SettaListener:
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
-            if not self._callback_accepts_persisted(spec):
-                continue
             dependencies = spec.declared_dependencies
             if not dependencies:
                 callbacks_to_run.append((spec, {}))

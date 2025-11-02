@@ -59,7 +59,7 @@ def build_listener(project_name: str) -> SettaListener:
     """Wire the example callback that watches the Channel Shuffle groups param."""
     listener = SettaListener(project_name=project_name)
 
-    @listener.listen(deps=["hiding_river__x"], feed="both")
+    @listener.listen(deps=["hiding_river__x"])
     def on_groups_change(state: Any, ctx: Any) -> None:
         structured = _structured_dependency_map(listener, on_groups_change)
         structured_changed = {

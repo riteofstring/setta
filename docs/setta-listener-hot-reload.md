@@ -34,7 +34,7 @@ model = load_model_once()
 
 
 def build_callbacks(listener: SettaListener) -> None:
-    @listener.listen(deps=["foo.bar"], feed="both", run_on_refresh=True)
+    @listener.listen(deps=["foo.bar"], run_on_refresh=True)
     def on_change(state, ctx):
         prediction = model.predict(state.foo.bar)
         ctx.log.info("prediction=%s", prediction)

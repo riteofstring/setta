@@ -8,7 +8,6 @@ websocket connection.
 from typing import Any
 
 from setta.api.listener import SettaListener
-from setta.types.listener import ListenerFeed
 
 VERSION = "v1"
 
@@ -18,7 +17,6 @@ def build_callbacks(listener: SettaListener) -> None:
 
     @listener.listen(
         deps=("hiding_river__x",),
-        feed=ListenerFeed.REALTIME,
         run_on_refresh=True,
     )
     def on_groups_change(state: Any, ctx: Any) -> None:

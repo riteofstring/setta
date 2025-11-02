@@ -20,7 +20,6 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerErrorContent,
-    ListenerFeed,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
@@ -87,13 +86,12 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         @listener.listen(
             deps=("Welcome",),
-            feed=ListenerFeed.REALTIME,
             debounce_ms=50,
         )
         def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
-        @listener.listen(deps=("Welcome",), feed=ListenerFeed.REALTIME)
+        @listener.listen(deps=("Welcome",))
         def on_persisted(state, ctx):
             persisted_calls.append(dict(ctx.changed))
 
@@ -106,12 +104,13 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(persisted_calls, [{"Welcome": "Hello"}])
+        self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
         self.assertTrue(websocket.sent)
 
         realtime_spec = next(
             spec
             for spec in listener._callbacks.values()
-            if spec.feed is ListenerFeed.REALTIME
+            if spec.function is on_realtime
         )
         dependency_key = self._get_structured_dependency(realtime_spec)
 
@@ -127,7 +126,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await listener._handle_realtime_event(first_content)
         await asyncio.sleep(0.02)
-        self.assertEqual(realtime_calls, [])
+        self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
 
         second_content = ListenerRealtimeEventContent(
             projectConfigId="project-1",
@@ -143,7 +142,10 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         await asyncio.sleep(0.1)
 
-        self.assertEqual(realtime_calls, [{"Welcome": "Updated-2"}])
+        self.assertEqual(
+            realtime_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated-2"}],
+        )
         self.assertEqual(listener._dependency_cache.get("Welcome"), "Updated-2")
         self.assertEqual(listener._last_realtime_sequence, 2)
 
@@ -159,7 +161,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         @listener.listen(
             deps=("section__slider",),
-            feed=ListenerFeed.REALTIME,
         )
         def on_slider(state, ctx):
             slider_events.append(
@@ -168,7 +169,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         @listener.listen(
             deps=("section__switch",),
-            feed=ListenerFeed.REALTIME,
         )
         def on_switch(state, ctx):
             switch_events.append(
@@ -351,7 +351,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
     async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
         listener = SettaListener(project_name="Demo Project")
 
-        @listener.listen(deps=("Welcome",), feed=ListenerFeed.REALTIME)
+        @listener.listen(deps=("Welcome",))
         def on_change(state, ctx):  # pragma: no cover - invoked only on success
             raise AssertionError("callback should not execute when runtime state fails")
 

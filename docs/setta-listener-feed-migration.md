@@ -11,13 +11,10 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
 - Updated websocket listener receiver/sender specs to consume the collapsed enum (no remaining references to `PERSISTED`/`BOTH`).
 
 ### 2. Listener Feed Semantics
-- Simplify feed normalization in `backend/setta/api/listener.py` to accept only the realtime option.
-- Remove `_callback_accepts_persisted`/`_callback_accepts_realtime`; callbacks should run on:
-  - bootstrap snapshots,
-  - force-refresh snapshots (respecting `run_on_refresh=False` to opt out),
-  - realtime deltas.
-- Confirm bootstrap still guarantees one run per callback even with no deltas.
-- Audit scheduler/cache reset points to ensure they no longer branch on feed type.
+- ✅ Simplified feed handling in `backend/setta/api/listener.py`; the decorator still rejects unknown feeds and all callbacks are treated as realtime.
+- ✅ Removed `_callback_accepts_persisted`/`_callback_accepts_realtime`; callbacks now execute on bootstrap, force-refresh (unless `run_on_refresh=False`), and realtime deltas via a single code path.
+- ✅ Confirmed bootstrap triggers each callback once even without deltas (`tests/setta/api/test_listener_realtime.py` now asserts the initial invocation).
+- ✅ Audited scheduler/cache reset points; persistence, refresh, and realtime flows all reset and enqueue callbacks without feed-specific branching.
 
 ### 3. Force Refresh Handling
 - Add a handler for `WebsocketMsgListenerForceRefresh` that:
@@ -32,6 +29,7 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
 
 ### 5. Tests and Validation
 - Updated existing listener/websocket unit tests and manual helpers to use the realtime-only feed.
+- ✅ Adjusted realtime integration tests to cover bootstrap invocation after the feed collapse.
 - TODO: add fresh coverage for force-refresh behaviour now that it must replay snapshots and trigger callbacks.
 - TODO: run `source activate.sh && python -m unittest discover` once remaining behavioural changes land, then perform a manual listener smoke pass if warranted.
 
