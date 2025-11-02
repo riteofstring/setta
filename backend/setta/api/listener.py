@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import inspect
 import logging
 import sys
@@ -46,6 +47,8 @@ from .scheduling import ListenerCallbackScheduler
 
 if TYPE_CHECKING:
     from websockets import ClientConnection
+
+    from .hot_reload import ListenerHotReloader
 
 logger = logging.getLogger(__name__)
 _MISSING = object()
@@ -180,6 +183,55 @@ class SettaListener:
             logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
             self.stop()
+
+    def start_with_hot_reload(self, reloader: "ListenerHotReloader") -> None:
+        """Run the listener with automatic hot reload support."""
+        if reloader.listener is not self:
+            raise ValueError("ListenerHotReloader is bound to a different listener")
+        if self._stop_event.is_set():
+            self._stop_event = asyncio.Event()
+        try:
+            asyncio.run(self._run_with_hot_reload(reloader))
+        except KeyboardInterrupt:
+            logger.info("Listener %s interrupted by user", self._log_identifier)
+        finally:
+            self.stop()
+
+    async def _run_with_hot_reload(
+        self,
+        reloader: "ListenerHotReloader",
+    ) -> None:
+        watch_task: asyncio.Task[None] | None = None
+        try:
+            await reloader.reload_now(reload_module=False)
+            watch_task = asyncio.create_task(reloader.watch())
+            watch_task.add_done_callback(self._log_watch_task_completion)
+            await self.run_forever()
+        finally:
+            await reloader.stop()
+            if watch_task is not None:
+                await self._finalize_watch_task(watch_task)
+
+    @staticmethod
+    def _log_watch_task_completion(task: asyncio.Task[None]) -> None:
+        if not task.done() or task.cancelled():
+            return
+        exception = task.exception()
+        if exception is None:
+            return
+        logger.error(
+            "Listener hot reload watcher exited with error: %s",
+            exception,
+            exc_info=(exception.__class__, exception, exception.__traceback__),
+        )
+
+    @staticmethod
+    async def _finalize_watch_task(task: asyncio.Task[None]) -> None:
+        if task.done():
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
     def stop(self) -> None:
         """Signal the connection loop to exit."""

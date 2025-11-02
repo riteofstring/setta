@@ -11,6 +11,7 @@ objects (ML models, caches, etc.) survive code edits.
 ## Listener API Extensions
 Add guarded management helpers inside `SettaListener`:
 
+- `start_with_hot_reload(reloader)` runs the listener and watcher within the same event loop, performs the initial callback build before connecting, and shuts the watcher down when the listener stops. **Done.**
 - `self._callback_lock = asyncio.Lock()` protects callback mutations. **Done.**
 - `clear_callbacks()` and `_remove_callback(callback_id)` drop scheduler entries via
   `ListenerCallbackScheduler.unregister_callback` and update `_callbacks`. **Done.**
@@ -50,9 +51,35 @@ reloader = ListenerHotReloader(
 listener.start_with_hot_reload(reloader)
 ```
 
-`ListenerHotReloader.watch()` can rely on `watchfiles.awatch` to detect saves, then
-`importlib.reload` the module and call `listener.reload_callbacks(builder)`. The helper
-should run inside the same event loop so websocket traffic continues uninterrupted.
+`ListenerHotReloader.watch()` now uses `watchfiles.awatch` with a short settle delay
+to collapse bursty editor writes, reloads the target module with `importlib.reload`,
+and forwards the updated builder to `listener.reload_callbacks(...)`. The watcher runs
+inside the listener’s event loop so websocket traffic continues uninterrupted, and it
+replays the cached persisted snapshot after each reload when `trigger_refresh=True`.
+
+## ListenerHotReloader Helper
+- Accepts one or more filesystem paths along with the originating module + builder names.
+- Provides `reload_now(reload_module=False)` so scripts can build callbacks before the
+  websocket connects.
+- Exposes `trigger_refresh` (default `True`) to control whether the cached snapshot is
+  replayed, and `settle_delay` to tune how quickly file saves trigger a reload.
+- Surfaces a `stop()` coroutine that cleanly tears down the watcher when the listener
+  exits.
+- Uses `importlib.invalidate_caches()` ahead of `reload` so Python picks up freshly
+  written bytecode without destroying long-lived state or forcing callers to manage
+  timestamps manually.
+
+### Watchfiles vs. Watchdog
+- `watchfiles` (new dependency) delivers a fast, asyncio-native `awatch` loop backed
+  by Rust watchers. It suits in-process reloaders because it surfaces change batches
+  as async iterations and keeps latency low.
+- `watchdog` remains in the tree for broader tooling; it still powers higher-level dev
+  scripts that need cross-platform observer abstractions. The two coexist: listeners
+  lean on `watchfiles`, while CLI utilities continue to rely on `watchdog` until they
+  are ported or retired.
+- When running tests on macOS, remember that `watchdog` defaults to FSEvents; if that
+  observer fails in CI, set `WATCHDOG_USE_POLLING=1` or similar before invoking the
+  full unittest suite.
 
 ## Backend Support Work
 - Store the most recent persisted snapshot and reuse it for `_replay_cached_snapshot`.
@@ -63,15 +90,20 @@ should run inside the same event loop so websocket traffic continues uninterrupt
   `reload_callbacks` completes when `trigger_refresh=True`.
 
 ## Testing and Docs
-- Add an async unit test that performs two reload cycles and asserts the server-side
-  `ListenerRegistry` sees updated callback IDs while the websocket remains open.
-- Document the workflow in `docs/` (this file) and link from `docs/setta-listener-plan.md`.
+- Added `tests/setta/api/test_listener_hot_reload.py::SettaListenerHotReloadTests` to
+  cover two reload cycles, asserting callback IDs rotate and cached snapshots replay
+  for newly registered callbacks while the websocket stub stays open.
+- The test suite manually bumps file modification times to avoid filesystem cache
+  reuse, ensuring `importlib` sees updated modules without requiring callers to juggle
+  temporary filenames.
+- Linked this doc from `docs/setta-listener-plan.md` so the broader listener roadmap
+  references the hot-reload workflow.
 
 ## Progress
-- Listener core now supports hot reload: callback mutation lock, reload workflow, and cached snapshot replay are implemented.
+- Listener core now supports hot reload end-to-end: callback mutation lock, reload workflow, cached snapshot replay, and `start_with_hot_reload` orchestration with `ListenerHotReloader` are implemented.
 - Registration flow tolerates multiple register attempts without losing state.
 - Latest persisted project snapshot is cached and replayed after reloads to hydrate new callbacks immediately.
 
 ## Next Steps
-1. Ship `ListenerHotReloader` and expose `listener.start_with_hot_reload` so scripts can opt in easily.
-2. Add regression coverage for multiple reload cycles plus documentation for manual hot-reload testing with a slow model.
+1. Extend `tests/manual_listener_smoke.py` (or add a new sample script) to exercise `ListenerHotReloader.watch()` against a real project for manual verification.
+2. Evaluate support for directory-level watch globs and project-specific ignore patterns so large listener repos can opt in without enumerating every file.
