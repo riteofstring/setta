@@ -16,12 +16,10 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
 - ✅ Confirmed bootstrap triggers each callback once even without deltas (`tests/setta/api/test_listener_realtime.py` now asserts the initial invocation).
 - ✅ Audited scheduler/cache reset points; persistence, refresh, and realtime flows all reset and enqueue callbacks without feed-specific branching.
 
-### 3. Force Refresh Handling
-- Add a handler for `WebsocketMsgListenerForceRefresh` that:
-  - hydrates the optional `projectState`,
-  - replays the snapshot via the same path as bootstrap/refresh,
-  - resets realtime sequencing if required.
-- Propagate any necessary sequence reset through `RealtimeEventHub`.
+### 3. Force Refresh Handling ✅
+- `SettaListener` now dispatches `WebsocketMsgListenerForceRefresh` payloads into the unified snapshot pipeline, hydrating the supplied snapshot or the cached persisted state when none is provided.
+- Snapshot replays clear `_last_realtime_sequence`, reuse the bootstrap logic, and honour `run_on_refresh=True` callbacks even when values are unchanged.
+- `RealtimeEventHub` registers with `WMHPythonScriptSender`, allowing the sender to reset per-project sequences before broadcasting a force refresh (including broadcasts that only pass an id).
 
 ### 4. Websocket Sender/Receiver Updates ✅
 - Pruned `PERSISTED`/`BOTH` branches; registration acks, coverage tracking, and sender filtering now assume realtime-only feeds.
@@ -30,8 +28,8 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
 ### 5. Tests and Validation
 - Updated existing listener/websocket unit tests and manual helpers to use the realtime-only feed.
 - ✅ Adjusted realtime integration tests to cover bootstrap invocation after the feed collapse.
-- TODO: add fresh coverage for force-refresh behaviour now that it must replay snapshots and trigger callbacks.
-- TODO: run `source activate.sh && python -m unittest discover` once remaining behavioural changes land, then perform a manual listener smoke pass if warranted.
+- ✅ Added unit coverage that force refreshes replay snapshots, clear sequence counters, and respect refresh-only callbacks (`tests/setta/api/test_listener_realtime.py`, `tests/websockets/test_realtime_event_hub.py`).
+- TODO: run `source activate.sh && python -m unittest discover` once any additional listener changes land, then perform a manual listener smoke pass if warranted.
 
 ## Listener Callback Dependency Modes
 - Preserve the current “specific dependencies” flow but make it realtime-only.

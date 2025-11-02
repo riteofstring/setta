@@ -8,6 +8,7 @@ class RealtimeEventHub:
     def __init__(self, python_script_sender: WMHPythonScriptSender) -> None:
         self._python_script_sender = python_script_sender
         self._sequence_by_project: dict[str, int] = {}
+        python_script_sender.register_realtime_event_hub(self)
 
     def reset_sequence(self, project_config_id: str) -> None:
         """Reset the realtime sequence counter for a project.

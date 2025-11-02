@@ -5,7 +5,7 @@ import logging
 import sys
 from ast import literal_eval
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Literal
 from uuid import uuid4
 
 import websockets
@@ -23,6 +23,7 @@ from setta.types.generated.websocket_unions import (
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerFeed,
+    ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
     ListenerInitContent,
     ListenerRealtimeEventContent,
@@ -35,6 +36,7 @@ from setta.types.routes import Route
 from setta.types.websocket import (
     WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerError,
+    WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerPersistedUpdate,
@@ -341,6 +343,9 @@ class SettaListener:
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
             return
+        if isinstance(message, WebsocketMsgListenerForceRefresh):
+            await self._handle_force_refresh(message.content)
+            return
         if isinstance(message, WebsocketMsgListenerError):
             self._handle_listener_error(message)
             return
@@ -632,13 +637,26 @@ class SettaListener:
     ) -> None:
         """Refresh listener state from a persisted project snapshot."""
         self._latest_persisted_snapshot = project_state
+        await self._process_snapshot(
+            project_state,
+            refresh_kind="bootstrap" if is_bootstrap else "persisted",
+        )
+
+    async def _process_snapshot(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        refresh_kind: Literal["bootstrap", "persisted", "force_refresh"],
+    ) -> None:
+        self._last_realtime_sequence = None
         incoming_project_id = project_state.projectConfig.id
         if self._project_id is None:
             self._project_id = incoming_project_id
         elif incoming_project_id != self._project_id:
             logger.warning(
-                "Listener %s received persisted snapshot for unexpected project %s",
+                "Listener %s received %s snapshot for unexpected project %s",
                 self._log_identifier,
+                refresh_kind,
                 incoming_project_id,
             )
             self._project_id = incoming_project_id
@@ -656,7 +674,7 @@ class SettaListener:
         if runtime_state.s_instance is None:
             self._runtime_state = runtime_state
             self._dependency_cache = {}
-            if is_bootstrap:
+            if refresh_kind == "bootstrap":
                 logger.warning(
                     (
                         "Listener %s skipping snapshot hydration due to missing runtime "
@@ -668,10 +686,11 @@ class SettaListener:
             else:
                 logger.debug(
                     (
-                        "Listener %s ignoring persisted update because runtime state "
+                        "Listener %s ignoring %s snapshot because runtime state "
                         "is unavailable"
                     ),
                     self._log_identifier,
+                    refresh_kind,
                 )
             return
         snapshot_values: dict[str, Any] = {}
@@ -698,7 +717,7 @@ class SettaListener:
                     changed[dependency] = value
                     should_run = True
 
-            if is_bootstrap and spec.run_on_refresh:
+            if refresh_kind in {"bootstrap", "force_refresh"} and spec.run_on_refresh:
                 should_run = True
 
             if should_run:
@@ -707,7 +726,7 @@ class SettaListener:
         self._runtime_state = runtime_state
         self._dependency_cache = updated_cache
 
-        if is_bootstrap:
+        if refresh_kind == "bootstrap":
             await self._send_listener_register()
 
         for spec, changed in callbacks_to_run:
@@ -925,6 +944,25 @@ class SettaListener:
 
         for spec, changed in callbacks_to_run:
             self._scheduler.submit(spec.callback_id, dict(changed))
+
+    async def _handle_force_refresh(
+        self, content: ListenerForceRefreshContent
+    ) -> None:
+        """Handle force refresh payloads by replaying the latest snapshot."""
+        project_state = content.projectState
+        if project_state is not None:
+            self._latest_persisted_snapshot = project_state
+        else:
+            project_state = self._latest_persisted_snapshot
+            if project_state is None:
+                logger.warning(
+                    "Listener %s received force refresh without cached project state",
+                    self._log_identifier,
+                )
+                self._last_realtime_sequence = None
+                return
+
+        await self._process_snapshot(project_state, refresh_kind="force_refresh")
 
     async def emit_to_frontend(
         self,

@@ -20,6 +20,7 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.listener import (
     ListenerDependencyKey,
     ListenerErrorContent,
+    ListenerForceRefreshContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
@@ -153,6 +154,81 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("callbacks", register_payload["content"])
         callback_payloads = list(register_payload["content"]["callbacks"].values())
         self.assertEqual(callback_payloads[0]["debounceMs"], 50)
+
+    async def test_force_refresh_replays_snapshot_and_resets_sequence(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(
+            project_name=project_state.projectConfig.name,
+        )
+        run_on_refresh_calls: list[dict[str, Any]] = []
+        standard_calls: list[dict[str, Any]] = []
+
+        @listener.listen(deps=("Welcome",), run_on_refresh=True)
+        def on_refresh(state, ctx):
+            run_on_refresh_calls.append(dict(ctx.changed))
+
+        @listener.listen(deps=("Welcome",))
+        def on_standard(state, ctx):
+            standard_calls.append(dict(ctx.changed))
+
+        websocket = _StubWebsocket()
+        listener._websocket = websocket
+
+        await listener._handle_persisted_snapshot(
+            project_state,
+            is_bootstrap=True,
+        )
+
+        self.assertEqual(run_on_refresh_calls, [{"Welcome": "Hello"}])
+        self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
+
+        refresh_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_refresh
+        )
+        dependency_key = self._get_structured_dependency(refresh_spec)
+
+        realtime_event = ListenerRealtimeEventContent(
+            projectConfigId="project-1",
+            deltas=[
+                ListenerRealtimeDelta(
+                    dependency=dependency_key,
+                    value="Updated",
+                )
+            ],
+            sequence=1,
+        )
+        await listener._handle_realtime_event(realtime_event)
+        await asyncio.sleep(0.05)
+
+        self.assertEqual(
+            run_on_refresh_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
+        self.assertEqual(
+            standard_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
+        self.assertEqual(listener._last_realtime_sequence, 1)
+
+        refreshed_state = project_state.model_copy(deep=True)
+        section_impl_id = next(iter(refreshed_state.sectionImpls))
+        refreshed_state.sectionImpls[section_impl_id].text = "Updated"
+
+        await listener._handle_force_refresh(
+            ListenerForceRefreshContent(projectState=refreshed_state)
+        )
+
+        self.assertIsNone(listener._last_realtime_sequence)
+        self.assertEqual(
+            run_on_refresh_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}, {}],
+        )
+        self.assertEqual(
+            standard_calls,
+            [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
+        )
 
     async def test_realtime_delta_rehydrates_typed_values(self) -> None:
         listener = SettaListener(project_name="Project project-typed")

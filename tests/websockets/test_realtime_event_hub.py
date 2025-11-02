@@ -1,26 +1,31 @@
 import unittest
 
+from setta.types.listener import ListenerDependencyKey, ListenerRealtimeDelta
+from setta.websockets.listener_registry import ListenerRegistry
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 
 
 class _StubPythonScriptSender:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
+        self.registered_hub = None
+
+    def register_realtime_event_hub(self, event_hub: RealtimeEventHub) -> None:
+        self.registered_hub = event_hub
 
     async def send_realtime_update(
         self,
         *,
         projectConfigId: str,
-        delta: dict[str, object],
+        deltas: list[ListenerRealtimeDelta],
         sequence: int,
-        metadata: dict[str, object] | None = None,
     ) -> None:
         self.calls.append(
             {
                 "projectConfigId": projectConfigId,
-                "delta": delta,
+                "deltas": deltas,
                 "sequence": sequence,
-                "metadata": metadata,
             }
         )
 
@@ -30,14 +35,22 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
         sender = _StubPythonScriptSender()
         hub = RealtimeEventHub(sender)
 
+        delta_a = ListenerRealtimeDelta(
+            dependency=ListenerDependencyKey(sectionId="section-a", codeObjId=None),
+            value=1,
+        )
+        delta_b = ListenerRealtimeDelta(
+            dependency=ListenerDependencyKey(sectionId="section-b", codeObjId=None),
+            value=2,
+        )
+
         await hub.emit_realtime_delta(
             project_config_id="proj-1",
-            delta={"dep-a": 1},
-            metadata={"source": "slider"},
+            deltas=[delta_a],
         )
         await hub.emit_realtime_delta(
             project_config_id="proj-1",
-            delta={"dep-b": 2},
+            deltas=[delta_b],
         )
 
         self.assertEqual(2, len(sender.calls))
@@ -45,25 +58,28 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
         second = sender.calls[1]
 
         self.assertEqual(1, first["sequence"])
-        self.assertEqual({"dep-a": 1}, first["delta"])
-        self.assertEqual({"source": "slider"}, first["metadata"])
+        self.assertEqual([delta_a], first["deltas"])
 
         self.assertEqual(2, second["sequence"])
-        self.assertEqual({"dep-b": 2}, second["delta"])
-        self.assertIsNone(second["metadata"])
+        self.assertEqual([delta_b], second["deltas"])
 
     async def test_reset_sequence_starts_from_one(self) -> None:
         sender = _StubPythonScriptSender()
         hub = RealtimeEventHub(sender)
 
+        delta = ListenerRealtimeDelta(
+            dependency=ListenerDependencyKey(sectionId="section-a", codeObjId=None),
+            value=1,
+        )
+
         await hub.emit_realtime_delta(
             project_config_id="proj-1",
-            delta={"dep-a": 1},
+            deltas=[delta],
         )
         hub.reset_sequence("proj-1")
         await hub.emit_realtime_delta(
             project_config_id="proj-1",
-            delta={"dep-a": 2},
+            deltas=[delta],
         )
 
         self.assertEqual(2, len(sender.calls))
@@ -76,8 +92,45 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await hub.emit_realtime_delta(
                 project_config_id="proj-1",
-                delta={},
+                deltas=[],
             )
+
+
+class _StubWebsocketManager:
+    def __init__(self) -> None:
+        self.broadcasts: list[dict[str, object]] = []
+
+    async def send_message(self, message, websocket_id):
+        pass
+
+    async def broadcast(self, message, connectionType):
+        self.broadcasts.append(
+            {"message": message, "connectionType": connectionType}
+        )
+
+
+class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
+    async def test_force_refresh_resets_sequence_tracking(self) -> None:
+        websocket_manager = _StubWebsocketManager()
+        listener_registry = ListenerRegistry()
+        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        hub = RealtimeEventHub(sender)
+
+        delta = ListenerRealtimeDelta(
+            dependency=ListenerDependencyKey(sectionId="section-a", codeObjId=None),
+            value=1,
+        )
+
+        await hub.emit_realtime_delta(
+            project_config_id="proj-1",
+            deltas=[delta],
+        )
+        self.assertIn("proj-1", hub._sequence_by_project)
+
+        await sender.send_force_refresh(projectConfigId="proj-1")
+
+        self.assertNotIn("proj-1", hub._sequence_by_project)
+        self.assertEqual(1, len(websocket_manager.broadcasts))
 
 
 if __name__ == "__main__":  # pragma: no cover
