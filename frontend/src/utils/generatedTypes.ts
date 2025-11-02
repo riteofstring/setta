@@ -388,11 +388,7 @@ export const ViewingEditingModeEnum = {
 
 export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
-export const ListenerFeedEnum = {
-  PERSISTED: "persisted",
-  REALTIME: "realtime",
-  BOTH: "both",
-} as const;
+export const ListenerFeedEnum = { REALTIME: "realtime" } as const;
 
 export type ListenerFeed = ObjectValues<typeof ListenerFeedEnum>;
 
@@ -5969,7 +5965,7 @@ export function createWebsocketMsgListenerRegisterAck(
 export const ListenerInitContentSchema = z.object({
   projectConfigId: z.union([z.string(), z.null()]).default(null),
   projectName: z.union([z.string(), z.null()]).default(null),
-  defaultFeed: z.union([z.enum(ListenerFeedEnum), z.null()]).default(null),
+  defaultFeed: z.enum(ListenerFeedEnum).default(ListenerFeedEnum.REALTIME),
 });
 
 export type ListenerInitContent = z.infer<typeof ListenerInitContentSchema>;

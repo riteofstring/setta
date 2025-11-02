@@ -42,7 +42,9 @@ class ListenerHotReloader:
             )
         module = inspect.getmodule(builder)
         if module is None or module.__name__ is None:
-            raise TypeError("ListenerHotReloader requires a builder defined in a module")
+            raise TypeError(
+                "ListenerHotReloader requires a builder defined in a module"
+            )
         self._module_name = module.__name__
         self._builder_name = builder_name
         self._watch_specs = self._build_watch_specs(
@@ -312,11 +314,15 @@ class _WatcherSpec:
         except ValueError:
             return False
         relative_as_posix = relative.as_posix()
-        if self.ignores and any(self._fnmatch(relative_as_posix, pattern) for pattern in self.ignores):
+        if self.ignores and any(
+            self._fnmatch(relative_as_posix, pattern) for pattern in self.ignores
+        ):
             return False
         if not self.includes:
             return True
-        return any(self._fnmatch(relative_as_posix, pattern) for pattern in self.includes)
+        return any(
+            self._fnmatch(relative_as_posix, pattern) for pattern in self.includes
+        )
 
     def merged_with(
         self,
@@ -325,10 +331,14 @@ class _WatcherSpec:
     ) -> "_WatcherSpec":
         includes = self.includes
         if new_includes:
-            includes = includes + tuple(pattern for pattern in new_includes if pattern not in includes)
+            includes = includes + tuple(
+                pattern for pattern in new_includes if pattern not in includes
+            )
         ignores = self.ignores
         if new_ignores:
-            ignores = ignores + tuple(pattern for pattern in new_ignores if pattern not in ignores)
+            ignores = ignores + tuple(
+                pattern for pattern in new_ignores if pattern not in ignores
+            )
         return _WatcherSpec(
             root=self.root,
             is_file=self.is_file,

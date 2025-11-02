@@ -92,8 +92,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             dependency_keys=(delta.dependency.to_graph_key() for delta in deltas),
         ):
             if any(
-                registration.callbacks[callback_id].feed
-                in (ListenerFeed.REALTIME, ListenerFeed.BOTH)
+                registration.callbacks[callback_id].feed is ListenerFeed.REALTIME
                 for callback_id in matching_callbacks
             ):
                 sockets_to_notify.add(registration.websocket_id)

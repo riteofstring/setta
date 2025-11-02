@@ -5,10 +5,10 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
 
 ## Workstreams
 
-### 1. Shared Types and Generated Artifacts
-- Update `backend/setta/types/listener.py` so `ListenerFeed` only contains `"realtime"`.
-- Ensure `ListenerInitContent.defaultFeed` reflects the new single-value enum and still serializes cleanly.
-- Regenerate the TypeScript bindings (`source activate.sh && cd frontend && pnpm generate`) so the frontend schema matches.
+### 1. Shared Types and Generated Artifacts ✅
+- `backend/setta/types/listener.py` now exposes only the `"realtime"` feed and `ListenerInitContent.defaultFeed` is a non-null realtime default.
+- Regenerated TypeScript bindings (`source activate.sh && cd frontend && pnpm generate`) so the frontend schema mirrors the single-value enum.
+- Updated websocket listener receiver/sender specs to consume the collapsed enum (no remaining references to `PERSISTED`/`BOTH`).
 
 ### 2. Listener Feed Semantics
 - Simplify feed normalization in `backend/setta/api/listener.py` to accept only the realtime option.
@@ -26,16 +26,14 @@ Collapse the existing `SettaListener` feed options into a single realtime feed t
   - resets realtime sequencing if required.
 - Propagate any necessary sequence reset through `RealtimeEventHub`.
 
-### 4. Websocket Sender/Receiver Updates
-- Remove references to `PERSISTED`/`BOTH` in registration acks and dependency matching.
-- Confirm `WMHPythonScriptSender.send_realtime_update` still filters callbacks correctly with the single feed.
-- Review listener registry/coverage tracking for feed-specific assumptions.
+### 4. Websocket Sender/Receiver Updates ✅
+- Pruned `PERSISTED`/`BOTH` branches; registration acks, coverage tracking, and sender filtering now assume realtime-only feeds.
+- `WMHPythonScriptSender.send_realtime_update` and listener coverage tracker both gate on the lone realtime enum member.
 
 ### 5. Tests and Validation
-- Update Python tests under `tests/setta/api/` and `tests/websockets/` to reflect the new default feed semantics.
-- Add coverage for force-refresh behaviour now that it triggers callbacks.
-- Run `source activate.sh && python -m unittest discover` to validate the backend suite.
-- Manually sanity-check the listener by exercising `tests/manual_listener_smoke.py` or a similar workflow if needed.
+- Updated existing listener/websocket unit tests and manual helpers to use the realtime-only feed.
+- TODO: add fresh coverage for force-refresh behaviour now that it must replay snapshots and trigger callbacks.
+- TODO: run `source activate.sh && python -m unittest discover` once remaining behavioural changes land, then perform a manual listener smoke pass if warranted.
 
 ## Listener Callback Dependency Modes
 - Preserve the current “specific dependencies” flow but make it realtime-only.

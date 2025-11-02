@@ -93,7 +93,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         def on_realtime(state, ctx):
             realtime_calls.append(dict(ctx.changed))
 
-        @listener.listen(deps=("Welcome",), feed=ListenerFeed.PERSISTED)
+        @listener.listen(deps=("Welcome",), feed=ListenerFeed.REALTIME)
         def on_persisted(state, ctx):
             persisted_calls.append(dict(ctx.changed))
 
@@ -351,7 +351,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
     async def test_bootstrap_registers_when_state_instantiation_fails(self) -> None:
         listener = SettaListener(project_name="Demo Project")
 
-        @listener.listen(deps=("Welcome",), feed=ListenerFeed.BOTH)
+        @listener.listen(deps=("Welcome",), feed=ListenerFeed.REALTIME)
         def on_change(state, ctx):  # pragma: no cover - invoked only on success
             raise AssertionError("callback should not execute when runtime state fails")
 

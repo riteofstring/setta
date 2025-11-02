@@ -106,7 +106,7 @@ class SettaListener:
         self,
         *,
         project_name: str,
-        default_feed: ListenerFeed = ListenerFeed.PERSISTED,
+        default_feed: ListenerFeed = ListenerFeed.REALTIME,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
@@ -797,11 +797,11 @@ class SettaListener:
 
     @staticmethod
     def _callback_accepts_persisted(spec: ListenerCallbackSpec) -> bool:
-        return spec.feed in {ListenerFeed.PERSISTED, ListenerFeed.BOTH}
+        return spec.feed is ListenerFeed.REALTIME
 
     @staticmethod
     def _callback_accepts_realtime(spec: ListenerCallbackSpec) -> bool:
-        return spec.feed in {ListenerFeed.REALTIME, ListenerFeed.BOTH}
+        return spec.feed is ListenerFeed.REALTIME
 
     async def _invoke_callback(
         self,

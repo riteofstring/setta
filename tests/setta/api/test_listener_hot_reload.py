@@ -7,14 +7,13 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from watchfiles import Change
-
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
+from watchfiles import Change
 
 
 class _StubWebsocket:
@@ -79,7 +78,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
                     @listener.listen(
                         deps=("Welcome",),
-                        feed=ListenerFeed.PERSISTED,
+                        feed=ListenerFeed.REALTIME,
                         run_on_refresh=True,
                     )
                     def on_change(state, ctx):

@@ -8,15 +8,13 @@ from setta.types.project_state import ProjectStateSingleConfig
 
 
 class ListenerFeed(str, Enum):
-    PERSISTED = "persisted"
     REALTIME = "realtime"
-    BOTH = "both"
 
 
 class ListenerInitContent(BaseModel):
     projectConfigId: str | None = None
     projectName: str | None = None
-    defaultFeed: ListenerFeed | None = None
+    defaultFeed: ListenerFeed = ListenerFeed.REALTIME
 
     @model_validator(mode="after")
     def _validate_identifier(self):

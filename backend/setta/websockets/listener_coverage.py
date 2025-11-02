@@ -36,7 +36,7 @@ class ListenerCoverageTracker:
 
         for registration in registrations:
             for callback in registration.callbacks.values():
-                if callback.feed not in (ListenerFeed.REALTIME, ListenerFeed.BOTH):
+                if callback.feed is not ListenerFeed.REALTIME:
                     continue
                 if not callback.dependencies:
                     has_realtime_wildcard = True

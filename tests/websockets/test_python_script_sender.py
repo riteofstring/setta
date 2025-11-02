@@ -30,7 +30,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 "cb-both": ListenerRegisterCallback(
                     dependencies=["dep-b"],
-                    feed=ListenerFeed.BOTH,
+                    feed=ListenerFeed.REALTIME,
                 ),
                 "cb-wildcard": ListenerRegisterCallback(
                     dependencies=[],
@@ -38,7 +38,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 "cb-persisted": ListenerRegisterCallback(
                     dependencies=["dep-a"],
-                    feed=ListenerFeed.PERSISTED,
+                    feed=ListenerFeed.REALTIME,
                 ),
             },
         )
@@ -112,7 +112,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-persisted": ListenerRegisterCallback(
                     dependencies=["dep-a"],
-                    feed=ListenerFeed.PERSISTED,
+                    feed=ListenerFeed.REALTIME,
                 ),
                 "cb-realtime-other": ListenerRegisterCallback(
                     dependencies=["dep-other"],

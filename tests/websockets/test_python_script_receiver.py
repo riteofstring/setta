@@ -143,7 +143,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             dependencies=[
                 ListenerDependencyKey(sectionId="Homepage__hero__title", codeObjId=None)
             ],
-            feed=ListenerFeed.BOTH,
+            feed=ListenerFeed.REALTIME,
         )
         content = ListenerRegisterContent(
             projectConfigId="proj-123",
@@ -162,7 +162,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("proj-123", registration.project_config_id)
         self.assertIn("cb-1", registration.callbacks)
         self.assertEqual(
-            ListenerFeed.BOTH,
+            ListenerFeed.REALTIME,
             registration.callbacks["cb-1"].feed,
         )
 
@@ -197,7 +197,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectName=project_state.projectConfig.name,
-                defaultFeed=ListenerFeed.BOTH,
+                defaultFeed=ListenerFeed.REALTIME,
             )
         )
 
@@ -231,7 +231,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectConfigId="missing-project",
-                defaultFeed=None,
             )
         )
 
@@ -267,7 +266,6 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectName="Nonexistent Project",
-                defaultFeed=None,
             )
         )
 
@@ -305,7 +303,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         callback = ListenerRegisterCallback(
             dependencies=[],
-            feed=ListenerFeed.BOTH,
+            feed=ListenerFeed.REALTIME,
         )
         register_message = WebsocketMsgListenerRegister(
             content=ListenerRegisterContent(
@@ -402,7 +400,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         callback = ListenerRegisterCallback(
             dependencies=[],
-            feed=ListenerFeed.BOTH,
+            feed=ListenerFeed.REALTIME,
         )
         register_message = WebsocketMsgListenerRegister(
             content=ListenerRegisterContent(

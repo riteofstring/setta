@@ -107,7 +107,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
                     dependencies=[
                         ListenerDependencyKey(sectionId="section-B", codeObjId=None)
                     ],
-                    feed=ListenerFeed.BOTH,
+                    feed=ListenerFeed.REALTIME,
                 )
             },
         )
@@ -138,7 +138,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[],
-                    feed=ListenerFeed.BOTH,
+                    feed=ListenerFeed.REALTIME,
                 )
             },
         )
