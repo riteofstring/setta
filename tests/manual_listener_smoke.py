@@ -83,29 +83,36 @@ def _configure_hot_reload(
     settle_delay: float | None,
 ) -> ListenerHotReloader:
     module = importlib.import_module(module_name)
-    module_file = getattr(module, "__file__", None)
-    if module_file is None:
+    try:
+        builder = getattr(module, builder_name)
+    except AttributeError as error:
         raise ValueError(
-            f"Listener builder module {module_name!r} does not have a file path"
+            f"Listener builder attribute {builder_name!r} missing in module {module_name!r}"
+        ) from error
+    if not callable(builder):
+        raise TypeError(
+            f"Listener builder attribute {builder_name!r} in module {module_name!r} is not callable"
         )
-    paths = {str(Path(module_file).resolve())}
+    extra_paths: set[str] | None = None
     if watch_paths:
-        for raw_path in watch_paths:
-            paths.add(str(Path(raw_path).expanduser().resolve()))
+        extra_paths = {
+            str(Path(raw_path).expanduser())
+            for raw_path in watch_paths
+        }
     kwargs: dict[str, Any] = {"trigger_refresh": trigger_refresh}
     if settle_delay is not None:
         kwargs["settle_delay"] = settle_delay
-    logger.info(
-        "Hot reload watching: %s",
-        ", ".join(sorted(paths)),
-    )
-    return ListenerHotReloader(
+    reloader = ListenerHotReloader(
         listener=listener,
-        module_name=module_name,
-        builder_name=builder_name,
-        paths=paths,
+        builder=builder,
+        extra_watch_paths=extra_paths,
         **kwargs,
     )
+    logger.info(
+        "Hot reload watching: %s",
+        ", ".join(str(path) for path in sorted(reloader._paths)),
+    )
+    return reloader
 
 
 def main() -> None:

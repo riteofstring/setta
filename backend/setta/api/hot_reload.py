@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import inspect
 import logging
 import sys
 from pathlib import Path
@@ -21,16 +22,26 @@ class ListenerHotReloader:
         self,
         *,
         listener: "SettaListener",
-        module_name: str,
-        builder_name: str,
-        paths: Iterable[str],
+        builder: "ListenerCallbackBuilder",
+        extra_watch_paths: Iterable[str] | None = None,
         trigger_refresh: bool = True,
         settle_delay: float = 0.1,
     ) -> None:
         self._listener = listener
-        self._module_name = module_name
+        self._builder = builder
+        if not callable(builder):
+            raise TypeError("ListenerHotReloader requires a callable builder")
+        builder_name = getattr(builder, "__name__", None)
+        if not builder_name:
+            raise TypeError(
+                "ListenerHotReloader requires a builder with a __name__ attribute"
+            )
+        module = inspect.getmodule(builder)
+        if module is None or module.__name__ is None:
+            raise TypeError("ListenerHotReloader requires a builder defined in a module")
+        self._module_name = module.__name__
         self._builder_name = builder_name
-        self._paths = self._normalize_paths(paths)
+        self._paths = self._collect_watch_paths(module, extra_watch_paths)
         if not self._paths:
             raise ValueError("ListenerHotReloader requires at least one path to watch")
         self._trigger_refresh = trigger_refresh
@@ -42,8 +53,45 @@ class ListenerHotReloader:
     def listener(self) -> "SettaListener":
         return self._listener
 
+    def _collect_watch_paths(
+        self,
+        module: ModuleType,
+        extra_watch_paths: Iterable[str] | None,
+    ) -> tuple[Path, ...]:
+        candidate_paths: list[Path] = []
+        module_file = getattr(module, "__file__", None)
+        if module_file:
+            resolved = Path(module_file).expanduser()
+            try:
+                resolved = resolved.resolve()
+            except RuntimeError:
+                resolved = resolved.absolute()
+            candidate_paths.append(resolved)
+            if resolved.name == "__init__.py":
+                candidate_paths.append(resolved.parent)
+        else:
+            spec = getattr(module, "__spec__", None)
+            origin = getattr(spec, "origin", None) if spec else None
+            if origin and origin not in {"built-in", "namespace"}:
+                origin_path = Path(origin).expanduser()
+                try:
+                    origin_path = origin_path.resolve()
+                except RuntimeError:
+                    origin_path = origin_path.absolute()
+                candidate_paths.append(origin_path)
+                if origin_path.name == "__init__.py":
+                    candidate_paths.append(origin_path.parent)
+            if spec and getattr(spec, "submodule_search_locations", None):
+                candidate_paths.extend(
+                    Path(location).expanduser()
+                    for location in spec.submodule_search_locations
+                )
+        if extra_watch_paths:
+            candidate_paths.extend(Path(raw).expanduser() for raw in extra_watch_paths)
+        return self._normalize_paths(candidate_paths)
+
     @staticmethod
-    def _normalize_paths(paths: Iterable[str]) -> tuple[Path, ...]:
+    def _normalize_paths(paths: Iterable[str | Path]) -> tuple[Path, ...]:
         normalized: list[Path] = []
         for raw_path in paths:
             path = Path(raw_path).expanduser()
@@ -113,6 +161,7 @@ class ListenerHotReloader:
                     self._module_name,
                 )
                 raise
+            self._builder = builder
             await self._listener.reload_callbacks(
                 builder,
                 trigger_refresh=self._trigger_refresh,
@@ -123,6 +172,8 @@ class ListenerHotReloader:
         *,
         reload_module: bool,
     ) -> "ListenerCallbackBuilder":
+        if not reload_module:
+            return self._builder
         module = self._load_module(reload_module=reload_module)
         builder = getattr(module, self._builder_name, None)
         if builder is None:

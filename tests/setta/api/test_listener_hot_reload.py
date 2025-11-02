@@ -1,3 +1,4 @@
+import importlib
 import json
 import os
 import sys
@@ -111,11 +112,10 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
             sys.path.insert(0, tmp_dir)
             try:
                 self._write_listener_module(module_path, "v1")
+                module = importlib.import_module(module_name)
                 reloader = ListenerHotReloader(
                     listener=listener,
-                    module_name=module_name,
-                    builder_name="build_callbacks",
-                    paths={str(module_path)},
+                    builder=module.build_callbacks,
                 )
                 await reloader.reload_now(reload_module=False)
 
@@ -146,3 +146,32 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         final_spec = next(iter(listener._callbacks.values()))
         self.assertEqual(final_spec.callback_id, register_ids[-1])
         self.assertIs(listener._websocket, websocket)
+
+    async def test_reloader_infers_watch_paths_from_builder(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        module_name = "hot_reload_package_listener"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            module_dir = Path(tmp_dir) / module_name
+            module_dir.mkdir()
+            module_path = module_dir / "__init__.py"
+            extra_path = module_dir / "builder_helpers.py"
+            extra_path.write_text("# helper module\n")
+            sys.path.insert(0, tmp_dir)
+            try:
+                self._write_listener_module(module_path, "pkg")
+                module = importlib.import_module(module_name)
+                reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                    extra_watch_paths={str(extra_path)},
+                )
+                inferred_paths = {path for path in reloader._paths}
+                self.assertIn(module_path.resolve(), inferred_paths)
+                self.assertIn(module_dir.resolve(), inferred_paths)
+                self.assertIn(extra_path.resolve(), inferred_paths)
+            finally:
+                sys.modules.pop(module_name, None)
+                if tmp_dir in sys.path:
+                    sys.path.remove(tmp_dir)

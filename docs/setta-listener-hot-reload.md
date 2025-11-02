@@ -43,9 +43,7 @@ def build_callbacks(listener: SettaListener) -> None:
 listener = SettaListener(project_name="Demo Project")
 reloader = ListenerHotReloader(
     listener=listener,
-    module_name="my_listener_module",
-    builder_name="build_callbacks",
-    paths={"my_listener_module.py"},
+    builder=build_callbacks,
 )
 
 listener.start_with_hot_reload(reloader)
@@ -58,8 +56,9 @@ inside the listener’s event loop so websocket traffic continues uninterrupted,
 replays the cached persisted snapshot after each reload when `trigger_refresh=True`.
 
 ## ListenerHotReloader Helper
-- Accepts one or more filesystem paths along with the originating module + builder names.
-- Provides `reload_now(reload_module=False)` so scripts can build callbacks before the
+- Accepts the callback builder callable and infers the originating module path (and package directory when applicable).
+- Provides `extra_watch_paths` so scripts can add more files or directories without replacing the defaults.
+- Offers `reload_now(reload_module=False)` so scripts can build callbacks before the
   websocket connects.
 - Exposes `trigger_refresh` (default `True`) to control whether the cached snapshot is
   replayed, and `settle_delay` to tune how quickly file saves trigger a reload.
@@ -105,10 +104,11 @@ replays the cached persisted snapshot after each reload when `trigger_refresh=Tr
 
 ## Progress
 - Listener core supports hot reload end-to-end: callback mutation lock, reload workflow, cached snapshot replay, and `start_with_hot_reload` orchestration with `ListenerHotReloader` are implemented.
+- `ListenerHotReloader` accepts builder callables directly and infers default watch paths, reducing script boilerplate.
 - Registration flow tolerates multiple register attempts without losing state.
 - Latest persisted project snapshot is cached and replayed after reloads to hydrate new callbacks immediately.
 - Manual smoke script exercises `ListenerHotReloader.watch()` against the fixture project for quick verification.
 
 ## Next Steps
 1. Evaluate support for directory-level watch globs and project-specific ignore patterns so large listener repos can opt in without enumerating every file.
-2. Simplify `ListenerHotReloader` setup so callers can pass the builder callable directly, letting the helper infer the module and default watch paths instead of requiring `module_name`/`paths`.
+2. Explore a `SettaListener.start(hot_reload=True, builder=..., extra_watch_paths=...)` entry point that wraps `ListenerHotReloader` behind one flag to streamline listener scripts.
