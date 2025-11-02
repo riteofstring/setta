@@ -136,6 +136,10 @@ class GetLatestProjectStateRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
 
 
+class ForceRefreshProjectRequest(ProjectManagerRequestWithFrontendOp):
+    projectConfigId: str
+
+
 class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
     topLevelSections: dict[str, TopLevelSectionLayout]

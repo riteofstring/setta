@@ -4,6 +4,7 @@ import { EditMenu } from "./EditMenu";
 import { FileMenu } from "./FileMenu";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
+import { ForceRefreshButton } from "./ForceRefreshButton";
 import { WebsocketConnections } from "./WebsocketConnections";
 
 export function ProjectNav() {
@@ -25,6 +26,7 @@ function ProjectNavSwitch() {
             <FileMenu />
             <EditMenu />
             <WebsocketConnections />
+            <ForceRefreshButton />
             <RunButton />
           </Menubar.Root>
           <StopButton />

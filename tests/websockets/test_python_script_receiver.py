@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Iterable
 
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl2 import ProjectNotFound
@@ -17,8 +18,8 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
     WebsocketConnectionType,
-    WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerError,
+    WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerFrontendEmitForward,
     WebsocketMsgListenerInit,
@@ -67,15 +68,24 @@ def _build_project_state(project_config_id: str) -> ProjectStateSingleConfig:
 
 class _StubPythonScriptSender:
     def __init__(self) -> None:
-        self.calls: list[tuple[ProjectStateSingleConfig, bool]] = []
+        self.force_refresh_calls: list[dict[str, object | None]] = []
 
-    async def send_persisted_update(
+    async def send_force_refresh(
         self,
-        projectState: ProjectStateSingleConfig,
         *,
-        is_bootstrap: bool,
+        projectState: ProjectStateSingleConfig | None = None,
+        projectConfigId: str | None = None,
+        targetWebsocketIds: Iterable[str] | None = None,
     ) -> None:
-        self.calls.append((projectState, is_bootstrap))
+        self.force_refresh_calls.append(
+            {
+                "projectState": projectState,
+                "projectConfigId": projectConfigId,
+                "targetWebsocketIds": tuple(targetWebsocketIds)
+                if targetWebsocketIds is not None
+                else None,
+            }
+        )
 
 
 class _StubProjectManager:
@@ -205,10 +215,11 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             "proj-init",
             listener_registry.get_bootstrap_project_config("socket-init"),
         )
-        self.assertEqual(
-            [(project_state, True)],
-            python_script_sender.calls,
-        )
+        self.assertEqual(1, len(python_script_sender.force_refresh_calls))
+        call = python_script_sender.force_refresh_calls[0]
+        self.assertIs(call["projectState"], project_state)
+        self.assertIsNone(call["projectConfigId"])
+        self.assertEqual(("socket-init",), call["targetWebsocketIds"])
 
     async def test_listener_init_sends_error_when_project_missing(self):
         websocket_manager = _StubWebsocketManager()
@@ -234,7 +245,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             fromWebsocketId="socket-missing",
         )
 
-        self.assertEqual([], python_script_sender.calls)
+        self.assertEqual([], python_script_sender.force_refresh_calls)
         self.assertEqual(1, len(websocket_manager.sent_messages))
         error_message, websocket_id = websocket_manager.sent_messages[0]
         self.assertEqual("socket-missing", websocket_id)
@@ -269,7 +280,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             fromWebsocketId="socket-missing-name",
         )
 
-        self.assertEqual([], python_script_sender.calls)
+        self.assertEqual([], python_script_sender.force_refresh_calls)
         self.assertEqual(1, len(websocket_manager.sent_messages))
         error_message, websocket_id = websocket_manager.sent_messages[0]
         self.assertEqual("socket-missing-name", websocket_id)
@@ -439,7 +450,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
 
 
 class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
-    async def test_send_persisted_update_targets_bootstrapped_sockets(self):
+    async def test_send_force_refresh_targets_bootstrapped_sockets(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(websocket_manager, listener_registry)
@@ -453,26 +464,21 @@ class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
         )
 
         project_state_a = _build_project_state("proj-a")
-        await sender.send_persisted_update(
-            project_state_a,
-            is_bootstrap=True,
-        )
+        await sender.send_force_refresh(projectState=project_state_a)
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
         message, websocket_id = websocket_manager.sent_messages[0]
         self.assertEqual("socket-a", websocket_id)
-        self.assertIsInstance(message, WebsocketMsgListenerBootstrap)
-        self.assertIs(project_state_a, message.content)
+        self.assertIsInstance(message, WebsocketMsgListenerForceRefresh)
+        self.assertIs(project_state_a, message.content.projectState)
+        self.assertEqual([], websocket_manager.broadcasts)
 
-    async def test_send_persisted_update_skips_when_no_bootstrap(self):
+    async def test_send_force_refresh_skips_when_no_bootstrap(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(websocket_manager, listener_registry)
         project_state = _build_project_state("proj-empty")
 
-        await sender.send_persisted_update(
-            project_state,
-            is_bootstrap=False,
-        )
+        await sender.send_force_refresh(projectState=project_state)
 
         self.assertEqual([], websocket_manager.sent_messages)

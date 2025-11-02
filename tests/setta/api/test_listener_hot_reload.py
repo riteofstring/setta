@@ -116,10 +116,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 )
                 await reloader.reload_now(reload_module=False)
 
-                await listener._handle_persisted_snapshot(
-                    project_state,
-                    is_bootstrap=True,
-                )
+                await listener._refresh_from_snapshot(project_state)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
                 self.assertEqual(listener._test_invocations, ["v1"])
 

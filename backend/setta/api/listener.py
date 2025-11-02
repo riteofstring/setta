@@ -39,7 +39,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
-    WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
@@ -328,16 +327,11 @@ class SettaListener:
             self._handle_register_ack(message)
             return
         if isinstance(message, WebsocketMsgListenerBootstrap):
-            await self._handle_persisted_snapshot(
-                message.content,
-                is_bootstrap=True,
+            logger.debug(
+                "Listener %s received bootstrap snapshot; treating as force refresh",
+                self._log_identifier,
             )
-            return
-        if isinstance(message, WebsocketMsgListenerPersistedUpdate):
-            await self._handle_persisted_snapshot(
-                message.content,
-                is_bootstrap=False,
-            )
+            await self._refresh_from_snapshot(message.content)
             return
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
@@ -648,24 +642,27 @@ class SettaListener:
             )
             raise
 
-    async def _handle_persisted_snapshot(
+    async def _refresh_from_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
-        *,
-        is_bootstrap: bool,
     ) -> None:
-        """Refresh listener state from a persisted project snapshot."""
+        """Refresh listener state from a snapshot delivered over the websocket."""
         self._latest_persisted_snapshot = project_state
+        refresh_kind: Literal["bootstrap", "force_refresh"]
+        if self._runtime_state is None:
+            refresh_kind = "bootstrap"
+        else:
+            refresh_kind = "force_refresh"
         await self._process_snapshot(
             project_state,
-            refresh_kind="bootstrap" if is_bootstrap else "persisted",
+            refresh_kind=refresh_kind,
         )
 
     async def _process_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
         *,
-        refresh_kind: Literal["bootstrap", "persisted", "force_refresh"],
+        refresh_kind: Literal["bootstrap", "force_refresh"],
     ) -> None:
         self._last_realtime_sequence = None
         incoming_project_id = project_state.projectConfig.id
@@ -684,7 +681,7 @@ class SettaListener:
             runtime_state = self._build_runtime_state(project_state)
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
             logger.warning(
-                "Listener %s skipped persisted snapshot due to build failure: %s",
+                "Listener %s skipped snapshot refresh due to build failure: %s",
                 self._log_identifier,
                 error,
                 exc_info=logger.isEnabledFor(logging.DEBUG),
@@ -989,16 +986,16 @@ class SettaListener:
         """Handle force refresh payloads by replaying the latest snapshot."""
         project_state = content.projectState
         if project_state is not None:
-            self._latest_persisted_snapshot = project_state
-        else:
-            project_state = self._latest_persisted_snapshot
-            if project_state is None:
-                logger.warning(
-                    "Listener %s received force refresh without cached project state",
-                    self._log_identifier,
-                )
-                self._last_realtime_sequence = None
-                return
+            await self._refresh_from_snapshot(project_state)
+            return
+        project_state = self._latest_persisted_snapshot
+        if project_state is None:
+            logger.warning(
+                "Listener %s received force refresh without cached project state",
+                self._log_identifier,
+            )
+            self._last_realtime_sequence = None
+            return
 
         await self._process_snapshot(project_state, refresh_kind="force_refresh")
 
@@ -1129,13 +1126,13 @@ class SettaListener:
                 raise
 
     async def _replay_cached_snapshot(self) -> None:
-        """Replay the most recent persisted snapshot for newly registered callbacks."""
+        """Replay the most recent cached snapshot for newly registered callbacks."""
         runtime_state = self._runtime_state
         snapshot = self._latest_persisted_snapshot
         if runtime_state is None or runtime_state.s_instance is None:
             if snapshot is None:
                 logger.debug(
-                    "Listener %s cannot replay snapshot without persisted state",
+                "Listener %s cannot replay snapshot without cached state",
                     self._log_identifier,
                 )
                 return

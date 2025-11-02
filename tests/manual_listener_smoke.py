@@ -2,7 +2,7 @@
 Manual SettaListener smoke-check script used by docs/setta-listener-plan.md.
 
 Run this once the dev stack is up (frontend + backend) to verify that the
-listener receives persisted updates when a control changes in the UI.
+listener receives snapshot refreshes when a control changes in the UI.
 """
 
 import argparse
@@ -74,7 +74,7 @@ def build_listener(project_name: str) -> SettaListener:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Manual smoke test for SettaListener persisted updates."
+        description="Manual smoke test for SettaListener force refresh snapshots."
     )
     parser.add_argument(
         "--project-name",

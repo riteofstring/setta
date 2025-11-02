@@ -1,3 +1,5 @@
+from fastapi import HTTPException
+
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
@@ -16,6 +18,7 @@ from setta.project_state.project_manager_types import (
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    ForceRefreshProjectRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -221,6 +224,29 @@ async def route_get_latest_project_state(
         projectState=projectState,
         completedOpIds=[],
         pendingOpIds=list(manager.pending_frontend_ops.keys()),
+    )
+
+
+@router.post(Route.FORCE_REFRESH_PROJECT)
+async def route_force_refresh_project(
+    x: ForceRefreshProjectRequest, state: AppStateFromRequest
+) -> None:
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    try:
+        project_state = await manager.get_latest_project_state(
+            GetLatestProjectStateRequest(
+                projectConfigId=x.projectConfigId,
+                frontendOpId=x.frontendOpId,
+            )
+        )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"project state unavailable for {x.projectConfigId}",
+        ) from exc
+
+    await state.wmh_python_script_sender.send_force_refresh(
+        projectState=project_state,
     )
 
 

@@ -3,7 +3,7 @@
 This page explains how realtime listener updates move through the system, how callback dependencies are evaluated, and what happens when the backend forces a snapshot replay.
 
 ## Snapshot bootstrap and registration
-- The listener connects via `SettaListener.run_forever`, sends `ListenerInitContent`, and receives a `WebsocketMsgListenerBootstrap` containing `ProjectStateSingleConfig`.
+- The listener connects via `SettaListener.run_forever`, sends `ListenerInitContent`, and receives a targeted `WebsocketMsgListenerForceRefresh` containing `ProjectStateSingleConfig`.
 - `_process_snapshot(refresh_kind="bootstrap")` compiles the project with `DependencyGraph` and `PythonCodeGenerator`, instantiates `s`, and populates `_dependency_cache`.
 - Each `@listener.listen` decorator becomes a `ListenerCallbackSpec`. During bootstrap, `_build_register_content` converts declared dependency strings into `ListenerDependencyKey` values before emitting `WebsocketMsgListenerRegister`.
 - Bootstrap callbacks run once the snapshot hydrates. Specs with `run_on_refresh=True` run even if nothing changed, while REFRESH_ONLY callbacks skip realtime traffic but emit an initial invocation so bootstrap-only workflows still fire.
@@ -23,7 +23,7 @@ This page explains how realtime listener updates move through the system, how ca
 - Dependency names must match entries in `DependencyGraph.full_path_name_to_graph_key`; `_translate_dependency_name` raises `KeyError` so dependency mistakes surface immediately instead of silently failing.
 
 ## Force refresh lifecycle
-- Forcing a refresh (`WMHPythonScriptSender.send_force_refresh`) broadcasts `WebsocketMsgListenerForceRefresh` to every Python listener. When a specific snapshot is included, the sender also resets the per-project realtime sequence through `RealtimeEventHub.reset_sequence`.
+- Forcing a refresh (`WMHPythonScriptSender.send_force_refresh`) unicasts `WebsocketMsgListenerForceRefresh` to listeners bootstrapped for the project. When a specific snapshot is included, the sender also resets the per-project realtime sequence through `RealtimeEventHub.reset_sequence`.
 - `SettaListener._handle_force_refresh` falls back to the cached `_latest_persisted_snapshot` if the payload omits `projectState`. Missing snapshots are logged and only clear `_last_realtime_sequence`.
 - `_process_snapshot(refresh_kind="force_refresh")` resets `_last_realtime_sequence`, rebuilds the dependency graph, and replays callbacks using the same rules as bootstrap. SPECIFIC callbacks run if a watched dependency changed; `run_on_refresh=True` ensures they run even without changes; REFRESH_ONLY callbacks always execute.
 - After a successful replay, any future realtime event starts at sequence `1` again, preventing stale deltas from being accepted out of order.

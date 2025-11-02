@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 from setta.types.listener import (
     ListenerForceRefreshContent,
@@ -8,10 +8,7 @@ from setta.types.listener import (
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
-    WebsocketConnectionType,
-    WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerForceRefresh,
-    WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.websockets.listener_registry import ListenerRegistry
@@ -35,36 +32,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
 
     def register_realtime_event_hub(self, event_hub: "RealtimeEventHub") -> None:
         self._realtime_event_hub = event_hub
-
-    async def send_persisted_update(
-        self,
-        projectState: ProjectStateSingleConfig,
-        *,
-        is_bootstrap: bool,
-    ):
-        project_config_id = projectState.projectConfig.id
-        logger.debug(
-            "sending listener persisted update (bootstrap=%s) for project config %s",
-            is_bootstrap,
-            project_config_id,
-        )
-        message_cls = (
-            WebsocketMsgListenerBootstrap
-            if is_bootstrap
-            else WebsocketMsgListenerPersistedUpdate
-        )
-        socket_ids = list(
-            self.listener_registry.iter_socket_ids_for_project(project_config_id)
-        )
-        if not socket_ids:
-            logger.debug(
-                "no python script sockets recorded for project config %s; skipping persisted update",
-                project_config_id,
-            )
-            return
-        message = message_cls(content=projectState)
-        for websocket_id in socket_ids:
-            await self.websocket_manager.send_message(message, websocket_id)
 
     async def send_realtime_update(
         self,
@@ -114,20 +81,44 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         *,
         projectState: ProjectStateSingleConfig | None = None,
         projectConfigId: str | None = None,
+        targetWebsocketIds: Iterable[str] | None = None,
     ):
         project_config_id = projectConfigId
         if projectState is not None:
             project_config_id = projectState.projectConfig.id
-        if project_config_id is not None and self._realtime_event_hub is not None:
+        if project_config_id is None:
+            raise ValueError(
+                "projectState or projectConfigId must provide a project id for force refresh"
+            )
+
+        socket_ids: list[str]
+        if targetWebsocketIds is not None:
+            socket_ids = list(targetWebsocketIds)
+        else:
+            socket_ids = list(
+                self.listener_registry.iter_socket_ids_for_project(project_config_id)
+            )
+
+        if not socket_ids:
+            logger.debug(
+                "no python script sockets recorded for force refresh (project config %s)",
+                project_config_id,
+            )
+            if self._realtime_event_hub is not None:
+                self._realtime_event_hub.reset_sequence(project_config_id)
+            return
+
+        if self._realtime_event_hub is not None:
             self._realtime_event_hub.reset_sequence(project_config_id)
+
         content = ListenerForceRefreshContent(
             projectState=projectState,
         )
+        message = WebsocketMsgListenerForceRefresh(content=content)
         logger.debug(
-            "sending listener force refresh for project config %s",
-            project_config_id if project_config_id is not None else "unknown",
+            "sending listener force refresh for project config %s to %s socket(s)",
+            project_config_id,
+            len(socket_ids),
         )
-        await self.websocket_manager.broadcast(
-            WebsocketMsgListenerForceRefresh(content=content),
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-        )
+        for websocket_id in socket_ids:
+            await self.websocket_manager.send_message(message, websocket_id)

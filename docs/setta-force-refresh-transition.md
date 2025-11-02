@@ -9,7 +9,7 @@
 - Expand `send_force_refresh` so it can scope delivery to listeners registered for a specific project instead of broadcasting blindly. (file: `backend/setta/websockets/msg_handlers/python_script_sender.py`)
 - Introduce an explicit Setta API route that handles frontend force refresh requests by fetching the latest project state from `ProjectManagerSwitcher` and invoking the updated `send_force_refresh`. (files: `backend/setta/routers/project_manager.py`, `frontend/src/...`)
 - Stop auto-sending persisted snapshots after every backend mutation by removing the `send_persisted_update` branch from `_broadcast_project_state_snapshot`. (file: `backend/setta/project_state/base_project_manager.py`)
-- Simplify `SettaListener` so `_dispatch_websocket_message` and `_handle_persisted_snapshot` rely solely on force refresh payloads for full-state rebuilds, updating tests that exercise bootstrap and persisted paths. (files: `backend/setta/api/listener.py`, `tests/setta/api/test_listener_realtime.py`, `tests/websockets/test_python_script_receiver.py`)
+- Simplify `SettaListener` so `_dispatch_websocket_message` hydrates snapshots via `_refresh_from_snapshot` and relies solely on force refresh payloads for full-state rebuilds, updating tests that exercise bootstrap and refresh paths. (files: `backend/setta/api/listener.py`, `tests/setta/api/test_listener_realtime.py`, `tests/websockets/test_python_script_receiver.py`)
 
 ## Risks & Considerations
 - Frontend flows that rely on implicit persisted snapshots must explicitly request a force refresh or they will observe stale state.

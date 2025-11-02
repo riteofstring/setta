@@ -98,13 +98,13 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
 class _StubWebsocketManager:
     def __init__(self) -> None:
-        self.broadcasts: list[dict[str, object]] = []
+        self.sent_messages: list[tuple[object, str]] = []
 
     async def send_message(self, message, websocket_id):
-        pass
+        self.sent_messages.append((message, websocket_id))
 
     async def broadcast(self, message, connectionType):
-        self.broadcasts.append({"message": message, "connectionType": connectionType})
+        raise AssertionError("broadcast should not be used in tests")
 
 
 class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
@@ -128,7 +128,7 @@ class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
         await sender.send_force_refresh(projectConfigId="proj-1")
 
         self.assertNotIn("proj-1", hub._sequence_by_project)
-        self.assertEqual(1, len(websocket_manager.broadcasts))
+        self.assertEqual([], websocket_manager.sent_messages)
 
 
 if __name__ == "__main__":  # pragma: no cover

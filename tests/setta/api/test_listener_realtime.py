@@ -84,7 +84,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             project_name=project_state.projectConfig.name,
         )
         realtime_calls: list[dict[str, Any]] = []
-        persisted_calls: list[dict[str, Any]] = []
+        refresh_calls: list[dict[str, Any]] = []
 
         @listener.listen(
             deps=("Welcome",),
@@ -94,18 +94,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             realtime_calls.append(dict(ctx.changed))
 
         @listener.listen(deps=("Welcome",))
-        def on_persisted(state, ctx):
-            persisted_calls.append(dict(ctx.changed))
+        def on_refresh(state, ctx):
+            refresh_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
         listener._websocket = websocket
 
-        await listener._handle_persisted_snapshot(
-            project_state,
-            is_bootstrap=True,
-        )
+        await listener._refresh_from_snapshot(project_state)
 
-        self.assertEqual(persisted_calls, [{"Welcome": "Hello"}])
+        self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
         self.assertTrue(websocket.sent)
 
@@ -175,10 +172,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         websocket = _StubWebsocket()
         listener._websocket = websocket
 
-        await listener._handle_persisted_snapshot(
-            project_state,
-            is_bootstrap=True,
-        )
+        await listener._refresh_from_snapshot(project_state)
 
         self.assertEqual(run_on_refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
@@ -249,10 +243,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         websocket = _StubWebsocket()
         listener._websocket = websocket
 
-        await listener._handle_persisted_snapshot(
-            project_state,
-            is_bootstrap=True,
-        )
+        await listener._refresh_from_snapshot(project_state)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -318,10 +309,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         websocket = _StubWebsocket()
         listener._websocket = websocket
 
-        await listener._handle_persisted_snapshot(
-            project_state,
-            is_bootstrap=True,
-        )
+        await listener._refresh_from_snapshot(project_state)
 
         self.assertEqual(any_calls, [{}])
         self.assertEqual(specific_calls, [{"Welcome": "Hello"}])
@@ -571,10 +559,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
         listener._instantiate_s = MagicMock(side_effect=ValueError("math domain error"))
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
-        await listener._handle_persisted_snapshot(
-            project_state,
-            is_bootstrap=True,
-        )
+        await listener._refresh_from_snapshot(project_state)
 
         self.assertIsNotNone(listener._runtime_state)
         assert listener._runtime_state is not None  # help type checkers

@@ -491,6 +491,7 @@ export const RouteEnum = {
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
+  FORCE_REFRESH_PROJECT: "/forceRefreshProject",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
@@ -8802,6 +8803,21 @@ export function createDeleteSectionsRequest(
   options: Partial<DeleteSectionsRequest> = {},
 ): DeleteSectionsRequest {
   return DeleteSectionsRequestSchema.parse(options);
+}
+
+export const ForceRefreshProjectRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.string(),
+});
+
+export type ForceRefreshProjectRequest = z.infer<
+  typeof ForceRefreshProjectRequestSchema
+>;
+
+export function createForceRefreshProjectRequest(
+  options: Partial<ForceRefreshProjectRequest> = {},
+): ForceRefreshProjectRequest {
+  return ForceRefreshProjectRequestSchema.parse(options);
 }
 
 export const GenCodePrefixCompletionRequestSchema = z.object({

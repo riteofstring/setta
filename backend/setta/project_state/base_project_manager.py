@@ -1266,22 +1266,14 @@ class BaseProjectManager(ABC):
     async def _broadcast_project_state_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
-        *,
-        is_bootstrap: bool = False,
     ) -> None:
         self._mark_current_frontend_op_completed_before_broadcast()
         completed_op_ids = self.completed_op_ids_since_last_broadcast
         pending_op_ids = list(self.pending_frontend_ops.keys())
-        await asyncio.gather(
-            self.websocket_msg_handler.broadcast_project_state(
-                project_state,
-                completed_op_ids,
-                pending_op_ids,
-            ),
-            self.python_script_sender.send_persisted_update(
-                project_state,
-                is_bootstrap=is_bootstrap,
-            ),
+        await self.websocket_msg_handler.broadcast_project_state(
+            project_state,
+            completed_op_ids,
+            pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
 

@@ -164,9 +164,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
-        await self.python_script_sender.send_persisted_update(
-            project_state,
-            is_bootstrap=True,
+        await self.python_script_sender.send_force_refresh(
+            projectState=project_state,
+            targetWebsocketIds=(websocket_id,),
         )
 
     async def _handle_listener_register(

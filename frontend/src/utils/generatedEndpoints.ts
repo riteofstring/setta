@@ -329,6 +329,12 @@ export async function route_get_latest_project_state(
   return await post("/getLatestProjectState", x);
 }
 
+export async function route_force_refresh_project(
+  x: gt.ForceRefreshProjectRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/forceRefreshProject", x);
+}
+
 export async function route_set_top_level_section_layout(
   x: gt.SetTopLevelSectionLayoutRequest,
 ): Promise<ResponseDataAndStatus<null>> {

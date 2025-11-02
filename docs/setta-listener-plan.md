@@ -4,16 +4,16 @@
 - Long-lived `SettaListener` that reacts to project changes without rerunning generators.
 - Enable interactive, script-driven workflows so users can build Python “apps” that respond in real time to UI edits.
 - Share the existing generated `S` state model and metadata between run-once scripts and listeners.
-- Deliver both persisted project manager snapshots and low-latency realtime deltas.
+- Deliver cached force refresh snapshots alongside low-latency realtime deltas.
 
 ### Architecture Highlights
 - **Websocket plumbing**: `Route.WEBSOCKET_PYTHON_SCRIPT` routes through `websocket_route_loop`, `WMHPythonScriptReceiver`, and a shared `ListenerRegistry` for registration bookkeeping.
-- **Persisted feed**: `BaseProjectManager._broadcast_project_state_snapshot` now fans out snapshots to the Python script channel via `WMHPythonScriptSender.send_persisted_update`, which unicasts only to sockets that have bootstrapped the matching project. `WMHPythonScriptReceiver` replays the latest snapshot immediately during `ListenerInit`, and surfaces errors back to the listener when the project state can’t be loaded.
+- **Snapshot feed**: `_broadcast_project_state_snapshot` keeps the frontend in sync while Python listeners receive snapshots through targeted `WMHPythonScriptSender.send_force_refresh` calls. `WMHPythonScriptReceiver` hydrates the connecting socket with a scoped force refresh payload and surfaces errors when the project state can’t be loaded or resolved.
 - **Realtime feed**: The frontend emits structured `{sectionId, codeObjId}` keys through `sendRealtimeUIChange`. `WMHFrontendReceiver` forwards events to `RealtimeEventHub`, which sequences them per project before `WMHPythonScriptSender.send_realtime_update` notifies matching listeners.
-- **Listener runtime**: `SettaListener` handles bootstrap/init, callback registration, dependency translation, persisted snapshot rebuilds, realtime mutation of the cached `S` instance, reconnects, and callback invocation.
+- **Listener runtime**: `SettaListener` handles bootstrap/init, callback registration, dependency translation, snapshot rebuilds, realtime mutation of the cached `S` instance, reconnects, and callback invocation.
 
 ### Phase Progress
-- **Phase 1 – persisted pipeline** ✅ Complete. Websocket session handling, listener client skeleton, snapshot broadcasting, and persisted callback execution are wired and covered by the manual smoke workflow.
+- **Phase 1 – snapshot pipeline** ✅ Complete. Websocket session handling, listener client skeleton, snapshot broadcasting, and refresh callback execution are wired and covered by the manual smoke workflow.
 - **Phase 2 – realtime feed** ✅ Complete. Structured dependency keys flow end-to-end, realtime sequencing is enforced, and listeners receive deltas only when subscribed via `realtime` or `both` feeds.
 - **Phase 3 – listener UX & emit helpers** ⏳ In progress. Per-callback debounce/throttle scheduling lands via `ListenerCallbackScheduler`; realtime deltas now hydrate into typed values inside `SettaListener` via the shared value codec. `emit_to_frontend` is available on the listener (and exposed via `ctx.emit_to_frontend`), payloads now accept arbitrary JSON-serializable values (not just dicts), and the frontend queues incoming listener payloads by `target`. Still pending: wiring an explicit listener-facing `force_refresh` trigger from the UI, finalizing how the queued payloads are consumed/rendered, and documentation polish; UI exposure is still under discussion.
 - **Phase 4 – reliability & tests** ⏳ In progress. New async suites cover scheduler edge cases, realtime debounce handling, bootstrap replay, and server-side routing. Listener registration now tolerates generated-code build failures by deferring callback execution until the next clean snapshot. Hot-reload coverage now verifies callback ID churn and snapshot replay when modules change (see [docs/setta-listener-hot-reload.md](setta-listener-hot-reload.md)). Still pending are schema hot-reload behavior, richer error handling across generator rebuilds, listener script end-to-end coverage beyond unit scaffolds, and broader monitoring.
