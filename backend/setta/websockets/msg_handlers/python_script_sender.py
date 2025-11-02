@@ -1,10 +1,8 @@
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from setta.types.listener import (
-    ListenerErrorContent,
     ListenerForceRefreshContent,
-    ListenerFrontendEmitContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
@@ -12,9 +10,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgListenerBootstrap,
-    WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
-    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
 )
@@ -137,35 +133,5 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         )
         await self.websocket_manager.broadcast(
             WebsocketMsgListenerForceRefresh(content=content),
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-        )
-
-    async def send_error(self, *, error: str, details: Any | None = None):
-        content = ListenerErrorContent(error=error, details=details)
-        logger.error("sending listener error: %s", error)
-        await self.websocket_manager.broadcast(
-            WebsocketMsgListenerError(content=content),
-            connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
-        )
-
-    async def broadcast_listener_event(
-        self,
-        *,
-        projectConfigId: str,
-        payload: Any,
-        target: str | None = None,
-    ):
-        content = ListenerFrontendEmitContent(
-            projectConfigId=projectConfigId,
-            payload=payload,
-            target=target,
-        )
-        logger.debug(
-            "broadcasting listener event for project config %s (target=%s)",
-            projectConfigId,
-            target,
-        )
-        await self.websocket_manager.broadcast(
-            WebsocketMsgListenerFrontendEmit(content=content),
             connectionType=WebsocketConnectionType.PYTHON_SCRIPT,
         )
