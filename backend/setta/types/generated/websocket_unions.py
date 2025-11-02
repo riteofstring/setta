@@ -6,14 +6,12 @@ from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
-    WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerFrontendEmitForward,
     WebsocketMsgListenerInit,
-    WebsocketMsgListenerPersistedUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
@@ -45,8 +43,6 @@ WebsocketMsgUnion = (
     | WebsocketMsgListenerCoverageSnapshot
     | WebsocketMsgRealtimeUIChange
     | WebsocketMsgCurrentAddressUpdate
-    | WebsocketMsgListenerBootstrap
-    | WebsocketMsgListenerPersistedUpdate
     | WebsocketMsgListenerRealtimeEvent
     | WebsocketMsgListenerForceRefresh
     | WebsocketMsgListenerError
@@ -79,8 +75,6 @@ WebsocketMsgTypeSet = set(
         "ListenerCoverageSnapshot",
         "RealtimeUIChange",
         "CurrentAddressUpdate",
-        "ListenerBootstrap",
-        "ListenerPersistedUpdate",
         "ListenerRealtimeEvent",
         "ListenerForceRefresh",
         "ListenerError",
@@ -146,9 +140,7 @@ BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscrim
 BackendWebsocketMsgTypeSet = set(["RealtimeUIChange", "CurrentAddressUpdate"])
 
 PythonScriptWebsocketMsgUnion = (
-    WebsocketMsgListenerBootstrap
-    | WebsocketMsgListenerPersistedUpdate
-    | WebsocketMsgListenerRealtimeEvent
+    WebsocketMsgListenerRealtimeEvent
     | WebsocketMsgListenerForceRefresh
     | WebsocketMsgListenerError
     | WebsocketMsgListenerFrontendEmit
@@ -167,8 +159,6 @@ PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(
 
 PythonScriptWebsocketMsgTypeSet = set(
     [
-        "ListenerBootstrap",
-        "ListenerPersistedUpdate",
         "ListenerRealtimeEvent",
         "ListenerForceRefresh",
         "ListenerError",

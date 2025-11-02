@@ -29,7 +29,7 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
+from setta.types.project_state import AllProjectMetadata
 from setta.types.settings_state import RenameRefactorMode
 
 
@@ -58,8 +58,6 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerInit = "ListenerInit"
     ListenerRegister = "ListenerRegister"
     ListenerRegisterAck = "ListenerRegisterAck"
-    ListenerBootstrap = "ListenerBootstrap"
-    ListenerPersistedUpdate = "ListenerPersistedUpdate"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
@@ -229,20 +227,6 @@ class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
         WebsocketMsgTypeForBackend.CurrentAddressUpdate
-    )
-
-
-class WebsocketMsgListenerBootstrap(PythonScriptWebsocketMsg):
-    content: ProjectStateSingleConfig
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerBootstrap] = (
-        WebsocketMsgTypeForPythonScript.ListenerBootstrap
-    )
-
-
-class WebsocketMsgListenerPersistedUpdate(PythonScriptWebsocketMsg):
-    content: ProjectStateSingleConfig
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate] = (
-        WebsocketMsgTypeForPythonScript.ListenerPersistedUpdate
     )
 
 

@@ -203,12 +203,10 @@ export const FrontendWebsocketMsgTypeSet = new Set([
 ]);
 
 export const PythonScriptWebsocketMsgTypeSet = new Set([
-  "ListenerBootstrap",
   "ListenerError",
   "ListenerForceRefresh",
   "ListenerFrontendEmit",
   "ListenerInit",
-  "ListenerPersistedUpdate",
   "ListenerRealtimeEvent",
   "ListenerRegister",
   "ListenerRegisterAck",
@@ -220,14 +218,12 @@ export const WebsocketMsgTypeSet = new Set([
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
   "LSPDiagnostics",
-  "ListenerBootstrap",
   "ListenerCoverageSnapshot",
   "ListenerError",
   "ListenerForceRefresh",
   "ListenerFrontendEmit",
   "ListenerFrontendEmitForward",
   "ListenerInit",
-  "ListenerPersistedUpdate",
   "ListenerRealtimeEvent",
   "ListenerRegister",
   "ListenerRegisterAck",
@@ -638,8 +634,6 @@ export const WebsocketMsgTypeForPythonScriptEnum = {
   ListenerInit: "ListenerInit",
   ListenerRegister: "ListenerRegister",
   ListenerRegisterAck: "ListenerRegisterAck",
-  ListenerBootstrap: "ListenerBootstrap",
-  ListenerPersistedUpdate: "ListenerPersistedUpdate",
   ListenerRealtimeEvent: "ListenerRealtimeEvent",
   ListenerForceRefresh: "ListenerForceRefresh",
   ListenerError: "ListenerError",
@@ -5715,42 +5709,6 @@ export function createFrontendWebsocketMsgUnionWithDiscriminator(
   return FrontendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const WebsocketMsgListenerBootstrapSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigSchema,
-  messageType: z
-    .literal("ListenerBootstrap")
-    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerBootstrap),
-});
-
-export type WebsocketMsgListenerBootstrap = z.infer<
-  typeof WebsocketMsgListenerBootstrapSchema
->;
-
-export function createWebsocketMsgListenerBootstrap(
-  options: Partial<WebsocketMsgListenerBootstrap> = {},
-): WebsocketMsgListenerBootstrap {
-  return WebsocketMsgListenerBootstrapSchema.parse(options);
-}
-
-export const WebsocketMsgListenerPersistedUpdateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigSchema,
-  messageType: z
-    .literal("ListenerPersistedUpdate")
-    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerPersistedUpdate),
-});
-
-export type WebsocketMsgListenerPersistedUpdate = z.infer<
-  typeof WebsocketMsgListenerPersistedUpdateSchema
->;
-
-export function createWebsocketMsgListenerPersistedUpdate(
-  options: Partial<WebsocketMsgListenerPersistedUpdate> = {},
-): WebsocketMsgListenerPersistedUpdate {
-  return WebsocketMsgListenerPersistedUpdateSchema.parse(options);
-}
-
 export const ListenerRealtimeEventContentSchema = z.object({
   projectConfigId: z.string(),
   deltas: z.array(z.any()),
@@ -5999,8 +5957,6 @@ export function createWebsocketMsgListenerInit(
 }
 
 export const PythonScriptWebsocketMsgUnionSchema = z.union([
-  WebsocketMsgListenerBootstrapSchema,
-  WebsocketMsgListenerPersistedUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
   WebsocketMsgListenerForceRefreshSchema,
   WebsocketMsgListenerErrorSchema,
@@ -6016,8 +5972,6 @@ export type PythonScriptWebsocketMsgUnion = z.infer<
 
 export const PythonScriptWebsocketMsgUnionWithDiscriminatorSchema =
   z.discriminatedUnion("messageType", [
-    WebsocketMsgListenerBootstrapSchema,
-    WebsocketMsgListenerPersistedUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
     WebsocketMsgListenerForceRefreshSchema,
     WebsocketMsgListenerErrorSchema,
@@ -6053,8 +6007,6 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
-  WebsocketMsgListenerBootstrapSchema,
-  WebsocketMsgListenerPersistedUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
   WebsocketMsgListenerForceRefreshSchema,
   WebsocketMsgListenerErrorSchema,
@@ -6084,8 +6036,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgListenerCoverageSnapshotSchema,
     WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
-    WebsocketMsgListenerBootstrapSchema,
-    WebsocketMsgListenerPersistedUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
     WebsocketMsgListenerForceRefreshSchema,
     WebsocketMsgListenerErrorSchema,

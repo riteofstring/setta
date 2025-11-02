@@ -34,7 +34,6 @@ from setta.types.listener import (
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
-    WebsocketMsgListenerBootstrap,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
@@ -325,13 +324,6 @@ class SettaListener:
         """Delegate parsed websocket messages to dedicated handlers."""
         if isinstance(message, WebsocketMsgListenerRegisterAck):
             self._handle_register_ack(message)
-            return
-        if isinstance(message, WebsocketMsgListenerBootstrap):
-            logger.debug(
-                "Listener %s received bootstrap snapshot; treating as force refresh",
-                self._log_identifier,
-            )
-            await self._refresh_from_snapshot(message.content)
             return
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
             await self._handle_realtime_event(message.content)
