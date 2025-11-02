@@ -5788,8 +5788,6 @@ export const ListenerForceRefreshContentSchema = z.object({
   projectState: z
     .union([ProjectStateSingleConfigSchema, z.null()])
     .default(null),
-  reason: z.union([z.string(), z.null()]).default(null),
-  schemaHash: z.union([z.string(), z.null()]).default(null),
 });
 
 export type ListenerForceRefreshContent = z.infer<

@@ -114,8 +114,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         *,
         projectState: ProjectStateSingleConfig | None = None,
         projectConfigId: str | None = None,
-        reason: str | None = None,
-        schemaHash: str | None = None,
     ):
         project_config_id = projectConfigId
         if projectState is not None:
@@ -124,8 +122,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             self._realtime_event_hub.reset_sequence(project_config_id)
         content = ListenerForceRefreshContent(
             projectState=projectState,
-            reason=reason,
-            schemaHash=schemaHash,
         )
         logger.debug(
             "sending listener force refresh for project config %s",

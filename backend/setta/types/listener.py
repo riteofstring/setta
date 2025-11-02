@@ -34,8 +34,6 @@ class ListenerRealtimeEventContent(BaseModel):
 
 class ListenerForceRefreshContent(BaseModel):
     projectState: ProjectStateSingleConfig | None = None
-    reason: str | None = None
-    schemaHash: str | None = None
 
 
 class ListenerErrorContent(BaseModel):
