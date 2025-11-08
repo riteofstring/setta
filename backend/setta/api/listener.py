@@ -888,7 +888,7 @@ class SettaListener:
             node = runtime_state.dependency_graph.graph.get(dep_key)
             if node is None:
                 logger.error(
-                    "Listener %s received realtime delta for unknown graph key %s",
+                    "Listener %s received realtime delta for unknown dependency key %s",
                     self._log_identifier,
                     dep_key,
                 )
@@ -906,7 +906,8 @@ class SettaListener:
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
                     (
-                        "Listener %s failed to apply realtime delta for %s (graph key %s): %s"
+                        "Listener %s failed to apply realtime delta for %s "
+                        "(dependency key %s): %s"
                     ),
                     self._log_identifier,
                     dependency,

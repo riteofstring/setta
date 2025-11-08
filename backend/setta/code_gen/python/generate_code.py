@@ -92,7 +92,7 @@ class PythonCodeGenerator:
 
         # Check if we've encountered this node before in current path
         if dep_key in path:
-            # Cycle detected! Extract the full cycle as graph keys
+            # Cycle detected! Extract the full cycle as dependency keys
             cycle_start = path.index(dep_key)
             cycle = path[cycle_start:] + [dep_key]
             return [cycle]
