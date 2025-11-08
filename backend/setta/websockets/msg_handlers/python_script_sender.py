@@ -58,7 +58,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             matching_callbacks,
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
-            dependency_keys=(delta.dependency.to_graph_key() for delta in deltas),
+            dependency_keys=(delta.dependency for delta in deltas),
         ):
             if matching_callbacks:
                 sockets_to_notify.add(registration.websocket_id)
@@ -67,7 +67,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             logger.debug(
                 "no listener sockets registered for realtime dependencies %s "
                 "(project config %s)",
-                [delta.dependency.to_graph_key() for delta in deltas],
+                [delta.dependency for delta in deltas],
                 projectConfigId,
             )
             return

@@ -5,6 +5,7 @@ from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
+from setta.code_gen.dependency_key import DependencyKey
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -16,7 +17,6 @@ from setta.types.generated.unions import (
 )
 from setta.types.listener import (
     ListenerCoverageSnapshot,
-    ListenerDependencyKey,
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
@@ -212,7 +212,7 @@ class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
 
 class RealtimeUIChangeContent(BaseModel):
     projectConfigId: str
-    dependencyKey: ListenerDependencyKey
+    dependencyKey: DependencyKey
     value: Any
 
 

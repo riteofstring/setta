@@ -23,6 +23,10 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
 )
+from setta.code_gen.dependency_key import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+)
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -897,20 +901,25 @@ class BaseProjectManager(ABC):
         if not changed_values:
             return
         for changed in changed_values:
-            section_id = changed.sectionId
-            param_id = changed.paramInfoId
             new_value = changed.newValue
-            if param_id is not None:
-                set_param_entered_value(project_state, section_id, param_id, new_value)
-                continue
-            callable_code_obj = get_curr_section_callable_code_obj(
-                project_state, section_id
-            )
-            if not callable_code_obj:
-                raise KeyError(
-                    f"Expected callable code object for section {section_id}"
+            depKey = changed.depKey
+            if isinstance(depKey, SectionParamDependencyKey):
+                set_param_entered_value(
+                    project_state,
+                    depKey.sectionId,
+                    depKey.codeObjId,
+                    new_value,
                 )
-            project_state.codeObjs[callable_code_obj.id].name = new_value
+                continue
+            elif isinstance(depKey, SectionDependencyKey):
+                callable_code_obj = get_curr_section_callable_code_obj(
+                    project_state, depKey.sectionId
+                )
+                if not callable_code_obj:
+                    raise KeyError(
+                        f"Expected callable code object for section {depKey.sectionId}"
+                    )
+                project_state.codeObjs[callable_code_obj.id].name = new_value
 
     async def maybe_do_rename_refactor(
         self,

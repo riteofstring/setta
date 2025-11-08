@@ -4197,22 +4197,28 @@ export function createBaseSectionWithParamsImplUnionWithDiscriminator(
   return BaseSectionWithParamsImplUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const ListenerDependencyKeySchema = z.object({
-  sectionId: z.string(),
-  codeObjId: z.union([z.string(), z.null()]).default(null),
+export const DependencyKeyTypeEnum = {
+  Section: "Section",
+  SectionParam: "SectionParam",
+} as const;
+
+export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
+
+export const DependencyKeySchema = z.object({
+  type: z.enum(DependencyKeyTypeEnum),
 });
 
-export type ListenerDependencyKey = z.infer<typeof ListenerDependencyKeySchema>;
+export type DependencyKey = z.infer<typeof DependencyKeySchema>;
 
-export function createListenerDependencyKey(
-  options: Partial<ListenerDependencyKey> = {},
-): ListenerDependencyKey {
-  return ListenerDependencyKeySchema.parse(options);
+export function createDependencyKey(
+  options: Partial<DependencyKey> = {},
+): DependencyKey {
+  return DependencyKeySchema.parse(options);
 }
 
 export const RealtimeUIChangeContentSchema = z.object({
   projectConfigId: z.string(),
-  dependencyKey: ListenerDependencyKeySchema,
+  dependencyKey: DependencyKeySchema,
   value: z.any(),
 });
 
@@ -4472,8 +4478,7 @@ export function createWebsocketMsgLSPDiagnostics(
 }
 
 export const RenameReferenceChangedValueSchema = z.object({
-  sectionId: z.string(),
-  paramInfoId: z.union([z.string(), z.null()]),
+  depKey: DependencyKeySchema,
   newValue: z.string(),
 });
 
@@ -5630,7 +5635,7 @@ export function createWebsocketMsgListenerFrontendEmitForward(
 
 export const ListenerCoverageSnapshotSchema = z.object({
   projectConfigId: z.string(),
-  dependencies: z.array(z.any()),
+  dependencies: z.array(DependencyKeySchema),
   hasRealtimeWildcard: z.boolean(),
 });
 
@@ -5827,7 +5832,7 @@ export function createWebsocketMsgListenerFrontendEmit(
 }
 
 export const ListenerRegisterCallbackSchema = z.object({
-  dependencies: z.array(ListenerDependencyKeySchema),
+  dependencies: z.array(DependencyKeySchema),
   dependencyMode: z.enum(ListenerDependencyModeEnum),
   debounceMs: z.union([z.int(), z.null()]).default(null),
   throttleMs: z.union([z.int(), z.null()]).default(null),
@@ -6055,13 +6060,6 @@ export function createWebsocketMsgUnionWithDiscriminator(
 ): WebsocketMsgUnionWithDiscriminator {
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
-
-export const GraphKeyTypeSchema = z.tuple([
-  z.string(),
-  z.union([z.string(), z.null()]),
-]);
-
-export type GraphKeyType = z.infer<typeof GraphKeyTypeSchema>;
 
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
@@ -8129,7 +8127,7 @@ export function createDependencyValue(
 }
 
 export const ListenerRealtimeDeltaSchema = z.object({
-  dependency: ListenerDependencyKeySchema,
+  dependency: DependencyKeySchema,
   value: DependencyValueSchema,
 });
 
