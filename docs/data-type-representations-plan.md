@@ -36,8 +36,8 @@
 - Allow the listener to request `LIVE_RUNTIME`; packaged code generation defaults to `PACKAGED_RUNTIME`.
 
 ### 3. Broader Graph Coverage
-- Add a small registry for section exporters so each section type declares how it contributes nodes.
-- Register exporters for `DrawSectionImpl`, `ImageSectionImpl`, `ChartSectionImpl`, `TextBlockSectionImpl` (for markdown/file-backed content), and future environment-style sections. Dict sections with `isJsonSource=True` already flow through the Dict exporter; consider layering specialized handling only if we introduce file-backed logic.
+- Add a small registry for section exporters so each section type declares how it contributes nodes. *(Registry now wired in `DependencyGraph`; extend coverage to remaining sections.)*
+- Register exporters for `DrawSectionImpl`, `ImageSectionImpl`, `ChartSectionImpl`, `TextBlockSectionImpl` (for markdown/file-backed content), and future environment-style sections. Dict sections with `isJsonSource=True` already flow through the Dict exporter; consider layering specialized handling only if we introduce file-backed logic. *(Backend exporters for TextBlock/Draw shipped; Image/Chart/env pending.)*
 - Export granular nodes (e.g. `drawCanvas__render_png`, `drawCanvas__layers__0`) by leveraging `create_unique_name` to stay collision-safe.
 - Ensure `ListenerDependencyKey` names remain stable between front/back ends; extend coverage snapshots to include new nodes.
 
@@ -61,9 +61,9 @@
 1. **Scaffold value types** *(DONE – backend now stores `DependencyValue` literals and threads mode enum)*
    - Introduce `DependencyValue` and `PythonValueMode`.
    - Adapt `PythonCodeGenerator` and `SettaListener` to consume the new structure while preserving current behavior for literals.
-2. **Graph exporter registry**
-   - Refactor `DependencyGraph` exports into per-section hooks.
-   - Add exporters for `TextBlock` and `Draw` to validate naming and listener flow.
+2. **Graph exporter registry** *(backend registry + TextBlock/Draw exporters complete; tests + remaining section types outstanding)*
+   - Refactor `DependencyGraph` exports into per-section hooks. *(Done.)*
+   - Add exporters for `TextBlock` and `Draw` to validate naming and listener flow. *(Done; add regression coverage.)*
 3. **Realtime schema upgrade**
    - Define `ListenerRealtimeValue` union (Python + generated TS). *(Python now enforces `DependencyValue`; TS generation still pending.)*
    - Adjust frontend emission and backend validation. *(Backend listeners and websocket handlers already emit/expect `DependencyValue.literal`.)*

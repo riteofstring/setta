@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from setta.code_gen.dependency_value import DependencyValue, DependencyValueKind
@@ -27,15 +28,11 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    BaseSectionImpl,
     BaseParentSectionImpl,
-    CallableSectionImpl,
-    DictRootSectionImpl,
-    DictSectionImpl,
-    GlobalVariablesSectionImpl,
-    GroupSectionImpl,
-    ListRootSectionImpl,
     SectionType,
     TextBlockSectionImpl,
+    DrawSectionImpl,
 )
 from setta.utils.utils import replace_at_positions
 
@@ -91,17 +88,34 @@ class RenameReferenceChangedValue:
     newValue: str
 
 
+@dataclass(frozen=True)
+class SectionExportContext:
+    project_state: ProjectStateSingleConfig
+    section_id: str
+    section_name: str
+    section_impl: BaseSectionImpl
+    full_path_name: str
+    is_top_level: bool
+    parent_node: Node | None
+    idx: int | None
+    graph_key: GraphKeyType
+
+
+SectionExporter = Callable[[SectionExportContext], None]
+
+
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
-        self.section_types_to_process = (
-            CallableSectionImpl,
-            DictSectionImpl,
-            ListRootSectionImpl,
-            DictRootSectionImpl,
-            GroupSectionImpl,
-            GlobalVariablesSectionImpl,
-            TextBlockSectionImpl,
-        )
+        self.section_exporters: dict[SectionType, SectionExporter] = {
+            SectionType.Callable: self._export_callable_section,
+            SectionType.Dict: self._export_dict_section,
+            SectionType.DictRoot: self._export_parent_section,
+            SectionType.ListRoot: self._export_parent_section,
+            SectionType.Group: self._export_parent_section,
+            SectionType.GlobalVariables: self._export_global_variables_section,
+            SectionType.TextBlock: self._export_text_block_section,
+            SectionType.Draw: self._export_draw_section,
+        }
         self.construct_graph(p)
 
     def reset(self):
@@ -142,69 +156,119 @@ class DependencyGraph:
         section_node = self.get_node(graph_key)
         if not section_node:
             sectionImpl = get_curr_effective_section_impl(p, id)
+            exporter = self.section_exporters.get(sectionImpl.type)
+            if not exporter:
+                return graph_key
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
-            if isinstance(sectionImpl, CallableSectionImpl):
-                value, potential_refs = self.export_section_callable(p, id)
-                if potential_refs:
-                    self.nodes_with_potential_refs[graph_key] = potential_refs
-                node = SectionNode(
-                    id=id,
-                    name=name,
-                    full_path_name=full_path_name,
-                    type=sectionImpl.type,
-                    isTopLevel=isTopLevel,
-                    value=DependencyValue.literal(value) if value is not None else None,
-                    deps={},
-                )
-                node.deps = self.export_section_params(p, id, parent_node=node)
-                self.add_to_graph(graph_key, node)
-            elif isinstance(sectionImpl, BaseParentSectionImpl):
-                children = [
-                    c
-                    for c in sectionImpl.children
-                    if isinstance(
-                        get_curr_effective_section_impl(p, c),
-                        self.section_types_to_process,
-                    )
-                ]
-                node = SectionNode(
-                    id=id,
-                    name=name,
-                    full_path_name=full_path_name,
-                    type=sectionImpl.type,
-                    isTopLevel=isTopLevel,
-                    value=None,
-                    deps={},
-                )
-                node.deps = self.export_sections(p, children, parent_node=node)
-                self.add_to_graph(graph_key, node)
-            elif isinstance(sectionImpl, GlobalVariablesSectionImpl):
-                self.export_section_params(p, id, isTopLevel=True)
-            elif isinstance(sectionImpl, DictSectionImpl):
-                node = SectionNode(
-                    id=id,
-                    name=name,
-                    full_path_name=full_path_name,
-                    type=sectionImpl.type,
-                    isTopLevel=isTopLevel,
-                    value=None,
-                    deps={},
-                )
-                node.deps = self.export_section_params(p, id, parent_node=node)
-                self.add_to_graph(graph_key, node)
-            elif isinstance(sectionImpl, TextBlockSectionImpl):
-                node = SectionNode(
-                    id=id,
-                    name=name,
-                    full_path_name=full_path_name,
-                    type=sectionImpl.type,
-                    isTopLevel=isTopLevel,
-                    value=DependencyValue.literal(sectionImpl.text),
-                    deps={},
-                )
-                self.add_to_graph(graph_key, node)
+            ctx = SectionExportContext(
+                project_state=p,
+                section_id=id,
+                section_name=name,
+                section_impl=sectionImpl,
+                full_path_name=full_path_name,
+                is_top_level=isTopLevel,
+                parent_node=parent_node,
+                idx=idx,
+                graph_key=graph_key,
+            )
+            exporter(ctx)
         return graph_key
+
+    def _export_callable_section(self, ctx: SectionExportContext):
+        value, potential_refs = self.export_section_callable(
+            ctx.project_state, ctx.section_id
+        )
+        if potential_refs:
+            self.nodes_with_potential_refs[ctx.graph_key] = potential_refs
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=ctx.section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=DependencyValue.literal(value) if value is not None else None,
+            deps={},
+        )
+        node.deps = self.export_section_params(
+            ctx.project_state, ctx.section_id, parent_node=node
+        )
+        self.add_to_graph(ctx.graph_key, node)
+
+    def _export_parent_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, BaseParentSectionImpl):
+            return
+        children: list[str] = []
+        for child_id in section_impl.children:
+            child_impl = get_curr_effective_section_impl(ctx.project_state, child_id)
+            if child_impl.type in self.section_exporters:
+                children.append(child_id)
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=None,
+            deps={},
+        )
+        node.deps = self.export_sections(
+            ctx.project_state, children, parent_node=node
+        )
+        self.add_to_graph(ctx.graph_key, node)
+
+    def _export_dict_section(self, ctx: SectionExportContext):
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=ctx.section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=None,
+            deps={},
+        )
+        node.deps = self.export_section_params(
+            ctx.project_state, ctx.section_id, parent_node=node
+        )
+        self.add_to_graph(ctx.graph_key, node)
+
+    def _export_global_variables_section(self, ctx: SectionExportContext):
+        self.export_section_params(
+            ctx.project_state, ctx.section_id, isTopLevel=True
+        )
+
+    def _export_text_block_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, TextBlockSectionImpl):
+            return
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=DependencyValue.literal(section_impl.text),
+            deps={},
+        )
+        self.add_to_graph(ctx.graph_key, node)
+
+    def _export_draw_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, DrawSectionImpl):
+            return
+        rendered_value = section_impl.renderedValue
+        payload = rendered_value if isinstance(rendered_value, str) else ""
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=DependencyValue.literal(payload),
+            deps={},
+        )
+        self.add_to_graph(ctx.graph_key, node)
 
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
         callable = get_curr_section_callable_code_obj(p, sectionId)
