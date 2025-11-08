@@ -16,8 +16,6 @@ export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
 
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
-export const BaseDependencyKeyTypeSet = new Set(["Section", "SectionParam"]);
-
 export const BaseArtifactTypeSet = new Set([
   "BrushStroke",
   "ChartData",
@@ -332,13 +330,6 @@ export const SectionTypeEnum = {
 } as const;
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
-
-export const DependencyKeyTypeEnum = {
-  Section: "Section",
-  SectionParam: "SectionParam",
-} as const;
-
-export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
 
 export const BrowserAreaViewModeEnum = {
   list: "list",
@@ -2831,60 +2822,6 @@ export type BaseClipboardDataUnionWithDiscriminator = z.infer<
   typeof BaseClipboardDataUnionWithDiscriminatorSchema
 >;
 
-export const SectionDependencyKeySchema = z.object({
-  type: z.literal("Section").default(DependencyKeyTypeEnum.Section),
-  sectionId: z.string(),
-});
-
-export type SectionDependencyKey = z.infer<typeof SectionDependencyKeySchema>;
-
-export function createSectionDependencyKey(
-  options: Partial<SectionDependencyKey> = {},
-): SectionDependencyKey {
-  return SectionDependencyKeySchema.parse(options);
-}
-
-export const SectionParamDependencyKeySchema = z.object({
-  type: z.literal("SectionParam").default(DependencyKeyTypeEnum.SectionParam),
-  sectionId: z.string(),
-  codeObjId: z.string(),
-});
-
-export type SectionParamDependencyKey = z.infer<
-  typeof SectionParamDependencyKeySchema
->;
-
-export function createSectionParamDependencyKey(
-  options: Partial<SectionParamDependencyKey> = {},
-): SectionParamDependencyKey {
-  return SectionParamDependencyKeySchema.parse(options);
-}
-
-export const BaseDependencyKeyUnionSchema = z.union([
-  SectionDependencyKeySchema,
-  SectionParamDependencyKeySchema,
-]);
-
-export type BaseDependencyKeyUnion = z.infer<
-  typeof BaseDependencyKeyUnionSchema
->;
-
-export const BaseDependencyKeyUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    SectionDependencyKeySchema,
-    SectionParamDependencyKeySchema,
-  ]);
-
-export type BaseDependencyKeyUnionWithDiscriminator = z.infer<
-  typeof BaseDependencyKeyUnionWithDiscriminatorSchema
->;
-
-export function createBaseDependencyKeyUnionWithDiscriminator(
-  options: Partial<BaseDependencyKeyUnionWithDiscriminator> = {},
-): BaseDependencyKeyUnionWithDiscriminator {
-  return BaseDependencyKeyUnionWithDiscriminatorSchema.parse(options);
-}
-
 export const BaseCanvasSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
@@ -4260,12 +4197,22 @@ export function createBaseSectionWithParamsImplUnionWithDiscriminator(
   return BaseSectionWithParamsImplUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const ListenerDependencyKeySchema = z.object({
+  sectionId: z.string(),
+  codeObjId: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ListenerDependencyKey = z.infer<typeof ListenerDependencyKeySchema>;
+
+export function createListenerDependencyKey(
+  options: Partial<ListenerDependencyKey> = {},
+): ListenerDependencyKey {
+  return ListenerDependencyKeySchema.parse(options);
+}
+
 export const RealtimeUIChangeContentSchema = z.object({
   projectConfigId: z.string(),
-  dependencyKey: z.union([
-    SectionDependencyKeySchema,
-    SectionParamDependencyKeySchema,
-  ]),
+  dependencyKey: ListenerDependencyKeySchema,
   value: z.any(),
 });
 
@@ -4525,10 +4472,8 @@ export function createWebsocketMsgLSPDiagnostics(
 }
 
 export const RenameReferenceChangedValueSchema = z.object({
-  depKey: z.union([
-    SectionDependencyKeySchema,
-    SectionParamDependencyKeySchema,
-  ]),
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
   newValue: z.string(),
 });
 
@@ -5610,7 +5555,14 @@ export function createWebsocketMsgAllProjectMetadata(
 }
 
 export const UpdateArtifactMsgContentSchema = z.object({
-  artifacts: z.array(z.any()),
+  artifacts: z.array(
+    z.discriminatedUnion("type", [
+      ImageArtifactSchema,
+      BrushStrokeArtifactSchema,
+      DrawAreaLayerItemTransformArtifactSchema,
+      ChartDataArtifactSchema,
+    ]),
+  ),
   updateType: z.literal(["update", "delete"]),
 });
 
@@ -5678,12 +5630,7 @@ export function createWebsocketMsgListenerFrontendEmitForward(
 
 export const ListenerCoverageSnapshotSchema = z.object({
   projectConfigId: z.string(),
-  dependencies: z.array(
-    z.discriminatedUnion("type", [
-      SectionDependencyKeySchema,
-      SectionParamDependencyKeySchema,
-    ]),
-  ),
+  dependencies: z.array(z.any()),
   hasRealtimeWildcard: z.boolean(),
 });
 
@@ -5880,12 +5827,7 @@ export function createWebsocketMsgListenerFrontendEmit(
 }
 
 export const ListenerRegisterCallbackSchema = z.object({
-  dependencies: z.array(
-    z.discriminatedUnion("type", [
-      SectionDependencyKeySchema,
-      SectionParamDependencyKeySchema,
-    ]),
-  ),
+  dependencies: z.array(ListenerDependencyKeySchema),
   dependencyMode: z.enum(ListenerDependencyModeEnum),
   debounceMs: z.union([z.int(), z.null()]).default(null),
   throttleMs: z.union([z.int(), z.null()]).default(null),
@@ -6113,6 +6055,13 @@ export function createWebsocketMsgUnionWithDiscriminator(
 ): WebsocketMsgUnionWithDiscriminator {
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
+
+export const GraphKeyTypeSchema = z.tuple([
+  z.string(),
+  z.union([z.string(), z.null()]),
+]);
+
+export type GraphKeyType = z.infer<typeof GraphKeyTypeSchema>;
 
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
@@ -8180,10 +8129,7 @@ export function createDependencyValue(
 }
 
 export const ListenerRealtimeDeltaSchema = z.object({
-  dependency: z.union([
-    SectionDependencyKeySchema,
-    SectionParamDependencyKeySchema,
-  ]),
+  dependency: ListenerDependencyKeySchema,
   value: DependencyValueSchema,
 });
 
@@ -9850,18 +9796,6 @@ export function createRunCodeRequest(
   options: Partial<RunCodeRequest> = {},
 ): RunCodeRequest {
   return RunCodeRequestSchema.parse(options);
-}
-
-export const BaseDependencyKeySchema = z.object({
-  type: z.enum(DependencyKeyTypeEnum),
-});
-
-export type BaseDependencyKey = z.infer<typeof BaseDependencyKeySchema>;
-
-export function createBaseDependencyKey(
-  options: Partial<BaseDependencyKey> = {},
-): BaseDependencyKey {
-  return BaseDependencyKeySchema.parse(options);
 }
 
 export const SettaLSPPositionSchema = z.object({

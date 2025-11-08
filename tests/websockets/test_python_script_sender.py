@@ -1,8 +1,8 @@
 import unittest
 
 from setta.code_gen.dependency_value import DependencyValue
-from setta.types.dependency_key import create_dep_key
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerDependencyMode,
     ListenerRealtimeDelta,
     ListenerRegisterCallback,
@@ -32,7 +32,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-specific": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-A",
                             codeObjId="param-1",
                         )
@@ -41,7 +41,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 "cb-additional": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-A",
                             codeObjId="param-2",
                         )
@@ -54,7 +54,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 "cb-refresh-only": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-A",
                             codeObjId="param-1",
                         )
@@ -69,7 +69,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-unrelated": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-B",
                             codeObjId="param-3",
                         )
@@ -84,7 +84,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-other-project": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-A",
                             codeObjId="param-1",
                         )
@@ -96,7 +96,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         deltas_specific = [
             ListenerRealtimeDelta(
-                dependency=create_dep_key(
+                dependency=ListenerDependencyKey(
                     sectionId="section-A",
                     codeObjId="param-1",
                 ),
@@ -111,7 +111,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
 
         deltas_unmatched = [
             ListenerRealtimeDelta(
-                dependency=create_dep_key(
+                dependency=ListenerDependencyKey(
                     sectionId="section-Z",
                     codeObjId="param-9",
                 ),
@@ -173,7 +173,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             callbacks={
                 "cb-refresh-only": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-A",
                             codeObjId="param-1",
                         )
@@ -182,7 +182,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 "cb-other": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
+                        ListenerDependencyKey(
                             sectionId="section-B",
                             codeObjId="param-2",
                         )
@@ -196,7 +196,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             projectConfigId="proj-1",
             deltas=[
                 ListenerRealtimeDelta(
-                    dependency=create_dep_key(
+                    dependency=ListenerDependencyKey(
                         sectionId="section-A",
                         codeObjId="param-1",
                     ),

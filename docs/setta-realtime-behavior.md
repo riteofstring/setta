@@ -5,14 +5,14 @@ This page explains how realtime listener updates move through the system, how ca
 ## Snapshot bootstrap and registration
 - The listener connects via `SettaListener.run_forever`, sends `ListenerInitContent`, and receives a targeted `WebsocketMsgListenerForceRefresh` containing `ProjectStateSingleConfig`.
 - `_process_snapshot(refresh_kind="bootstrap")` compiles the project with `DependencyGraph` and `PythonCodeGenerator`, instantiates `s`, and populates `_dependency_cache`.
-- Each `@listener.listen` decorator becomes a `ListenerCallbackSpec`. During bootstrap, `_build_register_content` looks up the sanitized dependency names in `DependencyGraph.full_path_name_to_dep_key` and emits those typed dependency keys (instances of the `BaseDependencyKeyUnionWithDiscriminator` union) inside `WebsocketMsgListenerRegister`.
+- Each `@listener.listen` decorator becomes a `ListenerCallbackSpec`. During bootstrap, `_build_register_content` converts declared dependency strings into `ListenerDependencyKey` values before emitting `WebsocketMsgListenerRegister`.
 - Bootstrap callbacks run once the snapshot hydrates. Specs with `run_on_refresh=True` run even if nothing changed, while REFRESH_ONLY callbacks skip realtime traffic but emit an initial invocation so bootstrap-only workflows still fire.
 
 ## Realtime delta pipeline
 - Producer side: code that mutates project state calls `RealtimeEventHub.emit_realtime_delta`. The hub increments per-project sequence numbers and delegates to `WMHPythonScriptSender.send_realtime_update`.
 - The sender filters listener registrations so only sockets with matching dependencies receive the `WebsocketMsgListenerRealtimeEvent` payload.
 - Consumer side: `_handle_realtime_event` enforces sequencing (`sequence` must advance, otherwise the event is ignored) and rejects deltas for unknown dependency keys.
-- Each `ListenerRealtimeDelta` carries a discriminated dependency key plus a canonical value. `_set_dependency_value` updates the generated `s` instance, rehydrating typed values via `PythonCodeGenerator.get_value`.
+- Each `ListenerRealtimeDelta` encodes a `ListenerDependencyKey` plus a canonical value. `_set_dependency_value` updates the generated `s` instance, rehydrating typed values via `PythonCodeGenerator.get_value`.
 - `_dependency_cache` keeps the latest values per dependency. When deltas arrive, the cache is updated so subsequent snapshots can detect whether a value actually changed.
 - Matching callbacks enqueue work through `ListenerCallbackScheduler`, which handles debounce/throttle. SPECIFIC callbacks receive only the dependencies that changed; ANY_DEPENDENCY callbacks see a merged `changed` map of every delta in the batch; REFRESH_ONLY callbacks are skipped for realtime deliveries.
 
@@ -20,7 +20,7 @@ This page explains how realtime listener updates move through the system, how ca
 - `ListenerDependencyMode.SPECIFIC` (default when `deps` are provided) fires on realtime when any declared dependency changes. Snapshots trigger SPECIFIC callbacks only when the new value differs, unless `run_on_refresh=True`, in which case they run on bootstrap and force refresh regardless of diffs.
 - `ListenerDependencyMode.ANY_DEPENDENCY` describes a wildcard watcher. You omit `deps`; the callback runs on every bootstrap, force refresh, and realtime delta, with `ctx.changed` containing the union of all changed dependencies for that invocation.
 - `ListenerDependencyMode.REFRESH_ONLY` is the implicit mode when no deps are declared. Callbacks run during bootstrap and force refresh, but realtime updates are ignored. Declaring deps is optional; if present they populate `ctx.changed` on refreshes for convenience.
-- Dependency names must match entries in `DependencyGraph.full_path_name_to_dep_key`; `_build_register_content` raises `KeyError` when a dependency string cannot be resolved so mistakes surface immediately instead of silently failing.
+- Dependency names must match entries in `DependencyGraph.full_path_name_to_graph_key`; `_translate_dependency_name` raises `KeyError` so dependency mistakes surface immediately instead of silently failing.
 
 ## Force refresh lifecycle
 - Forcing a refresh (`WMHPythonScriptSender.send_force_refresh`) unicasts `WebsocketMsgListenerForceRefresh` to listeners bootstrapped for the project. When a specific snapshot is included, the sender also resets the per-project realtime sequence through `RealtimeEventHub.reset_sequence`.

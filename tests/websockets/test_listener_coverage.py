@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from setta.types.dependency_key import create_dep_key
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerDependencyMode,
     ListenerRegisterCallback,
 )
@@ -29,10 +29,6 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         self.tracker = ListenerCoverageTracker()
         self.project_id = "proj-123"
 
-    @staticmethod
-    def _signature(dependency):
-        return (dependency.sectionId, getattr(dependency, "codeObjId", None))
-
     def test_returns_snapshot_for_new_dependencies(self):
         registration = build_registration(
             websocket_id="socket-1",
@@ -40,7 +36,9 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -56,8 +54,8 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         self.assertEqual(self.project_id, snapshot.projectConfigId)
         self.assertFalse(snapshot.hasRealtimeWildcard)
         self.assertEqual(
-            [("section-A", "param-1")],
-            [self._signature(dependency) for dependency in snapshot.dependencies],
+            [{"sectionId": "section-A", "codeObjId": "param-1"}],
+            [dependency.model_dump() for dependency in snapshot.dependencies],
         )
 
     def test_returns_none_when_dependencies_unchanged(self):
@@ -67,7 +65,9 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -91,7 +91,9 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -103,7 +105,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-2": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(sectionId="section-B", codeObjId=None)
+                        ListenerDependencyKey(sectionId="section-B", codeObjId=None)
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -123,13 +125,10 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         assert second_snapshot is not None
         self.assertCountEqual(
             [
-                ("section-A", "param-1"),
-                ("section-B", None),
+                {"sectionId": "section-A", "codeObjId": "param-1"},
+                {"sectionId": "section-B", "codeObjId": None},
             ],
-            [
-                self._signature(dependency)
-                for dependency in second_snapshot.dependencies
-            ],
+            [dependency.model_dump() for dependency in second_snapshot.dependencies],
         )
 
     def test_handles_wildcard_callbacks(self):
@@ -160,7 +159,9 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(sectionId="section-A", codeObjId="param-1")
+                        ListenerDependencyKey(
+                            sectionId="section-A", codeObjId="param-1"
+                        )
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )

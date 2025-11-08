@@ -18,11 +18,11 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
@@ -83,7 +83,7 @@ class ListenerCallbackSpec:
     debounce_ms: int | None
     throttle_ms: int | None
     run_on_refresh: bool
-    structured_dependencies: tuple[BaseDependencyKeyUnion, ...] = ()
+    structured_dependencies: tuple[ListenerDependencyKey, ...] = ()
     logger: logging.Logger | None = None
 
 
@@ -126,7 +126,7 @@ class SettaListener:
         self._dependency_cache: dict[str, Any] = {}
         self._last_realtime_sequence: int | None = None
         self._scheduler = ListenerCallbackScheduler()
-        self._websocket: "ClientConnection | None" = None
+        self._websocket: "ClientConnection" | None = None
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
@@ -526,14 +526,14 @@ class SettaListener:
         dependency_graph = runtime_state.dependency_graph
         callbacks: dict[str, ListenerRegisterCallback] = {}
         for spec in self._callbacks.values():
-            structured_dependencies: list[BaseDependencyKeyUnion] = []
+            structured_dependencies: list[ListenerDependencyKey] = []
             for dependency in spec.declared_dependencies:
-                dep_key = dependency_graph.full_path_name_to_dep_key.get(dependency)
-                if dep_key is None:
-                    raise KeyError(
-                        f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
+                structured_dependencies.append(
+                    self._translate_dependency_name(
+                        dependency=dependency,
+                        dependency_graph=dependency_graph,
                     )
-                structured_dependencies.append(dep_key)
+                )
             callbacks[spec.callback_id] = ListenerRegisterCallback(
                 dependencies=list(structured_dependencies),
                 dependencyMode=spec.dependency_mode,
@@ -545,6 +545,20 @@ class SettaListener:
         return ListenerRegisterContent(
             projectConfigId=self._require_project_id(), callbacks=callbacks
         )
+
+    def _translate_dependency_name(
+        self,
+        *,
+        dependency: str,
+        dependency_graph: DependencyGraph,
+    ) -> ListenerDependencyKey:
+        graph_key = dependency_graph.full_path_name_to_graph_key.get(dependency)
+        if graph_key is None:
+            raise KeyError(
+                f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
+            )
+        section_id, code_obj_id = graph_key
+        return ListenerDependencyKey(sectionId=section_id, codeObjId=code_obj_id)
 
     @staticmethod
     def _normalize_dependency_mode(
@@ -884,13 +898,13 @@ class SettaListener:
 
         applied_dependencies: dict[str, Any] = {}
         for delta in content.deltas:
-            dep_key = delta.dependency
-            node = runtime_state.dependency_graph.graph.get(dep_key)
+            graph_key = delta.dependency.to_graph_key()
+            node = runtime_state.dependency_graph.graph.get(graph_key)
             if node is None:
                 logger.error(
-                    "Listener %s received realtime delta for unknown dependency key %s",
+                    "Listener %s received realtime delta for unknown graph key %s",
                     self._log_identifier,
-                    dep_key,
+                    graph_key,
                 )
                 continue
             value = delta.value
@@ -906,12 +920,11 @@ class SettaListener:
             except (AttributeError, KeyError, IndexError, ValueError) as error:
                 logger.error(
                     (
-                        "Listener %s failed to apply realtime delta for %s "
-                        "(dependency key %s): %s"
+                        "Listener %s failed to apply realtime delta for %s (graph key %s): %s"
                     ),
                     self._log_identifier,
                     dependency,
-                    dep_key,
+                    graph_key,
                     error,
                 )
                 continue

@@ -2,10 +2,8 @@ from typing import Any, Literal
 
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
-    RenameRefactorBroadcastContent,
 )
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.artifact import UpdateArtifactMsgContent
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
@@ -20,6 +18,8 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
+    RenameRefactorBroadcastContent,
+    UpdateArtifactMsgContent,
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgListenerCoverageSnapshot,

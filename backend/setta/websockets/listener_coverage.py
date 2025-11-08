@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import Iterable
 
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.code_gen.dependency_graph import GraphKeyType
 from setta.types.listener import (
     ListenerCoverageSnapshot,
+    ListenerDependencyKey,
     ListenerDependencyMode,
 )
 from setta.websockets.listener_registry import ListenerRegistration
@@ -11,7 +12,7 @@ from setta.websockets.listener_registry import ListenerRegistration
 
 @dataclass(frozen=True)
 class _CoverageSignature:
-    dependency_keys: frozenset[BaseDependencyKeyUnion]
+    dependency_keys: frozenset[GraphKeyType]
     has_realtime_wildcard: bool
 
 
@@ -30,7 +31,7 @@ class ListenerCoverageTracker:
         project_config_id: str,
         registrations: Iterable[ListenerRegistration],
     ) -> tuple[_CoverageSignature, ListenerCoverageSnapshot]:
-        dependency_keys: set[BaseDependencyKeyUnion] = set()
+        dependency_keys: set[GraphKeyType] = set()
         has_realtime_wildcard = False
 
         for registration in registrations:
@@ -42,16 +43,22 @@ class ListenerCoverageTracker:
                     continue
                 if not callback.dependencies:
                     continue
-                dependency_keys.update(d for d in callback.dependencies)
+                for dependency in callback.dependencies:
+                    dependency_keys.add(dependency.to_graph_key())
 
         signature = _CoverageSignature(
             dependency_keys=frozenset(dependency_keys),
             has_realtime_wildcard=has_realtime_wildcard,
         )
 
+        serialized_dependencies = [
+            ListenerDependencyKey.from_graph_key(graph_key)
+            for graph_key in signature.dependency_keys
+        ]
+
         snapshot = ListenerCoverageSnapshot(
             projectConfigId=project_config_id,
-            dependencies=list(dependency_keys),
+            dependencies=serialized_dependencies,
             hasRealtimeWildcard=signature.has_realtime_wildcard,
         )
 

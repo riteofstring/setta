@@ -18,9 +18,8 @@ from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.dependency_key import create_dep_key
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.listener import (
+    ListenerDependencyKey,
     ListenerDependencyMode,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -75,7 +74,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     def _get_structured_dependency(
         self, spec: ListenerCallbackSpec
-    ) -> BaseDependencyKeyUnion:
+    ) -> ListenerDependencyKey:
         if not spec.structured_dependencies:
             raise AssertionError("Callback structured dependencies not populated")
         return spec.structured_dependencies[0]
@@ -392,17 +391,9 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
         )
 
-        slider_key = create_dep_key(
-            sectionId="section-1",
-            codeObjId="param-slider",
-        )
-        switch_key = create_dep_key(
-            sectionId="section-1",
-            codeObjId="param-switch",
-        )
         graph = {
-            slider_key: slider_node,
-            switch_key: switch_node,
+            ("section-1", "param-slider"): slider_node,
+            ("section-1", "param-switch"): switch_node,
         }
 
         state = SimpleNamespace(section__slider=1, section__switch=False)
@@ -438,14 +429,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             projectConfigId="project-typed",
             deltas=[
                 ListenerRealtimeDelta(
-                    dependency=create_dep_key(
+                    dependency=ListenerDependencyKey(
                         sectionId="section-1",
                         codeObjId="param-slider",
                     ),
                     value=DependencyValue.literal("5"),
                 ),
                 ListenerRealtimeDelta(
-                    dependency=create_dep_key(
+                    dependency=ListenerDependencyKey(
                         sectionId="section-1",
                         codeObjId="param-switch",
                     ),

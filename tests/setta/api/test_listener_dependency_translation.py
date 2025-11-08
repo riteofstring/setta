@@ -125,10 +125,10 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         )
         return listener
 
-    def test_sanitized_name_round_trip_maps_back_to_dep_key(self) -> None:
+    def test_sanitized_name_round_trip_maps_back_to_graph_key(self) -> None:
         listener = self._create_listener()
         sanitized_child = "Settings_Group__Data_Source"
-        original_dep_key = self.dependency_graph.full_path_name_to_dep_key[
+        original_key = self.dependency_graph.full_path_name_to_graph_key[
             sanitized_child
         ]
 
@@ -140,9 +140,12 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         callback_payload = next(iter(register_content.callbacks.values()))
         dependency = callback_payload.dependencies[0]
 
-        self.assertEqual(dependency, original_dep_key)
+        self.assertEqual(
+            (dependency.sectionId, dependency.codeObjId),
+            original_key,
+        )
 
-        graph_node = self.dependency_graph.graph[original_dep_key]
+        graph_node = self.dependency_graph.graph[original_key]
         self.assertEqual(graph_node.full_path_name, sanitized_child)
 
         spec = next(iter(listener._callbacks.values()))
@@ -152,7 +155,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         listener = self._create_listener()
         sanitized_names = sorted(
             name
-            for name in self.dependency_graph.full_path_name_to_dep_key
+            for name in self.dependency_graph.full_path_name_to_graph_key
             if name.startswith("Settings_Group__Data_Source")
         )
         self.assertEqual(
@@ -173,7 +176,8 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
 
         mapped_names = []
         for dependency, sanitized in zip(dependencies, sanitized_names):
-            graph_node = self.dependency_graph.graph[dependency]
+            graph_key = (dependency.sectionId, dependency.codeObjId)
+            graph_node = self.dependency_graph.graph[graph_key]
             self.assertEqual(graph_node.full_path_name, sanitized)
             mapped_names.append(graph_node.full_path_name)
 

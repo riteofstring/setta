@@ -2,7 +2,6 @@
 cd .. && \
 find backend/setta/types/generated/ -name "*.py" -not -name "__init__.py" -delete && \
 cd frontend && \
-python -m generation.generate_unions dependency_keys && \
 python -m generation.generate_unions chart_settings && \
 python -m generation.generate_shared_modifier && \
 python -m generation.generate_impl_field_literals && \

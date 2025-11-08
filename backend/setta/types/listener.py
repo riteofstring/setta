@@ -3,10 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from setta.code_gen.dependency_graph import GraphKeyType
 from setta.code_gen.dependency_value import DependencyValue
-from setta.types.generated.dependency_keys import (
-    BaseDependencyKeyUnionWithDiscriminator,
-)
 from setta.types.project_state import ProjectStateSingleConfig
 
 
@@ -56,25 +54,32 @@ class ListenerCoverageRequest(BaseModel):
 
 class ListenerCoverageSnapshot(BaseModel):
     projectConfigId: str
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
+    dependencies: list["ListenerDependencyKey"]
     hasRealtimeWildcard: bool
 
 
-class RealtimeUIChangeContent(BaseModel):
-    projectConfigId: str
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: Any
+class ListenerDependencyKey(BaseModel):
+    sectionId: str
+    codeObjId: str | None = None
+
+    def to_graph_key(self) -> GraphKeyType:
+        return (self.sectionId, self.codeObjId)
+
+    @classmethod
+    def from_graph_key(cls, key: GraphKeyType) -> "ListenerDependencyKey":
+        section_id, code_obj_id = key
+        return cls(sectionId=section_id, codeObjId=code_obj_id)
 
 
 class ListenerRealtimeDelta(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    dependency: BaseDependencyKeyUnionWithDiscriminator
+    dependency: ListenerDependencyKey
     value: DependencyValue
 
 
 class ListenerRegisterCallback(BaseModel):
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
+    dependencies: list[ListenerDependencyKey]
     dependencyMode: ListenerDependencyMode
     debounceMs: int | None = None
     throttleMs: int | None = None

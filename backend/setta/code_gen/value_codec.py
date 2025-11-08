@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
+    GraphKeyType,
     ParamNode,
 )
 from setta.code_gen.dependency_value import (
@@ -10,9 +11,8 @@ from setta.code_gen.dependency_value import (
 )
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 
-VarLookup = Callable[[BaseDependencyKeyUnion], str]
+VarLookup = Callable[[GraphKeyType], str]
 
 
 class PythonValueCodec:
@@ -57,19 +57,19 @@ class PythonValueCodec:
 
         raise ValueError(f"Unsupported CodeObjType {param_type}")
 
-    def format_dict(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
+    def format_dict(self, deps: dict[GraphKeyType, bool]) -> str:
         parts: list[str] = []
-        for dep_key, is_used in deps.items():
+        for graph_key, is_used in deps.items():
             if not is_used:
                 continue
-            node = self.dep_graph.graph[dep_key]
-            parts.append(f'"{node.name}": {self.var_lookup(dep_key)}')
+            node = self.dep_graph.graph[graph_key]
+            parts.append(f'"{node.name}": {self.var_lookup(graph_key)}')
         joined = ", ".join(parts)
         return "{" + joined + "}"
 
-    def format_list(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
+    def format_list(self, deps: dict[GraphKeyType, bool]) -> str:
         items = [
-            self.var_lookup(dep_key) for dep_key, is_used in deps.items() if is_used
+            self.var_lookup(graph_key) for graph_key, is_used in deps.items() if is_used
         ]
         return "[" + ", ".join(items) + "]"
 

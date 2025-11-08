@@ -18,17 +18,17 @@ import {
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
-  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
-  ListenerCoverageSnapshot,
-  ListenerFrontendEmitContent,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
+  ListenerFrontendEmitContent,
+  ListenerDependencyKey,
+  ListenerCoverageSnapshot,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -145,7 +145,7 @@ export const usePendingOperations = withProjectState(
 
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
-  dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
+  dependenciesByKey: Record<string, ListenerDependencyKey>;
 };
 
 type ListenerCoverageState = {

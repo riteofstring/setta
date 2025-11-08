@@ -70,7 +70,6 @@ from setta.project_state.project_manager_types import (
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
-    RenameRefactorBroadcastContent,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
@@ -116,10 +115,6 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
-)
-from setta.types.dependency_key import (
-    SectionDependencyKey,
-    SectionParamDependencyKey,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -195,6 +190,9 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
+from setta.types.websocket import (
+    RenameRefactorBroadcastContent,
+)
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -899,25 +897,20 @@ class BaseProjectManager(ABC):
         if not changed_values:
             return
         for changed in changed_values:
+            section_id = changed.sectionId
+            param_id = changed.paramInfoId
             new_value = changed.newValue
-            depKey = changed.depKey
-            if isinstance(depKey, SectionParamDependencyKey):
-                set_param_entered_value(
-                    project_state,
-                    depKey.sectionId,
-                    depKey.codeObjId,
-                    new_value,
-                )
+            if param_id is not None:
+                set_param_entered_value(project_state, section_id, param_id, new_value)
                 continue
-            elif isinstance(depKey, SectionDependencyKey):
-                callable_code_obj = get_curr_section_callable_code_obj(
-                    project_state, depKey.sectionId
+            callable_code_obj = get_curr_section_callable_code_obj(
+                project_state, section_id
+            )
+            if not callable_code_obj:
+                raise KeyError(
+                    f"Expected callable code object for section {section_id}"
                 )
-                if not callable_code_obj:
-                    raise KeyError(
-                        f"Expected callable code object for section {depKey.sectionId}"
-                    )
-                project_state.codeObjs[callable_code_obj.id].name = new_value
+            project_state.codeObjs[callable_code_obj.id].name = new_value
 
     async def maybe_do_rename_refactor(
         self,
