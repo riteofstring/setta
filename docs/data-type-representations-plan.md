@@ -5,9 +5,9 @@
 - **Packaged runtime**: Generated Python scripts executed after a snapshot is written to disk.
 
 ## Current Pipeline
-- `DependencyGraph` exports callable and structured sections into a `{sectionId, codeObjId}` graph and assigns sanitized attribute names (`backend/setta/code_gen/dependency_graph.py`).
+- `DependencyGraph` exports callable and structured sections into a typed dependency graph (instances of `BaseDependencyKeyUnion`) and assigns sanitized attribute names (`backend/setta/code_gen/dependency_graph.py`).
 - `PythonCodeGenerator` walks that graph and serializes node values through `PythonValueCodec`, yielding assignable literals for the generated `S` class (`backend/setta/code_gen/python/generate_code.py`, `backend/setta/code_gen/value_codec.py`).
-- Realtime events reuse the same graph: the frontend emits `ListenerRealtimeDelta` with structured dependency keys, the backend forwards the payload, and `SettaListener` updates its cached `S` instance by replacing the node value and re-evaluating the canonical expression (`backend/setta/api/listener.py`).
+- Realtime events reuse the same graph: the frontend emits `ListenerRealtimeDelta` with structured dependency-key union values, the backend forwards the payload, and `SettaListener` updates its cached `S` instance by replacing the node value and re-evaluating the canonical expression (`backend/setta/api/listener.py`).
 - Packaged scripts reuse the generator instance created during snapshot updates (`backend/setta/project_state/base_project_manager.py`, `setta_files/code/**/setta_gen.py`), so both runtimes currently share identical literal representations.
 
 ## Pain Points
@@ -39,7 +39,7 @@
 - Add a small registry for section exporters so each section type declares how it contributes nodes. *(Registry now wired in `DependencyGraph`; extend coverage to remaining sections.)*
 - Register exporters for `DrawSectionImpl`, `ImageSectionImpl`, `ChartSectionImpl`, `TextBlockSectionImpl` (for markdown/file-backed content), and future environment-style sections. Dict sections with `isJsonSource=True` already flow through the Dict exporter; consider layering specialized handling only if we introduce file-backed logic. *(Backend exporters for TextBlock/Draw shipped; Image/Chart/env pending.)*
 - Export granular nodes (e.g. `drawCanvas__render_png`, `drawCanvas__layers__0`) by leveraging `create_unique_name` to stay collision-safe.
-- Ensure `ListenerDependencyKey` names remain stable between front/back ends; extend coverage snapshots to include new nodes.
+- Ensure dependency-key union names remain stable between front/back ends; extend coverage snapshots to include new nodes.
 
 ### 4. Realtime Delta Schema **(backend using `DependencyValue`; TS union pending)**
 - Replace the plain `value: Any` field with a `ListenerRealtimeValue` union:

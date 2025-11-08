@@ -1,4 +1,7 @@
-import { ObjectValues } from "utils/generatedTypes";
+import {
+  ObjectValues,
+  RenameReferenceChangedValue,
+} from "utils/generatedTypes";
 
 export const ModalTypeEnum = {
   DELETE_PROJECT_WARNING: "DELETE_PROJECT_WARNING",
@@ -9,12 +12,6 @@ export const ModalTypeEnum = {
 } as const;
 
 export type ModalType = ObjectValues<typeof ModalTypeEnum>;
-
-export type RenameReferenceChangedValue = {
-  sectionId: string;
-  paramInfoId: string | null;
-  newValue: string;
-};
 
 export type ModalDataMap = {
   [ModalTypeEnum.DELETE_PROJECT_WARNING]: {

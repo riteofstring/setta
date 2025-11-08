@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
 
 from setta.code_gen.dependency_value import DependencyValue, DependencyValueKind
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
@@ -20,6 +19,7 @@ from setta.types.code_obj_impls import (
 from setta.types.dependency_key import (
     create_dep_key,
 )
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
@@ -39,9 +39,6 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.utils.utils import replace_at_positions
-
-if TYPE_CHECKING:
-    from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 
 
 @dataclass
@@ -82,7 +79,7 @@ class ParamNode(Node):
 
 @dataclass
 class RenameReferenceChangedValue:
-    depKey: "BaseDependencyKeyUnion"
+    depKey: BaseDependencyKeyUnion
     newValue: str
 
 
@@ -96,7 +93,7 @@ class SectionExportContext:
     is_top_level: bool
     parent_node: Node | None
     idx: int | None
-    dep_key: "BaseDependencyKeyUnion"
+    dep_key: BaseDependencyKeyUnion
 
 
 SectionExporter = Callable[[SectionExportContext], None]
@@ -117,10 +114,10 @@ class DependencyGraph:
         self.construct_graph(p)
 
     def reset(self):
-        self.graph: dict["BaseDependencyKeyUnion", Node] = {}
-        self.full_path_name_to_dep_key: dict[str, "BaseDependencyKeyUnion"] = {}
+        self.graph: dict[BaseDependencyKeyUnion, Node] = {}
+        self.full_path_name_to_dep_key: dict[str, BaseDependencyKeyUnion] = {}
         self.nodes_with_potential_refs: dict[
-            "BaseDependencyKeyUnion", dict[str, int]
+            BaseDependencyKeyUnion, dict[str, int]
         ] = {}
 
     def construct_graph(self, p: ProjectStateSingleConfig):
@@ -337,11 +334,11 @@ class DependencyGraph:
             output_deps[dep_key] = param_node.has_name_and_value
         return output_deps
 
-    def add_to_graph(self, dep_key, node: Node):
+    def add_to_graph(self, dep_key: BaseDependencyKeyUnion, node: Node):
         self.graph[dep_key] = node
         self.full_path_name_to_dep_key[node.full_path_name] = dep_key
 
-    def change_value(self, dep_key, value):
+    def change_value(self, dep_key: BaseDependencyKeyUnion, value):
         node = self.graph[dep_key]
         node.value = self._coerce_dependency_value(value)
         is_used = node.has_name_and_value
@@ -349,7 +346,7 @@ class DependencyGraph:
             if dep_key in other_node.deps:
                 other_node.deps[dep_key] = is_used
 
-    def get_node(self, dep_key: "BaseDependencyKeyUnion"):
+    def get_node(self, dep_key: BaseDependencyKeyUnion):
         return self.graph.get(dep_key)
 
     def create_full_path_name(
@@ -391,7 +388,7 @@ class DependencyGraph:
     def rename_references(
         self, old_dep_graph: "DependencyGraph"
     ) -> list[RenameReferenceChangedValue]:
-        renamings: dict["BaseDependencyKeyUnion", tuple[str, str]] = {}
+        renamings: dict[BaseDependencyKeyUnion, tuple[str, str]] = {}
         for k, v in old_dep_graph.graph.items():
             node = self.get_node(k)
             if not node:

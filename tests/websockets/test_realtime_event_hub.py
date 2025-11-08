@@ -1,7 +1,8 @@
 import unittest
 
 from setta.code_gen.dependency_value import DependencyValue
-from setta.types.listener import ListenerDependencyKey, ListenerRealtimeDelta
+from setta.types.dependency_key import create_dep_key
+from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
@@ -37,11 +38,11 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RealtimeEventHub(sender)
 
         delta_a = ListenerRealtimeDelta(
-            dependency=ListenerDependencyKey(sectionId="section-a", codeObjId=None),
+            dependency=create_dep_key("section-a"),
             value=DependencyValue.literal("1"),
         )
         delta_b = ListenerRealtimeDelta(
-            dependency=ListenerDependencyKey(sectionId="section-b", codeObjId=None),
+            dependency=create_dep_key("section-b"),
             value=DependencyValue.literal("2"),
         )
 
@@ -69,7 +70,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RealtimeEventHub(sender)
 
         delta = ListenerRealtimeDelta(
-            dependency=ListenerDependencyKey(sectionId="section-a", codeObjId=None),
+            dependency=create_dep_key("section-a"),
             value=DependencyValue.literal("1"),
         )
 
@@ -116,7 +117,7 @@ class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
         hub = RealtimeEventHub(sender)
 
         delta = ListenerRealtimeDelta(
-            dependency=ListenerDependencyKey(sectionId="section-a", codeObjId=None),
+            dependency=create_dep_key("section-a"),
             value=DependencyValue.literal("1"),
         )
 
