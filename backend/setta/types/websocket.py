@@ -1,11 +1,10 @@
 from enum import Enum
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
-from setta.code_gen.dependency_key import DependencyKey
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -31,6 +30,11 @@ from setta.types.lsp import (
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import AllProjectMetadata
 from setta.types.settings_state import RenameRefactorMode
+
+if TYPE_CHECKING:
+    from setta.types.generated.dependency_keys import (
+        BaseDependencyKeyUnionWithDiscriminator,
+    )
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -212,7 +216,7 @@ class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
 
 class RealtimeUIChangeContent(BaseModel):
     projectConfigId: str
-    dependencyKey: DependencyKey
+    dependencyKey: "BaseDependencyKeyUnionWithDiscriminator"
     value: Any
 
 

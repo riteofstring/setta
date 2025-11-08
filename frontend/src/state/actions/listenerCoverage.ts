@@ -6,26 +6,26 @@ import {
 import { res200 } from "utils/endpointUtils";
 import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {
-  DependencyKey,
   DependencyKeyTypeEnum,
+  BaseDependencyKeyUnion,
   ListenerCoverageSnapshot,
 } from "utils/generatedTypes";
 
-function serializeListenerDependencyKey(key: DependencyKey): string {
+function serializeListenerDependencyKey(key: BaseDependencyKeyUnion): string {
   switch (key.type) {
     case DependencyKeyTypeEnum.Section:
       return `${key.sectionId}::`;
     case DependencyKeyTypeEnum.SectionParam:
       return `${key.sectionId}::${key.codeObjId}`;
     default:
-      return key.type satisfies never;
+      return key satisfies never;
   }
 }
 
 function buildDependencyLookup(
-  dependencies: Array<DependencyKey>,
-): Record<string, DependencyKey> {
-  const lookup: Record<string, DependencyKey> = {};
+  dependencies: Array<BaseDependencyKeyUnion>,
+): Record<string, BaseDependencyKeyUnion> {
+  const lookup: Record<string, BaseDependencyKeyUnion> = {};
   for (const dependency of dependencies) {
     lookup[serializeListenerDependencyKey(dependency)] = dependency;
   }
@@ -53,7 +53,7 @@ export function getListenerCoverageRecord(
 
 export function dependencyKeyCovered(
   projectConfigId: string,
-  dependency: DependencyKey,
+  dependency: BaseDependencyKeyUnion,
 ): boolean {
   const record = getListenerCoverageRecord(projectConfigId);
   if (!record) {
@@ -66,7 +66,7 @@ export function dependencyKeyCovered(
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
 
-export function serializeCoverageKey(dependency: DependencyKey): string {
+export function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
   return serializeListenerDependencyKey(dependency);
 }
 

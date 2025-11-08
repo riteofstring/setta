@@ -1,11 +1,15 @@
 from enum import Enum
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from setta.code_gen.dependency_key import DependencyKey
 from setta.code_gen.dependency_value import DependencyValue
 from setta.types.project_state import ProjectStateSingleConfig
+
+if TYPE_CHECKING:
+    from setta.types.generated.dependency_keys import (
+        BaseDependencyKeyUnionWithDiscriminator,
+    )
 
 
 class ListenerDependencyMode(str, Enum):
@@ -54,19 +58,19 @@ class ListenerCoverageRequest(BaseModel):
 
 class ListenerCoverageSnapshot(BaseModel):
     projectConfigId: str
-    dependencies: list[DependencyKey]
+    dependencies: list["BaseDependencyKeyUnionWithDiscriminator"]
     hasRealtimeWildcard: bool
 
 
 class ListenerRealtimeDelta(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    dependency: DependencyKey
+    dependency: "BaseDependencyKeyUnionWithDiscriminator"
     value: DependencyValue
 
 
 class ListenerRegisterCallback(BaseModel):
-    dependencies: list[DependencyKey]
+    dependencies: list["BaseDependencyKeyUnionWithDiscriminator"]
     dependencyMode: ListenerDependencyMode
     debounceMs: int | None = None
     throttleMs: int | None = None

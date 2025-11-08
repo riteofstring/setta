@@ -16,9 +16,9 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
 )
-from setta.code_gen.dependency_key import DependencyKey
 from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -83,7 +83,7 @@ class ListenerCallbackSpec:
     debounce_ms: int | None
     throttle_ms: int | None
     run_on_refresh: bool
-    structured_dependencies: tuple[DependencyKey, ...] = ()
+    structured_dependencies: tuple[BaseDependencyKeyUnion, ...] = ()
     logger: logging.Logger | None = None
 
 
@@ -526,7 +526,7 @@ class SettaListener:
         dependency_graph = runtime_state.dependency_graph
         callbacks: dict[str, ListenerRegisterCallback] = {}
         for spec in self._callbacks.values():
-            structured_dependencies: list[DependencyKey] = []
+            structured_dependencies: list[BaseDependencyKeyUnion] = []
             for dependency in spec.declared_dependencies:
                 dep_key = dependency_graph.full_path_name_to_dep_key.get(dependency)
                 if dep_key is None:

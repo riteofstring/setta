@@ -4,9 +4,6 @@ from pathlib import Path
 from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.dependency_key import (
-    create_dep_key,
-)
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.database.utils import create_new_id
@@ -27,6 +24,9 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
+from setta.types.dependency_key import (
+    create_dep_key,
+)
 from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )

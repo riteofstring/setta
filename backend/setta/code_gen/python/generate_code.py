@@ -6,7 +6,6 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
-from setta.code_gen.dependency_key import DependencyKey
 from setta.code_gen.utils import (
     CLASS_DEF,
     SELF_IDENTIFIER,
@@ -14,6 +13,7 @@ from setta.code_gen.utils import (
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import ParameterPassingStyle
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.section_impls import SectionType
 
 
@@ -49,13 +49,15 @@ class PythonCodeGenerator:
         self.reset()
 
     def reset(self):
-        self.var_name_mapping: dict[DependencyKey, str] = {}  # dep_key to var name
+        self.var_name_mapping: dict[
+            BaseDependencyKeyUnion, str
+        ] = {}  # dep_key to var name
         self.reverse_var_name_mapping: dict[
-            str, DependencyKey
+            str, BaseDependencyKeyUnion
         ] = {}  # var name to dep_key
-        self.value_pos_start_to_dep_key: dict[int, DependencyKey] = {}
+        self.value_pos_start_to_dep_key: dict[int, BaseDependencyKeyUnion] = {}
         self.code: str = ""
-        self.lines: dict[DependencyKey, PythonCodeLine] = {}
+        self.lines: dict[BaseDependencyKeyUnion, PythonCodeLine] = {}
 
     def generate_code(self):
         self.reset()
@@ -155,7 +157,7 @@ class PythonCodeGenerator:
         self.reverse_var_name_mapping[var_name] = dep_key
         return var_name
 
-    def _lookup_var_name(self, dep_key: DependencyKey) -> str:
+    def _lookup_var_name(self, dep_key: BaseDependencyKeyUnion) -> str:
         return self.var_name_mapping[dep_key]
 
     def get_value(self, node: Node):

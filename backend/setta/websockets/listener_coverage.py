@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable
 
-from setta.code_gen.dependency_key import DependencyKey
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerDependencyMode,
@@ -11,7 +11,7 @@ from setta.websockets.listener_registry import ListenerRegistration
 
 @dataclass(frozen=True)
 class _CoverageSignature:
-    dependency_keys: frozenset[DependencyKey]
+    dependency_keys: frozenset[BaseDependencyKeyUnion]
     has_realtime_wildcard: bool
 
 
@@ -30,7 +30,7 @@ class ListenerCoverageTracker:
         project_config_id: str,
         registrations: Iterable[ListenerRegistration],
     ) -> tuple[_CoverageSignature, ListenerCoverageSnapshot]:
-        dependency_keys: set[DependencyKey] = set()
+        dependency_keys: set[BaseDependencyKeyUnion] = set()
         has_realtime_wildcard = False
 
         for registration in registrations:

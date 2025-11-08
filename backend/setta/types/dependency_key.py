@@ -9,12 +9,12 @@ class DependencyKeyType(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
-class DependencyKey:
+class BaseDependencyKey:
     type: DependencyKeyType  # stays as a field on the instance
 
 
 @dataclass(frozen=True, slots=True)
-class SectionDependencyKey(DependencyKey):
+class SectionDependencyKey(BaseDependencyKey):
     sectionId: str
     type: Literal[DependencyKeyType.Section] = field(
         default=DependencyKeyType.Section, init=False
@@ -22,7 +22,7 @@ class SectionDependencyKey(DependencyKey):
 
 
 @dataclass(frozen=True, slots=True)
-class SectionParamDependencyKey(DependencyKey):
+class SectionParamDependencyKey(BaseDependencyKey):
     sectionId: str
     codeObjId: str
     type: Literal[DependencyKeyType.SectionParam] = field(

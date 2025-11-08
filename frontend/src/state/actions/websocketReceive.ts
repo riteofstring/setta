@@ -15,7 +15,6 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
   FrontendWebsocketMsgUnion,
-  ListenerDependencyKey,
   RouteEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
@@ -162,16 +161,16 @@ export function sendRealtimeUIChange({
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const dependencyKey: ListenerDependencyKey = {
+  const dependencyKey: DependencyKey = {
     sectionId,
     codeObjId: codeObjId ?? null,
   };
   const coverage = getListenerCoverageRecord(projectConfigId);
-  console.log("coverage", coverage)
+  console.log("coverage", coverage);
   if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
     return;
   }
-  
+
   const message: WebsocketMsgRealtimeUIChange = {
     id: null,
     messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
@@ -181,7 +180,7 @@ export function sendRealtimeUIChange({
       value,
     },
   };
-  console.log('sending real time update', message)
+  console.log("sending real time update", message);
   sendMessage(message);
 }
 

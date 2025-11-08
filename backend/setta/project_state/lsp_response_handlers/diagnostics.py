@@ -4,10 +4,10 @@ from typing import Callable
 from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
-from setta.code_gen.dependency_key import DependencyKey
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.types.code_obj_impls import ParameterPassingStyle
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.lsp import SettaGenCodeDiagnostic, SettaLSPPosition
 
 
@@ -142,7 +142,7 @@ def process_named_argument_issue(
 
 
 def get_message_with_ids(
-    message: str, dep_key: DependencyKey, dep_graph: DependencyGraph
+    message: str, dep_key: BaseDependencyKeyUnion, dep_graph: DependencyGraph
 ):
     x = dep_graph.extract_ids_from_dep_key(dep_key)
     return SettaGenCodeDiagnostic(

@@ -23,10 +23,6 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
 )
-from setta.code_gen.dependency_key import (
-    SectionDependencyKey,
-    SectionParamDependencyKey,
-)
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -119,6 +115,10 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
+)
+from setta.types.dependency_key import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,

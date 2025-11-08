@@ -18,7 +18,7 @@ import {
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
-  DependencyKey,
+  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
@@ -145,7 +145,7 @@ export const usePendingOperations = withProjectState(
 
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
-  dependenciesByKey: Record<string, DependencyKey>;
+  dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
 };
 
 type ListenerCoverageState = {

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from setta.code_gen.dependency_key import DependencyKey
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRegisterCallback,
@@ -13,7 +13,9 @@ class ListenerRegistration:
     websocket_id: str
     project_config_id: str
     callbacks: dict[str, ListenerRegisterCallback] = field(default_factory=dict)
-    dependency_index: dict[DependencyKey, set[str]] = field(default_factory=dict)
+    dependency_index: dict[BaseDependencyKeyUnion, set[str]] = field(
+        default_factory=dict
+    )
     wildcard_callbacks: set[str] = field(default_factory=set)
 
     @classmethod
@@ -25,7 +27,7 @@ class ListenerRegistration:
         callbacks: dict[str, ListenerRegisterCallback],
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
-        dependency_index: dict[DependencyKey, set[str]] = {}
+        dependency_index: dict[BaseDependencyKeyUnion, set[str]] = {}
         wildcard_callbacks: set[str] = set()
         for callback_id, callback in callback_map.items():
             if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
@@ -101,7 +103,7 @@ class ListenerRegistry:
         self,
         *,
         project_config_id: str,
-        dependency_keys: Iterable[DependencyKey],
+        dependency_keys: Iterable[BaseDependencyKeyUnion],
     ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
         dependency_filter = set(dependency_keys)
         for registration in self.iter_registrations_for_project(project_config_id):
