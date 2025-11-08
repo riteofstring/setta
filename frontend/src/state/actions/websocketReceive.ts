@@ -14,8 +14,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
+  DependencyKeyTypeEnum,
   FrontendWebsocketMsgUnion,
   RouteEnum,
+  SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeUIChange,
@@ -148,22 +150,21 @@ export function sendCurrentAddress(currentAddress: string) {
   );
 }
 
-export function sendRealtimeUIChange({
-  sectionId,
-  codeObjId = null,
-  value,
-}: {
-  sectionId: string;
-  codeObjId?: string | null;
-  value: unknown;
-}) {
+
+// TODO: create different versions of this function for different realtime updates.
+export function sendRealtimeUIChange(
+  sectionId: string,
+  codeObjId: string,
+  value: string,
+) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const dependencyKey: DependencyKey = {
+  const dependencyKey: SectionParamDependencyKey = {
+    type: DependencyKeyTypeEnum.SectionParam,
     sectionId,
-    codeObjId: codeObjId ?? null,
+    codeObjId,
   };
   const coverage = getListenerCoverageRecord(projectConfigId);
   console.log("coverage", coverage);
