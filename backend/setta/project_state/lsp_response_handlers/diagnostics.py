@@ -3,10 +3,15 @@ from typing import Callable
 
 from lsprotocol import types as LSPTypes
 
-from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType, ParamNode
+from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.types.code_obj_impls import ParameterPassingStyle
+from setta.types.dependency_key import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+)
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.lsp import SettaGenCodeDiagnostic, SettaLSPPosition
 
 
@@ -35,7 +40,7 @@ def process_gen_code_diagnostic(
     message = d.message
     if d.code == "reportArgumentType":
         return process_report_argument_type(
-            position.start, position.end, message, code_generator, dep_graph
+            position.start, position.end, message, code_generator
         )
     elif d.code == "reportCallIssue":
         return process_report_call_issue(
@@ -49,12 +54,11 @@ def process_report_argument_type(
     end: int,
     message: str,
     code_generator: PythonCodeGenerator,
-    dep_graph: DependencyGraph,
 ):
     problem_var = code_generator.code[start:end]
-    graph_key = code_generator.reverse_var_name_mapping.get(problem_var)
-    if graph_key:
-        return [get_message_with_ids(message, graph_key, dep_graph)]
+    dep_key = code_generator.reverse_var_name_mapping.get(problem_var)
+    if dep_key:
+        return [get_message_with_ids(message, dep_key)]
     return []
 
 
@@ -90,22 +94,22 @@ def _process_argument_issue(
         dep_graph: DependencyGraph instance
         param_filter: Function that takes a param and returns True if it should be included
     """
-    graph_key = code_generator.value_pos_start_to_graph_key.get(start)
-    if not graph_key:
+    dep_key = code_generator.value_pos_start_to_dep_key.get(start)
+    if not dep_key:
         return []
-    node = dep_graph.graph.get(graph_key)
+    node = dep_graph.graph.get(dep_key)
     if not node:
         return []
 
     missing_deps = []
-    for dep_graph_key, is_used in node.deps.items():
+    for dep_dep_key, is_used in node.deps.items():
         if is_used:
             continue
-        param = dep_graph.graph.get(dep_graph_key)
+        param = dep_graph.graph.get(dep_dep_key)
         if not param or not isinstance(param, ParamNode):
             continue
         if param_filter(param):
-            missing_deps.append(get_message_with_ids(message, dep_graph_key, dep_graph))
+            missing_deps.append(get_message_with_ids(message, dep_dep_key))
     return missing_deps
 
 
@@ -140,12 +144,21 @@ def process_named_argument_issue(
     )
 
 
-def get_message_with_ids(
-    message: str, graph_key: GraphKeyType, dep_graph: DependencyGraph
-):
-    x = dep_graph.extract_ids_from_graph_key(graph_key)
+def get_message_with_ids(message: str, dep_key: BaseDependencyKeyUnion):
+    if isinstance(dep_key, SectionParamDependencyKey):
+        section_id = dep_key.sectionId
+        param_id = dep_key.codeObjId
+    elif isinstance(dep_key, SectionDependencyKey):
+        section_id = dep_key.sectionId
+        param_id = None
+    else:
+        raise TypeError(
+            f"Unsupported dependency key type {type(dep_key)} in diagnostics message"
+        )
     return SettaGenCodeDiagnostic(
-        sectionId=x.sectionId, paramInfoId=x.paramInfoId, message=message
+        sectionId=section_id,
+        paramInfoId=param_id,
+        message=message,
     )
 
 

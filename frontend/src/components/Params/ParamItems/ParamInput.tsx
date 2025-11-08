@@ -46,11 +46,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
     if (value !== vStr) {
-      sendRealtimeUIChange({
-        sectionId,
-        codeObjId: paramInfoId,
-        value: vStr,
-      });
+      sendRealtimeUIChange(sectionId, paramInfoId, vStr);
     }
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
   }

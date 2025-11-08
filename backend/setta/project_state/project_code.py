@@ -24,6 +24,9 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
+from setta.types.dependency_key import (
+    create_dep_key,
+)
 from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
@@ -100,8 +103,8 @@ class ProjectGenPythonCode(PythonCode):
         position: int,
     ) -> tuple[str, int, int] | None:
         generator = self._clone_generator()
-        graph_key = generator.dep_graph.create_graph_key(sectionId, paramInfoId)
-        start = generator.change_value(graph_key, fullText)
+        dep_key = create_dep_key(sectionId, paramInfoId)
+        start = generator.change_value(dep_key, fullText)
         if start is None:
             return None
         absolute_position = position + start
@@ -126,8 +129,8 @@ class ProjectGenPythonCode(PythonCode):
     async def _insert_code_and_update_state(
         self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
     ) -> tuple[int, int] | None:
-        graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
-        start = self.code_generator.change_value(graph_key, fullText)
+        dep_key = create_dep_key(sectionId, paramInfoId)
+        start = self.code_generator.change_value(dep_key, fullText)
         await self.update_file()
         if start is None:
             return None

@@ -6,9 +6,8 @@ from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
 )
-from setta.types.listener import ListenerRealtimeDelta
+from setta.types.listener import ListenerRealtimeDelta, RealtimeUIChangeContent
 from setta.types.websocket import (
-    RealtimeUIChangeContent,
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgRealtimeUIChange,
 )

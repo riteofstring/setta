@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
-    GraphKeyType,
     Node,
     ParamNode,
     SectionNode,
@@ -14,6 +13,7 @@ from setta.code_gen.utils import (
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import ParameterPassingStyle
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.section_impls import SectionType
 
 
@@ -49,13 +49,15 @@ class PythonCodeGenerator:
         self.reset()
 
     def reset(self):
-        self.var_name_mapping: dict[GraphKeyType, str] = {}  # graph_key to var name
+        self.var_name_mapping: dict[
+            BaseDependencyKeyUnion, str
+        ] = {}  # dep_key to var name
         self.reverse_var_name_mapping: dict[
-            str, GraphKeyType
-        ] = {}  # var name to graph_key
-        self.value_pos_start_to_graph_key: dict[int, GraphKeyType] = {}
+            str, BaseDependencyKeyUnion
+        ] = {}  # var name to dep_key
+        self.value_pos_start_to_dep_key: dict[int, BaseDependencyKeyUnion] = {}
         self.code: str = ""
-        self.lines: dict[GraphKeyType, PythonCodeLine] = {}
+        self.lines: dict[BaseDependencyKeyUnion, PythonCodeLine] = {}
 
     def generate_code(self):
         self.reset()
@@ -79,9 +81,9 @@ class PythonCodeGenerator:
         self.code = f"{code}{self.gen_code_suffix}"
         return gen_code_suffix_position
 
-    def _process_node_and_deps(self, graph_key, node, processed_nodes, path=None):
+    def _process_node_and_deps(self, dep_key, node, processed_nodes, path=None):
         """Process a node and its dependencies, recording any cycles found."""
-        if graph_key in processed_nodes:
+        if dep_key in processed_nodes:
             return []  # Already processed, no cycle
 
         # Initialize the path if this is the top-level call
@@ -89,33 +91,33 @@ class PythonCodeGenerator:
             path = []
 
         # Check if we've encountered this node before in current path
-        if graph_key in path:
-            # Cycle detected! Extract the full cycle as graph keys
-            cycle_start = path.index(graph_key)
-            cycle = path[cycle_start:] + [graph_key]
+        if dep_key in path:
+            # Cycle detected! Extract the full cycle as dependency keys
+            cycle_start = path.index(dep_key)
+            cycle = path[cycle_start:] + [dep_key]
             return [cycle]
 
         # Add current node to path
-        path.append(graph_key)
+        path.append(dep_key)
 
         cycles = []
         # Process dependencies first
-        for dep_key, is_used in node.deps.items():
+        for child_dep_key, is_used in node.deps.items():
             if not is_used:
                 continue
-            if dep_key not in processed_nodes:
-                dep_node = self.dep_graph.graph[dep_key]
+            if child_dep_key not in processed_nodes:
+                dep_node = self.dep_graph.graph[child_dep_key]
                 cycles.extend(
                     self._process_node_and_deps(
-                        dep_key, dep_node, processed_nodes, path
+                        child_dep_key, dep_node, processed_nodes, path
                     )
                 )
 
         # Now process this node
-        self.create_line(graph_key, node)
+        self.create_line(dep_key, node)
 
         # Mark as processed and remove from path
-        processed_nodes.add(graph_key)
+        processed_nodes.add(dep_key)
         path.pop()
 
         return cycles  # Return all cycles found
@@ -137,26 +139,26 @@ class PythonCodeGenerator:
             self.lines[key].pos = curr_pos
             value_pos_start = self.lines[key].value_pos_start
             if value_pos_start is not None:
-                self.value_pos_start_to_graph_key[value_pos_start] = key
+                self.value_pos_start_to_dep_key[value_pos_start] = key
         return code
 
-    def create_line(self, graph_key, node: Node):
+    def create_line(self, dep_key, node: Node):
         value = self.get_value(node)
         if not value:
             return
-        var_name = self.create_var_name(graph_key, node)
+        var_name = self.create_var_name(dep_key, node)
         prefix = f"{var_name} = "
         final_str = f"{prefix}{value}"
-        self.lines[graph_key] = PythonCodeLine(final_str, len(prefix), len(value))
+        self.lines[dep_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
-    def create_var_name(self, graph_key, node: Node):
+    def create_var_name(self, dep_key, node: Node):
         var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
-        self.var_name_mapping[graph_key] = var_name
-        self.reverse_var_name_mapping[var_name] = graph_key
+        self.var_name_mapping[dep_key] = var_name
+        self.reverse_var_name_mapping[var_name] = dep_key
         return var_name
 
-    def _lookup_var_name(self, graph_key: GraphKeyType) -> str:
-        return self.var_name_mapping[graph_key]
+    def _lookup_var_name(self, dep_key: BaseDependencyKeyUnion) -> str:
+        return self.var_name_mapping[dep_key]
 
     def get_value(self, node: Node):
         if isinstance(node, SectionNode):
@@ -218,10 +220,10 @@ class PythonCodeGenerator:
         output = f"{value}({output})"
         return output
 
-    def change_value(self, graph_key, value):
-        self.dep_graph.change_value(graph_key, value)
+    def change_value(self, dep_key, value):
+        self.dep_graph.change_value(dep_key, value)
         self.generate_code()
-        code_line = self.lines.get(graph_key)
+        code_line = self.lines.get(dep_key)
         # code_line still might not exist if value is empty
         # or if the node doesn't have a name (e.g. a kwarg whose name hasn't been set yet)
         if code_line:

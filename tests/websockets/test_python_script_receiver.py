@@ -4,9 +4,9 @@ import unittest
 from typing import Iterable
 
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.dependency_key import create_dep_key
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
-    ListenerDependencyKey,
     ListenerDependencyMode,
     ListenerFrontendEmitContent,
     ListenerInitContent,
@@ -151,7 +151,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         callback = ListenerRegisterCallback(
             dependencies=[
-                ListenerDependencyKey(sectionId="Homepage__hero__title", codeObjId=None)
+                create_dep_key(sectionId="Homepage__hero__title", codeObjId=None)
             ],
             dependencyMode=ListenerDependencyMode.SPECIFIC,
         )
