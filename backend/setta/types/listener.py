@@ -62,6 +62,12 @@ class ListenerCoverageSnapshot(BaseModel):
     hasRealtimeWildcard: bool
 
 
+class RealtimeUIChangeContent(BaseModel):
+    projectConfigId: str
+    dependencyKey: "BaseDependencyKeyUnionWithDiscriminator"
+    value: Any
+
+
 class ListenerRealtimeDelta(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

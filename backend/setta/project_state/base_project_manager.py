@@ -70,6 +70,7 @@ from setta.project_state.project_manager_types import (
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
+    RenameRefactorBroadcastContent,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
@@ -194,9 +195,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
-from setta.types.websocket import (
-    RenameRefactorBroadcastContent,
-)
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C

@@ -5604,14 +5604,7 @@ export function createWebsocketMsgAllProjectMetadata(
 }
 
 export const UpdateArtifactMsgContentSchema = z.object({
-  artifacts: z.array(
-    z.discriminatedUnion("type", [
-      ImageArtifactSchema,
-      BrushStrokeArtifactSchema,
-      DrawAreaLayerItemTransformArtifactSchema,
-      ChartDataArtifactSchema,
-    ]),
-  ),
+  artifacts: z.array(z.any()),
   updateType: z.literal(["update", "delete"]),
 });
 

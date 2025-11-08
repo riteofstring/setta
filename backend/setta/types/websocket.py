@@ -1,19 +1,17 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
-from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
+    RenameRefactorBroadcastContent,
 )
 from setta.types.ai import IDToUUIDForLLM
+from setta.types.artifact import UpdateArtifactMsgContent
 from setta.types.chat_messages import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.unions import (
-    BaseArtifactUnionWithDiscriminator,
-)
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerErrorContent,
@@ -23,18 +21,13 @@ from setta.types.listener import (
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
     ListenerRegisterContent,
+    RealtimeUIChangeContent,
 )
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import AllProjectMetadata
-from setta.types.settings_state import RenameRefactorMode
-
-if TYPE_CHECKING:
-    from setta.types.generated.dependency_keys import (
-        BaseDependencyKeyUnionWithDiscriminator,
-    )
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -104,11 +97,6 @@ class PythonScriptWebsocketMsg(WebsocketMsg):
     pass
 
 
-class UpdateArtifactMsgContent(BaseModel):
-    artifacts: list[BaseArtifactUnionWithDiscriminator]
-    updateType: Literal["update", "delete"]
-
-
 class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
@@ -149,13 +137,6 @@ class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
         WebsocketMsgTypeForFrontend.LSPDiagnostics
     )
-
-
-class RenameRefactorBroadcastContent(BaseModel):
-    projectConfigId: str
-    frontendOpId: str
-    renameMode: RenameRefactorMode
-    changedNodeValues: list[RenameReferenceChangedValue]
 
 
 class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
@@ -212,12 +193,6 @@ class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
         WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
     )
-
-
-class RealtimeUIChangeContent(BaseModel):
-    projectConfigId: str
-    dependencyKey: "BaseDependencyKeyUnionWithDiscriminator"
-    value: Any
 
 
 class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):
