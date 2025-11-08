@@ -102,14 +102,14 @@ class PythonCodeGenerator:
 
         cycles = []
         # Process dependencies first
-        for dep_key, is_used in node.deps.items():
+        for child_dep_key, is_used in node.deps.items():
             if not is_used:
                 continue
-            if dep_key not in processed_nodes:
-                dep_node = self.dep_graph.graph[dep_key]
+            if child_dep_key not in processed_nodes:
+                dep_node = self.dep_graph.graph[child_dep_key]
                 cycles.extend(
                     self._process_node_and_deps(
-                        dep_key, dep_node, processed_nodes, path
+                        child_dep_key, dep_node, processed_nodes, path
                     )
                 )
 
