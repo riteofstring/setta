@@ -4,12 +4,14 @@ from typing import assert_never
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     ParamNode,
+    SectionNode,
 )
 from setta.code_gen.value_mode import PythonValueMode
-from setta.types.code_obj_impls import CodeObjType
+from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
+from setta.types.section_impls import SectionType
 
 VarLookup = Callable[[BaseDependencyKeyUnion], str]
 
@@ -84,6 +86,26 @@ class PythonValueCodec:
         ]
         return "[" + ", ".join(items) + "]"
 
+    def format_section(self, node: SectionNode) -> str | None:
+        section_type = node.type
+        match section_type:
+            case SectionType.Callable:
+                return self._format_callable_section(node)
+            case SectionType.ListRoot:
+                return self.format_list(node.deps)
+            case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
+                return self.format_dict(node.deps)
+            case SectionType.TextBlock:
+                if node.value:
+                    return repr(node.value.payload)
+                return "None"
+            case SectionType.Draw:
+                if node.value:
+                    return self.format_dependency_value(node.value)
+                return "None"
+            case _:
+                return None
+
     def format_dependency_value(self, value: BaseDependencyValueUnion) -> str:
         """Render an arbitrary dependency value using the configured value mode."""
         match value.type:
@@ -105,6 +127,41 @@ class PythonValueCodec:
                 f"Unsupported dependency value kind {value.type} for node {node.full_path_name}"
             )
         return value.payload
+
+    def _format_callable_section(self, node: SectionNode) -> str:
+        if not node.value:
+            return "None"
+        callable_name = node.value.payload
+        return self._construct_callable(callable_name, node.deps)
+
+    def _construct_callable(
+        self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]
+    ) -> str:
+        rendered_args = ""
+        idx = 0
+        for dep_key, is_used in deps.items():
+            if not is_used:
+                continue
+            node = self.dep_graph.graph[dep_key]
+            if not isinstance(node, ParamNode):
+                continue
+            prefix = "" if idx == 0 else ", "
+            var_name = self.var_lookup(dep_key)
+            passing_style = node.passing_style
+            if passing_style == ParameterPassingStyle.ARGS:
+                prefix = "*"
+            elif passing_style == ParameterPassingStyle.KWARGS:
+                prefix = "**"
+            elif passing_style in (
+                ParameterPassingStyle.DEFAULT,
+                ParameterPassingStyle.KEYWORD_ONLY,
+            ):
+                prefix += f"{node.name}="
+
+            rendered_args += f"{prefix}{var_name}"
+            idx += 1
+
+        return f"{callable_name}({rendered_args})"
 
     def _format_base64_value(self, payload: str) -> str:
         if self.mode is PythonValueMode.LIVE_RUNTIME:

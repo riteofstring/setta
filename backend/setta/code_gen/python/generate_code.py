@@ -12,9 +12,7 @@ from setta.code_gen.utils import (
 )
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
-from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.section_impls import SectionType
 
 
 @dataclass
@@ -178,67 +176,11 @@ class PythonCodeGenerator:
 
     def get_value(self, node: Node):
         if isinstance(node, SectionNode):
-            return self.get_section_value(node)
+            return self.value_codec.format_section(node)
         elif isinstance(node, ParamNode):
-            return self.get_param_value(node)
+            return self.value_codec.format_param_expression(node)
         else:
             raise ValueError
-
-    def get_section_value(self, node: SectionNode):
-        t = node.type
-        match t:
-            case SectionType.Callable:
-                if node.value:
-                    return self.construct_callable(node.value.payload, node.deps)
-                return "None"
-            case SectionType.ListRoot:
-                return self.value_codec.format_list(node.deps)
-            case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
-                return self.value_codec.format_dict(node.deps)
-            case SectionType.TextBlock:
-                if node.value:
-                    return repr(node.value.payload)
-                return "None"
-            case SectionType.Draw:
-                if node.value:
-                    return self.value_codec.format_dependency_value(node.value)
-                return "None"
-            case _:
-                return None
-
-    def get_param_value(self, node: ParamNode):
-        return self.value_codec.format_param_expression(node)
-
-    def construct_callable(self, value, deps):
-        output = ""
-        idx = 0
-        for d, is_used in deps.items():
-            if not is_used:
-                continue
-            node = self.dep_graph.graph[d]
-            # it's possible for a section node to have a callable
-            # that depends on another section. So here we only want ParamNodes
-            # when constructing the parameters of a callable.
-            if not isinstance(node, ParamNode):
-                continue
-            prefix = "" if idx == 0 else ", "
-            var_name = self.var_name_mapping[d]
-            passing_style = node.passing_style
-            if passing_style == ParameterPassingStyle.ARGS:
-                prefix = "*"
-            elif passing_style == ParameterPassingStyle.KWARGS:
-                prefix = "**"
-            elif (
-                passing_style == ParameterPassingStyle.DEFAULT
-                or passing_style == ParameterPassingStyle.KEYWORD_ONLY
-            ):
-                prefix += f"{node.name}="
-
-            output += f"{prefix}{var_name}"
-            idx += 1
-
-        output = f"{value}({output})"
-        return output
 
     def change_value(self, dep_key, value):
         self.dep_graph.change_value(dep_key, value)
