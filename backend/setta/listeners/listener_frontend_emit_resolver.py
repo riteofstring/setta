@@ -6,6 +6,7 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
+from setta.project_state.artifacts import Artifacts
 from setta.types.artifact import ArtifactType
 from setta.types.dependency_value import (
     Base64DependencyValue,
@@ -18,7 +19,6 @@ from setta.types.listener import (
     ListenerFrontendEmitArtifactUpdate,
     ListenerFrontendEmitKeyAndValue,
 )
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 from setta.utils.utils import normalize_path
 
@@ -86,26 +86,20 @@ class UnsupportedListenerArtifactUpdateError(ListenerArtifactUpdateError):
 
 
 class ListenerFrontendEmitResolver:
-    """Translate sanitized dependency values into typed websocket payloads."""
-
-    def __init__(self) -> None:
-        self._cached_graphs: dict[str, DependencyGraph] = {}
+    """Translate sanitized dependency/artifact values into typed payloads."""
 
     def resolve(
         self,
         *,
-        project_state: ProjectStateSingleConfig,
         dependency_values: Mapping[str, Any],
-        dependency_graph: DependencyGraph | None = None,
+        dependency_graph: DependencyGraph,
     ) -> list[ListenerFrontendEmitKeyAndValue]:
-        graph = self._ensure_graph(project_state, dependency_graph)
-
         resolved: list[ListenerFrontendEmitKeyAndValue] = []
         for sanitized_name, raw_value in dependency_values.items():
-            dep_key = graph.full_path_name_to_dep_key.get(sanitized_name)
+            dep_key = dependency_graph.full_path_name_to_dep_key.get(sanitized_name)
             if dep_key is None:
                 raise UnknownListenerDependencyError(sanitized_name)
-            node = graph.graph.get(dep_key)
+            node = dependency_graph.graph.get(dep_key)
             if node is None:
                 raise UnknownListenerDependencyError(sanitized_name)
 
@@ -127,6 +121,7 @@ class ListenerFrontendEmitResolver:
         self,
         *,
         artifact_updates: Mapping[str, Any] | None = None,
+        artifacts: Artifacts,
     ) -> list[ListenerFrontendEmitArtifactUpdate]:
         if not artifact_updates:
             return []
@@ -134,28 +129,16 @@ class ListenerFrontendEmitResolver:
         resolved: list[ListenerFrontendEmitArtifactUpdate] = []
         for raw_path, payload in artifact_updates.items():
             normalized_path = self._normalize_artifact_path(raw_path)
+            artifact_type = self._infer_artifact_type(
+                path=normalized_path, artifacts=artifacts
+            )
             normalized_payload = self._coerce_artifact_payload(
-                normalized_path, payload
+                normalized_path,
+                payload,
+                artifact_type,
             )
             resolved.append(normalized_payload)
         return resolved
-
-    def _ensure_graph(
-        self,
-        project_state: ProjectStateSingleConfig,
-        dependency_graph: DependencyGraph | None,
-    ) -> DependencyGraph:
-        if dependency_graph is not None:
-            project_id = project_state.projectConfig.id
-            self._cached_graphs[project_id] = dependency_graph
-            return dependency_graph
-
-        project_id = project_state.projectConfig.id
-        graph = self._cached_graphs.get(project_id)
-        if graph is None:
-            graph = DependencyGraph(project_state)
-            self._cached_graphs[project_id] = graph
-        return graph
 
     def _normalize_artifact_path(self, raw_path: str) -> str:
         if not isinstance(raw_path, str):
@@ -182,6 +165,7 @@ class ListenerFrontendEmitResolver:
         self,
         normalized_path: str,
         payload: Any,
+        artifact_type: ArtifactType,
     ) -> ListenerFrontendEmitArtifactUpdate:
         if isinstance(payload, str):
             if not payload:
@@ -191,7 +175,7 @@ class ListenerFrontendEmitResolver:
                 )
             return ListenerFrontendEmitArtifactUpdate(
                 path=normalized_path,
-                artifactType=ArtifactType.Image,
+                artifactType=artifact_type,
                 data=payload,
             )
 
@@ -199,6 +183,25 @@ class ListenerFrontendEmitResolver:
             normalized_path,
             message="artifact update must be a base64 string",
         )
+
+    def _infer_artifact_type(
+        self,
+        *,
+        path: str,
+        artifacts: Artifacts,
+    ) -> ArtifactType:
+        try:
+            cached = artifacts.get_cached_artifact_type(path)
+        except ValueError as exc:
+            raise UnsupportedListenerArtifactUpdateError(
+                path,
+                reason="artifact path resolves to multiple cached types",
+            ) from exc
+
+        if cached is None:
+            return ArtifactType.Image
+
+        return cached
 
     def _coerce_node_value(
         self,

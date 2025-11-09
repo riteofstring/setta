@@ -276,6 +276,28 @@ class Artifacts:
     def get_cached_draw_area_layer_item_transform(self, path: Path | str):
         return self.draw_area_layer_item_transforms.get(normalize_path(path))
 
+    def get_cached_artifact_type(self, path: Path | str) -> ArtifactType | None:
+        """Return the cached artifact type for a normalized path, if any.
+
+        Raises ValueError when multiple artifact caches know about the same path,
+        since that indicates inconsistent state we cannot safely resolve.
+        """
+
+        normalized = normalize_path(path)
+        matches: list[ArtifactType] = []
+        for artifact_type in ArtifactType:
+            art_dict = self.dict_for_artifact_type(artifact_type)
+            if normalized in art_dict:
+                matches.append(artifact_type)
+
+        if not matches:
+            return None
+        if len(matches) == 1:
+            return matches[0]
+        raise ValueError(
+            f"artifact path {normalized} has multiple cached types: {matches}"
+        )
+
     def mark_dirty(self, path: Path, artifact_type: ArtifactType):
         metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
         if path in metadata_dict:

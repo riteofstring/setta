@@ -265,37 +265,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
-        try:
-            manager = self.project_manager_switcher.get(project_config_id)
-            project_state = manager.get_single_config_state(project_config_id)
-        except KeyError:
-            logger.warning(
-                "failed to load project state for listener emit (project %s)",
-                project_config_id,
-            )
-            error_message = WebsocketMsgListenerError(
-                content=ListenerErrorContent(
-                    error="project_state_unavailable",
-                    details={"projectConfigId": project_config_id},
-                )
-            )
-            await self.websocket_manager.send_message(error_message, websocket_id)
-            return
-        except Exception:
-            logger.exception(
-                "unexpected error while loading project state for listener emit "
-                "(project %s)",
-                project_config_id,
-            )
-            error_message = WebsocketMsgListenerError(
-                content=ListenerErrorContent(
-                    error="project_state_unavailable",
-                    details={"projectConfigId": project_config_id},
-                )
-            )
-            await self.websocket_manager.send_message(error_message, websocket_id)
-            return
-
+        manager = self.project_manager_switcher.get(project_config_id)
         dependency_values = message.content.dependencyValues
         artifact_updates = message.content.artifactUpdates
         if not dependency_values and not artifact_updates:
@@ -314,13 +284,30 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             return
 
         try:
+            dependency_graph = manager.gen_code[project_config_id].dep_graph
+        except KeyError:
+            logger.warning(
+                "failed to load dependency graph for listener emit (project %s)",
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
+        try:
             resolved_dependency_values = self.listener_frontend_emit_resolver.resolve(
-                project_state=project_state,
                 dependency_values=dependency_values,
+                dependency_graph=dependency_graph,
             )
             resolved_artifact_updates = (
                 self.listener_frontend_emit_resolver.resolve_artifact_updates(
                     artifact_updates=artifact_updates,
+                    artifacts=manager.artifacts,
                 )
             )
         except UnknownListenerDependencyError as exc:
