@@ -46,7 +46,6 @@ import {
   updateAllProjectMetadata,
 } from "./sectionInfos";
 import { updateSettings } from "./settings";
-import { handleListenerFrontendEmitForward } from "./listenerFrontendEmit";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -141,8 +140,6 @@ function receiveMessage(message: string) {
       return updateAllProjectMetadata(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
       return updateArtifacts(m.content);
-    case WebsocketMsgTypeForFrontendEnum.ListenerFrontendEmitForward:
-      return handleListenerFrontendEmitForward(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
     default:

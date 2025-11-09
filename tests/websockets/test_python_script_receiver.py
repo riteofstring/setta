@@ -12,7 +12,6 @@ from setta.types.listener import (
     ListenerDependencyMode,
     ListenerFrontendEmitKeyAndValue,
     ListenerFrontendEmitRawContent,
-    ListenerFrontendEmitResolvedContent,
     ListenerInitContent,
     ListenerRegisterCallback,
     ListenerRegisterContent,
@@ -21,11 +20,9 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
-    WebsocketConnectionType,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
-    WebsocketMsgListenerFrontendEmitForward,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
@@ -103,6 +100,9 @@ class _StubPythonScriptSender:
 class _StubProjectManager:
     def __init__(self, states: dict[str, ProjectStateSingleConfig]) -> None:
         self._states = states
+        self.listener_updates: list[
+            tuple[str, list[ListenerFrontendEmitKeyAndValue]]
+        ] = []
 
     def get_single_config_state(
         self, project_config_id: str
@@ -111,6 +111,13 @@ class _StubProjectManager:
             return self._states[project_config_id]
         except KeyError as error:
             raise KeyError(project_config_id) from error
+
+    async def apply_listener_dependency_updates(
+        self,
+        projectConfigId: str,
+        updates: list[ListenerFrontendEmitKeyAndValue],
+    ) -> None:
+        self.listener_updates.append((projectConfigId, updates))
 
 
 class _StubProjectManagerSwitcher:
@@ -353,24 +360,22 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             fromWebsocketId="socket-1",
         )
 
-        self.assertEqual(1, len(websocket_manager.broadcasts))
-        forwarded_message, connection_type, _ = websocket_manager.broadcasts[0]
-        self.assertIsInstance(
-            forwarded_message,
-            WebsocketMsgListenerFrontendEmitForward,
-        )
-        self.assertEqual(WebsocketConnectionType.FRONTEND, connection_type)
-        expected_content = ListenerFrontendEmitResolvedContent(
-            projectConfigId="proj-123",
-            dependencyValues=[
-                ListenerFrontendEmitKeyAndValue(
-                    dependencyKey=dependency_key,
-                    value=LiteralDependencyValue("hello"),
+        self.assertEqual([], websocket_manager.broadcasts)
+        self.assertEqual([], websocket_manager.sent_messages)
+        self.assertEqual(
+            [
+                (
+                    "proj-123",
+                    [
+                        ListenerFrontendEmitKeyAndValue(
+                            dependencyKey=dependency_key,
+                            value=LiteralDependencyValue("hello"),
+                        )
+                    ],
                 )
             ],
+            project_manager_switcher._manager.listener_updates,
         )
-        self.assertEqual(expected_content, forwarded_message.content)
-        self.assertEqual([], websocket_manager.sent_messages)
 
     async def test_listener_frontend_emit_rejects_unregistered_socket(self):
         websocket_manager = _StubWebsocketManager()

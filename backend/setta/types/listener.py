@@ -56,11 +56,6 @@ class ListenerFrontendEmitRawContent(BaseModel):
     dependencyValues: dict[str, Any]
 
 
-class ListenerFrontendEmitResolvedContent(BaseModel):
-    projectConfigId: str
-    dependencyValues: list[ListenerFrontendEmitKeyAndValue]
-
-
 class ListenerCoverageRequest(BaseModel):
     projectConfigId: str
 

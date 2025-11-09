@@ -26,18 +26,16 @@
 
 ### Wire payloads
 - Introduce two explicit content models:
-  - `ListenerFrontendEmitRawContent`: `{ projectConfigId: str, dependencyValues: dict[str, Any] }`. Used by `WebsocketMsgListenerFrontendEmit` (Python script → backend).
-  - `ListenerFrontendEmitResolvedContent`: `{ projectConfigId: str, dependencyValues: list[ListenerFrontendEmitKeyAndValue] }`, where each entry is `{ dependencyKey: BaseDependencyKeyUnionWithDiscriminator, value: BaseDependencyValueUnionWithDiscriminator }`. Used by `WebsocketMsgListenerFrontendEmitForward` (backend → frontend).
-- Update the generated unions (`setta/types/generated/websocket_unions.py`, `frontend/src/utils/generatedTypes.ts`) accordingly.
-- `ListenerFrontendEmitResolvedContent` now carries the resolved dependency overrides. Once received, the backend applies them to the project manager before notifying the frontend, so every consumer sees consistent state.
+- `ListenerFrontendEmitRawContent`: `{ projectConfigId: str, dependencyValues: dict[str, Any] }`. Used by `WebsocketMsgListenerFrontendEmit` (Python script → backend).
+- The backend resolves sanitized names into `ListenerFrontendEmitKeyAndValue` entries and applies them directly via the project manager queue so that canonical broadcasts stay authoritative—no dedicated “forward” websocket message is necessary once backend state mutates in-place.
 
 ## Progress
 
-- ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`. `WebsocketMsgListenerFrontendEmitForward` now carries the resolved `ListenerFrontendEmitResolvedContent` payloads.
+- ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`.
 - ✅ **Resolver + websocket integration**: `_handle_listener_frontend_emit` now loads the active `ProjectStateSingleConfig`, resolves sanitized dependency names via `ListenerFrontendEmitResolver`, and forwards typed overrides to the frontend, deleting the legacy payload/target contract end-to-end.
 - ✅ **Receiver tests**: `tests/websockets/test_python_script_receiver.py` now covers the resolved broadcast, plus error paths for unknown dependencies, invalid value types, and empty payloads (`source activate.sh && python -m unittest tests.websockets.test_python_script_receiver`).
-- ⏳ **Backend project-manager application**: needs to accept the resolved overrides, mutate canonical state, and then broadcast downstream.
-- ⏳ **Frontend cleanup**: after the backend owns mutations, we can delete the temporary websocket reducer logic altogether.
+- ✅ **Backend project-manager application**: `BaseProjectManager.apply_listener_dependency_updates` now runs inside the serialized queue, applies literal dependency updates via `listener_dependency_updates.py`, and uses the standard `update_and_broadcast_project_state` path. Image/Draw dependency updates remain out of scope until we define the artifact workflow.
+- ✅ **Frontend cleanup**: removed the temporary `handleListenerFrontendEmitForward` reducer so the frontend now relies solely on `UpdateFrontendProjectState` broadcasts.
 
 ## Backend plan
 
@@ -51,9 +49,9 @@
 ### 3. Python-script receiver changes ✅ (done)
 - `_handle_listener_frontend_emit` now validates registration/project ids, loads the current project state, resolves dependency overrides via the resolver, surfaces structured errors back to the script, and hands the typed payload off for further processing.
 
-### 4. Project manager application ⏳
-- Update the backend project manager so it can ingest `ListenerFrontendEmitKeyAndValue` entries, mutate canonical `ProjectStateSingleConfig` objects (including artifacts/image paths), and trigger the usual frontend broadcast path.
-- Decide whether these overrides persist to disk or remain in-memory but, regardless, ensure they originate from the backend rather than the browser.
+### 4. Project manager application ✅
+- Add `BaseProjectManager.apply_listener_dependency_updates` that enqueues the mutation, applies supported dependency updates via `listener_dependency_updates.py`, and triggers the canonical broadcast flow.
+- Leave Image/Draw dependency updates unimplemented for now; they’ll ship once we define how listeners write canvas artifacts.
 
 ### 5. Tests ✅ / ⏳
 - `tests/websockets/test_python_script_receiver.py` already exercises translation + error paths.
@@ -61,11 +59,10 @@
 
 ## Frontend plan
 
-1. Regenerate types (`source activate.sh && cd frontend && pnpm generate`) after updating the schemas.
-2. Remove the temporary `handleListenerFrontendEmitForward` reducer once backend broadcasts already include emit-driven changes; frontend should only need the canonical project-state updates.
-3. Confirm no components depended on `useListenerEvents` (already removed) and delete any lingering imports.
-4. Validate that `UpdateFrontendProjectState` (or a dedicated delta) now reflects emit-driven changes without extra client logic.
-5. Add a simple smoke test/manual checklist to ensure a listener emit results in a backend state change that naturally reaches the UI.
+1. Regenerate types (`source activate.sh && cd frontend && pnpm generate`) after updating the schemas so frontend unions stay in sync with backend websocket enums.
+2. Confirm no lingering references to the old listener queue/imports remain.
+3. Validate that `UpdateFrontendProjectState` (or a dedicated delta) now reflects emit-driven changes without extra client logic.
+4. Add a simple smoke test/manual checklist to ensure a listener emit results in a backend state change that naturally reaches the UI.
 
 ## Rollout & validation
 

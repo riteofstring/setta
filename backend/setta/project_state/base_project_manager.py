@@ -42,6 +42,9 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.listener_dependency_updates import (
+    apply_listener_dependency_updates,
+)
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -180,6 +183,7 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
+from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
@@ -1170,6 +1174,23 @@ class BaseProjectManager(ABC):
     async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         append_draw_area_layer_item(project_state, x.sectionId, x.layerIdx, x.element)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def apply_listener_dependency_updates(
+        self,
+        projectConfigId: str,
+        updates: list[ListenerFrontendEmitKeyAndValue],
+    ) -> None:
+        if not updates:
+            raise ValueError("listener dependency updates require at least one entry")
+
+        project_state = self.get_single_config_state(projectConfigId)
+        apply_listener_dependency_updates(
+            project_state=project_state,
+            updates=updates,
+        )
+
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

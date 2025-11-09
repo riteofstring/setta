@@ -9,11 +9,7 @@ from setta.types.artifact import UpdateArtifactMsgContent
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
-from setta.types.listener import (
-    ListenerCoverageSnapshot,
-    ListenerFrontendEmitKeyAndValue,
-    ListenerFrontendEmitResolvedContent,
-)
+from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -27,7 +23,6 @@ from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgListenerCoverageSnapshot,
-    WebsocketMsgListenerFrontendEmitForward,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -138,22 +133,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def broadcast_settings(self, settings: SettingsState):
         await self.websocket_manager.broadcast(
             WebsocketMsgUpdateSettings(content=settings),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_listener_emit(
-        self,
-        *,
-        projectConfigId: str,
-        dependencyValues: list[ListenerFrontendEmitKeyAndValue],
-    ):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgListenerFrontendEmitForward(
-                content=ListenerFrontendEmitResolvedContent(
-                    projectConfigId=projectConfigId,
-                    dependencyValues=dependencyValues,
-                )
-            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 

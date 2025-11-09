@@ -7,6 +7,9 @@ from setta.listeners.listener_frontend_emit_resolver import (
     UnknownListenerDependencyError,
     UnsupportedListenerDependencyError,
 )
+from setta.project_state.listener_dependency_updates import (
+    ListenerDependencyUpdateError,
+)
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -360,10 +363,29 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
-        await self.frontend_sender.broadcast_listener_emit(
-            projectConfigId=project_config_id,
-            dependencyValues=resolved_dependency_values,
-        )
+        try:
+            await manager.apply_listener_dependency_updates(
+                projectConfigId=project_config_id,
+                updates=resolved_dependency_values,
+            )
+        except ListenerDependencyUpdateError as exc:
+            logger.warning("listener emit failed to apply: %s", exc)
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_failed",
+                    details={"message": str(exc)},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+        except Exception:
+            logger.exception("listener emit failed during backend application")
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_failed",
+                    details=None,
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
 
     async def _sync_listener_coverage(self, project_config_id: str) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(

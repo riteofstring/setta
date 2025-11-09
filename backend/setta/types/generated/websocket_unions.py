@@ -10,7 +10,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
-    WebsocketMsgListenerFrontendEmitForward,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
@@ -39,7 +38,6 @@ WebsocketMsgUnion = (
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
-    | WebsocketMsgListenerFrontendEmitForward
     | WebsocketMsgListenerCoverageSnapshot
     | WebsocketMsgRealtimeUIChange
     | WebsocketMsgCurrentAddressUpdate
@@ -71,7 +69,6 @@ WebsocketMsgTypeSet = set(
         "UpdateSettings",
         "AllProjectMetadata",
         "UpdateArtifacts",
-        "ListenerFrontendEmitForward",
         "ListenerCoverageSnapshot",
         "RealtimeUIChange",
         "CurrentAddressUpdate",
@@ -97,7 +94,6 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
-    | WebsocketMsgListenerFrontendEmitForward
     | WebsocketMsgListenerCoverageSnapshot
 )
 
@@ -122,7 +118,6 @@ FrontendWebsocketMsgTypeSet = set(
         "UpdateSettings",
         "AllProjectMetadata",
         "UpdateArtifacts",
-        "ListenerFrontendEmitForward",
         "ListenerCoverageSnapshot",
     ]
 )
