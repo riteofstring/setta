@@ -1,7 +1,7 @@
 import unittest
 
 from setta.types.dependency_key import create_dep_key
-from setta.types.dependency_value import DependencyValue
+from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRealtimeDelta,
@@ -100,7 +100,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                     sectionId="section-A",
                     codeObjId="param-1",
                 ),
-                value=DependencyValue.literal("value-a"),
+                value=LiteralDependencyValue("value-a"),
             )
         ]
         await sender.send_realtime_update(
@@ -115,7 +115,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                     sectionId="section-Z",
                     codeObjId="param-9",
                 ),
-                value=DependencyValue.literal("value-unmatched"),
+                value=LiteralDependencyValue("value-unmatched"),
             )
         ]
         await sender.send_realtime_update(
@@ -200,7 +200,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
                         sectionId="section-A",
                         codeObjId="param-1",
                     ),
-                    value=DependencyValue.literal("value-a"),
+                    value=LiteralDependencyValue("value-a"),
                 )
             ],
             sequence=1,
