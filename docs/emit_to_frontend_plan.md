@@ -53,9 +53,9 @@
 - Add `BaseProjectManager.apply_listener_emit_updates` so dependency (and future artifact) overrides enqueue through one helper, apply via `listener_dependency_updates.py`, and trigger the canonical broadcast flow.
 - Leave Image/Draw dependency updates unimplemented for now; they’ll ship once we define how listeners write canvas artifacts.
 
-### 5. Tests ✅ / ⏳
+### 5. Tests ✅
 - `tests/websockets/test_python_script_receiver.py` already exercises translation + error paths.
-- Add targeted project-manager tests to cover successful overrides and error handling (e.g., missing dependencies, invalid shapes) before we rely on them in production.
+- `tests/project_state/test_listener_emit_updates.py` now provisions a lightweight project manager fixture to cover successful dependency overrides, artifact-only emits, and failure paths (unknown sections, invalid payloads).
 
 ## Frontend plan
 
