@@ -1,8 +1,9 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from setta.types.artifact import ArtifactType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -51,9 +52,16 @@ class ListenerFrontendEmitKeyAndValue(BaseModel):
     value: BaseDependencyValueUnionWithDiscriminator
 
 
+class ListenerFrontendEmitArtifactUpdate(BaseModel):
+    path: str
+    artifactType: ArtifactType
+    data: str
+
+
 class ListenerFrontendEmitRawContent(BaseModel):
     projectConfigId: str
-    dependencyValues: dict[str, Any]
+    dependencyValues: dict[str, Any] = Field(default_factory=dict)
+    artifactUpdates: dict[str, Any] = Field(default_factory=dict)
 
 
 class ListenerCoverageRequest(BaseModel):

@@ -5,7 +5,15 @@ import logging
 import sys
 from ast import literal_eval
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Literal, Mapping
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    Literal,
+    Mapping,
+)
 from uuid import uuid4
 
 import websockets
@@ -92,7 +100,7 @@ class ListenerCallbackSpec:
 class ListenerCallbackContext:
     changed: dict[str, Any]
     log: logging.Logger
-    emit_to_frontend: Callable[[Mapping[str, Any]], Awaitable[None]]
+    emit_to_frontend: Callable[..., Awaitable[None]]
 
 
 @dataclass(slots=True)
@@ -984,7 +992,8 @@ class SettaListener:
     async def emit_to_frontend(
         self,
         *,
-        dependency_values: Mapping[str, Any],
+        dependency_values: Mapping[str, Any] | None = None,
+        artifact_updates: Mapping[str, Any] | None = None,
     ) -> None:
         if self._runtime_state is None:
             raise RuntimeError(
@@ -994,20 +1003,25 @@ class SettaListener:
             raise RuntimeError(
                 "Listener is not registered with the server; wait for registration to complete before emitting"
             )
-        if not dependency_values:
-            raise ValueError("emit_to_frontend requires at least one dependency value")
-        serialized_values = dict(dependency_values)
+        serialized_values = dict(dependency_values or {})
+        serialized_artifact_updates = dict(artifact_updates or {})
+        if not serialized_values and not serialized_artifact_updates:
+            raise ValueError(
+                "emit_to_frontend requires at least one dependency value or artifact update"
+            )
         project_id = self._require_project_id()
         message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId=project_id,
                 dependencyValues=serialized_values,
+                artifactUpdates=serialized_artifact_updates,
             )
         )
         logger.debug(
-            "Listener %s emitting dependency overrides: %s",
+            "Listener %s emitting dependency overrides %s and artifact updates %s",
             self._log_identifier,
-            ", ".join(serialized_values.keys()),
+            ", ".join(serialized_values.keys()) or "-",
+            ", ".join(serialized_artifact_updates.keys()) or "-",
         )
         await self._send_websocket_payload(message.model_dump_json())
 

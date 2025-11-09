@@ -5912,7 +5912,8 @@ export function createWebsocketMsgListenerError(
 
 export const ListenerFrontendEmitRawContentSchema = z.object({
   projectConfigId: z.string(),
-  dependencyValues: z.record(z.string(), z.any()),
+  dependencyValues: z.record(z.string(), z.any()).default({}),
+  artifactUpdates: z.record(z.string(), z.any()).default({}),
 });
 
 export type ListenerFrontendEmitRawContent = z.infer<
@@ -8217,6 +8218,22 @@ export function createListenerCoverageRequest(
   options: Partial<ListenerCoverageRequest> = {},
 ): ListenerCoverageRequest {
   return ListenerCoverageRequestSchema.parse(options);
+}
+
+export const ListenerFrontendEmitArtifactUpdateSchema = z.object({
+  path: z.string(),
+  artifactType: z.enum(ArtifactTypeEnum),
+  data: z.string(),
+});
+
+export type ListenerFrontendEmitArtifactUpdate = z.infer<
+  typeof ListenerFrontendEmitArtifactUpdateSchema
+>;
+
+export function createListenerFrontendEmitArtifactUpdate(
+  options: Partial<ListenerFrontendEmitArtifactUpdate> = {},
+): ListenerFrontendEmitArtifactUpdate {
+  return ListenerFrontendEmitArtifactUpdateSchema.parse(options);
 }
 
 export const ListenerFrontendEmitKeyAndValueSchema = z.object({

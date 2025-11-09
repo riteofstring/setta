@@ -6,6 +6,7 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
+from setta.types.artifact import ArtifactType
 from setta.types.dependency_value import (
     Base64DependencyValue,
     DependencyValueType,
@@ -13,9 +14,13 @@ from setta.types.dependency_value import (
     LiteralDependencyValue,
 )
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
-from setta.types.listener import ListenerFrontendEmitKeyAndValue
+from setta.types.listener import (
+    ListenerFrontendEmitArtifactUpdate,
+    ListenerFrontendEmitKeyAndValue,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
+from setta.utils.utils import normalize_path
 
 
 class ListenerFrontendEmitResolverError(Exception):
@@ -58,6 +63,28 @@ class InvalidListenerDependencyValueError(ListenerFrontendEmitResolverError):
         self.actual_value = actual_value
 
 
+class ListenerArtifactUpdateError(ListenerFrontendEmitResolverError):
+    """Base class for listener artifact update errors."""
+
+
+class InvalidListenerArtifactUpdateError(ListenerArtifactUpdateError):
+    """Raised when an artifact update payload is invalid."""
+
+    def __init__(self, path: str, message: str) -> None:
+        super().__init__(f"Invalid artifact update for {path}: {message}")
+        self.path = path
+        self.message = message
+
+
+class UnsupportedListenerArtifactUpdateError(ListenerArtifactUpdateError):
+    """Raised when an artifact update cannot be applied."""
+
+    def __init__(self, path: str, reason: str) -> None:
+        super().__init__(f"Unsupported artifact update for {path}: {reason}")
+        self.path = path
+        self.reason = reason
+
+
 class ListenerFrontendEmitResolver:
     """Translate sanitized dependency values into typed websocket payloads."""
 
@@ -71,9 +98,6 @@ class ListenerFrontendEmitResolver:
         dependency_values: Mapping[str, Any],
         dependency_graph: DependencyGraph | None = None,
     ) -> list[ListenerFrontendEmitKeyAndValue]:
-        if not dependency_values:
-            raise ValueError("dependency_values must include at least one entry")
-
         graph = self._ensure_graph(project_state, dependency_graph)
 
         resolved: list[ListenerFrontendEmitKeyAndValue] = []
@@ -99,6 +123,23 @@ class ListenerFrontendEmitResolver:
 
         return resolved
 
+    def resolve_artifact_updates(
+        self,
+        *,
+        artifact_updates: Mapping[str, Any] | None = None,
+    ) -> list[ListenerFrontendEmitArtifactUpdate]:
+        if not artifact_updates:
+            return []
+
+        resolved: list[ListenerFrontendEmitArtifactUpdate] = []
+        for raw_path, payload in artifact_updates.items():
+            normalized_path = self._normalize_artifact_path(raw_path)
+            normalized_payload = self._coerce_artifact_payload(
+                normalized_path, payload
+            )
+            resolved.append(normalized_payload)
+        return resolved
+
     def _ensure_graph(
         self,
         project_state: ProjectStateSingleConfig,
@@ -115,6 +156,49 @@ class ListenerFrontendEmitResolver:
             graph = DependencyGraph(project_state)
             self._cached_graphs[project_id] = graph
         return graph
+
+    def _normalize_artifact_path(self, raw_path: str) -> str:
+        if not isinstance(raw_path, str):
+            raise InvalidListenerArtifactUpdateError(
+                path=str(raw_path),
+                message="artifact path must be a string",
+            )
+        stripped = raw_path.strip()
+        if not stripped:
+            raise InvalidListenerArtifactUpdateError(
+                path=raw_path,
+                message="artifact path must be a non-empty string",
+            )
+        try:
+            normalized = normalize_path(stripped)
+        except Exception as exc:
+            raise InvalidListenerArtifactUpdateError(
+                path=raw_path,
+                message="failed to normalize artifact path",
+            ) from exc
+        return str(normalized)
+
+    def _coerce_artifact_payload(
+        self,
+        normalized_path: str,
+        payload: Any,
+    ) -> ListenerFrontendEmitArtifactUpdate:
+        if isinstance(payload, str):
+            if not payload:
+                raise InvalidListenerArtifactUpdateError(
+                    normalized_path,
+                    message="artifact update requires a non-empty data string",
+                )
+            return ListenerFrontendEmitArtifactUpdate(
+                path=normalized_path,
+                artifactType=ArtifactType.Image,
+                data=payload,
+            )
+
+        raise InvalidListenerArtifactUpdateError(
+            normalized_path,
+            message="artifact update must be a base64 string",
+        )
 
     def _coerce_node_value(
         self,

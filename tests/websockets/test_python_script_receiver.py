@@ -4,6 +4,7 @@ import unittest
 from typing import Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.types.artifact import ArtifactType
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -27,6 +28,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
 )
+from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_receiver import (
@@ -646,7 +648,197 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("listener_emit_invalid_payload", error_message.content.error)
         self.assertEqual(
-            {"message": "dependency_values must include at least one entry"},
+            {"message": "listener emits require dependencyValues or artifactUpdates"},
+            error_message.content.details,
+        )
+        self.assertEqual([], websocket_manager.broadcasts)
+
+    async def test_listener_frontend_emit_rejects_artifact_updates_until_supported(
+        self,
+    ):
+        websocket_manager = _StubWebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        listener_registry = ListenerRegistry()
+        python_script_sender = _StubPythonScriptSender()
+        project_state = _build_project_state("proj-123")
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_script_sender,
+            project_manager_switcher,
+        )
+        callback = ListenerRegisterCallback(
+            dependencies=[],
+            dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+        )
+        register_message = WebsocketMsgListenerRegister(
+            content=ListenerRegisterContent(
+                projectConfigId="proj-123",
+                callbacks={"cb-1": callback},
+            )
+        )
+        await receiver.process_json_str(
+            register_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+        websocket_manager.sent_messages.clear()
+        websocket_manager.broadcasts.clear()
+
+        emit_message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitRawContent(
+                projectConfigId="proj-123",
+                dependencyValues={},
+                artifactUpdates={"/tmp/image.png": "data:image/png;base64,AAA"},
+            )
+        )
+
+        await receiver.process_json_str(
+            emit_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+
+        self.assertEqual(1, len(websocket_manager.sent_messages))
+        error_message, websocket_id = websocket_manager.sent_messages[0]
+        self.assertEqual("socket-1", websocket_id)
+        self.assertIsInstance(error_message, WebsocketMsgListenerError)
+        self.assertEqual(
+            "listener_emit_artifact_updates_not_supported",
+            error_message.content.error,
+        )
+        self.assertIsNone(error_message.content.details)
+        self.assertEqual([], websocket_manager.broadcasts)
+
+    async def test_listener_frontend_emit_validates_artifact_payload_shape(self):
+        websocket_manager = _StubWebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        listener_registry = ListenerRegistry()
+        python_script_sender = _StubPythonScriptSender()
+        project_state = _build_project_state("proj-123")
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_script_sender,
+            project_manager_switcher,
+        )
+        callback = ListenerRegisterCallback(
+            dependencies=[],
+            dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+        )
+        register_message = WebsocketMsgListenerRegister(
+            content=ListenerRegisterContent(
+                projectConfigId="proj-123",
+                callbacks={"cb-1": callback},
+            )
+        )
+        await receiver.process_json_str(
+            register_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+        websocket_manager.sent_messages.clear()
+        websocket_manager.broadcasts.clear()
+
+        emit_message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitRawContent(
+                projectConfigId="proj-123",
+                dependencyValues={},
+                artifactUpdates={"/tmp/image.png": ""},
+            )
+        )
+
+        await receiver.process_json_str(
+            emit_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+
+        self.assertEqual(1, len(websocket_manager.sent_messages))
+        error_message, websocket_id = websocket_manager.sent_messages[0]
+        self.assertEqual("socket-1", websocket_id)
+        self.assertIsInstance(error_message, WebsocketMsgListenerError)
+        self.assertEqual(
+            "listener_emit_invalid_artifact_update",
+            error_message.content.error,
+        )
+        self.assertEqual(
+            {
+                "path": str(normalize_path("/tmp/image.png")),
+                "message": "artifact update requires a non-empty data string",
+            },
+            error_message.content.details,
+        )
+        self.assertEqual([], websocket_manager.broadcasts)
+
+    async def test_listener_frontend_emit_rejects_non_string_artifact_payloads(self):
+        websocket_manager = _StubWebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        listener_registry = ListenerRegistry()
+        python_script_sender = _StubPythonScriptSender()
+        project_state = _build_project_state("proj-123")
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_script_sender,
+            project_manager_switcher,
+        )
+        callback = ListenerRegisterCallback(
+            dependencies=[],
+            dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+        )
+        register_message = WebsocketMsgListenerRegister(
+            content=ListenerRegisterContent(
+                projectConfigId="proj-123",
+                callbacks={"cb-1": callback},
+            )
+        )
+        await receiver.process_json_str(
+            register_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+        websocket_manager.sent_messages.clear()
+        websocket_manager.broadcasts.clear()
+
+        emit_message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitRawContent(
+                projectConfigId="proj-123",
+                dependencyValues={},
+                artifactUpdates={
+                    "/tmp/strokes.json": {
+                        "artifactType": ArtifactType.BrushStroke,
+                        "data": "{}",
+                    }
+                },
+            )
+        )
+
+        await receiver.process_json_str(
+            emit_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+
+        self.assertEqual(1, len(websocket_manager.sent_messages))
+        error_message, websocket_id = websocket_manager.sent_messages[0]
+        self.assertEqual("socket-1", websocket_id)
+        self.assertIsInstance(error_message, WebsocketMsgListenerError)
+        self.assertEqual(
+            "listener_emit_invalid_artifact_update",
+            error_message.content.error,
+        )
+        self.assertEqual(
+            {
+                "path": str(normalize_path("/tmp/strokes.json")),
+                "message": "artifact update must be a base64 string",
+            },
             error_message.content.details,
         )
         self.assertEqual([], websocket_manager.broadcasts)

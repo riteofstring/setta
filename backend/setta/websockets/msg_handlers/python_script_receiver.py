@@ -1,10 +1,12 @@
 import logging
 
 from setta.listeners.listener_frontend_emit_resolver import (
+    InvalidListenerArtifactUpdateError,
     InvalidListenerDependencyValueError,
     ListenerFrontendEmitResolver,
     ListenerFrontendEmitResolverError,
     UnknownListenerDependencyError,
+    UnsupportedListenerArtifactUpdateError,
     UnsupportedListenerDependencyError,
 )
 from setta.project_state.listener_dependency_updates import (
@@ -294,10 +296,32 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
+        dependency_values = message.content.dependencyValues
+        artifact_updates = message.content.artifactUpdates
+        if not dependency_values and not artifact_updates:
+            logger.warning(
+                "listener emit rejected due to empty dependency/artifact payload"
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_payload",
+                    details={
+                        "message": "listener emits require dependencyValues or artifactUpdates"
+                    },
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
         try:
             resolved_dependency_values = self.listener_frontend_emit_resolver.resolve(
                 project_state=project_state,
-                dependency_values=message.content.dependencyValues,
+                dependency_values=dependency_values,
+            )
+            resolved_artifact_updates = (
+                self.listener_frontend_emit_resolver.resolve_artifact_updates(
+                    artifact_updates=artifact_updates,
+                )
             )
         except UnknownListenerDependencyError as exc:
             logger.warning(
@@ -342,6 +366,34 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
+        except InvalidListenerArtifactUpdateError as exc:
+            logger.warning(
+                "listener emit provided invalid artifact update for %s", exc.path
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_artifact_update",
+                    details={
+                        "path": exc.path,
+                        "message": exc.message,
+                    },
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except UnsupportedListenerArtifactUpdateError as exc:
+            logger.warning(
+                "listener emit targeted unsupported artifact update for %s", exc.path
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_unsupported_artifact_update",
+                    details={"path": exc.path, "reason": exc.reason},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
         except ListenerFrontendEmitResolverError:
             logger.exception("listener emit resolver failed")
             error_message = WebsocketMsgListenerError(
@@ -358,6 +410,19 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 content=ListenerErrorContent(
                     error="listener_emit_invalid_payload",
                     details={"message": str(exc)},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
+        if resolved_artifact_updates:
+            logger.warning(
+                "listener emit included artifact updates but backend application is not implemented yet"
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_artifact_updates_not_supported",
+                    details=None,
                 )
             )
             await self.websocket_manager.send_message(error_message, websocket_id)

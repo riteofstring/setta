@@ -78,3 +78,11 @@
 2. **Partial failures**: Should the backend reject the entire emit when one dependency fails to resolve, or should it apply the valid subset and report the failures?
 3. **Rate limiting**: Do we need guardrails to prevent listeners from spamming emits and overwhelming the websocket?
 4. **Hot reload & persistence**: Does the resolver need to refresh cached dependency graphs when project structure changes mid-session, and should emit-driven overrides persist across restarts or remain purely in-memory?
+
+## Artifact update strategy
+- ✅ **Dual payloads:** `emit_to_frontend` now accepts both `dependencyValues` and `artifactUpdates`, requiring at least one non-empty map. The wire schema + generated types mirror this.
+- ✅ **Artifact payload shape:** Each `artifactUpdates` entry is just the payload string (base64 image today). The backend normalizes the path, wraps the payload as an image update, and does **not** require the path to exist yet so listeners can seed new artifacts.
+- ⏳ **Artifact type inference:** Next step—teach `ListenerFrontendEmitResolver` to consult the global `Artifacts` cache so it can infer the artifact type per path (e.g., Draw vs Image) instead of always defaulting to Image.
+- ⏳ **Receiver flow + PM hook:** `_handle_listener_frontend_emit` already validates artifact payloads but still returns `listener_emit_artifact_updates_not_supported` until `BaseProjectManager/Artifacts` learn how to apply them.
+- ⏳ **Artifacts integration:** Add an in-memory apply helper that updates the cached artifact, marks it dirty, and lets `broadcast_artifacts_update` notify the frontend. Disk flushes stay deferred to the existing `artifacts.save()` cadence.
+- ⏳ **Draw/Image propagation:** Once artifact updates apply via `Artifacts`, existing `UpdateArtifacts` broadcasts keep every section referencing a shared path in sync automatically—no extra dependency wiring needed.
