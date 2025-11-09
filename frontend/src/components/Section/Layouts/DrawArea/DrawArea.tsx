@@ -39,6 +39,7 @@ import {
   TempCanvasesType,
 } from "./types";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
+import { useRealtimeDrawEmitter } from "./useRealtimeDrawEmitter";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
   useDrawAreaArtifactLoader(sectionId);
@@ -102,6 +103,14 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   const resizeHandle = useRef<ResizeHandle | null>(null);
   const resizeHandleCorners = useRef<ResizeHandleCorners | null>(null);
 
+  const { notifyRealtimeDirty, flushRealtimeSnapshot } =
+    useRealtimeDrawEmitter({
+      sectionId,
+      layerCanvasRefs,
+      draftCanvasRef,
+      drawThrottleDelay,
+    });
+
   // const updateDrawArea = useMisc(
   //   (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],
   // );
@@ -110,6 +119,12 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     tempCanvasRefs.current.layer = document.createElement("canvas");
     tempCanvasRefs.current.artifact = document.createElement("canvas");
   }, []);
+
+  useEffect(() => {
+    return () => {
+      flushRealtimeSnapshot();
+    };
+  }, [flushRealtimeSnapshot]);
 
   // const fnCanvasToBase64 = useCallback(
   //   () => combinedAndSeparateLayersToBase64(layerCanvasRefs.current, layerIds),
@@ -134,20 +149,22 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
         state,
       );
     });
+    notifyRealtimeDirty();
   }, [
     sectionSize.height,
     sectionSize.width,
     layerCount,
+    notifyRealtimeDirty,
     // JSON.stringify(layerIds),
     // updateDrawArea,
   ]);
 
   useEffect(() => {
-    setDraftCanvasProperties(
-      draftCanvasRef,
-      brushColor,
-      brushSize,
-      brushShape,
+      setDraftCanvasProperties(
+        draftCanvasRef,
+        brushColor,
+        brushSize,
+        brushShape,
       brushOpacity,
       layerOpacity,
     );
@@ -166,15 +183,18 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       resizeHandleCorners.current = null;
     }
     drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+    notifyRealtimeDirty();
   }, [
     canvasMode,
     layerOpacity,
+    notifyRealtimeDirty,
     // allLayersMetadata,
     // loadedArtifactIdsWithDuplicates,
     // updateDrawArea,
   ]);
   useEffect(() => {
     drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+    notifyRealtimeDirty();
   }, [
     layers,
     sectionSize.height,
@@ -183,6 +203,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     decodedImageRevisionStamp,
     brushRevisionStamp,
     transformRevisionStamp,
+    notifyRealtimeDirty,
   ]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
@@ -210,6 +231,8 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       activeLayerIdx,
       localArtifactTransformsRef,
       canvasMode,
+      notifyRealtimeDirty,
+      flushRealtimeSnapshot,
     );
 
   function clearStrokes() {
@@ -344,6 +367,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       SectionTypeEnum.Draw,
     ).layers;
     drawAllLayers(nextLayers, layerCanvasRefs, tempCanvasRefs);
+    flushRealtimeSnapshot();
   }
 
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(

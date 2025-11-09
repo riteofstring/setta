@@ -14,10 +14,15 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
+  Base64DependencyValue,
+  BaseDependencyKeyUnion,
+  BaseDependencyValueUnion,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
+  LiteralDependencyValue,
   RouteEnum,
+  SectionDependencyKey,
   SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
@@ -151,23 +156,15 @@ export function sendCurrentAddress(currentAddress: string) {
   );
 }
 
-// TODO: create different versions of this function for different realtime updates.
-export function sendRealtimeUIChange(
-  sectionId: string,
-  codeObjId: string,
-  value: string,
+function emitRealtimeDependencyValue(
+  dependencyKey: BaseDependencyKeyUnion,
+  value: BaseDependencyValueUnion,
 ) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const dependencyKey: SectionParamDependencyKey = {
-    type: DependencyKeyTypeEnum.SectionParam,
-    sectionId,
-    codeObjId,
-  };
   const coverage = getListenerCoverageRecord(projectConfigId);
-  console.log("coverage", coverage);
   if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
     return;
   }
@@ -178,11 +175,42 @@ export function sendRealtimeUIChange(
     content: {
       projectConfigId,
       dependencyKey,
-      value: { payload: value, type: DependencyValueTypeEnum.Literal },
+      value,
     },
   };
-  console.log("sending real time update", message);
   sendMessage(message);
+}
+
+export function sendRealtimeSectionParamLiteral(
+  sectionId: string,
+  codeObjId: string,
+  value: string,
+) {
+  const dependencyKey: SectionParamDependencyKey = {
+    type: DependencyKeyTypeEnum.SectionParam,
+    sectionId,
+    codeObjId,
+  };
+  const dependencyValue: LiteralDependencyValue = {
+    payload: value,
+    type: DependencyValueTypeEnum.Literal,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+}
+
+export function sendRealtimeSectionBase64(
+  sectionId: string,
+  base64Payload: string,
+) {
+  const dependencyKey: SectionDependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
+  };
+  const dependencyValue: Base64DependencyValue = {
+    payload: base64Payload,
+    type: DependencyValueTypeEnum.Base64,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
 
 export function sendMessage(message: WebsocketMsg) {
