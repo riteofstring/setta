@@ -1024,7 +1024,6 @@ class SettaListener:
         hydrated = self._evaluate_expression(
             dependency=dependency,
             expression=expression,
-            s_instance=runtime_state.s_instance,
         )
         setattr(current, dependency, hydrated)
         return hydrated
@@ -1034,7 +1033,6 @@ class SettaListener:
         *,
         dependency: str,
         expression: str | None,
-        s_instance: Any,
     ) -> Any:
         if not expression:
             raise ValueError(
