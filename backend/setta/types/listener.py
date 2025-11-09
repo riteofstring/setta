@@ -52,6 +52,21 @@ class ListenerFrontendEmitContent(BaseModel):
     target: str | None = None
 
 
+class ListenerFrontendEmitKeyAndValue(BaseModel):
+    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    value: BaseDependencyValueUnionWithDiscriminator
+
+
+class ListenerFrontendEmitRawContent(BaseModel):
+    projectConfigId: str
+    dependencyValues: dict[str, Any]
+
+
+class ListenerFrontendEmitResolvedContent(BaseModel):
+    projectConfigId: str
+    dependencyValues: list[ListenerFrontendEmitKeyAndValue]
+
+
 class ListenerCoverageRequest(BaseModel):
     projectConfigId: str
 

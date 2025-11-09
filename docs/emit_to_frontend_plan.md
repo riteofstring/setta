@@ -1,7 +1,7 @@
 # emit_to_frontend overhaul plan
 
 ## Background
-- `backend/setta/api/listener.py:984-1011` lets callbacks call `emit_to_frontend(payload, target=None)`. The payload is any JSON-serializable blob that is forwarded verbatim to the frontend and dropped into a per-target queue.
+- `backend/setta/api/listener.py:984-1011` now lets callbacks call `emit_to_frontend(dependency_values=Mapping[str, Any])`. The helper serializes those dictionaries into `ListenerFrontendEmitRawContent` objects that are still forwarded verbatim to the frontend and dropped into the existing per-target queue (the backend no longer lets listeners pick a target explicitly, so everything currently lands under the default bucket).
 - `backend/setta/websockets/msg_handlers/python_script_receiver.py:214-259` only validates the websocket registration/project id before relaying the payload. No transformation takes place on the server, so the frontend receives opaque, untyped data.
 - `frontend/src/state/actions/listenerEvents.ts:4-10` simply enqueues the payloads in `useListenerEvents` (`frontend/src/state/definitions.ts:122-134`). Nothing consumes those queues today, so emits cannot mutate UI state.
 - Users want to push typed updates (e.g., update an image section with new Base64 data) even when the corresponding section is absent from the generated `s_instance`. Doing the dependency-string → structured-key translation on the backend keeps listener scripts simple and avoids duplicating project-state introspection in TypeScript.
@@ -25,16 +25,23 @@
 
 ### Wire payloads
 - Introduce two explicit content models:
-  - `ListenerFrontendEmitRequestContent`: `{ projectConfigId: str, dependencyValues: dict[str, Any] }`. Used by `WebsocketMsgListenerFrontendEmit` (Python script → backend).
-  - `ListenerFrontendEmitResolvedContent`: `{ projectConfigId: str, dependencyValues: list[ListenerDependencyOverride] }`, where each override is `{ dependencyKey: BaseDependencyKeyUnionWithDiscriminator, value: BaseDependencyValueUnionWithDiscriminator }`. Used by `WebsocketMsgListenerFrontendEmitForward` (backend → frontend).
+  - `ListenerFrontendEmitRawContent`: `{ projectConfigId: str, dependencyValues: dict[str, Any] }`. Used by `WebsocketMsgListenerFrontendEmit` (Python script → backend).
+  - `ListenerFrontendEmitResolvedContent`: `{ projectConfigId: str, dependencyValues: list[ListenerFrontendEmitKeyAndValue] }`, where each entry is `{ dependencyKey: BaseDependencyKeyUnionWithDiscriminator, value: BaseDependencyValueUnionWithDiscriminator }`. Used by `WebsocketMsgListenerFrontendEmitForward` (backend → frontend).
 - Update the generated unions (`setta/types/generated/websocket_unions.py`, `frontend/src/utils/generatedTypes.ts`) accordingly.
 - `ListenerFrontendEmitContent` becomes an alias for the resolved form to keep frontend-only code simple; only the backend uses the request variant.
 
+## Progress
+
+- ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`. `WebsocketMsgListenerFrontendEmitForward` still carries `ListenerFrontendEmitContent` until the resolver lands.
+- ✅ **Test coverage for the new helper**: `tests/websockets/test_python_script_receiver.py` now validates the renamed schema and still passes (`source activate.sh && python -m unittest tests.websockets.test_python_script_receiver`).
+- ⏳ **Dependency-resolution + resolved payload broadcast**: pending.
+- ⏳ **Frontend reducer wiring / store cleanup**: pending after resolved payloads exist.
+
 ## Backend plan
 
-### 1. Listener helper + schema updates
-- Update `SettaListener.emit_to_frontend` to accept the mapping, validate bootstrap/registration state as before, and serialize a `WebsocketMsgListenerFrontendEmit` with `ListenerFrontendEmitRequestContent`.
-- Remove references to `payload`/`target` and delete the unused `useListenerEvents` plumbing from the client docs.
+### 1. Listener helper + schema updates ✅ (done)
+- Update `SettaListener.emit_to_frontend` to accept the mapping, validate bootstrap/registration state as before, and serialize a `WebsocketMsgListenerFrontendEmit` with `ListenerFrontendEmitRawContent`. **Status:** completed—helper ships the new schema and enforces non-empty mappings.
+- Remove references to `payload`/`target` and delete the unused `useListenerEvents` plumbing from the client docs. **Status:** helper + websocket layer no longer accept `payload/target`; doc cleanup of the frontend store remains tied to the frontend work in a later step.
 
 ### 2. Dependency translation service
 - Add a resolver (e.g., `setta/listeners/dependency_override_resolver.py`) that:

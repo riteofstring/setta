@@ -254,8 +254,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
 
         await self.frontend_sender.broadcast_listener_emit(
             projectConfigId=project_config_id,
-            payload=message.content.payload,
-            target=message.content.target,
+            payload=message.content.dependencyValues,
+            target=None,
         )
 
     async def _sync_listener_coverage(self, project_config_id: str) -> None:

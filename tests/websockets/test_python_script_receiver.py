@@ -9,6 +9,7 @@ from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerFrontendEmitContent,
+    ListenerFrontendEmitRawContent,
     ListenerInitContent,
     ListenerRegisterCallback,
     ListenerRegisterContent,
@@ -325,11 +326,11 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.broadcasts.clear()
         websocket_manager.broadcasts.clear()
 
+        dependency_values = {"CoolImage": "hello"}
         emit_message = WebsocketMsgListenerFrontendEmit(
-            content=ListenerFrontendEmitContent(
+            content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-123",
-                payload={"panel": "chat", "value": "hello"},
-                target="chat-panel",
+                dependencyValues=dependency_values,
             )
         )
 
@@ -345,7 +346,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             WebsocketMsgListenerFrontendEmitForward,
         )
         self.assertEqual(WebsocketConnectionType.FRONTEND, connection_type)
-        self.assertEqual(emit_message.content, forwarded_message.content)
+        self.assertEqual(
+            ListenerFrontendEmitContent(
+                projectConfigId="proj-123",
+                payload=dependency_values,
+                target=None,
+            ),
+            forwarded_message.content,
+        )
         self.assertEqual([], websocket_manager.sent_messages)
 
     async def test_listener_frontend_emit_rejects_unregistered_socket(self):
@@ -365,10 +373,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             project_manager_switcher,
         )
         emit_message = WebsocketMsgListenerFrontendEmit(
-            content=ListenerFrontendEmitContent(
+            content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-123",
-                payload={"panel": "chat", "value": "hello"},
-                target=None,
+                dependencyValues={"CoolImage": "hello"},
             )
         )
 
@@ -422,10 +429,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.broadcasts.clear()
 
         emit_message = WebsocketMsgListenerFrontendEmit(
-            content=ListenerFrontendEmitContent(
+            content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-unknown",
-                payload={"panel": "chat", "value": "hello"},
-                target=None,
+                dependencyValues={"CoolImage": "hello"},
             )
         )
 

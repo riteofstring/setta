@@ -5,7 +5,7 @@ import logging
 import sys
 from ast import literal_eval
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Literal
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Literal, Mapping
 from uuid import uuid4
 
 import websockets
@@ -26,7 +26,7 @@ from setta.types.generated.websocket_unions import (
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerForceRefreshContent,
-    ListenerFrontendEmitContent,
+    ListenerFrontendEmitRawContent,
     ListenerInitContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
@@ -92,7 +92,7 @@ class ListenerCallbackSpec:
 class ListenerCallbackContext:
     changed: dict[str, Any]
     log: logging.Logger
-    emit_to_frontend: Callable[[Any, str | None], Awaitable[None]]
+    emit_to_frontend: Callable[[Mapping[str, Any]], Awaitable[None]]
 
 
 @dataclass(slots=True)
@@ -984,8 +984,7 @@ class SettaListener:
     async def emit_to_frontend(
         self,
         *,
-        payload: Any,
-        target: str | None = None,
+        dependency_values: Mapping[str, Any],
     ) -> None:
         if self._runtime_state is None:
             raise RuntimeError(
@@ -995,18 +994,20 @@ class SettaListener:
             raise RuntimeError(
                 "Listener is not registered with the server; wait for registration to complete before emitting"
             )
+        if not dependency_values:
+            raise ValueError("emit_to_frontend requires at least one dependency value")
+        serialized_values = dict(dependency_values)
         project_id = self._require_project_id()
         message = WebsocketMsgListenerFrontendEmit(
-            content=ListenerFrontendEmitContent(
+            content=ListenerFrontendEmitRawContent(
                 projectConfigId=project_id,
-                payload=payload,
-                target=target,
+                dependencyValues=serialized_values,
             )
         )
         logger.debug(
-            "Listener %s emitting frontend payload (target=%s)",
+            "Listener %s emitting dependency overrides: %s",
             self._log_identifier,
-            target,
+            ", ".join(serialized_values.keys()),
         )
         await self._send_websocket_payload(message.model_dump_json())
 

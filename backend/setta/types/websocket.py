@@ -17,6 +17,7 @@ from setta.types.listener import (
     ListenerErrorContent,
     ListenerForceRefreshContent,
     ListenerFrontendEmitContent,
+    ListenerFrontendEmitRawContent,
     ListenerInitContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
@@ -231,7 +232,7 @@ class WebsocketMsgListenerError(PythonScriptWebsocketMsg):
 
 
 class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
-    content: ListenerFrontendEmitContent
+    content: ListenerFrontendEmitRawContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
         WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
     )
