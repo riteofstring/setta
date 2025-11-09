@@ -10,6 +10,12 @@
 - Realtime events reuse the same graph: the frontend emits `ListenerRealtimeDelta` with structured dependency-key union values, the backend forwards the payload, and `SettaListener` updates its cached `S` instance by replacing the node value and re-evaluating the canonical expression (`backend/setta/api/listener.py`).
 - Packaged scripts reuse the generator instance created during snapshot updates (`backend/setta/project_state/base_project_manager.py`, `setta_files/code/**/setta_gen.py`), so both runtimes currently share identical literal representations.
 
+## Dependency Key Typing
+- `BaseDependencyKey` is now the canonical dataclass for dependency identifiers, and every graph node is either a `SectionDependencyKey` or `SectionParamDependencyKey` instance capturing section/code-object ids with a deterministic `type` discriminator (`backend/setta/types/dependency_key.py`).
+- `BaseDependencyKeyUnion` and `BaseDependencyKeyUnionWithDiscriminator` (generated in `backend/setta/types/generated/dependency_keys.py`) wrap those dataclasses for serialization, provide a `BaseDependencyKeyTypeAdapter`, and ensure websocket/listener APIs can cheaply validate payloads.
+- TypeScript receives the same discriminated union via Zod schemas in `frontend/src/utils/generatedTypes.ts`, so listener coverage, realtime deltas, and generated endpoint clients share the exact dependency-key surface area without ad-hoc string manipulation.
+- Future dependency-value work in this plan can assume every dependency reference already carries a structured `type` field, allowing new runtime modes or codecs to branch on dependency kind without bolting on extra metadata channels.
+
 ## Pain Points
 - Non-param sections (`Draw`, `Image`, `Chart`, potential "environment variable" sections) are excluded from the dependency graph, so they cannot emit or receive realtime deltas.
 - Node values are raw strings, preventing metadata (e.g. base64 blobs vs. artifact paths) and forcing both runtimes to handle content identically.
