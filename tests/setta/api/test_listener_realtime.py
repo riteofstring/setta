@@ -14,11 +14,11 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import ParamNode
-from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
+from setta.types.dependency_value import DependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.listener import (
     ListenerDependencyMode,

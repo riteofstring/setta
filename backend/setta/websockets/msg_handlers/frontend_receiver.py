@@ -1,6 +1,5 @@
 import logging
 
-from setta.code_gen.dependency_value import DependencyValue
 from setta.project_state.project_manager import ProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
@@ -48,8 +47,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
     async def _handle_realtime_ui_change(self, content: RealtimeUIChangeContent):
         delta = ListenerRealtimeDelta(
-            dependency=content.dependencyKey,
-            value=DependencyValue.literal(str(content.value)),
+            dependency=content.dependencyKey, value=content.value
         )
         await self.realtime_event_hub.emit_realtime_delta(
             project_config_id=content.projectConfigId,

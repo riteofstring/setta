@@ -3,9 +3,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from setta.code_gen.dependency_value import DependencyValue
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
+)
+from setta.types.generated.dependency_values import (
+    BaseDependencyValueUnionWithDiscriminator,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 
@@ -63,14 +65,13 @@ class ListenerCoverageSnapshot(BaseModel):
 class RealtimeUIChangeContent(BaseModel):
     projectConfigId: str
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    value: Any
+    value: BaseDependencyValueUnionWithDiscriminator
 
 
 class ListenerRealtimeDelta(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
     dependency: BaseDependencyKeyUnionWithDiscriminator
-    value: DependencyValue
+    value: BaseDependencyValueUnionWithDiscriminator
 
 
 class ListenerRegisterCallback(BaseModel):

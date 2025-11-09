@@ -16,9 +16,9 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
 )
-from setta.code_gen.dependency_value import DependencyValue
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -1013,7 +1013,7 @@ class SettaListener:
         runtime_state: ListenerRuntimeState,
         current: Any,
         dependency: str,
-        value: DependencyValue,
+        value: BaseDependencyValueUnion,
         node: Node,
     ) -> Any:
         """Set a dependency value on the cached S instance."""

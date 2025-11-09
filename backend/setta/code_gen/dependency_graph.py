@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
-from setta.code_gen.dependency_value import DependencyValue, DependencyValueKind
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
@@ -19,7 +18,9 @@ from setta.types.code_obj_impls import (
 from setta.types.dependency_key import (
     create_dep_key,
 )
+from setta.types.dependency_value import DependencyValueType, LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
@@ -49,7 +50,7 @@ class Node(ABC):
     type: str
     isTopLevel: bool
     deps: dict
-    value: DependencyValue | None
+    value: BaseDependencyValueUnion | None
 
     @property
     @abstractmethod
@@ -184,7 +185,7 @@ class DependencyGraph:
             full_path_name=ctx.full_path_name,
             type=ctx.section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=DependencyValue.literal(value) if value is not None else None,
+            value=LiteralDependencyValue(value) if value is not None else None,
             deps={},
         )
         node.deps = self.export_section_params(
@@ -241,7 +242,7 @@ class DependencyGraph:
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=DependencyValue.literal(section_impl.text),
+            value=LiteralDependencyValue(section_impl.text),
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)
@@ -258,7 +259,7 @@ class DependencyGraph:
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=DependencyValue.literal(payload),
+            value=LiteralDependencyValue(payload),
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)
@@ -320,7 +321,7 @@ class DependencyGraph:
                     full_path_name=full_path_name,
                     type=code_obj_impl.type,
                     isTopLevel=isTopLevel,
-                    value=DependencyValue.literal(raw_value)
+                    value=LiteralDependencyValue(raw_value)
                     if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
                     else None,
                     passing_style=code_obj_impl.passingStyle,
@@ -374,7 +375,7 @@ class DependencyGraph:
         """Resolve all potential references and update dependencies."""
         for dep_key, potential_refs in self.nodes_with_potential_refs.items():
             node = self.graph[dep_key]
-            if node.value is None or node.value.kind is not DependencyValueKind.LITERAL:
+            if node.value is None or node.value.type is not DependencyValueType.Literal:
                 continue
             for ref in potential_refs.keys():
                 if ref in self.full_path_name_to_dep_key:
@@ -414,7 +415,7 @@ class DependencyGraph:
                 literal_value = node.value
                 if (
                     literal_value is None
-                    or literal_value.kind is not DependencyValueKind.LITERAL
+                    or literal_value.type is not DependencyValueType.Literal
                 ):
                     continue
                 new_payload, positions = replace_at_positions(
@@ -438,10 +439,10 @@ class DependencyGraph:
         return changed_node_values
 
     def _coerce_dependency_value(
-        self, value: DependencyValue | str | None
-    ) -> DependencyValue | None:
+        self, value: BaseDependencyValueUnion | str | None
+    ) -> BaseDependencyValueUnion | None:
         if value is None:
             return None
-        if isinstance(value, DependencyValue):
+        if isinstance(value, BaseDependencyValueUnion):
             return value
-        return DependencyValue.literal(value)
+        return LiteralDependencyValue(value)

@@ -18,6 +18,12 @@ export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
 export const BaseDependencyKeyTypeSet = new Set(["Section", "SectionParam"]);
 
+export const BaseDependencyValueTypeSet = new Set([
+  "Base64",
+  "FileRead",
+  "Literal",
+]);
+
 export const BaseArtifactTypeSet = new Set([
   "BrushStroke",
   "ChartData",
@@ -339,6 +345,14 @@ export const DependencyKeyTypeEnum = {
 } as const;
 
 export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
+
+export const DependencyValueTypeEnum = {
+  Literal: "Literal",
+  Base64: "Base64",
+  FileRead: "FileRead",
+} as const;
+
+export type DependencyValueType = ObjectValues<typeof DependencyValueTypeEnum>;
 
 export const BrowserAreaViewModeEnum = {
   list: "list",
@@ -2885,6 +2899,76 @@ export function createBaseDependencyKeyUnionWithDiscriminator(
   return BaseDependencyKeyUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const LiteralDependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("Literal").default(DependencyValueTypeEnum.Literal),
+});
+
+export type LiteralDependencyValue = z.infer<
+  typeof LiteralDependencyValueSchema
+>;
+
+export function createLiteralDependencyValue(
+  options: Partial<LiteralDependencyValue> = {},
+): LiteralDependencyValue {
+  return LiteralDependencyValueSchema.parse(options);
+}
+
+export const Base64DependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("Base64").default(DependencyValueTypeEnum.Base64),
+});
+
+export type Base64DependencyValue = z.infer<typeof Base64DependencyValueSchema>;
+
+export function createBase64DependencyValue(
+  options: Partial<Base64DependencyValue> = {},
+): Base64DependencyValue {
+  return Base64DependencyValueSchema.parse(options);
+}
+
+export const FileReadDependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("FileRead").default(DependencyValueTypeEnum.FileRead),
+});
+
+export type FileReadDependencyValue = z.infer<
+  typeof FileReadDependencyValueSchema
+>;
+
+export function createFileReadDependencyValue(
+  options: Partial<FileReadDependencyValue> = {},
+): FileReadDependencyValue {
+  return FileReadDependencyValueSchema.parse(options);
+}
+
+export const BaseDependencyValueUnionSchema = z.union([
+  LiteralDependencyValueSchema,
+  Base64DependencyValueSchema,
+  FileReadDependencyValueSchema,
+]);
+
+export type BaseDependencyValueUnion = z.infer<
+  typeof BaseDependencyValueUnionSchema
+>;
+
+export const BaseDependencyValueUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]);
+
+export type BaseDependencyValueUnionWithDiscriminator = z.infer<
+  typeof BaseDependencyValueUnionWithDiscriminatorSchema
+>;
+
+export function createBaseDependencyValueUnionWithDiscriminator(
+  options: Partial<BaseDependencyValueUnionWithDiscriminator> = {},
+): BaseDependencyValueUnionWithDiscriminator {
+  return BaseDependencyValueUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseCanvasSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
@@ -4266,7 +4350,11 @@ export const RealtimeUIChangeContentSchema = z.object({
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  value: z.any(),
+  value: z.union([
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]),
 });
 
 export type RealtimeUIChangeContent = z.infer<
@@ -8157,34 +8245,16 @@ export function createListenerCoverageRequest(
   return ListenerCoverageRequestSchema.parse(options);
 }
 
-export const DependencyValueKindEnum = {
-  LITERAL: "literal",
-  DRAW_LAYER: "draw_layer",
-  ARTIFACT_REF: "artifact_ref",
-} as const;
-
-export type DependencyValueKind = ObjectValues<typeof DependencyValueKindEnum>;
-
-export const DependencyValueSchema = z.object({
-  kind: z.enum(DependencyValueKindEnum),
-  payload: z.string(),
-  metadata: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
-});
-
-export type DependencyValue = z.infer<typeof DependencyValueSchema>;
-
-export function createDependencyValue(
-  options: Partial<DependencyValue> = {},
-): DependencyValue {
-  return DependencyValueSchema.parse(options);
-}
-
 export const ListenerRealtimeDeltaSchema = z.object({
   dependency: z.union([
     SectionDependencyKeySchema,
     SectionParamDependencyKeySchema,
   ]),
-  value: DependencyValueSchema,
+  value: z.union([
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]),
 });
 
 export type ListenerRealtimeDelta = z.infer<typeof ListenerRealtimeDeltaSchema>;
@@ -9862,6 +9932,19 @@ export function createBaseDependencyKey(
   options: Partial<BaseDependencyKey> = {},
 ): BaseDependencyKey {
   return BaseDependencyKeySchema.parse(options);
+}
+
+export const BaseDependencyValueSchema = z.object({
+  payload: z.any(),
+  type: z.enum(DependencyValueTypeEnum),
+});
+
+export type BaseDependencyValue = z.infer<typeof BaseDependencyValueSchema>;
+
+export function createBaseDependencyValue(
+  options: Partial<BaseDependencyValue> = {},
+): BaseDependencyValue {
+  return BaseDependencyValueSchema.parse(options);
 }
 
 export const SettaLSPPositionSchema = z.object({

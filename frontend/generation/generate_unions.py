@@ -162,6 +162,21 @@ def generate_dependency_key_unions(output_file: Path):
     print(f"wrote to {output_file}")
 
 
+def generate_dependency_value_unions(output_file: Path):
+    import setta.types.dependency_value
+
+    code = construct_unions(
+        setta.types.dependency_value,
+        setta.types.dependency_value.BaseDependencyValue,
+        "type",
+        setta.types.dependency_value,
+        lambda x: x,
+    )
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         raise ValueError
@@ -203,6 +218,14 @@ if __name__ == "__main__":
             output_file=(
                 get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
                 / "dependency_keys.py"
+            )
+        )
+    elif sys.argv[1] == "dependency_values":
+        # has to be done separately due to import dependencies
+        generate_dependency_value_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "dependency_values.py"
             )
         )
     else:

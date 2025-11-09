@@ -1,7 +1,7 @@
 import unittest
 
-from setta.code_gen.dependency_value import DependencyValue
 from setta.types.dependency_key import create_dep_key
+from setta.types.dependency_value import DependencyValue
 from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender

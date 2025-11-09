@@ -1,7 +1,7 @@
 import unittest
 
-from setta.code_gen.dependency_value import DependencyValue
 from setta.types.dependency_key import create_dep_key
+from setta.types.dependency_value import DependencyValue
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRealtimeDelta,

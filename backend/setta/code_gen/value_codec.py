@@ -4,13 +4,11 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     ParamNode,
 )
-from setta.code_gen.dependency_value import (
-    DependencyValue,
-    DependencyValueKind,
-)
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType
+from setta.types.dependency_value import DependencyValueType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.generated.dependency_values import BaseDependencyValueUnion
 
 VarLookup = Callable[[BaseDependencyKeyUnion], str]
 
@@ -74,11 +72,11 @@ class PythonValueCodec:
         return "[" + ", ".join(items) + "]"
 
     def _expect_literal(self, node: ParamNode) -> str:
-        value: DependencyValue | None = node.value
+        value: BaseDependencyValueUnion | None = node.value
         if value is None:
             return ""
-        if value.kind is not DependencyValueKind.LITERAL:
+        if value.type is not DependencyValueType.Literal:
             raise ValueError(
-                f"Unsupported dependency value kind {value.kind} for node {node.full_path_name}"
+                f"Unsupported dependency value kind {value.type} for node {node.full_path_name}"
             )
         return value.payload
