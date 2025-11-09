@@ -18,24 +18,21 @@
 
 ## Pain Points
 - Non-param sections (`Draw`, `Image`, `Chart`, potential "environment variable" sections) are excluded from the dependency graph, so they cannot emit or receive realtime deltas.
-- Node values are raw strings, preventing metadata (e.g. base64 blobs vs. artifact paths) and forcing both runtimes to handle content identically.
-- `ListenerRealtimeDelta.value` is an untyped `Any`, making it hard to introduce richer payloads without risking breakage.
+- Node values only carry literal payloads today; there is still no metadata about artifacts/blobs, so richer transports cannot differentiate themselves.
+- Dependency values are now typed, but we still treat every payload as a literal string in practice—no base64/file streaming yet.
 - Naming is tuned for `sectionId/paramId`. More granular artifacts (draw layers, environment keys) lack a deterministic mapping.
 - Packaged scripts and live runtime likely need diverging IO strategies (e.g. write PNG to disk for packaged, stream base64 for live), but the generator has no notion of runtime mode.
 
 ## Proposed Model
-### 1. Structured Dependency Values **(backend literals completed)**
-- ✅ `DependencyValue` dataclass now wraps node payloads in the graph/listener code paths.
-- Introduce a lightweight `DependencyValue` dataclass (or Pydantic model) that wraps:
-  - `kind`: literal identifier (e.g. `literal`, `draw_layer`, `json_source`, `env_var`).
-  - `payload`: canonical string/expression used by current generator.
-  - Optional metadata (artifact paths, hashes, compression info).
-- Param nodes emit `{"kind": "literal", "payload": node.value}`.
-- Draw/Image/Chart exporters populate richer kinds (`draw_layer` with base64 or artifact references).
+### 1. Structured Dependency Values **(backend + frontend literal unions shipped)**
+- ✅ Graph nodes and listener/runtime code now store instances of the typed dataclasses in `setta.types.dependency_value` (`LiteralDependencyValue`, `Base64DependencyValue`, `FileReadDependencyValue`) with a shared `DependencyValueType` discriminator.
+- ✅ Generated Pydantic/TypeAdapter + Zod unions wrap those dataclasses, so websocket payloads and listener deltas validate the same schema (`payload` + `type`).
+- Remaining work: extend the dataclasses with richer metadata when we add non-literal transports (artifact hashes, blob sizes, etc.) and introduce factory/helpers so callers don’t re-create `LiteralDependencyValue(...)` everywhere.
+- Draw/Image/Chart exporters should still promote specialized types once their payload formats are defined.
 
 ### 2. Mode-Aware Codec
 - Extend `PythonValueCodec` with a `PythonValueMode` enum (`LIVE_RUNTIME`, `PACKAGED_RUNTIME` for now).
-- For `kind="literal"`, preserve existing behavior.
+- For `type="Literal"`, preserve existing behavior.
 - For richer kinds, select the correct representation per mode:
   - `LIVE_RUNTIME`: return expressions that can be `literal_eval`'d directly (e.g. inline base64 dict).
   - `PACKAGED_RUNTIME`: emit helper invocations or lazy loaders that materialize files on disk before returning usable objects (e.g. `load_png("path/to/file.png")`).
@@ -47,12 +44,10 @@
 - Export granular nodes (e.g. `drawCanvas__render_png`, `drawCanvas__layers__0`) by leveraging `create_unique_name` to stay collision-safe.
 - Ensure dependency-key union names remain stable between front/back ends; extend coverage snapshots to include new nodes.
 
-### 4. Realtime Delta Schema **(backend using `DependencyValue`; TS union pending)**
-- Replace the plain `value: Any` field with a `ListenerRealtimeValue` union:
-  - Variant `Literal` containing the existing string.
-  - Variant(s) for draw layers, chart data, json sources, etc.
-- Update frontend emitters to serialize the correct variant when dispatching draw or json updates.
-- Drop support for raw string payloads; listener scripts must upgrade alongside the backend/frontend changes.
+### 4. Realtime Delta Schema **(Python + TS unions enforced)**
+- ✅ `ListenerRealtimeDelta.value` and websocket realtime UI changes now require `BaseDependencyValueUnion` on both Python and TypeScript sides; frontend emitters wrap literals before sending.
+- Future variants (draw layers, chart data, json sources) should extend the same union and ship through the existing code paths.
+- Listener scripts have been updated/tests regenerated to consume the new structure; we should keep them in sync when new variants arrive.
 
 ### 5. IO Strategy Alignment
 - Live runtime: continue sending base64/inline payloads, optionally batching deltas for throughput.
@@ -64,16 +59,15 @@
 - Environment variables (future section) can emit `kind="env_var"` with optional scoping hints. Consider allowing packaged runtime to read from `.env` or OS environment while live runtime uses in-memory overrides.
 
 ## Implementation Roadmap
-1. **Scaffold value types** *(DONE – backend now stores `DependencyValue` literals and threads mode enum)*
+1. **Scaffold value types** *(DONE – backend stores typed dependency values and threads `PythonValueMode`)*
    - Introduce `DependencyValue` and `PythonValueMode`.
    - Adapt `PythonCodeGenerator` and `SettaListener` to consume the new structure while preserving current behavior for literals.
 2. **Graph exporter registry** *(backend registry + TextBlock/Draw exporters complete; tests + remaining section types outstanding)*
    - Refactor `DependencyGraph` exports into per-section hooks. *(Done.)*
    - Add exporters for `TextBlock` and `Draw` to validate naming and listener flow. *(Done; add regression coverage.)*
-3. **Realtime schema upgrade**
-   - Define `ListenerRealtimeValue` union (Python + generated TS). *(Python now enforces `DependencyValue`; TS generation still pending.)*
-   - Adjust frontend emission and backend validation. *(Backend listeners and websocket handlers already emit/expect `DependencyValue.literal`.)*
-   - Update tests (`tests/setta/api/test_listener_realtime.py`, websocket integration suites) for the new schema. *(Backend tests updated; regenerate TS + frontend fixtures next.)*
+3. **Realtime schema upgrade** *(DONE – discriminated unions live in Python + TS, emitters/tests updated)*
+   - `ListenerRealtimeDelta`/`RealtimeUIChange` now use `BaseDependencyValueUnion`.
+   - Frontend emission, backend validation, and unit tests were all updated to the new schema.
 4. **Mode-specific rendering**
    - Teach the codec how to emit draw/image payloads differently per mode.
    - Provide helper utilities for packaged runtime (e.g. `write_base64_png`).

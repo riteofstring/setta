@@ -15,6 +15,7 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
   DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   RouteEnum,
   SectionParamDependencyKey,
@@ -150,7 +151,6 @@ export function sendCurrentAddress(currentAddress: string) {
   );
 }
 
-
 // TODO: create different versions of this function for different realtime updates.
 export function sendRealtimeUIChange(
   sectionId: string,
@@ -178,7 +178,7 @@ export function sendRealtimeUIChange(
     content: {
       projectConfigId,
       dependencyKey,
-      value,
+      value: { payload: value, type: DependencyValueTypeEnum.Literal },
     },
   };
   console.log("sending real time update", message);
