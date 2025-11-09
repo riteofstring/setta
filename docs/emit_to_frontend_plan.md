@@ -34,7 +34,7 @@
 
 - ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`. `WebsocketMsgListenerFrontendEmitForward` still carries `ListenerFrontendEmitContent` until the resolver lands.
 - ✅ **Test coverage for the new helper**: `tests/websockets/test_python_script_receiver.py` now validates the renamed schema and still passes (`source activate.sh && python -m unittest tests.websockets.test_python_script_receiver`).
-- ⏳ **Dependency-resolution + resolved payload broadcast**: pending.
+- 🚧 **Dependency-resolution helper**: Introduced `backend/setta/listeners/listener_frontend_emit_resolver.py`, which caches dependency graphs, resolves sanitized dependency names, and infers literal/Base64 modes even when the node currently has no value. Still need to plug it into the websocket handler so the frontend receives the resolved payloads.
 - ⏳ **Frontend reducer wiring / store cleanup**: pending after resolved payloads exist.
 
 ## Backend plan
@@ -44,10 +44,10 @@
 - Remove references to `payload`/`target` and delete the unused `useListenerEvents` plumbing from the client docs. **Status:** helper + websocket layer no longer accept `payload/target`; doc cleanup of the frontend store remains tied to the frontend work in a later step.
 
 ### 2. Dependency translation service
-- Add a resolver (e.g., `setta/listeners/dependency_override_resolver.py`) that:
+- Add a resolver (`backend/setta/listeners/listener_frontend_emit_resolver.py`) that:
   1. Accepts a `ProjectStateSingleConfig` plus a dict of sanitized names → values.
   2. Builds (or reuses) a `DependencyGraph` for that project to resolve sanitized names to `BaseDependencyKeyUnion`.
-  3. Inspects each dependency node (and, when needed, referenced section/code object metadata) to determine the correct `PythonValueMode` so values can be wrapped as `BaseDependencyValueUnion` instances (literal, Base64, yaml, list/dict, etc.). Reuse the same value codec used by realtime hydration (`setta/code_gen/value_codec.py`) to avoid duplicating formatting logic.
+  3. Inspects each dependency node (and, when needed, referenced section/code object metadata) to determine the correct value encoding (`DependencyValueType` -> literal/Base64/FileRead) so values can be wrapped as `BaseDependencyValueUnion` instances. Reuse the same value codec used by realtime hydration (`setta/code_gen/value_codec.py`) to avoid duplicating formatting logic.
   4. Raises `KeyError` for unknown names and `ValueError` when the provided value cannot be encoded for that dependency (e.g., expecting Base64 but receiving a non-string).
 - Cache dependency graphs per project in the resolver so repeated emits don’t rebuild them every time (mirror the caching approach already used in `ProjectManagerSwitcher`).
 
