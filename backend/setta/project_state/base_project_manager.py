@@ -24,6 +24,7 @@ from setta.code_gen.dependency_graph import (
     RenameReferenceChangedValue,
 )
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -541,7 +542,10 @@ class BaseProjectManager(ABC):
                 self.gen_code[projectConfigId].callback_cleanup()
 
             code_generator = PythonCodeGenerator(
-                dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
+                dep_graph,
+                projectConfig.genCodePrefix,
+                projectConfig.genCodeSuffix,
+                value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
             code_generator.generate_code()
 

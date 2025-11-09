@@ -91,6 +91,7 @@ class ProjectGenPythonCode(PythonCode):
             dep_graph_copy,
             self.code_generator.gen_code_prefix,
             self.code_generator.gen_code_suffix,
+            value_mode=self.code_generator.value_mode,
         )
         generator_copy.generate_code()
         return generator_copy

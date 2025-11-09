@@ -18,7 +18,11 @@ from setta.types.code_obj_impls import (
 from setta.types.dependency_key import (
     create_dep_key,
 )
-from setta.types.dependency_value import DependencyValueType, LiteralDependencyValue
+from setta.types.dependency_value import (
+    Base64DependencyValue,
+    DependencyValueType,
+    LiteralDependencyValue,
+)
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import (
@@ -252,14 +256,16 @@ class DependencyGraph:
         if not isinstance(section_impl, DrawSectionImpl):
             return
         rendered_value = section_impl.renderedValue
-        payload = rendered_value if isinstance(rendered_value, str) else ""
+        dependency_value = (
+            Base64DependencyValue(rendered_value) if rendered_value else None
+        )
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(payload),
+            value=dependency_value,
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)

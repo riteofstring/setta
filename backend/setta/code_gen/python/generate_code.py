@@ -36,19 +36,26 @@ class PythonCodeLine:
 
 class PythonCodeGenerator:
     def __init__(
-        self, dep_graph: DependencyGraph, gen_code_prefix: str, gen_code_suffix: str
+        self,
+        dep_graph: DependencyGraph,
+        gen_code_prefix: str,
+        gen_code_suffix: str,
+        *,
+        value_mode: PythonValueMode = PythonValueMode.PACKAGED_RUNTIME,
     ):
         self.dep_graph = dep_graph
         self.gen_code_prefix = gen_code_prefix
         self.gen_code_suffix = gen_code_suffix
+        self.value_mode = value_mode
         self.value_codec = PythonValueCodec(
             self.dep_graph,
             self._lookup_var_name,
-            mode=PythonValueMode.LIVE_RUNTIME,
+            mode=value_mode,
         )
         self.reset()
 
     def reset(self):
+        self.value_codec.reset_usage()
         self.var_name_mapping: dict[
             BaseDependencyKeyUnion, str
         ] = {}  # dep_key to var name
@@ -124,6 +131,9 @@ class PythonCodeGenerator:
 
     def generate_wrapper_class(self):
         code = CLASS_DEF
+        helper_block = self._helper_import_block()
+        if helper_block:
+            code = f"{helper_block}\n{code}"
         if self.gen_code_prefix:
             code = f"{self.gen_code_prefix}\n{code}"
         indent = "        "
@@ -141,6 +151,12 @@ class PythonCodeGenerator:
             if value_pos_start is not None:
                 self.value_pos_start_to_dep_key[value_pos_start] = key
         return code
+
+    def _helper_import_block(self) -> str | None:
+        helper_imports = self.value_codec.required_imports
+        if not helper_imports:
+            return None
+        return "\n".join(helper_imports)
 
     def create_line(self, dep_key, node: Node):
         value = self.get_value(node)
@@ -182,6 +198,10 @@ class PythonCodeGenerator:
             case SectionType.TextBlock:
                 if node.value:
                     return repr(node.value.payload)
+                return "None"
+            case SectionType.Draw:
+                if node.value:
+                    return self.value_codec.format_dependency_value(node.value)
                 return "None"
             case _:
                 return None

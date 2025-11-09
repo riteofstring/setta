@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import assert_never
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
@@ -27,10 +28,22 @@ class PythonValueCodec:
         var_lookup: VarLookup,
         *,
         mode: PythonValueMode = PythonValueMode.LIVE_RUNTIME,
+        helper_module_alias: str = "_setta_value_helpers",
     ):
         self.dep_graph = dep_graph
         self.var_lookup = var_lookup
         self.mode = mode
+        self.helper_module_alias = helper_module_alias
+        self._required_imports: set[str] = set()
+
+    def reset_usage(self) -> None:
+        """Clear helper-tracking state before a new render pass."""
+        self._required_imports.clear()
+
+    @property
+    def required_imports(self) -> tuple[str, ...]:
+        """Sorted helper import statements this codec relied on."""
+        return tuple(sorted(self._required_imports))
 
     def format_param_expression(self, node: ParamNode) -> str:
         param_type = node.type
@@ -71,6 +84,18 @@ class PythonValueCodec:
         ]
         return "[" + ", ".join(items) + "]"
 
+    def format_dependency_value(self, value: BaseDependencyValueUnion) -> str:
+        """Render an arbitrary dependency value using the configured value mode."""
+        match value.type:
+            case DependencyValueType.Literal:
+                return value.payload
+            case DependencyValueType.Base64:
+                return self._format_base64_value(value.payload)
+            case DependencyValueType.FileRead:
+                return self._format_file_read_value(value.payload)
+            case _:
+                assert_never(value.type)
+
     def _expect_literal(self, node: ParamNode) -> str:
         value: BaseDependencyValueUnion | None = node.value
         if value is None:
@@ -80,3 +105,23 @@ class PythonValueCodec:
                 f"Unsupported dependency value kind {value.type} for node {node.full_path_name}"
             )
         return value.payload
+
+    def _format_base64_value(self, payload: str) -> str:
+        if self.mode is PythonValueMode.LIVE_RUNTIME:
+            return repr(payload)
+        helper_alias = self._require_value_helpers()
+        return f"{helper_alias}.decode_base64_value({repr(payload)})"
+
+    def _format_file_read_value(self, payload: str) -> str:
+        if self.mode is PythonValueMode.LIVE_RUNTIME:
+            return repr(payload)
+        helper_alias = self._require_value_helpers()
+        return f"{helper_alias}.read_file_value({repr(payload)})"
+
+    def _require_value_helpers(self) -> str:
+        import_stmt = (
+            "from setta.code_gen.python import value_helpers as "
+            f"{self.helper_module_alias}"
+        )
+        self._required_imports.add(import_stmt)
+        return self.helper_module_alias

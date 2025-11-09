@@ -132,7 +132,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
-    renderedValue: Any = None
+    renderedValue: str | None = None
 
 
 class CodeFileAccessMode(str, Enum):

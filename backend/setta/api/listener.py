@@ -17,6 +17,7 @@ from setta.code_gen.dependency_graph import (
     Node,
 )
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.value_mode import PythonValueMode
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.websocket_unions import (
@@ -757,6 +758,7 @@ class SettaListener:
             dep_graph,
             project_config.genCodePrefix,
             project_config.genCodeSuffix,
+            value_mode=PythonValueMode.LIVE_RUNTIME,
         )
         try:
             code_generator.generate_code()
