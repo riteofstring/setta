@@ -124,6 +124,7 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
+from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -1195,6 +1196,7 @@ class BaseProjectManager(ABC):
             )
 
         project_state = self.get_single_config_state(projectConfigId)
+        artifact_payloads: list[BaseArtifactUnion] = []
 
         if dependency_updates:
             apply_listener_dependency_updates(
@@ -1203,13 +1205,19 @@ class BaseProjectManager(ABC):
             )
 
         if artifact_updates:
-            apply_listener_artifact_updates(
+            artifact_payloads = apply_listener_artifact_updates(
                 artifacts=self.artifacts,
                 updates=artifact_updates,
             )
 
         if dependency_updates:
             await self.update_and_broadcast_project_state(project_state)
+
+        if artifact_payloads:
+            await self.websocket_msg_handler.broadcast_artifacts_update(
+                artifacts=artifact_payloads,
+                updateType="update",
+            )
 
     @enqueue_method
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
