@@ -23,7 +23,6 @@ import {
   IDToUUIDForLLM,
   ImageMapping,
   ListenerCoverageSnapshot,
-  ListenerFrontendEmitContent,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaNotification,
@@ -118,20 +117,6 @@ export type PendingOperation = {
   apply: (x: ZustandProjectState) => void;
   acknowledged: boolean;
 };
-
-type ListenerEventsState = {
-  eventsByTarget: Record<string, Array<ListenerFrontendEmitContent["payload"]>>;
-};
-
-export const useListenerEvents = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ListenerEventsState>(() => ({
-        eventsByTarget: {},
-      })),
-    ),
-  ),
-);
 
 type ZustandPendingOperations = {
   pending: Array<PendingOperation>;

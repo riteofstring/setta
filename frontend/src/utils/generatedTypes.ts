@@ -1872,7 +1872,7 @@ export const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(z.string()).optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   selectedParams: z.array(z.string()).optional(),
   size: SectionSizeSchema.optional(),
   step: z.int().optional(),
@@ -2190,7 +2190,7 @@ export const ChartSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -2220,7 +2220,7 @@ export const DrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   layers: z.array(DrawAreaLayerSchema).default([]),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
@@ -3133,7 +3133,7 @@ export const ChartSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   dataPath: z.string().optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -3162,7 +3162,7 @@ export const DrawSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
@@ -5730,25 +5730,46 @@ export function createWebsocketMsgUpdateArtifacts(
   return WebsocketMsgUpdateArtifactsSchema.parse(options);
 }
 
-export const ListenerFrontendEmitContentSchema = z.object({
-  projectConfigId: z.string(),
-  payload: z.any(),
-  target: z.union([z.string(), z.null()]).default(null),
+export const ListenerFrontendEmitKeyAndValueSchema = z.object({
+  dependencyKey: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
+  value: z.union([
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]),
 });
 
-export type ListenerFrontendEmitContent = z.infer<
-  typeof ListenerFrontendEmitContentSchema
+export type ListenerFrontendEmitKeyAndValue = z.infer<
+  typeof ListenerFrontendEmitKeyAndValueSchema
 >;
 
-export function createListenerFrontendEmitContent(
-  options: Partial<ListenerFrontendEmitContent> = {},
-): ListenerFrontendEmitContent {
-  return ListenerFrontendEmitContentSchema.parse(options);
+export function createListenerFrontendEmitKeyAndValue(
+  options: Partial<ListenerFrontendEmitKeyAndValue> = {},
+): ListenerFrontendEmitKeyAndValue {
+  return ListenerFrontendEmitKeyAndValueSchema.parse(options);
+}
+
+export const ListenerFrontendEmitResolvedContentSchema = z.object({
+  projectConfigId: z.string(),
+  dependencyValues: z.array(ListenerFrontendEmitKeyAndValueSchema),
+});
+
+export type ListenerFrontendEmitResolvedContent = z.infer<
+  typeof ListenerFrontendEmitResolvedContentSchema
+>;
+
+export function createListenerFrontendEmitResolvedContent(
+  options: Partial<ListenerFrontendEmitResolvedContent> = {},
+): ListenerFrontendEmitResolvedContent {
+  return ListenerFrontendEmitResolvedContentSchema.parse(options);
 }
 
 export const WebsocketMsgListenerFrontendEmitForwardSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ListenerFrontendEmitContentSchema,
+  content: ListenerFrontendEmitResolvedContentSchema,
   messageType: z
     .literal("ListenerFrontendEmitForward")
     .default(WebsocketMsgTypeForFrontendEnum.ListenerFrontendEmitForward),
@@ -5949,9 +5970,24 @@ export function createWebsocketMsgListenerError(
   return WebsocketMsgListenerErrorSchema.parse(options);
 }
 
+export const ListenerFrontendEmitRawContentSchema = z.object({
+  projectConfigId: z.string(),
+  dependencyValues: z.record(z.string(), z.any()),
+});
+
+export type ListenerFrontendEmitRawContent = z.infer<
+  typeof ListenerFrontendEmitRawContentSchema
+>;
+
+export function createListenerFrontendEmitRawContent(
+  options: Partial<ListenerFrontendEmitRawContent> = {},
+): ListenerFrontendEmitRawContent {
+  return ListenerFrontendEmitRawContentSchema.parse(options);
+}
+
 export const WebsocketMsgListenerFrontendEmitSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ListenerFrontendEmitContentSchema,
+  content: ListenerFrontendEmitRawContentSchema,
   messageType: z
     .literal("ListenerFrontendEmit")
     .default(WebsocketMsgTypeForPythonScriptEnum.ListenerFrontendEmit),
@@ -6216,7 +6252,7 @@ export const BaseCanvasSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
 });
 
 export type BaseCanvasSectionImplArgs = z.infer<
@@ -6243,7 +6279,7 @@ export const BaseCanvasSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  renderedValue: z.union([z.any(), z.any()]).optional(),
+  renderedValue: z.union([z.string(), z.null(), z.any()]).optional(),
 });
 
 export type BaseCanvasSectionImplArgsWithCallable = z.infer<
@@ -6839,7 +6875,7 @@ export const ChartSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  renderedValue: z.union([z.any(), z.any()]).optional(),
+  renderedValue: z.union([z.string(), z.null(), z.any()]).optional(),
   dataPath: z.union([z.string(), z.any()]).optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema, z.any()])
@@ -7072,7 +7108,7 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  renderedValue: z.union([z.any(), z.any()]).optional(),
+  renderedValue: z.union([z.string(), z.null(), z.any()]).optional(),
   layers: z.union([z.array(DrawAreaLayerSchema), z.any()]).optional(),
   activeLayerIdx: z.union([z.int(), z.any()]).optional(),
   brushColor: z.union([z.string(), z.any()]).optional(),
@@ -7825,7 +7861,7 @@ export const BaseCanvasSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
 });
 
 export type BaseCanvasSectionImpl = z.infer<typeof BaseCanvasSectionImplSchema>;

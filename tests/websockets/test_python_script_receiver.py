@@ -521,7 +521,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         error_message, websocket_id = websocket_manager.sent_messages[0]
         self.assertEqual("socket-1", websocket_id)
         self.assertIsInstance(error_message, WebsocketMsgListenerError)
-        self.assertEqual("listener_emit_unknown_dependency", error_message.content.error)
+        self.assertEqual(
+            "listener_emit_unknown_dependency", error_message.content.error
+        )
         self.assertEqual(
             {"dependencyName": "MissingDependency"},
             error_message.content.details,

@@ -1,6 +1,11 @@
 from typing import Any, Mapping
 
-from setta.code_gen.dependency_graph import DependencyGraph, Node, ParamNode, SectionNode
+from setta.code_gen.dependency_graph import (
+    DependencyGraph,
+    Node,
+    ParamNode,
+    SectionNode,
+)
 from setta.types.dependency_value import (
     Base64DependencyValue,
     DependencyValueType,
@@ -29,9 +34,7 @@ class UnsupportedListenerDependencyError(ListenerFrontendEmitResolverError):
     """Raised when a dependency cannot currently be emitted."""
 
     def __init__(self, dependency_name: str, reason: str) -> None:
-        super().__init__(
-            f"Unsupported listener dependency {dependency_name}: {reason}"
-        )
+        super().__init__(f"Unsupported listener dependency {dependency_name}: {reason}")
         self.dependency_name = dependency_name
         self.reason = reason
 

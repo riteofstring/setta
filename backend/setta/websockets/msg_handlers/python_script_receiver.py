@@ -292,11 +292,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             return
 
         try:
-            resolved_dependency_values = (
-                self.listener_frontend_emit_resolver.resolve(
-                    project_state=project_state,
-                    dependency_values=message.content.dependencyValues,
-                )
+            resolved_dependency_values = self.listener_frontend_emit_resolver.resolve(
+                project_state=project_state,
+                dependency_values=message.content.dependencyValues,
             )
         except UnknownListenerDependencyError as exc:
             logger.warning(

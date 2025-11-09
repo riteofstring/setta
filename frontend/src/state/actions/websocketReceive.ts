@@ -39,7 +39,6 @@ import {
   dependencyKeyCovered,
   getListenerCoverageRecord,
 } from "./listenerCoverage";
-import { addListenerFrontendEvent } from "./listenerEvents";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
@@ -47,6 +46,7 @@ import {
   updateAllProjectMetadata,
 } from "./sectionInfos";
 import { updateSettings } from "./settings";
+import { handleListenerFrontendEmitForward } from "./listenerFrontendEmit";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -142,7 +142,7 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
       return updateArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerFrontendEmitForward:
-      return addListenerFrontendEvent(m.content);
+      return handleListenerFrontendEmitForward(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
     default:
