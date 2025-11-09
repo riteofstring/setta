@@ -46,12 +46,6 @@ class ListenerErrorContent(BaseModel):
     details: Any | None = None
 
 
-class ListenerFrontendEmitContent(BaseModel):
-    projectConfigId: str
-    payload: Any
-    target: str | None = None
-
-
 class ListenerFrontendEmitKeyAndValue(BaseModel):
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
     value: BaseDependencyValueUnionWithDiscriminator

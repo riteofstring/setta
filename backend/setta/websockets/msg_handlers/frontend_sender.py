@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Literal
 
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
@@ -9,7 +9,11 @@ from setta.types.artifact import UpdateArtifactMsgContent
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
-from setta.types.listener import ListenerCoverageSnapshot, ListenerFrontendEmitContent
+from setta.types.listener import (
+    ListenerCoverageSnapshot,
+    ListenerFrontendEmitKeyAndValue,
+    ListenerFrontendEmitResolvedContent,
+)
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -141,15 +145,13 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: str,
-        payload: Any,
-        target: str | None = None,
+        dependencyValues: list[ListenerFrontendEmitKeyAndValue],
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgListenerFrontendEmitForward(
-                content=ListenerFrontendEmitContent(
+                content=ListenerFrontendEmitResolvedContent(
                     projectConfigId=projectConfigId,
-                    payload=payload,
-                    target=target,
+                    dependencyValues=dependencyValues,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,

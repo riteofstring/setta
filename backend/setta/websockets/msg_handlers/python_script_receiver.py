@@ -1,5 +1,12 @@
 import logging
 
+from setta.listeners.listener_frontend_emit_resolver import (
+    InvalidListenerDependencyValueError,
+    ListenerFrontendEmitResolver,
+    ListenerFrontendEmitResolverError,
+    UnknownListenerDependencyError,
+    UnsupportedListenerDependencyError,
+)
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -42,6 +49,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.python_script_sender = python_script_sender
         self.project_manager_switcher = project_manager_switcher
         self.listener_coverage_tracker = ListenerCoverageTracker()
+        self.listener_frontend_emit_resolver = ListenerFrontendEmitResolver()
 
     async def on_disconnect(self, websocket_id):
         registration = self.listener_registry.get_registration(websocket_id)
@@ -252,10 +260,111 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
+        try:
+            manager = self.project_manager_switcher.get(project_config_id)
+            project_state = manager.get_single_config_state(project_config_id)
+        except KeyError:
+            logger.warning(
+                "failed to load project state for listener emit (project %s)",
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except Exception:
+            logger.exception(
+                "unexpected error while loading project state for listener emit "
+                "(project %s)",
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
+        try:
+            resolved_dependency_values = (
+                self.listener_frontend_emit_resolver.resolve(
+                    project_state=project_state,
+                    dependency_values=message.content.dependencyValues,
+                )
+            )
+        except UnknownListenerDependencyError as exc:
+            logger.warning(
+                "listener emit referenced unknown dependency %s",
+                exc.dependency_name,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_unknown_dependency",
+                    details={"dependencyName": exc.dependency_name},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except InvalidListenerDependencyValueError as exc:
+            logger.warning(
+                "listener emit provided invalid value for %s", exc.dependency_name
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_value",
+                    details={
+                        "dependencyName": exc.dependency_name,
+                        "expectedType": exc.expected_type.value,
+                    },
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except UnsupportedListenerDependencyError as exc:
+            logger.warning(
+                "listener emit targeted unsupported dependency %s", exc.dependency_name
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_unsupported_dependency",
+                    details={
+                        "dependencyName": exc.dependency_name,
+                        "reason": exc.reason,
+                    },
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except ListenerFrontendEmitResolverError:
+            logger.exception("listener emit resolver failed")
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_failed",
+                    details=None,
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except ValueError as exc:
+            logger.warning("invalid listener emit payload: %s", exc)
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_payload",
+                    details={"message": str(exc)},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+
         await self.frontend_sender.broadcast_listener_emit(
             projectConfigId=project_config_id,
-            payload=message.content.dependencyValues,
-            target=None,
+            dependencyValues=resolved_dependency_values,
         )
 
     async def _sync_listener_coverage(self, project_config_id: str) -> None:

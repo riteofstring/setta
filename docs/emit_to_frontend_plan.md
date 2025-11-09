@@ -28,13 +28,13 @@
   - `ListenerFrontendEmitRawContent`: `{ projectConfigId: str, dependencyValues: dict[str, Any] }`. Used by `WebsocketMsgListenerFrontendEmit` (Python script → backend).
   - `ListenerFrontendEmitResolvedContent`: `{ projectConfigId: str, dependencyValues: list[ListenerFrontendEmitKeyAndValue] }`, where each entry is `{ dependencyKey: BaseDependencyKeyUnionWithDiscriminator, value: BaseDependencyValueUnionWithDiscriminator }`. Used by `WebsocketMsgListenerFrontendEmitForward` (backend → frontend).
 - Update the generated unions (`setta/types/generated/websocket_unions.py`, `frontend/src/utils/generatedTypes.ts`) accordingly.
-- `ListenerFrontendEmitContent` becomes an alias for the resolved form to keep frontend-only code simple; only the backend uses the request variant.
+- `ListenerFrontendEmitResolvedContent` now carries the resolved dependency overrides to the frontend; the legacy `ListenerFrontendEmitContent` type was removed.
 
 ## Progress
 
-- ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`. `WebsocketMsgListenerFrontendEmitForward` still carries `ListenerFrontendEmitContent` until the resolver lands.
-- ✅ **Test coverage for the new helper**: `tests/websockets/test_python_script_receiver.py` now validates the renamed schema and still passes (`source activate.sh && python -m unittest tests.websockets.test_python_script_receiver`).
-- 🚧 **Dependency-resolution helper**: Introduced `backend/setta/listeners/listener_frontend_emit_resolver.py`, which caches dependency graphs, resolves sanitized dependency names, and infers literal/Base64 modes even when the node currently has no value. Still need to plug it into the websocket handler so the frontend receives the resolved payloads.
+- ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`. `WebsocketMsgListenerFrontendEmitForward` now carries the resolved `ListenerFrontendEmitResolvedContent` payloads.
+- ✅ **Resolver + websocket integration**: `_handle_listener_frontend_emit` now loads the active `ProjectStateSingleConfig`, resolves sanitized dependency names via `ListenerFrontendEmitResolver`, and forwards typed overrides to the frontend, deleting the legacy payload/target contract end-to-end.
+- ✅ **Receiver tests**: `tests/websockets/test_python_script_receiver.py` now covers the resolved broadcast, plus error paths for unknown dependencies, invalid value types, and empty payloads (`source activate.sh && python -m unittest tests.websockets.test_python_script_receiver`).
 - ⏳ **Frontend reducer wiring / store cleanup**: pending after resolved payloads exist.
 
 ## Backend plan
@@ -43,27 +43,14 @@
 - Update `SettaListener.emit_to_frontend` to accept the mapping, validate bootstrap/registration state as before, and serialize a `WebsocketMsgListenerFrontendEmit` with `ListenerFrontendEmitRawContent`. **Status:** completed—helper ships the new schema and enforces non-empty mappings.
 - Remove references to `payload`/`target` and delete the unused `useListenerEvents` plumbing from the client docs. **Status:** helper + websocket layer no longer accept `payload/target`; doc cleanup of the frontend store remains tied to the frontend work in a later step.
 
-### 2. Dependency translation service
-- Add a resolver (`backend/setta/listeners/listener_frontend_emit_resolver.py`) that:
-  1. Accepts a `ProjectStateSingleConfig` plus a dict of sanitized names → values.
-  2. Builds (or reuses) a `DependencyGraph` for that project to resolve sanitized names to `BaseDependencyKeyUnion`.
-  3. Inspects each dependency node (and, when needed, referenced section/code object metadata) to determine the correct value encoding (`DependencyValueType` -> literal/Base64/FileRead) so values can be wrapped as `BaseDependencyValueUnion` instances. Reuse the same value codec used by realtime hydration (`setta/code_gen/value_codec.py`) to avoid duplicating formatting logic.
-  4. Raises `KeyError` for unknown names and `ValueError` when the provided value cannot be encoded for that dependency (e.g., expecting Base64 but receiving a non-string).
-- Cache dependency graphs per project in the resolver so repeated emits don’t rebuild them every time (mirror the caching approach already used in `ProjectManagerSwitcher`).
+### 2. Dependency translation service ✅ (done)
+- `backend/setta/listeners/listener_frontend_emit_resolver.py` now builds/caches per-project dependency graphs, resolves sanitized names to `BaseDependencyKeyUnion`, infers the correct `DependencyValueType`, and raises explicit exceptions for unknown dependencies or invalid value types.
 
-### 3. Python-script receiver changes
-- Update `_handle_listener_frontend_emit` in `backend/setta/websockets/msg_handlers/python_script_receiver.py` to:
-  - Validate registration/project id as today.
-  - Resolve the incoming mapping using the resolver above. Surface errors back to the script via `WebsocketMsgListenerError` so listeners get immediate feedback.
-  - Forward a `WebsocketMsgListenerFrontendEmitForward` populated with the resolved dependency overrides (no raw user data).
-- Drop the old “payload + target” handling entirely.
+### 3. Python-script receiver changes ✅ (done)
+- `_handle_listener_frontend_emit` now validates registration/project ids, loads the current project state, resolves dependency overrides via the resolver, surfaces structured errors back to the script, and broadcasts the typed payload through `WMHFrontendSender.broadcast_listener_emit`.
 
-### 4. Tests
-- Extend `tests/websockets/test_python_script_receiver.py` to cover:
-  - Happy path: dict with multiple sanitized names produces a broadcast whose overrides contain the expected dependency keys/value unions.
-  - Section missing from project state → `listener_emit_unknown_dependency` error.
-  - Type mismatch (e.g., non-string for an image section) → `listener_emit_invalid_value`.
-- Add targeted unit tests around the resolver to ensure duplicate sanitized names, nested sections, and non-section dependencies (e.g., section params, code obj impls) resolve correctly.
+### 4. Tests ✅ (done)
+- `tests/websockets/test_python_script_receiver.py` exercises the resolved broadcast plus error paths for unknown dependency names, invalid value shapes, project mismatches, unregistered sockets, and empty payloads.
 
 ## Frontend plan
 

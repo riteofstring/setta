@@ -16,8 +16,8 @@ from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerErrorContent,
     ListenerForceRefreshContent,
-    ListenerFrontendEmitContent,
     ListenerFrontendEmitRawContent,
+    ListenerFrontendEmitResolvedContent,
     ListenerInitContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
@@ -183,7 +183,7 @@ class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
 
 
 class WebsocketMsgListenerFrontendEmitForward(FrontendWebsocketMsg):
-    content: ListenerFrontendEmitContent
+    content: ListenerFrontendEmitResolvedContent
     messageType: Literal[WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward] = (
         WebsocketMsgTypeForFrontend.ListenerFrontendEmitForward
     )
