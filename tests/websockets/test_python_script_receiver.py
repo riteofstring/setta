@@ -4,6 +4,7 @@ import unittest
 from typing import Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
 from setta.types.artifact import ArtifactType
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -11,6 +12,7 @@ from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerDependencyMode,
+    ListenerFrontendEmitArtifactUpdate,
     ListenerFrontendEmitKeyAndValue,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
@@ -115,6 +117,10 @@ class _StubProjectManager:
         self.listener_updates: list[
             tuple[str, list[ListenerFrontendEmitKeyAndValue]]
         ] = []
+        self.listener_artifact_updates: list[
+            tuple[str, list[ListenerFrontendEmitArtifactUpdate]]
+        ] = []
+        self.artifact_error: ListenerArtifactUpdateError | None = None
         self.gen_code = {
             project_config_id: _StubGenCode(DependencyGraph(state))
             for project_config_id, state in states.items()
@@ -129,12 +135,17 @@ class _StubProjectManager:
         except KeyError as error:
             raise KeyError(project_config_id) from error
 
-    async def apply_listener_dependency_updates(
+    async def apply_listener_emit_updates(
         self,
+        *,
         projectConfigId: str,
-        updates: list[ListenerFrontendEmitKeyAndValue],
+        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
+        artifact_updates: list[ListenerFrontendEmitArtifactUpdate],
     ) -> None:
-        self.listener_updates.append((projectConfigId, updates))
+        self.listener_updates.append((projectConfigId, dependency_updates))
+        self.listener_artifact_updates.append((projectConfigId, artifact_updates))
+        if self.artifact_error is not None:
+            raise self.artifact_error
 
 
 class _StubProjectManagerSwitcher:
@@ -725,7 +736,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual([], websocket_manager.broadcasts)
 
-    async def test_listener_frontend_emit_rejects_artifact_updates_until_supported(
+    async def test_listener_frontend_emit_forwards_artifact_updates_to_manager(
         self,
     ):
         websocket_manager = _StubWebsocketManager()
@@ -773,15 +784,83 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             fromWebsocketId="socket-1",
         )
 
+        self.assertEqual([], websocket_manager.sent_messages)
+        self.assertEqual([], websocket_manager.broadcasts)
+
+        manager = project_manager_switcher._manager
+        self.assertEqual([("proj-123", [])], manager.listener_updates)
+        self.assertEqual(1, len(manager.listener_artifact_updates))
+        project_id, artifact_updates = manager.listener_artifact_updates[0]
+        self.assertEqual("proj-123", project_id)
+        self.assertEqual(1, len(artifact_updates))
+        artifact_update = artifact_updates[0]
+        self.assertEqual(str(normalize_path("/tmp/image.png")), artifact_update.path)
+        self.assertEqual(ArtifactType.Image, artifact_update.artifactType)
+        self.assertEqual("data:image/png;base64,AAA", artifact_update.data)
+
+    async def test_listener_frontend_emit_reports_artifact_errors_from_manager(
+        self,
+    ):
+        websocket_manager = _StubWebsocketManager()
+        frontend_sender = WMHFrontendSender(websocket_manager)
+        listener_registry = ListenerRegistry()
+        python_script_sender = _StubPythonScriptSender()
+        project_state = _build_project_state("proj-123")
+        project_manager_switcher = _StubProjectManagerSwitcher(
+            {"proj-123": project_state}
+        )
+        project_manager_switcher._manager.artifact_error = (
+            ListenerArtifactUpdateError("artifacts not ready")
+        )
+        receiver = WMHPythonScriptReceiver(
+            websocket_manager,
+            listener_registry,
+            frontend_sender,
+            python_script_sender,
+            project_manager_switcher,
+        )
+        callback = ListenerRegisterCallback(
+            dependencies=[],
+            dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+        )
+        register_message = WebsocketMsgListenerRegister(
+            content=ListenerRegisterContent(
+                projectConfigId="proj-123",
+                callbacks={"cb-1": callback},
+            )
+        )
+        await receiver.process_json_str(
+            register_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+        websocket_manager.sent_messages.clear()
+        websocket_manager.broadcasts.clear()
+
+        emit_message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitRawContent(
+                projectConfigId="proj-123",
+                dependencyValues={},
+                artifactUpdates={"/tmp/image.png": "data:image/png;base64,AAA"},
+            )
+        )
+
+        await receiver.process_json_str(
+            emit_message.model_dump_json(),
+            fromWebsocketId="socket-1",
+        )
+
         self.assertEqual(1, len(websocket_manager.sent_messages))
         error_message, websocket_id = websocket_manager.sent_messages[0]
         self.assertEqual("socket-1", websocket_id)
         self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual(
-            "listener_emit_artifact_updates_not_supported",
+            "listener_emit_artifact_update_failed",
             error_message.content.error,
         )
-        self.assertIsNone(error_message.content.details)
+        self.assertEqual(
+            {"message": "artifacts not ready"},
+            error_message.content.details,
+        )
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_validates_artifact_payload_shape(self):

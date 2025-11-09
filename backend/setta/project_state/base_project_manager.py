@@ -42,6 +42,9 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.listener_artifact_updates import (
+    apply_listener_artifact_updates,
+)
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
@@ -183,7 +186,10 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
-from setta.types.listener import ListenerFrontendEmitKeyAndValue
+from setta.types.listener import (
+    ListenerFrontendEmitArtifactUpdate,
+    ListenerFrontendEmitKeyAndValue,
+)
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
@@ -1177,21 +1183,33 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def apply_listener_dependency_updates(
+    async def apply_listener_emit_updates(
         self,
         projectConfigId: str,
-        updates: list[ListenerFrontendEmitKeyAndValue],
+        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
+        artifact_updates: list[ListenerFrontendEmitArtifactUpdate],
     ) -> None:
-        if not updates:
-            raise ValueError("listener dependency updates require at least one entry")
+        if not dependency_updates and not artifact_updates:
+            raise ValueError(
+                "listener emits require dependency or artifact updates"
+            )
 
         project_state = self.get_single_config_state(projectConfigId)
-        apply_listener_dependency_updates(
-            project_state=project_state,
-            updates=updates,
-        )
 
-        await self.update_and_broadcast_project_state(project_state)
+        if dependency_updates:
+            apply_listener_dependency_updates(
+                project_state=project_state,
+                updates=dependency_updates,
+            )
+
+        if artifact_updates:
+            apply_listener_artifact_updates(
+                artifacts=self.artifacts,
+                updates=artifact_updates,
+            )
+
+        if dependency_updates:
+            await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):

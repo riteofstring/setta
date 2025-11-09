@@ -34,7 +34,7 @@
 - ✅ **Listener helper + raw schema**: `SettaListener.emit_to_frontend` now requires a `dependency_values` mapping, raises on empty payloads, and ships the new `ListenerFrontendEmitRawContent` through `WebsocketMsgListenerFrontendEmit`.
 - ✅ **Resolver + websocket integration**: `_handle_listener_frontend_emit` now loads the active `ProjectStateSingleConfig`, resolves sanitized dependency names via `ListenerFrontendEmitResolver`, and forwards typed overrides to the frontend, deleting the legacy payload/target contract end-to-end.
 - ✅ **Receiver tests**: `tests/websockets/test_python_script_receiver.py` now covers the resolved broadcast, plus error paths for unknown dependencies, invalid value types, and empty payloads (`source activate.sh && python -m unittest tests.websockets.test_python_script_receiver`).
-- ✅ **Backend project-manager application**: `BaseProjectManager.apply_listener_dependency_updates` now runs inside the serialized queue, applies literal dependency updates via `listener_dependency_updates.py`, and uses the standard `update_and_broadcast_project_state` path. Image/Draw dependency updates remain out of scope until we define the artifact workflow.
+- ✅ **Backend project-manager application**: `BaseProjectManager.apply_listener_emit_updates` now runs inside the serialized queue, applies literal dependency updates via `listener_dependency_updates.py`, and uses the standard `update_and_broadcast_project_state` path. Image/Draw dependency updates remain out of scope until we define the artifact workflow.
 - ✅ **Frontend cleanup**: removed the temporary `handleListenerFrontendEmitForward` reducer so the frontend now relies solely on `UpdateFrontendProjectState` broadcasts.
 
 ## Backend plan
@@ -50,7 +50,7 @@
 - `_handle_listener_frontend_emit` now validates registration/project ids, loads the current project state, resolves dependency overrides via the resolver, surfaces structured errors back to the script, and hands the typed payload off for further processing.
 
 ### 4. Project manager application ✅
-- Add `BaseProjectManager.apply_listener_dependency_updates` that enqueues the mutation, applies supported dependency updates via `listener_dependency_updates.py`, and triggers the canonical broadcast flow.
+- Add `BaseProjectManager.apply_listener_emit_updates` so dependency (and future artifact) overrides enqueue through one helper, apply via `listener_dependency_updates.py`, and trigger the canonical broadcast flow.
 - Leave Image/Draw dependency updates unimplemented for now; they’ll ship once we define how listeners write canvas artifacts.
 
 ### 5. Tests ✅ / ⏳
@@ -82,7 +82,7 @@
 ## Artifact update strategy
 - ✅ **Dual payloads:** `emit_to_frontend` now accepts both `dependencyValues` and `artifactUpdates`, requiring at least one non-empty map. The wire schema + generated types mirror this.
 - ✅ **Artifact payload shape:** Each `artifactUpdates` entry is just the payload string (base64 image today). The backend normalizes the path, wraps the payload as an image update, and does **not** require the path to exist yet so listeners can seed new artifacts.
-- ⏳ **Artifact type inference:** Next step—teach `ListenerFrontendEmitResolver` to consult the global `Artifacts` cache so it can infer the artifact type per path (e.g., Draw vs Image) instead of always defaulting to Image.
-- ⏳ **Receiver flow + PM hook:** `_handle_listener_frontend_emit` already validates artifact payloads but still returns `listener_emit_artifact_updates_not_supported` until `BaseProjectManager/Artifacts` learn how to apply them.
+- ✅ **Artifact type inference:** `ListenerFrontendEmitResolver._infer_artifact_type` now consults the global `Artifacts` cache so each path inherits its cached type (Image, BrushStroke, Draw transform, etc.) instead of blindly defaulting to Image.
+- ✅ **Receiver flow + PM hook:** `_handle_listener_frontend_emit` now routes both dependency and artifact payloads through `BaseProjectManager.apply_listener_emit_updates`, which in turn invokes the new `apply_listener_artifact_updates` stub so everything shares the serialized queue. Until the artifact cache learns how to mutate in-memory, `ListenerArtifactUpdateError` surfaces `listener_emit_artifact_update_failed` back to the emitting listener.
 - ⏳ **Artifacts integration:** Add an in-memory apply helper that updates the cached artifact, marks it dirty, and lets `broadcast_artifacts_update` notify the frontend. Disk flushes stay deferred to the existing `artifacts.save()` cadence.
 - ⏳ **Draw/Image propagation:** Once artifact updates apply via `Artifacts`, existing `UpdateArtifacts` broadcasts keep every section referencing a shared path in sync automatically—no extra dependency wiring needed.

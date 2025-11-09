@@ -9,6 +9,9 @@ from setta.listeners.listener_frontend_emit_resolver import (
     UnsupportedListenerArtifactUpdateError,
     UnsupportedListenerDependencyError,
 )
+from setta.project_state.listener_artifact_updates import (
+    ListenerArtifactUpdateError,
+)
 from setta.project_state.listener_dependency_updates import (
     ListenerDependencyUpdateError,
 )
@@ -402,24 +405,21 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
-        if resolved_artifact_updates:
-            logger.warning(
-                "listener emit included artifact updates but backend application is not implemented yet"
+        try:
+            await manager.apply_listener_emit_updates(
+                projectConfigId=project_config_id,
+                dependency_updates=resolved_dependency_values,
+                artifact_updates=resolved_artifact_updates,
             )
+        except ListenerArtifactUpdateError as exc:
+            logger.warning("listener emit artifact updates failed: %s", exc)
             error_message = WebsocketMsgListenerError(
                 content=ListenerErrorContent(
-                    error="listener_emit_artifact_updates_not_supported",
-                    details=None,
+                    error="listener_emit_artifact_update_failed",
+                    details={"message": str(exc)},
                 )
             )
             await self.websocket_manager.send_message(error_message, websocket_id)
-            return
-
-        try:
-            await manager.apply_listener_dependency_updates(
-                projectConfigId=project_config_id,
-                updates=resolved_dependency_values,
-            )
         except ListenerDependencyUpdateError as exc:
             logger.warning("listener emit failed to apply: %s", exc)
             error_message = WebsocketMsgListenerError(
