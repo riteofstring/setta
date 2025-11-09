@@ -1,7 +1,7 @@
-from enum import StrEnum
+from enum import Enum
 
 
-class PythonValueMode(StrEnum):
+class PythonValueMode(str, Enum):
     """Selects how dependency values should be rendered for Python code."""
 
     LIVE_RUNTIME = "live_runtime"

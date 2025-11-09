@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 
 
-class DependencyValueKind(StrEnum):
+class DependencyValueKind(str, Enum):
     """Enumerates supported dependency payload encodings."""
 
     LITERAL = "literal"
