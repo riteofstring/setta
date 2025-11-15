@@ -24,6 +24,7 @@ from setta.code_gen.dependency_graph import (
     RenameReferenceChangedValue,
 )
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -41,6 +42,12 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.listener_artifact_updates import (
+    apply_listener_artifact_updates,
+)
+from setta.project_state.listener_dependency_updates import (
+    apply_listener_dependency_updates,
+)
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -70,6 +77,7 @@ from setta.project_state.project_manager_types import (
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
+    RenameRefactorBroadcastContent,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
@@ -115,6 +123,14 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
+)
+from setta.types.dependency_key import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+)
+from setta.types.generated.unions import (
+    BaseArtifactUnion,
+    BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -174,6 +190,7 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
+from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
@@ -190,14 +207,12 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
-from setta.types.websocket import (
-    RenameRefactorBroadcastContent,
-)
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +227,7 @@ class BaseProjectManager(ABC):
         self,
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
+        python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
@@ -221,6 +237,7 @@ class BaseProjectManager(ABC):
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
+        self.python_script_sender = python_script_sender
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
@@ -536,7 +553,10 @@ class BaseProjectManager(ABC):
                 self.gen_code[projectConfigId].callback_cleanup()
 
             code_generator = PythonCodeGenerator(
-                dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
+                dep_graph,
+                projectConfig.genCodePrefix,
+                projectConfig.genCodeSuffix,
+                value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
             code_generator.generate_code()
 
@@ -894,20 +914,25 @@ class BaseProjectManager(ABC):
         if not changed_values:
             return
         for changed in changed_values:
-            section_id = changed.sectionId
-            param_id = changed.paramInfoId
             new_value = changed.newValue
-            if param_id is not None:
-                set_param_entered_value(project_state, section_id, param_id, new_value)
-                continue
-            callable_code_obj = get_curr_section_callable_code_obj(
-                project_state, section_id
-            )
-            if not callable_code_obj:
-                raise KeyError(
-                    f"Expected callable code object for section {section_id}"
+            depKey = changed.depKey
+            if isinstance(depKey, SectionParamDependencyKey):
+                set_param_entered_value(
+                    project_state,
+                    depKey.sectionId,
+                    depKey.codeObjId,
+                    new_value,
                 )
-            project_state.codeObjs[callable_code_obj.id].name = new_value
+                continue
+            elif isinstance(depKey, SectionDependencyKey):
+                callable_code_obj = get_curr_section_callable_code_obj(
+                    project_state, depKey.sectionId
+                )
+                if not callable_code_obj:
+                    raise KeyError(
+                        f"Expected callable code object for section {depKey.sectionId}"
+                    )
+                project_state.codeObjs[callable_code_obj.id].name = new_value
 
     async def maybe_do_rename_refactor(
         self,
@@ -1159,6 +1184,40 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def apply_listener_emit_updates(
+        self,
+        projectConfigId: str,
+        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
+        artifact_updates: list[BaseArtifactUnionWithDiscriminator],
+    ) -> None:
+        if not dependency_updates and not artifact_updates:
+            raise ValueError("listener emits require dependency or artifact updates")
+
+        project_state = self.get_single_config_state(projectConfigId)
+        artifact_payloads: list[BaseArtifactUnion] = []
+
+        if dependency_updates:
+            apply_listener_dependency_updates(
+                project_state=project_state,
+                updates=dependency_updates,
+            )
+
+        if artifact_updates:
+            artifact_payloads = apply_listener_artifact_updates(
+                artifacts=self.artifacts,
+                updates=artifact_updates,
+            )
+
+        if dependency_updates:
+            await self.update_and_broadcast_project_state(project_state)
+
+        if artifact_payloads:
+            await self.websocket_msg_handler.broadcast_artifacts_update(
+                artifacts=artifact_payloads,
+                updateType="update",
+            )
+
+    @enqueue_method
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_image_area_image_path(project_state, x.sectionId, x.imagePath)
@@ -1261,13 +1320,16 @@ class BaseProjectManager(ABC):
         await self._broadcast_project_state_snapshot(project_state)
 
     async def _broadcast_project_state_snapshot(
-        self, project_state: ProjectStateSingleConfig
+        self,
+        project_state: ProjectStateSingleConfig,
     ) -> None:
         self._mark_current_frontend_op_completed_before_broadcast()
+        completed_op_ids = self.completed_op_ids_since_last_broadcast
+        pending_op_ids = list(self.pending_frontend_ops.keys())
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
-            self.completed_op_ids_since_last_broadcast,
-            list(self.pending_frontend_ops.keys()),
+            completed_op_ids,
+            pending_op_ids,
         )
         self.completed_op_ids_since_last_broadcast = []
 

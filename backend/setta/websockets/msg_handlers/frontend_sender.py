@@ -2,11 +2,14 @@ from typing import Literal
 
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
+    RenameRefactorBroadcastContent,
 )
 from setta.types.ai import IDToUUIDForLLM
+from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
+from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -17,10 +20,9 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
-    RenameRefactorBroadcastContent,
-    UpdateArtifactMsgContent,
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
+    WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -131,5 +133,13 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def broadcast_settings(self, settings: SettingsState):
         await self.websocket_manager.broadcast(
             WebsocketMsgUpdateSettings(content=settings),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_listener_coverage_snapshot(
+        self, snapshot: ListenerCoverageSnapshot
+    ):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgListenerCoverageSnapshot(content=snapshot),
             connectionType=WebsocketConnectionType.FRONTEND,
         )

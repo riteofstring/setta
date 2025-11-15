@@ -1,398 +1,1225 @@
 import asyncio
+import contextlib
 import inspect
-import json
 import logging
-import time
-import traceback
-import uuid
-from collections import defaultdict
-from pathlib import Path
+import sys
+from ast import literal_eval
+from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Iterable,
+    Literal,
+    Mapping,
+    Sequence,
+)
+from uuid import uuid4
 
 import websockets
+from pydantic import ValidationError
+from websockets.exceptions import ConnectionClosedError
 
-from setta.project_state.utils import convert_path_to_module_path
+from setta.code_gen.dependency_graph import (
+    DependencyGraph,
+    Node,
+)
+from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.value_mode import PythonValueMode
+from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.generated.dependency_values import BaseDependencyValueUnion
+from setta.types.generated.unions import (
+    BaseArtifactTypeAdapter,
+    BaseArtifactUnionWithDiscriminator,
+)
+from setta.types.generated.websocket_unions import (
+    PythonScriptWebsocketMsgTypeAdapter,
+)
+from setta.types.listener import (
+    ListenerDependencyMode,
+    ListenerForceRefreshContent,
+    ListenerFrontendEmitRawContent,
+    ListenerInitContent,
+    ListenerRealtimeEventContent,
+    ListenerRegisterAckStatus,
+    ListenerRegisterCallback,
+    ListenerRegisterContent,
+)
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
-from setta.utils.constants import CWD, C
+from setta.types.websocket import (
+    WebsocketMsgListenerError,
+    WebsocketMsgListenerForceRefresh,
+    WebsocketMsgListenerFrontendEmit,
+    WebsocketMsgListenerInit,
+    WebsocketMsgListenerRealtimeEvent,
+    WebsocketMsgListenerRegister,
+    WebsocketMsgListenerRegisterAck,
+)
+from setta.utils.constants import C
 
-from .logger import SettaLogger
+from .scheduling import ListenerCallbackScheduler
+
+if TYPE_CHECKING:
+    from websockets import ClientConnection
+
+    from .hot_reload import ListenerHotReloader
 
 logger = logging.getLogger(__name__)
+_MISSING = object()
+_UNAVAILABLE = object()
+
+_RECOVERABLE_SNAPSHOT_ERRORS: tuple[type[Exception], ...] = (
+    ValidationError,
+    SyntaxError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    KeyError,
+    IndexError,
+    NameError,
+    RuntimeError,
+)
 
 
-class FrameInspectionError(RuntimeError):
-    pass
+# Listener callbacks may either complete synchronously or return an awaitable.
+ListenerCallback = Callable[[Any, Any], Awaitable[None] | None]
+ListenerCallbackBuilder = Callable[["SettaListener"], None]
 
 
-# TODO: this class is outdated and has missing parts
+@dataclass(slots=True)
+class ListenerCallbackSpec:
+    function: ListenerCallback
+    callback_id: str
+    declared_dependencies: tuple[str, ...]
+    dependency_mode: ListenerDependencyMode
+    debounce_ms: int | None
+    throttle_ms: int | None
+    run_on_refresh: bool
+    structured_dependencies: tuple[BaseDependencyKeyUnion, ...] = ()
+    logger: logging.Logger | None = None
+
+
+@dataclass(slots=True)
+class ListenerCallbackContext:
+    changed: dict[str, Any]
+    log: logging.Logger
+    emit_to_frontend: Callable[..., Awaitable[None]]
+
+
+@dataclass(slots=True)
+class ListenerRuntimeState:
+    project_state: ProjectStateSingleConfig
+    dependency_graph: DependencyGraph
+    code_generator: PythonCodeGenerator
+    s_instance: Any | None
+
+
 class SettaListener:
-    def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
-        self.logger = SettaLogger(host=host, port=port)
-        curr_frame = inspect.currentframe()
-        if not curr_frame:
-            raise FrameInspectionError("Failed to get current stack frame")
-        self.caller_frame = curr_frame.f_back
-        if not self.caller_frame:
-            raise FrameInspectionError(
-                "No caller frame available - cannot be called from module level"
-            )
-        self.rel_path = Path(self.caller_frame.f_code.co_filename).relative_to(CWD)
-        self.script_id = convert_path_to_module_path(self.rel_path)
-        self.endpoint = f"{C.WEBSOCKET}{Route.WEBSOCKET_PYTHON_SCRIPT}".format(
-            id=self.script_id
-        )
-        self.fns = []
-        self.dependencies_to_fns = defaultdict(set)
-
-        # For debouncing/throttling
-        self.pending_tasks = {}  # {fn_name: (task, token)}
-        self.task_lock = asyncio.Lock()
-
-    def interactive(
+    def __init__(
         self,
-        dependencies=None,
-        run_on_init=True,
-        debounce=0,
-        throttle=0,
-        leading_edge=False,
-    ):
+        *,
+        project_name: str,
+        host: str = C.HOST,
+        port: int = C.PORT,
+        reconnect_delay: float = 5.0,
+    ) -> None:
+        self._project_name = project_name
+        self._project_id: str | None = None
+        self._callbacks: dict[str, ListenerCallbackSpec] = {}
+        self._host = host
+        self._port = port
+        self._reconnect_delay = reconnect_delay
+        self._stop_event = asyncio.Event()
+        self._socket_id = uuid4().hex
+        self._registration_pending = False
+        self._is_registered = False
+        self._expected_ack_callback_ids: set[str] = set()
+        self._runtime_state: ListenerRuntimeState | None = None
+        self._dependency_cache: dict[str, Any] = {}
+        self._last_realtime_sequence: int | None = None
+        self._scheduler = ListenerCallbackScheduler()
+        self._websocket: "ClientConnection | None" = None
+        self._send_lock = asyncio.Lock()
+        self._callback_lock = asyncio.Lock()
+        self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
+
+    @property
+    def _log_identifier(self) -> str:
+        return self._project_id or f"name:{self._project_name}"
+
+    def _require_project_id(self) -> str:
+        project_id = self._project_id
+        if project_id is None:
+            raise RuntimeError(
+                "Listener project config id is not yet available; wait for bootstrap to complete"
+            )
+        return project_id
+
+    @property
+    def websocket_endpoint(self) -> str:
+        """Compute the websocket endpoint for the current listener configuration."""
+        if self._host == C.HOST and self._port == C.PORT:
+            base = C.WEBSOCKET
+        else:
+            base = f"ws://{self._host}:{self._port}{Route.PREFIX.value}"
+        route = Route.WEBSOCKET_PYTHON_SCRIPT.value.format(id=self._socket_id)
+        return f"{base}{route}"
+
+    async def run_forever(self) -> None:
+        """Maintain a websocket connection, reconnecting when needed."""
+        if self._stop_event.is_set():
+            self._stop_event = asyncio.Event()
+        while not self._stop_event.is_set():
+            try:
+                await self._connect_once()
+            except ConnectionRefusedError:
+                logger.warning(
+                    "Listener %s connection refused at %s",
+                    self._log_identifier,
+                    self.websocket_endpoint,
+                )
+            except ConnectionClosedError:
+                logger.debug("Listener %s websocket closed", self._log_identifier)
+            except Exception:
+                logger.exception("Unexpected error in listener connection loop")
+            if not self._stop_event.is_set():
+                await asyncio.sleep(self._reconnect_delay)
+
+    def start(
+        self,
+        *,
+        hot_reload: bool = False,
+        builder: ListenerCallbackBuilder | None = None,
+        extra_watch_paths: Iterable[str] | None = None,
+        ignore_patterns: Iterable[str] | None = None,
+        trigger_refresh: bool = True,
+        settle_delay: float | None = None,
+    ) -> None:
+        """Run the listener until stop() is called or interrupted.
+
+        When `hot_reload` is True, the listener will wrap the provided builder in a
+        `ListenerHotReloader` instance and reuse the existing hot reload workflow.
         """
-        Decorator to mark functions as interactive for WebSocket communication.
+        if hot_reload:
+            if builder is None:
+                raise ValueError("hot_reload=True requires a callback builder")
+            from .hot_reload import ListenerHotReloader
 
-        Args:
-            dependencies (list, optional): List of dependency names required by this function.
-                                        Default is None, which means run on every change
-            run_on_init (bool, optional): Whether to run the function when the server first connects
-            debounce (float, optional): Debounce time in seconds. Function won't run until input is stable for this long
-            throttle (float, optional): Throttle time in seconds. Function won't run more than once per this time period
-            leading_edge (bool, optional): Whether to run on the first value (True) or last value (False)
-                                        For debounce: True = run immediately then ignore until stable
-                                                    False = wait until stable then run
-                                        For throttle: True = run immediately then enforce cooldown
-                                                           (changes during cooldown are ignored)
-                                                    False = enforce max frequency with queued execution
-                                                           (changes during cooldown are scheduled)
+            reloader_kwargs: dict[str, Any] = {
+                "listener": self,
+                "builder": builder,
+                "trigger_refresh": trigger_refresh,
+            }
+            if extra_watch_paths is not None:
+                reloader_kwargs["extra_watch_paths"] = extra_watch_paths
+            if ignore_patterns is not None:
+                reloader_kwargs["ignore_patterns"] = ignore_patterns
+            if settle_delay is not None:
+                reloader_kwargs["settle_delay"] = settle_delay
+            reloader = ListenerHotReloader(**reloader_kwargs)
+            self.start_with_hot_reload(reloader)
+            return
 
-        Returns:
-            function: Decorated function with attributes for interactive configuration.
-        """
+        if builder is not None:
+            raise ValueError("Provide hot_reload=True when passing a callback builder")
+        if extra_watch_paths is not None:
+            raise ValueError("Provide hot_reload=True when configuring watch paths")
+        if ignore_patterns is not None:
+            raise ValueError("Provide hot_reload=True when configuring ignore patterns")
+        if not trigger_refresh:
+            raise ValueError("trigger_refresh is only meaningful with hot_reload=True")
+        if settle_delay is not None:
+            raise ValueError("settle_delay is only meaningful with hot_reload=True")
 
-        def decorator(func):
-            func._setta_interactive = True
-            func._setta_dependencies = [None] if dependencies is None else dependencies
-            func._setta_run_on_init = run_on_init
-            func._setta_is_running = False
-            func._setta_data = None
-            func._setta_data_to_be_updated = {}
-            func._setta_debounce = debounce
-            func._setta_throttle = throttle
-            func._setta_leading_edge = leading_edge
-            func._setta_last_run_time = 0
-            func._setta_next_allowed_run_time = 0
+        if self._stop_event.is_set():
+            self._stop_event = asyncio.Event()
+        try:
+            asyncio.run(self.run_forever())
+        except KeyboardInterrupt:
+            logger.info("Listener %s interrupted by user", self._log_identifier)
+        finally:
+            self.stop()
+
+    def start_with_hot_reload(self, reloader: "ListenerHotReloader") -> None:
+        """Run the listener with automatic hot reload support."""
+        if reloader.listener is not self:
+            raise ValueError("ListenerHotReloader is bound to a different listener")
+        if self._stop_event.is_set():
+            self._stop_event = asyncio.Event()
+        try:
+            asyncio.run(self._run_with_hot_reload(reloader))
+        except KeyboardInterrupt:
+            logger.info("Listener %s interrupted by user", self._log_identifier)
+        finally:
+            self.stop()
+
+    async def _run_with_hot_reload(
+        self,
+        reloader: "ListenerHotReloader",
+    ) -> None:
+        watch_task: asyncio.Task[None] | None = None
+        try:
+            await reloader.reload_now(reload_module=False)
+            watch_task = asyncio.create_task(reloader.watch())
+            watch_task.add_done_callback(self._log_watch_task_completion)
+            await self.run_forever()
+        finally:
+            await reloader.stop()
+            if watch_task is not None:
+                await self._finalize_watch_task(watch_task)
+
+    @staticmethod
+    def _log_watch_task_completion(task: asyncio.Task[None]) -> None:
+        if not task.done() or task.cancelled():
+            return
+        exception = task.exception()
+        if exception is None:
+            return
+        logger.error(
+            "Listener hot reload watcher exited with error: %s",
+            exception,
+            exc_info=(exception.__class__, exception, exception.__traceback__),
+        )
+
+    @staticmethod
+    async def _finalize_watch_task(task: asyncio.Task[None]) -> None:
+        if task.done():
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    def stop(self) -> None:
+        """Signal the connection loop to exit."""
+        self._stop_event.set()
+
+    async def _connect_once(self) -> None:
+        """Open the websocket once and process messages until it closes."""
+        endpoint = self.websocket_endpoint
+        logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
+        async with websockets.connect(endpoint) as websocket:
+            logger.info("Listener %s connected", self._log_identifier)
+            self._websocket = websocket
+            await self._send_bootstrap_init()
+            try:
+                async for payload in websocket:
+                    if self._stop_event.is_set():
+                        break
+                    message = self._parse_websocket_payload(payload)
+                    if message is None:
+                        continue
+                    await self._dispatch_websocket_message(message)
+            finally:
+                logger.info("Listener %s connection closed", self._log_identifier)
+                self._websocket = None
+                self._registration_pending = False
+                self._is_registered = False
+                self._expected_ack_callback_ids = set()
+
+    def _parse_websocket_payload(self, payload: str) -> Any | None:
+        """Parse raw websocket payloads into typed messages."""
+        try:
+            message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
+        except ValidationError:
+            logger.warning("Received malformed listener payload: %s", payload)
+            return None
+        logger.debug(
+            "Listener %s received %s message",
+            self._log_identifier,
+            message.messageType,
+        )
+        return message
+
+    async def _dispatch_websocket_message(
+        self,
+        message: Any,
+    ) -> None:
+        """Delegate parsed websocket messages to dedicated handlers."""
+        if isinstance(message, WebsocketMsgListenerRegisterAck):
+            self._handle_register_ack(message)
+            return
+        if isinstance(message, WebsocketMsgListenerRealtimeEvent):
+            await self._handle_realtime_event(message.content)
+            return
+        if isinstance(message, WebsocketMsgListenerForceRefresh):
+            await self._handle_force_refresh(message.content)
+            return
+        if isinstance(message, WebsocketMsgListenerError):
+            self._handle_listener_error(message)
+            return
+        logger.debug(
+            "Listener %s ignoring unsupported message type %s",
+            self._log_identifier,
+            getattr(message, "messageType", type(message)),
+        )
+
+    def _handle_register_ack(self, message: WebsocketMsgListenerRegisterAck) -> None:
+        """Handle ListenerRegisterAck responses from the server."""
+        received_project_id = message.content.projectConfigId
+        if self._project_id is None:
+            self._project_id = received_project_id
+        elif received_project_id != self._project_id:
+            logger.warning(
+                "Listener %s received register ack for unexpected project %s",
+                self._log_identifier,
+                received_project_id,
+            )
+        if not self._registration_pending:
+            logger.debug(
+                "Listener %s received register ack without pending registration",
+                self._log_identifier,
+            )
+        self._registration_pending = False
+
+        expected_ids = set(self._expected_ack_callback_ids)
+        if not expected_ids:
+            logger.debug(
+                "Listener %s received register ack with no expected callback ids",
+                self._log_identifier,
+            )
+        ack_statuses = message.content.callbacks
+        ack_ids = set(ack_statuses.keys())
+
+        missing_ids = expected_ids - ack_ids
+        if missing_ids:
+            logger.warning(
+                "Listener %s missing register ack for callbacks: %s",
+                self._log_identifier,
+                ", ".join(sorted(missing_ids)),
+            )
+
+        unknown_ids = ack_ids - expected_ids
+        for callback_id in sorted(unknown_ids):
+            logger.warning(
+                "Listener %s received register ack for unknown callback %s",
+                self._log_identifier,
+                callback_id,
+            )
+
+        rejected: list[tuple[str, ListenerRegisterAckStatus]] = [
+            (callback_id, status)
+            for callback_id, status in ack_statuses.items()
+            if status.status == "rejected"
+        ]
+        accepted_count = sum(
+            1 for status in ack_statuses.values() if status.status == "accepted"
+        )
+
+        if rejected:
+            self._is_registered = False
+            error_details = ", ".join(
+                f"{callback_id} ({status.message or 'no details'})"
+                for callback_id, status in rejected
+            )
+            logger.error(
+                "Listener %s registration rejected for %d callback(s): %s",
+                self._log_identifier,
+                len(rejected),
+                error_details,
+            )
+            raise RuntimeError(f"Listener registration rejected: {error_details}")
+
+        self._expected_ack_callback_ids = set()
+        self._is_registered = True
+        logger.info(
+            "Listener %s registered %d callback(s)",
+            self._log_identifier,
+            accepted_count,
+        )
+
+    def _handle_listener_error(self, message: WebsocketMsgListenerError) -> None:
+        """Surface listener errors even when logging is not configured."""
+        detail_suffix = ""
+        if message.content.details is not None:
+            detail_suffix = f" (details={message.content.details!r})"
+        text = (
+            f"Listener {self._log_identifier} received error "
+            f"{message.content.error}{detail_suffix}"
+        )
+        current_logger = logger
+        has_real_handler = False
+        while current_logger is not None:
+            for handler in current_logger.handlers:
+                if not isinstance(handler, logging.NullHandler):
+                    has_real_handler = True
+                    break
+            if has_real_handler or not current_logger.propagate:
+                break
+            current_logger = current_logger.parent
+
+        if has_real_handler:
+            logger.error(text)
+        else:
+            sys.stderr.write(text + "\n")
+            sys.stderr.flush()
+
+    def listen(
+        self,
+        *,
+        deps: Iterable[str] | None = None,
+        dependency_mode: ListenerDependencyMode | str | None = None,
+        debounce_ms: int | None = None,
+        throttle_ms: int | None = None,
+        run_on_refresh: bool = False,
+    ) -> Callable[[ListenerCallback], ListenerCallback]:
+        def decorator(func: ListenerCallback) -> ListenerCallback:
+            dependencies = tuple(deps) if deps is not None else ()
+            normalized_mode = self._normalize_dependency_mode(
+                dependency_mode, declared_dependencies=dependencies
+            )
+            callback_id = uuid4().hex
+            spec = ListenerCallbackSpec(
+                function=func,
+                callback_id=callback_id,
+                declared_dependencies=dependencies,
+                dependency_mode=normalized_mode,
+                debounce_ms=debounce_ms,
+                throttle_ms=throttle_ms,
+                run_on_refresh=run_on_refresh,
+            )
+            spec.logger = logger.getChild(f"callback.{callback_id}")
+            self._callbacks[callback_id] = spec
+            self._register_scheduler_callback(spec)
             return func
-
-        # Handle the case when decorator is used without parentheses
-        if callable(dependencies):
-            func = dependencies
-            dependencies = None
-            return decorator(func)
 
         return decorator
 
-    def start(self):
-        # Find all interactive functions
-        self.fns = get_interactive_functions(self.caller_frame)
+    def clear_callbacks(self) -> None:
+        """Remove every registered callback and scheduler entry."""
+        if not self._callbacks:
+            return
+        for callback_id in list(self._callbacks.keys()):
+            self._remove_callback(callback_id)
 
-        # Print available functions for debugging
-        if self.fns:
-            print(
-                f"Starting WebSocket listener with {len(self.fns)} interactive functions:"
-            )
-            for fn in self.fns:
-                deps = ", ".join([str(x) for x in fn._setta_dependencies])
-                timing_info = []
-                if fn._setta_debounce > 0:
-                    timing_info.append(f"debounce={fn._setta_debounce}s")
-                if fn._setta_throttle > 0:
-                    timing_info.append(f"throttle={fn._setta_throttle}s")
-                if timing_info:
-                    timing_str = f" ({', '.join(timing_info)}, {'leading' if fn._setta_leading_edge else 'trailing'})"
-                else:
-                    timing_str = ""
-                print(
-                    f" - {fn.__name__} (dependencies: {deps}){timing_str}", flush=True
-                )
-        else:
-            print(
-                "Warning: No functions have been marked with @interactive decorator",
-                flush=True,
-            )
+    def _remove_callback(self, callback_id: str) -> None:
+        """Drop a single callback and its scheduler registration."""
+        spec = self._callbacks.pop(callback_id, None)
+        if spec is None:
+            return
+        self._scheduler.unregister_callback(callback_id)
 
-        # Start the event loop
+    async def reload_callbacks(
+        self,
+        builder: ListenerCallbackBuilder,
+        *,
+        trigger_refresh: bool = True,
+    ) -> None:
+        async with self._callback_lock:
+            previous_callbacks = dict(self._callbacks)
+            previous_is_registered = self._is_registered
+            previous_registration_pending = self._registration_pending
+            previous_expected_ids = set(self._expected_ack_callback_ids)
+            try:
+                self.clear_callbacks()
+                builder(self)
+                self._is_registered = False
+                self._registration_pending = False
+                self._expected_ack_callback_ids = set()
+                await self._send_listener_register()
+                if trigger_refresh:
+                    await self._replay_cached_snapshot()
+            except Exception:
+                self.clear_callbacks()
+                for spec in previous_callbacks.values():
+                    self._callbacks[spec.callback_id] = spec
+                    self._register_scheduler_callback(spec)
+                self._is_registered = previous_is_registered
+                self._registration_pending = previous_registration_pending
+                self._expected_ack_callback_ids = previous_expected_ids
+                raise
+
+    def _build_register_content(self) -> ListenerRegisterContent:
+        """Serialize callback metadata into a register payload."""
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            raise RuntimeError(
+                "Listener runtime state unavailable during registration payload build"
+            )
+        dependency_graph = runtime_state.dependency_graph
+        callbacks: dict[str, ListenerRegisterCallback] = {}
+        for spec in self._callbacks.values():
+            structured_dependencies: list[BaseDependencyKeyUnion] = []
+            for dependency in spec.declared_dependencies:
+                dep_key = dependency_graph.full_path_name_to_dep_key.get(dependency)
+                if dep_key is None:
+                    raise KeyError(
+                        f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
+                    )
+                structured_dependencies.append(dep_key)
+            callbacks[spec.callback_id] = ListenerRegisterCallback(
+                dependencies=list(structured_dependencies),
+                dependencyMode=spec.dependency_mode,
+                debounceMs=spec.debounce_ms,
+                throttleMs=spec.throttle_ms,
+                runOnRefresh=spec.run_on_refresh,
+            )
+            spec.structured_dependencies = tuple(structured_dependencies)
+        return ListenerRegisterContent(
+            projectConfigId=self._require_project_id(), callbacks=callbacks
+        )
+
+    @staticmethod
+    def _normalize_dependency_mode(
+        mode: ListenerDependencyMode | str | None,
+        *,
+        declared_dependencies: tuple[str, ...],
+    ) -> ListenerDependencyMode:
+        if mode is None:
+            if declared_dependencies:
+                return ListenerDependencyMode.SPECIFIC
+            return ListenerDependencyMode.REFRESH_ONLY
         try:
-            asyncio.run(self._connect_to_server())
-        except KeyboardInterrupt:
-            print("Listener stopped by user", flush=True)
-
-    async def _connect_to_server(self):
-        async with websockets.connect(self.endpoint) as websocket:
-            self.logger.websocket = websocket
-            await self._handle_websocket(websocket)
-
-    async def _handle_websocket(self, websocket):
-        await websocket.send(
-            json.dumps(
-                {"messageType": C.WS_SCRIPT_READY, "content": str(self.rel_path)}
+            normalized = ListenerDependencyMode(mode)
+        except ValueError as error:
+            choices = ", ".join(member.value for member in ListenerDependencyMode)
+            raise ValueError(
+                f"Unknown dependency mode {mode!r}. Expected one of: {choices}"
+            ) from error
+        if normalized is ListenerDependencyMode.SPECIFIC and not declared_dependencies:
+            raise ValueError(
+                "Listener dependency_mode 'specific' requires at least one dependency"
             )
+        if (
+            normalized is ListenerDependencyMode.ANY_DEPENDENCY
+            and declared_dependencies
+        ):
+            raise ValueError(
+                "Listener dependency_mode 'any_dependency' does not accept explicit dependencies"
+            )
+        return normalized
+
+    async def _send_bootstrap_init(self) -> None:
+        """Send an initial bootstrap handshake to identify the target project."""
+        content = ListenerInitContent(
+            projectConfigId=self._project_id,
+            projectName=self._project_name,
+        )
+        message = WebsocketMsgListenerInit(content=content)
+        payload = message.model_dump_json()
+        logger.debug("Listener %s sending bootstrap init", self._log_identifier)
+        try:
+            await self._send_websocket_payload(payload)
+        except Exception:
+            logger.exception(
+                "Listener %s failed to send bootstrap init", self._log_identifier
+            )
+            raise
+
+    async def _send_listener_register(self) -> None:
+        """Send the full callback registration after bootstrap completes."""
+        if self._runtime_state is None:
+            logger.debug(
+                "Listener %s skipping register because runtime state is unavailable",
+                self._log_identifier,
+            )
+            return
+        content = self._build_register_content()
+        message = WebsocketMsgListenerRegister(content=content)
+        payload = message.model_dump_json()
+        logger.debug(
+            "Listener %s registering %d callbacks",
+            self._log_identifier,
+            len(content.callbacks),
+        )
+        self._registration_pending = True
+        self._is_registered = False
+        self._expected_ack_callback_ids = set(content.callbacks.keys())
+        try:
+            await self._send_websocket_payload(payload)
+        except Exception:
+            self._registration_pending = False
+            logger.exception(
+                "Listener %s failed to send register payload", self._log_identifier
+            )
+            raise
+
+    async def _refresh_from_snapshot(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> None:
+        """Refresh listener state from a snapshot delivered over the websocket."""
+        self._latest_persisted_snapshot = project_state
+        refresh_kind: Literal["bootstrap", "force_refresh"]
+        if self._runtime_state is None:
+            refresh_kind = "bootstrap"
+        else:
+            refresh_kind = "force_refresh"
+        await self._process_snapshot(
+            project_state,
+            refresh_kind=refresh_kind,
         )
 
-        # Process incoming messages using async for
-        async for message in websocket:
-            message = json.loads(message)
-            messageType = message["messageType"]
-            content = message["content"]
-            if messageType == C.WS_PROJECT_DATA:
-                # TODO
-                for fn in self.fns:
-                    pass
-                    # fn._setta_data = ...
-                self.dependencies_to_fns = self.get_mapped_dependencies_to_fns()
-                await websocket.send(
-                    json.dumps(
-                        {
-                            "messageType": C.WS_SCRIPT_DEPENDENCIES,
-                            "content": list(self.dependencies_to_fns.keys()),
-                        }
-                    )
+    async def _process_snapshot(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        refresh_kind: Literal["bootstrap", "force_refresh"],
+    ) -> None:
+        self._last_realtime_sequence = None
+        incoming_project_id = project_state.projectConfig.id
+        if self._project_id is None:
+            self._project_id = incoming_project_id
+        elif incoming_project_id != self._project_id:
+            logger.warning(
+                "Listener %s received %s snapshot for unexpected project %s",
+                self._log_identifier,
+                refresh_kind,
+                incoming_project_id,
+            )
+            self._project_id = incoming_project_id
+
+        try:
+            runtime_state = self._build_runtime_state(project_state)
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+            logger.warning(
+                "Listener %s skipped snapshot refresh due to build failure: %s",
+                self._log_identifier,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            return
+        if runtime_state.s_instance is None:
+            self._runtime_state = runtime_state
+            self._dependency_cache = {}
+            if refresh_kind == "bootstrap":
+                logger.warning(
+                    (
+                        "Listener %s skipping snapshot hydration due to missing runtime "
+                        "state; callbacks will run once the project rebuilds successfully"
+                    ),
+                    self._log_identifier,
                 )
-
-                # run all interactive functions when we first receive project data
-                asyncio.create_task(self._run_functions_on_init())
-
-            if messageType == C.WS_CALL_INTERACTIVE_FNS:
-                asyncio.create_task(
-                    self._run_functions_with_new_data(
-                        content,
-                    )
-                )
-
-    # Add this new helper method
-    async def _run_functions_with_new_data(self, new_data):
-        # First update all function data
-        for fn in self.fns:
-            self.update_stored_data(new_data, fn)
-
-        # Then determine which functions to run
-        key, _ = new_data
-        functions_to_run = []
-
-        for fn in self.fns:
-            if fn._setta_is_running:
-                continue
-
-            if fn.__name__ in self.dependencies_to_fns.get(
-                None, set()
-            ) or fn.__name__ in self.dependencies_to_fns.get(tuple(key), set()):
-                functions_to_run.append(fn)
-
-        # Handle each function with debounce/throttle logic
-        for fn in functions_to_run:
-            await self._schedule_function_run(fn)
-
-    async def _schedule_function_run(self, fn):
-        current_time = time.monotonic()
-
-        # Generate a unique token for this scheduling attempt
-        task_token = str(uuid.uuid4())
-
-        # Safely manage task cancellation
-        async with self.task_lock:
-            if fn.__name__ in self.pending_tasks:
-                task, _ = self.pending_tasks[fn.__name__]
-                if not task.done():
-                    task.cancel()
-                # Remove from pending tasks
-                self.pending_tasks.pop(fn.__name__, None)
-
-        time_since_last_run = current_time - fn._setta_last_run_time
-        is_first_run = fn._setta_last_run_time == 0
-
-        # Check if we're allowed to run now according to throttle
-        throttle_allows_execution = (
-            fn._setta_throttle <= 0 or current_time >= fn._setta_next_allowed_run_time
-        )
-
-        # Determine if we can execute immediately - needs to satisfy both constraints
-        can_execute_now = True
-
-        # First, check throttle constraints
-        if fn._setta_throttle > 0 and not throttle_allows_execution:
-            can_execute_now = False
-
-        # Then, for leading edge debounce, also check the debounce cooldown
-        if fn._setta_debounce > 0 and fn._setta_leading_edge:
-            if time_since_last_run < fn._setta_debounce:
-                can_execute_now = False
-
-        # Special handling for first run - it's a common case that deserves clarity
-        if is_first_run:
-            # First run with no constraints always executes
-            if fn._setta_debounce <= 0 and fn._setta_throttle <= 0:
-                await self.run_function(fn)
-                return
-
-            # First run with leading edge executes immediately
-            if fn._setta_leading_edge:
-                await self.run_function(fn)
-                return
-
-            # First run with trailing edge debounce schedules after debounce period
-            if fn._setta_debounce > 0:
-                async with self.task_lock:
-                    # Create and store task with token
-                    task = asyncio.create_task(
-                        self._delayed_run(fn, fn._setta_debounce, task_token)
-                    )
-                    self.pending_tasks[fn.__name__] = (task, task_token)
-                return
-
-        # Now handle the regular (non-first-run) cases
-
-        # Handle debounce logic (takes priority over throttle)
-        if fn._setta_debounce > 0:
-            if fn._setta_leading_edge:
-                # Leading edge debounce: Execute immediately if allowed
-                if can_execute_now:
-                    await self.run_function(fn)
-                # Otherwise silently ignore - this is expected for leading edge
+                await self._send_listener_register()
             else:
-                # Trailing edge debounce: Always schedule with appropriate delay
-                # Calculate delay based on both constraints
-                debounce_delay = fn._setta_debounce
-                throttle_delay = 0
+                logger.debug(
+                    (
+                        "Listener %s ignoring %s snapshot because runtime state "
+                        "is unavailable"
+                    ),
+                    self._log_identifier,
+                    refresh_kind,
+                )
+            return
+        snapshot_values: dict[str, Any] = {}
+        updated_cache = dict(self._dependency_cache)
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
 
-                if not throttle_allows_execution:
-                    throttle_delay = fn._setta_next_allowed_run_time - current_time
+        for spec in self._callbacks.values():
+            self._scheduler.reset(spec.callback_id)
+            changed: dict[str, Any] = {}
+            mode = spec.dependency_mode
+            should_run = False
 
-                # Use the longer delay to satisfy both constraints
-                effective_delay = max(debounce_delay, throttle_delay)
-
-                async with self.task_lock:
-                    # Create and store task with token
-                    task = asyncio.create_task(
-                        self._delayed_run(fn, effective_delay, task_token)
+            if mode is ListenerDependencyMode.SPECIFIC:
+                for dependency in spec.declared_dependencies:
+                    value = self._get_dependency_value(
+                        runtime_state.s_instance,
+                        dependency,
+                        snapshot_values,
                     )
-                    self.pending_tasks[fn.__name__] = (task, task_token)
-
-        # Handle throttle-only logic
-        elif fn._setta_throttle > 0:
-            if throttle_allows_execution:
-                # Cooldown has passed, execute immediately
-                await self.run_function(fn)
-            elif not fn._setta_leading_edge:
-                # For trailing edge throttle, schedule for when throttle period ends
-                delay = fn._setta_next_allowed_run_time - current_time
-                async with self.task_lock:
-                    # Create and store task with token
-                    task = asyncio.create_task(self._delayed_run(fn, delay, task_token))
-                    self.pending_tasks[fn.__name__] = (task, task_token)
-            # For leading edge with active cooldown, we ignore this change (documented in docstring)
-
-        # No debounce or throttle - run immediately
-        else:
-            await self.run_function(fn)
-
-    async def _delayed_run(self, fn, delay, task_token):
-        try:
-            await asyncio.sleep(delay)
-
-            # Verify this is still the active task with the correct token
-            is_active_task = False
-            async with self.task_lock:
-                if fn.__name__ in self.pending_tasks:
-                    current_task, current_token = self.pending_tasks[fn.__name__]
-                    if current_token == task_token:
-                        # We're still the active task
-                        is_active_task = True
-                        # Remove from pending tasks before running to prevent race conditions
-                        self.pending_tasks.pop(fn.__name__, None)
-
-            # Only run if we're still the active task
-            if is_active_task:
-                await self.run_function(fn)
-
-        except asyncio.CancelledError:
-            # Handle cancelled task gracefully
-            pass
-        finally:
-            # Clean up if we're still registered as the active one
-            async with self.task_lock:
-                if fn.__name__ in self.pending_tasks:
-                    _, current_token = self.pending_tasks[fn.__name__]
-                    if current_token == task_token:
-                        self.pending_tasks.pop(fn.__name__, None)
-
-    async def _run_functions_on_init(self):
-        for fn in self.fns:
-            if fn._setta_is_running:
-                continue
-            if fn._setta_run_on_init:
-                await self.run_function(fn)
-
-    async def run_function(self, fn):
-        try:
-            # Run the function in an executor to avoid blocking the event loop
-            # This handles CPU-bound functions without blocking the websocket
-            fn._setta_is_running = True
-
-            # Update timing information
-            current_time = time.monotonic()
-            fn._setta_last_run_time = current_time
-
-            # Calculate the earliest time the function can run again (for throttling)
-            if fn._setta_throttle > 0:
-                fn._setta_next_allowed_run_time = current_time + fn._setta_throttle
-
-            # Execute the function
-            await asyncio.get_event_loop().run_in_executor(None, fn, fn._setta_data)
-        except Exception as e:
-            print(f"Exception details:\n{traceback.format_exc()}")
-            print(f"Error running function {fn.__name__}: {e}")
-        finally:
-            fn._setta_is_running = False
-            for key, value in fn._setta_data_to_be_updated.items():
-                self.update_stored_data((key, value), fn)
-            fn._setta_data_to_be_updated = {}
-
-    def get_mapped_dependencies_to_fns(self):
-        output = defaultdict(set)
-        for fn in self.fns:
-            for d in fn._setta_dependencies:
-                if d is not None:
-                    # TODO: use new S class approach
-                    if not d:
+                    if value is _UNAVAILABLE:
                         continue
-                output[d].add(fn.__name__)
-        return output
+                    previous = self._dependency_cache.get(dependency, _MISSING)
+                    updated_cache[dependency] = value
+                    if previous is _MISSING or value != previous:
+                        changed[dependency] = value
+                should_run = bool(changed)
+                if (
+                    refresh_kind in {"bootstrap", "force_refresh"}
+                    and spec.run_on_refresh
+                ):
+                    should_run = True
+            elif mode is ListenerDependencyMode.ANY_DEPENDENCY:
+                should_run = True
+            else:  # ListenerDependencyMode.REFRESH_ONLY
+                if refresh_kind in {"bootstrap", "force_refresh"}:
+                    should_run = True
+                    for dependency in spec.declared_dependencies:
+                        value = self._get_dependency_value(
+                            runtime_state.s_instance,
+                            dependency,
+                            snapshot_values,
+                        )
+                        if value is _UNAVAILABLE:
+                            continue
+                        previous = self._dependency_cache.get(dependency, _MISSING)
+                        updated_cache[dependency] = value
+                        if previous is _MISSING or value != previous:
+                            changed[dependency] = value
 
-    # new_data is a list of tuples, where each tuple is [key, value]
-    def update_stored_data(self, new_data, fn):
-        key, value = new_data
-        if fn._setta_is_running:
-            fn._setta_data_to_be_updated[tuple(key)] = value
-        else:
-            # TODO
-            pass
+            if should_run:
+                callbacks_to_run.append((spec, changed))
 
+        self._runtime_state = runtime_state
+        self._dependency_cache = updated_cache
 
-def get_interactive_functions(caller_frame):
-    # Get the module from the caller's frame
-    caller_module = inspect.getmodule(caller_frame)
+        if refresh_kind == "bootstrap":
+            await self._send_listener_register()
 
-    # Find all exposed functions in that module
-    fns = []
-    for _, obj in inspect.getmembers(caller_module):
-        if inspect.isfunction(obj) and getattr(obj, "_setta_interactive", False):
-            # Include function dependencies in the metadata
-            fns.append(obj)
+        for spec, changed in callbacks_to_run:
+            ctx = self._build_callback_context(spec, changed)
+            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
 
-    return fns
+    def _build_runtime_state(
+        self, project_state: ProjectStateSingleConfig
+    ) -> ListenerRuntimeState:
+        dep_graph = DependencyGraph(project_state)
+        project_config = project_state.projectConfig
+        code_generator = PythonCodeGenerator(
+            dep_graph,
+            project_config.genCodePrefix,
+            project_config.genCodeSuffix,
+            value_mode=PythonValueMode.LIVE_RUNTIME,
+        )
+        try:
+            code_generator.generate_code()
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+            logger.warning(
+                "Listener %s failed to generate code: %s",
+                self._log_identifier,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            return ListenerRuntimeState(
+                project_state=project_state,
+                dependency_graph=dep_graph,
+                code_generator=code_generator,
+                s_instance=None,
+            )
+        try:
+            s_instance = self._instantiate_s(code_generator.code)
+        except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+            logger.warning(
+                "Listener %s failed to instantiate generated state: %s",
+                self._log_identifier,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            s_instance = None
+        return ListenerRuntimeState(
+            project_state=project_state,
+            dependency_graph=dep_graph,
+            code_generator=code_generator,
+            s_instance=s_instance,
+        )
+
+    def _instantiate_s(self, generated_code: str) -> Any:
+        namespace: dict[str, Any] = {"__builtins__": __builtins__}
+        exec(generated_code, namespace)
+        if "s" in namespace:
+            return namespace["s"]
+        S_cls = namespace.get("S")
+        if S_cls is None:
+            raise RuntimeError("Generated code missing S class definition")
+        return S_cls()
+
+    def _get_dependency_value(
+        self,
+        s_instance: Any,
+        dependency: str,
+        snapshot_values: dict[str, Any],
+    ) -> Any:
+        if dependency in snapshot_values:
+            return snapshot_values[dependency]
+        try:
+            value = self._resolve_dependency_value(s_instance, dependency)
+        except AttributeError as error:
+            logger.warning(
+                "Listener %s missing dependency %s during snapshot: %s",
+                self._log_identifier,
+                dependency,
+                error,
+            )
+            snapshot_values[dependency] = _UNAVAILABLE
+            return _UNAVAILABLE
+        snapshot_values[dependency] = value
+        return value
+
+    def _resolve_dependency_value(self, current: Any, dependency: str) -> Any:
+        return getattr(current, dependency)
+
+    async def _invoke_callback(
+        self,
+        spec: ListenerCallbackSpec,
+        state: Any,
+        ctx: ListenerCallbackContext,
+    ) -> None:
+        result = spec.function(state, ctx)
+        if inspect.isawaitable(result):
+            await result
+
+    async def _handle_realtime_event(
+        self, content: ListenerRealtimeEventContent
+    ) -> None:
+        """Apply realtime deltas and invoke interested callbacks."""
+        project_id = self._project_id
+        if project_id is not None and content.projectConfigId != project_id:
+            logger.debug(
+                "Listener %s ignoring realtime event for project %s",
+                self._log_identifier,
+                content.projectConfigId,
+            )
+            return
+
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            logger.debug(
+                "Listener %s received realtime event before bootstrap; ignoring",
+                self._log_identifier,
+            )
+            return
+
+        if runtime_state.s_instance is None:
+            logger.debug(
+                "Listener %s ignoring realtime event because runtime state is unavailable",
+                self._log_identifier,
+            )
+            return
+
+        if self._last_realtime_sequence is not None:
+            if content.sequence <= self._last_realtime_sequence:
+                logger.debug(
+                    "Listener %s ignoring out-of-order realtime sequence %s (last=%s)",
+                    self._log_identifier,
+                    content.sequence,
+                    self._last_realtime_sequence,
+                )
+                return
+
+        self._last_realtime_sequence = content.sequence
+        if not content.deltas:
+            logger.debug(
+                "Listener %s received realtime event with no deltas (sequence=%s)",
+                self._log_identifier,
+                content.sequence,
+            )
+            return
+
+        applied_dependencies: dict[str, Any] = {}
+        for delta in content.deltas:
+            dep_key = delta.dependency
+            node = runtime_state.dependency_graph.graph.get(dep_key)
+            if node is None:
+                logger.error(
+                    "Listener %s received realtime delta for unknown dependency key %s",
+                    self._log_identifier,
+                    dep_key,
+                )
+                continue
+            value = delta.value
+            dependency = node.full_path_name
+            try:
+                hydrated_value = self._set_dependency_value(
+                    runtime_state,
+                    runtime_state.s_instance,
+                    dependency,
+                    value,
+                    node,
+                )
+            except (AttributeError, KeyError, IndexError, ValueError) as error:
+                logger.error(
+                    (
+                        "Listener %s failed to apply realtime delta for %s "
+                        "(dependency key %s): %s"
+                    ),
+                    self._log_identifier,
+                    dependency,
+                    dep_key,
+                    error,
+                )
+                continue
+            applied_dependencies[dependency] = hydrated_value
+
+        if not applied_dependencies:
+            logger.debug(
+                "Listener %s applied no realtime changes for sequence %s",
+                self._log_identifier,
+                content.sequence,
+            )
+            return
+
+        self._dependency_cache.update(applied_dependencies)
+
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        for spec in self._callbacks.values():
+            if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
+                continue
+            if spec.dependency_mode is ListenerDependencyMode.ANY_DEPENDENCY:
+                callbacks_to_run.append((spec, dict(applied_dependencies)))
+                continue
+
+            changed: dict[str, Any] = {}
+            for dependency in spec.declared_dependencies:
+                if dependency not in applied_dependencies:
+                    continue
+                try:
+                    value = self._resolve_dependency_value(
+                        runtime_state.s_instance, dependency
+                    )
+                except (AttributeError, KeyError, IndexError, ValueError) as error:
+                    logger.error(
+                        "Listener %s failed to resolve dependency %s after realtime update: %s",
+                        self._log_identifier,
+                        dependency,
+                        error,
+                    )
+                    continue
+                changed[dependency] = value
+
+            if changed:
+                callbacks_to_run.append((spec, changed))
+
+        if not callbacks_to_run:
+            return
+
+        for spec, changed in callbacks_to_run:
+            self._scheduler.submit(spec.callback_id, dict(changed))
+
+    async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
+        """Handle force refresh payloads by replaying the latest snapshot."""
+        project_state = content.projectState
+        if project_state is not None:
+            await self._refresh_from_snapshot(project_state)
+            return
+        project_state = self._latest_persisted_snapshot
+        if project_state is None:
+            logger.warning(
+                "Listener %s received force refresh without cached project state",
+                self._log_identifier,
+            )
+            self._last_realtime_sequence = None
+            return
+
+        await self._process_snapshot(project_state, refresh_kind="force_refresh")
+
+    async def emit_to_frontend(
+        self,
+        *,
+        dependency_values: Mapping[str, Any] | None = None,
+        artifact_updates: Sequence[
+            BaseArtifactUnionWithDiscriminator | Mapping[str, Any]
+        ]
+        | None = None,
+    ) -> None:
+        if self._runtime_state is None:
+            raise RuntimeError(
+                "Listener project state is unavailable; wait for bootstrap before emitting"
+            )
+        if not self._is_registered and not self._registration_pending:
+            raise RuntimeError(
+                "Listener is not registered with the server; wait for registration to complete before emitting"
+            )
+        serialized_values = dict(dependency_values or {})
+        serialized_artifact_updates = self._serialize_listener_artifact_updates(
+            artifact_updates
+        )
+        if not serialized_values and not serialized_artifact_updates:
+            raise ValueError(
+                "emit_to_frontend requires at least one dependency value or artifact update"
+            )
+        project_id = self._require_project_id()
+        message = WebsocketMsgListenerFrontendEmit(
+            content=ListenerFrontendEmitRawContent(
+                projectConfigId=project_id,
+                dependencyValues=serialized_values,
+                artifactUpdates=serialized_artifact_updates,
+            )
+        )
+        logger.debug(
+            "Listener %s emitting dependency overrides %s and artifact updates %s",
+            self._log_identifier,
+            ", ".join(serialized_values.keys()) or "-",
+            ", ".join(artifact.id for artifact in serialized_artifact_updates) or "-",
+        )
+        await self._send_websocket_payload(message.model_dump_json())
+
+    def _serialize_listener_artifact_updates(
+        self,
+        artifact_updates: Sequence[
+            BaseArtifactUnionWithDiscriminator | Mapping[str, Any]
+        ]
+        | None,
+    ) -> list[BaseArtifactUnionWithDiscriminator]:
+        if not artifact_updates:
+            return []
+
+        serialized: list[BaseArtifactUnionWithDiscriminator] = []
+        for artifact in artifact_updates:
+            try:
+                serialized.append(BaseArtifactTypeAdapter.validate_python(artifact))
+            except ValidationError as exc:
+                raise ValueError(
+                    "artifact_updates entries must match the BaseArtifact schema"
+                ) from exc
+        return serialized
+
+    def _set_dependency_value(
+        self,
+        runtime_state: ListenerRuntimeState,
+        current: Any,
+        dependency: str,
+        value: BaseDependencyValueUnion,
+        node: Node,
+    ) -> Any:
+        """Set a dependency value on the cached S instance."""
+        node.value = value
+        expression = runtime_state.code_generator.get_value(node)
+        hydrated = self._evaluate_expression(
+            dependency=dependency,
+            expression=expression,
+        )
+        setattr(current, dependency, hydrated)
+        return hydrated
+
+    def _evaluate_expression(
+        self,
+        *,
+        dependency: str,
+        expression: str | None,
+    ) -> Any:
+        if not expression:
+            raise ValueError(
+                f"Listener {self._log_identifier} missing expression for dependency {dependency}"
+            )
+
+        try:
+            return literal_eval(expression)
+        except Exception as error:
+            logger.error(
+                "Listener %s failed to evaluate expression for %s: %s",
+                self._log_identifier,
+                dependency,
+                error,
+            )
+            raise
+
+    def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
+        async def executor(changed: dict[str, Any]) -> None:
+            runtime_state = self._runtime_state
+            if runtime_state is None or runtime_state.s_instance is None:
+                return
+            ctx = self._build_callback_context(spec, changed)
+            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
+
+        try:
+            self._scheduler.register_callback(
+                spec.callback_id,
+                executor=executor,
+                debounce_ms=spec.debounce_ms,
+                throttle_ms=spec.throttle_ms,
+            )
+        except ValueError:
+            # Re-registering should overwrite prior scheduling state.
+            self._scheduler.unregister_callback(spec.callback_id)
+            self._scheduler.register_callback(
+                spec.callback_id,
+                executor=executor,
+                debounce_ms=spec.debounce_ms,
+                throttle_ms=spec.throttle_ms,
+            )
+
+    def _build_callback_context(
+        self, spec: ListenerCallbackSpec, changed: dict[str, Any]
+    ) -> ListenerCallbackContext:
+        spec_logger = spec.logger
+        if spec_logger is None:
+            spec_logger = logger.getChild(f"callback.{spec.callback_id}")
+            spec.logger = spec_logger
+
+        return ListenerCallbackContext(
+            changed=changed,
+            log=spec_logger,
+            emit_to_frontend=self.emit_to_frontend,
+        )
+
+    async def _send_websocket_payload(self, payload: str) -> None:
+        websocket = self._websocket
+        if websocket is None:
+            raise RuntimeError(
+                f"Listener {self._log_identifier} is not connected to the websocket"
+            )
+        async with self._send_lock:
+            try:
+                await websocket.send(payload)
+            except Exception:
+                logger.exception(
+                    "Listener %s failed to send websocket payload",
+                    self._log_identifier,
+                )
+                raise
+
+    async def _replay_cached_snapshot(self) -> None:
+        """Replay the most recent cached snapshot for newly registered callbacks."""
+        runtime_state = self._runtime_state
+        snapshot = self._latest_persisted_snapshot
+        if runtime_state is None or runtime_state.s_instance is None:
+            if snapshot is None:
+                logger.debug(
+                    "Listener %s cannot replay snapshot without cached state",
+                    self._log_identifier,
+                )
+                return
+            try:
+                runtime_state = self._build_runtime_state(snapshot)
+            except _RECOVERABLE_SNAPSHOT_ERRORS as error:
+                logger.warning(
+                    "Listener %s skipped snapshot replay due to build failure: %s",
+                    self._log_identifier,
+                    error,
+                    exc_info=logger.isEnabledFor(logging.DEBUG),
+                )
+                return
+            if runtime_state.s_instance is None:
+                self._runtime_state = runtime_state
+                self._dependency_cache = {}
+                logger.warning(
+                    (
+                        "Listener %s cannot replay snapshot because runtime state "
+                        "remains unavailable"
+                    ),
+                    self._log_identifier,
+                )
+                return
+            self._runtime_state = runtime_state
+
+        state_instance = runtime_state.s_instance
+        if state_instance is None:
+            logger.debug(
+                "Listener %s cannot replay snapshot because runtime state is unavailable",
+                self._log_identifier,
+            )
+            return
+
+        snapshot_values: dict[str, Any] = {}
+        updated_cache = dict(self._dependency_cache)
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+
+        for spec in self._callbacks.values():
+            self._scheduler.reset(spec.callback_id)
+            dependencies = spec.declared_dependencies
+            if not dependencies:
+                callbacks_to_run.append((spec, {}))
+                continue
+
+            changed: dict[str, Any] = {}
+            for dependency in dependencies:
+                value = self._get_dependency_value(
+                    state_instance,
+                    dependency,
+                    snapshot_values,
+                )
+                if value is _UNAVAILABLE:
+                    continue
+                updated_cache[dependency] = value
+                changed[dependency] = value
+
+            if changed or spec.run_on_refresh:
+                callbacks_to_run.append((spec, changed))
+
+        self._dependency_cache = updated_cache
+
+        for spec, changed in callbacks_to_run:
+            ctx = self._build_callback_context(spec, changed)
+            await self._invoke_callback(spec, state_instance, ctx)

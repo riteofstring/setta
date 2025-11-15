@@ -5,7 +5,7 @@ import types
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Sequence as ABCSequence
-from dataclasses import dataclass
+from dataclasses import MISSING, dataclass, fields, is_dataclass
 from enum import Enum
 from typing import (
     Annotated,
@@ -43,8 +43,8 @@ def format_generated_code(output_file):
 
 def find_sub_classes(
     module: Any,
-    base_class: Type[BaseModel],
-) -> List[Type[BaseModel]]:
+    base_class: Type[Any],
+) -> List[Type[Any]]:
     classes = []
 
     # Get all classes that match our criteria
@@ -151,6 +151,33 @@ def get_class_children(module, c):
     return [x for x in find_sub_classes(module, c) if x is not c]
 
 
+def get_field_default(cls: type, field_name: str) -> tuple[bool, Any]:
+    """Return (has_default, default_value) for the given field on cls."""
+    model_fields = getattr(cls, "model_fields", None)
+    if model_fields is not None:
+        field_info = model_fields[field_name]
+        if field_info.default is not PydanticUndefined:
+            return True, field_info.default
+        default_factory = getattr(field_info, "default_factory", PydanticUndefined)
+        if default_factory not in (PydanticUndefined, None):
+            return True, default_factory()
+        return False, None
+
+    if is_dataclass(cls):
+        for f in fields(cls):
+            if f.name == field_name:
+                if f.default is not MISSING:
+                    return True, f.default
+                if f.default_factory is not MISSING:  # type: ignore[attr-defined]
+                    return True, f.default_factory()
+                return False, None
+        raise AttributeError(f"{cls.__name__} has no field named {field_name}")
+
+    raise AttributeError(
+        f"{cls.__name__} has no supported field metadata for {field_name}"
+    )
+
+
 def get_class_to_children_mapping(
     module, base_class, exclude_empty=False, required_discriminator=None
 ):
@@ -159,12 +186,12 @@ def get_class_to_children_mapping(
     for c in classes:
         children = get_class_children(module, c)
         if required_discriminator:
-            children = [
-                x
-                for x in children
-                if x.model_fields[required_discriminator].default
-                is not PydanticUndefined
-            ]
+            filtered_children = []
+            for child in children:
+                has_default, _ = get_field_default(child, required_discriminator)
+                if has_default:
+                    filtered_children.append(child)
+            children = filtered_children
         if exclude_empty and len(children) == 0:
             continue
         output[c] = children

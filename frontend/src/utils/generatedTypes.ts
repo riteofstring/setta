@@ -16,6 +16,14 @@ export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
 
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
+export const BaseDependencyKeyTypeSet = new Set(["Section", "SectionParam"]);
+
+export const BaseDependencyValueTypeSet = new Set([
+  "Base64",
+  "FileRead",
+  "Literal",
+]);
+
 export const BaseArtifactTypeSet = new Set([
   "BrushStroke",
   "ChartData",
@@ -181,14 +189,17 @@ export const BaseSectionWithParamsImplTypeSet = new Set([
   "GlobalVariables",
 ]);
 
-export const BackendWebsocketMsgTypeSet = new Set(["CurrentAddressUpdate"]);
+export const BackendWebsocketMsgTypeSet = new Set([
+  "CurrentAddressUpdate",
+  "RealtimeUIChange",
+]);
 
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
-  "AllDependencies",
   "AllProjectMetadata",
   "LLMStreamingResponse",
   "LSPDiagnostics",
+  "ListenerCoverageSnapshot",
   "Notification",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
@@ -198,14 +209,32 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "UpdateSettings",
 ]);
 
+export const PythonScriptWebsocketMsgTypeSet = new Set([
+  "ListenerError",
+  "ListenerForceRefresh",
+  "ListenerFrontendEmit",
+  "ListenerInit",
+  "ListenerRealtimeEvent",
+  "ListenerRegister",
+  "ListenerRegisterAck",
+]);
+
 export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
-  "AllDependencies",
   "AllProjectMetadata",
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
   "LSPDiagnostics",
+  "ListenerCoverageSnapshot",
+  "ListenerError",
+  "ListenerForceRefresh",
+  "ListenerFrontendEmit",
+  "ListenerInit",
+  "ListenerRealtimeEvent",
+  "ListenerRegister",
+  "ListenerRegisterAck",
   "Notification",
+  "RealtimeUIChange",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
   "UUIDMappingForLLM",
@@ -308,6 +337,21 @@ export const SectionTypeEnum = {
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
+export const DependencyKeyTypeEnum = {
+  Section: "Section",
+  SectionParam: "SectionParam",
+} as const;
+
+export type DependencyKeyType = ObjectValues<typeof DependencyKeyTypeEnum>;
+
+export const DependencyValueTypeEnum = {
+  Literal: "Literal",
+  Base64: "Base64",
+  FileRead: "FileRead",
+} as const;
+
+export type DependencyValueType = ObjectValues<typeof DependencyValueTypeEnum>;
+
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -361,6 +405,16 @@ export const ViewingEditingModeEnum = {
 
 export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
+export const ListenerDependencyModeEnum = {
+  SPECIFIC: "specific",
+  ANY_DEPENDENCY: "any_dependency",
+  REFRESH_ONLY: "refresh_only",
+} as const;
+
+export type ListenerDependencyMode = ObjectValues<
+  typeof ListenerDependencyModeEnum
+>;
+
 export const SettaNotificationTypeEnum = {
   success: "success",
   error: "error",
@@ -403,7 +457,6 @@ export const RouteEnum = {
   WEBSOCKET_CLI: "/cli",
   WEBSOCKET_CLI_WITH_ID: "/cli/{id}",
   WEBSOCKET_PYTHON_SCRIPT: "/pythonScript/{id}",
-  WEBSOCKET_PYTHON_LOGGER: "/pythonLogger",
   SAVE_CODE_INFO: "/codeInfo/save",
   KILL_SUBPROCESSES: "/killSubprocesses",
   FORMAT_CODE: "/formatCode",
@@ -429,6 +482,7 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
+  GET_LISTENER_COVERAGE: "/getListenerCoverage",
   SET_LLM_API_KEYS: "/setLLMApiKeys",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
@@ -454,6 +508,7 @@ export const RouteEnum = {
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
+  FORCE_REFRESH_LISTENER: "/forceRefreshListener",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
@@ -560,7 +615,6 @@ export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
   PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
   FRONTEND: "FRONTEND",
 } as const;
 
@@ -570,6 +624,7 @@ export type WebsocketConnectionType = ObjectValues<
 
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
+  RealtimeUIChange: "RealtimeUIChange",
 } as const;
 
 export type WebsocketMsgTypeForBackend = ObjectValues<
@@ -580,7 +635,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
   LSPDiagnostics: "LSPDiagnostics",
   TerminalMetadata: "TerminalMetadata",
-  AllDependencies: "AllDependencies",
   Notification: "Notification",
   LLMStreamingResponse: "LLMStreamingResponse",
   UUIDMappingForLLM: "UUIDMappingForLLM",
@@ -589,10 +643,25 @@ export const WebsocketMsgTypeForFrontendEnum = {
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
   typeof WebsocketMsgTypeForFrontendEnum
+>;
+
+export const WebsocketMsgTypeForPythonScriptEnum = {
+  ListenerInit: "ListenerInit",
+  ListenerRegister: "ListenerRegister",
+  ListenerRegisterAck: "ListenerRegisterAck",
+  ListenerRealtimeEvent: "ListenerRealtimeEvent",
+  ListenerForceRefresh: "ListenerForceRefresh",
+  ListenerError: "ListenerError",
+  ListenerFrontendEmit: "ListenerFrontendEmit",
+} as const;
+
+export type WebsocketMsgTypeForPythonScript = ObjectValues<
+  typeof WebsocketMsgTypeForPythonScriptEnum
 >;
 
 export const SaveConflictStrategyEnum = {
@@ -853,6 +922,26 @@ export function createImageArtifact(
 export const ImageMappingSchema = z.record(z.string(), ImageArtifactSchema);
 
 export type ImageMapping = z.infer<typeof ImageMappingSchema>;
+
+export const BaseArtifactUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "type",
+  [
+    ImageArtifactSchema,
+    BrushStrokeArtifactSchema,
+    DrawAreaLayerItemTransformArtifactSchema,
+    ChartDataArtifactSchema,
+  ],
+);
+
+export type BaseArtifactUnionWithDiscriminator = z.infer<
+  typeof BaseArtifactUnionWithDiscriminatorSchema
+>;
+
+export function createBaseArtifactUnionWithDiscriminator(
+  options: Partial<BaseArtifactUnionWithDiscriminator> = {},
+): BaseArtifactUnionWithDiscriminator {
+  return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const CitationCharLocationSchema = z.object({
   cited_text: z.string(),
@@ -1800,7 +1889,7 @@ export const SharedModifierSchema = z.object({
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(z.string()).optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   selectedParams: z.array(z.string()).optional(),
   size: SectionSizeSchema.optional(),
   step: z.int().optional(),
@@ -2118,7 +2207,7 @@ export const ChartSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -2148,7 +2237,7 @@ export const DrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
   layers: z.array(DrawAreaLayerSchema).default([]),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
@@ -2773,6 +2862,130 @@ export type BaseClipboardDataUnionWithDiscriminator = z.infer<
   typeof BaseClipboardDataUnionWithDiscriminatorSchema
 >;
 
+export const SectionDependencyKeySchema = z.object({
+  type: z.literal("Section").default(DependencyKeyTypeEnum.Section),
+  sectionId: z.string(),
+});
+
+export type SectionDependencyKey = z.infer<typeof SectionDependencyKeySchema>;
+
+export function createSectionDependencyKey(
+  options: Partial<SectionDependencyKey> = {},
+): SectionDependencyKey {
+  return SectionDependencyKeySchema.parse(options);
+}
+
+export const SectionParamDependencyKeySchema = z.object({
+  type: z.literal("SectionParam").default(DependencyKeyTypeEnum.SectionParam),
+  sectionId: z.string(),
+  codeObjId: z.string(),
+});
+
+export type SectionParamDependencyKey = z.infer<
+  typeof SectionParamDependencyKeySchema
+>;
+
+export function createSectionParamDependencyKey(
+  options: Partial<SectionParamDependencyKey> = {},
+): SectionParamDependencyKey {
+  return SectionParamDependencyKeySchema.parse(options);
+}
+
+export const BaseDependencyKeyUnionSchema = z.union([
+  SectionDependencyKeySchema,
+  SectionParamDependencyKeySchema,
+]);
+
+export type BaseDependencyKeyUnion = z.infer<
+  typeof BaseDependencyKeyUnionSchema
+>;
+
+export const BaseDependencyKeyUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]);
+
+export type BaseDependencyKeyUnionWithDiscriminator = z.infer<
+  typeof BaseDependencyKeyUnionWithDiscriminatorSchema
+>;
+
+export function createBaseDependencyKeyUnionWithDiscriminator(
+  options: Partial<BaseDependencyKeyUnionWithDiscriminator> = {},
+): BaseDependencyKeyUnionWithDiscriminator {
+  return BaseDependencyKeyUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const LiteralDependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("Literal").default(DependencyValueTypeEnum.Literal),
+});
+
+export type LiteralDependencyValue = z.infer<
+  typeof LiteralDependencyValueSchema
+>;
+
+export function createLiteralDependencyValue(
+  options: Partial<LiteralDependencyValue> = {},
+): LiteralDependencyValue {
+  return LiteralDependencyValueSchema.parse(options);
+}
+
+export const Base64DependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("Base64").default(DependencyValueTypeEnum.Base64),
+});
+
+export type Base64DependencyValue = z.infer<typeof Base64DependencyValueSchema>;
+
+export function createBase64DependencyValue(
+  options: Partial<Base64DependencyValue> = {},
+): Base64DependencyValue {
+  return Base64DependencyValueSchema.parse(options);
+}
+
+export const FileReadDependencyValueSchema = z.object({
+  payload: z.string(),
+  type: z.literal("FileRead").default(DependencyValueTypeEnum.FileRead),
+});
+
+export type FileReadDependencyValue = z.infer<
+  typeof FileReadDependencyValueSchema
+>;
+
+export function createFileReadDependencyValue(
+  options: Partial<FileReadDependencyValue> = {},
+): FileReadDependencyValue {
+  return FileReadDependencyValueSchema.parse(options);
+}
+
+export const BaseDependencyValueUnionSchema = z.union([
+  LiteralDependencyValueSchema,
+  Base64DependencyValueSchema,
+  FileReadDependencyValueSchema,
+]);
+
+export type BaseDependencyValueUnion = z.infer<
+  typeof BaseDependencyValueUnionSchema
+>;
+
+export const BaseDependencyValueUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]);
+
+export type BaseDependencyValueUnionWithDiscriminator = z.infer<
+  typeof BaseDependencyValueUnionWithDiscriminatorSchema
+>;
+
+export function createBaseDependencyValueUnionWithDiscriminator(
+  options: Partial<BaseDependencyValueUnionWithDiscriminator> = {},
+): BaseDependencyValueUnionWithDiscriminator {
+  return BaseDependencyValueUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseCanvasSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
@@ -2903,26 +3116,6 @@ export const BaseArtifactUnionSchema = z.union([
 
 export type BaseArtifactUnion = z.infer<typeof BaseArtifactUnionSchema>;
 
-export const BaseArtifactUnionWithDiscriminatorSchema = z.discriminatedUnion(
-  "type",
-  [
-    ImageArtifactSchema,
-    BrushStrokeArtifactSchema,
-    DrawAreaLayerItemTransformArtifactSchema,
-    ChartDataArtifactSchema,
-  ],
-);
-
-export type BaseArtifactUnionWithDiscriminator = z.infer<
-  typeof BaseArtifactUnionWithDiscriminatorSchema
->;
-
-export function createBaseArtifactUnionWithDiscriminator(
-  options: Partial<BaseArtifactUnionWithDiscriminator> = {},
-): BaseArtifactUnionWithDiscriminator {
-  return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
-}
-
 export const ChartSectionImplArgsSchema = z.object({
   type: z.literal("Chart").optional(),
   id: z.string().optional(),
@@ -2937,7 +3130,7 @@ export const ChartSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   dataPath: z.string().optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -2966,7 +3159,7 @@ export const DrawSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
@@ -4148,6 +4341,47 @@ export function createBaseSectionWithParamsImplUnionWithDiscriminator(
   return BaseSectionWithParamsImplUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const RealtimeUIChangeContentSchema = z.object({
+  projectConfigId: z.string(),
+  dependencyKey: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
+  value: z.union([
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]),
+});
+
+export type RealtimeUIChangeContent = z.infer<
+  typeof RealtimeUIChangeContentSchema
+>;
+
+export function createRealtimeUIChangeContent(
+  options: Partial<RealtimeUIChangeContent> = {},
+): RealtimeUIChangeContent {
+  return RealtimeUIChangeContentSchema.parse(options);
+}
+
+export const WebsocketMsgRealtimeUIChangeSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: RealtimeUIChangeContentSchema,
+  messageType: z
+    .literal("RealtimeUIChange")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeUIChange),
+});
+
+export type WebsocketMsgRealtimeUIChange = z.infer<
+  typeof WebsocketMsgRealtimeUIChangeSchema
+>;
+
+export function createWebsocketMsgRealtimeUIChange(
+  options: Partial<WebsocketMsgRealtimeUIChange> = {},
+): WebsocketMsgRealtimeUIChange {
+  return WebsocketMsgRealtimeUIChangeSchema.parse(options);
+}
+
 export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.string(),
@@ -4166,12 +4400,30 @@ export function createWebsocketMsgCurrentAddressUpdate(
   return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
 }
 
+export const BackendWebsocketMsgUnionSchema = z.union([
+  WebsocketMsgRealtimeUIChangeSchema,
+  WebsocketMsgCurrentAddressUpdateSchema,
+]);
+
+export type BackendWebsocketMsgUnion = z.infer<
+  typeof BackendWebsocketMsgUnionSchema
+>;
+
 export const BackendWebsocketMsgUnionWithDiscriminatorSchema =
-  WebsocketMsgCurrentAddressUpdateSchema;
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgRealtimeUIChangeSchema,
+    WebsocketMsgCurrentAddressUpdateSchema,
+  ]);
 
 export type BackendWebsocketMsgUnionWithDiscriminator = z.infer<
   typeof BackendWebsocketMsgUnionWithDiscriminatorSchema
 >;
+
+export function createBackendWebsocketMsgUnionWithDiscriminator(
+  options: Partial<BackendWebsocketMsgUnionWithDiscriminator> = {},
+): BackendWebsocketMsgUnionWithDiscriminator {
+  return BackendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
@@ -4358,8 +4610,10 @@ export function createWebsocketMsgLSPDiagnostics(
 }
 
 export const RenameReferenceChangedValueSchema = z.object({
-  sectionId: z.string(),
-  paramInfoId: z.union([z.string(), z.null()]),
+  depKey: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
   newValue: z.string(),
 });
 
@@ -4603,24 +4857,6 @@ export function createWebsocketMsgUpdateFrontendProjectState(
   options: Partial<WebsocketMsgUpdateFrontendProjectState> = {},
 ): WebsocketMsgUpdateFrontendProjectState {
   return WebsocketMsgUpdateFrontendProjectStateSchema.parse(options);
-}
-
-export const WebsocketMsgAllDependenciesSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("AllDependencies")
-    .default(WebsocketMsgTypeForFrontendEnum.AllDependencies),
-});
-
-export type WebsocketMsgAllDependencies = z.infer<
-  typeof WebsocketMsgAllDependenciesSchema
->;
-
-export function createWebsocketMsgAllDependencies(
-  options: Partial<WebsocketMsgAllDependencies> = {},
-): WebsocketMsgAllDependencies {
-  return WebsocketMsgAllDependenciesSchema.parse(options);
 }
 
 export const WebsocketMsgTerminalMetadataSchema = z.object({
@@ -5498,6 +5734,45 @@ export function createWebsocketMsgUpdateArtifacts(
   return WebsocketMsgUpdateArtifactsSchema.parse(options);
 }
 
+export const ListenerCoverageSnapshotSchema = z.object({
+  projectConfigId: z.string(),
+  dependencies: z.array(
+    z.discriminatedUnion("type", [
+      SectionDependencyKeySchema,
+      SectionParamDependencyKeySchema,
+    ]),
+  ),
+  hasRealtimeWildcard: z.boolean(),
+});
+
+export type ListenerCoverageSnapshot = z.infer<
+  typeof ListenerCoverageSnapshotSchema
+>;
+
+export function createListenerCoverageSnapshot(
+  options: Partial<ListenerCoverageSnapshot> = {},
+): ListenerCoverageSnapshot {
+  return ListenerCoverageSnapshotSchema.parse(options);
+}
+
+export const WebsocketMsgListenerCoverageSnapshotSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerCoverageSnapshotSchema,
+  messageType: z
+    .literal("ListenerCoverageSnapshot")
+    .default(WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot),
+});
+
+export type WebsocketMsgListenerCoverageSnapshot = z.infer<
+  typeof WebsocketMsgListenerCoverageSnapshotSchema
+>;
+
+export function createWebsocketMsgListenerCoverageSnapshot(
+  options: Partial<WebsocketMsgListenerCoverageSnapshot> = {},
+): WebsocketMsgListenerCoverageSnapshot {
+  return WebsocketMsgListenerCoverageSnapshotSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5506,11 +5781,11 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
+  WebsocketMsgListenerCoverageSnapshotSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5526,11 +5801,11 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
+    WebsocketMsgListenerCoverageSnapshotSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5543,6 +5818,318 @@ export function createFrontendWebsocketMsgUnionWithDiscriminator(
   return FrontendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const ListenerRealtimeEventContentSchema = z.object({
+  projectConfigId: z.string(),
+  deltas: z.array(z.any()),
+  sequence: z.int(),
+});
+
+export type ListenerRealtimeEventContent = z.infer<
+  typeof ListenerRealtimeEventContentSchema
+>;
+
+export function createListenerRealtimeEventContent(
+  options: Partial<ListenerRealtimeEventContent> = {},
+): ListenerRealtimeEventContent {
+  return ListenerRealtimeEventContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerRealtimeEventSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerRealtimeEventContentSchema,
+  messageType: z
+    .literal("ListenerRealtimeEvent")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerRealtimeEvent),
+});
+
+export type WebsocketMsgListenerRealtimeEvent = z.infer<
+  typeof WebsocketMsgListenerRealtimeEventSchema
+>;
+
+export function createWebsocketMsgListenerRealtimeEvent(
+  options: Partial<WebsocketMsgListenerRealtimeEvent> = {},
+): WebsocketMsgListenerRealtimeEvent {
+  return WebsocketMsgListenerRealtimeEventSchema.parse(options);
+}
+
+export const ListenerForceRefreshContentSchema = z.object({
+  projectState: z
+    .union([ProjectStateSingleConfigSchema, z.null()])
+    .default(null),
+});
+
+export type ListenerForceRefreshContent = z.infer<
+  typeof ListenerForceRefreshContentSchema
+>;
+
+export function createListenerForceRefreshContent(
+  options: Partial<ListenerForceRefreshContent> = {},
+): ListenerForceRefreshContent {
+  return ListenerForceRefreshContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerForceRefreshSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerForceRefreshContentSchema,
+  messageType: z
+    .literal("ListenerForceRefresh")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerForceRefresh),
+});
+
+export type WebsocketMsgListenerForceRefresh = z.infer<
+  typeof WebsocketMsgListenerForceRefreshSchema
+>;
+
+export function createWebsocketMsgListenerForceRefresh(
+  options: Partial<WebsocketMsgListenerForceRefresh> = {},
+): WebsocketMsgListenerForceRefresh {
+  return WebsocketMsgListenerForceRefreshSchema.parse(options);
+}
+
+export const ListenerErrorContentSchema = z.object({
+  error: z.string(),
+  details: z.union([z.any(), z.null()]).default(null),
+});
+
+export type ListenerErrorContent = z.infer<typeof ListenerErrorContentSchema>;
+
+export function createListenerErrorContent(
+  options: Partial<ListenerErrorContent> = {},
+): ListenerErrorContent {
+  return ListenerErrorContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerErrorSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerErrorContentSchema,
+  messageType: z
+    .literal("ListenerError")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerError),
+});
+
+export type WebsocketMsgListenerError = z.infer<
+  typeof WebsocketMsgListenerErrorSchema
+>;
+
+export function createWebsocketMsgListenerError(
+  options: Partial<WebsocketMsgListenerError> = {},
+): WebsocketMsgListenerError {
+  return WebsocketMsgListenerErrorSchema.parse(options);
+}
+
+export const ListenerFrontendEmitRawContentSchema = z.object({
+  projectConfigId: z.string(),
+  dependencyValues: z.record(z.string(), z.any()).default({}),
+  artifactUpdates: z
+    .array(
+      z.discriminatedUnion("type", [
+        ImageArtifactSchema,
+        BrushStrokeArtifactSchema,
+        DrawAreaLayerItemTransformArtifactSchema,
+        ChartDataArtifactSchema,
+      ]),
+    )
+    .default([]),
+});
+
+export type ListenerFrontendEmitRawContent = z.infer<
+  typeof ListenerFrontendEmitRawContentSchema
+>;
+
+export function createListenerFrontendEmitRawContent(
+  options: Partial<ListenerFrontendEmitRawContent> = {},
+): ListenerFrontendEmitRawContent {
+  return ListenerFrontendEmitRawContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerFrontendEmitSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerFrontendEmitRawContentSchema,
+  messageType: z
+    .literal("ListenerFrontendEmit")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerFrontendEmit),
+});
+
+export type WebsocketMsgListenerFrontendEmit = z.infer<
+  typeof WebsocketMsgListenerFrontendEmitSchema
+>;
+
+export function createWebsocketMsgListenerFrontendEmit(
+  options: Partial<WebsocketMsgListenerFrontendEmit> = {},
+): WebsocketMsgListenerFrontendEmit {
+  return WebsocketMsgListenerFrontendEmitSchema.parse(options);
+}
+
+export const ListenerRegisterCallbackSchema = z.object({
+  dependencies: z.array(
+    z.discriminatedUnion("type", [
+      SectionDependencyKeySchema,
+      SectionParamDependencyKeySchema,
+    ]),
+  ),
+  dependencyMode: z.enum(ListenerDependencyModeEnum),
+  debounceMs: z.union([z.int(), z.null()]).default(null),
+  throttleMs: z.union([z.int(), z.null()]).default(null),
+  runOnRefresh: z.boolean().default(false),
+});
+
+export type ListenerRegisterCallback = z.infer<
+  typeof ListenerRegisterCallbackSchema
+>;
+
+export function createListenerRegisterCallback(
+  options: Partial<ListenerRegisterCallback> = {},
+): ListenerRegisterCallback {
+  return ListenerRegisterCallbackSchema.parse(options);
+}
+
+export const ListenerRegisterContentSchema = z.object({
+  projectConfigId: z.string(),
+  callbacks: z.record(z.string(), ListenerRegisterCallbackSchema),
+});
+
+export type ListenerRegisterContent = z.infer<
+  typeof ListenerRegisterContentSchema
+>;
+
+export function createListenerRegisterContent(
+  options: Partial<ListenerRegisterContent> = {},
+): ListenerRegisterContent {
+  return ListenerRegisterContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerRegisterSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerRegisterContentSchema,
+  messageType: z
+    .literal("ListenerRegister")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerRegister),
+});
+
+export type WebsocketMsgListenerRegister = z.infer<
+  typeof WebsocketMsgListenerRegisterSchema
+>;
+
+export function createWebsocketMsgListenerRegister(
+  options: Partial<WebsocketMsgListenerRegister> = {},
+): WebsocketMsgListenerRegister {
+  return WebsocketMsgListenerRegisterSchema.parse(options);
+}
+
+export const ListenerRegisterAckStatusSchema = z.object({
+  status: z.literal(["accepted", "rejected"]),
+  message: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ListenerRegisterAckStatus = z.infer<
+  typeof ListenerRegisterAckStatusSchema
+>;
+
+export function createListenerRegisterAckStatus(
+  options: Partial<ListenerRegisterAckStatus> = {},
+): ListenerRegisterAckStatus {
+  return ListenerRegisterAckStatusSchema.parse(options);
+}
+
+export const ListenerRegisterAckContentSchema = z.object({
+  projectConfigId: z.string(),
+  callbacks: z.record(z.string(), ListenerRegisterAckStatusSchema),
+});
+
+export type ListenerRegisterAckContent = z.infer<
+  typeof ListenerRegisterAckContentSchema
+>;
+
+export function createListenerRegisterAckContent(
+  options: Partial<ListenerRegisterAckContent> = {},
+): ListenerRegisterAckContent {
+  return ListenerRegisterAckContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerRegisterAckSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerRegisterAckContentSchema,
+  messageType: z
+    .literal("ListenerRegisterAck")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerRegisterAck),
+});
+
+export type WebsocketMsgListenerRegisterAck = z.infer<
+  typeof WebsocketMsgListenerRegisterAckSchema
+>;
+
+export function createWebsocketMsgListenerRegisterAck(
+  options: Partial<WebsocketMsgListenerRegisterAck> = {},
+): WebsocketMsgListenerRegisterAck {
+  return WebsocketMsgListenerRegisterAckSchema.parse(options);
+}
+
+export const ListenerInitContentSchema = z.object({
+  projectConfigId: z.union([z.string(), z.null()]).default(null),
+  projectName: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ListenerInitContent = z.infer<typeof ListenerInitContentSchema>;
+
+export function createListenerInitContent(
+  options: Partial<ListenerInitContent> = {},
+): ListenerInitContent {
+  return ListenerInitContentSchema.parse(options);
+}
+
+export const WebsocketMsgListenerInitSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ListenerInitContentSchema,
+  messageType: z
+    .literal("ListenerInit")
+    .default(WebsocketMsgTypeForPythonScriptEnum.ListenerInit),
+});
+
+export type WebsocketMsgListenerInit = z.infer<
+  typeof WebsocketMsgListenerInitSchema
+>;
+
+export function createWebsocketMsgListenerInit(
+  options: Partial<WebsocketMsgListenerInit> = {},
+): WebsocketMsgListenerInit {
+  return WebsocketMsgListenerInitSchema.parse(options);
+}
+
+export const PythonScriptWebsocketMsgUnionSchema = z.union([
+  WebsocketMsgListenerRealtimeEventSchema,
+  WebsocketMsgListenerForceRefreshSchema,
+  WebsocketMsgListenerErrorSchema,
+  WebsocketMsgListenerFrontendEmitSchema,
+  WebsocketMsgListenerRegisterSchema,
+  WebsocketMsgListenerRegisterAckSchema,
+  WebsocketMsgListenerInitSchema,
+]);
+
+export type PythonScriptWebsocketMsgUnion = z.infer<
+  typeof PythonScriptWebsocketMsgUnionSchema
+>;
+
+export const PythonScriptWebsocketMsgUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgListenerRealtimeEventSchema,
+    WebsocketMsgListenerForceRefreshSchema,
+    WebsocketMsgListenerErrorSchema,
+    WebsocketMsgListenerFrontendEmitSchema,
+    WebsocketMsgListenerRegisterSchema,
+    WebsocketMsgListenerRegisterAckSchema,
+    WebsocketMsgListenerInitSchema,
+  ]);
+
+export type PythonScriptWebsocketMsgUnionWithDiscriminator = z.infer<
+  typeof PythonScriptWebsocketMsgUnionWithDiscriminatorSchema
+>;
+
+export function createPythonScriptWebsocketMsgUnionWithDiscriminator(
+  options: Partial<PythonScriptWebsocketMsgUnionWithDiscriminator> = {},
+): PythonScriptWebsocketMsgUnionWithDiscriminator {
+  return PythonScriptWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5551,12 +6138,20 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
+  WebsocketMsgListenerCoverageSnapshotSchema,
+  WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
+  WebsocketMsgListenerRealtimeEventSchema,
+  WebsocketMsgListenerForceRefreshSchema,
+  WebsocketMsgListenerErrorSchema,
+  WebsocketMsgListenerFrontendEmitSchema,
+  WebsocketMsgListenerRegisterSchema,
+  WebsocketMsgListenerRegisterAckSchema,
+  WebsocketMsgListenerInitSchema,
 ]);
 
 export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
@@ -5571,12 +6166,20 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
+    WebsocketMsgListenerCoverageSnapshotSchema,
+    WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
+    WebsocketMsgListenerRealtimeEventSchema,
+    WebsocketMsgListenerForceRefreshSchema,
+    WebsocketMsgListenerErrorSchema,
+    WebsocketMsgListenerFrontendEmitSchema,
+    WebsocketMsgListenerRegisterSchema,
+    WebsocketMsgListenerRegisterAckSchema,
+    WebsocketMsgListenerInitSchema,
   ],
 );
 
@@ -5604,7 +6207,7 @@ export const BaseCanvasSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  renderedValue: z.any().optional(),
+  renderedValue: z.union([z.string(), z.null()]).optional(),
 });
 
 export type BaseCanvasSectionImplArgs = z.infer<
@@ -5631,7 +6234,7 @@ export const BaseCanvasSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  renderedValue: z.union([z.any(), z.any()]).optional(),
+  renderedValue: z.union([z.string(), z.null(), z.any()]).optional(),
 });
 
 export type BaseCanvasSectionImplArgsWithCallable = z.infer<
@@ -6227,7 +6830,7 @@ export const ChartSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  renderedValue: z.union([z.any(), z.any()]).optional(),
+  renderedValue: z.union([z.string(), z.null(), z.any()]).optional(),
   dataPath: z.union([z.string(), z.any()]).optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema, z.any()])
@@ -6460,7 +7063,7 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  renderedValue: z.union([z.any(), z.any()]).optional(),
+  renderedValue: z.union([z.string(), z.null(), z.any()]).optional(),
   layers: z.union([z.array(DrawAreaLayerSchema), z.any()]).optional(),
   activeLayerIdx: z.union([z.int(), z.any()]).optional(),
   brushColor: z.union([z.string(), z.any()]).optional(),
@@ -7213,7 +7816,7 @@ export const BaseCanvasSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
+  renderedValue: z.union([z.string(), z.null()]).default(null),
 });
 
 export type BaseCanvasSectionImpl = z.infer<typeof BaseCanvasSectionImplSchema>;
@@ -7619,6 +8222,62 @@ export function createProjectStateBackend(
   return ProjectStateBackendSchema.parse(options);
 }
 
+export const ListenerCoverageRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type ListenerCoverageRequest = z.infer<
+  typeof ListenerCoverageRequestSchema
+>;
+
+export function createListenerCoverageRequest(
+  options: Partial<ListenerCoverageRequest> = {},
+): ListenerCoverageRequest {
+  return ListenerCoverageRequestSchema.parse(options);
+}
+
+export const ListenerFrontendEmitKeyAndValueSchema = z.object({
+  dependencyKey: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
+  value: z.union([
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]),
+});
+
+export type ListenerFrontendEmitKeyAndValue = z.infer<
+  typeof ListenerFrontendEmitKeyAndValueSchema
+>;
+
+export function createListenerFrontendEmitKeyAndValue(
+  options: Partial<ListenerFrontendEmitKeyAndValue> = {},
+): ListenerFrontendEmitKeyAndValue {
+  return ListenerFrontendEmitKeyAndValueSchema.parse(options);
+}
+
+export const ListenerRealtimeDeltaSchema = z.object({
+  dependency: z.union([
+    SectionDependencyKeySchema,
+    SectionParamDependencyKeySchema,
+  ]),
+  value: z.union([
+    LiteralDependencyValueSchema,
+    Base64DependencyValueSchema,
+    FileReadDependencyValueSchema,
+  ]),
+});
+
+export type ListenerRealtimeDelta = z.infer<typeof ListenerRealtimeDeltaSchema>;
+
+export function createListenerRealtimeDelta(
+  options: Partial<ListenerRealtimeDelta> = {},
+): ListenerRealtimeDelta {
+  return ListenerRealtimeDeltaSchema.parse(options);
+}
+
 export const BrowserAreaItemSchema = z.object({
   id: z.string(),
   type: z.any(),
@@ -7720,6 +8379,22 @@ export function createFrontendWebsocketMsg(
   options: Partial<FrontendWebsocketMsg> = {},
 ): FrontendWebsocketMsg {
   return FrontendWebsocketMsgSchema.parse(options);
+}
+
+export const PythonScriptWebsocketMsgSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z.any(),
+});
+
+export type PythonScriptWebsocketMsg = z.infer<
+  typeof PythonScriptWebsocketMsgSchema
+>;
+
+export function createPythonScriptWebsocketMsg(
+  options: Partial<PythonScriptWebsocketMsg> = {},
+): PythonScriptWebsocketMsg {
+  return PythonScriptWebsocketMsgSchema.parse(options);
 }
 
 export const WebsocketConnectionInfoWithSocketSchema = z.object({
@@ -8237,6 +8912,21 @@ export function createDeleteSectionsRequest(
   options: Partial<DeleteSectionsRequest> = {},
 ): DeleteSectionsRequest {
   return DeleteSectionsRequestSchema.parse(options);
+}
+
+export const ForceRefreshProjectRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.string(),
+});
+
+export type ForceRefreshProjectRequest = z.infer<
+  typeof ForceRefreshProjectRequestSchema
+>;
+
+export function createForceRefreshProjectRequest(
+  options: Partial<ForceRefreshProjectRequest> = {},
+): ForceRefreshProjectRequest {
+  return ForceRefreshProjectRequestSchema.parse(options);
 }
 
 export const GenCodePrefixCompletionRequestSchema = z.object({
@@ -9243,6 +9933,31 @@ export function createRunCodeRequest(
   options: Partial<RunCodeRequest> = {},
 ): RunCodeRequest {
   return RunCodeRequestSchema.parse(options);
+}
+
+export const BaseDependencyKeySchema = z.object({
+  type: z.enum(DependencyKeyTypeEnum),
+});
+
+export type BaseDependencyKey = z.infer<typeof BaseDependencyKeySchema>;
+
+export function createBaseDependencyKey(
+  options: Partial<BaseDependencyKey> = {},
+): BaseDependencyKey {
+  return BaseDependencyKeySchema.parse(options);
+}
+
+export const BaseDependencyValueSchema = z.object({
+  payload: z.any(),
+  type: z.enum(DependencyValueTypeEnum),
+});
+
+export type BaseDependencyValue = z.infer<typeof BaseDependencyValueSchema>;
+
+export function createBaseDependencyValue(
+  options: Partial<BaseDependencyValue> = {},
+): BaseDependencyValue {
+  return BaseDependencyValueSchema.parse(options);
 }
 
 export const SettaLSPPositionSchema = z.object({

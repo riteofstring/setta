@@ -14,16 +14,31 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
-  createWebsocketConnectionInfo,
-  createWebsocketMsgCurrentAddressUpdate,
+  Base64DependencyValue,
+  BaseDependencyKeyUnion,
+  BaseDependencyValueUnion,
+  DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
+  LiteralDependencyValue,
   RouteEnum,
+  SectionDependencyKey,
+  SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
+  WebsocketMsgRealtimeUIChange,
+  WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
+  createWebsocketConnectionInfo,
+  createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
+import {
+  applyListenerCoverageSnapshot,
+  dependencyKeyCovered,
+  getListenerCoverageRecord,
+} from "./listenerCoverage";
 import { handleRenameRefactorBroadcast } from "./renameRefactors";
 import {
   getCurrProjectConfigId,
@@ -104,10 +119,6 @@ function receiveMessage(message: string) {
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
-    // case WebsocketMsgTypeForFrontendEnum.AllDependencies:
-    // return updateInteractiveDependencies(m.content);
-    // case WebsocketMsgTypeForFrontendEnum.Artifact:
-    //   return updateInteractiveArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
@@ -129,6 +140,8 @@ function receiveMessage(message: string) {
       return updateAllProjectMetadata(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
       return updateArtifacts(m.content);
+    case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
+      return applyListenerCoverageSnapshot(m.content);
     default:
       return m satisfies never;
   }
@@ -138,6 +151,63 @@ export function sendCurrentAddress(currentAddress: string) {
   sendMessage(
     createWebsocketMsgCurrentAddressUpdate({ content: currentAddress }),
   );
+}
+
+function emitRealtimeDependencyValue(
+  dependencyKey: BaseDependencyKeyUnion,
+  value: BaseDependencyValueUnion,
+) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  const coverage = getListenerCoverageRecord(projectConfigId);
+  if (!coverage || !dependencyKeyCovered(projectConfigId, dependencyKey)) {
+    return;
+  }
+
+  const message: WebsocketMsgRealtimeUIChange = {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
+    content: {
+      projectConfigId,
+      dependencyKey,
+      value,
+    },
+  };
+  sendMessage(message);
+}
+
+export function sendRealtimeSectionParamLiteral(
+  sectionId: string,
+  codeObjId: string,
+  value: string,
+) {
+  const dependencyKey: SectionParamDependencyKey = {
+    type: DependencyKeyTypeEnum.SectionParam,
+    sectionId,
+    codeObjId,
+  };
+  const dependencyValue: LiteralDependencyValue = {
+    payload: value,
+    type: DependencyValueTypeEnum.Literal,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+}
+
+export function sendRealtimeSectionBase64(
+  sectionId: string,
+  base64Payload: string,
+) {
+  const dependencyKey: SectionDependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
+  };
+  const dependencyValue: Base64DependencyValue = {
+    payload: base64Payload,
+    type: DependencyValueTypeEnum.Base64,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
 
 export function sendMessage(message: WebsocketMsg) {

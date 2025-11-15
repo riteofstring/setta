@@ -1,17 +1,22 @@
+import logging
+
 from setta.project_state.project_manager import ProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
 )
+from setta.types.listener import ListenerRealtimeDelta, RealtimeUIChangeContent
 from setta.types.websocket import (
-    WebsocketMsgAllDependencies,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgRealtimeUIChange,
 )
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
-from setta.websockets.script_metadata import ScriptMetadata
+from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
+
+logger = logging.getLogger(__name__)
 
 
 class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
@@ -19,11 +24,11 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         self,
         websocket_manager: WebsocketManager,
         project_manager: ProjectManager,
-        script_metadata: ScriptMetadata,
+        realtime_event_hub: RealtimeEventHub,
     ):
         self.websocket_manager = websocket_manager
         self.project_manager = project_manager
-        self.script_metadata = script_metadata
+        self.realtime_event_hub = realtime_event_hub
 
     async def process_json_str(self, json_str: str, fromWebsocketId: str):
         m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_json(
@@ -32,10 +37,19 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgCurrentAddressUpdate):
             self.websocket_manager.update_current_address(m.content, fromWebsocketId)
+            return
+
+        if isinstance(m, WebsocketMsgRealtimeUIChange):
+            await self._handle_realtime_ui_change(m.content)
 
     async def on_connect(self, websocket_id: str):
-        await self.websocket_manager.send_message(
-            WebsocketMsgAllDependencies(content=self.script_metadata.dependencies),
-            websocket_id,
-        )
         await self.project_manager.broadcast_all_project_metadata()
+
+    async def _handle_realtime_ui_change(self, content: RealtimeUIChangeContent):
+        delta = ListenerRealtimeDelta(
+            dependency=content.dependencyKey, value=content.value
+        )
+        await self.realtime_event_hub.emit_realtime_delta(
+            project_config_id=content.projectConfigId,
+            deltas=[delta],
+        )

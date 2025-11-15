@@ -4,12 +4,20 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
     WebsocketMsgAllConnections,
-    WebsocketMsgAllDependencies,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgListenerCoverageSnapshot,
+    WebsocketMsgListenerError,
+    WebsocketMsgListenerForceRefresh,
+    WebsocketMsgListenerFrontendEmit,
+    WebsocketMsgListenerInit,
+    WebsocketMsgListenerRealtimeEvent,
+    WebsocketMsgListenerRegister,
+    WebsocketMsgListenerRegisterAck,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
+    WebsocketMsgRealtimeUIChange,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateArtifacts,
@@ -26,12 +34,20 @@ WebsocketMsgUnion = (
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
-    | WebsocketMsgAllDependencies
     | WebsocketMsgTerminalMetadata
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
+    | WebsocketMsgListenerCoverageSnapshot
+    | WebsocketMsgRealtimeUIChange
     | WebsocketMsgCurrentAddressUpdate
+    | WebsocketMsgListenerRealtimeEvent
+    | WebsocketMsgListenerForceRefresh
+    | WebsocketMsgListenerError
+    | WebsocketMsgListenerFrontendEmit
+    | WebsocketMsgListenerRegister
+    | WebsocketMsgListenerRegisterAck
+    | WebsocketMsgListenerInit
 )
 
 WebsocketMsgUnionWithDiscriminator = Annotated[
@@ -49,12 +65,20 @@ WebsocketMsgTypeSet = set(
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
-        "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
         "AllProjectMetadata",
         "UpdateArtifacts",
+        "ListenerCoverageSnapshot",
+        "RealtimeUIChange",
         "CurrentAddressUpdate",
+        "ListenerRealtimeEvent",
+        "ListenerForceRefresh",
+        "ListenerError",
+        "ListenerFrontendEmit",
+        "ListenerRegister",
+        "ListenerRegisterAck",
+        "ListenerInit",
     ]
 )
 
@@ -66,11 +90,11 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
-    | WebsocketMsgAllDependencies
     | WebsocketMsgTerminalMetadata
     | WebsocketMsgUpdateSettings
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
+    | WebsocketMsgListenerCoverageSnapshot
 )
 
 FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -90,15 +114,17 @@ FrontendWebsocketMsgTypeSet = set(
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
-        "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
         "AllProjectMetadata",
         "UpdateArtifacts",
+        "ListenerCoverageSnapshot",
     ]
 )
 
-BackendWebsocketMsgUnion = WebsocketMsgCurrentAddressUpdate
+BackendWebsocketMsgUnion = (
+    WebsocketMsgRealtimeUIChange | WebsocketMsgCurrentAddressUpdate
+)
 
 BackendWebsocketMsgUnionWithDiscriminator = Annotated[
     BackendWebsocketMsgUnion, Field(discriminator="messageType")
@@ -106,4 +132,34 @@ BackendWebsocketMsgUnionWithDiscriminator = Annotated[
 
 BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscriminator)
 
-BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate"])
+BackendWebsocketMsgTypeSet = set(["RealtimeUIChange", "CurrentAddressUpdate"])
+
+PythonScriptWebsocketMsgUnion = (
+    WebsocketMsgListenerRealtimeEvent
+    | WebsocketMsgListenerForceRefresh
+    | WebsocketMsgListenerError
+    | WebsocketMsgListenerFrontendEmit
+    | WebsocketMsgListenerRegister
+    | WebsocketMsgListenerRegisterAck
+    | WebsocketMsgListenerInit
+)
+
+PythonScriptWebsocketMsgUnionWithDiscriminator = Annotated[
+    PythonScriptWebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(
+    PythonScriptWebsocketMsgUnionWithDiscriminator
+)
+
+PythonScriptWebsocketMsgTypeSet = set(
+    [
+        "ListenerRealtimeEvent",
+        "ListenerForceRefresh",
+        "ListenerError",
+        "ListenerFrontendEmit",
+        "ListenerRegister",
+        "ListenerRegisterAck",
+        "ListenerInit",
+    ]
+)

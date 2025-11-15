@@ -25,7 +25,9 @@ from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.utils.constants import C
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 __all__ = [
@@ -47,7 +49,9 @@ class SettingsManagerFixture:
     artifacts: Artifacts
     json_source: JSONSource
     code_files: CodeFiles
+    python_script_sender: WMHPythonScriptSender
     websocket_manager: WebsocketManager
+    listener_registry: ListenerRegistry
 
 
 @dataclass(slots=True)
@@ -61,7 +65,9 @@ class ProjectManagerFixture:
     artifacts: Artifacts
     json_source: JSONSource
     code_files: CodeFiles
+    python_script_sender: WMHPythonScriptSender
     websocket_manager: WebsocketManager
+    listener_registry: ListenerRegistry
 
 
 @asynccontextmanager
@@ -90,6 +96,10 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
+            listener_registry = ListenerRegistry()
+            python_script_sender = WMHPythonScriptSender(
+                websocket_manager, listener_registry
+            )
             dbe = DBE(setta_root)
             settings_file = SettingsFile(dbe, frontend_sender)
 
@@ -107,6 +117,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             manager = SettingsProjectManager(
                 lsp_writers,
                 frontend_sender,
+                python_script_sender,
                 settings_file,
                 specific_file_watcher,
                 dbe,
@@ -144,7 +155,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 artifacts=artifacts,
                 json_source=json_source,
                 code_files=code_files,
+                python_script_sender=python_script_sender,
                 websocket_manager=websocket_manager,
+                listener_registry=listener_registry,
             )
 
             yield fixture
@@ -188,6 +201,10 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
+            listener_registry = ListenerRegistry()
+            python_script_sender = WMHPythonScriptSender(
+                websocket_manager, listener_registry
+            )
             dbe = DBE(setta_root)
             settings_file = SettingsFile(dbe, frontend_sender)
 
@@ -205,6 +222,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             manager = ProjectManager(
                 lsp_writers,
                 frontend_sender,
+                python_script_sender,
                 settings_file,
                 specific_file_watcher,
                 dbe,
@@ -242,7 +260,9 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 artifacts=artifacts,
                 json_source=json_source,
                 code_files=code_files,
+                python_script_sender=python_script_sender,
                 websocket_manager=websocket_manager,
+                listener_registry=listener_registry,
             )
 
             yield fixture

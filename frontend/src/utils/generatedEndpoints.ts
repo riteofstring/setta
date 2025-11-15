@@ -165,6 +165,12 @@ export async function route_update_artifacts(
   return await post("/updateArtifacts", x);
 }
 
+export async function route_get_listener_coverage(
+  x: gt.ListenerCoverageRequest,
+): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
+  return await post("/getListenerCoverage", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
@@ -321,6 +327,12 @@ export async function route_get_latest_project_state(
   ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
 > {
   return await post("/getLatestProjectState", x);
+}
+
+export async function route_force_refresh_listener(
+  x: gt.ForceRefreshProjectRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/forceRefreshListener", x);
 }
 
 export async function route_set_top_level_section_layout(

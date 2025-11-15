@@ -206,12 +206,12 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
-    renderedValue: NotRequired[Any]
+    renderedValue: NotRequired[str | None]
 
 
 class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    renderedValue: NotRequired[Any | Callable[[Any], Any]]
+    renderedValue: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
