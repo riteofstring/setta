@@ -329,6 +329,39 @@ class Artifacts:
             case _:
                 assert_never(x)
 
+    def cache_artifact_in_memory(
+        self,
+        artifact: "BaseArtifactUnion",
+        *,
+        compute_last_read_hash: bool = True,
+        new_metadata_last_read_hash: str | None = None,
+        reset_conflict: bool = False,
+    ) -> tuple[Path, ArtifactMetadata]:
+        """Store an artifact in the in-memory cache and mark metadata dirty."""
+        art_dict = self.dict_for_artifact_type(artifact.type)
+        metadata_dict = self.metadata_dict_for_artifact_type(artifact.type)
+        path = normalize_path(artifact.id)
+
+        art_dict[path] = artifact  # type: ignore[index]
+        metadata = metadata_dict.get(path)
+        if metadata is None:
+            last_read_hash = (
+                self._compute_file_hash(path)
+                if compute_last_read_hash
+                else new_metadata_last_read_hash
+            )
+            metadata = ArtifactMetadata(
+                last_read_hash=last_read_hash,
+                is_dirty=True,
+            )
+            metadata_dict[path] = metadata
+        else:
+            metadata.is_dirty = True
+            if reset_conflict:
+                metadata.has_conflict = False
+
+        return path, metadata
+
     def _prepare_artifact_for_storage(
         self, artifact: "BaseArtifactUnion"
     ) -> PreparedArtifact:
@@ -456,21 +489,7 @@ class Artifacts:
         artifact: "BaseArtifactUnion",
         conflict_strategy: SaveConflictStrategy,
     ) -> ArtifactSaveResult:
-        art_dict = self.dict_for_artifact_type(artifact.type)
-        metadata_dict = self.metadata_dict_for_artifact_type(artifact.type)
-        path = normalize_path(artifact.id)
-
-        art_dict[path] = artifact  # type: ignore
-        metadata = metadata_dict.get(path)
-        if metadata is None:
-            metadata = ArtifactMetadata(
-                last_read_hash=self._compute_file_hash(path),
-                is_dirty=True,
-            )
-            metadata_dict[path] = metadata
-        else:
-            metadata.is_dirty = True
-
+        path, metadata = self.cache_artifact_in_memory(artifact)
         prepared = self._prepare_artifact_for_storage(artifact)
         return self._write_prepared_artifact(
             path, artifact, metadata, prepared, conflict_strategy

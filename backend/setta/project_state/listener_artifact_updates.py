@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from setta.project_state.artifacts import ArtifactMetadata, Artifacts
+from setta.project_state.artifacts import Artifacts
 from setta.types.artifact import (
     ArtifactType,
     BrushStroke,
@@ -38,36 +38,13 @@ def apply_listener_artifact_updates(
             normalized_path=normalized_path,
             update=update,
         )
-        _cache_listener_artifact(
-            artifacts=artifacts,
-            normalized_path=normalized_path,
-            artifact=artifact,
-            artifact_type=update.artifactType,
+        artifacts.cache_artifact_in_memory(
+            artifact,
+            compute_last_read_hash=False,
+            reset_conflict=True,
         )
         applied.append(artifact)
     return applied
-
-
-def _cache_listener_artifact(
-    *,
-    artifacts: Artifacts,
-    normalized_path: Path,
-    artifact: BaseArtifactUnion,
-    artifact_type: ArtifactType,
-) -> None:
-    art_dict = artifacts.dict_for_artifact_type(artifact_type)
-    metadata_dict = artifacts.metadata_dict_for_artifact_type(artifact_type)
-
-    art_dict[normalized_path] = artifact  # type: ignore[index]
-    metadata = metadata_dict.get(normalized_path)
-    if metadata is None:
-        metadata_dict[normalized_path] = ArtifactMetadata(
-            last_read_hash=None,
-            is_dirty=True,
-        )
-    else:
-        metadata.is_dirty = True
-        metadata.has_conflict = False
 
 
 def _build_artifact_from_listener_payload(
