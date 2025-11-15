@@ -25,7 +25,7 @@ from setta.project_state.listener_dependency_updates import (
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
-from setta.types.artifact import ArtifactType
+from setta.types.artifact import ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import SectionDependencyKey
 from setta.types.dependency_value import LiteralDependencyValue
@@ -33,10 +33,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
-from setta.types.listener import (
-    ListenerFrontendEmitArtifactUpdate,
-    ListenerFrontendEmitKeyAndValue,
-)
+from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
@@ -197,7 +194,6 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
         )
 
         slug = sanitize_name(project_config.name)
-        text_slug = sanitize_name(section.name)
         (self.code_folder / "sections" / slug).mkdir(parents=True, exist_ok=True)
         (self.artifacts_folder / slug).mkdir(parents=True, exist_ok=True)
 
@@ -295,10 +291,9 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_artifact_updates_trigger_artifact_broadcast(self):
         artifact_updates = [
-            ListenerFrontendEmitArtifactUpdate(
-                path="listener/new-image.png",
-                artifactType=ArtifactType.Image,
-                data="data:image/png;base64,AAA",
+            ImageArtifact(
+                id="listener/new-image.png",
+                value="data:image/png;base64,AAA",
             )
         ]
         captured_artifact_calls: list[tuple[list, str]] = []

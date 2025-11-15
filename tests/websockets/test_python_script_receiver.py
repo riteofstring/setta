@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import unittest
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
-from setta.types.artifact import ArtifactType
+from setta.types.artifact import ArtifactType, ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.listener import (
     ListenerDependencyMode,
-    ListenerFrontendEmitArtifactUpdate,
     ListenerFrontendEmitKeyAndValue,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
@@ -37,6 +36,9 @@ from setta.websockets.msg_handlers.python_script_receiver import (
     WMHPythonScriptReceiver,
 )
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+
+if TYPE_CHECKING:
+    from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
 
 def _build_project_state(project_config_id: str) -> ProjectStateSingleConfig:
@@ -107,8 +109,15 @@ class _StubGenCode:
 
 
 class _StubArtifacts:
+    def __init__(self) -> None:
+        self.cached_types: dict[str, ArtifactType | None] = {}
+        self.raise_value_error: bool = False
+
     def get_cached_artifact_type(self, path):
-        return None
+        if self.raise_value_error:
+            raise ValueError("conflict")
+        normalized = str(normalize_path(path))
+        return self.cached_types.get(normalized)
 
 
 class _StubProjectManager:
@@ -118,7 +127,7 @@ class _StubProjectManager:
             tuple[str, list[ListenerFrontendEmitKeyAndValue]]
         ] = []
         self.listener_artifact_updates: list[
-            tuple[str, list[ListenerFrontendEmitArtifactUpdate]]
+            tuple[str, list[BaseArtifactUnionWithDiscriminator]]
         ] = []
         self.artifact_error: ListenerArtifactUpdateError | None = None
         self.gen_code = {
@@ -140,7 +149,7 @@ class _StubProjectManager:
         *,
         projectConfigId: str,
         dependency_updates: list[ListenerFrontendEmitKeyAndValue],
-        artifact_updates: list[ListenerFrontendEmitArtifactUpdate],
+        artifact_updates: list[BaseArtifactUnionWithDiscriminator],
     ) -> None:
         self.listener_updates.append((projectConfigId, dependency_updates))
         self.listener_artifact_updates.append((projectConfigId, artifact_updates))
@@ -769,11 +778,12 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.sent_messages.clear()
         websocket_manager.broadcasts.clear()
 
+        artifact = ImageArtifact(id="/tmp/image.png", value="data:image/png;base64,AAA")
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-123",
                 dependencyValues={},
-                artifactUpdates={"/tmp/image.png": "data:image/png;base64,AAA"},
+                artifactUpdates=[artifact],
             )
         )
 
@@ -792,9 +802,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("proj-123", project_id)
         self.assertEqual(1, len(artifact_updates))
         artifact_update = artifact_updates[0]
-        self.assertEqual(str(normalize_path("/tmp/image.png")), artifact_update.path)
-        self.assertEqual(ArtifactType.Image, artifact_update.artifactType)
-        self.assertEqual("data:image/png;base64,AAA", artifact_update.data)
+        self.assertEqual(str(normalize_path("/tmp/image.png")), artifact_update.id)
+        self.assertEqual(ArtifactType.Image, artifact_update.type)
+        self.assertEqual("data:image/png;base64,AAA", artifact_update.value)
 
     async def test_listener_frontend_emit_reports_artifact_errors_from_manager(
         self,
@@ -834,11 +844,12 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.sent_messages.clear()
         websocket_manager.broadcasts.clear()
 
+        artifact = ImageArtifact(id="/tmp/image.png", value="data:image/png;base64,AAA")
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-123",
                 dependencyValues={},
-                artifactUpdates={"/tmp/image.png": "data:image/png;base64,AAA"},
+                artifactUpdates=[artifact],
             )
         )
 
@@ -861,7 +872,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual([], websocket_manager.broadcasts)
 
-    async def test_listener_frontend_emit_validates_artifact_payload_shape(self):
+    async def test_listener_frontend_emit_rejects_blank_artifact_paths(self):
         websocket_manager = _StubWebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         listener_registry = ListenerRegistry()
@@ -894,11 +905,12 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.sent_messages.clear()
         websocket_manager.broadcasts.clear()
 
+        artifact = ImageArtifact(id="   ", value="data:image/png;base64,AAA")
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-123",
                 dependencyValues={},
-                artifactUpdates={"/tmp/image.png": ""},
+                artifactUpdates=[artifact],
             )
         )
 
@@ -917,14 +929,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             {
-                "path": str(normalize_path("/tmp/image.png")),
-                "message": "artifact update requires a non-empty data string",
+                "path": "   ",
+                "message": "artifact path must be a non-empty string",
             },
             error_message.content.details,
         )
         self.assertEqual([], websocket_manager.broadcasts)
 
-    async def test_listener_frontend_emit_rejects_non_string_artifact_payloads(self):
+    async def test_listener_frontend_emit_rejects_type_mismatches(self):
         websocket_manager = _StubWebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         listener_registry = ListenerRegistry()
@@ -933,6 +945,9 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         project_manager_switcher = _StubProjectManagerSwitcher(
             {"proj-123": project_state}
         )
+        manager = project_manager_switcher._manager
+        normalized_path = str(normalize_path("/tmp/image.png"))
+        manager.artifacts.cached_types[normalized_path] = ArtifactType.ChartData
         receiver = WMHPythonScriptReceiver(
             websocket_manager,
             listener_registry,
@@ -957,16 +972,12 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.sent_messages.clear()
         websocket_manager.broadcasts.clear()
 
+        artifact = ImageArtifact(id="/tmp/image.png", value="data:image/png;base64,AAA")
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId="proj-123",
                 dependencyValues={},
-                artifactUpdates={
-                    "/tmp/strokes.json": {
-                        "artifactType": ArtifactType.BrushStroke,
-                        "data": "{}",
-                    }
-                },
+                artifactUpdates=[artifact],
             )
         )
 
@@ -980,13 +991,13 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("socket-1", websocket_id)
         self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual(
-            "listener_emit_invalid_artifact_update",
+            "listener_emit_unsupported_artifact_update",
             error_message.content.error,
         )
         self.assertEqual(
             {
-                "path": str(normalize_path("/tmp/strokes.json")),
-                "message": "artifact update must be a base64 string",
+                "path": normalized_path,
+                "reason": "expected type ChartData but received Image",
             },
             error_message.content.details,
         )

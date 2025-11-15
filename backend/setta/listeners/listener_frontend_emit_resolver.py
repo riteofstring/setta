@@ -1,4 +1,4 @@
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
@@ -15,10 +15,8 @@ from setta.types.dependency_value import (
     LiteralDependencyValue,
 )
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
-from setta.types.listener import (
-    ListenerFrontendEmitArtifactUpdate,
-    ListenerFrontendEmitKeyAndValue,
-)
+from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.section_impls import SectionType
 from setta.utils.utils import normalize_path
 
@@ -120,22 +118,23 @@ class ListenerFrontendEmitResolver:
     def resolve_artifact_updates(
         self,
         *,
-        artifact_updates: Mapping[str, Any] | None = None,
+        artifact_updates: Iterable[BaseArtifactUnionWithDiscriminator] | None = None,
         artifacts: Artifacts,
-    ) -> list[ListenerFrontendEmitArtifactUpdate]:
+    ) -> list[BaseArtifactUnionWithDiscriminator]:
         if not artifact_updates:
             return []
 
-        resolved: list[ListenerFrontendEmitArtifactUpdate] = []
-        for raw_path, payload in artifact_updates.items():
-            normalized_path = self._normalize_artifact_path(raw_path)
-            artifact_type = self._infer_artifact_type(
-                path=normalized_path, artifacts=artifacts
+        resolved: list[BaseArtifactUnionWithDiscriminator] = []
+        for artifact in artifact_updates:
+            normalized_path = self._normalize_artifact_path(artifact.id)
+            self._assert_artifact_type_supported(
+                path=normalized_path,
+                artifact_type=artifact.type,
+                artifacts=artifacts,
             )
-            normalized_payload = self._coerce_artifact_payload(
+            normalized_payload = self._coerce_artifact_model(
                 normalized_path,
-                payload,
-                artifact_type,
+                artifact,
             )
             resolved.append(normalized_payload)
         return resolved
@@ -161,35 +160,22 @@ class ListenerFrontendEmitResolver:
             ) from exc
         return str(normalized)
 
-    def _coerce_artifact_payload(
+    def _coerce_artifact_model(
         self,
         normalized_path: str,
-        payload: Any,
-        artifact_type: ArtifactType,
-    ) -> ListenerFrontendEmitArtifactUpdate:
-        if isinstance(payload, str):
-            if not payload:
-                raise InvalidListenerArtifactUpdateError(
-                    normalized_path,
-                    message="artifact update requires a non-empty data string",
-                )
-            return ListenerFrontendEmitArtifactUpdate(
-                path=normalized_path,
-                artifactType=artifact_type,
-                data=payload,
-            )
+        artifact: BaseArtifactUnionWithDiscriminator,
+    ) -> BaseArtifactUnionWithDiscriminator:
+        if normalized_path != artifact.id:
+            return artifact.model_copy(update={"id": normalized_path})
+        return artifact
 
-        raise InvalidListenerArtifactUpdateError(
-            normalized_path,
-            message="artifact update must be a base64 string",
-        )
-
-    def _infer_artifact_type(
+    def _assert_artifact_type_supported(
         self,
         *,
         path: str,
+        artifact_type: ArtifactType,
         artifacts: Artifacts,
-    ) -> ArtifactType:
+    ) -> None:
         try:
             cached = artifacts.get_cached_artifact_type(path)
         except ValueError as exc:
@@ -199,9 +185,15 @@ class ListenerFrontendEmitResolver:
             ) from exc
 
         if cached is None:
-            return ArtifactType.Image
+            return
 
-        return cached
+        if cached is not artifact_type:
+            raise UnsupportedListenerArtifactUpdateError(
+                path,
+                reason=(
+                    f"expected type {cached.value} but received {artifact_type.value}"
+                ),
+            )
 
     def _coerce_node_value(
         self,

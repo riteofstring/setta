@@ -80,29 +80,28 @@
 4. **Hot reload & persistence**: Does the resolver need to refresh cached dependency graphs when project structure changes mid-session, and should emit-driven overrides persist across restarts or remain purely in-memory?
 
 ## Artifact update strategy
-- ✅ **Dual payloads:** `emit_to_frontend` now accepts both `dependencyValues` and `artifactUpdates`, requiring at least one non-empty map. The wire schema + generated types mirror this.
-- ✅ **Artifact payload shape:** Each `artifactUpdates` entry is just the payload string (base64 image today). The backend normalizes the path, wraps the payload as an image update, and does **not** require the path to exist yet so listeners can seed new artifacts.
-- ✅ **Artifact type inference:** `ListenerFrontendEmitResolver._infer_artifact_type` now consults the global `Artifacts` cache so each path inherits its cached type (Image, BrushStroke, Draw transform, etc.) instead of blindly defaulting to Image.
-- ✅ **Receiver flow + PM hook:** `_handle_listener_frontend_emit` now routes both dependency and artifact payloads through `BaseProjectManager.apply_listener_emit_updates`, which in turn invokes the new `apply_listener_artifact_updates` stub so everything shares the serialized queue. Until the artifact cache learns how to mutate in-memory, `ListenerArtifactUpdateError` surfaces `listener_emit_artifact_update_failed` back to the emitting listener.
-- ✅ **Artifacts integration:** Listener emits now populate the `Artifacts` caches via the new helper in `listener_artifact_updates.py`, mark metadata dirty, and trigger `broadcast_artifacts_update` even without dependency overrides. Disk flushes still rely on the existing autosave cadence.
+- ✅ **Dual payloads:** `emit_to_frontend` now accepts both `dependencyValues` and `artifactUpdates`, requiring at least one non-empty payload. The wire schema + generated types mirror this.
+- ✅ **Artifact payload shape:** Each `artifactUpdates` entry is now a real `BaseArtifactUnionWithDiscriminator`, so listeners send `{type, id, value}` objects instead of “path → base64 string” maps.
+- ✅ **Artifact type enforcement:** The resolver no longer guesses types; it simply normalizes the artifact ID, ensures it matches any cached type, and clones the union if the path changed.
+- ✅ **Receiver flow + PM hook:** `_handle_listener_frontend_emit` routes typed artifacts directly into `BaseProjectManager.apply_listener_emit_updates`, which caches them and broadcasts the canonical `UpdateArtifacts` payload without rebuilding intermediate models.
+- ✅ **Artifacts integration:** Listener emits still populate the `Artifacts` caches via `listener_artifact_updates.py`, mark metadata dirty, and trigger `broadcast_artifacts_update` even when there are no dependency overrides. Disk persistence remains on the autosave cadence.
 - ⏳ **Draw/Image propagation:** Once artifact updates apply via `Artifacts`, existing `UpdateArtifacts` broadcasts keep every section referencing a shared path in sync automatically—no extra dependency wiring needed.
 - ✅ **Future cleanup:** introduced `Artifacts.cache_artifact_in_memory` so both `_update_single_artifact` and listener-driven updates share the same cache/metadata mutation path. `_cache_listener_artifact` is gone, keeping listener updates purely in-memory without forcing disk writes.
 
 ## Artifact payload format decision
 
-**Take**
-- The current contract intentionally limits `artifactUpdates` to “path → payload string” so the backend can infer a type from cached artifacts, defaulting to `Image` when it has never seen the path before (`docs/emit_to_frontend_plan.md:83-87`, `backend/setta/listeners/listener_frontend_emit_resolver.py:120-205`). That’s why you can’t seed a brand-new brush stroke, draw transform, or chart artifact today—the resolver picks `ArtifactType.Image` whenever there’s no prior cache entry (`backend/setta/listeners/listener_frontend_emit_resolver.py:187-204`).
-- On the backend we immediately turn those strings back into real `BaseArtifact` instances inside `apply_listener_artifact_updates` (`backend/setta/project_state/listener_artifact_updates.py:29-121`), so we’re effectively doing a lossy round-trip: listeners send raw strings, the resolver guesses the type, and then we rebuild the very same artifact union we already use everywhere else.
-- The wire schema mirrors this “dict of strings” shape on both sides (`backend/setta/types/listener.py:55-64`, `frontend/src/utils/generatedTypes.ts:5913-5932`), so as long as we keep that schema we can’t cleanly represent anything beyond the base64/text payloads described in the doc.
+**Decision**
+- `artifactUpdates` is now defined as `list[BaseArtifactUnionWithDiscriminator]` everywhere (listener helper, websocket payloads, backend resolver, and TS schemas). Listeners must send fully-typed artifacts (`{type, id, value}`), which lets them create any supported artifact in one shot.
 
-**Recommendation**
-- Since we don’t need backward compatibility, I’d collapse the listener-facing format into the same union we already broadcast in `UpdateArtifacts`: let `artifactUpdates` be `list[BaseArtifactUnionWithDiscriminator]`. That keeps the payload self-describing (type + id + value) and avoids duplicating the `ListenerFrontendEmitArtifactUpdate` shim.
-- Going with a list instead of `dict[str, BaseArtifact]` avoids the redundant “key contains the path, value also has `id`” problem and aligns with every other artifact payload (`backend/setta/types/artifact.py:110-159`). We can still reject duplicates or keep “last write wins” in the resolver. If we really want map semantics we can always coerce `list` into a dict keyed by `normalize_path(artifact.id)` during resolution.
-- This change simplifies the resolver: instead of inferring types, it only needs to normalize/validate `artifact.id`, coerce the incoming JSON into `BaseArtifactUnionWithDiscriminator`, and bail when the artifact type isn’t one of the supported ones. That unlocks non-image creation immediately because the listener explicitly picks the union variant.
-- The backend apply path already expects real artifacts, so `apply_listener_artifact_updates` can just normalize paths, optionally clone the object to ensure `artifact.id` matches the normalized string, and call `artifacts.cache_artifact_in_memory(...)`. No more JSON parsing heuristics or type guessing.
+**Why**
+- The old “path → serialized payload string” contract forced the backend to guess artifact types and then rebuild full unions; this was lossy, prevented emitting new brush/draw/chart artifacts, and duplicated type inference logic.
+- Using the canonical artifact union keeps payloads self-describing, aligns with `UpdateArtifacts` broadcasts, and lets the resolver focus on normalization + validation instead of heuristics.
 
-**Next steps**
-- Update `ListenerFrontendEmitRawContent` + generated TS schema to use `artifactUpdates: list[BaseArtifactUnionWithDiscriminator]`, regenerate types (`source activate.sh && cd frontend && pnpm generate`).
-- Teach `SettaListener.emit_to_frontend` to accept `Sequence[BaseArtifactUnion | dict]` (plus maybe helpers like `create_image_artifact_update(...)`) so user scripts can build artifacts without wrestling with Pydantic classes.
-- Replace `ListenerFrontendEmitArtifactUpdate` with direct unions throughout `_handle_listener_frontend_emit`, the resolver, and `apply_listener_artifact_updates`, and refresh `tests/websockets/test_python_script_receiver.py` to cover chart/brush/transform emissions plus validation failures under the new schema.
-- Surface a short doc/sample showing how to emit, e.g., a `ChartDataArtifact`, so listeners know they can mint new JSON/CSV-backed assets now.
+**Implications**
+- Listener scripts can seed brand-new artifact types (brush strokes, transforms, chart data, etc.) without relying on cache state.
+- Backend application simply normalizes IDs and caches the supplied artifact, so broadcasts reuse the same object graph the listener provided.
+- Validation failures are clearer: blank IDs, cached type mismatches, or malformed unions now raise explicit errors before any state mutation.
+
+**Follow-ups**
+- Publish a listener sample that shows constructing common artifact unions (image + chart) so scripts don’t have to dig through generated classes.
+- Expand autosave + persistence docs once artifact caching supports immediate disk writes for listener-generated files.

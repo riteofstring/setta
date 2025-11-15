@@ -3,13 +3,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from setta.types.artifact import ArtifactType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
 from setta.types.generated.dependency_values import (
     BaseDependencyValueUnionWithDiscriminator,
 )
+from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.project_state import ProjectStateSingleConfig
 
 
@@ -52,16 +52,12 @@ class ListenerFrontendEmitKeyAndValue(BaseModel):
     value: BaseDependencyValueUnionWithDiscriminator
 
 
-class ListenerFrontendEmitArtifactUpdate(BaseModel):
-    path: str
-    artifactType: ArtifactType
-    data: str
-
-
 class ListenerFrontendEmitRawContent(BaseModel):
     projectConfigId: str
     dependencyValues: dict[str, Any] = Field(default_factory=dict)
-    artifactUpdates: dict[str, Any] = Field(default_factory=dict)
+    artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
+        default_factory=list
+    )
 
 
 class ListenerCoverageRequest(BaseModel):

@@ -128,7 +128,10 @@ from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
 )
-from setta.types.generated.unions import BaseArtifactUnion
+from setta.types.generated.unions import (
+    BaseArtifactUnion,
+    BaseArtifactUnionWithDiscriminator,
+)
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -187,10 +190,7 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
-from setta.types.listener import (
-    ListenerFrontendEmitArtifactUpdate,
-    ListenerFrontendEmitKeyAndValue,
-)
+from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
@@ -1188,7 +1188,7 @@ class BaseProjectManager(ABC):
         self,
         projectConfigId: str,
         dependency_updates: list[ListenerFrontendEmitKeyAndValue],
-        artifact_updates: list[ListenerFrontendEmitArtifactUpdate],
+        artifact_updates: list[BaseArtifactUnionWithDiscriminator],
     ) -> None:
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")

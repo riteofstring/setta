@@ -13,6 +13,7 @@ from typing import (
     Iterable,
     Literal,
     Mapping,
+    Sequence,
 )
 from uuid import uuid4
 
@@ -28,6 +29,10 @@ from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
+from setta.types.generated.unions import (
+    BaseArtifactTypeAdapter,
+    BaseArtifactUnionWithDiscriminator,
+)
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
@@ -993,7 +998,10 @@ class SettaListener:
         self,
         *,
         dependency_values: Mapping[str, Any] | None = None,
-        artifact_updates: Mapping[str, Any] | None = None,
+        artifact_updates: Sequence[
+            BaseArtifactUnionWithDiscriminator | Mapping[str, Any]
+        ]
+        | None = None,
     ) -> None:
         if self._runtime_state is None:
             raise RuntimeError(
@@ -1004,7 +1012,9 @@ class SettaListener:
                 "Listener is not registered with the server; wait for registration to complete before emitting"
             )
         serialized_values = dict(dependency_values or {})
-        serialized_artifact_updates = dict(artifact_updates or {})
+        serialized_artifact_updates = self._serialize_listener_artifact_updates(
+            artifact_updates
+        )
         if not serialized_values and not serialized_artifact_updates:
             raise ValueError(
                 "emit_to_frontend requires at least one dependency value or artifact update"
@@ -1021,9 +1031,29 @@ class SettaListener:
             "Listener %s emitting dependency overrides %s and artifact updates %s",
             self._log_identifier,
             ", ".join(serialized_values.keys()) or "-",
-            ", ".join(serialized_artifact_updates.keys()) or "-",
+            ", ".join(artifact.id for artifact in serialized_artifact_updates) or "-",
         )
         await self._send_websocket_payload(message.model_dump_json())
+
+    def _serialize_listener_artifact_updates(
+        self,
+        artifact_updates: Sequence[
+            BaseArtifactUnionWithDiscriminator | Mapping[str, Any]
+        ]
+        | None,
+    ) -> list[BaseArtifactUnionWithDiscriminator]:
+        if not artifact_updates:
+            return []
+
+        serialized: list[BaseArtifactUnionWithDiscriminator] = []
+        for artifact in artifact_updates:
+            try:
+                serialized.append(BaseArtifactTypeAdapter.validate_python(artifact))
+            except ValidationError as exc:
+                raise ValueError(
+                    "artifact_updates entries must match the BaseArtifact schema"
+                ) from exc
+        return serialized
 
     def _set_dependency_value(
         self,

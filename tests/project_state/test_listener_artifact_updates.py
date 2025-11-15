@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import unittest
 
 from setta.project_state.artifacts import Artifacts
@@ -8,8 +7,15 @@ from setta.project_state.listener_artifact_updates import (
     ListenerArtifactUpdateError,
     apply_listener_artifact_updates,
 )
-from setta.types.artifact import ArtifactType, BrushStroke, DrawAreaBrushShape
-from setta.types.listener import ListenerFrontendEmitArtifactUpdate
+from setta.types.artifact import (
+    BrushStroke,
+    BrushStrokeArtifact,
+    ChartDataArtifact,
+    DrawAreaBrushShape,
+    DrawAreaLayerItemTransform,
+    DrawAreaLayerItemTransformArtifact,
+    ImageArtifact,
+)
 from setta.utils.utils import normalize_path
 
 
@@ -42,99 +48,87 @@ def _build_artifacts() -> Artifacts:
 
 
 class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
-    def test_image_payload_is_cached_and_marked_dirty(self):
+    def test_image_artifact_is_cached_and_marked_dirty(self):
         artifacts = _build_artifacts()
-        payload = "data:image/png;base64,AAA"
-        updates = [
-            ListenerFrontendEmitArtifactUpdate(
-                path="/tmp/image.png",
-                artifactType=ArtifactType.Image,
-                data=payload,
-            )
-        ]
+        artifact = ImageArtifact(
+            id="artifacts/new-image.png",
+            value="data:image/png;base64,AAA",
+        )
 
         applied = apply_listener_artifact_updates(
             artifacts=artifacts,
-            updates=updates,
+            updates=[artifact],
         )
 
         self.assertEqual(1, len(applied))
-        artifact = applied[0]
-        normalized_path = normalize_path("/tmp/image.png")
-        self.assertEqual(str(normalized_path), artifact.id)
-        self.assertEqual(payload, artifact.value)
-        self.assertIs(artifact, artifacts.images[normalized_path])
+        cached = applied[0]
+        normalized_path = normalize_path("artifacts/new-image.png")
+        self.assertEqual(str(normalized_path), cached.id)
+        self.assertIs(cached, artifacts.images[normalized_path])
         metadata = artifacts.image_metadata[normalized_path]
         self.assertTrue(metadata.is_dirty)
         self.assertIsNone(metadata.last_read_hash)
 
-    def test_chart_data_payload_accepts_json_columns(self):
+    def test_chart_data_artifact_is_cached(self):
         artifacts = _build_artifacts()
         chart_data = {"colA": ["a", "b"], "colB": [1, 2]}
-        updates = [
-            ListenerFrontendEmitArtifactUpdate(
-                path="charts/data.csv",
-                artifactType=ArtifactType.ChartData,
-                data=json.dumps(chart_data),
-            )
-        ]
+        artifact = ChartDataArtifact(id="charts/data.csv", value=chart_data)
 
         applied = apply_listener_artifact_updates(
             artifacts=artifacts,
-            updates=updates,
+            updates=[artifact],
         )
 
-        self.assertEqual(1, len(applied))
-        artifact = applied[0]
         normalized_path = normalize_path("charts/data.csv")
-        self.assertEqual(chart_data, artifact.value)
-        self.assertIs(artifact, artifacts.chart_data[normalized_path])
+        self.assertEqual(1, len(applied))
+        cached = applied[0]
+        self.assertEqual(chart_data, cached.value)
+        self.assertIs(cached, artifacts.chart_data[normalized_path])
 
-    def test_chart_data_payload_requires_lists(self):
-        artifacts = _build_artifacts()
-        updates = [
-            ListenerFrontendEmitArtifactUpdate(
-                path="charts/data.csv",
-                artifactType=ArtifactType.ChartData,
-                data=json.dumps({"colA": "not-a-list"}),
-            )
-        ]
-
-        with self.assertRaises(ListenerArtifactUpdateError):
-            apply_listener_artifact_updates(artifacts=artifacts, updates=updates)
-
-    def test_brush_stroke_payload_requires_valid_json(self):
-        artifacts = _build_artifacts()
-        invalid_payload = "{not json}"
-        updates = [
-            ListenerFrontendEmitArtifactUpdate(
-                path="layers/brush.json",
-                artifactType=ArtifactType.BrushStroke,
-                data=invalid_payload,
-            )
-        ]
-
-        with self.assertRaises(ListenerArtifactUpdateError):
-            apply_listener_artifact_updates(artifacts=artifacts, updates=updates)
-
-    def test_brush_stroke_payload_caches_valid_model(self):
+    def test_brush_stroke_artifact_is_cached(self):
         artifacts = _build_artifacts()
         brush = BrushStroke(
             strokeStyle="#000",
             lineWidth=1,
             lineCap=DrawAreaBrushShape.round,
         )
-        updates = [
-            ListenerFrontendEmitArtifactUpdate(
-                path="layers/brush.json",
-                artifactType=ArtifactType.BrushStroke,
-                data=brush.model_dump_json(),
-            )
-        ]
+        artifact = BrushStrokeArtifact(
+            id="layers/brush.json",
+            value=brush,
+        )
 
-        applied = apply_listener_artifact_updates(artifacts=artifacts, updates=updates)
+        applied = apply_listener_artifact_updates(
+            artifacts=artifacts,
+            updates=[artifact],
+        )
 
-        artifact = applied[0]
         normalized_path = normalize_path("layers/brush.json")
-        self.assertEqual(brush, artifact.value)
-        self.assertIs(artifact, artifacts.brush_strokes[normalized_path])
+        self.assertEqual(brush, applied[0].value)
+        self.assertIs(applied[0], artifacts.brush_strokes[normalized_path])
+
+    def test_transform_artifact_is_cached(self):
+        artifacts = _build_artifacts()
+        transform = DrawAreaLayerItemTransform()
+        artifact = DrawAreaLayerItemTransformArtifact(
+            id="layers/transform.json",
+            value=transform,
+        )
+
+        applied = apply_listener_artifact_updates(
+            artifacts=artifacts,
+            updates=[artifact],
+        )
+
+        normalized_path = normalize_path("layers/transform.json")
+        self.assertEqual(transform, applied[0].value)
+        self.assertIs(
+            applied[0],
+            artifacts.draw_area_layer_item_transforms[normalized_path],
+        )
+
+    def test_invalid_path_raises_listener_error(self):
+        artifacts = _build_artifacts()
+        artifact = ImageArtifact(id="\x00bad", value="data:image/png;base64,AAA")
+
+        with self.assertRaises(ListenerArtifactUpdateError):
+            apply_listener_artifact_updates(artifacts=artifacts, updates=[artifact])
