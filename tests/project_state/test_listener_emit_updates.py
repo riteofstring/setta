@@ -32,6 +32,7 @@ from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
 )
+from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.listener import (
     ListenerFrontendEmitArtifactUpdate,
     ListenerFrontendEmitKeyAndValue,
@@ -46,8 +47,6 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 from watchdog.observers.polling import PollingObserver
-
-from setta.types.helpers_lvl3 import merge_single_config_into_backend
 
 specific_file_watcher.Observer = PollingObserver
 lsp_file_watcher.Observer = PollingObserver
@@ -308,7 +307,9 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
         async def capture_artifact_broadcast(self, artifacts, updateType):
             captured_artifact_calls.append((artifacts, updateType))
 
-        async def capture_project_broadcast(self, projectState, completedOpIds, pendingOpIds):
+        async def capture_project_broadcast(
+            self, projectState, completedOpIds, pendingOpIds
+        ):
             captured_project_calls.append(
                 ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState,

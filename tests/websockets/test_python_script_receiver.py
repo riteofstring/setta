@@ -497,9 +497,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("socket-1", websocket_id)
         self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("project_state_unavailable", error_message.content.error)
-        self.assertEqual(
-            {"projectConfigId": "proj-123"}, error_message.content.details
-        )
+        self.assertEqual({"projectConfigId": "proj-123"}, error_message.content.details)
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_project_config_mismatch(self):
@@ -809,8 +807,8 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         project_manager_switcher = _StubProjectManagerSwitcher(
             {"proj-123": project_state}
         )
-        project_manager_switcher._manager.artifact_error = (
-            ListenerArtifactUpdateError("artifacts not ready")
+        project_manager_switcher._manager.artifact_error = ListenerArtifactUpdateError(
+            "artifacts not ready"
         )
         receiver = WMHPythonScriptReceiver(
             websocket_manager,

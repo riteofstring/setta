@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from setta.project_state.artifacts import Artifacts, ArtifactMetadata
+from setta.project_state.artifacts import ArtifactMetadata, Artifacts
 from setta.types.artifact import (
     ArtifactType,
     BrushStroke,

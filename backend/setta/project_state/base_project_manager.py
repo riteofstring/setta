@@ -124,11 +124,11 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
 )
+from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -1191,9 +1191,7 @@ class BaseProjectManager(ABC):
         artifact_updates: list[ListenerFrontendEmitArtifactUpdate],
     ) -> None:
         if not dependency_updates and not artifact_updates:
-            raise ValueError(
-                "listener emits require dependency or artifact updates"
-            )
+            raise ValueError("listener emits require dependency or artifact updates")
 
         project_state = self.get_single_config_state(projectConfigId)
         artifact_payloads: list[BaseArtifactUnion] = []
