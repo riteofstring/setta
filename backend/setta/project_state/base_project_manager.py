@@ -23,7 +23,7 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
 )
-from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile

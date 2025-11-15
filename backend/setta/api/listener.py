@@ -25,7 +25,7 @@ from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
 )
-from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion

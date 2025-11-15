@@ -4,7 +4,7 @@ from pathlib import Path
 from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.database.utils import create_new_id
 from setta.project_state.code import BashCode, PythonCode

@@ -4,7 +4,7 @@ from typing import Callable
 from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
-from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.dependency_key import (
