@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -15,16 +14,6 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     ParameterPassingStyle,
 )
-from setta.types.dependency_key import (
-    create_dep_key,
-)
-from setta.types.dependency_value import (
-    Base64DependencyValue,
-    DependencyValueType,
-    LiteralDependencyValue,
-)
-from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
@@ -38,12 +27,18 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseParentSectionImpl,
-    BaseSectionImpl,
-    DrawSectionImpl,
+    CallableSectionImpl,
+    DictRootSectionImpl,
+    DictSectionImpl,
+    GlobalVariablesSectionImpl,
+    GroupSectionImpl,
+    ListRootSectionImpl,
     SectionType,
     TextBlockSectionImpl,
 )
 from setta.utils.utils import replace_at_positions
+
+GraphKeyType = tuple[str, str | None]
 
 
 @dataclass
@@ -54,7 +49,7 @@ class Node(ABC):
     type: str
     isTopLevel: bool
     deps: dict
-    value: BaseDependencyValueUnion | None
+    value: str | None
 
     @property
     @abstractmethod
@@ -71,59 +66,44 @@ class SectionNode(Node):
 
 @dataclass
 class ParamNode(Node):
+    value: str  # type: ignore
     passing_style: ParameterPassingStyle
 
     @property
     def has_name_and_value(self):
-        if not self.name:
-            return False
-        if self.value is None:
-            return False
-        return self.value.payload != ""
+        return bool(self.name) and self.value is not None and self.value != ""
+
+
+@dataclass
+class GraphKeySeparated:
+    sectionId: str
+    paramInfoId: str | None
 
 
 @dataclass
 class RenameReferenceChangedValue:
-    depKey: BaseDependencyKeyUnion
+    sectionId: str
+    paramInfoId: str | None
     newValue: str
-
-
-@dataclass(frozen=True)
-class SectionExportContext:
-    project_state: ProjectStateSingleConfig
-    section_id: str
-    section_name: str
-    section_impl: BaseSectionImpl
-    full_path_name: str
-    is_top_level: bool
-    parent_node: Node | None
-    idx: int | None
-    dep_key: BaseDependencyKeyUnion
-
-
-SectionExporter = Callable[[SectionExportContext], None]
 
 
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
-        self.section_exporters: dict[SectionType, SectionExporter] = {
-            SectionType.Callable: self._export_callable_section,
-            SectionType.Dict: self._export_dict_section,
-            SectionType.DictRoot: self._export_parent_section,
-            SectionType.ListRoot: self._export_parent_section,
-            SectionType.Group: self._export_parent_section,
-            SectionType.GlobalVariables: self._export_global_variables_section,
-            SectionType.TextBlock: self._export_text_block_section,
-            SectionType.Draw: self._export_draw_section,
-        }
+        self.section_types_to_process = (
+            CallableSectionImpl,
+            DictSectionImpl,
+            ListRootSectionImpl,
+            DictRootSectionImpl,
+            GroupSectionImpl,
+            GlobalVariablesSectionImpl,
+            TextBlockSectionImpl,
+        )
         self.construct_graph(p)
 
     def reset(self):
-        self.graph: dict[BaseDependencyKeyUnion, Node] = {}
-        self.full_path_name_to_dep_key: dict[str, BaseDependencyKeyUnion] = {}
-        self.nodes_with_potential_refs: dict[
-            BaseDependencyKeyUnion, dict[str, int]
-        ] = {}
+        self.graph: dict[GraphKeyType, Node] = {}
+        self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
+        self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
 
     def construct_graph(self, p: ProjectStateSingleConfig):
         self.reset()
@@ -140,10 +120,10 @@ class DependencyGraph:
     ):
         deps = {}
         for idx, x in enumerate(ids):
-            dep_key = self.export_section(p, x, isTopLevel, parent_node, idx)
-            node = self.get_node(dep_key)
+            graph_key = self.export_section(p, x, isTopLevel, parent_node, idx)
+            node = self.get_node(graph_key)
             if node:
-                deps[dep_key] = node.has_name_and_value
+                deps[graph_key] = node.has_name_and_value
         return deps
 
     def export_section(
@@ -154,121 +134,79 @@ class DependencyGraph:
         parent_node: Node | None = None,
         idx: int | None = None,
     ):
-        dep_key = create_dep_key(sectionId=id)
-        section_node = self.get_node(dep_key)
+        graph_key = self.create_graph_key(id)
+        section_node = self.get_node(graph_key)
         if not section_node:
             sectionImpl = get_curr_effective_section_impl(p, id)
-            exporter = self.section_exporters.get(sectionImpl.type)
-            if not exporter:
-                return dep_key
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
-            ctx = SectionExportContext(
-                project_state=p,
-                section_id=id,
-                section_name=name,
-                section_impl=sectionImpl,
-                full_path_name=full_path_name,
-                is_top_level=isTopLevel,
-                parent_node=parent_node,
-                idx=idx,
-                dep_key=dep_key,
-            )
-            exporter(ctx)
-        return dep_key
-
-    def _export_callable_section(self, ctx: SectionExportContext):
-        value, potential_refs = self.export_section_callable(
-            ctx.project_state, ctx.section_id
-        )
-        if potential_refs:
-            self.nodes_with_potential_refs[ctx.dep_key] = potential_refs
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=ctx.section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(value) if value is not None else None,
-            deps={},
-        )
-        node.deps = self.export_section_params(
-            ctx.project_state, ctx.section_id, parent_node=node
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_parent_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, BaseParentSectionImpl):
-            return
-        children: list[str] = []
-        for child_id in section_impl.children:
-            child_impl = get_curr_effective_section_impl(ctx.project_state, child_id)
-            if child_impl.type in self.section_exporters:
-                children.append(child_id)
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=None,
-            deps={},
-        )
-        node.deps = self.export_sections(ctx.project_state, children, parent_node=node)
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_dict_section(self, ctx: SectionExportContext):
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=ctx.section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=None,
-            deps={},
-        )
-        node.deps = self.export_section_params(
-            ctx.project_state, ctx.section_id, parent_node=node
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_global_variables_section(self, ctx: SectionExportContext):
-        self.export_section_params(ctx.project_state, ctx.section_id, isTopLevel=True)
-
-    def _export_text_block_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, TextBlockSectionImpl):
-            return
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(section_impl.text),
-            deps={},
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_draw_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, DrawSectionImpl):
-            return
-        rendered_value = section_impl.renderedValue
-        dependency_value = (
-            Base64DependencyValue(rendered_value) if rendered_value else None
-        )
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=dependency_value,
-            deps={},
-        )
-        self.add_to_graph(ctx.dep_key, node)
+            if isinstance(sectionImpl, CallableSectionImpl):
+                value, potential_refs = self.export_section_callable(p, id)
+                if potential_refs:
+                    self.nodes_with_potential_refs[graph_key] = potential_refs
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=value,
+                    deps={},
+                )
+                node.deps = self.export_section_params(p, id, parent_node=node)
+                self.add_to_graph(graph_key, node)
+            elif isinstance(sectionImpl, BaseParentSectionImpl):
+                children = [
+                    c
+                    for c in sectionImpl.children
+                    if isinstance(
+                        get_curr_effective_section_impl(p, c),
+                        self.section_types_to_process,
+                    )
+                ]
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=None,
+                    deps={},
+                )
+                node.deps = self.export_sections(p, children, parent_node=node)
+                self.add_to_graph(graph_key, node)
+            elif isinstance(sectionImpl, GlobalVariablesSectionImpl):
+                self.export_section_params(p, id, isTopLevel=True)
+            elif isinstance(sectionImpl, DictSectionImpl):
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=None,
+                    deps={},
+                )
+                node.deps = self.export_section_params(p, id, parent_node=node)
+                self.add_to_graph(graph_key, node)
+            elif isinstance(sectionImpl, TextBlockSectionImpl):
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=sectionImpl.text,
+                    deps={},
+                )
+                self.add_to_graph(graph_key, node)
+            #     variant = get_selected_section_variant(p, id)
+            #     info["value"] = variant["description"]
+            #     info["dependencies"] = []
+            #     self.output[output_key] = info
+            # else:
+            #     raise ValueError
+        return graph_key
 
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
         callable = get_curr_section_callable_code_obj(p, sectionId)
@@ -305,31 +243,29 @@ class DependencyGraph:
     ):
         output_deps = {}
         for idx, pid in enumerate(paramIds):
-            dep_key = create_dep_key(sectionId=sectionId, codeObjId=pid)
-            param_node = self.get_node(dep_key)
+            graph_key = self.create_graph_key(sectionId, pid)
+            param_node = self.get_node(graph_key)
             if not param_node:
                 code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
                     p, sectionId, pid, BaseParamCodeObjImpl
                 )
                 name = p.codeObjs[pid].name
-                raw_value = ""
+                value = ""
                 if isinstance(code_obj_impl, BaseChildlessCodeObjImpl):
-                    raw_value = code_obj_impl.value
+                    value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
-                    raw_value, SELF_IDENTIFIER, keep_attr_only=True
+                    value, SELF_IDENTIFIER, keep_attr_only=True
                 )
                 if potential_refs:
-                    self.nodes_with_potential_refs[dep_key] = potential_refs
+                    self.nodes_with_potential_refs[graph_key] = potential_refs
                 param_node = ParamNode(
                     id=pid,
                     name=name,
                     full_path_name=full_path_name,
                     type=code_obj_impl.type,
                     isTopLevel=isTopLevel,
-                    value=LiteralDependencyValue(raw_value)
-                    if isinstance(code_obj_impl, BaseChildlessCodeObjImpl)
-                    else None,
+                    value=value,
                     passing_style=code_obj_impl.passingStyle,
                     deps={},
                 )
@@ -337,24 +273,24 @@ class DependencyGraph:
                     param_node.deps = self.export_params(
                         p, sectionId, code_obj_impl.children, parent_node=param_node
                     )
-                self.add_to_graph(dep_key, param_node)
-            output_deps[dep_key] = param_node.has_name_and_value
+                self.add_to_graph(graph_key, param_node)
+            output_deps[graph_key] = param_node.has_name_and_value
         return output_deps
 
-    def add_to_graph(self, dep_key: BaseDependencyKeyUnion, node: Node):
-        self.graph[dep_key] = node
-        self.full_path_name_to_dep_key[node.full_path_name] = dep_key
+    def add_to_graph(self, graph_key, node: Node):
+        self.graph[graph_key] = node
+        self.full_path_name_to_graph_key[node.full_path_name] = graph_key
 
-    def change_value(self, dep_key: BaseDependencyKeyUnion, value):
-        node = self.graph[dep_key]
-        node.value = self._coerce_dependency_value(value)
+    def change_value(self, graph_key, value):
+        node = self.graph[graph_key]
+        node.value = value
         is_used = node.has_name_and_value
         for other_node in self.graph.values():
-            if dep_key in other_node.deps:
-                other_node.deps[dep_key] = is_used
+            if graph_key in other_node.deps:
+                other_node.deps[graph_key] = is_used
 
-    def get_node(self, dep_key: BaseDependencyKeyUnion):
-        return self.graph.get(dep_key)
+    def get_node(self, graph_key):
+        return self.graph.get(graph_key)
 
     def create_full_path_name(
         self, parent_node: Node | None, idx: int | None, name: str
@@ -372,21 +308,19 @@ class DependencyGraph:
         ):
             return create_unique_name(
                 f"{parent_node.full_path_name}__{sanitize_name(name)}",
-                self.full_path_name_to_dep_key,
+                self.full_path_name_to_graph_key,
             )
 
         return sanitize_name(name)
 
     def resolve_references(self):
         """Resolve all potential references and update dependencies."""
-        for dep_key, potential_refs in self.nodes_with_potential_refs.items():
-            node = self.graph[dep_key]
-            if node.value is None or node.value.type is not DependencyValueType.Literal:
-                continue
+        for graph_key, potential_refs in self.nodes_with_potential_refs.items():
+            node = self.graph[graph_key]
             for ref in potential_refs.keys():
-                if ref in self.full_path_name_to_dep_key:
+                if ref in self.full_path_name_to_graph_key:
                     # Found a reference, add it to dependencies if not already there
-                    target_key = self.full_path_name_to_dep_key[ref]
+                    target_key = self.full_path_name_to_graph_key[ref]
                     target_node = self.graph[target_key]
                     node.deps[target_key] = target_node.has_name_and_value
 
@@ -395,7 +329,7 @@ class DependencyGraph:
     def rename_references(
         self, old_dep_graph: "DependencyGraph"
     ) -> list[RenameReferenceChangedValue]:
-        renamings: dict[BaseDependencyKeyUnion, tuple[str, str]] = {}
+        renamings: dict[GraphKeyType, tuple[str, str]] = {}
         for k, v in old_dep_graph.graph.items():
             node = self.get_node(k)
             if not node:
@@ -407,10 +341,10 @@ class DependencyGraph:
         for k, v in self.nodes_with_potential_refs.items():
             replacements = []
             for ref, location in v.items():
-                dep_key = old_dep_graph.full_path_name_to_dep_key.get(ref)
-                if not dep_key:
+                graph_key = old_dep_graph.full_path_name_to_graph_key.get(ref)
+                if not graph_key:
                     continue
-                details = renamings.get(dep_key)
+                details = renamings.get(graph_key)
                 if details:
                     old_name, new_name = details
                     replacements.append((location, old_name, new_name))
@@ -418,37 +352,26 @@ class DependencyGraph:
                 node = self.get_node(k)
                 if not node:
                     continue
-                literal_value = node.value
-                if (
-                    literal_value is None
-                    or literal_value.type is not DependencyValueType.Literal
-                ):
-                    continue
-                new_payload, positions = replace_at_positions(
-                    literal_value.payload, replacements, return_positions=True
-                )
-                node.value = replace(
-                    literal_value,
-                    payload=new_payload,
+                node.value, positions = replace_at_positions(
+                    node.value, replacements, return_positions=True
                 )
                 self.nodes_with_potential_refs[k] = {
                     name: position for position, name in positions
                 }
+                ids = self.extract_ids_from_graph_key(k)
                 changed_node_values.append(
                     RenameReferenceChangedValue(
-                        depKey=k,
-                        newValue=node.value.payload if node.value else "",
+                        sectionId=ids.sectionId,
+                        paramInfoId=ids.paramInfoId,
+                        newValue=node.value,
                     )
                 )
 
         self.resolve_references()
         return changed_node_values
 
-    def _coerce_dependency_value(
-        self, value: BaseDependencyValueUnion | str | None
-    ) -> BaseDependencyValueUnion | None:
-        if value is None:
-            return None
-        if isinstance(value, BaseDependencyValueUnion):
-            return value
-        return LiteralDependencyValue(value)
+    def create_graph_key(self, section_id: str, param_info_id: str | None = None):
+        return (section_id, param_info_id)
+
+    def extract_ids_from_graph_key(self, graph_key: GraphKeyType) -> GraphKeySeparated:
+        return GraphKeySeparated(sectionId=graph_key[0], paramInfoId=graph_key[1])

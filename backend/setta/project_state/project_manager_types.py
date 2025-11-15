@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.generated.chart_settings_unions import (
@@ -24,7 +23,6 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
 )
-from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 
 
@@ -135,10 +133,6 @@ class RedoRequest(ProjectManagerRequestWithFrontendOp):
 
 
 class GetLatestProjectStateRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-
-
-class ForceRefreshProjectRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
 
 
@@ -288,13 +282,6 @@ class AcceptRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
 
 class DeclineRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: str
-
-
-class RenameRefactorBroadcastContent(BaseModel):
-    projectConfigId: str
-    frontendOpId: str
-    renameMode: RenameRefactorMode
-    changedNodeValues: list[RenameReferenceChangedValue]
 
 
 class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithFrontendOp):

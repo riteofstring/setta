@@ -6,7 +6,6 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeSectionParamLiteral } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
@@ -45,9 +44,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   function onChange(v) {
     const vStr = _.toString(v);
     setPendingValue(vStr);
-    if (value !== vStr) {
-      sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
-    }
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
   }
 

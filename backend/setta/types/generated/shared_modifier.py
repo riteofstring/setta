@@ -1,7 +1,7 @@
 # Auto-generated shared modifier model - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from setta.types.artifact import (
     DrawAreaBrushShape,
@@ -84,7 +84,7 @@ class SharedModifier(TypedDict):
     pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]
     pinnedParams: NotRequired[list[str]]
     positionAndSizeLocked: NotRequired[bool]
-    renderedValue: NotRequired[str | None]
+    renderedValue: NotRequired[Any]
     selectedParams: NotRequired[list[str]]
     size: NotRequired[SectionSize]
     step: NotRequired[int]

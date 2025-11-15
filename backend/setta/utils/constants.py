@@ -40,6 +40,11 @@ class C:
     # WebSocket message types
     WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
+    WS_SCRIPT_READY = "scriptReady"
+    WS_SCRIPT_DEPENDENCIES = "scriptDependencies"
+    WS_PROJECT_DATA = "projectData"
+    WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS"
+
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
 
     # Allowed artifact types

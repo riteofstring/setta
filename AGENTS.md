@@ -70,10 +70,6 @@ Don't bother running `pnpm test` for now, as there are currently no frontend tes
 I prefer a hard KeyError instead of hiding problems via project_state.some_dict.get(key).
 When you know a section impl or code obj impl must be of a specific type, use the helper getter functions ending with "with_type_guard".
 
-## Generated types
-
-Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`.
-
 ## Tests
 
 Tests should reflect production behavior as closely as possible. It's ok if this means the tests take longer. DO NOT use "mock", "fake" or "dummy" classes, or "cast" tricks.
@@ -82,17 +78,8 @@ Tests should reflect production behavior as closely as possible. It's ok if this
 
 Use TYPE_CHECKING blocks when possible.
 Always put imports at the top of the file.
-Never import annotations from **future**.
+Never import annotations from __future__.
 
 ## Safety
 
 Do not add try/except and try/catch blocks unless absolutely necessary.
-Avoid being overly cautious about everything. I don't want endless safety checks everywhere.
-
-## Python type annotations
-
-Do not use Iterable and Mapping unless really necessary.
-
-## Refactoring
-
-We do NOT need backward compatibility!

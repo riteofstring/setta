@@ -20,16 +20,11 @@ import {
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
-import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
-    const loaded = await loadProjectState(res.data);
-    if (loaded) {
-      await fetchListenerCoverageSnapshot(res.data.projectConfig.id);
-    }
-    return loaded;
+    return await loadProjectState(res.data);
   } else {
     return false;
   }

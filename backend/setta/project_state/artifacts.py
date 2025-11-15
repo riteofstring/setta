@@ -276,28 +276,6 @@ class Artifacts:
     def get_cached_draw_area_layer_item_transform(self, path: Path | str):
         return self.draw_area_layer_item_transforms.get(normalize_path(path))
 
-    def get_cached_artifact_type(self, path: Path | str) -> ArtifactType | None:
-        """Return the cached artifact type for a normalized path, if any.
-
-        Raises ValueError when multiple artifact caches know about the same path,
-        since that indicates inconsistent state we cannot safely resolve.
-        """
-
-        normalized = normalize_path(path)
-        matches: list[ArtifactType] = []
-        for artifact_type in ArtifactType:
-            art_dict = self.dict_for_artifact_type(artifact_type)
-            if normalized in art_dict:
-                matches.append(artifact_type)
-
-        if not matches:
-            return None
-        if len(matches) == 1:
-            return matches[0]
-        raise ValueError(
-            f"artifact path {normalized} has multiple cached types: {matches}"
-        )
-
     def mark_dirty(self, path: Path, artifact_type: ArtifactType):
         metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
         if path in metadata_dict:
@@ -328,39 +306,6 @@ class Artifacts:
                 return self.draw_area_layer_item_transforms
             case _:
                 assert_never(x)
-
-    def cache_artifact_in_memory(
-        self,
-        artifact: "BaseArtifactUnion",
-        *,
-        compute_last_read_hash: bool = True,
-        new_metadata_last_read_hash: str | None = None,
-        reset_conflict: bool = False,
-    ) -> tuple[Path, ArtifactMetadata]:
-        """Store an artifact in the in-memory cache and mark metadata dirty."""
-        art_dict = self.dict_for_artifact_type(artifact.type)
-        metadata_dict = self.metadata_dict_for_artifact_type(artifact.type)
-        path = normalize_path(artifact.id)
-
-        art_dict[path] = artifact  # type: ignore[index]
-        metadata = metadata_dict.get(path)
-        if metadata is None:
-            last_read_hash = (
-                self._compute_file_hash(path)
-                if compute_last_read_hash
-                else new_metadata_last_read_hash
-            )
-            metadata = ArtifactMetadata(
-                last_read_hash=last_read_hash,
-                is_dirty=True,
-            )
-            metadata_dict[path] = metadata
-        else:
-            metadata.is_dirty = True
-            if reset_conflict:
-                metadata.has_conflict = False
-
-        return path, metadata
 
     def _prepare_artifact_for_storage(
         self, artifact: "BaseArtifactUnion"
@@ -489,7 +434,21 @@ class Artifacts:
         artifact: "BaseArtifactUnion",
         conflict_strategy: SaveConflictStrategy,
     ) -> ArtifactSaveResult:
-        path, metadata = self.cache_artifact_in_memory(artifact)
+        art_dict = self.dict_for_artifact_type(artifact.type)
+        metadata_dict = self.metadata_dict_for_artifact_type(artifact.type)
+        path = normalize_path(artifact.id)
+
+        art_dict[path] = artifact  # type: ignore
+        metadata = metadata_dict.get(path)
+        if metadata is None:
+            metadata = ArtifactMetadata(
+                last_read_hash=self._compute_file_hash(path),
+                is_dirty=True,
+            )
+            metadata_dict[path] = metadata
+        else:
+            metadata.is_dirty = True
+
         prepared = self._prepare_artifact_for_storage(artifact)
         return self._write_prepared_artifact(
             path, artifact, metadata, prepared, conflict_strategy

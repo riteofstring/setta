@@ -75,8 +75,6 @@ export function useDrawModeMouseHandlers(
   activeLayerIdx: number,
   localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
   canvasMode: DrawAreaMode,
-  notifyRealtimeDirty: () => void,
-  flushRealtimeSnapshot: () => void,
 ) {
   let onMouseDown: React.MouseEventHandler<HTMLCanvasElement>,
     onMouseMove: React.MouseEventHandler<HTMLCanvasElement>,
@@ -134,7 +132,6 @@ export function useDrawModeMouseHandlers(
       handles,
       null,
     );
-    notifyRealtimeDirty();
   };
 
   if (
@@ -154,7 +151,6 @@ export function useDrawModeMouseHandlers(
       draftCanvasRef,
       activeLayerIdx,
       canvasMode,
-      notifyRealtimeDirty,
     );
 
     onMouseMove = drawingOnMouseMove(
@@ -169,7 +165,6 @@ export function useDrawModeMouseHandlers(
       draftCanvasRef,
       activeLayerIdx,
       canvasMode,
-      notifyRealtimeDirty,
     );
 
     onMouseUp = drawingOnMouseUp(
@@ -183,7 +178,6 @@ export function useDrawModeMouseHandlers(
       tempCanvasRefs,
       draftCanvasRef,
       canvasMode,
-      flushRealtimeSnapshot,
     );
 
     onMouseEnter = drawingOnMouseEnter({
@@ -198,7 +192,6 @@ export function useDrawModeMouseHandlers(
       layerCanvasRefs,
       tempCanvasRefs,
       activeLayerIdx,
-      notifyRealtimeDirty,
     });
   } else {
     const handleMouseDown = editingOnMouseDown({
@@ -236,7 +229,6 @@ export function useDrawModeMouseHandlers(
       localArtifactTransformsRef,
       layerCanvasRefs,
       tempCanvasRefs,
-      flushRealtimeSnapshot,
     });
 
     onMouseDown = (e) => {
@@ -335,7 +327,6 @@ function drawingOnMouseDown(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   activeLayerIdx: number,
   canvasMode: DrawAreaMode,
-  notifyRealtimeDirty: () => void,
 ): React.MouseEventHandler<HTMLCanvasElement> {
   return (e, offsetX: number | null = null, offsetY: number | null = null) => {
     isDrawingRef.current = true;
@@ -360,10 +351,8 @@ function drawingOnMouseDown(
         null,
         eraserStrokeRef.current,
       );
-      notifyRealtimeDirty();
     } else {
       strokeRef.current = startNewStroke(draftCanvasRef, point);
-      notifyRealtimeDirty();
     }
     prevPointRef.current = point;
   };
@@ -381,7 +370,6 @@ function drawingOnMouseMove(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   activeLayerIdx: number,
   canvasMode: DrawAreaMode,
-  notifyRealtimeDirty: () => void,
 ): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
     if (!isDrawingRef.current) {
@@ -407,7 +395,6 @@ function drawingOnMouseMove(
         null,
         eraserStrokeRef.current,
       );
-      notifyRealtimeDirty();
     } else if (
       canvasMode === DrawAreaModeEnum.draw &&
       draftCanvasRef.current &&
@@ -417,7 +404,6 @@ function drawingOnMouseMove(
       drawStroke(draftCanvasRef.current, prevPointRef.current, point);
       strokeRef.current.value.points.push(point);
       prevPointRef.current = point;
-      notifyRealtimeDirty();
     }
   };
 }
@@ -433,7 +419,6 @@ function drawingOnMouseUp(
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   canvasMode: DrawAreaMode,
-  flushRealtimeSnapshot: () => void,
 ) {
   return () => {
     if (!isDrawingRef.current) {
@@ -532,11 +517,10 @@ function drawingOnMouseUp(
         strokeRef.current,
         layer,
         layerCanvas,
-      tempCanvasRefs,
-      draftCanvasRef.current,
-    );
+        tempCanvasRefs,
+        draftCanvasRef.current,
+      );
     }
-    flushRealtimeSnapshot();
   };
 }
 
@@ -552,7 +536,6 @@ function drawingOnMouseEnter({
   layerCanvasRefs,
   tempCanvasRefs,
   activeLayerIdx,
-  notifyRealtimeDirty,
 }: {
   canvasMode: DrawAreaMode;
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -569,7 +552,6 @@ function drawingOnMouseEnter({
   layerCanvasRefs: React.RefObject<LayerCanvasesType>;
   tempCanvasRefs: React.RefObject<TempCanvasesType>;
   activeLayerIdx: number;
-  notifyRealtimeDirty: () => void;
 }): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
     if (!draftCanvasRef.current || e.buttons !== 1) {
@@ -601,7 +583,6 @@ function drawingOnMouseEnter({
       drawStroke(draftCanvasRef.current, point, point);
       prevPointRef.current = point;
       isDrawingRef.current = true;
-      notifyRealtimeDirty();
       return;
     }
 
@@ -638,7 +619,6 @@ function drawingOnMouseEnter({
           null,
           activeEraserStroke,
         );
-        notifyRealtimeDirty();
       }
       return;
     }
@@ -1011,7 +991,6 @@ function editingOnMouseUp({
   localArtifactTransformsRef,
   layerCanvasRefs,
   tempCanvasRefs,
-  flushRealtimeSnapshot,
 }) {
   return () => {
     // have to update the corners
@@ -1034,6 +1013,5 @@ function editingOnMouseUp({
     isDragging.current = false;
     draggedIdx.current = null;
     resizeHandle.current = null;
-    flushRealtimeSnapshot();
   };
 }

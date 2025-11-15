@@ -183,7 +183,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                 "Expected at least one changed node value in broadcast payload.",
             )
             first_value = content["changedNodeValues"][0]
-            self.assertIn("sectionId", first_value["depKey"])
+            self.assertIn("sectionId", first_value)
             self.assertIn("newValue", first_value)
             self.assertIn(
                 sanitize_name(new_name),

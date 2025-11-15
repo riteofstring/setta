@@ -87,3 +87,15 @@ async def route_websocket_python_script(
         WebsocketConnectionType.PYTHON_SCRIPT,
         id=id,
     )
+
+
+@router.websocket(Route.WEBSOCKET_PYTHON_LOGGER)
+async def route_websocket_python_logger(
+    websocket: WebSocket, state: AppStateFromWebsocket
+):
+    await websocket_route_loop(
+        websocket,
+        state.websocket_manager,
+        state.wmh_python_logger_receiver,
+        WebsocketConnectionType.PYTHON_LOGGER,
+    )

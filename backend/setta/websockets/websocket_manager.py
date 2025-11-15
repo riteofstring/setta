@@ -100,9 +100,4 @@ class WebsocketManager:
                 currentAddress=None,
             )
         )
-        await self.broadcast(
-            WebsocketMsgAllConnections(
-                content=connections,
-            ),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
+        await self.broadcast(WebsocketMsgAllConnections(content=connections))

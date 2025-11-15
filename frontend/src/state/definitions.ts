@@ -18,11 +18,9 @@ import {
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
-  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
-  ListenerCoverageSnapshot,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaNotification,
@@ -128,25 +126,6 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
-export type ListenerCoverageRecord = {
-  hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
-  dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
-};
-
-type ListenerCoverageState = {
-  byProjectId: Record<string, ListenerCoverageRecord>;
-};
-
-export const useListenerCoverage = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ListenerCoverageState>(() => ({
-        byProjectId: {},
-      })),
-    ),
-  ),
-);
-
 type ZustandRenameRefactors = {
   byOpId: Record<string, RenameRefactorBroadcastContent>;
   queue: Array<string>;
@@ -221,6 +200,10 @@ export const useArtifacts = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
   ),
+);
+
+export const useInteractiveDependencies = withProjectState(
+  createWithEqualityFn(withResetFn(() => ({ dependencies: new Set() }))),
 );
 
 export type ZustandProjectSearch = {

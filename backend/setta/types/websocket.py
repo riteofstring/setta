@@ -4,36 +4,29 @@ from typing import Any, Literal
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
+from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
-    RenameRefactorBroadcastContent,
 )
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat_messages import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
-from setta.types.listener import (
-    ListenerCoverageSnapshot,
-    ListenerErrorContent,
-    ListenerForceRefreshContent,
-    ListenerFrontendEmitRawContent,
-    ListenerInitContent,
-    ListenerRealtimeEventContent,
-    ListenerRegisterAckContent,
-    ListenerRegisterContent,
-    RealtimeUIChangeContent,
+from setta.types.generated.unions import (
+    BaseArtifactUnionWithDiscriminator,
 )
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import AllProjectMetadata
+from setta.types.settings_state import RenameRefactorMode
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
+    AllDependencies = "AllDependencies"
     Notification = "Notification"
     LLMStreamingResponse = "LLMStreamingResponse"
     UUIDMappingForLLM = "UUIDMappingForLLM"
@@ -42,28 +35,17 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
-    ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
-    RealtimeUIChange = "RealtimeUIChange"
-
-
-class WebsocketMsgTypeForPythonScript(str, Enum):
-    ListenerInit = "ListenerInit"
-    ListenerRegister = "ListenerRegister"
-    ListenerRegisterAck = "ListenerRegisterAck"
-    ListenerRealtimeEvent = "ListenerRealtimeEvent"
-    ListenerForceRefresh = "ListenerForceRefresh"
-    ListenerError = "ListenerError"
-    ListenerFrontendEmit = "ListenerFrontendEmit"
 
 
 class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
     PYTHON_SCRIPT = "PYTHON_SCRIPT"
+    PYTHON_LOGGER = "PYTHON_LOGGER"
     FRONTEND = "FRONTEND"
 
 
@@ -92,8 +74,9 @@ class BackendWebsocketMsg(WebsocketMsg):
     pass
 
 
-class PythonScriptWebsocketMsg(WebsocketMsg):
-    pass
+class UpdateArtifactMsgContent(BaseModel):
+    artifacts: list[BaseArtifactUnionWithDiscriminator]
+    updateType: Literal["update", "delete"]
 
 
 class WebsocketMsgAllConnections(FrontendWebsocketMsg):
@@ -138,6 +121,13 @@ class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
     )
 
 
+class RenameRefactorBroadcastContent(BaseModel):
+    projectConfigId: str
+    frontendOpId: str
+    renameMode: RenameRefactorMode
+    changedNodeValues: list[RenameReferenceChangedValue]
+
+
 class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
     content: RenameRefactorBroadcastContent
     messageType: Literal[WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults] = (
@@ -149,6 +139,13 @@ class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     content: ProjectStateSingleConfigWithCompletedOpIds
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
+    )
+
+
+class WebsocketMsgAllDependencies(FrontendWebsocketMsg):
+    content: Any
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllDependencies] = (
+        WebsocketMsgTypeForFrontend.AllDependencies
     )
 
 
@@ -180,71 +177,8 @@ class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
     )
 
 
-class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
-    content: ListenerCoverageSnapshot
-    messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
-        WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
-    )
-
-
-class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):
-    content: RealtimeUIChangeContent
-    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeUIChange] = (
-        WebsocketMsgTypeForBackend.RealtimeUIChange
-    )
-
-
 class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
         WebsocketMsgTypeForBackend.CurrentAddressUpdate
-    )
-
-
-class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
-    content: ListenerRealtimeEventContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent] = (
-        WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent
-    )
-
-
-class WebsocketMsgListenerForceRefresh(PythonScriptWebsocketMsg):
-    content: ListenerForceRefreshContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerForceRefresh] = (
-        WebsocketMsgTypeForPythonScript.ListenerForceRefresh
-    )
-
-
-class WebsocketMsgListenerError(PythonScriptWebsocketMsg):
-    content: ListenerErrorContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerError] = (
-        WebsocketMsgTypeForPythonScript.ListenerError
-    )
-
-
-class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
-    content: ListenerFrontendEmitRawContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
-        WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
-    )
-
-
-class WebsocketMsgListenerRegister(PythonScriptWebsocketMsg):
-    content: ListenerRegisterContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegister] = (
-        WebsocketMsgTypeForPythonScript.ListenerRegister
-    )
-
-
-class WebsocketMsgListenerRegisterAck(PythonScriptWebsocketMsg):
-    content: ListenerRegisterAckContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRegisterAck] = (
-        WebsocketMsgTypeForPythonScript.ListenerRegisterAck
-    )
-
-
-class WebsocketMsgListenerInit(PythonScriptWebsocketMsg):
-    content: ListenerInitContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerInit] = (
-        WebsocketMsgTypeForPythonScript.ListenerInit
     )

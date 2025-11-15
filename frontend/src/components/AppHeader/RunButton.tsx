@@ -19,14 +19,18 @@ export function RunButton() {
   // Different run actions
   const runActions = [
     {
-      label: "Test",
+      label: "Run Interactive Fns",
       icon: <RiPlayMiniFill />,
       action: () => {
+        // sendProjectToAllInteractiveCode();
         setIsOpen(false);
       },
     },
   ];
 
+  // const sendProjectToAllInteractiveCodeShortcut = useSettings((x) =>
+  //   shortcutPrettified(x.shortcuts.sendProjectToAllInteractiveCode),
+  // );
 
   return (
     <div className="flex justify-stretch">
@@ -47,6 +51,7 @@ export function RunButton() {
             key={index}
             className={menuItemClasses}
             onClick={action.action}
+            // shortcut={sendProjectToAllInteractiveCodeShortcut}
           >
             <i className="w-2 opacity-50">{action.icon}</i>
 

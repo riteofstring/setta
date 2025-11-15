@@ -1,4 +1,3 @@
-. ./activate.sh
 ./cleanup.sh && \
 cd frontend && pnpm build && cd .. && \
 mkdir backend/setta/static && \
