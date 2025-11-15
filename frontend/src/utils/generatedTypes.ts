@@ -923,6 +923,26 @@ export const ImageMappingSchema = z.record(z.string(), ImageArtifactSchema);
 
 export type ImageMapping = z.infer<typeof ImageMappingSchema>;
 
+export const BaseArtifactUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "type",
+  [
+    ImageArtifactSchema,
+    BrushStrokeArtifactSchema,
+    DrawAreaLayerItemTransformArtifactSchema,
+    ChartDataArtifactSchema,
+  ],
+);
+
+export type BaseArtifactUnionWithDiscriminator = z.infer<
+  typeof BaseArtifactUnionWithDiscriminatorSchema
+>;
+
+export function createBaseArtifactUnionWithDiscriminator(
+  options: Partial<BaseArtifactUnionWithDiscriminator> = {},
+): BaseArtifactUnionWithDiscriminator {
+  return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const CitationCharLocationSchema = z.object({
   cited_text: z.string(),
   document_index: z.int(),
@@ -3095,26 +3115,6 @@ export const BaseArtifactUnionSchema = z.union([
 ]);
 
 export type BaseArtifactUnion = z.infer<typeof BaseArtifactUnionSchema>;
-
-export const BaseArtifactUnionWithDiscriminatorSchema = z.discriminatedUnion(
-  "type",
-  [
-    ImageArtifactSchema,
-    BrushStrokeArtifactSchema,
-    DrawAreaLayerItemTransformArtifactSchema,
-    ChartDataArtifactSchema,
-  ],
-);
-
-export type BaseArtifactUnionWithDiscriminator = z.infer<
-  typeof BaseArtifactUnionWithDiscriminatorSchema
->;
-
-export function createBaseArtifactUnionWithDiscriminator(
-  options: Partial<BaseArtifactUnionWithDiscriminator> = {},
-): BaseArtifactUnionWithDiscriminator {
-  return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
-}
 
 export const ChartSectionImplArgsSchema = z.object({
   type: z.literal("Chart").optional(),
@@ -5695,7 +5695,14 @@ export function createWebsocketMsgAllProjectMetadata(
 }
 
 export const UpdateArtifactMsgContentSchema = z.object({
-  artifacts: z.array(z.any()),
+  artifacts: z.array(
+    z.discriminatedUnion("type", [
+      ImageArtifactSchema,
+      BrushStrokeArtifactSchema,
+      DrawAreaLayerItemTransformArtifactSchema,
+      ChartDataArtifactSchema,
+    ]),
+  ),
   updateType: z.literal(["update", "delete"]),
 });
 

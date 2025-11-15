@@ -384,12 +384,12 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
-        except ListenerFrontendEmitResolverError:
+        except ListenerFrontendEmitResolverError as exc:
             logger.exception("listener emit resolver failed")
             error_message = WebsocketMsgListenerError(
                 content=ListenerErrorContent(
                     error="listener_emit_failed",
-                    details=None,
+                    details={"message": str(exc)},
                 )
             )
             await self.websocket_manager.send_message(error_message, websocket_id)
@@ -429,12 +429,12 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 )
             )
             await self.websocket_manager.send_message(error_message, websocket_id)
-        except Exception:
+        except Exception as exc:
             logger.exception("listener emit failed during backend application")
             error_message = WebsocketMsgListenerError(
                 content=ListenerErrorContent(
                     error="listener_emit_failed",
-                    details=None,
+                    details={"message": str(exc)},
                 )
             )
             await self.websocket_manager.send_message(error_message, websocket_id)

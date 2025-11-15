@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from typing import Iterable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError

@@ -1,15 +1,12 @@
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-if TYPE_CHECKING:
-    from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
 
 def create_artifact_id(extension: str = ".json"):
@@ -174,8 +171,3 @@ ImageMapping = dict[Path, ImageArtifact]
 BrushStrokeMapping = dict[Path, BrushStrokeArtifact]
 DrawAreaLayerItemTransformMapping = dict[Path, DrawAreaLayerItemTransformArtifact]
 ChartDataMapping = dict[Path, ChartDataArtifact]
-
-
-class UpdateArtifactMsgContent(BaseModel):
-    artifacts: list["BaseArtifactUnionWithDiscriminator"]
-    updateType: Literal["update", "delete"]
