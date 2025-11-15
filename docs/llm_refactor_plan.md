@@ -5,6 +5,9 @@
 - Secrets + model selection are static: the backend writes `.env` files directly (`backend/setta/routers/ai.py:85-128`), while the frontend renders a fixed `MODEL_GROUPS` array (`frontend/src/utils/constants.ts:138-158`). There’s no validation, masking, or Portkey route awareness.  
 - Server init locks in the MCP transport: `backend/setta/server_state.py` creates the SSE MCP server/client globally and injects it into `ChatManager`, making it impossible to swap in Portkey or new transports without rewriting startup code.
 
+**Progress**  
+- Deleted the Anthropics-only backend stack: removed `backend/setta/mcp/`, `backend/setta/types/chat_messages.py`, `backend/setta/project_state/chats/`, and `tests/project_state/chats/` to unblock the new provider-agnostic LLM architecture.
+
 **Ruthless Assessment**  
 - Delete the entire `backend/setta/mcp/` package (≈1.1K LOC) plus `backend/setta/types/chat_messages.py`, `backend/setta/project_state/chats/`, and `tests/project_state/chats/`. Each file encodes Anthropics-specific types and SSE assumptions; rewriting pieces would cost more than starting over with provider-agnostic models.  
 - Nuke the frontend AI stack: `frontend/src/state/actions/ai.ts`, `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`, `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx`, and the Anthropics constants in `frontend/src/utils/constants.ts` should all be replaced. Nothing there survives a provider swap, and we’re not obligated to keep backward compatibility.  
