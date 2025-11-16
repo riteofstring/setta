@@ -2,7 +2,9 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
+from textwrap import dedent
+from typing import TYPE_CHECKING, Any
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -20,6 +22,7 @@ from setta.llm import (
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
+from setta.llm.config_store import LLMConfig, load_llm_config
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
@@ -32,6 +35,19 @@ if TYPE_CHECKING:
 
     from setta.mcp.client import MCPClient
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+
+SYSTEM_PROMPT_FILE = Path(__file__).with_name("system_prompt.md")
+STREAMING_CONTRACT_TEXT = dedent(
+    """
+    Streaming + file-editing contract:
+    - Call `startStreamingInto` before writing code into CODE or TEXT_BLOCK sections. Provide the `sectionId` and optional `insertAtLine` so Setta knows where to insert the stream.
+    - After you start streaming, every text delta is written verbatim into the target section. Do not wrap code in Markdown fences or add filler narration while the stream is active.
+    - Pair streaming with `deleteTextRange` or the `str_replace_editor` commands when you need to surgically replace text before writing new content.
+    - Always call `stopStreamingInto` as soon as you finish writing (even if you abandon the change). This releases the section lock and returns the updated text so you can summarize next steps.
+    - Use normal assistant messages for discussion outside of streaming, and prefer the MCP tools over ad-hoc instructions whenever you need project state (terminal output, code snippets, etc.).
+    """
+).strip()
 
 
 class ChatManager:
@@ -150,6 +166,8 @@ class ChatManager:
         tool_calls = _ToolCallAccumulator()
 
         history = chat.to_history()
+        system_message = self._build_system_message()
+        history.messages.insert(0, system_message)
         tools = self._mcp_client.available_tools or None
         request_params = self._build_request_params(deep_think=deep_think)
 
@@ -197,6 +215,126 @@ class ChatManager:
         chat = Chat(name=self._derive_chat_name(initial_message))
         chat.add_message(initial_message)
         return chat
+
+    def _build_system_message(self) -> LLMMessage:
+        config = load_llm_config()
+        sections = [
+            self._load_static_system_prompt(),
+            self._build_portkey_summary(config),
+            self._build_tool_summary(),
+            STREAMING_CONTRACT_TEXT,
+        ]
+        prompt_text = "\n\n".join(section for section in sections if section).strip()
+        return LLMMessage(
+            message_id=create_new_id(),
+            role=LLMRole.SYSTEM,
+            content=[LLMTextBlock(text=prompt_text)],
+        )
+
+    def _load_static_system_prompt(self) -> str:
+        try:
+            return SYSTEM_PROMPT_FILE.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:  # pragma: no cover - defensive fallback
+            return ""
+
+    def _build_portkey_summary(self, config: LLMConfig) -> str:
+        lines = [
+            "Portkey gateway + provider catalog:",
+            f"- Gateway URL: {config.gateway_url}",
+            "- All assistant replies stream through the self-hosted Portkey gateway using OpenAI-compatible `tool_calls`.",
+        ]
+        provider_lines = self._format_provider_lines(config)
+        if provider_lines:
+            lines.append("- Providers currently configured:")
+            lines.extend(provider_lines)
+        else:
+            lines.append(
+                "- Providers currently configured: none yet. Use the Project LLM Settings pane to add provider/model entries."
+            )
+        return "\n".join(lines)
+
+    def _format_provider_lines(self, config: LLMConfig) -> list[str]:
+        provider_lines: list[str] = []
+        for provider in config.providers:
+            meta_bits = []
+            meta_bits.append(
+                "api key configured" if provider.api_key else "api key missing"
+            )
+            if provider.base_url:
+                meta_bits.append(f"base_url={provider.base_url}")
+            if provider.default_model_id:
+                meta_bits.append(f"default_model={provider.default_model_id}")
+            if provider.extra_headers:
+                meta_bits.append("custom headers")
+            meta_text = f" ({'; '.join(meta_bits)})" if meta_bits else ""
+            provider_lines.append(
+                f"  • {provider.display_name} (`{provider.provider_id}`){meta_text}"
+            )
+
+            for model in provider.models:
+                model_bits = []
+                if provider.default_model_id == model.model_id:
+                    model_bits.append("default")
+                if model.supports_reasoning:
+                    model_bits.append("reasoning")
+                if model.default_parameters:
+                    model_bits.append(
+                        f"defaults={self._summarize_json(model.default_parameters)}"
+                    )
+                suffix = f" ({', '.join(model_bits)})" if model_bits else ""
+                provider_lines.append(
+                    f"    – {model.display_name} (`{model.model_id}`){suffix}"
+                )
+        return provider_lines
+
+    def _summarize_json(self, payload: Any, *, max_length: int = 120) -> str:
+        serialized = json.dumps(payload, separators=(",", ":"))
+        if len(serialized) > max_length:
+            return f"{serialized[: max_length - 3]}..."
+        return serialized
+
+    def _build_tool_summary(self) -> str:
+        tools = self._mcp_client.available_tools or []
+        header = "MCP tools exposed through Portkey:"
+        if not tools:
+            return (
+                f"{header}\n- No MCP tools registered yet. Wait for the MCP client to connect before relying on tool calls."
+            )
+
+        lines = [
+            header,
+            "- Invoke these via standard OpenAI `tool_calls`; Setta streams each tool's output back immediately as a `tool_result` event.",
+        ]
+        for tool in tools:
+            function_def = tool.get("function", {}) if isinstance(tool, dict) else {}
+            name = function_def.get("name", "unknown_tool")
+            description = (function_def.get("description") or "").strip() or (
+                "No description provided."
+            )
+            lines.append(f"- {name}: {description}")
+            param_summary = self._render_parameter_summary(function_def.get("parameters"))
+            if param_summary:
+                lines.append(f"    params: {param_summary}")
+        return "\n".join(lines)
+
+    def _render_parameter_summary(self, parameters: Any) -> str:
+        if not isinstance(parameters, dict):
+            return ""
+        properties = parameters.get("properties")
+        if not isinstance(properties, dict) or not properties:
+            return ""
+        required = parameters.get("required") or []
+        details: list[str] = []
+        for name, schema in properties.items():
+            piece = name
+            if isinstance(schema, dict):
+                description = schema.get("description")
+                if description:
+                    piece = f"{name}: {description}"
+            if name in required:
+                piece = f"{piece} [required]"
+            details.append(piece)
+        return "; ".join(details)
 
     def _derive_chat_name(self, message: ChatMessage) -> str:
         """Use the first text block as the chat title, otherwise fallback."""
