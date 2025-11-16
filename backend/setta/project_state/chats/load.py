@@ -39,6 +39,7 @@ def load_all_chat_metadata(dbe: DBE) -> list[ChatMetadata]:
                         "id": data["id"],
                         "name": data["name"],
                         "lastUpdated": data["lastUpdated"],
+                        "streamStatus": data.get("streamStatus"),
                     }
                 )
             )

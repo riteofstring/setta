@@ -29,6 +29,7 @@
 - **Deep thinking toggle guardrails:** The Project chat view decodes the selected provider/model, disables the Deep Thinking switch whenever `supports_reasoning` is false or no model is selected, and automatically clears the toggle so unsupported combinations never send reasoning requests.
 - **Gateway validation UI:** The settings panel now runs `TEST_LLM_CONFIG` before saving, surfaces gateway/provider health badges with inline errors, and blocks invalid configs so users always know when the Portkey gateway or provider credentials fail.
 - **Reconnection hydration:** When the websocket connection opens we immediately refetch the active chat, merging the persisted assistant snapshot with `_active_streams` so reconnecting tabs resume in-flight responses without manual navigation.
+- **Streaming status persistence:** Each chat now records a `streamStatus`, we flip it when orchestration starts/completes/cancels, and the frontend surfaces the persisted state so reloads still show whether a response is in flight.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -40,9 +41,6 @@
   - Support partial specs in `llm_config.json`: allow providers/models to reference a preset ID and only persist the fields the user overrides (e.g., API key, renamed display label, custom defaults). When the backend loads the config it can hydrate the full provider/model definition from the preset + overrides, so the file stays small while still being explicit about local changes.
   - Allow per-model overrides (display name, deep-thinking flag, default parameters) while still referencing the preset base, so we maintain a single source for standard IDs yet give power users flexibility.
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
-
-- **Streaming lifecycle + cancellation**
-  - Record a completion/cancellation marker on chats so the frontend can tell whether more stream events are expected after a reload.
 
 - **Deep-thinking and request parameters**
   - Make `ChatManager._build_request_params` respect the `deepThink` flag only for models whose config declares `supports_reasoning`, and merge each model’s `default_parameters` into the Portkey payload.

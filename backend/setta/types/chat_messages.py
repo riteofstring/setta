@@ -1,6 +1,7 @@
 """Neutral chat persistence models that wrap the core LLM abstractions."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -34,6 +35,13 @@ CONTENT_BLOCK_TYPES: ClassVar[tuple[type, ...]] = (
     LLMToolCallBlock,
     LLMToolResultBlock,
 )
+
+
+class ChatStreamStatus(str, Enum):
+    IDLE = "idle"
+    STREAMING = "streaming"
+    COMPLETED = "completed"
+    CANCELED = "canceled"
 
 
 class LLMModelSelection(BaseModel):
@@ -110,6 +118,7 @@ class Chat(BaseModel):
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     messages: list[ChatMessage] = Field(default_factory=list)
     modelSelection: LLMModelSelection | None = None
+    streamStatus: ChatStreamStatus = ChatStreamStatus.IDLE
 
     @field_validator("lastUpdated", mode="before")
     @classmethod
@@ -149,6 +158,7 @@ class ChatMetadata(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
+    streamStatus: ChatStreamStatus = ChatStreamStatus.IDLE
 
     @field_validator("lastUpdated", mode="before")
     @classmethod
@@ -167,7 +177,12 @@ class ChatMetadata(BaseModel):
 
     @classmethod
     def from_chat(cls, chat: Chat) -> "ChatMetadata":
-        return cls(id=chat.id, name=chat.name, lastUpdated=chat.lastUpdated)
+        return cls(
+            id=chat.id,
+            name=chat.name,
+            lastUpdated=chat.lastUpdated,
+            streamStatus=chat.streamStatus,
+        )
 
 
 class ToolResult(BaseModel):
@@ -266,6 +281,7 @@ def _stream_event_from_dict(payload: dict[str, Any]) -> LLMStreamEvent:
 
 __all__ = [
     "Chat",
+    "ChatStreamStatus",
     "ChatMessage",
     "ChatMetadata",
     "LLMStreamingResponse",

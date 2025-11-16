@@ -357,7 +357,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
     persist(
       () => ({
         // State
-        chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
+        chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamStatus, streamTarget}
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,

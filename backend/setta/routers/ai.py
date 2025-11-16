@@ -15,6 +15,7 @@ from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat_messages import (
     ChatMessage,
     ChatMetadata,
+    ChatStreamStatus,
     LLMModelSelection,
     ToolResult,
 )
@@ -51,6 +52,7 @@ class GetLLMChatRequestResponse(BaseModel):
     toolResults: dict[str, ToolResult]
     waitingForResponse: bool
     modelSelection: LLMModelSelection | None
+    streamStatus: ChatStreamStatus
 
 
 class StopLLMChatRequest(BaseModel):
@@ -182,7 +184,7 @@ async def route_get_llm_chat(
             )
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    waiting_for_response = state.chat_manager.is_waiting_for_response(x.chatId)
+    waiting_for_response = chat.streamStatus is ChatStreamStatus.STREAMING
     current_stream = state.chat_manager.get_current_stream(x.chatId)
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
@@ -192,6 +194,7 @@ async def route_get_llm_chat(
         toolResults=tool_results,
         waitingForResponse=waiting_for_response,
         modelSelection=chat.modelSelection,
+        streamStatus=chat.streamStatus,
     )
 
 

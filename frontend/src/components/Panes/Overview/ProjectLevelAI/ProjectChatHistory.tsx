@@ -6,6 +6,7 @@ import {
   goToChat,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
+import { ChatStreamStatusEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 
 export function ProjectChatHistory() {
@@ -13,9 +14,10 @@ export function ProjectChatHistory() {
     (x) => {
       const waitingForResponse = {};
       for (const c of x.allChatMetadata) {
-        waitingForResponse[c.id] = Boolean(
-          x.chatDetails[c.id]?.waitingForResponse ?? false,
-        );
+        const detailStatus = x.chatDetails[c.id]?.streamStatus;
+        waitingForResponse[c.id] =
+          detailStatus === ChatStreamStatusEnum.STREAMING ||
+          c.streamStatus === ChatStreamStatusEnum.STREAMING;
       }
 
       return {

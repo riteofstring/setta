@@ -279,6 +279,15 @@ export const DrawAreaModeEnum = {
 
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
+export const ChatStreamStatusEnum = {
+  IDLE: "idle",
+  STREAMING: "streaming",
+  COMPLETED: "completed",
+  CANCELED: "canceled",
+} as const;
+
+export type ChatStreamStatus = ObjectValues<typeof ChatStreamStatusEnum>;
+
 export const LLMRoleEnum = {
   SYSTEM: "system",
   USER: "user",
@@ -7363,6 +7372,7 @@ export const ChatSchema = z.object({
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   messages: z.array(ChatMessageSchema).default([]),
   modelSelection: z.union([LLMModelSelectionSchema, z.null()]).default(null),
+  streamStatus: z.enum(ChatStreamStatusEnum).default(ChatStreamStatusEnum.IDLE),
 });
 
 export type Chat = z.infer<typeof ChatSchema>;
@@ -7375,6 +7385,7 @@ export const ChatMetadataSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
+  streamStatus: z.enum(ChatStreamStatusEnum).default(ChatStreamStatusEnum.IDLE),
 });
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
@@ -8279,6 +8290,7 @@ export const GetLLMChatRequestResponseSchema = z.object({
   toolResults: z.record(z.string(), ToolResultSchema),
   waitingForResponse: z.boolean(),
   modelSelection: z.union([LLMModelSelectionSchema, z.null()]),
+  streamStatus: z.enum(ChatStreamStatusEnum),
 });
 
 export type GetLLMChatRequestResponse = z.infer<

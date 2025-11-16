@@ -29,6 +29,7 @@ from setta.types.chat_messages import (
     Chat,
     ChatMessage,
     ChatMetadata,
+    ChatStreamStatus,
     LLMModelSelection,
     ToolResult,
 )
@@ -178,6 +179,7 @@ class ChatManager:
             chat=chat,
             persist_chat=self._persist_chat,
         )
+        chat.streamStatus = ChatStreamStatus.STREAMING
         recorder.persist_snapshot(assistant_message)
         tool_calls = _ToolCallAccumulator()
         current_task = asyncio.current_task()
@@ -222,14 +224,19 @@ class ChatManager:
                         recorder=recorder,
                     )
         except asyncio.CancelledError:
+            chat.streamStatus = ChatStreamStatus.CANCELED
+            recorder.persist_snapshot(assistant_message)
             self._active_streams.pop(chat.id, None)
             return
         except Exception:
+            chat.streamStatus = ChatStreamStatus.COMPLETED
+            recorder.persist_snapshot(assistant_message)
             self._active_streams.pop(chat.id, None)
             raise
 
         try:
             chat.add_message(assistant_message)
+            chat.streamStatus = ChatStreamStatus.COMPLETED
             self._persist_chat(chat)
         finally:
             self._active_streams.pop(chat.id, None)

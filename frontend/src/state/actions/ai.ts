@@ -14,6 +14,7 @@ import {
   route_test_llm_config,
 } from "utils/generatedEndpoints";
 import {
+  ChatStreamStatusEnum,
   createChatMessage,
   createLLMTextBlock,
   createLLMToolCallBlock,
@@ -149,11 +150,16 @@ export async function testLLMConfig(
   throw new Error(detail);
 }
 
+function isStreamingStatus(status: string | null | undefined): boolean {
+  return status === ChatStreamStatusEnum.STREAMING;
+}
+
 export function getDefaultChatDetails() {
   return {
     messages: [],
     toolResults: {},
     waitingForResponse: false,
+    streamStatus: ChatStreamStatusEnum.IDLE,
     streamTarget: null,
     modelSelectionKey: null,
   };
@@ -163,13 +169,21 @@ export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, toolResults, waitingForResponse, modelSelection } = res.data;
+    const {
+      messages,
+      toolResults,
+      waitingForResponse,
+      modelSelection,
+      streamStatus,
+    } = res.data;
     const modelSelectionKey = modelSelection
       ? encodeModelSelectionKey({
           providerId: modelSelection.providerId,
           modelId: modelSelection.modelId,
         })
       : null;
+    const nextWaitingForResponse =
+      isStreamingStatus(streamStatus) || waitingForResponse;
     useAIStore.setState((state) => ({
       chatDetails: {
         ...state.chatDetails,
@@ -178,7 +192,8 @@ export async function getLLMChat(chatId: string) {
           ...(state.chatDetails[chatId] ?? {}),
           messages,
           toolResults,
-          waitingForResponse,
+          waitingForResponse: nextWaitingForResponse,
+          streamStatus: streamStatus ?? ChatStreamStatusEnum.IDLE,
           modelSelectionKey,
         },
       },
@@ -305,6 +320,7 @@ function llmMessageStarted(chatId: string, chunk: MessageStartedEvent) {
           ...(currDetails ?? {}),
           messages: [...currMessages, message],
           waitingForResponse: true,
+          streamStatus: ChatStreamStatusEnum.STREAMING,
         },
       },
     };
@@ -365,6 +381,7 @@ function llmTextDelta(chatId: string, chunk: TextDeltaEvent) {
           ...(currDetails ?? {}),
           messages: newMessages,
           waitingForResponse: true,
+          streamStatus: ChatStreamStatusEnum.STREAMING,
         },
       },
     };
@@ -438,6 +455,7 @@ function llmToolCallDelta(
           ...(currDetails ?? {}),
           messages: newMessages,
           waitingForResponse: true,
+          streamStatus: ChatStreamStatusEnum.STREAMING,
         },
       },
     };
@@ -514,6 +532,7 @@ function llmToolResult(
           messages: newMessages,
           toolResults: nextToolResults,
           waitingForResponse: true,
+          streamStatus: ChatStreamStatusEnum.STREAMING,
         },
       },
     };
@@ -530,6 +549,7 @@ function llmResponseCompleted(chatId: string) {
           ...getDefaultChatDetails(),
           ...(currDetails ?? {}),
           waitingForResponse: false,
+          streamStatus: ChatStreamStatusEnum.COMPLETED,
         },
       },
     };
