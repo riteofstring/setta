@@ -1,8 +1,8 @@
 import asyncio
 import json
 from contextlib import AsyncExitStack
+from typing import Any
 
-from anthropic.types import ToolParam
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.types import CallToolResult, TextContent
@@ -13,6 +13,7 @@ from setta.mcp.str_replace_editor_tool_fns import (
     handle_str_replace_editor_tool_str_replace,
     handle_str_replace_editor_tool_view,
 )
+from setta.llm.portkey_client import ToolDefinition
 from setta.utils.constants import C
 
 
@@ -23,7 +24,7 @@ class MCPClient:
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.server_url = server_url
-        self.available_tools: list[ToolParam] = []
+        self.available_tools: list[ToolDefinition] = []
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -56,12 +57,7 @@ class MCPClient:
                 # List available tools to verify connection
                 response = await self.session.list_tools()
                 self.available_tools = [
-                    ToolParam(
-                        name=tool.name,
-                        description=tool.description if tool.description else "",
-                        input_schema=tool.inputSchema,
-                    )
-                    for tool in response.tools
+                    tool_definition_from_mcp(tool) for tool in response.tools
                 ]
 
                 # Keep the connection alive (this will block until an exception occurs)
@@ -110,6 +106,25 @@ class MCPClient:
         # Set flags to indicate shutdown
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
+
+
+def tool_definition_from_mcp(tool: Any) -> ToolDefinition:
+    """Convert an MCP tool listing into the OpenAI function-call schema."""
+
+    parameters = getattr(tool, "inputSchema", None)
+    if parameters is None:
+        parameters = {"type": "object", "properties": {}}
+
+    description = getattr(tool, "description", "") or ""
+
+    return {
+        "type": "function",
+        "function": {
+            "name": getattr(tool, "name"),
+            "description": description,
+            "parameters": parameters,
+        },
+    }
 
 
 def handle_str_replace_editor_tool(tool_args: dict):
