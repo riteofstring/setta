@@ -5,6 +5,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
   route_get_all_llm_chat_metadata,
+  route_get_llm_config,
   route_get_llm_chat,
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
@@ -26,6 +27,22 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
+
+export async function loadLLMConfig() {
+  const res = await route_get_llm_config();
+  if (res200(res)) {
+    useAIStore.setState({
+      llmConfig: res.data,
+      llmConfigLoaded: true,
+    });
+    return;
+  }
+
+  useAIStore.setState({
+    llmConfig: null,
+    llmConfigLoaded: true,
+  });
+}
 
 export function getDefaultChatDetails() {
   return {

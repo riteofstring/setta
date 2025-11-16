@@ -497,8 +497,9 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
+  GET_LLM_CONFIG: "/getLLMConfig",
+  SET_LLM_CONFIG: "/setLLMConfig",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
-  SET_LLM_API_KEYS: "/setLLMApiKeys",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
@@ -688,10 +689,6 @@ export const SaveConflictStrategyEnum = {
 export type SaveConflictStrategy = ObjectValues<
   typeof SaveConflictStrategyEnum
 >;
-
-export const APIKeysSchema = z.record(z.string(), z.string());
-
-export type APIKeys = z.infer<typeof APIKeysSchema>;
 
 export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
 
@@ -8068,18 +8065,6 @@ export function createDeleteLLMChatRequest(
   return DeleteLLMChatRequestSchema.parse(options);
 }
 
-export const GetLLMApiKeysRequestSchema = z.object({
-  apiKeysFilepath: z.string(),
-});
-
-export type GetLLMApiKeysRequest = z.infer<typeof GetLLMApiKeysRequestSchema>;
-
-export function createGetLLMApiKeysRequest(
-  options: Partial<GetLLMApiKeysRequest> = {},
-): GetLLMApiKeysRequest {
-  return GetLLMApiKeysRequestSchema.parse(options);
-}
-
 export const GetLLMChatRequestSchema = z.object({
   chatId: z.string(),
   projectConfigId: z.union([z.string(), z.null()]),
@@ -8125,17 +8110,64 @@ export function createGetLLMResponseRequest(
   return GetLLMResponseRequestSchema.parse(options);
 }
 
-export const SetLLMApiKeysRequestSchema = z.object({
-  apiKeys: z.record(z.string(), z.string()),
-  apiKeysFilepath: z.string(),
+export const LLMModelConfigPayloadSchema = z.object({
+  model_id: z.string(),
+  display_name: z.string(),
+  supports_reasoning: z.boolean().default(false),
+  default_parameters: z
+    .union([
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+    ])
+    .default(null),
 });
 
-export type SetLLMApiKeysRequest = z.infer<typeof SetLLMApiKeysRequestSchema>;
+export type LLMModelConfigPayload = z.infer<typeof LLMModelConfigPayloadSchema>;
 
-export function createSetLLMApiKeysRequest(
-  options: Partial<SetLLMApiKeysRequest> = {},
-): SetLLMApiKeysRequest {
-  return SetLLMApiKeysRequestSchema.parse(options);
+export function createLLMModelConfigPayload(
+  options: Partial<LLMModelConfigPayload> = {},
+): LLMModelConfigPayload {
+  return LLMModelConfigPayloadSchema.parse(options);
+}
+
+export const LLMProviderConfigPayloadSchema = z.object({
+  provider_id: z.string(),
+  display_name: z.string(),
+  api_key: z.string().default("" as const),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  default_model_id: z.union([z.string(), z.null()]).default(null),
+  extra_headers: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
+  models: z.array(LLMModelConfigPayloadSchema).default([]),
+});
+
+export type LLMProviderConfigPayload = z.infer<
+  typeof LLMProviderConfigPayloadSchema
+>;
+
+export function createLLMProviderConfigPayload(
+  options: Partial<LLMProviderConfigPayload> = {},
+): LLMProviderConfigPayload {
+  return LLMProviderConfigPayloadSchema.parse(options);
+}
+
+export const LLMConfigPayloadSchema = z.object({
+  gateway_url: z.string().default("http://127.0.0.1:8787" as const),
+  providers: z.array(LLMProviderConfigPayloadSchema).default([]),
+});
+
+export type LLMConfigPayload = z.infer<typeof LLMConfigPayloadSchema>;
+
+export function createLLMConfigPayload(
+  options: Partial<LLMConfigPayload> = {},
+): LLMConfigPayload {
+  return LLMConfigPayloadSchema.parse(options);
 }
 
 export const StopLLMChatRequestSchema = z.object({
@@ -9652,6 +9684,68 @@ export function createSettaLSPPosition(
   options: Partial<SettaLSPPosition> = {},
 ): SettaLSPPosition {
   return SettaLSPPositionSchema.parse(options);
+}
+
+export const LLMModelConfigSchema = z.object({
+  model_id: z.string(),
+  display_name: z.string(),
+  supports_reasoning: z.boolean().default(false),
+  default_parameters: z
+    .union([
+      z.record(
+        z.string(),
+        z.union([
+          z.string(),
+          z.int(),
+          z.number(),
+          z.boolean(),
+          z.null(),
+          z.record(z.string(), z.any()),
+          z.array(z.any()),
+        ]),
+      ),
+      z.null(),
+    ])
+    .default(null),
+});
+
+export type LLMModelConfig = z.infer<typeof LLMModelConfigSchema>;
+
+export function createLLMModelConfig(
+  options: Partial<LLMModelConfig> = {},
+): LLMModelConfig {
+  return LLMModelConfigSchema.parse(options);
+}
+
+export const LLMProviderConfigSchema = z.object({
+  provider_id: z.string(),
+  display_name: z.string(),
+  api_key: z.string().default(""),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  default_model_id: z.union([z.string(), z.null()]).default(null),
+  extra_headers: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
+  models: z.array(LLMModelConfigSchema).default([]),
+});
+
+export type LLMProviderConfig = z.infer<typeof LLMProviderConfigSchema>;
+
+export function createLLMProviderConfig(
+  options: Partial<LLMProviderConfig> = {},
+): LLMProviderConfig {
+  return LLMProviderConfigSchema.parse(options);
+}
+
+export const LLMConfigSchema = z.object({
+  gateway_url: z.string().default("http://127.0.0.1:8787"),
+  providers: z.array(LLMProviderConfigSchema).default([]),
+});
+
+export type LLMConfig = z.infer<typeof LLMConfigSchema>;
+
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
 }
 
 export const CodeMirrorCompletionSchema = z.object({

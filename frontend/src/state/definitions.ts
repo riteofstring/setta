@@ -12,13 +12,10 @@ import {
 } from "utils/constants";
 import {
   AllProjectMetadata,
-  APIKeys,
+  BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
   ChatMetadata,
-  createProjectConfig,
-  createSingletonSections,
-  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
@@ -28,6 +25,9 @@ import {
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
+  createProjectConfig,
+  createSingletonSections,
+  LLMConfig,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -339,14 +339,13 @@ export const useResizerStore = withProjectState(
 );
 
 export type ZustandAIStore = {
-  apiKeys: APIKeys;
-  apiKeysFilepath: string;
-  apiKeysInitialLoadComplete: boolean;
   allChatMetadata: Array<ChatMetadata>;
   currentChatId: string | null;
   viewHistory: boolean;
   userSelectedLLM: string;
   idToUUIDForLLM: IDToUUIDForLLM;
+  llmConfig: LLMConfig | null;
+  llmConfigLoaded: boolean;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -355,20 +354,18 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
     persist(
       () => ({
         // State
-        apiKeys: {},
-        apiKeysFilepath: ".env",
-        apiKeysInitialLoadComplete: false,
         chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
         userSelectedLLM: "",
         idToUUIDForLLM: {},
+        llmConfig: null,
+        llmConfigLoaded: false,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
-          apiKeysFilepath: state.apiKeysFilepath,
           currentChatId: state.currentChatId,
           userSelectedLLM: state.userSelectedLLM,
           viewHistory: state.viewHistory,

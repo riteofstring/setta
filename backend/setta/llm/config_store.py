@@ -102,8 +102,7 @@ class LLMConfig:
         return cls(
             gateway_url=payload.get("gateway_url", DEFAULT_GATEWAY_URL),
             providers=[
-                LLMProviderConfig.from_dict(provider)
-                for provider in providers_payload
+                LLMProviderConfig.from_dict(provider) for provider in providers_payload
             ],
         )
 

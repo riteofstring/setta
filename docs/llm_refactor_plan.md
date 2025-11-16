@@ -54,5 +54,7 @@
 - Hooked the `ChatManager` stream into real MCP tool execution so Portkey `tool_calls` deltas trigger immediate `CallToolResult` invocations, normalized `ToolResultEvent`s are broadcast to the frontend, and the assistant transcript captures structured tool outputs.
 - Rewrote `frontend/src/state/actions/ai.ts` to consume the generated `LLMStreamEvent` union, accumulate assistant messages/tool calls via the normalized block types, and push `TextDeltaEvent`s directly into section streaming, clearing out all Anthropic-specific chunk handlers.
 - Added `backend/setta/llm/config_store.py` plus `setta_files/llm_config.json` to persist gateway URL + provider/model metadata, establishing the backend source of truth that will replace the frontend’s hard-coded `MODEL_GROUPS`.
+- Added `GET/SET_LLM_CONFIG` routes plus typed payloads, removed the `.env` API-key plumbing, and now broadcast config-save notifications so the backend is the single source of truth.
+- Replaced the frontend `MODEL_GROUPS`+`apiKeys` state with live data from the config file; `ProjectChat` and `ProjectLLMSettings` now read the persisted providers/models and surface loading/error states while we build the editor UI.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.

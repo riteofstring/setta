@@ -135,28 +135,6 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 
-export const MODEL_GROUPS = [
-  {
-    group: "Anthropic",
-    items: [
-      { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
-      { id: "claude-3-sonnet-20240229", name: "Claude 3 Sonnet" },
-      { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
-      { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
-      { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet" },
-    ],
-  },
-  {
-    group: "OpenAI",
-    items: [
-      { id: "gpt-4o", name: "GPT-4o" },
-      { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
-      { id: "gpt-4", name: "GPT-4" },
-      { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
-    ],
-  },
-];
-
 export const ProjectSearchModeEnum = {
   find: "find",
   advanced: "advanced",
