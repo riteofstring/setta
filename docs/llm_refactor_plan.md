@@ -43,7 +43,7 @@
 
 - **Deep-thinking and request parameters**
   - Make `ChatManager._build_request_params` respect the `deepThink` flag only for models whose config declares `supports_reasoning`, and merge each model’s `default_parameters` into the Portkey payload.
-  - Surface validation/health data: add a `Route.TEST_LLM_CONFIG` endpoint that pings the configured gateway/providers, return structured errors, and show the status next to provider cards in `ProjectLLMSettings`.
+  - Surface validation/health data in the UI by invoking `Route.TEST_LLM_CONFIG`, wiring the responses into notifications/status badges next to provider cards in `ProjectLLMSettings`, and blocking saves when credentials fail.
 
 - **Frontend follow-ups**
   - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.
