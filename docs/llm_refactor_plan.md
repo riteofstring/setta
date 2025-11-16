@@ -25,6 +25,7 @@
 - **Live config reloads:** `register_llm_config_watch` now reloads the JSON, notifies `SettaFastAPIState`, and resets `ChatManager` so new providers/keys are honored immediately without restarting the backend.
 - **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
 - **Streaming lifecycle + cancellation:** `ChatManager` now tracks every in-flight Portkey task, exposes `is_waiting_for_response`/`get_current_stream`, and lets `/stopLLMChat` cancel the active task so the frontend stop button halts generation immediately.
+- **Gateway + provider validation:** Added the `Route.TEST_LLM_CONFIG` endpoint, typed payloads, and backend probes that hit the Portkey gateway’s health route plus each provider’s `/models` listing so the UI can immediately report whether saved credentials/base URLs are reachable.
 
 **Remaining Work**
 - **Project-scoped configs**

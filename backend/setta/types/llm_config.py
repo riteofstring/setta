@@ -39,10 +39,38 @@ class LLMPresetCatalogPayload(BaseModel):
     providers: list[LLMProviderPresetPayload] = Field(default_factory=list)
 
 
+class LLMGatewayTestResultPayload(BaseModel):
+    ok: bool
+    url: str | None = None
+    error: str | None = None
+
+
+class LLMProviderTestErrorPayload(BaseModel):
+    message: str
+    code: str | None = None
+
+
+class LLMProviderTestResultPayload(BaseModel):
+    provider_id: str
+    display_name: str
+    base_url: str | None = None
+    ok: bool = False
+    errors: list[LLMProviderTestErrorPayload] = Field(default_factory=list)
+
+
+class LLMConfigTestResultPayload(BaseModel):
+    gateway: LLMGatewayTestResultPayload
+    providers: list[LLMProviderTestResultPayload] = Field(default_factory=list)
+
+
 __all__ = [
     "LLMConfigPayload",
     "LLMModelConfigPayload",
     "LLMProviderConfigPayload",
     "LLMPresetCatalogPayload",
     "LLMProviderPresetPayload",
+    "LLMGatewayTestResultPayload",
+    "LLMProviderTestResultPayload",
+    "LLMProviderTestErrorPayload",
+    "LLMConfigTestResultPayload",
 ]

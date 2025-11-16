@@ -51,6 +51,7 @@ class Route(str, Enum):
     GET_LLM_CONFIG = "/getLLMConfig"
     GET_LLM_PRESETS = "/getLLMPresets"
     SET_LLM_CONFIG = "/setLLMConfig"
+    TEST_LLM_CONFIG = "/testLLMConfig"
     GET_LISTENER_COVERAGE = "/getListenerCoverage"
     GET_ALL_LLM_CHAT_METADATA = "/getAllLLMChatMetadata"
     DELETE_LLM_CHAT = "/deleteLLMChat"
