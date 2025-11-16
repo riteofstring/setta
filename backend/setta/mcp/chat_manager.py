@@ -1,7 +1,7 @@
 """Chat persistence manager built on the neutral LLM models."""
 
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
@@ -40,8 +40,8 @@ class ChatManager:
     def __init__(
         self,
         dbe: DBE,
-        mcp_client: MCPClient,
-        wmh_frontend_sender: WMHFrontendSender,
+        mcp_client: "MCPClient",
+        wmh_frontend_sender: "WMHFrontendSender",
         orchestrator: LLMOrchestrator | None = None,
     ) -> None:
         self._dbe = dbe
@@ -184,7 +184,9 @@ class ChatManager:
         raise NotImplementedError("Stopping in-flight LLM streams is not implemented.")
 
     def is_waiting_for_response(self, chat_id: str) -> bool:
-        raise NotImplementedError("LLM orchestration state tracking is not implemented.")
+        raise NotImplementedError(
+            "LLM orchestration state tracking is not implemented."
+        )
 
     def get_current_stream(self, chat_id: str) -> list[ChatMessage]:
         raise NotImplementedError("LLM stream buffering is not implemented.")

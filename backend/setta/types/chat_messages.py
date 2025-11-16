@@ -64,7 +64,9 @@ class ChatMessage(BaseModel):
         raise TypeError("ChatMessage.content must be a list")
 
     @field_serializer("content")
-    def _serialize_content(self, content: list[LLMContentBlock]) -> list[dict[str, Any]]:
+    def _serialize_content(
+        self, content: list[LLMContentBlock]
+    ) -> list[dict[str, Any]]:
         return [block.to_dict() for block in content]
 
     @field_serializer("role")
@@ -129,7 +131,9 @@ class Chat(BaseModel):
 
     @classmethod
     def from_history(cls, *, history: LLMHistory, name: str) -> "Chat":
-        messages = [ChatMessage.from_llm_message(message) for message in history.messages]
+        messages = [
+            ChatMessage.from_llm_message(message) for message in history.messages
+        ]
         return cls(name=name, messages=messages)
 
 

@@ -1,7 +1,7 @@
 """Wrapper around the Portkey SDK that emits normalized stream events."""
 
-from collections.abc import AsyncIterator, Iterator
 import inspect
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 from portkey_ai import AsyncPortkey, Portkey
@@ -15,7 +15,6 @@ from .models import (
     TextDeltaEvent,
     ToolCallDeltaEvent,
 )
-
 
 ToolDefinition = dict[str, Any]
 
@@ -72,7 +71,9 @@ class PortkeyClient:
                 yield event
 
         if not completed:
-            yield ResponseCompletedEvent(message_id=response_message_id, finish_reason=None)
+            yield ResponseCompletedEvent(
+                message_id=response_message_id, finish_reason=None
+            )
 
     async def astream_chat_completion(
         self,
@@ -108,7 +109,9 @@ class PortkeyClient:
                 yield event
 
         if not completed:
-            yield ResponseCompletedEvent(message_id=response_message_id, finish_reason=None)
+            yield ResponseCompletedEvent(
+                message_id=response_message_id, finish_reason=None
+            )
 
     def _build_payload(
         self,

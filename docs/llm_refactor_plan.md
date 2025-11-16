@@ -50,5 +50,6 @@
 - Restored `backend/setta/types/chat_messages.py` with the new normalized chat persistence schema that stores only our `LLM*` dataclasses and serializes websocket chunks as backend-defined `LLMStreamEvent` payloads, so persistence/websocket layers now match the Portkey abstraction.
 - Wired `backend/setta/mcp/chat_manager.py` into the orchestrator so chats now stream via the normalized models, emitting events over the websocket and persisting the assistant response.
 - Hooked the `ChatManager` stream into real MCP tool execution so Portkey `tool_calls` deltas trigger immediate `CallToolResult` invocations, normalized `ToolResultEvent`s are broadcast to the frontend, and the assistant transcript captures structured tool outputs.
+- Rewrote `frontend/src/state/actions/ai.ts` to consume the generated `LLMStreamEvent` union, accumulate assistant messages/tool calls via the normalized block types, and push `TextDeltaEvent`s directly into section streaming, clearing out all Anthropic-specific chunk handlers.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.

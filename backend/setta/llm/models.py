@@ -1,10 +1,9 @@
 """Core LLM message and streaming models used across the backend."""
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum
-import json
 from typing import Any, Literal
-
 
 JSONValue = str | int | float | bool | None | dict[str, Any] | list[Any]
 

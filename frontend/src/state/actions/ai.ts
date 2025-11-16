@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useAIStore, useProjectState } from "state/definitions";
-import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
@@ -11,9 +10,19 @@ import {
   route_get_uuid_mapping_for_llm,
 } from "utils/generatedEndpoints";
 import {
-  ChatRoleEnum,
-  createTextBlock,
+  createChatMessage,
+  createLLMTextBlock,
+  createLLMToolCallBlock,
+  createLLMToolResultBlock,
+  createToolResult,
   IDToUUIDForLLM,
+  LLMRoleEnum,
+  LLMStreamEventTypeEnum,
+  type LLMStreamingResponse,
+  type MessageStartedEvent,
+  type TextDeltaEvent,
+  type ToolCallDeltaEvent,
+  type ToolResultEvent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
@@ -77,11 +86,11 @@ export async function submitMessage(message: string, deepThink) {
   if (!message.trim()) return;
 
   // Add user message immediately for responsive UI
-  const userMessage = {
+  const userMessage = createChatMessage({
     id: createNewId(),
-    role: ChatRoleEnum.user,
-    content: [createTextBlock({ text: message, type: "text" })],
-  };
+    role: LLMRoleEnum.USER,
+    content: [createLLMTextBlock({ text: message })],
+  });
 
   const state = useAIStore.getState();
 
@@ -98,37 +107,36 @@ export async function submitMessage(message: string, deepThink) {
   }
 }
 
-export function receiveLLMResponseChunk(msg) {
+export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
     const { chatDetails } = useAIStore.getState();
+    const streamTarget = chatDetails[chatId]?.streamTarget;
+
     if (
-      chatDetails[chatId]?.streamTarget &&
-      chunk.type === C.LLM_CONTENT_BLOCK_DELTA &&
-      chunk.delta.type === C.LLM_TEXT_DELTA
+      streamTarget &&
+      chunk.event_type === LLMStreamEventTypeEnum.TEXT_DELTA
     ) {
-      streamInto(chatId, chatDetails[chatId].streamTarget, chunk.delta.text);
+      streamInto(chatId, streamTarget, chunk.delta);
     }
 
-    // Handle different chunk types
-    switch (chunk.type) {
-      case C.LLM_MESSAGE_START:
-        llmMessageStart(chatId, chunk);
+    switch (chunk.event_type) {
+      case LLMStreamEventTypeEnum.MESSAGE_STARTED:
+        llmMessageStarted(chatId, chunk);
         return;
-      case C.LLM_CONTENT_BLOCK_START:
-        llmContentBlockStart(chatId, assistantMessageId, chunk);
+      case LLMStreamEventTypeEnum.TEXT_DELTA:
+        llmTextDelta(chatId, chunk);
         return;
-      case C.LLM_CONTENT_BLOCK_DELTA:
-        llmContentBlockDelta(chatId, assistantMessageId, chunk);
+      case LLMStreamEventTypeEnum.TOOL_CALL_DELTA:
+        llmToolCallDelta(chatId, assistantMessageId, chunk);
         return;
-      case C.LLM_CONTENT_BLOCK_STOP:
-        llmContentBlockStop(chatId, assistantMessageId, chunk);
+      case LLMStreamEventTypeEnum.TOOL_RESULT:
+        llmToolResult(chatId, assistantMessageId, chunk);
         return;
-      case C.LLM_TOOL_RESULT:
-        llmToolResult(chatId, chunk);
+      case LLMStreamEventTypeEnum.RESPONSE_COMPLETED:
+        llmResponseCompleted(chatId);
         return;
-      case C.LLM_FULL_MESSAGE_STOP:
-        llmFullMessageStop(chatId, chunk);
+      default:
         return;
     }
   } catch (e) {
@@ -136,152 +144,70 @@ export function receiveLLMResponseChunk(msg) {
   }
 }
 
-function llmMessageStart(chatId, chunk) {
+function llmMessageStarted(chatId: string, chunk: MessageStartedEvent) {
+  const message = createChatMessage({
+    id: chunk.message_id,
+    role: chunk.role,
+    content: [],
+  });
+
   useAIStore.setState((state) => {
     const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
     return {
       chatDetails: {
         ...state.chatDetails,
         [chatId]: {
           ...getDefaultChatDetails(),
           ...(currDetails ?? {}),
-          messages: [...(currDetails?.messages ?? []), chunk.message],
+          messages: [...currMessages, message],
+          waitingForResponse: true,
         },
       },
     };
   });
 }
 
-function llmContentBlockStart(chatId, assistantMessageId, chunk) {
+function llmTextDelta(chatId: string, chunk: TextDeltaEvent) {
   useAIStore.setState((state) => {
     const currDetails = state.chatDetails[chatId];
     const currMessages = currDetails?.messages ?? [];
     const messageIndex = currMessages.findIndex(
-      (m) => m.id === assistantMessageId,
+      (m) => m.id === chunk.message_id,
     );
     if (messageIndex === -1) {
-      return {}; // No changes to state
-    }
-
-    // Create new content array with the updated chunk
-    const message = currMessages[messageIndex];
-    const newContentArray = [...message.content];
-    while (newContentArray.length <= chunk.index) {
-      newContentArray.push(null);
-    }
-    newContentArray[chunk.index] = chunk.content_block;
-
-    // Create updated message
-    const updatedMessage = { ...message, content: newContentArray };
-
-    // Create new messages array using spread operations
-    const newMessages = [
-      ...currMessages.slice(0, messageIndex),
-      updatedMessage,
-      ...currMessages.slice(messageIndex + 1),
-    ];
-
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          messages: newMessages,
-        },
-      },
-    };
-  });
-}
-
-function llmContentBlockDelta(chatId, assistantMessageId, chunk) {
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    const currMessages = currDetails?.messages ?? [];
-    const messageIndex = currMessages.findIndex(
-      (m) => m.id === assistantMessageId,
-    );
-    if (messageIndex === -1) {
-      return {}; // No changes to state
-    }
-    const message = currMessages[messageIndex];
-    const newContentArray = [...message.content];
-    const currMsg = newContentArray[chunk.index];
-    let updated = true;
-    switch (chunk.delta.type) {
-      case C.LLM_TEXT_DELTA:
-        currMsg.text += chunk.delta.text;
-        break;
-      case C.LLM_THINKING_DELTA:
-        currMsg.thinking += chunk.delta.thinking;
-        break;
-      case C.LLM_SIGNATURE_DELTA:
-        currMsg.signature = chunk.delta.signature;
-        break;
-      case C.LLM_INPUT_JSON_DELTA:
-        if (typeof currMsg.input !== "string") {
-          currMsg.input = "";
-        }
-        currMsg.input += chunk.delta.partial_json;
-        break;
-      default:
-        updated = false;
-    }
-
-    if (!updated) {
       return {};
     }
 
-    // Create updated message
-    const updatedMessage = { ...message, content: newContentArray };
-
-    // Create new messages array using spread operations
-    const newMessages = [
-      ...currMessages.slice(0, messageIndex),
-      updatedMessage,
-      ...currMessages.slice(messageIndex + 1),
-    ];
-
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          messages: newMessages,
-        },
-      },
-    };
-  });
-}
-
-function llmContentBlockStop(chatId, assistantMessageId, chunk) {
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    const currMessages = currDetails?.messages ?? [];
-    const messageIndex = currMessages.findIndex(
-      (m) => m.id === assistantMessageId,
-    );
-    if (messageIndex === -1) {
-      return {}; // No changes to state
-    }
     const message = currMessages[messageIndex];
-    const newContentArray = [...message.content];
-    const currMsg = newContentArray[chunk.index];
-    if (currMsg.type === C.LLM_TOOL_USE) {
-      if (currMsg.input) {
-        currMsg.input = JSON.parse(currMsg.input);
-      } else {
-        currMsg.input = {};
-      }
+    const content = [...message.content];
+    const streamTarget = chunk.stream_target ?? null;
+
+    const blockIndex = content.findIndex(
+      (block) =>
+        block?.type === "text" &&
+        (block.stream_target ?? null) === streamTarget,
+    );
+
+    let newContent = content;
+    if (blockIndex === -1) {
+      newContent = [
+        ...content,
+        createLLMTextBlock({ text: chunk.delta, stream_target: streamTarget }),
+      ];
     } else {
-      return {};
+      const existingBlock = content[blockIndex];
+      if (!existingBlock || existingBlock.type !== "text") {
+        return {};
+      }
+      newContent = [...content];
+      newContent[blockIndex] = {
+        ...existingBlock,
+        text: `${existingBlock.text ?? ""}${chunk.delta}`,
+      };
     }
 
-    // Create updated message
-    const updatedMessage = { ...message, content: newContentArray };
-
-    // Create new messages array using spread operations
+    const updatedMessage = { ...message, content: newContent };
     const newMessages = [
       ...currMessages.slice(0, messageIndex),
       updatedMessage,
@@ -295,13 +221,163 @@ function llmContentBlockStop(chatId, assistantMessageId, chunk) {
           ...getDefaultChatDetails(),
           ...(currDetails ?? {}),
           messages: newMessages,
+          waitingForResponse: true,
         },
       },
     };
   });
 }
 
-function llmToolResult(chatId, chunk) {
+function llmToolCallDelta(
+  chatId: string,
+  assistantMessageId: string | null,
+  chunk: ToolCallDeltaEvent,
+) {
+  if (!assistantMessageId) {
+    return;
+  }
+
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {};
+    }
+
+    const message = currMessages[messageIndex];
+    const content = [...message.content];
+    const blockIndex = content.findIndex(
+      (block) =>
+        block?.type === "tool_call" &&
+        block.tool_call_id === chunk.tool_call_id,
+    );
+
+    let newContent = content;
+    if (blockIndex === -1) {
+      newContent = [
+        ...content,
+        createLLMToolCallBlock({
+          tool_call_id: chunk.tool_call_id,
+          name: chunk.name ?? "",
+          arguments_text: chunk.arguments_delta ?? "",
+        }),
+      ];
+    } else {
+      const existingBlock = content[blockIndex];
+      if (!existingBlock || existingBlock.type !== "tool_call") {
+        return {};
+      }
+      newContent = [...content];
+      newContent[blockIndex] = {
+        ...existingBlock,
+        name: chunk.name ?? existingBlock.name,
+        arguments_text: `${existingBlock.arguments_text ?? ""}${
+          chunk.arguments_delta
+        }`,
+      };
+    }
+
+    const updatedMessage = { ...message, content: newContent };
+    const newMessages = [
+      ...currMessages.slice(0, messageIndex),
+      updatedMessage,
+      ...currMessages.slice(messageIndex + 1),
+    ];
+
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+          waitingForResponse: true,
+        },
+      },
+    };
+  });
+}
+
+function llmToolResult(
+  chatId: string,
+  assistantMessageId: string | null,
+  chunk: ToolResultEvent,
+) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    let toolCallName: string | null = null;
+    let newMessages = currMessages;
+
+    if (assistantMessageId) {
+      const messageIndex = currMessages.findIndex(
+        (m) => m.id === assistantMessageId,
+      );
+      if (messageIndex !== -1) {
+        const message = currMessages[messageIndex];
+        const content = [...message.content];
+        const toolCallBlock = content.find(
+          (block) =>
+            block?.type === "tool_call" &&
+            block.tool_call_id === chunk.tool_call_id,
+        );
+
+        toolCallName =
+          toolCallBlock && toolCallBlock.type === "tool_call"
+            ? toolCallBlock.name
+            : null;
+
+        const resultBlock = createLLMToolResultBlock({
+          tool_call_id: chunk.tool_call_id,
+          name: toolCallName,
+          output_text: chunk.output_text ?? null,
+          output_json: chunk.output ?? null,
+          is_error: chunk.is_error ?? false,
+        });
+
+        const updatedMessage = {
+          ...message,
+          content: [...content, resultBlock],
+        };
+
+        newMessages = [
+          ...currMessages.slice(0, messageIndex),
+          updatedMessage,
+          ...currMessages.slice(messageIndex + 1),
+        ];
+      }
+    }
+
+    const nextToolResults = {
+      ...(currDetails?.toolResults ?? {}),
+      [chunk.tool_call_id]: createToolResult({
+        tool_call_id: chunk.tool_call_id,
+        name: toolCallName,
+        output_text: chunk.output_text ?? null,
+        output_json: chunk.output ?? null,
+        is_error: chunk.is_error ?? false,
+      }),
+    };
+
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+          toolResults: nextToolResults,
+          waitingForResponse: true,
+        },
+      },
+    };
+  });
+}
+
+function llmResponseCompleted(chatId: string) {
   useAIStore.setState((state) => {
     const currDetails = state.chatDetails[chatId];
     return {
@@ -310,28 +386,7 @@ function llmToolResult(chatId, chunk) {
         [chatId]: {
           ...getDefaultChatDetails(),
           ...(currDetails ?? {}),
-          toolResults: {
-            ...(currDetails?.toolResults ?? {}),
-            [chunk.tool_use_id]: chunk,
-          },
-        },
-      },
-    };
-  });
-}
-
-function llmFullMessageStop(chatId, chunk) {
-  const { messages, toolResults } = chunk;
-  console.log("messages", messages);
-  useAIStore.setState((state) => {
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          messages,
-          toolResults,
           waitingForResponse: false,
-          streamTarget: null,
         },
       },
     };

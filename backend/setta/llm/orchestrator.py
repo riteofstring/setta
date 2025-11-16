@@ -1,12 +1,11 @@
 """Coordinates chat requests, history conversion, and Portkey streaming."""
 
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 import inspect
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from .models import LLMHistory, LLMMessage, LLMRole, LLMStreamEvent
 from .portkey_client import ToolDefinition
-
 
 HistoryInput = LLMHistory | Sequence[LLMMessage] | Sequence[dict[str, Any]]
 EventConsumer = Callable[[LLMStreamEvent], None]
@@ -27,8 +26,7 @@ class LLMGateway(Protocol):
         tools: list[ToolDefinition] | None = None,
         tool_choice: str | dict[str, Any] | None = None,
         request_params: dict[str, Any] | None = None,
-    ) -> Iterator[LLMStreamEvent]:
-        ...
+    ) -> Iterator[LLMStreamEvent]: ...
 
     def astream_chat_completion(
         self,
@@ -40,8 +38,7 @@ class LLMGateway(Protocol):
         tools: list[ToolDefinition] | None = None,
         tool_choice: str | dict[str, Any] | None = None,
         request_params: dict[str, Any] | None = None,
-    ) -> AsyncIterator[LLMStreamEvent]:
-        ...
+    ) -> AsyncIterator[LLMStreamEvent]: ...
 
 
 class LLMOrchestrator:

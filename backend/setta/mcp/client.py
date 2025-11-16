@@ -7,13 +7,13 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.types import CallToolResult, TextContent
 
+from setta.llm.portkey_client import ToolDefinition
 from setta.mcp.str_replace_editor_tool_fns import (
     handle_str_replace_editor_tool_create,
     handle_str_replace_editor_tool_insert,
     handle_str_replace_editor_tool_str_replace,
     handle_str_replace_editor_tool_view,
 )
-from setta.llm.portkey_client import ToolDefinition
 from setta.utils.constants import C
 
 
