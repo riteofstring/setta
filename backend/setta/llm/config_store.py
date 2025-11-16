@@ -5,12 +5,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from setta.llm.constants import CONFIG_PATH, DEFAULT_GATEWAY_URL
 from setta.llm.models import JSONValue
-from setta.utils.constants import C
-
-CONFIG_FILENAME = "llm_config.json"
-DEFAULT_GATEWAY_URL = "http://127.0.0.1:8787"
-CONFIG_PATH = C.SETTA_FILES_FOLDER / CONFIG_FILENAME
+from setta.types.llm_config import (
+    LLMConfigPayload,
+    LLMModelConfigPayload,
+    LLMProviderConfigPayload,
+)
 
 
 @dataclass
@@ -128,3 +129,59 @@ def save_llm_config(config: LLMConfig, config_path: Path | None = None) -> None:
     _ensure_directory(path)
     serialized = json.dumps(config.to_dict(), indent=2, sort_keys=False)
     path.write_text(f"{serialized}\n", encoding="utf-8")
+
+
+def config_to_payload(config: LLMConfig) -> LLMConfigPayload:
+    """Convert the dataclass configuration into the Pydantic payload used by APIs."""
+
+    return LLMConfigPayload(
+        gateway_url=config.gateway_url,
+        providers=[
+            LLMProviderConfigPayload(
+                provider_id=provider.provider_id,
+                display_name=provider.display_name,
+                api_key=provider.api_key,
+                base_url=provider.base_url,
+                default_model_id=provider.default_model_id,
+                extra_headers=provider.extra_headers,
+                models=[
+                    LLMModelConfigPayload(
+                        model_id=model.model_id,
+                        display_name=model.display_name,
+                        supports_reasoning=model.supports_reasoning,
+                        default_parameters=model.default_parameters,
+                    )
+                    for model in provider.models
+                ],
+            )
+            for provider in config.providers
+        ],
+    )
+
+
+def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
+    """Convert an API payload back into the runtime dataclass."""
+
+    return LLMConfig(
+        gateway_url=payload.gateway_url,
+        providers=[
+            LLMProviderConfig(
+                provider_id=provider.provider_id,
+                display_name=provider.display_name,
+                api_key=provider.api_key,
+                base_url=provider.base_url,
+                default_model_id=provider.default_model_id,
+                extra_headers=provider.extra_headers,
+                models=[
+                    LLMModelConfig(
+                        model_id=model.model_id,
+                        display_name=model.display_name,
+                        supports_reasoning=model.supports_reasoning,
+                        default_parameters=model.default_parameters,
+                    )
+                    for model in provider.models
+                ],
+            )
+            for provider in payload.providers
+        ],
+    )

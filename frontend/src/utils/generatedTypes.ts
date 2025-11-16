@@ -197,6 +197,7 @@ export const BackendWebsocketMsgTypeSet = new Set([
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
+  "LLMConfigUpdated",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerCoverageSnapshot",
@@ -223,6 +224,7 @@ export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
   "CurrentAddressUpdate",
+  "LLMConfigUpdated",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerCoverageSnapshot",
@@ -660,6 +662,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
   ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  LLMConfigUpdated: "LLMConfigUpdated",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -5330,6 +5333,84 @@ export function createWebsocketMsgListenerCoverageSnapshot(
   return WebsocketMsgListenerCoverageSnapshotSchema.parse(options);
 }
 
+export const LLMModelConfigPayloadSchema = z.object({
+  model_id: z.string(),
+  display_name: z.string(),
+  supports_reasoning: z.boolean().default(false),
+  default_parameters: z
+    .union([
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+    ])
+    .default(null),
+});
+
+export type LLMModelConfigPayload = z.infer<typeof LLMModelConfigPayloadSchema>;
+
+export function createLLMModelConfigPayload(
+  options: Partial<LLMModelConfigPayload> = {},
+): LLMModelConfigPayload {
+  return LLMModelConfigPayloadSchema.parse(options);
+}
+
+export const LLMProviderConfigPayloadSchema = z.object({
+  provider_id: z.string(),
+  display_name: z.string(),
+  api_key: z.string().default("" as const),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  default_model_id: z.union([z.string(), z.null()]).default(null),
+  extra_headers: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
+  models: z.array(LLMModelConfigPayloadSchema).default([]),
+});
+
+export type LLMProviderConfigPayload = z.infer<
+  typeof LLMProviderConfigPayloadSchema
+>;
+
+export function createLLMProviderConfigPayload(
+  options: Partial<LLMProviderConfigPayload> = {},
+): LLMProviderConfigPayload {
+  return LLMProviderConfigPayloadSchema.parse(options);
+}
+
+export const LLMConfigPayloadSchema = z.object({
+  gateway_url: z.string().default("http://127.0.0.1:8787" as const),
+  providers: z.array(LLMProviderConfigPayloadSchema).default([]),
+});
+
+export type LLMConfigPayload = z.infer<typeof LLMConfigPayloadSchema>;
+
+export function createLLMConfigPayload(
+  options: Partial<LLMConfigPayload> = {},
+): LLMConfigPayload {
+  return LLMConfigPayloadSchema.parse(options);
+}
+
+export const WebsocketMsgLLMConfigUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: LLMConfigPayloadSchema,
+  messageType: z
+    .literal("LLMConfigUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated),
+});
+
+export type WebsocketMsgLLMConfigUpdated = z.infer<
+  typeof WebsocketMsgLLMConfigUpdatedSchema
+>;
+
+export function createWebsocketMsgLLMConfigUpdated(
+  options: Partial<WebsocketMsgLLMConfigUpdated> = {},
+): WebsocketMsgLLMConfigUpdated {
+  return WebsocketMsgLLMConfigUpdatedSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5343,6 +5424,7 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerCoverageSnapshotSchema,
+  WebsocketMsgLLMConfigUpdatedSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5363,6 +5445,7 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerCoverageSnapshotSchema,
+    WebsocketMsgLLMConfigUpdatedSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5700,6 +5783,7 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerCoverageSnapshotSchema,
+  WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
@@ -5728,6 +5812,7 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerCoverageSnapshotSchema,
+    WebsocketMsgLLMConfigUpdatedSchema,
     WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
@@ -8110,66 +8195,6 @@ export function createGetLLMResponseRequest(
   return GetLLMResponseRequestSchema.parse(options);
 }
 
-export const LLMModelConfigPayloadSchema = z.object({
-  model_id: z.string(),
-  display_name: z.string(),
-  supports_reasoning: z.boolean().default(false),
-  default_parameters: z
-    .union([
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-    ])
-    .default(null),
-});
-
-export type LLMModelConfigPayload = z.infer<typeof LLMModelConfigPayloadSchema>;
-
-export function createLLMModelConfigPayload(
-  options: Partial<LLMModelConfigPayload> = {},
-): LLMModelConfigPayload {
-  return LLMModelConfigPayloadSchema.parse(options);
-}
-
-export const LLMProviderConfigPayloadSchema = z.object({
-  provider_id: z.string(),
-  display_name: z.string(),
-  api_key: z.string().default("" as const),
-  base_url: z.union([z.string(), z.null()]).default(null),
-  default_model_id: z.union([z.string(), z.null()]).default(null),
-  extra_headers: z
-    .union([z.record(z.string(), z.string()), z.null()])
-    .default(null),
-  models: z.array(LLMModelConfigPayloadSchema).default([]),
-});
-
-export type LLMProviderConfigPayload = z.infer<
-  typeof LLMProviderConfigPayloadSchema
->;
-
-export function createLLMProviderConfigPayload(
-  options: Partial<LLMProviderConfigPayload> = {},
-): LLMProviderConfigPayload {
-  return LLMProviderConfigPayloadSchema.parse(options);
-}
-
-export const LLMConfigPayloadSchema = z.object({
-  gateway_url: z.string().default("http://127.0.0.1:8787" as const),
-  providers: z.array(LLMProviderConfigPayloadSchema).default([]),
-});
-
-export type LLMConfigPayload = z.infer<typeof LLMConfigPayloadSchema>;
-
-export function createLLMConfigPayload(
-  options: Partial<LLMConfigPayload> = {},
-): LLMConfigPayload {
-  return LLMConfigPayloadSchema.parse(options);
-}
-
 export const StopLLMChatRequestSchema = z.object({
   chatId: z.string(),
 });
@@ -9684,68 +9709,6 @@ export function createSettaLSPPosition(
   options: Partial<SettaLSPPosition> = {},
 ): SettaLSPPosition {
   return SettaLSPPositionSchema.parse(options);
-}
-
-export const LLMModelConfigSchema = z.object({
-  model_id: z.string(),
-  display_name: z.string(),
-  supports_reasoning: z.boolean().default(false),
-  default_parameters: z
-    .union([
-      z.record(
-        z.string(),
-        z.union([
-          z.string(),
-          z.int(),
-          z.number(),
-          z.boolean(),
-          z.null(),
-          z.record(z.string(), z.any()),
-          z.array(z.any()),
-        ]),
-      ),
-      z.null(),
-    ])
-    .default(null),
-});
-
-export type LLMModelConfig = z.infer<typeof LLMModelConfigSchema>;
-
-export function createLLMModelConfig(
-  options: Partial<LLMModelConfig> = {},
-): LLMModelConfig {
-  return LLMModelConfigSchema.parse(options);
-}
-
-export const LLMProviderConfigSchema = z.object({
-  provider_id: z.string(),
-  display_name: z.string(),
-  api_key: z.string().default(""),
-  base_url: z.union([z.string(), z.null()]).default(null),
-  default_model_id: z.union([z.string(), z.null()]).default(null),
-  extra_headers: z
-    .union([z.record(z.string(), z.string()), z.null()])
-    .default(null),
-  models: z.array(LLMModelConfigSchema).default([]),
-});
-
-export type LLMProviderConfig = z.infer<typeof LLMProviderConfigSchema>;
-
-export function createLLMProviderConfig(
-  options: Partial<LLMProviderConfig> = {},
-): LLMProviderConfig {
-  return LLMProviderConfigSchema.parse(options);
-}
-
-export const LLMConfigSchema = z.object({
-  gateway_url: z.string().default("http://127.0.0.1:8787"),
-  providers: z.array(LLMProviderConfigSchema).default([]),
-});
-
-export type LLMConfig = z.infer<typeof LLMConfigSchema>;
-
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return LLMConfigSchema.parse(options);
 }
 
 export const CodeMirrorCompletionSchema = z.object({

@@ -10,6 +10,7 @@ from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.listener import ListenerCoverageSnapshot
+from setta.types.llm_config import LLMConfigPayload
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -23,6 +24,7 @@ from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgListenerCoverageSnapshot,
+    WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -40,6 +42,12 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def broadcast_notification(self, notification: SettaNotification):
         await self.websocket_manager.broadcast(
             WebsocketMsgNotification(content=notification),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_llm_config(self, config: LLMConfigPayload):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgLLMConfigUpdated(content=config),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 

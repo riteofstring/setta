@@ -56,5 +56,6 @@
 - Added `backend/setta/llm/config_store.py` plus `setta_files/llm_config.json` to persist gateway URL + provider/model metadata, establishing the backend source of truth that will replace the frontend’s hard-coded `MODEL_GROUPS`.
 - Added `GET/SET_LLM_CONFIG` routes plus typed payloads, removed the `.env` API-key plumbing, and now broadcast config-save notifications so the backend is the single source of truth.
 - Replaced the frontend `MODEL_GROUPS`+`apiKeys` state with live data from the config file; `ProjectChat` and `ProjectLLMSettings` now read the persisted providers/models and surface loading/error states while we build the editor UI.
+- Registered a dedicated `SpecificFileWatcher` category for `setta_files/llm_config.json` that broadcasts `LLMConfigUpdated` websocket events, so the frontend’s LLM settings update instantly whenever the JSON changes (even when edited manually).
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.

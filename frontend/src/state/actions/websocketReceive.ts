@@ -32,7 +32,11 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
-import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
+import {
+  applyLLMConfigUpdate,
+  receiveLLMResponseChunk,
+  updateUUIDMappingForLLM,
+} from "./ai";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -142,6 +146,8 @@ function receiveMessage(message: string) {
       return updateArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
+    case WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated:
+      return applyLLMConfigUpdate(m.content);
     default:
       return m satisfies never;
   }

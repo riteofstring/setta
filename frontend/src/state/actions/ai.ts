@@ -19,6 +19,7 @@ import {
   IDToUUIDForLLM,
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
+  type LLMConfigPayload,
   type LLMStreamingResponse,
   type MessageStartedEvent,
   type TextDeltaEvent,
@@ -31,15 +32,19 @@ import { getSectionType, getSectionVariant } from "./sectionInfos";
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
   if (res200(res)) {
-    useAIStore.setState({
-      llmConfig: res.data,
-      llmConfigLoaded: true,
-    });
+    applyLLMConfigUpdate(res.data);
     return;
   }
 
   useAIStore.setState({
     llmConfig: null,
+    llmConfigLoaded: true,
+  });
+}
+
+export function applyLLMConfigUpdate(config: LLMConfigPayload) {
+  useAIStore.setState({
+    llmConfig: config,
     llmConfigLoaded: true,
   });
 }

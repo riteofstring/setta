@@ -1,19 +1,17 @@
 from fastapi import BackgroundTasks, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from setta.llm.config_store import (
-    DEFAULT_GATEWAY_URL,
-    LLMConfig,
-    LLMModelConfig,
-    LLMProviderConfig,
+    config_to_payload,
     load_llm_config,
+    payload_to_config,
     save_llm_config,
 )
-from setta.llm.models import JSONValue
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
+from setta.types.llm_config import LLMConfigPayload
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
@@ -26,28 +24,6 @@ class GetLLMResponseRequest(BaseModel):
     message: ChatMessage
     model: str
     deepThink: bool
-
-
-class LLMModelConfigPayload(BaseModel):
-    model_id: str
-    display_name: str
-    supports_reasoning: bool = False
-    default_parameters: JSONValue | None = None
-
-
-class LLMProviderConfigPayload(BaseModel):
-    provider_id: str
-    display_name: str
-    api_key: str = ""
-    base_url: str | None = None
-    default_model_id: str | None = None
-    extra_headers: dict[str, str] | None = None
-    models: list[LLMModelConfigPayload] = Field(default_factory=list)
-
-
-class LLMConfigPayload(BaseModel):
-    gateway_url: str = DEFAULT_GATEWAY_URL
-    providers: list[LLMProviderConfigPayload] = Field(default_factory=list)
 
 
 class DeleteLLMChatRequest(BaseModel):
@@ -104,7 +80,7 @@ async def route_get_llm_response(
 @router.post(Route.GET_LLM_CONFIG)
 def route_get_llm_config() -> LLMConfigPayload:
     config = load_llm_config()
-    return _payload_from_config(config)
+    return config_to_payload(config)
 
 
 @router.post(Route.SET_LLM_CONFIG)
@@ -112,7 +88,7 @@ async def route_set_llm_config(
     payload: LLMConfigPayload,
     state: AppStateFromRequest,
 ) -> LLMConfigPayload:
-    config = _config_from_payload(payload)
+    config = payload_to_config(payload)
 
     try:
         save_llm_config(config)
@@ -128,7 +104,7 @@ async def route_set_llm_config(
 
     notification = SettaNotification(message="Saved LLM configuration")
     await state.wmh_frontend_sender.broadcast_notification(notification)
-    return _payload_from_config(config)
+    return config_to_payload(config)
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)
@@ -208,55 +184,3 @@ async def route_get_uuid_mapping_for_llm(
 ) -> IDToUUIDForLLM:
     id_to_uuid, _ = state.dbe.read_uuid_mapping()
     return id_to_uuid
-
-
-def _payload_from_config(config: LLMConfig) -> LLMConfigPayload:
-    return LLMConfigPayload(
-        gateway_url=config.gateway_url,
-        providers=[
-            LLMProviderConfigPayload(
-                provider_id=provider.provider_id,
-                display_name=provider.display_name,
-                api_key=provider.api_key,
-                base_url=provider.base_url,
-                default_model_id=provider.default_model_id,
-                extra_headers=provider.extra_headers,
-                models=[
-                    LLMModelConfigPayload(
-                        model_id=model.model_id,
-                        display_name=model.display_name,
-                        supports_reasoning=model.supports_reasoning,
-                        default_parameters=model.default_parameters,
-                    )
-                    for model in provider.models
-                ],
-            )
-            for provider in config.providers
-        ],
-    )
-
-
-def _config_from_payload(payload: LLMConfigPayload) -> LLMConfig:
-    return LLMConfig(
-        gateway_url=payload.gateway_url,
-        providers=[
-            LLMProviderConfig(
-                provider_id=provider.provider_id,
-                display_name=provider.display_name,
-                api_key=provider.api_key,
-                base_url=provider.base_url,
-                default_model_id=provider.default_model_id,
-                extra_headers=provider.extra_headers,
-                models=[
-                    LLMModelConfig(
-                        model_id=model.model_id,
-                        display_name=model.display_name,
-                        supports_reasoning=model.supports_reasoning,
-                        default_parameters=model.default_parameters,
-                    )
-                    for model in provider.models
-                ],
-            )
-            for provider in payload.providers
-        ],
-    )

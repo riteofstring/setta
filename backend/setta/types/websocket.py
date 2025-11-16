@@ -23,6 +23,7 @@ from setta.types.listener import (
     ListenerRegisterContent,
     RealtimeUIChangeContent,
 )
+from setta.types.llm_config import LLMConfigPayload
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -43,6 +44,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
     ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
+    LLMConfigUpdated = "LLMConfigUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -184,6 +186,13 @@ class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
     content: ListenerCoverageSnapshot
     messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
         WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
+    )
+
+
+class WebsocketMsgLLMConfigUpdated(FrontendWebsocketMsg):
+    content: LLMConfigPayload
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMConfigUpdated] = (
+        WebsocketMsgTypeForFrontend.LLMConfigUpdated
     )
 
 
