@@ -11,7 +11,12 @@ from setta.llm.presets import get_llm_provider_presets
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
+from setta.types.chat_messages import (
+    ChatMessage,
+    ChatMetadata,
+    LLMModelSelection,
+    ToolResult,
+)
 from setta.types.llm_config import LLMConfigPayload, LLMPresetCatalogPayload
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
@@ -23,7 +28,7 @@ class GetLLMResponseRequest(BaseModel):
     projectConfigId: str
     chatId: str | None
     message: ChatMessage
-    model: str
+    modelSelection: LLMModelSelection
     deepThink: bool
 
 
@@ -59,7 +64,7 @@ async def route_get_llm_response(
             state.chat_manager.process_query,
             x.projectConfigId,
             chat,
-            x.model,
+            x.modelSelection,
             x.deepThink,
         )
 

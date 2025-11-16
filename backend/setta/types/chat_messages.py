@@ -36,6 +36,13 @@ CONTENT_BLOCK_TYPES: ClassVar[tuple[type, ...]] = (
 )
 
 
+class LLMModelSelection(BaseModel):
+    """Frontend-provided selection of a provider/model pair."""
+
+    providerId: str
+    modelId: str
+
+
 class ChatMessage(BaseModel):
     """A single persisted chat message backed by normalized LLM content blocks."""
 

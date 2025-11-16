@@ -16,11 +16,12 @@
 - **Gateway config UX:** Introduced `backend/setta/llm/config_store.py`, `config_watch.py`, and `backend/setta/types/llm_config.py`, plus GET/SET routes in `backend/setta/routers/ai.py`. The frontend exposes the Config editor (`ProjectLLMSettings.tsx`), listens for `LLMConfigUpdated` websocket events, and surfaces provider/model presets via `backend/setta/llm/presets.py` and the new `GET_LLM_PRESETS` endpoint. `.env`-based API-key plumbing and hard-coded `MODEL_GROUPS` were removed in favor of the persisted JSON config.
 - **Baseline cleanup:** Removed noisy debug prints from `/getLLMResponse`, trimmed websocket console spam, and taught the AI store to clear stale `userSelectedLLM` values whenever the config drops a model so the UI never references deleted entries after a save.
 - **Server wiring:** `SettaFastAPIState` now loads `llm_config.json`, keeps the parsed `LLMConfig` on the app state, and injects it into `ChatManager`, which spins up the `PortkeyClient` targeting the configured gateway URL. The next steps are to thread provider/model selections and keys into that orchestrator path.
+- **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
 
 **Remaining Work**
 - **Wire the LLM config into orchestration**
   - Load `LLMConfig` when building `SettaFastAPIState`, pass it to `ChatManager`, and construct `PortkeyClient`s with the provider’s API key, base URL, headers, and `default_parameters`. Persist a mapping from chat requests to `{provider_id, model_id}` instead of the current plain string so the backend can locate the right credentials.
-  - Define a real request payload for `/getLLMResponse` (e.g., `{ providerId, modelId }` or a `ModelSelection` object) and honor `project_config_id` when we eventually scope configs per project. Use `default_model_id` to preselect a model when loading the UI.
+  - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
   - Subscribe `ChatManager` to the `register_llm_config_watch` callback so it refreshes its cached config / gateway client whenever `llm_config.json` changes, not just when the frontend reloads.
 
 - **Streaming lifecycle + cancellation**

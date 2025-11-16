@@ -25,6 +25,7 @@ from setta.types.chat_messages import (
     Chat,
     ChatMessage,
     ChatMetadata,
+    LLMModelSelection,
     ToolResult,
 )
 
@@ -138,7 +139,7 @@ class ChatManager:
         self,
         project_config_id: str | None,
         chat: Chat,
-        model: str,
+        model_selection: LLMModelSelection,
         deep_think: bool,
     ) -> None:
         """Stream a response from the Portkey-backed orchestrator."""
@@ -160,7 +161,7 @@ class ChatManager:
         async for event in self._orchestrator.astream_response(
             response_message_id=response_message_id,
             history=history,
-            model=model,
+            model=model_selection.modelId,
             tools=tools,
             request_params=request_params,
         ):
