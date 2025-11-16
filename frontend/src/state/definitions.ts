@@ -343,7 +343,7 @@ export type ZustandAIStore = {
   allChatMetadata: Array<ChatMetadata>;
   currentChatId: string | null;
   viewHistory: boolean;
-  userSelectedLLM: string;
+  userSelectedLLM: string | null;
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: LLMConfig | null;
   llmConfigLoaded: boolean;
@@ -361,7 +361,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
-        userSelectedLLM: "",
+        userSelectedLLM: null,
         idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigLoaded: false,

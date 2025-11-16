@@ -71,6 +71,7 @@ async def route_get_llm_response(
         # Return immediate response with session ID
         return chat.id
 
+
 @router.post(Route.GET_LLM_CONFIG)
 def route_get_llm_config() -> LLMConfigPayload:
     config = load_llm_config()

@@ -31,6 +31,10 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
+import {
+  decodeModelSelectionKey,
+  encodeModelSelectionKey,
+} from "utils/llmSelection";
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -50,13 +54,18 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
     const availableModels = new Set<string>();
     for (const provider of config.providers) {
       for (const model of provider.models) {
-        availableModels.add(model.model_id);
+        availableModels.add(
+          encodeModelSelectionKey({
+            providerId: provider.provider_id,
+            modelId: model.model_id,
+          }),
+        );
       }
     }
-    const userSelectedLLM = state.userSelectedLLM;
+    const userSelectedLLM = state.userSelectedLLM || null;
     const nextSelection =
       userSelectedLLM && !availableModels.has(userSelectedLLM)
-        ? ""
+        ? null
         : userSelectedLLM;
     return {
       llmConfig: config,
@@ -165,10 +174,14 @@ export async function submitMessage(message: string, deepThink) {
   });
 
   const state = useAIStore.getState();
+  const modelSelection = decodeModelSelectionKey(state.userSelectedLLM);
+  if (!modelSelection) {
+    throw new Error("LLM model selection is required");
+  }
 
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),
-    model: state.userSelectedLLM,
+    modelSelection,
     message: userMessage,
     deepThink,
     chatId: state.currentChatId,

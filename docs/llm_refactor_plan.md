@@ -19,10 +19,11 @@
 - **Provider-aware orchestration:** `ChatManager.process_query` resolves `{providerId, modelId}` via `resolve_model_selection`, builds a provider-scoped `PortkeyClient` that carries API keys/base URLs/extra headers/default parameters, and streams each response with the concrete model ID instead of the legacy plain string.
 - **Config selection guardrails:** Introduced `resolve_model_selection` so every chat request fails fast when a provider/model ID is missing, paving the way for credential-aware orchestration without silent fallbacks.
 - **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
+- **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
 
 **Remaining Work**
 - **Wire the LLM config into orchestration**
-  - Persist the provider/model pair per chat and teach the frontend to send `{ providerId, modelId }` instead of the legacy `model` string so replaying or resuming a chat always routes through the right credentials.
+  - Persist the provider/model pair per chat so replaying or resuming a chat always routes through the right credentials, and expose the saved selection back to the UI.
   - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
   - Subscribe `ChatManager` to the `register_llm_config_watch` callback so it refreshes its cached config / gateway client whenever `llm_config.json` changes, not just when the frontend reloads.
 

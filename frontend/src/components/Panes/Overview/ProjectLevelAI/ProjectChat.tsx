@@ -11,6 +11,7 @@ import {
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
+import { encodeModelSelectionKey } from "utils/llmSelection";
 import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
@@ -46,7 +47,10 @@ export function ProjectChat() {
         .map((provider) => ({
           group: provider.display_name,
           items: provider.models.map((model) => ({
-            id: model.model_id,
+            id: encodeModelSelectionKey({
+              providerId: provider.provider_id,
+              modelId: model.model_id,
+            }),
             name: model.display_name,
           })),
         }))

@@ -3,16 +3,18 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from setta.llm.constants import CONFIG_PATH, DEFAULT_GATEWAY_URL
 from setta.llm.models import JSONValue
-from setta.types.chat_messages import LLMModelSelection
 from setta.types.llm_config import (
     LLMConfigPayload,
     LLMModelConfigPayload,
     LLMProviderConfigPayload,
 )
+
+if TYPE_CHECKING:
+    from setta.types.chat_messages import LLMModelSelection
 
 
 @dataclass
@@ -190,7 +192,7 @@ def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
 
 def resolve_model_selection(
     config: LLMConfig,
-    selection: LLMModelSelection,
+    selection: "LLMModelSelection",
 ) -> tuple[LLMProviderConfig, LLMModelConfig]:
     """Locate the provider/model pair for a selection or fail loudly."""
 
@@ -206,9 +208,7 @@ def _get_provider(config: LLMConfig, provider_id: str) -> LLMProviderConfig:
     raise ValueError(f"Unknown LLM provider: {provider_id}")
 
 
-def _get_model(
-    provider: LLMProviderConfig, model_id: str
-) -> LLMModelConfig:
+def _get_model(provider: LLMProviderConfig, model_id: str) -> LLMModelConfig:
     for model in provider.models:
         if model.model_id == model_id:
             return model

@@ -7370,6 +7370,19 @@ export function createChatMetadata(
   return ChatMetadataSchema.parse(options);
 }
 
+export const LLMModelSelectionSchema = z.object({
+  providerId: z.string(),
+  modelId: z.string(),
+});
+
+export type LLMModelSelection = z.infer<typeof LLMModelSelectionSchema>;
+
+export function createLLMModelSelection(
+  options: Partial<LLMModelSelection> = {},
+): LLMModelSelection {
+  return LLMModelSelectionSchema.parse(options);
+}
+
 export const ToolResultSchema = z.object({
   type: z.literal("tool_result").default("tool_result" as const),
   tool_call_id: z.string(),
@@ -8215,7 +8228,7 @@ export const GetLLMResponseRequestSchema = z.object({
   projectConfigId: z.string(),
   chatId: z.union([z.string(), z.null()]),
   message: ChatMessageSchema,
-  model: z.string(),
+  modelSelection: LLMModelSelectionSchema,
   deepThink: z.boolean(),
 });
 
