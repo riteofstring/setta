@@ -9,7 +9,9 @@ from setta.database.utils import create_new_id
 from setta.llm import (
     LLMConfig,
     LLMMessage,
+    LLMModelConfig,
     LLMOrchestrator,
+    LLMProviderConfig,
     LLMRole,
     LLMStreamEvent,
     LLMTextBlock,
@@ -20,6 +22,7 @@ from setta.llm import (
     TextDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
+    resolve_model_selection,
 )
 from setta.types.chat_messages import (
     Chat,
@@ -52,7 +55,7 @@ class ChatManager:
         self._mcp_client = mcp_client
         self._wmh_frontend_sender = wmh_frontend_sender
         self._llm_config = llm_config
-        self._orchestrator = orchestrator or self._build_orchestrator(self._llm_config)
+        self._orchestrator = orchestrator
 
     # ---------------------------------------------------------------------
     # Persistence helpers
@@ -133,7 +136,7 @@ class ChatManager:
         return cleaned_messages, tool_results
 
     # ---------------------------------------------------------------------
-    # Placeholders for the upcoming orchestrator integration
+    # LLM orchestration
 
     async def process_query(
         self,
@@ -146,6 +149,10 @@ class ChatManager:
 
         del project_config_id  # TODO: scope orchestration by config when available
         response_message_id = create_new_id()
+        provider_config, model_config = resolve_model_selection(
+            self._llm_config, model_selection
+        )
+        orchestrator = self._orchestrator or self._build_orchestrator(provider_config)
         assistant_message = LLMMessage(
             message_id=response_message_id,
             role=LLMRole.ASSISTANT,
@@ -156,12 +163,15 @@ class ChatManager:
 
         history = chat.to_history()
         tools = self._mcp_client.available_tools or None
-        request_params = self._build_request_params(deep_think=deep_think)
+        request_params = self._build_request_params(
+            deep_think=deep_think,
+            model=model_config,
+        )
 
-        async for event in self._orchestrator.astream_response(
+        async for event in orchestrator.astream_response(
             response_message_id=response_message_id,
             history=history,
-            model=model_selection.modelId,
+            model=model_config.model_id,
             tools=tools,
             request_params=request_params,
         ):
@@ -216,22 +226,43 @@ class ChatManager:
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
 
-    def _build_orchestrator(self, config: LLMConfig) -> LLMOrchestrator:
+    def _build_orchestrator(self, provider: LLMProviderConfig) -> LLMOrchestrator:
         """Initialize the Portkey-backed orchestrator using the stored config."""
 
-        gateway = self._build_portkey_gateway(config)
+        gateway = self._build_portkey_gateway(provider)
         return LLMOrchestrator(gateway)
 
-    def _build_portkey_gateway(self, config: LLMConfig) -> PortkeyClient:
+    def _build_portkey_gateway(self, provider: LLMProviderConfig) -> PortkeyClient:
         """Construct a Portkey client that talks to the configured gateway."""
 
-        return PortkeyClient(base_url=config.gateway_url)
+        base_url = provider.base_url or self._llm_config.gateway_url
+        api_key = provider.api_key or None
+        default_request_params = self._build_default_request_params(provider)
+        return PortkeyClient(
+            api_key=api_key,
+            base_url=base_url,
+            default_request_params=default_request_params,
+        )
 
-    def _build_request_params(self, *, deep_think: bool) -> dict[str, object] | None:
+    def _build_default_request_params(
+        self, provider: LLMProviderConfig
+    ) -> dict[str, object] | None:
+        headers = provider.extra_headers
+        if not headers:
+            return None
+        return {"extra_headers": dict(headers)}
+
+    def _build_request_params(
+        self, *, deep_think: bool, model: LLMModelConfig | None
+    ) -> dict[str, object] | None:
+        params: dict[str, object] = {}
+        if model and model.default_parameters:
+            params.update(dict(model.default_parameters))
+
         # Deep thinking parameters will be wired up once we map our toggle to Portkey.
         if not deep_think:
-            return None
-        return None
+            return params or None
+        return params or None
 
     async def _resolve_tool_calls(
         self,
