@@ -49,3 +49,5 @@ def _apply_config_update(target: LLMConfig, source: LLMConfig) -> None:
 
     target.gateway_url = source.gateway_url
     target.providers = source.providers
+    target.project_configs = source.project_configs
+    target.default_project_config_id = source.default_project_config_id

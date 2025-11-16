@@ -1,6 +1,7 @@
 from .config_store import (
     LLMConfig,
     LLMModelConfig,
+    LLMProjectConfig,
     LLMProviderConfig,
     config_to_payload,
     load_llm_config,
@@ -36,6 +37,7 @@ __all__ = [
     "LLMConfig",
     "LLMModelConfig",
     "LLMProviderConfig",
+    "LLMProjectConfig",
     "config_to_payload",
     "load_llm_config",
     "payload_to_config",

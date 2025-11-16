@@ -81,6 +81,7 @@ async def route_get_llm_response(
     _, model_config = resolve_model_selection(
         state.llm_config,
         x.modelSelection,
+        project_config_id=x.projectConfigId,
     )
     if x.deepThink and not model_config.supports_reasoning:
         raise HTTPException(

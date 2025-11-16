@@ -58,7 +58,7 @@ class ChatManager:
         self._wmh_frontend_sender = wmh_frontend_sender
         self._llm_config = llm_config
         self._shared_orchestrator = orchestrator
-        self._provider_orchestrators: dict[str, LLMOrchestrator] = {}
+        self._provider_orchestrators: dict[tuple[str | None, str], LLMOrchestrator] = {}
         self._active_streams: dict[str, _ActiveStream] = {}
 
     def update_llm_config(self, llm_config: LLMConfig) -> None:
@@ -170,15 +170,20 @@ class ChatManager:
     ) -> None:
         """Stream a response from the Portkey-backed orchestrator."""
 
-        del project_config_id  # TODO: scope orchestration by config when available
         response_message_id = create_new_id()
         model_selection = chat.modelSelection
         if model_selection is None:
             raise ValueError("Chat missing model selection")
+        project_scope_id = chat.projectConfigId or project_config_id
         provider_config, model_config = resolve_model_selection(
-            self._llm_config, model_selection
+            self._llm_config,
+            model_selection,
+            project_config_id=project_scope_id,
         )
-        orchestrator = self._acquire_orchestrator(provider_config)
+        orchestrator = self._acquire_orchestrator(
+            provider_config,
+            project_config_id=project_scope_id,
+        )
         assistant_message = LLMMessage(
             message_id=response_message_id,
             role=LLMRole.ASSISTANT,
@@ -311,6 +316,14 @@ class ChatManager:
     ) -> None:
         if chat.projectConfigId is None:
             chat.projectConfigId = project_config_id
+            return
+        if (
+            project_config_id is not None
+            and chat.projectConfigId != project_config_id
+        ):
+            raise ValueError(
+                "Existing chat project config cannot be changed mid-conversation"
+            )
 
     def _derive_chat_name(self, message: ChatMessage) -> str:
         """Use the first text block as the chat title, otherwise fallback."""
@@ -325,18 +338,24 @@ class ChatManager:
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
 
-    def _acquire_orchestrator(self, provider: LLMProviderConfig) -> LLMOrchestrator:
+    def _acquire_orchestrator(
+        self,
+        provider: LLMProviderConfig,
+        *,
+        project_config_id: str | None,
+    ) -> LLMOrchestrator:
         """Return a provider-scoped orchestrator, building and caching when needed."""
 
         if self._shared_orchestrator is not None:
             return self._shared_orchestrator
 
-        cached = self._provider_orchestrators.get(provider.provider_id)
+        cache_key = (project_config_id, provider.provider_id)
+        cached = self._provider_orchestrators.get(cache_key)
         if cached is not None:
             return cached
 
         orchestrator = self._build_orchestrator(provider)
-        self._provider_orchestrators[provider.provider_id] = orchestrator
+        self._provider_orchestrators[cache_key] = orchestrator
         return orchestrator
 
     def _build_orchestrator(self, provider: LLMProviderConfig) -> LLMOrchestrator:

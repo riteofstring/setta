@@ -25,9 +25,15 @@ class LLMProviderConfigPayload(BaseModel):
     models: list[LLMModelConfigPayload] = Field(default_factory=list)
 
 
+class LLMProjectConfigPayload(BaseModel):
+    providers: list[LLMProviderConfigPayload] = Field(default_factory=list)
+
+
 class LLMConfigPayload(BaseModel):
     gateway_url: str = DEFAULT_GATEWAY_URL
     providers: list[LLMProviderConfigPayload] = Field(default_factory=list)
+    default_project_config_id: str | None = None
+    project_configs: dict[str, LLMProjectConfigPayload] = Field(default_factory=dict)
 
 
 class LLMProviderPresetPayload(BaseModel):
@@ -68,6 +74,7 @@ class LLMConfigTestResultPayload(BaseModel):
 __all__ = [
     "LLMConfigPayload",
     "LLMModelConfigPayload",
+    "LLMProjectConfigPayload",
     "LLMProviderConfigPayload",
     "LLMPresetCatalogPayload",
     "LLMProviderPresetPayload",

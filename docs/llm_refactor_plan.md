@@ -34,11 +34,9 @@
 - **Reasoning request enforcement:** `_build_request_params` now deep-clones each model’s `default_parameters`, refuses Deep Thinking requests for models that lack `supports_reasoning`, and injects a sane `reasoning` payload (with a default `effort`) so Portkey receives the per-model defaults consistently.
 - **Project ID tracking:** Chats now persist their `projectConfigId`, backend responses expose it, and metadata loaders understand the new field so future project-scoped configs can reload the exact credentials used when the chat was created.
 - **Project-scoped selection memory:** The frontend keeps `userSelectedLLM` values keyed by `projectConfigId`, restoring the last provider/model combo whenever the user switches projects so we can drop the legacy global selection.
+- **Project-aware provider resolution:** Backend config lookups now honor `project_config_id`, so chats resolve providers/models from their project slice of `llm_config.json` and orchestrators cache per-project credentials instead of relying on the global config.
 
 **Remaining Work**
-- **Project-scoped configs**
-  - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
-
 - **Preset-driven configuration UX**
   - Regenerate the frontend types + editor store so presets (and per-model overrides) move through the zod schemas, then update the React config editor to add providers/models from a preset picker rather than copying JSON by hand.
   - Teach the editor to persist only overrides (API key, renamed display label, custom default parameters) and surface preset metadata in the UI so it’s obvious which models come from a catalog vs hand-authored ones.

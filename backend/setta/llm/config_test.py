@@ -31,7 +31,7 @@ def test_llm_config(
             fallback_gateway_url=llm_config.gateway_url,
             timeout=timeout,
         )
-        for provider in llm_config.providers
+        for provider in llm_config.iter_all_providers()
     ]
     return LLMConfigTestResultPayload(gateway=gateway, providers=providers)
 

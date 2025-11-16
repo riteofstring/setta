@@ -11,6 +11,7 @@ from setta.llm.models import JSONValue
 from setta.types.llm_config import (
     LLMConfigPayload,
     LLMModelConfigPayload,
+    LLMProjectConfigPayload,
     LLMProviderConfigPayload,
 )
 
@@ -268,27 +269,127 @@ class LLMProviderConfig:
 
 
 @dataclass
+class LLMProjectConfig:
+    """Collection of providers scoped to a single project configuration."""
+
+    project_config_id: str
+    providers: list[LLMProviderConfig] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "providers": [provider.to_dict() for provider in self.providers],
+        }
+
+    @classmethod
+    def from_payload(
+        cls,
+        project_config_id: str,
+        payload: LLMProjectConfigPayload,
+    ) -> "LLMProjectConfig":
+        return cls(
+            project_config_id=project_config_id,
+            providers=[
+                LLMProviderConfig(
+                    provider_id=provider.provider_id,
+                    display_name=provider.display_name,
+                    preset_id=provider.preset_id,
+                    api_key=provider.api_key,
+                    base_url=provider.base_url,
+                    default_model_id=provider.default_model_id,
+                    extra_headers=provider.extra_headers,
+                    models=[
+                        LLMModelConfig(
+                            model_id=model.model_id,
+                            display_name=model.display_name,
+                            supports_reasoning=model.supports_reasoning,
+                            default_parameters=model.default_parameters,
+                            preset_id=model.preset_id,
+                        )
+                        for model in provider.models
+                    ],
+                )
+                for provider in payload.providers
+            ],
+        )
+
+    @classmethod
+    def from_dict(
+        cls,
+        project_config_id: str,
+        payload: dict[str, Any],
+    ) -> "LLMProjectConfig":
+        providers_payload = payload.get("providers", [])
+        if not isinstance(providers_payload, list):
+            raise TypeError("Project providers payload must be a list")
+        return cls(
+            project_config_id=project_config_id,
+            providers=[
+                LLMProviderConfig.from_dict(provider)
+                for provider in providers_payload
+            ],
+        )
+
+
+@dataclass
 class LLMConfig:
     """Top-level configuration for running the Portkey gateway."""
 
     gateway_url: str = DEFAULT_GATEWAY_URL
     providers: list[LLMProviderConfig] = field(default_factory=list)
+    default_project_config_id: str | None = None
+    project_configs: dict[str, LLMProjectConfig] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "gateway_url": self.gateway_url,
             "providers": [provider.to_dict() for provider in self.providers],
+            "default_project_config_id": self.default_project_config_id,
+            "project_configs": {
+                project_id: project.to_dict()
+                for project_id, project in self.project_configs.items()
+            },
         }
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "LLMConfig":
         providers_payload = payload.get("providers", [])
+        project_configs_payload = payload.get("project_configs") or {}
+        if not isinstance(project_configs_payload, dict):
+            raise TypeError("project_configs payload must be an object")
+
+        project_configs = {
+            project_id: LLMProjectConfig.from_dict(project_id, project_payload)
+            for project_id, project_payload in project_configs_payload.items()
+        }
+
         return cls(
             gateway_url=payload.get("gateway_url", DEFAULT_GATEWAY_URL),
             providers=[
                 LLMProviderConfig.from_dict(provider) for provider in providers_payload
             ],
+            default_project_config_id=payload.get("default_project_config_id"),
+            project_configs=project_configs,
         )
+
+    def providers_for_project(
+        self,
+        project_config_id: str | None,
+    ) -> list[LLMProviderConfig]:
+        if project_config_id:
+            project = self.project_configs.get(project_config_id)
+            if project:
+                return project.providers
+        if self.default_project_config_id:
+            project = self.project_configs.get(self.default_project_config_id)
+            if project:
+                return project.providers
+        return self.providers
+
+    def iter_all_providers(self) -> list[LLMProviderConfig]:
+        providers: list[LLMProviderConfig] = list(self.providers)
+        for project in self.project_configs.values():
+            providers.extend(project.providers)
+        return providers
 
 
 def _ensure_directory(path: Path) -> None:
@@ -341,6 +442,34 @@ def config_to_payload(config: LLMConfig) -> LLMConfigPayload:
             )
             for provider in config.providers
         ],
+        default_project_config_id=config.default_project_config_id,
+        project_configs={
+            project_id: LLMProjectConfigPayload(
+                providers=[
+                    LLMProviderConfigPayload(
+                        provider_id=provider.provider_id,
+                        display_name=provider.display_name,
+                        preset_id=provider.preset_id,
+                        api_key=provider.api_key,
+                        base_url=provider.base_url,
+                        default_model_id=provider.default_model_id,
+                        extra_headers=provider.extra_headers,
+                        models=[
+                            LLMModelConfigPayload(
+                                model_id=model.model_id,
+                                display_name=model.display_name,
+                                supports_reasoning=model.supports_reasoning,
+                                default_parameters=model.default_parameters,
+                                preset_id=model.preset_id,
+                            )
+                            for model in provider.models
+                        ],
+                    )
+                    for provider in project.providers
+                ]
+            )
+            for project_id, project in config.project_configs.items()
+        },
     )
 
 
@@ -371,25 +500,38 @@ def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
             )
             for provider in payload.providers
         ],
+        default_project_config_id=payload.default_project_config_id,
+        project_configs={
+            project_id: LLMProjectConfig.from_payload(project_id, project)
+            for project_id, project in payload.project_configs.items()
+        },
     )
 
 
 def resolve_model_selection(
     config: LLMConfig,
     selection: "LLMModelSelection",
+    *,
+    project_config_id: str | None = None,
 ) -> tuple[LLMProviderConfig, LLMModelConfig]:
     """Locate the provider/model pair for a selection or fail loudly."""
 
-    provider = _get_provider(config, selection.providerId)
+    providers = config.providers_for_project(project_config_id)
+    provider = _get_provider(providers, selection.providerId, project_config_id)
     model = _get_model(provider, selection.modelId)
     return provider, model
 
 
-def _get_provider(config: LLMConfig, provider_id: str) -> LLMProviderConfig:
-    for provider in config.providers:
+def _get_provider(
+    providers: list[LLMProviderConfig],
+    provider_id: str,
+    project_config_id: str | None,
+) -> LLMProviderConfig:
+    for provider in providers:
         if provider.provider_id == provider_id:
             return provider
-    raise ValueError(f"Unknown LLM provider: {provider_id}")
+    scope = project_config_id or "<default>"
+    raise ValueError(f"Unknown LLM provider '{provider_id}' for project {scope}")
 
 
 def _get_model(provider: LLMProviderConfig, model_id: str) -> LLMModelConfig:
