@@ -16,6 +16,8 @@
 - **Baseline cleanup:** Removed noisy debug prints from `/getLLMResponse`, trimmed websocket console spam, and taught the AI store to clear stale `userSelectedLLM` values whenever the config drops a model so the UI never references deleted entries after a save.
 - **Server wiring:** `SettaFastAPIState` now loads `llm_config.json`, keeps the parsed `LLMConfig` on the app state, and injects it into `ChatManager`, which spins up the `PortkeyClient` targeting the configured gateway URL. The next steps are to thread provider/model selections and keys into that orchestrator path.
 - **Provider-aware orchestration:** `ChatManager.process_query` resolves `{providerId, modelId}` via `resolve_model_selection`, builds a provider-scoped `PortkeyClient` that carries API keys/base URLs/extra headers/default parameters, and streams each response with the concrete model ID instead of the legacy plain string.
+- **Provider-scoped Portkey clients:** `ChatManager` now caches orchestrators per provider so chatting with OpenAI vs Anthropic uses the correct API key, base URL, and headers immediately after the config reloads—no more sharing the first client for every provider.
+- **Model defaults + reasoning toggle:** `_build_request_params` finally merges each model’s `default_parameters` and attaches Portkey’s `reasoning` payload whenever Deep Thinking is enabled on a model that declares `supports_reasoning`, so the gateway receives the right knobs automatically.
 - **Config selection guardrails:** Introduced `resolve_model_selection` so every chat request fails fast when a provider/model ID is missing, paving the way for credential-aware orchestration without silent fallbacks.
 - **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
 - **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
@@ -24,7 +26,7 @@
 - **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
 
 **Remaining Work**
-- **Wire the LLM config into orchestration**
+- **Project-scoped configs**
   - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
 
 - **Preset-driven configuration UX**

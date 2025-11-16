@@ -55,14 +55,16 @@ class ChatManager:
         self._mcp_client = mcp_client
         self._wmh_frontend_sender = wmh_frontend_sender
         self._llm_config = llm_config
-        self._orchestrator = orchestrator
+        self._shared_orchestrator = orchestrator
+        self._provider_orchestrators: dict[str, LLMOrchestrator] = {}
 
     def update_llm_config(self, llm_config: LLMConfig) -> None:
         """Replace the cached config so future requests use fresh credentials."""
 
         self._llm_config = llm_config
         # Drop any orchestrator constructed from the previous config.
-        self._orchestrator = None
+        self._provider_orchestrators.clear()
+        self._shared_orchestrator = None
 
     # ---------------------------------------------------------------------
     # Persistence helpers
@@ -163,7 +165,7 @@ class ChatManager:
         provider_config, model_config = resolve_model_selection(
             self._llm_config, model_selection
         )
-        orchestrator = self._orchestrator or self._build_orchestrator(provider_config)
+        orchestrator = self._acquire_orchestrator(provider_config)
         assistant_message = LLMMessage(
             message_id=response_message_id,
             role=LLMRole.ASSISTANT,
@@ -261,6 +263,20 @@ class ChatManager:
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
 
+    def _acquire_orchestrator(self, provider: LLMProviderConfig) -> LLMOrchestrator:
+        """Return a provider-scoped orchestrator, building and caching when needed."""
+
+        if self._shared_orchestrator is not None:
+            return self._shared_orchestrator
+
+        cached = self._provider_orchestrators.get(provider.provider_id)
+        if cached is not None:
+            return cached
+
+        orchestrator = self._build_orchestrator(provider)
+        self._provider_orchestrators[provider.provider_id] = orchestrator
+        return orchestrator
+
     def _build_orchestrator(self, provider: LLMProviderConfig) -> LLMOrchestrator:
         """Initialize the Portkey-backed orchestrator using the stored config."""
 
@@ -294,9 +310,15 @@ class ChatManager:
         if model and model.default_parameters:
             params.update(dict(model.default_parameters))
 
-        # Deep thinking parameters will be wired up once we map our toggle to Portkey.
-        if not deep_think:
-            return params or None
+        if deep_think and model and model.supports_reasoning:
+            reasoning = params.get("reasoning")
+            if isinstance(reasoning, dict):
+                reasoning = dict(reasoning)
+            else:
+                reasoning = {}
+            reasoning.setdefault("effort", "medium")
+            params["reasoning"] = reasoning
+
         return params or None
 
     async def _resolve_tool_calls(
