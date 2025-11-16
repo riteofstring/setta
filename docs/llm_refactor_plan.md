@@ -29,6 +29,8 @@
 - **LLM configuration + gateway UX**
   - Replace `MODEL_GROUPS` with a dynamic list returned by the backend. Store self-hosted gateway configuration (gateway URL, provider/model mappings, and the raw provider API keys) in `setta_files/llm_config.json`. No Portkey cloud API key is required.
   - Add routes (e.g., `GET/SET_LLM_CONFIG`, `TEST_LLM_CONFIG`) that read/write this JSON, restart gateway clients, and surface validation errors. Use file-watcher support to push config edits to the frontend so users can edit keys in one place.
+  - Register a dedicated `SpecificFileWatcher` category for `setta_files/llm_config.json` so manual edits or backend updates trigger a reload broadcast; `ProjectLLMSettings` should subscribe and act as a live “view” of whatever is on disk.
+  - Rip out the `.env` API-key plumbing (`route_set_llm_api_keys`, `useAIStore.apiKeys`, etc.) once the new config endpoints land so the LLM flow has a single source of truth; `.env` can continue to exist for unrelated settings without needing a watcher.
   - Redesign `ProjectLLMSettings` to let users add/edit/delete provider configs: fields for display name, model id, provider slug, provider API key, optional base URL/region, etc. Persist changes through the new routes rather than writing `.env` manually.
 
 - **System prompt + instructions**
