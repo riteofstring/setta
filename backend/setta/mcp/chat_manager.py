@@ -1,9 +1,23 @@
 """Chat persistence manager built on the neutral LLM models."""
 
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
-from setta.llm.models import LLMTextBlock, LLMToolResultBlock
+from setta.database.utils import create_new_id
+from setta.llm import (
+    LLMMessage,
+    LLMOrchestrator,
+    LLMRole,
+    LLMStreamEvent,
+    LLMTextBlock,
+    LLMToolCallBlock,
+    LLMToolResultBlock,
+    PortkeyClient,
+    TextDeltaEvent,
+    ToolCallDeltaEvent,
+    ToolResultEvent,
+)
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
@@ -24,10 +38,12 @@ class ChatManager:
         dbe: DBE,
         mcp_client: MCPClient,
         wmh_frontend_sender: WMHFrontendSender,
+        orchestrator: LLMOrchestrator | None = None,
     ) -> None:
         self._dbe = dbe
         self._mcp_client = mcp_client
         self._wmh_frontend_sender = wmh_frontend_sender
+        self._orchestrator = orchestrator or self._build_orchestrator()
 
     # ---------------------------------------------------------------------
     # Persistence helpers
@@ -110,16 +126,44 @@ class ChatManager:
     # ---------------------------------------------------------------------
     # Placeholders for the upcoming orchestrator integration
 
-    def process_query(
+    async def process_query(
         self,
         project_config_id: str | None,
         chat: Chat,
         model: str,
         deep_think: bool,
     ) -> None:
-        raise NotImplementedError(
-            "Portkey orchestration is not wired into ChatManager yet."
+        """Stream a response from the Portkey-backed orchestrator."""
+
+        del project_config_id  # TODO: scope orchestration by config when available
+        response_message_id = create_new_id()
+        assistant_message = LLMMessage(
+            message_id=response_message_id,
+            role=LLMRole.ASSISTANT,
+            content=[],
         )
+        accumulator = _AssistantMessageAccumulator(assistant_message)
+
+        history = chat.to_history()
+        tools = self._mcp_client.available_tools or None
+        request_params = self._build_request_params(deep_think=deep_think)
+
+        async for event in self._orchestrator.astream_response(
+            response_message_id=response_message_id,
+            history=history,
+            model=model,
+            tools=tools,
+            request_params=request_params,
+        ):
+            accumulator.apply_event(event)
+            await self._wmh_frontend_sender.send_streaming_response(
+                chatId=chat.id,
+                assistant_message_id=response_message_id,
+                chunk=event,
+            )
+
+        chat.add_message(assistant_message)
+        self._persist_chat(chat)
 
     async def request_stop_streaming(self, chat_id: str) -> None:
         raise NotImplementedError("Stopping in-flight LLM streams is not implemented.")
@@ -149,3 +193,64 @@ class ChatManager:
 
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
+
+    def _build_orchestrator(self) -> LLMOrchestrator:
+        """Initialize the Portkey-backed orchestrator from environment config."""
+
+        gateway = PortkeyClient()
+        return LLMOrchestrator(gateway)
+
+    def _build_request_params(self, *, deep_think: bool) -> dict[str, object] | None:
+        # Deep thinking parameters will be wired up once we map our toggle to Portkey.
+        if not deep_think:
+            return None
+        return None
+
+
+@dataclass
+class _AssistantMessageAccumulator:
+    """Incrementally builds the assistant message from incoming stream events."""
+
+    message: LLMMessage
+    _text_blocks: dict[str | None, LLMTextBlock] = field(default_factory=dict)
+    _tool_call_blocks: dict[str, LLMToolCallBlock] = field(default_factory=dict)
+
+    def apply_event(self, event: LLMStreamEvent) -> None:
+        if isinstance(event, TextDeltaEvent):
+            self._apply_text_delta(event)
+            return
+        if isinstance(event, ToolCallDeltaEvent):
+            self._apply_tool_call_delta(event)
+            return
+        if isinstance(event, ToolResultEvent):
+            self._apply_tool_result(event)
+
+    def _apply_text_delta(self, event: TextDeltaEvent) -> None:
+        block = self._text_blocks.get(event.stream_target)
+        if block is None:
+            block = LLMTextBlock(stream_target=event.stream_target)
+            self._text_blocks[event.stream_target] = block
+            self.message.add_block(block)
+        block.text += event.delta
+
+    def _apply_tool_call_delta(self, event: ToolCallDeltaEvent) -> None:
+        block = self._tool_call_blocks.get(event.tool_call_id)
+        if block is None:
+            block = LLMToolCallBlock(tool_call_id=event.tool_call_id)
+            self._tool_call_blocks[event.tool_call_id] = block
+            self.message.add_block(block)
+        if event.name and not block.name:
+            block.name = event.name
+        existing_arguments = block.arguments_text or ""
+        block.arguments_text = f"{existing_arguments}{event.arguments_delta}"
+
+    def _apply_tool_result(self, event: ToolResultEvent) -> None:
+        tool_call = self._tool_call_blocks.get(event.tool_call_id)
+        block = LLMToolResultBlock(
+            tool_call_id=event.tool_call_id,
+            name=tool_call.name if tool_call else None,
+            output_json=event.output,
+            output_text=event.output_text,
+            is_error=event.is_error,
+        )
+        self.message.add_block(block)

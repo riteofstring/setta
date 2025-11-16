@@ -6,8 +6,8 @@
 - API-key handling is just two inputs wired to `.env` (`frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx:1-59`, `backend/setta/routers/ai.py:85-128`). The UI has a hard-coded Anthropic/OpenAI model list (`frontend/src/utils/constants.ts:138-158`) and no concept of Portkey API keys, provider virtual keys, or per-model routing. The codebase never loads keys automatically (the watcher code in `backend/setta/project_state/base_project_manager.py:1619-1643` is commented out).
 
 **Refactor Plan**
-- **Backend LLM abstraction + Portkey integration**
-  - Create a `setta/llm` package with a `PortkeyClient` wrapper that maps our own `LLMMessage` and `LLMToolCall` dataclasses to the OpenAI-compatible API exposed by `portkey-ai` (`/portkey-ai/gateway` docs show `client.chat.completions.create(..., stream=True)` and chunk iteration). This wrapper should hide whether we call `Portkey().chat.completions` (sync) or `AsyncPortkey` (async).
+- **Backend LLM abstraction + self-hosted Portkey gateway**
+  - Create a `setta/llm` package with a `PortkeyClient` wrapper that maps our own `LLMMessage` and `LLMToolCall` dataclasses to the OpenAI-compatible API exposed by the **self-hosted** Portkey gateway (`npx @portkey-ai/gateway` exposes `client.chat.completions.create(..., stream=True)` and chunk iteration). Because we run the gateway locally, we only need provider keys (OpenAI, Anthropic, etc.)—there is no Portkey cloud API key in this flow.
   - Replace `ChatManager` with an `LLMOrchestrator` that converts stored chats into OpenAI-style `{role, content}` arrays, attaches a tool list, and streams chunks. Handle `choices[0].delta` events (text, `tool_calls[].function.arguments`, `tool_calls[].id`) plus `response.completed` events, and normalize them into backend-defined `LLMStreamEvent` types before broadcasting.
   - Use a pluggable interface so we can later swap Portkey for a different gateway. The orchestrator should own retry/backoff and support cancel tokens for `/stop_llm_chat`.
 
@@ -26,10 +26,10 @@
   - Rewrite `frontend/src/state/actions/ai.ts` to consume the new event schema, update message state immutably, and stream text into sections only when the delta is `text_delta` and a `streamTarget` is active. This also lets us handle tool call args exactly like the OpenAI schema without string hacks.
   - Refactor `ProjectChatCore.tsx` to render the new normalized message content. Drop Anthropic-only UI such as the reasoning “signature” spinner unless the chosen model returns `thinking`; otherwise show generic tool-call accordions and streaming text blocks.
 
-- **LLM configuration + API key UX**
-  - Replace `MODEL_GROUPS` with a dynamic list returned by the backend. Store Portkey configuration (Portkey API key, optional base URL, and user-defined virtual keys mapping to provider/model + raw provider API keys) in `setta_files/llm_config.json`.
-  - Add routes (e.g., `GET/SET_LLM_CONFIG`, `TEST_LLM_CONFIG`) that read/write this JSON and reload Portkey clients. Use file-watcher support to push config edits to the frontend so users can edit keys in one place.
-  - Redesign `ProjectLLMSettings` to let users add/edit/delete virtual keys: fields for display name, model id, provider, Portkey virtual key name, provider API key, base URL/region, etc. Persist changes through the new routes rather than writing `.env` manually.
+- **LLM configuration + gateway UX**
+  - Replace `MODEL_GROUPS` with a dynamic list returned by the backend. Store self-hosted gateway configuration (gateway URL, provider/model mappings, and the raw provider API keys) in `setta_files/llm_config.json`. No Portkey cloud API key is required.
+  - Add routes (e.g., `GET/SET_LLM_CONFIG`, `TEST_LLM_CONFIG`) that read/write this JSON, restart gateway clients, and surface validation errors. Use file-watcher support to push config edits to the frontend so users can edit keys in one place.
+  - Redesign `ProjectLLMSettings` to let users add/edit/delete provider configs: fields for display name, model id, provider slug, provider API key, optional base URL/region, etc. Persist changes through the new routes rather than writing `.env` manually.
 
 - **System prompt + instructions**
   - Rewrite `backend/setta/mcp/chat_manager.py:50-54` equivalent so the system prompt references Portkey, clarifies the available MCP tools, and explains the start/stop streaming contract. Because Portkey already supports arbitrary providers (per docs), expose provider/model metadata in the prompt so the LLM knows which tools exist.
@@ -41,13 +41,13 @@
 - Document the migration in `docs/` (mention new config file, Portkey requirements, and how streaming/tool calls behave) and capture manual verification steps (e.g., `source activate.sh && python -m unittest discover tests`, `pnpm start`, send test chats).
 
 **Progress**
-- Deleted the Anthropic-specific `ChatManager` implementation and replaced it with the new `backend/setta/llm/orchestrator.py`, which streams via the Portkey adapter using a pluggable `LLMGateway` protocol.
+- Deleted the Anthropic-specific `ChatManager` implementation and replaced it with the new `backend/setta/llm/orchestrator.py`, which streams via the (self-hosted) Portkey adapter using a pluggable `LLMGateway` protocol.
 - Removed the Anthropic-backed `ChatMessage` schema plus chat persistence helpers/tests so we can redefine neutral message models.
 - Dropped the `anthropic` dependency from `pyproject.toml` and `uv.lock`, so the project no longer installs the Anthropic SDK.
 - Added `backend/setta/llm/models.py` with neutral `LLMMessage`, content blocks, and `LLMStreamEvent` dataclasses to anchor the new Portkey orchestrator and persistence layers.
 - Introduced `backend/setta/llm/portkey_client.py`, which wraps the Portkey SDK and converts streaming chunks into our normalized `LLMStreamEvent` types so downstream orchestrator work can build on a single integration surface.
 - Updated `backend/setta/mcp/client.py` to emit OpenAI-compatible `ToolDefinition` objects (via `tool_definition_from_mcp`) so the rest of the stack can consume MCP tools without any Anthropic SDK types.
 - Restored `backend/setta/types/chat_messages.py` with the new normalized chat persistence schema that stores only our `LLM*` dataclasses and serializes websocket chunks as backend-defined `LLMStreamEvent` payloads, so persistence/websocket layers now match the Portkey abstraction.
-- Rebuilt `backend/setta/mcp/chat_manager.py` as a persistence-only layer that reads/writes chats via the neutral schema while clearly marking orchestration methods as TODOs, so the routers have a concrete object again before Portkey streaming lands.
+- Wired `backend/setta/mcp/chat_manager.py` into the orchestrator so chats now stream via the normalized models, emitting events over the websocket and persisting the assistant response.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.

@@ -26,7 +26,7 @@ class PortkeyClient:
     def __init__(
         self,
         *,
-        api_key: str,
+        api_key: str | None = None,
         virtual_key: str | None = None,
         base_url: str | None = None,
         default_request_params: dict[str, Any] | None = None,
@@ -255,7 +255,9 @@ class PortkeyClient:
 
     def _get_sync_client(self) -> Portkey:
         if self._sync_client is None:
-            kwargs: dict[str, Any] = {"api_key": self._api_key}
+            kwargs: dict[str, Any] = {}
+            if self._api_key is not None:
+                kwargs["api_key"] = self._api_key
             if self._virtual_key is not None:
                 kwargs["virtual_key"] = self._virtual_key
             if self._base_url is not None:
@@ -265,7 +267,9 @@ class PortkeyClient:
 
     def _get_async_client(self) -> AsyncPortkey:
         if self._async_client is None:
-            kwargs: dict[str, Any] = {"api_key": self._api_key}
+            kwargs: dict[str, Any] = {}
+            if self._api_key is not None:
+                kwargs["api_key"] = self._api_key
             if self._virtual_key is not None:
                 kwargs["virtual_key"] = self._virtual_key
             if self._base_url is not None:
