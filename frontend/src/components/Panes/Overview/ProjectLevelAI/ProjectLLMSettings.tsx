@@ -98,6 +98,14 @@ export function ProjectLLMSettings() {
     }
     return entries;
   }, [providerPresets]);
+  const providerTestMap = useMemo(() => {
+    if (!testResult) {
+      return new Map<string, LLMProviderTestResultPayload>();
+    }
+    return new Map(
+      testResult.providers.map((provider) => [provider.provider_id, provider]),
+    );
+  }, [testResult]);
 
   if (!llmConfigLoaded || !editableConfig) {
     return (
@@ -244,14 +252,6 @@ export function ProjectLLMSettings() {
 
   const providers = editableConfig.providers;
   const disableSave = saving || testing || !isDirty;
-  const providerTestMap = useMemo(() => {
-    if (!testResult) {
-      return new Map<string, LLMProviderTestResultPayload>();
-    }
-    return new Map(
-      testResult.providers.map((provider) => [provider.provider_id, provider]),
-    );
-  }, [testResult]);
   const gatewayTestResult = testResult?.gateway ?? null;
 
   return (
