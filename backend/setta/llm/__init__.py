@@ -1,3 +1,10 @@
+from .config_store import (
+    LLMConfig,
+    LLMModelConfig,
+    LLMProviderConfig,
+    load_llm_config,
+    save_llm_config,
+)
 from .models import (
     JSONValue,
     LLMContentBlock,
@@ -22,6 +29,11 @@ from .orchestrator import LLMGateway, LLMOrchestrator
 from .portkey_client import PortkeyClient
 
 __all__ = [
+    "LLMConfig",
+    "LLMModelConfig",
+    "LLMProviderConfig",
+    "load_llm_config",
+    "save_llm_config",
     "JSONValue",
     "LLMContentBlock",
     "LLMHistory",
