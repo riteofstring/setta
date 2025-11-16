@@ -41,7 +41,7 @@
 - Document the migration in `docs/` (mention new config file, Portkey requirements, and how streaming/tool calls behave) and capture manual verification steps (e.g., `source activate.sh && python -m unittest discover tests`, `pnpm start`, send test chats).
 
 **Progress**
-- Deleted the Anthropic-specific `ChatManager` implementation; next iteration will introduce a Portkey-backed orchestrator under the new abstraction.
+- Deleted the Anthropic-specific `ChatManager` implementation and replaced it with the new `backend/setta/llm/orchestrator.py`, which streams via the Portkey adapter using a pluggable `LLMGateway` protocol.
 - Removed the Anthropic-backed `ChatMessage` schema plus chat persistence helpers/tests so we can redefine neutral message models.
 - Dropped the `anthropic` dependency from `pyproject.toml` and `uv.lock`, so the project no longer installs the Anthropic SDK.
 - Added `backend/setta/llm/models.py` with neutral `LLMMessage`, content blocks, and `LLMStreamEvent` dataclasses to anchor the new Portkey orchestrator and persistence layers.
