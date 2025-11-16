@@ -1,6 +1,7 @@
 """Chat persistence manager built on the neutral LLM models."""
 
 from dataclasses import dataclass, field
+import json
 from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
@@ -14,6 +15,7 @@ from setta.llm import (
     LLMToolCallBlock,
     LLMToolResultBlock,
     PortkeyClient,
+    ResponseCompletedEvent,
     TextDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
@@ -26,6 +28,8 @@ from setta.types.chat_messages import (
 )
 
 if TYPE_CHECKING:
+    from mcp.types import CallToolResult
+
     from setta.mcp.client import MCPClient
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -143,6 +147,7 @@ class ChatManager:
             content=[],
         )
         accumulator = _AssistantMessageAccumulator(assistant_message)
+        tool_calls = _ToolCallAccumulator()
 
         history = chat.to_history()
         tools = self._mcp_client.available_tools or None
@@ -156,11 +161,21 @@ class ChatManager:
             request_params=request_params,
         ):
             accumulator.apply_event(event)
+            tool_calls.observe_event(event)
             await self._wmh_frontend_sender.send_streaming_response(
                 chatId=chat.id,
                 assistant_message_id=response_message_id,
                 chunk=event,
             )
+            if isinstance(event, ResponseCompletedEvent) and (
+                event.finish_reason == "tool_calls"
+            ):
+                await self._resolve_tool_calls(
+                    chat_id=chat.id,
+                    assistant_message_id=response_message_id,
+                    tool_calls=tool_calls.consume_ready_calls(),
+                    accumulator=accumulator,
+                )
 
         chat.add_message(assistant_message)
         self._persist_chat(chat)
@@ -205,6 +220,41 @@ class ChatManager:
         if not deep_think:
             return None
         return None
+
+    async def _resolve_tool_calls(
+        self,
+        *,
+        chat_id: str,
+        assistant_message_id: str,
+        tool_calls: list["_PendingToolCall"],
+        accumulator: "_AssistantMessageAccumulator",
+    ) -> None:
+        if not tool_calls:
+            return
+
+        for tool_call in tool_calls:
+            event = await self._call_tool(tool_call)
+            accumulator.apply_event(event)
+            await self._wmh_frontend_sender.send_streaming_response(
+                chatId=chat_id,
+                assistant_message_id=assistant_message_id,
+                chunk=event,
+            )
+
+    async def _call_tool(self, tool_call: "_PendingToolCall") -> ToolResultEvent:
+        tool_name = tool_call.name
+        if not tool_name:
+            raise ValueError("Tool call missing name")
+
+        arguments = tool_call.to_arguments_dict()
+        result = await self._mcp_client.call_tool(tool_name, arguments)
+        output_text = _extract_tool_output_text(result)
+        return ToolResultEvent(
+            tool_call_id=tool_call.tool_call_id,
+            output=result.model_dump(),
+            output_text=output_text,
+            is_error=bool(getattr(result, "isError", False)),
+        )
 
 
 @dataclass
@@ -254,3 +304,67 @@ class _AssistantMessageAccumulator:
             is_error=event.is_error,
         )
         self.message.add_block(block)
+
+
+@dataclass
+class _PendingToolCall:
+    tool_call_id: str
+    name: str | None = None
+    _argument_chunks: list[str] = field(default_factory=list)
+
+    def add_delta(self, event: ToolCallDeltaEvent) -> None:
+        if event.name and not self.name:
+            self.name = event.name
+        if event.arguments_delta:
+            self._argument_chunks.append(event.arguments_delta)
+
+    def to_arguments_dict(self) -> dict[str, object]:
+        payload = "".join(self._argument_chunks).strip()
+        if not payload:
+            return {}
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Tool call {self.tool_call_id} provided invalid JSON arguments"
+            ) from exc
+        if not isinstance(data, dict):
+            raise TypeError("Tool arguments must serialize to an object")
+        return data
+
+
+@dataclass
+class _ToolCallAccumulator:
+    _calls: dict[str, _PendingToolCall] = field(default_factory=dict)
+
+    def observe_event(self, event: LLMStreamEvent) -> None:
+        if isinstance(event, ToolCallDeltaEvent):
+            self._record_delta(event)
+
+    def _record_delta(self, event: ToolCallDeltaEvent) -> None:
+        call = self._calls.get(event.tool_call_id)
+        if call is None:
+            call = _PendingToolCall(tool_call_id=event.tool_call_id)
+            self._calls[event.tool_call_id] = call
+        call.add_delta(event)
+
+    def consume_ready_calls(self) -> list[_PendingToolCall]:
+        if not self._calls:
+            return []
+        calls = list(self._calls.values())
+        self._calls.clear()
+        return calls
+
+
+def _extract_tool_output_text(result: "CallToolResult") -> str | None:
+    contents = getattr(result, "content", None)
+    if not contents:
+        return None
+    texts: list[str] = []
+    for item in contents:
+        text = getattr(item, "text", None)
+        if text:
+            texts.append(text)
+    if not texts:
+        return None
+    return "\n".join(texts)
