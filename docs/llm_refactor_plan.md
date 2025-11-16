@@ -37,10 +37,11 @@
 - **Project-aware provider resolution:** Backend config lookups now honor `project_config_id`, so chats resolve providers/models from their project slice of `llm_config.json` and orchestrators cache per-project credentials instead of relying on the global config.
 - **Preset-driven editor foundation:** `ProjectLLMSettings` now carries provider/model `preset_id`s through the zod schemas, hydrates project-scoped config fields, tags catalog entries in the UI, and sends structured payloads so backend diffing can persist only the user’s overrides.
 - **Preset override persistence:** The config store now serializes only preset references plus explicit overrides (API keys, renamed labels, tweaked defaults), `payload_to_config` feeds sparse payloads straight through the preset merger, and the editor diffs against catalog providers so saving rewrites `llm_config.json` with concise overrides instead of duplicating preset metadata.
+- **Preset reset UX:** The provider editor exposes a `Reset to preset` button that rehydrates an existing provider from its catalog entry while preserving API keys/headers, so users can pull in the latest preset metadata without manually deleting and re-adding providers.
 
 **Remaining Work**
 - **Preset-driven configuration UX**
-  - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
+  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Frontend follow-ups**
   - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.

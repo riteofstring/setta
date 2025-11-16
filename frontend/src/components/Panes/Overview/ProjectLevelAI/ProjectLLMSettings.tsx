@@ -5,6 +5,7 @@ import {
   MdCheckCircle,
   MdDelete,
   MdErrorOutline,
+  MdHistory,
   MdHourglassTop,
   MdVisibility,
   MdVisibilityOff,
@@ -160,6 +161,17 @@ export function ProjectLLMSettings() {
         }),
       ],
     }));
+  };
+
+  const resetProviderFromPreset = (
+    index: number,
+    preset: LLMProviderPresetPayload,
+  ) => {
+    updateConfig((curr) => {
+      const providers = [...curr.providers];
+      providers[index] = rebuildProviderFromPreset(providers[index], preset);
+      return { ...curr, providers };
+    });
   };
 
   const handleReset = () => {
@@ -327,21 +339,27 @@ export function ProjectLLMSettings() {
             the Portkey gateway.
           </div>
         ) : (
-          providers.map((provider, index) => (
-            <ProviderEditor
-              key={`${provider.provider_id || "provider"}-${index}`}
-              provider={provider}
-              onChange={(next) => updateProvider(index, next)}
-              onRemove={() => removeProvider(index)}
-              preset={
-                provider.preset_id
-                  ? providerPresetMap.get(provider.preset_id) ?? null
-                  : null
-              }
-              testResult={providerTestMap.get(provider.provider_id) ?? null}
-              testing={testing}
-            />
-          ))
+          providers.map((provider, index) => {
+            const presetForProvider = provider.preset_id
+              ? providerPresetMap.get(provider.preset_id) ?? null
+              : null;
+            return (
+              <ProviderEditor
+                key={`${provider.provider_id || "provider"}-${index}`}
+                provider={provider}
+                onChange={(next) => updateProvider(index, next)}
+                onRemove={() => removeProvider(index)}
+                preset={presetForProvider}
+                onResetToPreset={
+                  presetForProvider
+                    ? (preset) => resetProviderFromPreset(index, preset)
+                    : undefined
+                }
+                testResult={providerTestMap.get(provider.provider_id) ?? null}
+                testing={testing}
+              />
+            );
+          })
         )}
       </section>
 
@@ -390,6 +408,7 @@ type ProviderEditorProps = {
   onChange: (provider: EditableProvider) => void;
   onRemove: () => void;
   preset: LLMProviderPresetPayload | null;
+  onResetToPreset?: (preset: LLMProviderPresetPayload) => void;
   testResult: LLMProviderTestResultPayload | null;
   testing: boolean;
 };
@@ -399,6 +418,7 @@ function ProviderEditor({
   onChange,
   onRemove,
   preset,
+  onResetToPreset,
   testResult,
   testing,
 }: ProviderEditorProps) {
@@ -538,7 +558,10 @@ function ProviderEditor({
           </div>
         </div>
 
-        <ProviderPresetMeta preset={preset} />
+            <ProviderPresetMeta
+              preset={preset}
+              onResetToPreset={onResetToPreset}
+            />
 
         <div className="grid gap-3 @[32rem]:grid-cols-2">
           <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
@@ -861,9 +884,10 @@ function ModelEditor({
 
 type ProviderPresetMetaProps = {
   preset: LLMProviderPresetPayload | null;
+  onResetToPreset?: (preset: LLMProviderPresetPayload) => void;
 };
 
-function ProviderPresetMeta({ preset }: ProviderPresetMetaProps) {
+function ProviderPresetMeta({ preset, onResetToPreset }: ProviderPresetMetaProps) {
   if (!preset) {
     return (
       <div className="rounded-md border border-dashed border-setta-300/60 bg-setta-50/40 p-2 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-600/60 dark:bg-setta-900/20 dark:text-setta-400">
@@ -872,14 +896,26 @@ function ProviderPresetMeta({ preset }: ProviderPresetMetaProps) {
     );
   }
   return (
-    <div className="rounded-md border border-blue-200/70 bg-blue-50 p-2 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
-      <p className="font-semibold uppercase tracking-wide">
-        Preset · {preset.label}
-      </p>
-      {preset.description ? (
-        <p className="mt-1 text-[10px] font-normal normal-case text-blue-600 dark:text-blue-200/80">
-          {preset.description}
+    <div className="flex flex-col gap-2 rounded-md border border-blue-200/70 bg-blue-50 p-2 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+      <div>
+        <p className="font-semibold uppercase tracking-wide">
+          Preset · {preset.label}
         </p>
+        {preset.description ? (
+          <p className="mt-1 text-[10px] font-normal normal-case text-blue-600 dark:text-blue-200/80">
+            {preset.description}
+          </p>
+        ) : null}
+      </div>
+      {onResetToPreset ? (
+        <button
+          type="button"
+          className="inline-flex items-center justify-center gap-1 rounded-md border border-blue-200/80 px-2 py-1 text-[11px] font-semibold text-blue-700 transition hover:bg-blue-100 dark:border-blue-900/60 dark:text-blue-200 dark:hover:bg-blue-900/30"
+          onClick={() => onResetToPreset(preset)}
+        >
+          <MdHistory size={12} />
+          Reset to preset
+        </button>
       ) : null}
     </div>
   );
@@ -973,6 +1009,35 @@ function providerPayloadToEditable(
         value,
       }),
     ),
+  };
+}
+
+function rebuildProviderFromPreset(
+  provider: EditableProvider,
+  preset: LLMProviderPresetPayload,
+): EditableProvider {
+  const hydrated = providerPayloadToEditable(preset.provider, {
+    presetIdOverride: preset.preset_id,
+    hydrateModelPresets: true,
+  });
+  const defaultModelExists = provider.default_model_id
+    ? hydrated.models.some(
+        (model) => model.model_id === provider.default_model_id,
+      )
+    : false;
+  return {
+    ...hydrated,
+    provider_id: provider.provider_id || hydrated.provider_id,
+    display_name: provider.display_name || hydrated.display_name,
+    api_key: provider.api_key,
+    base_url: provider.base_url,
+    default_model_id: defaultModelExists
+      ? provider.default_model_id
+      : hydrated.default_model_id,
+    headerRows:
+      provider.headerRows.length > 0
+        ? provider.headerRows
+        : hydrated.headerRows,
   };
 }
 
