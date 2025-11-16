@@ -317,10 +317,7 @@ class ChatManager:
         if chat.projectConfigId is None:
             chat.projectConfigId = project_config_id
             return
-        if (
-            project_config_id is not None
-            and chat.projectConfigId != project_config_id
-        ):
+        if project_config_id is not None and chat.projectConfigId != project_config_id:
             raise ValueError(
                 "Existing chat project config cannot be changed mid-conversation"
             )

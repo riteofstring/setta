@@ -5393,9 +5393,27 @@ export function createLLMProviderConfigPayload(
   return LLMProviderConfigPayloadSchema.parse(options);
 }
 
+export const LLMProjectConfigPayloadSchema = z.object({
+  providers: z.array(LLMProviderConfigPayloadSchema).default([]),
+});
+
+export type LLMProjectConfigPayload = z.infer<
+  typeof LLMProjectConfigPayloadSchema
+>;
+
+export function createLLMProjectConfigPayload(
+  options: Partial<LLMProjectConfigPayload> = {},
+): LLMProjectConfigPayload {
+  return LLMProjectConfigPayloadSchema.parse(options);
+}
+
 export const LLMConfigPayloadSchema = z.object({
   gateway_url: z.string().default("http://127.0.0.1:8787" as const),
   providers: z.array(LLMProviderConfigPayloadSchema).default([]),
+  default_project_config_id: z.union([z.string(), z.null()]).default(null),
+  project_configs: z
+    .record(z.string(), LLMProjectConfigPayloadSchema)
+    .default({}),
 });
 
 export type LLMConfigPayload = z.infer<typeof LLMConfigPayloadSchema>;
@@ -7373,6 +7391,7 @@ export const ChatSchema = z.object({
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   messages: z.array(ChatMessageSchema).default([]),
+  projectConfigId: z.union([z.string(), z.null()]).default(null),
   modelSelection: z.union([LLMModelSelectionSchema, z.null()]).default(null),
   streamStatus: z.enum(ChatStreamStatusEnum).default(ChatStreamStatusEnum.IDLE),
 });
@@ -7387,6 +7406,7 @@ export const ChatMetadataSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
+  projectConfigId: z.union([z.string(), z.null()]).default(null),
   streamStatus: z.enum(ChatStreamStatusEnum).default(ChatStreamStatusEnum.IDLE),
 });
 
@@ -8292,6 +8312,7 @@ export const GetLLMChatRequestResponseSchema = z.object({
   toolResults: z.record(z.string(), ToolResultSchema),
   waitingForResponse: z.boolean(),
   modelSelection: z.union([LLMModelSelectionSchema, z.null()]),
+  projectConfigId: z.union([z.string(), z.null()]),
   streamStatus: z.enum(ChatStreamStatusEnum),
 });
 

@@ -87,6 +87,7 @@ export function ProjectLLMSettings() {
   const providerPresetMap = useMemo(() => {
     const entries = new Map<string, LLMProviderPresetPayload>();
     for (const preset of providerPresets) {
+      entries.set(preset.preset_id, preset);
       entries.set(preset.provider.provider_id, preset);
     }
     return entries;
@@ -146,7 +147,13 @@ export function ProjectLLMSettings() {
   const addProviderFromPreset = (preset: LLMProviderPresetPayload) => {
     updateConfig((curr) => ({
       ...curr,
-      providers: [...curr.providers, providerPayloadToEditable(preset.provider)],
+      providers: [
+        ...curr.providers,
+        providerPayloadToEditable(preset.provider, {
+          presetIdOverride: preset.preset_id,
+          hydrateModelPresets: true,
+        }),
+      ],
     }));
   };
 
@@ -321,7 +328,11 @@ export function ProjectLLMSettings() {
               provider={provider}
               onChange={(next) => updateProvider(index, next)}
               onRemove={() => removeProvider(index)}
-              preset={providerPresetMap.get(provider.provider_id) ?? null}
+              preset={
+                provider.preset_id
+                  ? providerPresetMap.get(provider.preset_id) ?? null
+                  : null
+              }
               testResult={providerTestMap.get(provider.provider_id) ?? null}
               testing={testing}
             />
@@ -394,6 +405,14 @@ function ProviderEditor({
           (existing) => existing.model_id === model.model_id,
         ),
     ) ?? [];
+  const presetModelLookup = useMemo(() => {
+    if (!preset) {
+      return null;
+    }
+    return new Map(
+      preset.provider.models.map((model) => [model.model_id, model]),
+    );
+  }, [preset]);
 
   const updateProvider = (partial: Partial<EditableProvider>) => {
     onChange({ ...provider, ...partial });
@@ -440,7 +459,10 @@ function ProviderEditor({
   };
 
   const handlePresetModelSelect = (model: LLMModelConfigPayload) => {
-    const newModel = createLLMModelConfigPayload({ ...model });
+    const newModel = createLLMModelConfigPayload({
+      ...model,
+      preset_id: model.preset_id ?? model.model_id,
+    });
     const nextModels = [...provider.models, newModel];
     const nextDefault = provider.default_model_id ?? newModel.model_id;
     updateProvider({ models: nextModels, default_model_id: nextDefault });
@@ -510,6 +532,8 @@ function ProviderEditor({
             </button>
           </div>
         </div>
+
+        <ProviderPresetMeta preset={preset} />
 
         <div className="grid gap-3 @[32rem]:grid-cols-2">
           <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
@@ -668,6 +692,11 @@ function ProviderEditor({
                 model={model}
                 onChange={(nextModel) => updateModelAt(index, nextModel)}
                 onRemove={() => removeModelAt(index)}
+                presetModel={
+                  model.preset_id && presetModelLookup
+                    ? presetModelLookup.get(model.preset_id) ?? null
+                    : null
+                }
               />
             ))
           )}
@@ -753,27 +782,36 @@ type ModelEditorProps = {
   model: LLMModelConfigPayload;
   onChange: (model: LLMModelConfigPayload) => void;
   onRemove: () => void;
+  presetModel: LLMModelConfigPayload | null;
 };
 
-function ModelEditor({ model, onChange, onRemove }: ModelEditorProps) {
+function ModelEditor({
+  model,
+  onChange,
+  onRemove,
+  presetModel,
+}: ModelEditorProps) {
   return (
     <div className="rounded-md border border-setta-200/70 p-3 dark:border-setta-700/70">
       <div className="flex items-start gap-2">
         <div className="flex-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Display Name
-            <input
-              className="mt-1 rounded-md border border-setta-200/60 bg-transparent px-2 py-1 text-sm text-setta-700 outline-none focus-visible:ring-2 dark:border-setta-700 dark:text-setta-100"
-              value={model.display_name}
-              onChange={(e) =>
-                onChange({
-                  ...model,
-                  display_name: e.target.value,
-                })
-              }
-              placeholder="GPT-4 Turbo"
-            />
-          </label>
+          <div className="flex items-start justify-between gap-2">
+            <label className="flex-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Display Name
+              <input
+                className="mt-1 rounded-md border border-setta-200/60 bg-transparent px-2 py-1 text-sm text-setta-700 outline-none focus-visible:ring-2 dark:border-setta-700 dark:text-setta-100"
+                value={model.display_name}
+                onChange={(e) =>
+                  onChange({
+                    ...model,
+                    display_name: e.target.value,
+                  })
+                }
+                placeholder="GPT-4 Turbo"
+              />
+            </label>
+            <ModelPresetMeta presetModel={presetModel} />
+          </div>
         </div>
         <button
           type="button"
@@ -816,10 +854,59 @@ function ModelEditor({ model, onChange, onRemove }: ModelEditorProps) {
   );
 }
 
+type ProviderPresetMetaProps = {
+  preset: LLMProviderPresetPayload | null;
+};
+
+function ProviderPresetMeta({ preset }: ProviderPresetMetaProps) {
+  if (!preset) {
+    return (
+      <div className="rounded-md border border-dashed border-setta-300/60 bg-setta-50/40 p-2 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-600/60 dark:bg-setta-900/20 dark:text-setta-400">
+        Custom provider
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border border-blue-200/70 bg-blue-50 p-2 text-[11px] text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+      <p className="font-semibold uppercase tracking-wide">
+        Preset · {preset.label}
+      </p>
+      {preset.description ? (
+        <p className="mt-1 text-[10px] font-normal normal-case text-blue-600 dark:text-blue-200/80">
+          {preset.description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+type ModelPresetMetaProps = {
+  presetModel: LLMModelConfigPayload | null;
+};
+
+function ModelPresetMeta({ presetModel }: ModelPresetMetaProps) {
+  const baseClass =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide";
+  if (!presetModel) {
+    return (
+      <span className={`${baseClass} border border-dashed border-setta-400 text-setta-500 dark:border-setta-600 dark:text-setta-400`}>
+        Custom model
+      </span>
+    );
+  }
+  const label = presetModel.display_name || presetModel.model_id;
+  return (
+    <span className={`${baseClass} border border-blue-200 text-blue-700 dark:border-blue-900/70 dark:text-blue-200`}>
+      Preset · {label}
+    </span>
+  );
+}
+
 function createEmptyEditableProvider(counter: number): EditableProvider {
   return {
     provider_id: `provider-${counter}`,
     display_name: "New provider",
+    preset_id: null,
     api_key: "",
     base_url: null,
     default_model_id: null,
@@ -836,9 +923,16 @@ function createEmptyHeaderRow(): HeaderRow {
   return { id: createHeaderRowId(), key: "", value: "" };
 }
 
+type ProviderPayloadToEditableOptions = {
+  presetIdOverride?: string | null;
+  hydrateModelPresets?: boolean;
+};
+
 function payloadToEditable(payload: LLMConfigPayload): EditableLLMConfig {
   return {
     gateway_url: payload.gateway_url,
+    default_project_config_id: payload.default_project_config_id,
+    project_configs: payload.project_configs,
     providers: payload.providers.map((provider) =>
       providerPayloadToEditable(provider),
     ),
@@ -847,14 +941,26 @@ function payloadToEditable(payload: LLMConfigPayload): EditableLLMConfig {
 
 function providerPayloadToEditable(
   provider: LLMProviderConfigPayload,
+  options: ProviderPayloadToEditableOptions = {},
 ): EditableProvider {
+  const presetId =
+    options.presetIdOverride !== undefined
+      ? options.presetIdOverride
+      : provider.preset_id;
+  const hydrateModelPresets = Boolean(options.hydrateModelPresets);
+
   return {
     provider_id: provider.provider_id,
     display_name: provider.display_name,
+    preset_id: presetId ?? null,
     api_key: provider.api_key,
     base_url: provider.base_url,
     default_model_id: provider.default_model_id,
-    models: provider.models.map((model) => ({ ...model })),
+    models: provider.models.map((model) => ({
+      ...model,
+      preset_id:
+        model.preset_id ?? (hydrateModelPresets ? model.model_id : null),
+    })),
     headerRows: Object.entries(provider.extra_headers ?? {}).map(
       ([key, value]) => ({
         id: createHeaderRowId(),
@@ -868,6 +974,8 @@ function providerPayloadToEditable(
 function editableToPayload(config: EditableLLMConfig): LLMConfigPayload {
   return {
     gateway_url: config.gateway_url,
+    default_project_config_id: config.default_project_config_id,
+    project_configs: config.project_configs,
     providers: config.providers.map((provider) => {
       const headerEntries = provider.headerRows
         .map((row) => ({
@@ -893,6 +1001,7 @@ function editableToPayload(config: EditableLLMConfig): LLMConfigPayload {
       return {
         provider_id: provider.provider_id,
         display_name: provider.display_name,
+        preset_id: provider.preset_id,
         api_key: provider.api_key,
         base_url: provider.base_url,
         default_model_id: defaultModelId,

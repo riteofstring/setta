@@ -324,8 +324,7 @@ class LLMProjectConfig:
         return cls(
             project_config_id=project_config_id,
             providers=[
-                LLMProviderConfig.from_dict(provider)
-                for provider in providers_payload
+                LLMProviderConfig.from_dict(provider) for provider in providers_payload
             ],
         )
 
