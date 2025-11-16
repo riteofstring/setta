@@ -47,5 +47,6 @@
 - Added `backend/setta/llm/models.py` with neutral `LLMMessage`, content blocks, and `LLMStreamEvent` dataclasses to anchor the new Portkey orchestrator and persistence layers.
 - Introduced `backend/setta/llm/portkey_client.py`, which wraps the Portkey SDK and converts streaming chunks into our normalized `LLMStreamEvent` types so downstream orchestrator work can build on a single integration surface.
 - Updated `backend/setta/mcp/client.py` to emit OpenAI-compatible `ToolDefinition` objects (via `tool_definition_from_mcp`) so the rest of the stack can consume MCP tools without any Anthropic SDK types.
+- Restored `backend/setta/types/chat_messages.py` with the new normalized chat persistence schema that stores only our `LLM*` dataclasses and serializes websocket chunks as backend-defined `LLMStreamEvent` payloads, so persistence/websocket layers now match the Portkey abstraction.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.
