@@ -36,8 +36,13 @@
   - Revisit the “Deep Thinking” toggle in `ProjectChat.tsx:31-123`. Map it to Portkey parameters (`reasoning`, `temperature`, `max_output_tokens`, etc.) only for models that support it; otherwise disable the switch.
 
 - **Testing, observability, and clean-up**
-  - Remove `anthropic` from `pyproject.toml` and `uv.lock`, add `portkey-ai`. Add unit tests for the Portkey adapter (mocking the SDK) and integration tests that simulate streaming loops/two tool calls.
-  - Instrument the orchestrator with structured logs (model, provider, latency, tool latency) and surface failures to the frontend via notifications so users know when an API key or model fails.
-  - Document the migration in `docs/` (mention new config file, Portkey requirements, and how streaming/tool calls behave) and capture manual verification steps (e.g., `source activate.sh && python -m unittest discover tests`, `pnpm start`, send test chats).
+- Remove `anthropic` from `pyproject.toml` and `uv.lock`, add `portkey-ai`. Add unit tests for the Portkey adapter (mocking the SDK) and integration tests that simulate streaming loops/two tool calls.
+- Instrument the orchestrator with structured logs (model, provider, latency, tool latency) and surface failures to the frontend via notifications so users know when an API key or model fails.
+- Document the migration in `docs/` (mention new config file, Portkey requirements, and how streaming/tool calls behave) and capture manual verification steps (e.g., `source activate.sh && python -m unittest discover tests`, `pnpm start`, send test chats).
+
+**Progress**
+- Deleted the Anthropic-specific `ChatManager` implementation; next iteration will introduce a Portkey-backed orchestrator under the new abstraction.
+- Removed the Anthropic-backed `ChatMessage` schema plus chat persistence helpers/tests so we can redefine neutral message models.
+- Dropped the `anthropic` dependency from `pyproject.toml` and `uv.lock`, so the project no longer installs the Anthropic SDK.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.
