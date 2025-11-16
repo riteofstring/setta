@@ -119,7 +119,6 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
 
 function receiveMessage(message: string) {
   const m: FrontendWebsocketMsgUnion = JSON.parse(message);
-  console.log(m);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);

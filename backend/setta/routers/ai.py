@@ -52,8 +52,6 @@ async def route_get_llm_response(
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ) -> str | None:
-    # try:
-    print(x, flush=True)
     chat = state.chat_manager.get_or_create_chat(x.chatId, x.message)
 
     if chat:
@@ -67,16 +65,6 @@ async def route_get_llm_response(
 
         # Return immediate response with session ID
         return chat.id
-
-    # except Exception as e:
-    #     print(f"Error in route_get_llm_response: {str(e)}")
-    #     # Return a more specific error message
-    #     error_message = f"Error calling LLM: {str(e)}"
-    #     return {
-    #         "error": error_message,
-    #         "status": "error",
-    #     }
-
 
 @router.post(Route.GET_LLM_CONFIG)
 def route_get_llm_config() -> LLMConfigPayload:

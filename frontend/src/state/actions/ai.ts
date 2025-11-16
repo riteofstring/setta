@@ -46,9 +46,23 @@ export async function loadLLMConfig() {
 }
 
 export function applyLLMConfigUpdate(config: LLMConfigPayload) {
-  useAIStore.setState({
-    llmConfig: config,
-    llmConfigLoaded: true,
+  useAIStore.setState((state) => {
+    const availableModels = new Set<string>();
+    for (const provider of config.providers) {
+      for (const model of provider.models) {
+        availableModels.add(model.model_id);
+      }
+    }
+    const userSelectedLLM = state.userSelectedLLM;
+    const nextSelection =
+      userSelectedLLM && !availableModels.has(userSelectedLLM)
+        ? ""
+        : userSelectedLLM;
+    return {
+      llmConfig: config,
+      llmConfigLoaded: true,
+      userSelectedLLM: nextSelection,
+    };
   });
 }
 
