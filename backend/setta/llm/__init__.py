@@ -5,6 +5,7 @@ from .config_store import (
     config_to_payload,
     load_llm_config,
     payload_to_config,
+    resolve_model_selection,
     save_llm_config,
 )
 from .models import (
@@ -37,6 +38,7 @@ __all__ = [
     "config_to_payload",
     "load_llm_config",
     "payload_to_config",
+    "resolve_model_selection",
     "save_llm_config",
     "JSONValue",
     "LLMContentBlock",

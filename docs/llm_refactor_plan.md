@@ -1,6 +1,6 @@
 **Guiding Principles**
 - This initiative is a full-stack overhaul, not a piecemeal patch. Prefer deleting brittle Anthropic-era code and rewriting around the new abstractions instead of layering compatibility shims.
-- Backwards compatibility is explicitly out of scope: wipe or migrate old chat/state files, rip out unused watchers, and restructure modules freely to arrive at a cleaner architecture.
+- "No backwards compatibility" refers to the legacy Anthropic stack: we can break old chats/config formats or delete unused code without worrying about old consumers, but the new Portkey paths can evolve freely without temporary bridges to the old world.
 - Favor cohesive modules (e.g., `setta.llm.*`, config stores, orchestrator) even if it means moving large chunks of logic or renaming APIs; the end goal is a maintainable Portkey-first stack.
 
 **Key Findings**
@@ -16,6 +16,7 @@
 - **Gateway config UX:** Introduced `backend/setta/llm/config_store.py`, `config_watch.py`, and `backend/setta/types/llm_config.py`, plus GET/SET routes in `backend/setta/routers/ai.py`. The frontend exposes the Config editor (`ProjectLLMSettings.tsx`), listens for `LLMConfigUpdated` websocket events, and surfaces provider/model presets via `backend/setta/llm/presets.py` and the new `GET_LLM_PRESETS` endpoint. `.env`-based API-key plumbing and hard-coded `MODEL_GROUPS` were removed in favor of the persisted JSON config.
 - **Baseline cleanup:** Removed noisy debug prints from `/getLLMResponse`, trimmed websocket console spam, and taught the AI store to clear stale `userSelectedLLM` values whenever the config drops a model so the UI never references deleted entries after a save.
 - **Server wiring:** `SettaFastAPIState` now loads `llm_config.json`, keeps the parsed `LLMConfig` on the app state, and injects it into `ChatManager`, which spins up the `PortkeyClient` targeting the configured gateway URL. The next steps are to thread provider/model selections and keys into that orchestrator path.
+- **Config selection guardrails:** Introduced `resolve_model_selection` so every chat request fails fast when a provider/model ID is missing, paving the way for credential-aware orchestration without silent fallbacks.
 - **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
 
 **Remaining Work**
@@ -23,6 +24,13 @@
   - Load `LLMConfig` when building `SettaFastAPIState`, pass it to `ChatManager`, and construct `PortkeyClient`s with the provider’s API key, base URL, headers, and `default_parameters`. Persist a mapping from chat requests to `{provider_id, model_id}` instead of the current plain string so the backend can locate the right credentials.
   - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
   - Subscribe `ChatManager` to the `register_llm_config_watch` callback so it refreshes its cached config / gateway client whenever `llm_config.json` changes, not just when the frontend reloads.
+
+- **Preset-driven configuration UX**
+  - Ship a canonical preset catalog derived from `backend/setta/llm/presets.py` and expose it to both backend and frontend so we can auto-generate a "default" config for popular providers (OpenAI, Anthropic, etc.) without asking the user to retype model metadata.
+  - Extend the config editor to let users pick a preset (or multiple models within one) and only supply credentials/overrides; saving would materialize the preset’s models into `llm_config.json`, but the workflow becomes "select preset, paste API key" instead of hand-authoring every entry.
+  - Support partial specs in `llm_config.json`: allow providers/models to reference a preset ID and only persist the fields the user overrides (e.g., API key, renamed display label, custom defaults). When the backend loads the config it can hydrate the full provider/model definition from the preset + overrides, so the file stays small while still being explicit about local changes.
+  - Allow per-model overrides (display name, deep-thinking flag, default parameters) while still referencing the preset base, so we maintain a single source for standard IDs yet give power users flexibility.
+  - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Streaming lifecycle + cancellation**
   - Track in-flight assistant tasks per `chat_id`, buffering incremental `LLMMessage`s so `get_current_stream` and `is_waiting_for_response` can answer immediately and `/getLLMChat` no longer hits `NotImplementedError`.

@@ -7,6 +7,7 @@ from typing import Any
 
 from setta.llm.constants import CONFIG_PATH, DEFAULT_GATEWAY_URL
 from setta.llm.models import JSONValue
+from setta.types.chat_messages import LLMModelSelection
 from setta.types.llm_config import (
     LLMConfigPayload,
     LLMModelConfigPayload,
@@ -184,4 +185,33 @@ def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
             )
             for provider in payload.providers
         ],
+    )
+
+
+def resolve_model_selection(
+    config: LLMConfig,
+    selection: LLMModelSelection,
+) -> tuple[LLMProviderConfig, LLMModelConfig]:
+    """Locate the provider/model pair for a selection or fail loudly."""
+
+    provider = _get_provider(config, selection.providerId)
+    model = _get_model(provider, selection.modelId)
+    return provider, model
+
+
+def _get_provider(config: LLMConfig, provider_id: str) -> LLMProviderConfig:
+    for provider in config.providers:
+        if provider.provider_id == provider_id:
+            return provider
+    raise ValueError(f"Unknown LLM provider: {provider_id}")
+
+
+def _get_model(
+    provider: LLMProviderConfig, model_id: str
+) -> LLMModelConfig:
+    for model in provider.models:
+        if model.model_id == model_id:
+            return model
+    raise ValueError(
+        f"Unknown model '{model_id}' for provider '{provider.provider_id}'"
     )
