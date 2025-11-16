@@ -18,6 +18,7 @@ from .models import (
     content_block_from_dict,
     stream_event_to_dict,
 )
+from .portkey_client import PortkeyClient
 
 __all__ = [
     "JSONValue",
@@ -38,4 +39,5 @@ __all__ = [
     "ToolResultEvent",
     "content_block_from_dict",
     "stream_event_to_dict",
+    "PortkeyClient",
 ]
