@@ -28,6 +28,7 @@
 - **Streaming persistence:** `_StreamingTranscriptRecorder` snapshots assistant/tool-call deltas to disk during `ChatManager` streams so reconnecting clients always see the latest transcript even if the backend crashed mid-response.
 - **Deep thinking toggle guardrails:** The Project chat view decodes the selected provider/model, disables the Deep Thinking switch whenever `supports_reasoning` is false or no model is selected, and automatically clears the toggle so unsupported combinations never send reasoning requests.
 - **Gateway validation UI:** The settings panel now runs `TEST_LLM_CONFIG` before saving, surfaces gateway/provider health badges with inline errors, and blocks invalid configs so users always know when the Portkey gateway or provider credentials fail.
+- **Reconnection hydration:** When the websocket connection opens we immediately refetch the active chat, merging the persisted assistant snapshot with `_active_streams` so reconnecting tabs resume in-flight responses without manual navigation.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -41,7 +42,6 @@
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Streaming lifecycle + cancellation**
-  - Hydrate reconnecting clients from the persisted assistant snapshot and hook them back into any `_active_streams` so closing/reopening a tab mid-response still shows live progress.
   - Record a completion/cancellation marker on chats so the frontend can tell whether more stream events are expected after a reload.
 
 - **Deep-thinking and request parameters**

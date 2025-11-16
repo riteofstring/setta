@@ -35,6 +35,7 @@ import {
 import {
   applyLLMConfigUpdate,
   receiveLLMResponseChunk,
+  rehydrateActiveChat,
   updateUUIDMappingForLLM,
 } from "./ai";
 import { updateArtifacts } from "./artifacts";
@@ -80,6 +81,7 @@ export const openWebSocket = _.debounce(
             processProjectStateUpdateFromBackend(res.data);
           }
         }
+        await rehydrateActiveChat();
       });
 
       wss.addEventListener("message", (event) => {

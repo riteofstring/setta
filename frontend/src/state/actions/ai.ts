@@ -213,6 +213,14 @@ export function goToChat(id) {
   useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
+export async function rehydrateActiveChat() {
+  const { currentChatId } = useAIStore.getState();
+  if (!currentChatId) {
+    return;
+  }
+  await getLLMChat(currentChatId);
+}
+
 export async function submitMessage(message: string, deepThink) {
   if (!message.trim()) return;
 
