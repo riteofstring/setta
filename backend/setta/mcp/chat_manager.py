@@ -77,18 +77,28 @@ class ChatManager:
         chat_id: str | None,
         message: ChatMessage,
         model_selection: LLMModelSelection,
+        project_config_id: str | None,
     ) -> Chat:
         """Load an existing chat (if any), append the message, and persist."""
 
         if chat_id:
             chat = self.get_chat(chat_id)
             if chat is None:
-                chat = self._create_chat(message, model_selection)
+                chat = self._create_chat(
+                    message,
+                    model_selection,
+                    project_config_id=project_config_id,
+                )
             else:
                 self._ensure_model_selection(chat, model_selection)
+                self._ensure_project_config(chat, project_config_id)
                 chat.add_message(message)
         else:
-            chat = self._create_chat(message, model_selection)
+            chat = self._create_chat(
+                message,
+                model_selection,
+                project_config_id=project_config_id,
+            )
 
         self._persist_chat(chat)
         return chat
@@ -266,10 +276,13 @@ class ChatManager:
         self,
         initial_message: ChatMessage,
         model_selection: LLMModelSelection,
+        *,
+        project_config_id: str | None,
     ) -> Chat:
         chat = Chat(
             name=self._derive_chat_name(initial_message),
             modelSelection=model_selection,
+            projectConfigId=project_config_id,
         )
         chat.add_message(initial_message)
         return chat
@@ -290,6 +303,14 @@ class ChatManager:
             raise ValueError(
                 "Existing chat model selection cannot be changed mid-conversation"
             )
+
+    def _ensure_project_config(
+        self,
+        chat: Chat,
+        project_config_id: str | None,
+    ) -> None:
+        if chat.projectConfigId is None:
+            chat.projectConfigId = project_config_id
 
     def _derive_chat_name(self, message: ChatMessage) -> str:
         """Use the first text block as the chat title, otherwise fallback."""

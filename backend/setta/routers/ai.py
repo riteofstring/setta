@@ -53,6 +53,7 @@ class GetLLMChatRequestResponse(BaseModel):
     toolResults: dict[str, ToolResult]
     waitingForResponse: bool
     modelSelection: LLMModelSelection | None
+    projectConfigId: str | None
     streamStatus: ChatStreamStatus
 
 
@@ -74,6 +75,7 @@ async def route_get_llm_response(
         x.chatId,
         x.message,
         x.modelSelection,
+        x.projectConfigId,
     )
 
     _, model_config = resolve_model_selection(
@@ -207,6 +209,7 @@ async def route_get_llm_chat(
         toolResults=tool_results,
         waitingForResponse=waiting_for_response,
         modelSelection=chat.modelSelection,
+        projectConfigId=chat.projectConfigId,
         streamStatus=chat.streamStatus,
     )
 

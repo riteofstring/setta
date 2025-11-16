@@ -117,6 +117,7 @@ class Chat(BaseModel):
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     messages: list[ChatMessage] = Field(default_factory=list)
+    projectConfigId: str | None = None
     modelSelection: LLMModelSelection | None = None
     streamStatus: ChatStreamStatus = ChatStreamStatus.IDLE
 
@@ -158,6 +159,7 @@ class ChatMetadata(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
+    projectConfigId: str | None = None
     streamStatus: ChatStreamStatus = ChatStreamStatus.IDLE
 
     @field_validator("lastUpdated", mode="before")
@@ -181,6 +183,7 @@ class ChatMetadata(BaseModel):
             id=chat.id,
             name=chat.name,
             lastUpdated=chat.lastUpdated,
+            projectConfigId=chat.projectConfigId,
             streamStatus=chat.streamStatus,
         )
 
