@@ -41,7 +41,7 @@
 
 **Remaining Work**
 - **Preset-driven configuration UX**
-  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
+- ~~  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.~~
 
 - **Frontend follow-ups**
   - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.

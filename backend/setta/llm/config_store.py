@@ -431,51 +431,12 @@ def config_to_payload(config: LLMConfig) -> LLMConfigPayload:
 
     return LLMConfigPayload(
         gateway_url=config.gateway_url,
-        providers=[
-            LLMProviderConfigPayload(
-                provider_id=provider.provider_id,
-                display_name=provider.display_name,
-                preset_id=provider.preset_id,
-                api_key=provider.api_key,
-                base_url=provider.base_url,
-                default_model_id=provider.default_model_id,
-                extra_headers=provider.extra_headers,
-                models=[
-                    LLMModelConfigPayload(
-                        model_id=model.model_id,
-                        display_name=model.display_name,
-                        supports_reasoning=model.supports_reasoning,
-                        default_parameters=model.default_parameters,
-                        preset_id=model.preset_id,
-                    )
-                    for model in provider.models
-                ],
-            )
-            for provider in config.providers
-        ],
+        providers=[_provider_config_to_payload(provider) for provider in config.providers],
         default_project_config_id=config.default_project_config_id,
         project_configs={
             project_id: LLMProjectConfigPayload(
                 providers=[
-                    LLMProviderConfigPayload(
-                        provider_id=provider.provider_id,
-                        display_name=provider.display_name,
-                        preset_id=provider.preset_id,
-                        api_key=provider.api_key,
-                        base_url=provider.base_url,
-                        default_model_id=provider.default_model_id,
-                        extra_headers=provider.extra_headers,
-                        models=[
-                            LLMModelConfigPayload(
-                                model_id=model.model_id,
-                                display_name=model.display_name,
-                                supports_reasoning=model.supports_reasoning,
-                                default_parameters=model.default_parameters,
-                                preset_id=model.preset_id,
-                            )
-                            for model in provider.models
-                        ],
-                    )
+                    _provider_config_to_payload(provider)
                     for provider in project.providers
                 ]
             )
@@ -489,6 +450,64 @@ def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
 
     payload_dict = payload.model_dump(mode="python", exclude_unset=True)
     return LLMConfig.from_dict(payload_dict)
+
+
+def add_preset_to_config(
+    config: LLMConfig,
+    *,
+    preset_id: str,
+    provider_id: str | None = None,
+    overrides: LLMProviderConfigPayload | None = None,
+    project_config_id: str | None = None,
+) -> LLMProviderConfig:
+    """Rebuild or append a provider entry using the latest preset metadata."""
+
+    preset = _lookup_preset_provider(preset_id, strict=True)
+    if not preset:
+        raise ValueError(f"Unknown LLM provider preset: {preset_id}")
+
+    provider_list = _resolve_provider_collection(config, project_config_id)
+    base_provider = LLMProviderConfig.from_dict({"preset_id": preset.preset_id})
+
+    target_provider_id = (
+        provider_id
+        or (overrides.provider_id if overrides else None)
+        or base_provider.provider_id
+    )
+
+    existing_index = _find_provider_index(provider_list, target_provider_id)
+    existing_provider = (
+        provider_list[existing_index] if existing_index is not None else None
+    )
+
+    base_payload = _provider_payload_to_dict(_provider_config_to_payload(base_provider))
+    existing_payload = (
+        _provider_payload_to_dict(_provider_config_to_payload(existing_provider))
+        if existing_provider
+        else None
+    )
+    override_payload = (
+        overrides.model_dump(mode="python", exclude_unset=True)
+        if overrides is not None
+        else None
+    )
+
+    merged_payload = _merge_provider_payload_dicts(
+        base_payload,
+        [
+            existing_payload,
+            override_payload,
+        ],
+    )
+    merged_payload["preset_id"] = preset.preset_id
+    merged_payload["provider_id"] = target_provider_id
+
+    provider = LLMProviderConfig.from_dict(merged_payload)
+    if existing_index is None:
+        provider_list.append(provider)
+    else:
+        provider_list[existing_index] = provider
+    return provider
 
 
 def resolve_model_selection(
@@ -651,3 +670,116 @@ def _maybe_set(
 
 def _value_differs(current: Any, base_value: Any) -> bool:
     return current != base_value
+
+
+def _provider_config_to_payload(
+    provider: LLMProviderConfig,
+) -> LLMProviderConfigPayload:
+    return LLMProviderConfigPayload(
+        provider_id=provider.provider_id,
+        display_name=provider.display_name,
+        preset_id=provider.preset_id,
+        api_key=provider.api_key,
+        base_url=provider.base_url,
+        default_model_id=provider.default_model_id,
+        extra_headers=provider.extra_headers,
+        models=[_model_config_to_payload(model) for model in provider.models],
+    )
+
+
+def _model_config_to_payload(model: LLMModelConfig) -> LLMModelConfigPayload:
+    return LLMModelConfigPayload(
+        model_id=model.model_id,
+        display_name=model.display_name,
+        supports_reasoning=model.supports_reasoning,
+        default_parameters=model.default_parameters,
+        preset_id=model.preset_id,
+    )
+
+
+def _resolve_provider_collection(
+    config: LLMConfig,
+    project_config_id: str | None,
+) -> list[LLMProviderConfig]:
+    if project_config_id is None:
+        return config.providers
+
+    project = config.project_configs.get(project_config_id)
+    if project is None:
+        raise ValueError(f"Unknown project config: {project_config_id}")
+    return project.providers
+
+
+def _find_provider_index(
+    providers: list[LLMProviderConfig],
+    provider_id: str,
+) -> int | None:
+    for index, provider in enumerate(providers):
+        if provider.provider_id == provider_id:
+            return index
+    return None
+
+
+def _provider_payload_to_dict(
+    payload: LLMProviderConfigPayload | None,
+) -> dict[str, Any]:
+    if payload is None:
+        return {}
+    return payload.model_dump(mode="python", exclude_unset=False)
+
+
+def _merge_provider_payload_dicts(
+    base_payload: dict[str, Any],
+    overlays: list[dict[str, Any] | None],
+) -> dict[str, Any]:
+    merged = deepcopy(base_payload)
+    for overlay in overlays:
+        if not overlay:
+            continue
+        for key, value in overlay.items():
+            if key == "preset_id":
+                continue
+            if key == "models" and value is not None:
+                existing_models = merged.get("models") or []
+                merged["models"] = _merge_model_payloads(existing_models, value)
+                continue
+            merged[key] = value
+    return merged
+
+
+def _merge_model_payloads(
+    base_models: list[dict[str, Any]],
+    overrides: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = [deepcopy(model) for model in base_models]
+    index_by_key: dict[str, int] = {}
+    for idx, model in enumerate(merged):
+        key = _model_override_key(model)
+        if key:
+            index_by_key.setdefault(key, idx)
+
+    for override in overrides:
+        key = _model_override_key(override)
+        if key and key in index_by_key:
+            target = merged[index_by_key[key]]
+            target.update(override)
+            continue
+
+        entry = deepcopy(override)
+        if "preset_id" not in entry or not entry["preset_id"]:
+            entry["preset_id"] = entry.get("model_id")
+        merged.append(entry)
+        if key:
+            index_by_key[key] = len(merged) - 1
+
+    return merged
+
+
+def _model_override_key(payload: dict[str, Any]) -> str | None:
+    model_id = payload.get("model_id")
+    if isinstance(model_id, str) and model_id:
+        return model_id
+    preset_id = payload.get("preset_id")
+    if isinstance(preset_id, str) and preset_id:
+        return preset_id
+    return None

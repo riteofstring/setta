@@ -2,6 +2,7 @@ from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from setta.llm.config_store import (
+    add_preset_to_config,
     config_to_payload,
     load_llm_config,
     payload_to_config,
@@ -24,6 +25,7 @@ from setta.types.llm_config import (
     LLMConfigPayload,
     LLMConfigTestResultPayload,
     LLMPresetCatalogPayload,
+    LLMProviderConfigPayload,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
@@ -63,6 +65,13 @@ class StopLLMChatRequest(BaseModel):
 
 class TestLLMConfigRequest(BaseModel):
     config: LLMConfigPayload | None = None
+
+
+class AddLLMPresetRequest(BaseModel):
+    presetId: str
+    providerId: str | None = None
+    projectConfigId: str | None = None
+    overrides: LLMProviderConfigPayload | None = None
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -115,6 +124,29 @@ def route_get_llm_presets() -> LLMPresetCatalogPayload:
     return LLMPresetCatalogPayload(
         providers=[preset.to_payload() for preset in presets],
     )
+
+
+@router.post(Route.ADD_LLM_PRESET)
+async def route_add_llm_preset(
+    payload: AddLLMPresetRequest,
+    state: AppStateFromRequest,
+) -> LLMConfigPayload:
+    config = load_llm_config()
+    try:
+        add_preset_to_config(
+            config,
+            preset_id=payload.presetId,
+            provider_id=payload.providerId,
+            overrides=payload.overrides,
+            project_config_id=payload.projectConfigId,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    save_llm_config(config)
+    notification = SettaNotification(message=f"Added preset '{payload.presetId}'")
+    await state.wmh_frontend_sender.broadcast_notification(notification)
+    return config_to_payload(config)
 
 
 @router.post(Route.TEST_LLM_CONFIG)
