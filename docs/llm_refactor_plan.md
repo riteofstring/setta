@@ -27,6 +27,7 @@
 - **Gateway + provider validation:** Added the `Route.TEST_LLM_CONFIG` endpoint, typed payloads, and backend probes that hit the Portkey gateway’s health route plus each provider’s `/models` listing so the UI can immediately report whether saved credentials/base URLs are reachable.
 - **Streaming persistence:** `_StreamingTranscriptRecorder` snapshots assistant/tool-call deltas to disk during `ChatManager` streams so reconnecting clients always see the latest transcript even if the backend crashed mid-response.
 - **Deep thinking toggle guardrails:** The Project chat view decodes the selected provider/model, disables the Deep Thinking switch whenever `supports_reasoning` is false or no model is selected, and automatically clears the toggle so unsupported combinations never send reasoning requests.
+- **Gateway validation UI:** The settings panel now runs `TEST_LLM_CONFIG` before saving, surfaces gateway/provider health badges with inline errors, and blocks invalid configs so users always know when the Portkey gateway or provider credentials fail.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -45,7 +46,6 @@
 
 - **Deep-thinking and request parameters**
   - Make `ChatManager._build_request_params` respect the `deepThink` flag only for models whose config declares `supports_reasoning`, and merge each model’s `default_parameters` into the Portkey payload.
-  - Surface validation/health data in the UI by invoking `Route.TEST_LLM_CONFIG`, wiring the responses into notifications/status badges next to provider cards in `ProjectLLMSettings`, and blocking saves when credentials fail.
 
 - **Frontend follow-ups**
   - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.

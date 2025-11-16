@@ -502,6 +502,7 @@ export const RouteEnum = {
   GET_LLM_CONFIG: "/getLLMConfig",
   GET_LLM_PRESETS: "/getLLMPresets",
   SET_LLM_CONFIG: "/setLLMConfig",
+  TEST_LLM_CONFIG: "/testLLMConfig",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
@@ -8003,6 +8004,70 @@ export function createListenerRealtimeDelta(
   return ListenerRealtimeDeltaSchema.parse(options);
 }
 
+export const LLMGatewayTestResultPayloadSchema = z.object({
+  ok: z.boolean(),
+  url: z.union([z.string(), z.null()]).default(null),
+  error: z.union([z.string(), z.null()]).default(null),
+});
+
+export type LLMGatewayTestResultPayload = z.infer<
+  typeof LLMGatewayTestResultPayloadSchema
+>;
+
+export function createLLMGatewayTestResultPayload(
+  options: Partial<LLMGatewayTestResultPayload> = {},
+): LLMGatewayTestResultPayload {
+  return LLMGatewayTestResultPayloadSchema.parse(options);
+}
+
+export const LLMProviderTestErrorPayloadSchema = z.object({
+  message: z.string(),
+  code: z.union([z.string(), z.null()]).default(null),
+});
+
+export type LLMProviderTestErrorPayload = z.infer<
+  typeof LLMProviderTestErrorPayloadSchema
+>;
+
+export function createLLMProviderTestErrorPayload(
+  options: Partial<LLMProviderTestErrorPayload> = {},
+): LLMProviderTestErrorPayload {
+  return LLMProviderTestErrorPayloadSchema.parse(options);
+}
+
+export const LLMProviderTestResultPayloadSchema = z.object({
+  provider_id: z.string(),
+  display_name: z.string(),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  ok: z.boolean().default(false),
+  errors: z.array(LLMProviderTestErrorPayloadSchema).default([]),
+});
+
+export type LLMProviderTestResultPayload = z.infer<
+  typeof LLMProviderTestResultPayloadSchema
+>;
+
+export function createLLMProviderTestResultPayload(
+  options: Partial<LLMProviderTestResultPayload> = {},
+): LLMProviderTestResultPayload {
+  return LLMProviderTestResultPayloadSchema.parse(options);
+}
+
+export const LLMConfigTestResultPayloadSchema = z.object({
+  gateway: LLMGatewayTestResultPayloadSchema,
+  providers: z.array(LLMProviderTestResultPayloadSchema).default([]),
+});
+
+export type LLMConfigTestResultPayload = z.infer<
+  typeof LLMConfigTestResultPayloadSchema
+>;
+
+export function createLLMConfigTestResultPayload(
+  options: Partial<LLMConfigTestResultPayload> = {},
+): LLMConfigTestResultPayload {
+  return LLMConfigTestResultPayloadSchema.parse(options);
+}
+
 export const LLMProviderPresetPayloadSchema = z.object({
   preset_id: z.string(),
   label: z.string(),
@@ -8252,6 +8317,18 @@ export function createStopLLMChatRequest(
   options: Partial<StopLLMChatRequest> = {},
 ): StopLLMChatRequest {
   return StopLLMChatRequestSchema.parse(options);
+}
+
+export const TestLLMConfigRequestSchema = z.object({
+  config: z.union([LLMConfigPayloadSchema, z.null()]).default(null),
+});
+
+export type TestLLMConfigRequest = z.infer<typeof TestLLMConfigRequestSchema>;
+
+export function createTestLLMConfigRequest(
+  options: Partial<TestLLMConfigRequest> = {},
+): TestLLMConfigRequest {
+  return TestLLMConfigRequestSchema.parse(options);
 }
 
 export const ArtifactSaveResultSchema = z.object({

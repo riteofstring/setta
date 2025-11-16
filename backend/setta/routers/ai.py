@@ -57,6 +57,10 @@ class StopLLMChatRequest(BaseModel):
     chatId: str
 
 
+class TestLLMConfigRequest(BaseModel):
+    config: LLMConfigPayload | None = None
+
+
 @router.post(Route.GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
@@ -97,9 +101,16 @@ def route_get_llm_presets() -> LLMPresetCatalogPayload:
 
 @router.post(Route.TEST_LLM_CONFIG)
 def route_test_llm_config(
+    payload: TestLLMConfigRequest | None,
     state: AppStateFromRequest,
 ) -> LLMConfigTestResultPayload:
-    return test_llm_config(state.llm_config)
+    config_payload = payload.config if payload else None
+    config = (
+        payload_to_config(config_payload)
+        if config_payload is not None
+        else state.llm_config
+    )
+    return test_llm_config(config)
 
 
 @router.post(Route.SET_LLM_CONFIG)

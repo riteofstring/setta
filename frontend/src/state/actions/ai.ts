@@ -11,6 +11,7 @@ import {
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
   route_set_llm_config,
+  route_test_llm_config,
 } from "utils/generatedEndpoints";
 import {
   createChatMessage,
@@ -22,6 +23,7 @@ import {
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
   type LLMConfigPayload,
+  type LLMConfigTestResultPayload,
   type LLMPresetCatalogPayload,
   type LLMStreamingResponse,
   type MessageStartedEvent,
@@ -131,6 +133,20 @@ export async function saveLLMConfig(payload: LLMConfigPayload) {
       ? String(res.data.detail)
       : "Failed to save LLM configuration";
   return { ok: false as const, error: detail };
+}
+
+export async function testLLMConfig(
+  payload: LLMConfigPayload,
+): Promise<LLMConfigTestResultPayload> {
+  const res = await route_test_llm_config({ config: payload });
+  if (res200(res)) {
+    return res.data;
+  }
+  const detail =
+    res.data && typeof res.data === "object" && "detail" in res.data
+      ? String(res.data.detail)
+      : "Failed to test LLM configuration";
+  throw new Error(detail);
 }
 
 export function getDefaultChatDetails() {

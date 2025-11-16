@@ -75,9 +75,7 @@ def _test_provider(
     if provider.api_key and "authorization" not in header_names:
         headers["Authorization"] = f"Bearer {provider.api_key}"
 
-    missing_authorization = (
-        not provider.api_key and "authorization" not in header_names
-    )
+    missing_authorization = not provider.api_key and "authorization" not in header_names
 
     errors: list[LLMProviderTestErrorPayload] = []
     for url in candidates:
@@ -108,7 +106,9 @@ def _test_provider(
         )
 
     tested_base_url = (
-        _strip_suffix(candidates[0], "/models") if candidates else _normalize_base_url(base_url)
+        _strip_suffix(candidates[0], "/models")
+        if candidates
+        else _normalize_base_url(base_url)
     )
     return LLMProviderTestResultPayload(
         provider_id=provider.provider_id,

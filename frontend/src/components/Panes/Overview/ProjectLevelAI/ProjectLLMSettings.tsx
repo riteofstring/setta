@@ -1,18 +1,29 @@
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   MdAdd,
+  MdCheckCircle,
   MdDelete,
+  MdErrorOutline,
+  MdHourglassTop,
   MdVisibility,
   MdVisibilityOff,
 } from "react-icons/md";
-import { loadLLMConfig, loadLLMPresets, saveLLMConfig } from "state/actions/ai";
+import {
+  loadLLMConfig,
+  loadLLMPresets,
+  saveLLMConfig,
+  testLLMConfig,
+} from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
 import {
   LLMConfigPayload,
+  LLMConfigTestResultPayload,
+  LLMGatewayTestResultPayload,
   LLMModelConfigPayload,
   LLMProviderConfigPayload,
   LLMProviderPresetPayload,
+  LLMProviderTestResultPayload,
   createLLMConfigPayload,
   createLLMModelConfigPayload,
 } from "utils/generatedTypes";
@@ -41,7 +52,10 @@ export function ProjectLLMSettings() {
     useState<EditableLLMConfig | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] =
+    useState<LLMConfigTestResultPayload | null>(null);
 
   useEffect(() => {
     if (!llmConfigLoaded) {
@@ -64,6 +78,8 @@ export function ProjectLLMSettings() {
     setIsDirty(false);
     setError(null);
     setSaving(false);
+    setTesting(false);
+    setTestResult(null);
   }, [llmConfigLoaded, llmConfig]);
 
   const configPath = `${C.SETTA_FILES_FOLDER}/llm_config.json`;
@@ -98,6 +114,7 @@ export function ProjectLLMSettings() {
     if (updated) {
       setIsDirty(true);
       setError(null);
+      setTestResult(null);
     }
   };
 
@@ -141,6 +158,37 @@ export function ProjectLLMSettings() {
     setEditableConfig(payloadToEditable(payload));
     setIsDirty(false);
     setError(null);
+    setTestResult(null);
+  };
+
+  const runValidation = async (payload: LLMConfigPayload) => {
+    setTesting(true);
+    setError(null);
+    try {
+      const result = await testLLMConfig(payload);
+      setTestResult(result);
+      const passed = didConfigTestPass(result);
+      return { passed, result };
+    } catch (exc) {
+      console.error(exc);
+      const message =
+        exc instanceof Error
+          ? exc.message
+          : "Failed to test LLM configuration";
+      setError(message);
+      setTestResult(null);
+      return { passed: false, result: null };
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleTest = async () => {
+    if (!editableConfig) {
+      return;
+    }
+    const payload = editableToPayload(editableConfig);
+    await runValidation(payload);
   };
 
   const handleSave = async () => {
@@ -151,6 +199,11 @@ export function ProjectLLMSettings() {
     setError(null);
     try {
       const payload = editableToPayload(editableConfig);
+      const validation = await runValidation(payload);
+      if (!validation.passed) {
+        setError("Validation failed. Fix the errors above before saving.");
+        return;
+      }
       const result = await saveLLMConfig(payload);
       if (!result.ok) {
         setError(result.error ?? "Failed to save LLM configuration");
@@ -166,14 +219,30 @@ export function ProjectLLMSettings() {
   };
 
   const providers = editableConfig.providers;
-  const disableSave = saving || !isDirty;
+  const disableSave = saving || testing || !isDirty;
+  const providerTestMap = useMemo(() => {
+    if (!testResult) {
+      return new Map<string, LLMProviderTestResultPayload>();
+    }
+    return new Map(
+      testResult.providers.map((provider) => [provider.provider_id, provider]),
+    );
+  }, [testResult]);
+  const gatewayTestResult = testResult?.gateway ?? null;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
       <div className="rounded-lg border border-setta-200/60 p-4 text-xs dark:border-setta-700/60">
-        <p className="text-sm font-semibold text-setta-700 dark:text-setta-100">
-          Gateway
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-setta-700 dark:text-setta-100">
+            Gateway
+          </p>
+          <TestStatusBadge
+            label="Gateway"
+            result={gatewayTestResult}
+            testing={testing}
+          />
+        </div>
         <label className="mt-3 flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
           Gateway URL
           <input
@@ -194,6 +263,11 @@ export function ProjectLLMSettings() {
           immediately rewrites that JSON file and broadcasts the update so the
           chat UI refreshes without reloading the app.
         </p>
+        {gatewayTestResult && !gatewayTestResult.ok ? (
+          <div className="mt-2 rounded-md border border-red-200/70 bg-red-50 p-2 text-[11px] text-red-700 dark:border-red-700/60 dark:bg-red-900/30 dark:text-red-200">
+            {gatewayTestResult.error ?? "Gateway validation failed."}
+          </div>
+        ) : null}
       </div>
 
       <section className="flex flex-col gap-3">
@@ -248,6 +322,8 @@ export function ProjectLLMSettings() {
               onChange={(next) => updateProvider(index, next)}
               onRemove={() => removeProvider(index)}
               preset={providerPresetMap.get(provider.provider_id) ?? null}
+              testResult={providerTestMap.get(provider.provider_id) ?? null}
+              testing={testing}
             />
           ))
         )}
@@ -265,6 +341,14 @@ export function ProjectLLMSettings() {
             disabled={disableSave}
           >
             {saving ? "Saving..." : "Save changes"}
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded-md border border-setta-300 px-4 py-2 text-sm font-semibold text-setta-600 transition hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
+            onClick={handleTest}
+            disabled={saving || testing}
+          >
+            {testing ? "Testing..." : "Test configuration"}
           </button>
           <button
             type="button"
@@ -290,9 +374,18 @@ type ProviderEditorProps = {
   onChange: (provider: EditableProvider) => void;
   onRemove: () => void;
   preset: LLMProviderPresetPayload | null;
+  testResult: LLMProviderTestResultPayload | null;
+  testing: boolean;
 };
 
-function ProviderEditor({ provider, onChange, onRemove, preset }: ProviderEditorProps) {
+function ProviderEditor({
+  provider,
+  onChange,
+  onRemove,
+  preset,
+  testResult,
+  testing,
+}: ProviderEditorProps) {
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const presetModels =
     preset?.provider.models.filter(
@@ -401,14 +494,21 @@ function ProviderEditor({ provider, onChange, onRemove, preset }: ProviderEditor
               />
             </label>
           </div>
-          <button
-            type="button"
-            className="h-8 w-8 shrink-0 rounded-full border border-setta-300 text-setta-400 transition hover:border-red-400 hover:text-red-600 dark:border-setta-700 dark:text-setta-500 dark:hover:border-red-500 dark:hover:text-red-400"
-            onClick={onRemove}
-            aria-label="Remove provider"
-          >
-            <MdDelete className="mx-auto mt-1.5" size={16} />
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <TestStatusBadge
+              label="Provider"
+              result={testResult}
+              testing={testing}
+            />
+            <button
+              type="button"
+              className="h-8 w-8 shrink-0 rounded-full border border-setta-300 text-setta-400 transition hover:border-red-400 hover:text-red-600 dark:border-setta-700 dark:text-setta-500 dark:hover:border-red-500 dark:hover:text-red-400"
+              onClick={onRemove}
+              aria-label="Remove provider"
+            >
+              <MdDelete className="mx-auto mt-1.5" size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-3 @[32rem]:grid-cols-2">
@@ -446,6 +546,21 @@ function ProviderEditor({ provider, onChange, onRemove, preset }: ProviderEditor
             </select>
           </label>
         </div>
+
+        {testResult && !testResult.ok ? (
+          <div className="rounded-md border border-red-200/70 bg-red-50 p-2 text-[11px] text-red-700 dark:border-red-700/60 dark:bg-red-900/30 dark:text-red-200">
+            <p className="font-semibold">Validation errors</p>
+            <ul className="ml-4 list-disc">
+              {testResult.errors.length > 0 ? (
+                testResult.errors.map((err, idx) => (
+                  <li key={`${err.code ?? "error"}-${idx}`}>{err.message}</li>
+                ))
+              ) : (
+                <li>Unknown validation failure.</li>
+              )}
+            </ul>
+          </div>
+        ) : null}
 
         <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
           Provider API Key
@@ -786,4 +901,54 @@ function editableToPayload(config: EditableLLMConfig): LLMConfigPayload {
       };
     }),
   };
+}
+
+type TestStatusBadgeProps = {
+  label: string;
+  result:
+    | LLMGatewayTestResultPayload
+    | LLMProviderTestResultPayload
+    | null;
+  testing: boolean;
+};
+
+function TestStatusBadge({ label, result, testing }: TestStatusBadgeProps) {
+  const base = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide";
+  if (testing) {
+    return (
+      <span className={`${base} text-blue-600 dark:text-blue-400`}>
+        <MdHourglassTop size={12} />
+        Testing...
+      </span>
+    );
+  }
+  if (!result) {
+    return (
+      <span className={`${base} text-setta-400`}>
+        <MdHourglassTop size={12} />
+        Not tested
+      </span>
+    );
+  }
+  if (result.ok) {
+    return (
+      <span className={`${base} text-green-600 dark:text-green-400`}>
+        <MdCheckCircle size={12} />
+        {label} OK
+      </span>
+    );
+  }
+  return (
+    <span className={`${base} text-red-600 dark:text-red-400`}>
+      <MdErrorOutline size={12} />
+      {label} failed
+    </span>
+  );
+}
+
+function didConfigTestPass(result: LLMConfigTestResultPayload): boolean {
+  if (!result.gateway.ok) {
+    return false;
+  }
+  return result.providers.every((provider) => provider.ok);
 }
