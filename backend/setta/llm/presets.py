@@ -35,11 +35,11 @@ def get_llm_provider_presets() -> list[LLMProviderPreset]:
     return list(_PROVIDER_PRESETS)
 
 
-def find_provider_preset(provider_id: str) -> Optional[LLMProviderPreset]:
-    """Look up a preset by provider slug."""
+def find_provider_preset(preset_id: str) -> Optional[LLMProviderPreset]:
+    """Look up a preset by its identifier."""
 
     for preset in _PROVIDER_PRESETS:
-        if preset.provider.provider_id == provider_id:
+        if preset.preset_id == preset_id or preset.provider.provider_id == preset_id:
             return preset
     return None
 

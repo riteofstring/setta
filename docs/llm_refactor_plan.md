@@ -30,16 +30,15 @@
 - **Gateway validation UI:** The settings panel now runs `TEST_LLM_CONFIG` before saving, surfaces gateway/provider health badges with inline errors, and blocks invalid configs so users always know when the Portkey gateway or provider credentials fail.
 - **Reconnection hydration:** When the websocket connection opens we immediately refetch the active chat, merging the persisted assistant snapshot with `_active_streams` so reconnecting tabs resume in-flight responses without manual navigation.
 - **Streaming status persistence:** Each chat now records a `streamStatus`, we flip it when orchestration starts/completes/cancels, and the frontend surfaces the persisted state so reloads still show whether a response is in flight.
+- **Preset-aware backend config:** `LLMConfig` now accepts provider/model `preset_id`s, hydrates missing fields from `backend/setta/llm/presets.py`, and serializes only the overrides, so `llm_config.json` can stay minimalist while still expanding to full runtime metadata.
 
 **Remaining Work**
 - **Project-scoped configs**
   - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
 
 - **Preset-driven configuration UX**
-  - Ship a canonical preset catalog derived from `backend/setta/llm/presets.py` and expose it to both backend and frontend so we can auto-generate a "default" config for popular providers (OpenAI, Anthropic, etc.) without asking the user to retype model metadata.
-  - Extend the config editor to let users pick a preset (or multiple models within one) and only supply credentials/overrides; saving would materialize the preset’s models into `llm_config.json`, but the workflow becomes "select preset, paste API key" instead of hand-authoring every entry.
-  - Support partial specs in `llm_config.json`: allow providers/models to reference a preset ID and only persist the fields the user overrides (e.g., API key, renamed display label, custom defaults). When the backend loads the config it can hydrate the full provider/model definition from the preset + overrides, so the file stays small while still being explicit about local changes.
-  - Allow per-model overrides (display name, deep-thinking flag, default parameters) while still referencing the preset base, so we maintain a single source for standard IDs yet give power users flexibility.
+  - Regenerate the frontend types + editor store so presets (and per-model overrides) move through the zod schemas, then update the React config editor to add providers/models from a preset picker rather than copying JSON by hand.
+  - Teach the editor to persist only overrides (API key, renamed display label, custom default parameters) and surface preset metadata in the UI so it’s obvious which models come from a catalog vs hand-authored ones.
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Deep-thinking and request parameters**

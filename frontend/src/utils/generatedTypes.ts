@@ -5359,6 +5359,7 @@ export const LLMModelConfigPayloadSchema = z.object({
       z.array(z.any()),
     ])
     .default(null),
+  preset_id: z.union([z.string(), z.null()]).default(null),
 });
 
 export type LLMModelConfigPayload = z.infer<typeof LLMModelConfigPayloadSchema>;
@@ -5372,6 +5373,7 @@ export function createLLMModelConfigPayload(
 export const LLMProviderConfigPayloadSchema = z.object({
   provider_id: z.string(),
   display_name: z.string(),
+  preset_id: z.union([z.string(), z.null()]).default(null),
   api_key: z.string().default("" as const),
   base_url: z.union([z.string(), z.null()]).default(null),
   default_model_id: z.union([z.string(), z.null()]).default(null),
