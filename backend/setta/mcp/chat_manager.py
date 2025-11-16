@@ -57,6 +57,13 @@ class ChatManager:
         self._llm_config = llm_config
         self._orchestrator = orchestrator
 
+    def update_llm_config(self, llm_config: LLMConfig) -> None:
+        """Replace the cached config so future requests use fresh credentials."""
+
+        self._llm_config = llm_config
+        # Drop any orchestrator constructed from the previous config.
+        self._orchestrator = None
+
     # ---------------------------------------------------------------------
     # Persistence helpers
 

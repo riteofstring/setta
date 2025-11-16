@@ -20,11 +20,11 @@
 - **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
 - **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
 - **Persisted model selections:** Chats now store their provider/model pair in `Chat.modelSelection`, `GET_LLM_CHAT` returns that selection, and the AI store restores the saved combo so resuming a chat reuses the original credentials automatically.
+- **Live config reloads:** `register_llm_config_watch` now reloads the JSON, notifies `SettaFastAPIState`, and resets `ChatManager` so new providers/keys are honored immediately without restarting the backend.
 
 **Remaining Work**
 - **Wire the LLM config into orchestration**
   - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
-  - Subscribe `ChatManager` to the `register_llm_config_watch` callback so it refreshes its cached config / gateway client whenever `llm_config.json` changes, not just when the frontend reloads.
 
 - **Preset-driven configuration UX**
   - Ship a canonical preset catalog derived from `backend/setta/llm/presets.py` and expose it to both backend and frontend so we can auto-generate a "default" config for popular providers (OpenAI, Anthropic, etc.) without asking the user to retype model metadata.

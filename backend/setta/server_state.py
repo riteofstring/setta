@@ -5,7 +5,7 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
-from setta.llm import load_llm_config
+from setta.llm import LLMConfig, load_llm_config
 from setta.llm.config_watch import register_llm_config_watch
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.chat_manager import ChatManager
@@ -121,8 +121,18 @@ class SettaFastAPIState:
             self.wmh_frontend_sender,
             llm_config=self.llm_config,
         )
-        register_llm_config_watch(self.wmh_frontend_sender, self.specific_file_watcher)
+        register_llm_config_watch(
+            self.wmh_frontend_sender,
+            self.specific_file_watcher,
+            on_config_updated=self._handle_llm_config_change,
+        )
 
         asyncio.create_task(self.mcp_client.connect_to_server())
         asyncio.create_task(start_lsps(self.lsps, self.lsp_readers, self.lsp_writers))
         self.specific_file_watcher.start()
+
+    async def _handle_llm_config_change(self, config: LLMConfig) -> None:
+        """Refresh cached config + chat manager when the file changes."""
+
+        self.llm_config = config
+        self.chat_manager.update_llm_config(config)
