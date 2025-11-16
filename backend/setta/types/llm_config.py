@@ -7,22 +7,22 @@ from setta.llm.models import JSONValue
 
 
 class LLMModelConfigPayload(BaseModel):
-    model_id: str
-    display_name: str
-    supports_reasoning: bool = False
+    model_id: str | None = None
+    display_name: str | None = None
+    supports_reasoning: bool | None = None
     default_parameters: JSONValue | None = None
     preset_id: str | None = None
 
 
 class LLMProviderConfigPayload(BaseModel):
-    provider_id: str
-    display_name: str
+    provider_id: str | None = None
+    display_name: str | None = None
     preset_id: str | None = None
-    api_key: str = ""
+    api_key: str | None = None
     base_url: str | None = None
     default_model_id: str | None = None
     extra_headers: dict[str, str] | None = None
-    models: list[LLMModelConfigPayload] = Field(default_factory=list)
+    models: list[LLMModelConfigPayload] | None = None
 
 
 class LLMProjectConfigPayload(BaseModel):

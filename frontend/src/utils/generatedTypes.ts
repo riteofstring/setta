@@ -5345,9 +5345,9 @@ export function createWebsocketMsgListenerCoverageSnapshot(
 }
 
 export const LLMModelConfigPayloadSchema = z.object({
-  model_id: z.string(),
-  display_name: z.string(),
-  supports_reasoning: z.boolean().default(false),
+  model_id: z.union([z.string(), z.null()]).default(null),
+  display_name: z.union([z.string(), z.null()]).default(null),
+  supports_reasoning: z.union([z.boolean(), z.null()]).default(null),
   default_parameters: z
     .union([
       z.string(),
@@ -5371,16 +5371,18 @@ export function createLLMModelConfigPayload(
 }
 
 export const LLMProviderConfigPayloadSchema = z.object({
-  provider_id: z.string(),
-  display_name: z.string(),
+  provider_id: z.union([z.string(), z.null()]).default(null),
+  display_name: z.union([z.string(), z.null()]).default(null),
   preset_id: z.union([z.string(), z.null()]).default(null),
-  api_key: z.string().default("" as const),
+  api_key: z.union([z.string(), z.null()]).default(null),
   base_url: z.union([z.string(), z.null()]).default(null),
   default_model_id: z.union([z.string(), z.null()]).default(null),
   extra_headers: z
     .union([z.record(z.string(), z.string()), z.null()])
     .default(null),
-  models: z.array(LLMModelConfigPayloadSchema).default([]),
+  models: z
+    .union([z.array(LLMModelConfigPayloadSchema), z.null()])
+    .default(null),
 });
 
 export type LLMProviderConfigPayload = z.infer<

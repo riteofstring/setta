@@ -36,10 +36,10 @@
 - **Project-scoped selection memory:** The frontend keeps `userSelectedLLM` values keyed by `projectConfigId`, restoring the last provider/model combo whenever the user switches projects so we can drop the legacy global selection.
 - **Project-aware provider resolution:** Backend config lookups now honor `project_config_id`, so chats resolve providers/models from their project slice of `llm_config.json` and orchestrators cache per-project credentials instead of relying on the global config.
 - **Preset-driven editor foundation:** `ProjectLLMSettings` now carries provider/model `preset_id`s through the zod schemas, hydrates project-scoped config fields, tags catalog entries in the UI, and sends structured payloads so backend diffing can persist only the user’s overrides.
+- **Preset override persistence:** The config store now serializes only preset references plus explicit overrides (API keys, renamed labels, tweaked defaults), `payload_to_config` feeds sparse payloads straight through the preset merger, and the editor diffs against catalog providers so saving rewrites `llm_config.json` with concise overrides instead of duplicating preset metadata.
 
 **Remaining Work**
 - **Preset-driven configuration UX**
-  - Teach the editor to persist only overrides (API key, renamed display label, custom default parameters) and surface preset metadata in the UI so it’s obvious which models come from a catalog vs hand-authored ones.
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Frontend follow-ups**

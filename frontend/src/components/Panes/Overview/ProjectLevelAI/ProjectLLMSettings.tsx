@@ -1,4 +1,5 @@
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import isEqual from "lodash/isEqual";
 import {
   MdAdd,
   MdCheckCircle,
@@ -30,7 +31,11 @@ import {
 import { shallow } from "zustand/shallow";
 
 type HeaderRow = { id: string; key: string; value: string };
-type EditableProvider = Omit<LLMProviderConfigPayload, "extra_headers"> & {
+type EditableProvider = Omit<
+  LLMProviderConfigPayload,
+  "extra_headers" | "models"
+> & {
+  models: LLMModelConfigPayload[];
   headerRows: HeaderRow[];
 };
 type EditableLLMConfig = Omit<LLMConfigPayload, "providers"> & {
@@ -194,7 +199,7 @@ export function ProjectLLMSettings() {
     if (!editableConfig) {
       return;
     }
-    const payload = editableToPayload(editableConfig);
+    const payload = editableToPayload(editableConfig, providerPresetMap);
     await runValidation(payload);
   };
 
@@ -205,7 +210,7 @@ export function ProjectLLMSettings() {
     setSaving(true);
     setError(null);
     try {
-      const payload = editableToPayload(editableConfig);
+      const payload = editableToPayload(editableConfig, providerPresetMap);
       const validation = await runValidation(payload);
       if (!validation.passed) {
         setError("Validation failed. Fix the errors above before saving.");
@@ -956,7 +961,7 @@ function providerPayloadToEditable(
     api_key: provider.api_key,
     base_url: provider.base_url,
     default_model_id: provider.default_model_id,
-    models: provider.models.map((model) => ({
+    models: (provider.models ?? []).map((model) => ({
       ...model,
       preset_id:
         model.preset_id ?? (hydrateModelPresets ? model.model_id : null),
@@ -971,45 +976,202 @@ function providerPayloadToEditable(
   };
 }
 
-function editableToPayload(config: EditableLLMConfig): LLMConfigPayload {
+function editableToPayload(
+  config: EditableLLMConfig,
+  presetLookup: Map<string, LLMProviderPresetPayload>,
+): LLMConfigPayload {
   return {
     gateway_url: config.gateway_url,
     default_project_config_id: config.default_project_config_id,
     project_configs: config.project_configs,
-    providers: config.providers.map((provider) => {
-      const headerEntries = provider.headerRows
-        .map((row) => ({
-          key: row.key.trim(),
-          value: row.value.trim(),
-        }))
-        .filter((row) => row.key && row.value);
-      const extraHeaders =
-        headerEntries.length > 0
-          ? headerEntries.reduce((acc, row) => {
-              acc[row.key] = row.value;
-              return acc;
-            }, {} as Record<string, string>)
-          : null;
-      const validModelIds = new Set(
-        provider.models.map((model) => model.model_id),
-      );
-      const defaultModelId =
-        provider.default_model_id && validModelIds.has(provider.default_model_id)
-          ? provider.default_model_id
-          : provider.models[0]?.model_id ?? null;
-
-      return {
-        provider_id: provider.provider_id,
-        display_name: provider.display_name,
-        preset_id: provider.preset_id,
-        api_key: provider.api_key,
-        base_url: provider.base_url,
-        default_model_id: defaultModelId,
-        extra_headers: extraHeaders,
-        models: provider.models,
-      };
-    }),
+    providers: config.providers.map((provider) =>
+      editableProviderToPayload(provider, presetLookup),
+    ),
   };
+}
+
+function editableProviderToPayload(
+  provider: EditableProvider,
+  presetLookup: Map<string, LLMProviderPresetPayload>,
+): LLMProviderConfigPayload {
+  const preset =
+    provider.preset_id && presetLookup.size > 0
+      ? presetLookup.get(provider.preset_id) ?? null
+      : null;
+  const baseProvider = preset?.provider ?? null;
+
+  const headerEntries = provider.headerRows
+    .map((row) => ({
+      key: row.key.trim(),
+      value: row.value.trim(),
+    }))
+    .filter((row) => row.key && row.value);
+  const extraHeaders =
+    headerEntries.length > 0
+      ? headerEntries.reduce((acc, row) => {
+          acc[row.key] = row.value;
+          return acc;
+        }, {} as Record<string, string>)
+      : null;
+  const validModelIds = new Set(
+    provider.models
+      .map((model) => model.model_id)
+      .filter((item): item is string => Boolean(item)),
+  );
+  const computedDefaultModelId =
+    provider.default_model_id && validModelIds.has(provider.default_model_id)
+      ? provider.default_model_id
+      : provider.models[0]?.model_id ?? null;
+
+  const payload: LLMProviderConfigPayload = {
+    provider_id: provider.provider_id,
+    preset_id: provider.preset_id ?? undefined,
+  };
+
+  if (!baseProvider || provider.display_name !== baseProvider.display_name) {
+    payload.display_name = provider.display_name;
+  }
+
+  if (!baseProvider) {
+    payload.api_key = provider.api_key;
+  } else if (provider.api_key) {
+    payload.api_key = provider.api_key;
+  }
+
+  if (!baseProvider || provider.base_url !== baseProvider.base_url) {
+    payload.base_url = provider.base_url;
+  }
+
+  if (
+    !baseProvider ||
+    computedDefaultModelId !== baseProvider.default_model_id
+  ) {
+    payload.default_model_id = computedDefaultModelId;
+  }
+
+  if (
+    !baseProvider ||
+    !areHeadersEqual(extraHeaders, baseProvider.extra_headers ?? null)
+  ) {
+    payload.extra_headers = extraHeaders;
+  }
+
+  const modelsPayload = buildModelOverrides(
+    provider.models,
+    baseProvider ? baseProvider.models : null,
+  );
+  if (modelsPayload !== null) {
+    payload.models = modelsPayload;
+  }
+
+  return payload;
+}
+
+function areHeadersEqual(
+  a: Record<string, string> | null,
+  b: Record<string, string> | null,
+): boolean {
+  if (!a && !b) {
+    return true;
+  }
+  return isEqual(a ?? null, b ?? null);
+}
+
+function buildModelOverrides(
+  models: LLMModelConfigPayload[],
+  baseModels: LLMModelConfigPayload[] | null,
+): LLMModelConfigPayload[] | null {
+  if (!baseModels || baseModels.length === 0) {
+    return models;
+  }
+
+  const baseById = new Map<string, LLMModelConfigPayload>();
+  for (const baseModel of baseModels) {
+    if (baseModel.model_id) {
+      baseById.set(baseModel.model_id, baseModel);
+    }
+    if (baseModel.preset_id) {
+      baseById.set(baseModel.preset_id, baseModel);
+    }
+  }
+
+  const overrides = models.map((model) => {
+    const baseModel =
+      (model.preset_id ? baseById.get(model.preset_id) : null) ??
+      (model.model_id ? baseById.get(model.model_id) : null) ??
+      null;
+
+    if (!baseModel) {
+      return {
+        model_id: model.model_id,
+        display_name: model.display_name,
+        supports_reasoning: model.supports_reasoning,
+        default_parameters:
+          model.default_parameters === undefined
+            ? null
+            : model.default_parameters,
+        preset_id: model.preset_id ?? undefined,
+      };
+    }
+
+    const entry: LLMModelConfigPayload = {
+      preset_id: model.preset_id ?? baseModel.model_id ?? undefined,
+    };
+
+    if (model.model_id && model.model_id !== baseModel.model_id) {
+      entry.model_id = model.model_id;
+    }
+    if (model.display_name !== baseModel.display_name) {
+      entry.display_name = model.display_name;
+    }
+    if (model.supports_reasoning !== baseModel.supports_reasoning) {
+      entry.supports_reasoning = model.supports_reasoning;
+    }
+
+    const baseParams =
+      baseModel.default_parameters === undefined
+        ? null
+        : baseModel.default_parameters;
+    const currentParams =
+      model.default_parameters === undefined
+        ? null
+        : model.default_parameters;
+    if (!isEqual(currentParams, baseParams)) {
+      entry.default_parameters = currentParams;
+    }
+
+    return entry;
+  });
+
+  const matchesBase =
+    overrides.length === baseModels.length &&
+    overrides.every((entry, index) =>
+      presetReferenceMatchesBase(entry, baseModels[index]),
+    );
+
+  if (matchesBase) {
+    return null;
+  }
+
+  return overrides;
+}
+
+function presetReferenceMatchesBase(
+  entry: LLMModelConfigPayload,
+  baseModel: LLMModelConfigPayload,
+): boolean {
+  const presetId = entry.preset_id ?? null;
+  const basePresetId = baseModel.preset_id ?? baseModel.model_id ?? null;
+  if (presetId !== basePresetId) {
+    return false;
+  }
+  const keys = Object.entries(entry).filter(([key, value]) => {
+    if (key === "preset_id") {
+      return false;
+    }
+    return value !== undefined && value !== null;
+  });
+  return keys.length === 0;
 }
 
 type TestStatusBadgeProps = {

@@ -61,11 +61,8 @@ export function ProjectChat() {
       return null;
     }
 
-    return (
-      provider.models.find(
-        (model) => model.model_id === selection.modelId,
-      ) ?? null
-    );
+    const models = provider.models ?? [];
+    return models.find((model) => model.model_id === selection.modelId) ?? null;
   }, [llmConfig, userSelectedLLM]);
 
   const deepThinkingDisabledReason = useMemo(() => {
@@ -116,7 +113,7 @@ export function ProjectChat() {
       (llmConfig?.providers ?? [])
         .map((provider) => ({
           group: provider.display_name,
-          items: provider.models.map((model) => ({
+          items: (provider.models ?? []).map((model) => ({
             id: encodeModelSelectionKey({
               providerId: provider.provider_id,
               modelId: model.model_id,

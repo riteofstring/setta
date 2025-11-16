@@ -63,7 +63,7 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
   useAIStore.setState((state) => {
     const availableModels = new Set<string>();
     for (const provider of config.providers) {
-      for (const model of provider.models) {
+      for (const model of provider.models ?? []) {
         availableModels.add(
           encodeModelSelectionKey({
             providerId: provider.provider_id,
@@ -103,7 +103,7 @@ function findDefaultModelSelection(config: LLMConfigPayload): string | null {
       continue;
     }
 
-    const hasModel = provider.models.some(
+    const hasModel = (provider.models ?? []).some(
       (model) => model.model_id === defaultModelId,
     );
     if (!hasModel) {

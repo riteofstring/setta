@@ -243,29 +243,41 @@ class LLMProviderConfig:
         if not self.models and not base_models:
             return []
 
-        serialized: list[dict[str, Any]] = []
-        base_models_by_id = (
-            {model.model_id: model for model in base_models} if base_models else {}
-        )
+        if not base_models:
+            return [model.to_dict() for model in self.models]
 
+        if self._models_match_base(base_models):
+            return None
+
+        base_models_by_id = {model.model_id: model for model in base_models}
+        for model in base_models:
+            if model.preset_id:
+                base_models_by_id.setdefault(model.preset_id, model)
+
+        serialized: list[dict[str, Any]] = []
         for model in self.models:
             base_model = None
-            if base_models:
-                if model.preset_id and model.preset_id in base_models_by_id:
-                    base_model = base_models_by_id[model.preset_id]
-                elif model.model_id in base_models_by_id:
-                    base_model = base_models_by_id[model.model_id]
+            if model.preset_id and model.preset_id in base_models_by_id:
+                base_model = base_models_by_id[model.preset_id]
+            elif model.model_id in base_models_by_id:
+                base_model = base_models_by_id[model.model_id]
+            serialized.append(model.to_dict(base_model=base_model))
 
-            entry = model.to_dict(base_model=base_model)
-            if base_model and _is_preset_reference(entry):
-                continue
-            serialized.append(entry)
+        return serialized
 
-        if serialized:
-            return serialized
-        if base_models:
-            return None
-        return []
+    def _models_match_base(self, base_models: list[LLMModelConfig]) -> bool:
+        if len(self.models) != len(base_models):
+            return False
+        for current, base in zip(self.models, base_models):
+            if current.model_id != base.model_id:
+                return False
+            if current.display_name != base.display_name:
+                return False
+            if current.supports_reasoning != base.supports_reasoning:
+                return False
+            if _value_differs(current.default_parameters, base.default_parameters):
+                return False
+        return True
 
 
 @dataclass
@@ -475,36 +487,8 @@ def config_to_payload(config: LLMConfig) -> LLMConfigPayload:
 def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
     """Convert an API payload back into the runtime dataclass."""
 
-    return LLMConfig(
-        gateway_url=payload.gateway_url,
-        providers=[
-            LLMProviderConfig(
-                provider_id=provider.provider_id,
-                display_name=provider.display_name,
-                preset_id=provider.preset_id,
-                api_key=provider.api_key,
-                base_url=provider.base_url,
-                default_model_id=provider.default_model_id,
-                extra_headers=provider.extra_headers,
-                models=[
-                    LLMModelConfig(
-                        model_id=model.model_id,
-                        display_name=model.display_name,
-                        supports_reasoning=model.supports_reasoning,
-                        default_parameters=model.default_parameters,
-                        preset_id=model.preset_id,
-                    )
-                    for model in provider.models
-                ],
-            )
-            for provider in payload.providers
-        ],
-        default_project_config_id=payload.default_project_config_id,
-        project_configs={
-            project_id: LLMProjectConfig.from_payload(project_id, project)
-            for project_id, project in payload.project_configs.items()
-        },
-    )
+    payload_dict = payload.model_dump(mode="python", exclude_unset=True)
+    return LLMConfig.from_dict(payload_dict)
 
 
 def resolve_model_selection(
@@ -564,26 +548,27 @@ def _hydrate_models(
     base_models: list[LLMModelConfig] | None,
     overrides: list[dict[str, Any]] | None,
 ) -> list[LLMModelConfig]:
-    hydrated: list[LLMModelConfig] = []
-    model_index: dict[str, int] = {}
     base_models = base_models or []
-    overrides = overrides or []
 
-    base_by_id: dict[str, LLMModelConfig] = {}
+    if overrides is None:
+        return [
+            LLMModelConfig(
+                model_id=model.model_id,
+                display_name=model.display_name,
+                supports_reasoning=model.supports_reasoning,
+                default_parameters=_clone_json(model.default_parameters),
+                preset_id=model.preset_id or model.model_id,
+            )
+            for model in base_models
+        ]
 
+    hydrated: list[LLMModelConfig] = []
+    base_by_id: dict[str, LLMModelConfig] = {
+        model.model_id: model for model in base_models
+    }
     for model in base_models:
-        base_by_id[model.model_id] = model
         if model.preset_id:
             base_by_id.setdefault(model.preset_id, model)
-        clone = LLMModelConfig(
-            model_id=model.model_id,
-            display_name=model.display_name,
-            supports_reasoning=model.supports_reasoning,
-            default_parameters=_clone_json(model.default_parameters),
-            preset_id=model.preset_id or model.model_id,
-        )
-        model_index[clone.model_id] = len(hydrated)
-        hydrated.append(clone)
 
     for entry in overrides:
         if not isinstance(entry, dict):
@@ -603,25 +588,7 @@ def _hydrate_models(
                 base_model = base_by_id.get(entry_id)
 
         model = LLMModelConfig.from_dict(entry, base_model=base_model)
-        target_model_id: str | None = None
-
-        if base_model is not None and (
-            "model_id" not in entry or entry.get("model_id") == base_model.model_id
-        ):
-            target_model_id = base_model.model_id
-        else:
-            target_model_id = model.model_id
-
-        index = model_index.get(target_model_id)
-        if index is None:
-            index = len(hydrated)
-            hydrated.append(model)
-        else:
-            hydrated[index] = model
-
-        if target_model_id != model.model_id:
-            model_index.pop(target_model_id, None)
-        model_index[model.model_id] = index
+        hydrated.append(model)
 
     return hydrated
 
@@ -684,7 +651,3 @@ def _maybe_set(
 
 def _value_differs(current: Any, base_value: Any) -> bool:
     return current != base_value
-
-
-def _is_preset_reference(entry: dict[str, Any]) -> bool:
-    return not any(key != "preset_id" for key in entry)
