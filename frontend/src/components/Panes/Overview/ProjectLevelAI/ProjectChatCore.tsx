@@ -19,9 +19,152 @@ import {
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import type {
+  ChatMessage as PersistedChatMessage,
+  IDToUUIDForLLM,
+  LLMContentBlock,
+  LLMReasoningBlock,
+  LLMTextBlock,
+  LLMToolCallBlock,
+  ToolResult as ToolResultPayload,
+} from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
+
+type ToolResultsMap = Record<string, ToolResultPayload>;
+
+type StreamingIntoBlock = {
+  type: typeof C.LLM_STREAMING_INTO_CODE_BLOCK;
+  sectionId: string | null;
+  done: boolean;
+  isError: boolean;
+  content: string | null;
+};
+
+type LegacyThinkingBlock = {
+  type: typeof C.LLM_THINKING;
+  thinking: string;
+  signature?: string;
+};
+
+type ChatContentItem = LLMContentBlock | StreamingIntoBlock | LegacyThinkingBlock;
+
+type DisplayChatMessage = Omit<PersistedChatMessage, "content"> & {
+  content: ChatContentItem[];
+};
+
+function isLLMTextBlock(item: ChatContentItem): item is LLMTextBlock {
+  return item.type === "text";
+}
+
+function isToolCallBlock(item: ChatContentItem): item is LLMToolCallBlock {
+  return item.type === "tool_call";
+}
+
+function isReasoningBlock(item: ChatContentItem): item is LLMReasoningBlock {
+  return item.type === "reasoning";
+}
+
+function isLegacyThinkingBlock(
+  item: ChatContentItem,
+): item is LegacyThinkingBlock {
+  return item.type === C.LLM_THINKING;
+}
+
+function parseToolArgumentsObject(
+  block: LLMToolCallBlock,
+): Record<string, unknown> | null {
+  const { arguments_json: jsonValue, arguments_text } = block;
+  if (
+    jsonValue &&
+    typeof jsonValue === "object" &&
+    !Array.isArray(jsonValue)
+  ) {
+    return jsonValue as Record<string, unknown>;
+  }
+  if (typeof arguments_text === "string" && arguments_text.trim()) {
+    try {
+      const parsed = JSON.parse(arguments_text);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function getToolArgumentsPayload(block: LLMToolCallBlock): unknown {
+  if (block.arguments_json !== undefined && block.arguments_json !== null) {
+    return block.arguments_json;
+  }
+  if (typeof block.arguments_text === "string" && block.arguments_text.trim()) {
+    try {
+      return JSON.parse(block.arguments_text);
+    } catch {
+      return block.arguments_text;
+    }
+  }
+  return null;
+}
+
+function getToolResultValue(result: ToolResultPayload | undefined): unknown {
+  if (!result) {
+    return null;
+  }
+  if (typeof result.output_text === "string") {
+    return result.output_text;
+  }
+  if (result.output_json !== undefined && result.output_json !== null) {
+    return result.output_json;
+  }
+  return null;
+}
+
+function getToolResultText(result: ToolResultPayload | undefined): string | null {
+  const value = getToolResultValue(result);
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function resolveSectionId(
+  sectionId: unknown,
+  idToUUIDForLLM: IDToUUIDForLLM | null,
+): string | null {
+  if (typeof sectionId !== "string") {
+    return null;
+  }
+  if (idToUUIDForLLM && sectionId in idToUUIDForLLM) {
+    return idToUUIDForLLM[sectionId];
+  }
+  return sectionId;
+}
+
+function getStreamingSectionId(
+  block: LLMToolCallBlock,
+  idToUUIDForLLM: IDToUUIDForLLM | null,
+): string | null {
+  const args = parseToolArgumentsObject(block);
+  if (!args) {
+    return null;
+  }
+  if ("sectionId" in args) {
+    const { sectionId } = args as { sectionId: unknown };
+    return resolveSectionId(sectionId, idToUUIDForLLM);
+  }
+  return null;
+}
 
 function MarkdownContent({ content, className, role, isStreaming }) {
   // Only animate if this is an assistant message that's currently streaming
@@ -46,13 +189,19 @@ function MarkdownContent({ content, className, role, isStreaming }) {
   );
 }
 
-const formatToolArgs = (args) => {
-  if (!args) return "{}";
+const formatToolArgs = (args: unknown): string => {
+  if (args === null || args === undefined) {
+    return "{}";
+  }
+
+  if (typeof args === "string") {
+    return args;
+  }
 
   try {
     return JSON.stringify(args, null, 2);
   } catch {
-    return args;
+    return String(args);
   }
 };
 
@@ -64,7 +213,9 @@ function StreamingIntoCodeBlockMessage({ sectionName, sectionId }) {
         className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
         onClick={(e) => {
           e.stopPropagation();
-          goToSection(sectionId);
+          if (sectionId) {
+            goToSection(sectionId);
+          }
         }}
       >
         {sectionName}
@@ -83,7 +234,9 @@ function StreamingIntoCodeBlockError({ sectionName, sectionId, errorMessage }) {
         className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
         onClick={(e) => {
           e.stopPropagation();
-          goToSection(sectionId);
+          if (sectionId) {
+            goToSection(sectionId);
+          }
         }}
       >
         {sectionName}
@@ -102,7 +255,9 @@ const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
   isError,
   content,
 }) {
-  const sectionName = useProjectState((x) => x.sections[sectionId]?.name);
+  const sectionName = useProjectState((x) =>
+    sectionId ? x.sections[sectionId]?.name : undefined,
+  );
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -225,8 +380,20 @@ const ThinkingBox = memo(({ content, signature, isStreaming }) => {
   );
 });
 
-function ToolCallAccordionStatus({ result, success, isStreaming }) {
-  if (result) {
+type ToolCallAccordionStatusProps = {
+  result: unknown;
+  success: boolean | undefined;
+  isStreaming: boolean;
+};
+
+function ToolCallAccordionStatus({
+  result,
+  success,
+  isStreaming,
+}: ToolCallAccordionStatusProps) {
+  const hasResult =
+    result !== null && result !== undefined && result !== "";
+  if (hasResult) {
     return success ? (
       <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-400" />
     ) : (
@@ -242,7 +409,25 @@ function ToolCallAccordionStatus({ result, success, isStreaming }) {
   );
 }
 
-const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
+type ToolCallProps = {
+  name: string;
+  args: unknown;
+  result: unknown;
+  success: boolean | undefined;
+  isStreaming: boolean;
+};
+
+const ToolCall = memo(function ToolCall({
+  name,
+  args,
+  result,
+  success,
+  isStreaming,
+}: ToolCallProps) {
+  const hasArgs = args !== null && args !== undefined;
+  const hasResult = result !== null && result !== undefined;
+  const formattedResult = hasResult ? formatToolArgs(result) : null;
+
   return (
     <Accordion.Root type="single" collapsible>
       <Accordion.Item value="details">
@@ -265,7 +450,7 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
         </Accordion.Trigger>
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          {args && (
+          {hasArgs ? (
             <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
               <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Arguments
@@ -274,78 +459,85 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
                 {formatToolArgs(args)}
               </pre>
             </div>
-          )}
-          {result && (
+          ) : null}
+          {hasResult && formattedResult ? (
             <div className=" bg-setta-200 p-3  dark:bg-setta-900">
               <h3 className="!mt-0 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Result
               </h3>
               <pre className="m-0 cursor-auto font-mono text-xs text-setta-600 dark:text-setta-200">
-                {typeof result === "string"
-                  ? result
-                  : typeof result === "object"
-                    ? JSON.stringify(result, null, 2)
-                    : success
-                      ? "Tool completed successfully"
-                      : "Tool execution failed"}
+                {formattedResult}
               </pre>
             </div>
-          )}
+          ) : null}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
   );
 });
 
-const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
-  switch (item.type) {
-    case C.LLM_TEXT:
-      return (
-        <MarkdownContent
-          content={item.text}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400 "
-          role={C.LLM_ASSISTANT_ROLE}
-          isStreaming={isStreaming}
-        />
-      );
-    case C.LLM_TOOL_USE:
-      // Get the result for this tool_use if available
-      const toolResult = toolResults[item.id];
-      const hasResult = !!toolResult;
+type StreamItemProps = {
+  item: ChatContentItem;
+  toolResults?: ToolResultsMap;
+  isStreaming: boolean;
+};
 
-      // Determine success/failure status
-      const isSuccess = hasResult && !toolResult.is_error;
-
-      return (
-        <ToolCall
-          name={item.name}
-          args={item.input}
-          result={hasResult ? toolResult.content?.[0]?.text : undefined}
-          success={isSuccess}
-          isStreaming={isStreaming}
-        />
-      );
-    case C.LLM_THINKING:
-      return (
-        <ThinkingBox
-          content={item.thinking}
-          signature={item.signature}
-          isStreaming={isStreaming}
-        />
-      );
-    case C.LLM_STREAMING_INTO_CODE_BLOCK:
-      return (
-        <StreamingIntoCodeBlock
-          sectionId={item.sectionId}
-          isStreaming={isStreaming}
-          done={item.done}
-          isError={item.isError}
-          content={item.content?.[0]?.text}
-        />
-      );
-    default:
-      return null;
+const StreamItem = ({
+  item,
+  toolResults = {},
+  isStreaming,
+}: StreamItemProps) => {
+  if (isLLMTextBlock(item)) {
+    return (
+      <MarkdownContent
+        content={item.text}
+        className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400 "
+        role={C.LLM_ASSISTANT_ROLE}
+        isStreaming={isStreaming}
+      />
+    );
   }
+
+  if (isToolCallBlock(item)) {
+    const toolResult = toolResults[item.tool_call_id];
+    const resultValue = getToolResultValue(toolResult);
+    const success = toolResult ? !toolResult.is_error : undefined;
+    return (
+      <ToolCall
+        name={item.name || "Tool call"}
+        args={getToolArgumentsPayload(item)}
+        result={resultValue}
+        success={success}
+        isStreaming={isStreaming && !toolResult}
+      />
+    );
+  }
+
+  if (isReasoningBlock(item) || isLegacyThinkingBlock(item)) {
+    const content = isReasoningBlock(item) ? item.text : item.thinking;
+    const signature = isReasoningBlock(item) ? item.label : item.signature;
+    return (
+      <ThinkingBox
+        content={content}
+        signature={signature}
+        isStreaming={isStreaming}
+      />
+    );
+  }
+
+  if (item.type === C.LLM_STREAMING_INTO_CODE_BLOCK) {
+    return (
+      <StreamingIntoCodeBlock
+        sectionId={item.sectionId}
+        isStreaming={isStreaming}
+        done={item.done}
+        isError={item.isError}
+        content={item.content}
+      />
+    );
+  }
+
+  return null;
 };
 
 function LLMChatBubble({ children }) {
@@ -358,7 +550,17 @@ function LLMChatBubble({ children }) {
   );
 }
 
-const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
+type ChatMessageProps = {
+  message: DisplayChatMessage;
+  toolResults: ToolResultsMap;
+  isStreaming: boolean;
+};
+
+const ChatMessage = memo(function ChatMessage({
+  message,
+  toolResults,
+  isStreaming,
+}: ChatMessageProps) {
   if (message.role === C.LLM_ASSISTANT_ROLE) {
     return (
       <LLMChatBubble>
@@ -389,7 +591,17 @@ const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
   );
 });
 
-function ChatMessages({ messages, toolResults, waitingForResponse }) {
+type ChatMessagesProps = {
+  messages: DisplayChatMessage[];
+  toolResults: ToolResultsMap;
+  waitingForResponse: boolean;
+};
+
+function ChatMessages({
+  messages,
+  toolResults,
+  waitingForResponse,
+}: ChatMessagesProps) {
   const output = [];
   for (const [idx, message] of messages.entries()) {
     output.push(
@@ -422,13 +634,21 @@ function ChatMessages({ messages, toolResults, waitingForResponse }) {
 }
 
 // Message list component
+type MessageListProps = {
+  messages: PersistedChatMessage[];
+  toolResults: ToolResultsMap;
+  waitingForResponse: boolean;
+  idToUUIDForLLM: IDToUUIDForLLM | null;
+  currentChatId: string | null;
+};
+
 const MessageList = memo(function MessageList({
   messages,
   toolResults,
   waitingForResponse,
   idToUUIDForLLM,
   currentChatId,
-}) {
+}: MessageListProps) {
   // TODO: make more efficient
   const consolidatedMessages = consolidateAssistantMessages(
     messages,
@@ -483,9 +703,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const { messages, toolResults, waitingForResponse } = details;
     return {
       messages,
-      toolResults,
+      toolResults: toolResults ?? {},
       waitingForResponse,
-      idToUUIDForLLM: x.idToUUIDForLLM,
+      idToUUIDForLLM: x.idToUUIDForLLM ?? null,
       currentChatId: x.currentChatId,
     };
   }, shallow);
@@ -518,75 +738,76 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
 // Consolidate assistant messages and handle tool results
 const consolidateAssistantMessages = (
-  messages,
-  toolResults,
-  idToUUIDForLLM,
-) => {
-  const processedMessages = [];
-  let currentAssistantMessage = null;
+  messages: PersistedChatMessage[],
+  toolResults: ToolResultsMap,
+  idToUUIDForLLM: IDToUUIDForLLM | null,
+): DisplayChatMessage[] => {
+  const processedMessages: DisplayChatMessage[] = [];
+  let currentAssistantMessage: DisplayChatMessage | null = null;
 
   for (const message of messages) {
-    // If this is an assistant message
     if (message.role === C.LLM_ASSISTANT_ROLE) {
-      // If we're already building an assistant message, add this content to it
       if (currentAssistantMessage) {
         currentAssistantMessage.content.push(...message.content);
       } else {
-        // Start a new assistant message
         currentAssistantMessage = {
           ...message,
           content: [...message.content],
         };
       }
     } else {
-      // User message - add the current assistant message if we have one
       if (currentAssistantMessage) {
         processedMessages.push(currentAssistantMessage);
         currentAssistantMessage = null;
       }
-      processedMessages.push(message);
+      processedMessages.push({
+        ...message,
+        content: [...message.content],
+      });
     }
   }
 
-  // Add the last assistant message if there is one
   if (currentAssistantMessage) {
     processedMessages.push(currentAssistantMessage);
   }
 
-  // Second pass: filter out text content between startStreamingInto and stopStreamingInto
-  const finalMessages = [];
-  let sectionId;
+  const finalMessages: DisplayChatMessage[] = [];
 
   for (const message of processedMessages) {
     if (message.role === C.LLM_ASSISTANT_ROLE) {
-      const filteredContent = [];
-      let streamingItem = null;
+      const filteredContent: ChatContentItem[] = [];
+      let streamingItem: StreamingIntoBlock | null = null;
 
       for (const item of message.content) {
         if (
-          item.type === C.LLM_TOOL_USE &&
+          isToolCallBlock(item) &&
           item.name === startStreamingInto.name
         ) {
-          sectionId = idToUUIDForLLM[item.input.sectionId];
+          const sectionId = getStreamingSectionId(item, idToUUIDForLLM);
+          const toolResult = toolResults[item.tool_call_id];
           streamingItem = {
             type: C.LLM_STREAMING_INTO_CODE_BLOCK,
             sectionId,
             done: false,
-            isError: toolResults[item.id]?.is_error,
-            content: toolResults[item.id]?.content,
+            isError: toolResult?.is_error ?? false,
+            content: getToolResultText(toolResult),
           };
           filteredContent.push(streamingItem);
-        } else if (
-          item.type === C.LLM_TOOL_USE &&
+          continue;
+        }
+        if (
+          streamingItem &&
+          isToolCallBlock(item) &&
           item.name === stopStreamingInto.name
         ) {
           streamingItem.done = true;
           streamingItem = null;
-        } else if (streamingItem && item.type === "text") {
-          // Skip text content while streaming
-        } else {
-          filteredContent.push(item);
+          continue;
         }
+        if (streamingItem && isLLMTextBlock(item)) {
+          continue;
+        }
+        filteredContent.push(item);
       }
 
       if (filteredContent.length > 0) {
