@@ -7,6 +7,10 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.llm import load_llm_config
 from setta.llm.config_watch import register_llm_config_watch
+from setta.llm.local_gateway import (
+    BundledGatewayLifecycle,
+    should_start_local_gateway,
+)
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
@@ -115,6 +119,12 @@ class SettaFastAPIState:
             f"{C.BACKEND}/mcp",
         )
         self.llm_config = load_llm_config()
+
+        self.local_gateway: BundledGatewayLifecycle | None = None
+        if should_start_local_gateway(self.llm_config):
+            self.local_gateway = BundledGatewayLifecycle(self.llm_config.gateway_url)
+            self.local_gateway.start()
+
         self.chat_manager = ChatManager(
             self.dbe,
             self.mcp_client,
