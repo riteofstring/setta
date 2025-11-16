@@ -347,20 +347,46 @@ class ChatManager:
     def _build_request_params(
         self, *, deep_think: bool, model: LLMModelConfig | None
     ) -> dict[str, object] | None:
-        params: dict[str, object] = {}
-        if model and model.default_parameters:
-            params.update(dict(model.default_parameters))
+        if model is None:
+            if deep_think:
+                raise ValueError("Deep Thinking requires a model selection.")
+            return None
 
-        if deep_think and model and model.supports_reasoning:
-            reasoning = params.get("reasoning")
-            if isinstance(reasoning, dict):
-                reasoning = dict(reasoning)
-            else:
-                reasoning = {}
-            reasoning.setdefault("effort", "medium")
-            params["reasoning"] = reasoning
+        params = self._clone_model_default_parameters(model)
+
+        if deep_think:
+            if not model.supports_reasoning:
+                raise ValueError(
+                    f"Model '{model.display_name}' does not support Deep Thinking."
+                )
+            reasoning_payload = self._extract_reasoning_payload(params)
+            reasoning_payload.setdefault("effort", "medium")
+            params["reasoning"] = reasoning_payload
 
         return params or None
+
+    def _clone_model_default_parameters(
+        self, model: LLMModelConfig
+    ) -> dict[str, object]:
+        payload = model.default_parameters
+        if payload is None:
+            return {}
+        if not isinstance(payload, dict):
+            raise TypeError(
+                f"Model '{model.display_name}' default_parameters must be a JSON object."
+            )
+        # Deep copy so per-request mutations never bleed into the stored config.
+        return json.loads(json.dumps(payload))
+
+    def _extract_reasoning_payload(
+        self, params: dict[str, object]
+    ) -> dict[str, object]:
+        reasoning = params.get("reasoning")
+        if reasoning is None:
+            return {}
+        if not isinstance(reasoning, dict):
+            raise TypeError("Reasoning defaults must be provided as a JSON object.")
+        return dict(reasoning)
 
     async def _resolve_tool_calls(
         self,

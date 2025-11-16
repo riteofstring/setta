@@ -5,6 +5,7 @@ from setta.llm.config_store import (
     config_to_payload,
     load_llm_config,
     payload_to_config,
+    resolve_model_selection,
     save_llm_config,
 )
 from setta.llm.config_test import test_llm_config
@@ -74,6 +75,18 @@ async def route_get_llm_response(
         x.message,
         x.modelSelection,
     )
+
+    _, model_config = resolve_model_selection(
+        state.llm_config,
+        x.modelSelection,
+    )
+    if x.deepThink and not model_config.supports_reasoning:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Model '{model_config.display_name}' does not support Deep Thinking."
+            ),
+        )
 
     if chat:
         background_tasks.add_task(

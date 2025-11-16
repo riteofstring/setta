@@ -31,6 +31,7 @@
 - **Reconnection hydration:** When the websocket connection opens we immediately refetch the active chat, merging the persisted assistant snapshot with `_active_streams` so reconnecting tabs resume in-flight responses without manual navigation.
 - **Streaming status persistence:** Each chat now records a `streamStatus`, we flip it when orchestration starts/completes/cancels, and the frontend surfaces the persisted state so reloads still show whether a response is in flight.
 - **Preset-aware backend config:** `LLMConfig` now accepts provider/model `preset_id`s, hydrates missing fields from `backend/setta/llm/presets.py`, and serializes only the overrides, so `llm_config.json` can stay minimalist while still expanding to full runtime metadata.
+- **Reasoning request enforcement:** `_build_request_params` now deep-clones each model’s `default_parameters`, refuses Deep Thinking requests for models that lack `supports_reasoning`, and injects a sane `reasoning` payload (with a default `effort`) so Portkey receives the per-model defaults consistently.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -40,9 +41,6 @@
   - Regenerate the frontend types + editor store so presets (and per-model overrides) move through the zod schemas, then update the React config editor to add providers/models from a preset picker rather than copying JSON by hand.
   - Teach the editor to persist only overrides (API key, renamed display label, custom default parameters) and surface preset metadata in the UI so it’s obvious which models come from a catalog vs hand-authored ones.
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
-
-- **Deep-thinking and request parameters**
-  - Make `ChatManager._build_request_params` respect the `deepThink` flag only for models whose config declares `supports_reasoning`, and merge each model’s `default_parameters` into the Portkey payload.
 
 - **Frontend follow-ups**
   - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.
