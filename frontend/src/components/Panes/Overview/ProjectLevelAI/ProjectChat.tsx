@@ -10,12 +10,9 @@ import {
   loadLLMConfig,
   setCurrentProjectLLMSelection,
 } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
+import { useAIStore, type StoredLLMSelection } from "state/definitions";
 import { C } from "utils/c";
-import {
-  decodeModelSelectionKey,
-  encodeModelSelectionKey,
-} from "utils/llmSelection";
+import { encodeModelSelectionKey } from "utils/llmSelection";
 import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
@@ -49,20 +46,17 @@ export function ProjectChat() {
       return null;
     }
 
-    const selection = decodeModelSelectionKey(userSelectedLLM);
-    if (!selection) {
-      return null;
-    }
-
     const provider = llmConfig.providers.find(
-      (candidate) => candidate.provider_id === selection.providerId,
+      (candidate) => candidate.provider_id === userSelectedLLM.providerId,
     );
     if (!provider) {
       return null;
     }
 
     const models = provider.models ?? [];
-    return models.find((model) => model.model_id === selection.modelId) ?? null;
+    return (
+      models.find((model) => model.model_id === userSelectedLLM.modelId) ?? null
+    );
   }, [llmConfig, userSelectedLLM]);
 
   const deepThinkingDisabledReason = useMemo(() => {
@@ -108,22 +102,34 @@ export function ProjectChat() {
   ].join(" ");
 
   // Memoize filtered model groups
-  const filteredModelGroups = useMemo(
-    () =>
-      (llmConfig?.providers ?? [])
-        .map((provider) => ({
-          group: provider.display_name,
-          items: (provider.models ?? []).map((model) => ({
-            id: encodeModelSelectionKey({
-              providerId: provider.provider_id,
-              modelId: model.model_id,
-            }),
-            name: model.display_name,
-          })),
-        }))
-        .filter((group) => group.items.length > 0),
-    [llmConfig],
-  );
+  const { filteredModelGroups, selectionLookup } = useMemo(() => {
+    const lookup = new Map<string, StoredLLMSelection>();
+    const groups = (llmConfig?.providers ?? [])
+      .map((provider) => {
+        const providerDisplayName =
+          provider.display_name ?? provider.provider_id;
+        const items = (provider.models ?? []).map((model) => {
+          const selection: StoredLLMSelection = {
+            providerId: provider.provider_id,
+            modelId: model.model_id,
+            providerDisplayName,
+            modelDisplayName: model.display_name ?? model.model_id,
+          };
+          const id = encodeModelSelectionKey({
+            providerId: selection.providerId,
+            modelId: selection.modelId,
+          });
+          lookup.set(id, selection);
+          return {
+            id,
+            name: model.display_name ?? model.model_id,
+          };
+        });
+        return { group: providerDisplayName, items };
+      })
+      .filter((group) => group.items.length > 0);
+    return { filteredModelGroups: groups, selectionLookup: lookup };
+  }, [llmConfig]);
 
   const noModelsAvailable = llmConfigLoaded && filteredModelGroups.length === 0;
   const configPath = `${C.SETTA_FILES_FOLDER}/llm_config.json`;
@@ -132,6 +138,13 @@ export function ProjectChat() {
     : noModelsAvailable
       ? `Define models in ${configPath}`
       : "Select an LLM";
+
+  const selectedLLMKey = userSelectedLLM
+    ? encodeModelSelectionKey({
+        providerId: userSelectedLLM.providerId,
+        modelId: userSelectedLLM.modelId,
+      })
+    : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col @container">
@@ -191,10 +204,12 @@ export function ProjectChat() {
 
             <IdNameCombobox
               allItems={filteredModelGroups}
-              value={userSelectedLLM}
+              value={selectedLLMKey}
               small={false}
-              onSelectedItemChange={(model) =>
-                setCurrentProjectLLMSelection(model ?? null)
+              onSelectedItemChange={(modelKey) =>
+                setCurrentProjectLLMSelection(
+                  modelKey ? selectionLookup.get(modelKey) ?? null : null,
+                )
               }
               placeholder={comboboxPlaceholder}
               // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.

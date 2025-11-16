@@ -431,7 +431,9 @@ def config_to_payload(config: LLMConfig) -> LLMConfigPayload:
 
     return LLMConfigPayload(
         gateway_url=config.gateway_url,
-        providers=[_provider_config_to_payload(provider) for provider in config.providers],
+        providers=[
+            _provider_config_to_payload(provider) for provider in config.providers
+        ],
         default_project_config_id=config.default_project_config_id,
         project_configs={
             project_id: LLMProjectConfigPayload(

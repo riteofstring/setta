@@ -20,6 +20,7 @@
 - **Config selection guardrails:** Introduced `resolve_model_selection` so every chat request fails fast when a provider/model ID is missing, paving the way for credential-aware orchestration without silent fallbacks.
 - **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
 - **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
+- **Structured chat selection gating:** The AI store now persists `{ providerId, modelId, displayName }` objects per project, `ProjectChat.tsx` hydrates combobox options from presets/config, and `ChatInput` refuses to send or accept text until a valid provider/model is picked, preventing request without credentials.
 - **Persisted model selections:** Chats now store their provider/model pair in `Chat.modelSelection`, `GET_LLM_CHAT` returns that selection, and the AI store restores the saved combo so resuming a chat reuses the original credentials automatically.
 - **Live config reloads:** `register_llm_config_watch` now reloads the JSON, notifies `SettaFastAPIState`, and resets `ChatManager` so new providers/keys are honored immediately without restarting the backend.
 - **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
@@ -44,7 +45,7 @@
 - ~~  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.~~
 
 - **Frontend follow-ups**
-  - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.
+  - ~~Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.~~
   - Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.
 
 - **Testing, docs, and cleanup**

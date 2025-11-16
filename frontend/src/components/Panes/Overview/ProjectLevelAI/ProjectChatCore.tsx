@@ -17,7 +17,11 @@ import {
   stopStreamingInto,
 } from "state/actions/ai";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useAIStore, useProjectState } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  type StoredLLMSelection,
+} from "state/definitions";
 import { C } from "utils/c";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
@@ -463,12 +467,18 @@ const MessageList = memo(function MessageList({
   );
 });
 
+type ProjectChatCoreProps = {
+  placeholderText: string;
+  deepThink: boolean;
+  userSelectedLLM: StoredLLMSelection | null;
+};
+
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   deepThink,
   userSelectedLLM,
-}) {
+}: ProjectChatCoreProps) {
   const {
     messages,
     toolResults,

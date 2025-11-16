@@ -510,6 +510,7 @@ export const RouteEnum = {
   GET_LLM_RESPONSE: "/getLLMResponse",
   GET_LLM_CONFIG: "/getLLMConfig",
   GET_LLM_PRESETS: "/getLLMPresets",
+  ADD_LLM_PRESET: "/addLLMPreset",
   SET_LLM_CONFIG: "/setLLMConfig",
   TEST_LLM_CONFIG: "/testLLMConfig",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
@@ -8282,6 +8283,21 @@ export function createWebsocketMsg(
   options: Partial<WebsocketMsg> = {},
 ): WebsocketMsg {
   return WebsocketMsgSchema.parse(options);
+}
+
+export const AddLLMPresetRequestSchema = z.object({
+  presetId: z.string(),
+  providerId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: z.union([z.string(), z.null()]).default(null),
+  overrides: z.union([LLMProviderConfigPayloadSchema, z.null()]).default(null),
+});
+
+export type AddLLMPresetRequest = z.infer<typeof AddLLMPresetRequestSchema>;
+
+export function createAddLLMPresetRequest(
+  options: Partial<AddLLMPresetRequest> = {},
+): AddLLMPresetRequest {
+  return AddLLMPresetRequestSchema.parse(options);
 }
 
 export const DeleteLLMChatRequestSchema = z.object({

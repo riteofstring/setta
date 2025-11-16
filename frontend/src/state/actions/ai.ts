@@ -4,6 +4,7 @@ import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
   useProjectState,
+  type StoredLLMSelection,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -30,6 +31,7 @@ import {
   type LLMConfigPayload,
   type LLMConfigTestResultPayload,
   type LLMPresetCatalogPayload,
+  type LLMModelSelection,
   type LLMStreamingResponse,
   type MessageStartedEvent,
   type TextDeltaEvent,
@@ -38,10 +40,101 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
-import {
-  decodeModelSelectionKey,
-  encodeModelSelectionKey,
-} from "utils/llmSelection";
+import { encodeModelSelectionKey } from "utils/llmSelection";
+
+type SelectionLookup = Map<string, StoredLLMSelection>;
+
+function makeStoredSelection(params: {
+  providerId: string;
+  modelId: string;
+  providerDisplayName?: string | null;
+  modelDisplayName?: string | null;
+}): StoredLLMSelection {
+  return {
+    providerId: params.providerId,
+    modelId: params.modelId,
+    providerDisplayName: params.providerDisplayName ?? params.providerId,
+    modelDisplayName: params.modelDisplayName ?? params.modelId,
+  };
+}
+
+function selectionToKey(selection: StoredLLMSelection | null): string | null {
+  if (!selection) {
+    return null;
+  }
+  return encodeModelSelectionKey({
+    providerId: selection.providerId,
+    modelId: selection.modelId,
+  });
+}
+
+function buildSelectionLookup(config: LLMConfigPayload): SelectionLookup {
+  const lookup: SelectionLookup = new Map();
+  for (const provider of config.providers) {
+    const providerDisplayName = provider.display_name ?? provider.provider_id;
+    for (const model of provider.models ?? []) {
+      const selection = makeStoredSelection({
+        providerId: provider.provider_id,
+        modelId: model.model_id,
+        providerDisplayName,
+        modelDisplayName: model.display_name,
+      });
+      const key = selectionToKey(selection);
+      if (key) {
+        lookup.set(key, selection);
+      }
+    }
+  }
+  return lookup;
+}
+
+function findDefaultModelSelection(
+  config: LLMConfigPayload,
+  lookup: SelectionLookup,
+): StoredLLMSelection | null {
+  for (const provider of config.providers) {
+    const defaultModelId = provider.default_model_id;
+    if (!defaultModelId) {
+      continue;
+    }
+    const key = encodeModelSelectionKey({
+      providerId: provider.provider_id,
+      modelId: defaultModelId,
+    });
+    const selection = lookup.get(key);
+    if (selection) {
+      return selection;
+    }
+  }
+  return null;
+}
+
+function hydrateSelectionFromConfig(
+  selection: LLMModelSelection | null | undefined,
+  config: LLMConfigPayload | null,
+): StoredLLMSelection | null {
+  if (!selection) {
+    return null;
+  }
+  if (!config) {
+    return makeStoredSelection({
+      providerId: selection.providerId,
+      modelId: selection.modelId,
+    });
+  }
+  const provider = config.providers.find(
+    (candidate) => candidate.provider_id === selection.providerId,
+  );
+  const model = provider?.models?.find(
+    (candidate) => candidate.model_id === selection.modelId,
+  );
+  return makeStoredSelection({
+    providerId: selection.providerId,
+    modelId: selection.modelId,
+    providerDisplayName: provider?.display_name,
+    modelDisplayName: model?.display_name,
+  });
+}
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -61,30 +154,22 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
     useProjectState.getState().projectConfig.id,
   );
   useAIStore.setState((state) => {
-    const availableModels = new Set<string>();
-    for (const provider of config.providers) {
-      for (const model of provider.models ?? []) {
-        availableModels.add(
-          encodeModelSelectionKey({
-            providerId: provider.provider_id,
-            modelId: model.model_id,
-          }),
-        );
-      }
-    }
-
-    const cleanedSelections: Record<string, string | null> = {};
+    const selectionLookup = buildSelectionLookup(config);
+    const cleanedSelections: Record<string, StoredLLMSelection | null> = {};
     const currentSelections = state.userSelectedLLMByProject ?? {};
     for (const [projectId, selection] of Object.entries(currentSelections)) {
-      cleanedSelections[projectId] =
-        selection && availableModels.has(selection) ? selection : null;
+      const key = selectionToKey(selection);
+      cleanedSelections[projectId] = key
+        ? selectionLookup.get(key) ?? null
+        : null;
     }
 
     const existingSelection = cleanedSelections[activeProjectId] ?? null;
-    const nextSelection =
-      existingSelection && availableModels.has(existingSelection)
-        ? existingSelection
-        : findDefaultModelSelection(config);
+    const fallbackSelection = findDefaultModelSelection(
+      config,
+      selectionLookup,
+    );
+    const nextSelection = existingSelection ?? fallbackSelection ?? null;
     cleanedSelections[activeProjectId] = nextSelection;
 
     return {
@@ -96,29 +181,6 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
   });
 }
 
-function findDefaultModelSelection(config: LLMConfigPayload): string | null {
-  for (const provider of config.providers) {
-    const defaultModelId = provider.default_model_id;
-    if (!defaultModelId) {
-      continue;
-    }
-
-    const hasModel = (provider.models ?? []).some(
-      (model) => model.model_id === defaultModelId,
-    );
-    if (!hasModel) {
-      continue;
-    }
-
-    return encodeModelSelectionKey({
-      providerId: provider.provider_id,
-      modelId: defaultModelId,
-    });
-  }
-
-  return null;
-}
-
 function normalizeProjectConfigId(
   projectConfigId: string | null | undefined,
 ): string {
@@ -127,7 +189,7 @@ function normalizeProjectConfigId(
 
 function setProjectLLMSelection(
   projectConfigId: string | null | undefined,
-  selection: string | null,
+  selection: StoredLLMSelection | null,
 ) {
   const normalizedId = normalizeProjectConfigId(projectConfigId);
   const activeProjectId = normalizeProjectConfigId(
@@ -150,7 +212,9 @@ function setProjectLLMSelection(
   });
 }
 
-export function setCurrentProjectLLMSelection(selection: string | null) {
+export function setCurrentProjectLLMSelection(
+  selection: StoredLLMSelection | null,
+) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
   setProjectLLMSelection(projectConfigId, selection);
 }
@@ -234,6 +298,10 @@ export async function getLLMChat(chatId: string) {
           modelId: modelSelection.modelId,
         })
       : null;
+    const hydratedSelection = hydrateSelectionFromConfig(
+      modelSelection,
+      useAIStore.getState().llmConfig,
+    );
     const nextWaitingForResponse =
       isStreamingStatus(streamStatus) || waitingForResponse;
     useAIStore.setState((state) => ({
@@ -251,10 +319,10 @@ export async function getLLMChat(chatId: string) {
       },
       currentChatId: chatId,
     }));
-    if (modelSelectionKey) {
+    if (hydratedSelection) {
       setProjectLLMSelection(
         res.data.projectConfigId ?? projectConfigId,
-        modelSelectionKey,
+        hydratedSelection,
       );
     }
   } else {
@@ -304,10 +372,14 @@ export async function submitMessage(message: string, deepThink) {
   });
 
   const state = useAIStore.getState();
-  const modelSelection = decodeModelSelectionKey(state.userSelectedLLM);
-  if (!modelSelection) {
+  const selection = state.userSelectedLLM;
+  if (!selection) {
     throw new Error("LLM model selection is required");
   }
+  const modelSelection = {
+    providerId: selection.providerId,
+    modelId: selection.modelId,
+  };
 
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),

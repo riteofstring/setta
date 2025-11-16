@@ -339,12 +339,19 @@ export const useResizerStore = withProjectState(
   ),
 );
 
+export type StoredLLMSelection = {
+  providerId: string;
+  modelId: string;
+  providerDisplayName: string;
+  modelDisplayName: string;
+};
+
 export type ZustandAIStore = {
   allChatMetadata: Array<ChatMetadata>;
   currentChatId: string | null;
   viewHistory: boolean;
-  userSelectedLLM: string | null;
-  userSelectedLLMByProject: Record<string, string | null>;
+  userSelectedLLM: StoredLLMSelection | null;
+  userSelectedLLMByProject: Record<string, StoredLLMSelection | null>;
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: LLMConfig | null;
   llmConfigLoaded: boolean;
@@ -390,7 +397,7 @@ useProjectState.subscribe(
     useAIStore.setState((aiState) => {
       const nextSelection =
         aiState.userSelectedLLMByProject[normalizedProjectId] ?? null;
-      if (aiState.userSelectedLLM === nextSelection) {
+      if (areSelectionsEqual(aiState.userSelectedLLM, nextSelection)) {
         return {};
       }
       return { userSelectedLLM: nextSelection };
@@ -398,6 +405,19 @@ useProjectState.subscribe(
   },
   { fireImmediately: true },
 );
+
+function areSelectionsEqual(
+  a: StoredLLMSelection | null,
+  b: StoredLLMSelection | null,
+) {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return a.providerId === b.providerId && a.modelId === b.modelId;
+}
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
