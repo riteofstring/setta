@@ -1,5 +1,6 @@
 """Chat persistence manager built on the neutral LLM models."""
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -57,6 +58,7 @@ class ChatManager:
         self._llm_config = llm_config
         self._shared_orchestrator = orchestrator
         self._provider_orchestrators: dict[str, LLMOrchestrator] = {}
+        self._active_streams: dict[str, _ActiveStream] = {}
 
     def update_llm_config(self, llm_config: LLMConfig) -> None:
         """Replace the cached config so future requests use fresh credentials."""
@@ -173,6 +175,13 @@ class ChatManager:
         )
         accumulator = _AssistantMessageAccumulator(assistant_message)
         tool_calls = _ToolCallAccumulator()
+        current_task = asyncio.current_task()
+        if current_task is None:
+            raise RuntimeError("LLM orchestration must run inside an asyncio Task")
+        self._active_streams[chat.id] = _ActiveStream(
+            task=current_task,
+            assistant_message=assistant_message,
+        )
 
         history = chat.to_history()
         tools = self._mcp_client.available_tools or None
@@ -181,43 +190,61 @@ class ChatManager:
             model=model_config,
         )
 
-        async for event in orchestrator.astream_response(
-            response_message_id=response_message_id,
-            history=history,
-            model=model_config.model_id,
-            tools=tools,
-            request_params=request_params,
-        ):
-            accumulator.apply_event(event)
-            tool_calls.observe_event(event)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat.id,
-                assistant_message_id=response_message_id,
-                chunk=event,
-            )
-            if isinstance(event, ResponseCompletedEvent) and (
-                event.finish_reason == "tool_calls"
+        try:
+            async for event in orchestrator.astream_response(
+                response_message_id=response_message_id,
+                history=history,
+                model=model_config.model_id,
+                tools=tools,
+                request_params=request_params,
             ):
-                await self._resolve_tool_calls(
-                    chat_id=chat.id,
+                accumulator.apply_event(event)
+                tool_calls.observe_event(event)
+                await self._wmh_frontend_sender.send_streaming_response(
+                    chatId=chat.id,
                     assistant_message_id=response_message_id,
-                    tool_calls=tool_calls.consume_ready_calls(),
-                    accumulator=accumulator,
+                    chunk=event,
                 )
+                if isinstance(event, ResponseCompletedEvent) and (
+                    event.finish_reason == "tool_calls"
+                ):
+                    await self._resolve_tool_calls(
+                        chat_id=chat.id,
+                        assistant_message_id=response_message_id,
+                        tool_calls=tool_calls.consume_ready_calls(),
+                        accumulator=accumulator,
+                    )
+        except asyncio.CancelledError:
+            self._active_streams.pop(chat.id, None)
+            return
+        except Exception:
+            self._active_streams.pop(chat.id, None)
+            raise
 
-        chat.add_message(assistant_message)
-        self._persist_chat(chat)
+        try:
+            chat.add_message(assistant_message)
+            self._persist_chat(chat)
+        finally:
+            self._active_streams.pop(chat.id, None)
 
     async def request_stop_streaming(self, chat_id: str) -> None:
-        raise NotImplementedError("Stopping in-flight LLM streams is not implemented.")
+        active = self._active_streams.get(chat_id)
+        if active is None:
+            return
+        active.task.cancel()
+        try:
+            await active.task
+        except asyncio.CancelledError:
+            return
 
     def is_waiting_for_response(self, chat_id: str) -> bool:
-        raise NotImplementedError(
-            "LLM orchestration state tracking is not implemented."
-        )
+        return chat_id in self._active_streams
 
     def get_current_stream(self, chat_id: str) -> list[ChatMessage]:
-        raise NotImplementedError("LLM stream buffering is not implemented.")
+        active = self._active_streams.get(chat_id)
+        if active is None:
+            return []
+        return active.snapshot_messages()
 
     # ---------------------------------------------------------------------
 
@@ -454,6 +481,19 @@ class _ToolCallAccumulator:
         calls = list(self._calls.values())
         self._calls.clear()
         return calls
+
+
+@dataclass
+class _ActiveStream:
+    """Tracks in-flight orchestration metadata for a chat."""
+
+    task: asyncio.Task[object]
+    assistant_message: LLMMessage
+
+    def snapshot_messages(self) -> list[ChatMessage]:
+        """Return the assistant message as a ChatMessage for merging with history."""
+
+        return [ChatMessage.from_llm_message(self.assistant_message)]
 
 
 def _extract_tool_output_text(result: "CallToolResult") -> str | None:

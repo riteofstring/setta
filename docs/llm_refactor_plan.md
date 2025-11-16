@@ -4,7 +4,7 @@
 - Favor cohesive modules (e.g., `setta.llm.*`, config stores, orchestrator) even if it means moving large chunks of logic or renaming APIs; the end goal is a maintainable Portkey-first stack.
 
 **Key Findings**
-- Streaming lifecycle plumbing remains stubbed out: `request_stop_streaming`, `is_waiting_for_response`, and `get_current_stream` raise `NotImplementedError`, so `/stopLLMChat` and `/getLLMChat` will fail as soon as the UI calls them. The orchestrator cannot be cancelled mid-flight, and partial assistant responses are not surfaced until they are fully persisted.
+- Streaming cancellation now works end-to-end, but partial assistant/tool-call buffers are still ephemeral—if the backend crashes mid-stream we lose those deltas because they are not persisted anywhere outside the active task.
 - Deep-thinking / per-model parameterization is not hooked up. `_build_request_params` returns `None`, the `supports_reasoning` flag inside the config is unused, and there is no `TEST_LLM_CONFIG` or other validation route to ensure the Portkey gateway is reachable with the provided provider keys.
 - The backend never reloads runtime state when `setta_files/llm_config.json` changes—the watcher only broadcasts to the UI—so the orchestrator would continue using stale credentials even after the user saves new ones. We also removed the old chat tests (`tests/project_state/chats/test_chats.py`) without replacing them, leaving the new `setta.llm` models, Portkey adapter, and chat persistence flows completely untested.
 
@@ -24,6 +24,7 @@
 - **Persisted model selections:** Chats now store their provider/model pair in `Chat.modelSelection`, `GET_LLM_CHAT` returns that selection, and the AI store restores the saved combo so resuming a chat reuses the original credentials automatically.
 - **Live config reloads:** `register_llm_config_watch` now reloads the JSON, notifies `SettaFastAPIState`, and resets `ChatManager` so new providers/keys are honored immediately without restarting the backend.
 - **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
+- **Streaming lifecycle + cancellation:** `ChatManager` now tracks every in-flight Portkey task, exposes `is_waiting_for_response`/`get_current_stream`, and lets `/stopLLMChat` cancel the active task so the frontend stop button halts generation immediately.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -37,8 +38,6 @@
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Streaming lifecycle + cancellation**
-  - Track in-flight assistant tasks per `chat_id`, buffering incremental `LLMMessage`s so `get_current_stream` and `is_waiting_for_response` can answer immediately and `/getLLMChat` no longer hits `NotImplementedError`.
-  - Teach `request_stop_streaming`/`route_stop_llm_chat` how to cancel the asyncio task and propagate cancellation to the Portkey stream so the UI stop button works.
   - Persist partial assistant blocks (and pending tool calls) when cancellation or errors occur so we do not lose work between retries.
 
 - **Deep-thinking and request parameters**
