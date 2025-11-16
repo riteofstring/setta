@@ -28,8 +28,21 @@ class LLMConfigPayload(BaseModel):
     providers: list[LLMProviderConfigPayload] = Field(default_factory=list)
 
 
+class LLMProviderPresetPayload(BaseModel):
+    preset_id: str
+    label: str
+    description: str | None = None
+    provider: LLMProviderConfigPayload
+
+
+class LLMPresetCatalogPayload(BaseModel):
+    providers: list[LLMProviderPresetPayload] = Field(default_factory=list)
+
+
 __all__ = [
     "LLMConfigPayload",
     "LLMModelConfigPayload",
     "LLMProviderConfigPayload",
+    "LLMPresetCatalogPayload",
+    "LLMProviderPresetPayload",
 ]

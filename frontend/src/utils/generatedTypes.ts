@@ -500,6 +500,7 @@ export const RouteEnum = {
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
   GET_LLM_CONFIG: "/getLLMConfig",
+  GET_LLM_PRESETS: "/getLLMPresets",
   SET_LLM_CONFIG: "/setLLMConfig",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
@@ -7986,6 +7987,37 @@ export function createListenerRealtimeDelta(
   options: Partial<ListenerRealtimeDelta> = {},
 ): ListenerRealtimeDelta {
   return ListenerRealtimeDeltaSchema.parse(options);
+}
+
+export const LLMProviderPresetPayloadSchema = z.object({
+  preset_id: z.string(),
+  label: z.string(),
+  description: z.union([z.string(), z.null()]).default(null),
+  provider: LLMProviderConfigPayloadSchema,
+});
+
+export type LLMProviderPresetPayload = z.infer<
+  typeof LLMProviderPresetPayloadSchema
+>;
+
+export function createLLMProviderPresetPayload(
+  options: Partial<LLMProviderPresetPayload> = {},
+): LLMProviderPresetPayload {
+  return LLMProviderPresetPayloadSchema.parse(options);
+}
+
+export const LLMPresetCatalogPayloadSchema = z.object({
+  providers: z.array(LLMProviderPresetPayloadSchema).default([]),
+});
+
+export type LLMPresetCatalogPayload = z.infer<
+  typeof LLMPresetCatalogPayloadSchema
+>;
+
+export function createLLMPresetCatalogPayload(
+  options: Partial<LLMPresetCatalogPayload> = {},
+): LLMPresetCatalogPayload {
+  return LLMPresetCatalogPayloadSchema.parse(options);
 }
 
 export const BrowserAreaItemSchema = z.object({

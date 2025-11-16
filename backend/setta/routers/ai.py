@@ -7,11 +7,12 @@ from setta.llm.config_store import (
     payload_to_config,
     save_llm_config,
 )
+from setta.llm.presets import get_llm_provider_presets
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
-from setta.types.llm_config import LLMConfigPayload
+from setta.types.llm_config import LLMConfigPayload, LLMPresetCatalogPayload
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
@@ -81,6 +82,14 @@ async def route_get_llm_response(
 def route_get_llm_config() -> LLMConfigPayload:
     config = load_llm_config()
     return config_to_payload(config)
+
+
+@router.post(Route.GET_LLM_PRESETS)
+def route_get_llm_presets() -> LLMPresetCatalogPayload:
+    presets = get_llm_provider_presets()
+    return LLMPresetCatalogPayload(
+        providers=[preset.to_payload() for preset in presets],
+    )
 
 
 @router.post(Route.SET_LLM_CONFIG)

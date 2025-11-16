@@ -28,6 +28,7 @@ import {
   createProjectConfig,
   createSingletonSections,
   LLMConfig,
+  LLMPresetCatalogPayload,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -346,6 +347,8 @@ export type ZustandAIStore = {
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: LLMConfig | null;
   llmConfigLoaded: boolean;
+  llmPresets: LLMPresetCatalogPayload | null;
+  llmPresetsLoaded: boolean;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -362,6 +365,8 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigLoaded: false,
+        llmPresets: null,
+        llmPresetsLoaded: false,
       }),
       {
         name: "setta_ai_data",

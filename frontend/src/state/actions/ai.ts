@@ -6,6 +6,7 @@ import {
   route_delete_llm_chat,
   route_get_all_llm_chat_metadata,
   route_get_llm_config,
+  route_get_llm_presets,
   route_get_llm_chat,
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
@@ -21,6 +22,7 @@ import {
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
   type LLMConfigPayload,
+  type LLMPresetCatalogPayload,
   type LLMStreamingResponse,
   type MessageStartedEvent,
   type TextDeltaEvent,
@@ -47,6 +49,26 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
   useAIStore.setState({
     llmConfig: config,
     llmConfigLoaded: true,
+  });
+}
+
+export async function loadLLMPresets() {
+  const res = await route_get_llm_presets();
+  if (res200(res)) {
+    applyLLMPresetsUpdate(res.data);
+    return;
+  }
+
+  useAIStore.setState({
+    llmPresets: null,
+    llmPresetsLoaded: true,
+  });
+}
+
+export function applyLLMPresetsUpdate(catalog: LLMPresetCatalogPayload) {
+  useAIStore.setState({
+    llmPresets: catalog,
+    llmPresetsLoaded: true,
   });
 }
 

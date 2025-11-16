@@ -195,6 +195,12 @@ export async function route_get_llm_config(): Promise<
   return await post("/getLLMConfig");
 }
 
+export async function route_get_llm_presets(): Promise<
+  ResponseDataAndStatus<gt.LLMPresetCatalogPayload>
+> {
+  return await post("/getLLMPresets");
+}
+
 export async function route_set_llm_config(
   payload: gt.LLMConfigPayload,
 ): Promise<ResponseDataAndStatus<gt.LLMConfigPayload>> {
