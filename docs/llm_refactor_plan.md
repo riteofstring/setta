@@ -32,6 +32,7 @@
   - Register a dedicated `SpecificFileWatcher` category for `setta_files/llm_config.json` so manual edits or backend updates trigger a reload broadcast; `ProjectLLMSettings` should subscribe and act as a live “view” of whatever is on disk.
   - Rip out the `.env` API-key plumbing (`route_set_llm_api_keys`, `useAIStore.apiKeys`, etc.) once the new config endpoints land so the LLM flow has a single source of truth; `.env` can continue to exist for unrelated settings without needing a watcher.
   - Redesign `ProjectLLMSettings` to let users add/edit/delete provider configs: fields for display name, model id, provider slug, provider API key, optional base URL/region, etc. Persist changes through the new routes rather than writing `.env` manually.
+  - Layer in provider/model presets so the editor can auto-populate provider slugs, base URLs, headers, and model lists (OpenAI, Anthropic, etc.) instead of making users remember every string.
 
 - **System prompt + instructions**
   - Rewrite `backend/setta/mcp/chat_manager.py:50-54` equivalent so the system prompt references Portkey, clarifies the available MCP tools, and explains the start/stop streaming contract. Because Portkey already supports arbitrary providers (per docs), expose provider/model metadata in the prompt so the LLM knows which tools exist.
@@ -57,5 +58,6 @@
 - Added `GET/SET_LLM_CONFIG` routes plus typed payloads, removed the `.env` API-key plumbing, and now broadcast config-save notifications so the backend is the single source of truth.
 - Replaced the frontend `MODEL_GROUPS`+`apiKeys` state with live data from the config file; `ProjectChat` and `ProjectLLMSettings` now read the persisted providers/models and surface loading/error states while we build the editor UI.
 - Registered a dedicated `SpecificFileWatcher` category for `setta_files/llm_config.json` that broadcasts `LLMConfigUpdated` websocket events, so the frontend’s LLM settings update instantly whenever the JSON changes (even when edited manually).
+- Shipped the first in-app LLM settings editor with full CRUD for gateway URL, providers, headers, and models, saving directly through `SET_LLM_CONFIG`; next iteration will add provider/model presets so users don’t need to hand-type IDs.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.

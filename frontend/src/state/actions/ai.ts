@@ -9,6 +9,7 @@ import {
   route_get_llm_chat,
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
+  route_set_llm_config,
 } from "utils/generatedEndpoints";
 import {
   createChatMessage,
@@ -47,6 +48,19 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
     llmConfig: config,
     llmConfigLoaded: true,
   });
+}
+
+export async function saveLLMConfig(payload: LLMConfigPayload) {
+  const res = await route_set_llm_config(payload);
+  if (res200(res)) {
+    applyLLMConfigUpdate(res.data);
+    return { ok: true as const };
+  }
+  const detail =
+    res.data && typeof res.data === "object" && "detail" in res.data
+      ? String(res.data.detail)
+      : "Failed to save LLM configuration";
+  return { ok: false as const, error: detail };
 }
 
 export function getDefaultChatDetails() {
