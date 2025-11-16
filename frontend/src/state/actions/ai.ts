@@ -1,6 +1,10 @@
 import _ from "lodash";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useAIStore, useProjectState } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useAIStore,
+  useProjectState,
+} from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
@@ -53,6 +57,9 @@ export async function loadLLMConfig() {
 }
 
 export function applyLLMConfigUpdate(config: LLMConfigPayload) {
+  const activeProjectId = normalizeProjectConfigId(
+    useProjectState.getState().projectConfig.id,
+  );
   useAIStore.setState((state) => {
     const availableModels = new Set<string>();
     for (const provider of config.providers) {
@@ -66,16 +73,25 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
       }
     }
 
-    const existingSelection = state.userSelectedLLM;
+    const cleanedSelections: Record<string, string | null> = {};
+    const currentSelections = state.userSelectedLLMByProject ?? {};
+    for (const [projectId, selection] of Object.entries(currentSelections)) {
+      cleanedSelections[projectId] =
+        selection && availableModels.has(selection) ? selection : null;
+    }
+
+    const existingSelection = cleanedSelections[activeProjectId] ?? null;
     const nextSelection =
       existingSelection && availableModels.has(existingSelection)
         ? existingSelection
         : findDefaultModelSelection(config);
+    cleanedSelections[activeProjectId] = nextSelection;
 
     return {
       llmConfig: config,
       llmConfigLoaded: true,
       userSelectedLLM: nextSelection,
+      userSelectedLLMByProject: cleanedSelections,
     };
   });
 }
@@ -101,6 +117,42 @@ function findDefaultModelSelection(config: LLMConfigPayload): string | null {
   }
 
   return null;
+}
+
+function normalizeProjectConfigId(
+  projectConfigId: string | null | undefined,
+): string {
+  return projectConfigId ?? NULL_PROJECT_CONFIG_ID;
+}
+
+function setProjectLLMSelection(
+  projectConfigId: string | null | undefined,
+  selection: string | null,
+) {
+  const normalizedId = normalizeProjectConfigId(projectConfigId);
+  const activeProjectId = normalizeProjectConfigId(
+    useProjectState.getState().projectConfig.id,
+  );
+  useAIStore.setState((state) => {
+    const nextSelections = {
+      ...(state.userSelectedLLMByProject ?? {}),
+      [normalizedId]: selection,
+    };
+    if (normalizedId === activeProjectId) {
+      return {
+        userSelectedLLM: selection,
+        userSelectedLLMByProject: nextSelections,
+      };
+    }
+    return {
+      userSelectedLLMByProject: nextSelections,
+    };
+  });
+}
+
+export function setCurrentProjectLLMSelection(selection: string | null) {
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  setProjectLLMSelection(projectConfigId, selection);
 }
 
 export async function loadLLMPresets() {
@@ -198,8 +250,13 @@ export async function getLLMChat(chatId: string) {
         },
       },
       currentChatId: chatId,
-      userSelectedLLM: modelSelectionKey ?? state.userSelectedLLM,
     }));
+    if (modelSelectionKey) {
+      setProjectLLMSelection(
+        res.data.projectConfigId ?? projectConfigId,
+        modelSelectionKey,
+      );
+    }
   } else {
     useAIStore.setState({ currentChatId: null });
   }

@@ -344,6 +344,7 @@ export type ZustandAIStore = {
   currentChatId: string | null;
   viewHistory: boolean;
   userSelectedLLM: string | null;
+  userSelectedLLMByProject: Record<string, string | null>;
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: LLMConfig | null;
   llmConfigLoaded: boolean;
@@ -362,6 +363,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
         userSelectedLLM: null,
+        userSelectedLLMByProject: {},
         idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigLoaded: false,
@@ -373,11 +375,28 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         partialize: (state) => ({
           currentChatId: state.currentChatId,
           userSelectedLLM: state.userSelectedLLM,
+          userSelectedLLMByProject: state.userSelectedLLMByProject,
           viewHistory: state.viewHistory,
         }),
       },
     ),
   ),
+);
+
+useProjectState.subscribe(
+  (state) => state.projectConfig.id,
+  (projectConfigId) => {
+    const normalizedProjectId = projectConfigId ?? NULL_PROJECT_CONFIG_ID;
+    useAIStore.setState((aiState) => {
+      const nextSelection =
+        aiState.userSelectedLLMByProject[normalizedProjectId] ?? null;
+      if (aiState.userSelectedLLM === nextSelection) {
+        return {};
+      }
+      return { userSelectedLLM: nextSelection };
+    });
+  },
+  { fireImmediately: true },
 );
 
 type ZustandLocalStorage = {

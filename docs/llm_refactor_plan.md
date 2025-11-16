@@ -33,6 +33,7 @@
 - **Preset-aware backend config:** `LLMConfig` now accepts provider/model `preset_id`s, hydrates missing fields from `backend/setta/llm/presets.py`, and serializes only the overrides, so `llm_config.json` can stay minimalist while still expanding to full runtime metadata.
 - **Reasoning request enforcement:** `_build_request_params` now deep-clones each model’s `default_parameters`, refuses Deep Thinking requests for models that lack `supports_reasoning`, and injects a sane `reasoning` payload (with a default `effort`) so Portkey receives the per-model defaults consistently.
 - **Project ID tracking:** Chats now persist their `projectConfigId`, backend responses expose it, and metadata loaders understand the new field so future project-scoped configs can reload the exact credentials used when the chat was created.
+- **Project-scoped selection memory:** The frontend keeps `userSelectedLLM` values keyed by `projectConfigId`, restoring the last provider/model combo whenever the user switches projects so we can drop the legacy global selection.
 
 **Remaining Work**
 - **Project-scoped configs**

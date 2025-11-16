@@ -8,6 +8,7 @@ import {
   createNewLLMChat,
   getUUIDMappingForLLM,
   loadLLMConfig,
+  setCurrentProjectLLMSelection,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
@@ -196,7 +197,7 @@ export function ProjectChat() {
               value={userSelectedLLM}
               small={false}
               onSelectedItemChange={(model) =>
-                useAIStore.setState({ userSelectedLLM: model })
+                setCurrentProjectLLMSelection(model ?? null)
               }
               placeholder={comboboxPlaceholder}
               // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
