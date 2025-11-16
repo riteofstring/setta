@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.llm import (
+    LLMConfig,
     LLMMessage,
     LLMOrchestrator,
     LLMRole,
@@ -43,11 +44,14 @@ class ChatManager:
         mcp_client: "MCPClient",
         wmh_frontend_sender: "WMHFrontendSender",
         orchestrator: LLMOrchestrator | None = None,
+        *,
+        llm_config: LLMConfig,
     ) -> None:
         self._dbe = dbe
         self._mcp_client = mcp_client
         self._wmh_frontend_sender = wmh_frontend_sender
-        self._orchestrator = orchestrator or self._build_orchestrator()
+        self._llm_config = llm_config
+        self._orchestrator = orchestrator or self._build_orchestrator(self._llm_config)
 
     # ---------------------------------------------------------------------
     # Persistence helpers
@@ -211,11 +215,16 @@ class ChatManager:
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
 
-    def _build_orchestrator(self) -> LLMOrchestrator:
-        """Initialize the Portkey-backed orchestrator from environment config."""
+    def _build_orchestrator(self, config: LLMConfig) -> LLMOrchestrator:
+        """Initialize the Portkey-backed orchestrator using the stored config."""
 
-        gateway = PortkeyClient()
+        gateway = self._build_portkey_gateway(config)
         return LLMOrchestrator(gateway)
+
+    def _build_portkey_gateway(self, config: LLMConfig) -> PortkeyClient:
+        """Construct a Portkey client that talks to the configured gateway."""
+
+        return PortkeyClient(base_url=config.gateway_url)
 
     def _build_request_params(self, *, deep_think: bool) -> dict[str, object] | None:
         # Deep thinking parameters will be wired up once we map our toggle to Portkey.
