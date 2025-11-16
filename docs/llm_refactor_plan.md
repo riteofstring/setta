@@ -44,5 +44,6 @@
 - Deleted the Anthropic-specific `ChatManager` implementation; next iteration will introduce a Portkey-backed orchestrator under the new abstraction.
 - Removed the Anthropic-backed `ChatMessage` schema plus chat persistence helpers/tests so we can redefine neutral message models.
 - Dropped the `anthropic` dependency from `pyproject.toml` and `uv.lock`, so the project no longer installs the Anthropic SDK.
+- Added `backend/setta/llm/models.py` with neutral `LLMMessage`, content blocks, and `LLMStreamEvent` dataclasses to anchor the new Portkey orchestrator and persistence layers.
 
 Once this scaffolding is in place we can iterate on extras like diff previews for file edits or richer model catalogs, but the items above will fully sever the Anthropic dependency, centralize LLM orchestration around Portkey, and give users the configurable key management UI you asked for.
