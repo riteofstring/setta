@@ -109,6 +109,7 @@ class Chat(BaseModel):
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     messages: list[ChatMessage] = Field(default_factory=list)
+    modelSelection: LLMModelSelection | None = None
 
     @field_validator("lastUpdated", mode="before")
     @classmethod

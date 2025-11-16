@@ -114,6 +114,7 @@ export function getDefaultChatDetails() {
     toolResults: {},
     waitingForResponse: false,
     streamTarget: null,
+    modelSelectionKey: null,
   };
 }
 
@@ -121,7 +122,13 @@ export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, toolResults, waitingForResponse } = res.data;
+    const { messages, toolResults, waitingForResponse, modelSelection } = res.data;
+    const modelSelectionKey = modelSelection
+      ? encodeModelSelectionKey({
+          providerId: modelSelection.providerId,
+          modelId: modelSelection.modelId,
+        })
+      : null;
     useAIStore.setState((state) => ({
       chatDetails: {
         ...state.chatDetails,
@@ -131,9 +138,11 @@ export async function getLLMChat(chatId: string) {
           messages,
           toolResults,
           waitingForResponse,
+          modelSelectionKey,
         },
       },
       currentChatId: chatId,
+      userSelectedLLM: modelSelectionKey ?? state.userSelectedLLM,
     }));
   } else {
     useAIStore.setState({ currentChatId: null });

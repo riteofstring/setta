@@ -45,6 +45,7 @@ class GetLLMChatRequestResponse(BaseModel):
     messages: list[ChatMessage]
     toolResults: dict[str, ToolResult]
     waitingForResponse: bool
+    modelSelection: LLMModelSelection | None
 
 
 class StopLLMChatRequest(BaseModel):
@@ -57,14 +58,17 @@ async def route_get_llm_response(
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ) -> str | None:
-    chat = state.chat_manager.get_or_create_chat(x.chatId, x.message)
+    chat = state.chat_manager.get_or_create_chat(
+        x.chatId,
+        x.message,
+        x.modelSelection,
+    )
 
     if chat:
         background_tasks.add_task(
             state.chat_manager.process_query,
             x.projectConfigId,
             chat,
-            x.modelSelection,
             x.deepThink,
         )
 
@@ -164,6 +168,7 @@ async def route_get_llm_chat(
         messages=messages,
         toolResults=tool_results,
         waitingForResponse=waiting_for_response,
+        modelSelection=chat.modelSelection,
     )
 
 

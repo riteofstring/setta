@@ -64,17 +64,19 @@ class ChatManager:
         self,
         chat_id: str | None,
         message: ChatMessage,
+        model_selection: LLMModelSelection,
     ) -> Chat:
         """Load an existing chat (if any), append the message, and persist."""
 
         if chat_id:
             chat = self.get_chat(chat_id)
             if chat is None:
-                chat = self._create_chat(message)
+                chat = self._create_chat(message, model_selection)
             else:
+                self._ensure_model_selection(chat, model_selection)
                 chat.add_message(message)
         else:
-            chat = self._create_chat(message)
+            chat = self._create_chat(message, model_selection)
 
         self._persist_chat(chat)
         return chat
@@ -142,13 +144,15 @@ class ChatManager:
         self,
         project_config_id: str | None,
         chat: Chat,
-        model_selection: LLMModelSelection,
         deep_think: bool,
     ) -> None:
         """Stream a response from the Portkey-backed orchestrator."""
 
         del project_config_id  # TODO: scope orchestration by config when available
         response_message_id = create_new_id()
+        model_selection = chat.modelSelection
+        if model_selection is None:
+            raise ValueError("Chat missing model selection")
         provider_config, model_config = resolve_model_selection(
             self._llm_config, model_selection
         )
@@ -208,10 +212,34 @@ class ChatManager:
 
     # ---------------------------------------------------------------------
 
-    def _create_chat(self, initial_message: ChatMessage) -> Chat:
-        chat = Chat(name=self._derive_chat_name(initial_message))
+    def _create_chat(
+        self,
+        initial_message: ChatMessage,
+        model_selection: LLMModelSelection,
+    ) -> Chat:
+        chat = Chat(
+            name=self._derive_chat_name(initial_message),
+            modelSelection=model_selection,
+        )
         chat.add_message(initial_message)
         return chat
+
+    def _ensure_model_selection(
+        self,
+        chat: Chat,
+        model_selection: LLMModelSelection,
+    ) -> None:
+        if chat.modelSelection is None:
+            chat.modelSelection = model_selection
+            return
+
+        if (
+            chat.modelSelection.providerId != model_selection.providerId
+            or chat.modelSelection.modelId != model_selection.modelId
+        ):
+            raise ValueError(
+                "Existing chat model selection cannot be changed mid-conversation"
+            )
 
     def _derive_chat_name(self, message: ChatMessage) -> str:
         """Use the first text block as the chat title, otherwise fallback."""

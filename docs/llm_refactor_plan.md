@@ -4,7 +4,6 @@
 - Favor cohesive modules (e.g., `setta.llm.*`, config stores, orchestrator) even if it means moving large chunks of logic or renaming APIs; the end goal is a maintainable Portkey-first stack.
 
 **Key Findings**
-- The frontend (`frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`) still stores only a plain `model_id`, meaning chat requests cannot yet declare which provider or credentials the backend should use when submitting a chat request.
 - Streaming lifecycle plumbing remains stubbed out: `request_stop_streaming`, `is_waiting_for_response`, and `get_current_stream` raise `NotImplementedError`, so `/stopLLMChat` and `/getLLMChat` will fail as soon as the UI calls them. The orchestrator cannot be cancelled mid-flight, and partial assistant responses are not surfaced until they are fully persisted.
 - Deep-thinking / per-model parameterization is not hooked up. `_build_request_params` returns `None`, the `supports_reasoning` flag inside the config is unused, and there is no `TEST_LLM_CONFIG` or other validation route to ensure the Portkey gateway is reachable with the provided provider keys.
 - The backend never reloads runtime state when `setta_files/llm_config.json` changes—the watcher only broadcasts to the UI—so the orchestrator would continue using stale credentials even after the user saves new ones. We also removed the old chat tests (`tests/project_state/chats/test_chats.py`) without replacing them, leaving the new `setta.llm` models, Portkey adapter, and chat persistence flows completely untested.
@@ -20,10 +19,10 @@
 - **Config selection guardrails:** Introduced `resolve_model_selection` so every chat request fails fast when a provider/model ID is missing, paving the way for credential-aware orchestration without silent fallbacks.
 - **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
 - **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
+- **Persisted model selections:** Chats now store their provider/model pair in `Chat.modelSelection`, `GET_LLM_CHAT` returns that selection, and the AI store restores the saved combo so resuming a chat reuses the original credentials automatically.
 
 **Remaining Work**
 - **Wire the LLM config into orchestration**
-  - Persist the provider/model pair per chat so replaying or resuming a chat always routes through the right credentials, and expose the saved selection back to the UI.
   - Honor `project_config_id` when we eventually scope configs per project, and use `default_model_id` to preselect a model when loading the UI.
   - Subscribe `ChatManager` to the `register_llm_config_watch` callback so it refreshes its cached config / gateway client whenever `llm_config.json` changes, not just when the frontend reloads.
 

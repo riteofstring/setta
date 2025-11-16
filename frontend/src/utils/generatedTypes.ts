@@ -7343,11 +7343,25 @@ export function createChatMessage(
   return ChatMessageSchema.parse(options);
 }
 
+export const LLMModelSelectionSchema = z.object({
+  providerId: z.string(),
+  modelId: z.string(),
+});
+
+export type LLMModelSelection = z.infer<typeof LLMModelSelectionSchema>;
+
+export function createLLMModelSelection(
+  options: Partial<LLMModelSelection> = {},
+): LLMModelSelection {
+  return LLMModelSelectionSchema.parse(options);
+}
+
 export const ChatSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   messages: z.array(ChatMessageSchema).default([]),
+  modelSelection: z.union([LLMModelSelectionSchema, z.null()]).default(null),
 });
 
 export type Chat = z.infer<typeof ChatSchema>;
@@ -7368,19 +7382,6 @@ export function createChatMetadata(
   options: Partial<ChatMetadata> = {},
 ): ChatMetadata {
   return ChatMetadataSchema.parse(options);
-}
-
-export const LLMModelSelectionSchema = z.object({
-  providerId: z.string(),
-  modelId: z.string(),
-});
-
-export type LLMModelSelection = z.infer<typeof LLMModelSelectionSchema>;
-
-export function createLLMModelSelection(
-  options: Partial<LLMModelSelection> = {},
-): LLMModelSelection {
-  return LLMModelSelectionSchema.parse(options);
 }
 
 export const ToolResultSchema = z.object({
@@ -8212,6 +8213,7 @@ export const GetLLMChatRequestResponseSchema = z.object({
   messages: z.array(ChatMessageSchema),
   toolResults: z.record(z.string(), ToolResultSchema),
   waitingForResponse: z.boolean(),
+  modelSelection: z.union([LLMModelSelectionSchema, z.null()]),
 });
 
 export type GetLLMChatRequestResponse = z.infer<
