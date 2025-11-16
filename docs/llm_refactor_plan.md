@@ -52,5 +52,8 @@
   - Replace the deleted `tests/project_state/chats/test_chats.py` with new suites that cover `setta.llm` serialization, Portkey chunk normalization (mocking the SDK), MCP tool execution, and chat persistence round-trips (`python -m unittest discover tests`).
   - Document the new config file + Portkey gateway workflow in `docs/`/`README`, including manual verification steps (e.g., start the self-hosted gateway, run `pnpm start`, send a chat, verify tool streaming).
   - Remove remaining `.env`-centric constants/watchers once the config-driven flow is live, and add structured logging around `LLMOrchestrator` so failures (invalid API key, tool errors) are visible to both logs and frontend notifications.
+- **Local gateway bundling + lifecycle**
+  - Vendor the `@portkey-ai/gateway` CLI bundle (the same artifacts `npx @portkey-ai/gateway` launches) inside the Python package, update `pyproject.toml`/`build.sh` to ship it with the wheel, and add smoke checks so `pip install setta` includes the bundled gateway alongside the frontend assets.
+  - Teach `SettaFastAPIState` (and the dev scripts like `pnpm start`) to spin up the local Portkey gateway process during startup, health-check `http://localhost:8787/v1` before serving requests, and track/shutdown the child process when Setta exits so users always have a working gateway without installing Node deps separately.
 
 Progress on the items above will fully activate the Portkey-powered stack: the UI already edits `setta_files/llm_config.json`, and the backend now has neutral LLM models, so wiring those configs into the orchestrator, cancelation flow, and validation/tests are the last major blockers.
