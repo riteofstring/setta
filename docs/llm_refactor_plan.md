@@ -4,7 +4,6 @@
 - Favor cohesive modules (e.g., `setta.llm.*`, config stores, orchestrator) even if it means moving large chunks of logic or renaming APIs; the end goal is a maintainable Portkey-first stack.
 
 **Key Findings**
-- Streaming cancellation now works end-to-end, but partial assistant/tool-call buffers are still ephemeral—if the backend crashes mid-stream we lose those deltas because they are not persisted anywhere outside the active task.
 - Deep-thinking / per-model parameterization is not hooked up. `_build_request_params` returns `None`, the `supports_reasoning` flag inside the config is unused, and there is no `TEST_LLM_CONFIG` or other validation route to ensure the Portkey gateway is reachable with the provided provider keys.
 - The backend never reloads runtime state when `setta_files/llm_config.json` changes—the watcher only broadcasts to the UI—so the orchestrator would continue using stale credentials even after the user saves new ones. We also removed the old chat tests (`tests/project_state/chats/test_chats.py`) without replacing them, leaving the new `setta.llm` models, Portkey adapter, and chat persistence flows completely untested.
 
@@ -26,6 +25,7 @@
 - **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
 - **Streaming lifecycle + cancellation:** `ChatManager` now tracks every in-flight Portkey task, exposes `is_waiting_for_response`/`get_current_stream`, and lets `/stopLLMChat` cancel the active task so the frontend stop button halts generation immediately.
 - **Gateway + provider validation:** Added the `Route.TEST_LLM_CONFIG` endpoint, typed payloads, and backend probes that hit the Portkey gateway’s health route plus each provider’s `/models` listing so the UI can immediately report whether saved credentials/base URLs are reachable.
+- **Streaming persistence:** `_StreamingTranscriptRecorder` snapshots assistant/tool-call deltas to disk during `ChatManager` streams so reconnecting clients always see the latest transcript even if the backend crashed mid-response.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -39,7 +39,8 @@
   - Provide an optional `resetToPreset`/`addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.
 
 - **Streaming lifecycle + cancellation**
-  - Persist partial assistant blocks (and pending tool calls) when cancellation or errors occur so we do not lose work between retries.
+  - Hydrate reconnecting clients from the persisted assistant snapshot and hook them back into any `_active_streams` so closing/reopening a tab mid-response still shows live progress.
+  - Record a completion/cancellation marker on chats so the frontend can tell whether more stream events are expected after a reload.
 
 - **Deep-thinking and request parameters**
   - Make `ChatManager._build_request_params` respect the `deepThink` flag only for models whose config declares `supports_reasoning`, and merge each model’s `default_parameters` into the Portkey payload.

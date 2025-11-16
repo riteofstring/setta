@@ -3,7 +3,7 @@
 import asyncio
 import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -174,6 +174,11 @@ class ChatManager:
             content=[],
         )
         accumulator = _AssistantMessageAccumulator(assistant_message)
+        recorder = _StreamingTranscriptRecorder(
+            chat=chat,
+            persist_chat=self._persist_chat,
+        )
+        recorder.persist_snapshot(assistant_message)
         tool_calls = _ToolCallAccumulator()
         current_task = asyncio.current_task()
         if current_task is None:
@@ -200,6 +205,7 @@ class ChatManager:
             ):
                 accumulator.apply_event(event)
                 tool_calls.observe_event(event)
+                recorder.persist_snapshot(assistant_message)
                 await self._wmh_frontend_sender.send_streaming_response(
                     chatId=chat.id,
                     assistant_message_id=response_message_id,
@@ -213,6 +219,7 @@ class ChatManager:
                         assistant_message_id=response_message_id,
                         tool_calls=tool_calls.consume_ready_calls(),
                         accumulator=accumulator,
+                        recorder=recorder,
                     )
         except asyncio.CancelledError:
             self._active_streams.pop(chat.id, None)
@@ -355,6 +362,7 @@ class ChatManager:
         assistant_message_id: str,
         tool_calls: list["_PendingToolCall"],
         accumulator: "_AssistantMessageAccumulator",
+        recorder: "_StreamingTranscriptRecorder",
     ) -> None:
         if not tool_calls:
             return
@@ -362,6 +370,7 @@ class ChatManager:
         for tool_call in tool_calls:
             event = await self._call_tool(tool_call)
             accumulator.apply_event(event)
+            recorder.persist_snapshot(accumulator.message)
             await self._wmh_frontend_sender.send_streaming_response(
                 chatId=chat_id,
                 assistant_message_id=assistant_message_id,
@@ -494,6 +503,19 @@ class _ActiveStream:
         """Return the assistant message as a ChatMessage for merging with history."""
 
         return [ChatMessage.from_llm_message(self.assistant_message)]
+
+
+@dataclass
+class _StreamingTranscriptRecorder:
+    """Persists incremental assistant/tool-call deltas while streaming."""
+
+    chat: Chat
+    persist_chat: Callable[[Chat], None]
+
+    def persist_snapshot(self, assistant_message: LLMMessage) -> None:
+        snapshot = self.chat.model_copy(deep=True)
+        snapshot.add_message(assistant_message)
+        self.persist_chat(snapshot)
 
 
 def _extract_tool_output_text(result: "CallToolResult") -> str | None:
