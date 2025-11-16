@@ -11,7 +11,10 @@ import {
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
-import { encodeModelSelectionKey } from "utils/llmSelection";
+import {
+  decodeModelSelectionKey,
+  encodeModelSelectionKey,
+} from "utils/llmSelection";
 import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
@@ -39,6 +42,72 @@ export function ProjectChat() {
   }, [llmConfigLoaded]);
 
   const [deepThink, setDeepThink] = useState(false);
+
+  const selectedModel = useMemo(() => {
+    if (!llmConfig || !userSelectedLLM) {
+      return null;
+    }
+
+    const selection = decodeModelSelectionKey(userSelectedLLM);
+    if (!selection) {
+      return null;
+    }
+
+    const provider = llmConfig.providers.find(
+      (candidate) => candidate.provider_id === selection.providerId,
+    );
+    if (!provider) {
+      return null;
+    }
+
+    return (
+      provider.models.find(
+        (model) => model.model_id === selection.modelId,
+      ) ?? null
+    );
+  }, [llmConfig, userSelectedLLM]);
+
+  const deepThinkingDisabledReason = useMemo(() => {
+    if (!llmConfigLoaded) {
+      return "Deep Thinking becomes available after the LLM configuration loads.";
+    }
+
+    if (!userSelectedLLM) {
+      return "Select an LLM to enable Deep Thinking.";
+    }
+
+    if (!selectedModel) {
+      return "The selected model is no longer available.";
+    }
+
+    if (!selectedModel.supports_reasoning) {
+      return `${selectedModel.display_name} does not support Deep Thinking.`;
+    }
+
+    return null;
+  }, [llmConfigLoaded, selectedModel, userSelectedLLM]);
+
+  useEffect(() => {
+    if (deepThinkingDisabledReason && deepThink) {
+      setDeepThink(false);
+    }
+  }, [deepThinkingDisabledReason, deepThink]);
+
+  const deepThinkingUnsupportedMessage =
+    selectedModel && !selectedModel.supports_reasoning
+      ? `${selectedModel.display_name} does not support Deep Thinking.`
+      : null;
+
+  const deepThinkingDisabled = Boolean(deepThinkingDisabledReason);
+
+  const deepThinkingButtonClasses = [
+    "nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent dark:hover:bg-transparent",
+    deepThinkingDisabled
+      ? "cursor-not-allowed text-setta-400 hover:text-setta-400 dark:text-setta-600 dark:hover:text-setta-600"
+      : deepThink
+        ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500"
+        : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white",
+  ].join(" ");
 
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(
@@ -99,16 +168,28 @@ export function ProjectChat() {
 
         {viewHistory ? null : (
           <div className="ml-auto flex w-full items-center justify-end gap-2">
-            <button
-              className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${deepThink ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors  focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent  active:dark:text-setta-300`}
-              aria-label="Extended Thinking"
-              onClick={() => {
-                setDeepThink(!deepThink);
-              }}
-            >
-              <BiSolidBrain size={15} />
-              <span className="hidden @[33.5rem]:block">Deep Thinking</span>
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                className={deepThinkingButtonClasses}
+                aria-label="Extended Thinking"
+                disabled={deepThinkingDisabled}
+                title={deepThinkingDisabledReason ?? undefined}
+                onClick={() => {
+                  if (deepThinkingDisabled) {
+                    return;
+                  }
+                  setDeepThink(!deepThink);
+                }}
+              >
+                <BiSolidBrain size={15} />
+                <span className="hidden @[33.5rem]:block">Deep Thinking</span>
+              </button>
+              {deepThinkingUnsupportedMessage ? (
+                <span className="text-[10px] text-setta-400 dark:text-setta-500">
+                  {deepThinkingUnsupportedMessage}
+                </span>
+              ) : null}
+            </div>
 
             <IdNameCombobox
               allItems={filteredModelGroups}

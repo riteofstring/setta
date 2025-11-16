@@ -26,6 +26,7 @@
 - **Streaming lifecycle + cancellation:** `ChatManager` now tracks every in-flight Portkey task, exposes `is_waiting_for_response`/`get_current_stream`, and lets `/stopLLMChat` cancel the active task so the frontend stop button halts generation immediately.
 - **Gateway + provider validation:** Added the `Route.TEST_LLM_CONFIG` endpoint, typed payloads, and backend probes that hit the Portkey gateway’s health route plus each provider’s `/models` listing so the UI can immediately report whether saved credentials/base URLs are reachable.
 - **Streaming persistence:** `_StreamingTranscriptRecorder` snapshots assistant/tool-call deltas to disk during `ChatManager` streams so reconnecting clients always see the latest transcript even if the backend crashed mid-response.
+- **Deep thinking toggle guardrails:** The Project chat view decodes the selected provider/model, disables the Deep Thinking switch whenever `supports_reasoning` is false or no model is selected, and automatically clears the toggle so unsupported combinations never send reasoning requests.
 
 **Remaining Work**
 - **Project-scoped configs**
@@ -48,7 +49,6 @@
 
 - **Frontend follow-ups**
   - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.
-  - Use the `supports_reasoning` flag to drive the Deep Thinking toggle (disable it for models that do not support reasoning, and show why).
   - Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.
 
 - **Testing, docs, and cleanup**
