@@ -62,17 +62,42 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
         );
       }
     }
-    const userSelectedLLM = state.userSelectedLLM || null;
+
+    const existingSelection = state.userSelectedLLM;
     const nextSelection =
-      userSelectedLLM && !availableModels.has(userSelectedLLM)
-        ? null
-        : userSelectedLLM;
+      existingSelection && availableModels.has(existingSelection)
+        ? existingSelection
+        : findDefaultModelSelection(config);
+
     return {
       llmConfig: config,
       llmConfigLoaded: true,
       userSelectedLLM: nextSelection,
     };
   });
+}
+
+function findDefaultModelSelection(config: LLMConfigPayload): string | null {
+  for (const provider of config.providers) {
+    const defaultModelId = provider.default_model_id;
+    if (!defaultModelId) {
+      continue;
+    }
+
+    const hasModel = provider.models.some(
+      (model) => model.model_id === defaultModelId,
+    );
+    if (!hasModel) {
+      continue;
+    }
+
+    return encodeModelSelectionKey({
+      providerId: provider.provider_id,
+      modelId: defaultModelId,
+    });
+  }
+
+  return null;
 }
 
 export async function loadLLMPresets() {

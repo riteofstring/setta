@@ -21,6 +21,7 @@
 - **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
 - **Persisted model selections:** Chats now store their provider/model pair in `Chat.modelSelection`, `GET_LLM_CHAT` returns that selection, and the AI store restores the saved combo so resuming a chat reuses the original credentials automatically.
 - **Live config reloads:** `register_llm_config_watch` now reloads the JSON, notifies `SettaFastAPIState`, and resets `ChatManager` so new providers/keys are honored immediately without restarting the backend.
+- **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
 
 **Remaining Work**
 - **Wire the LLM config into orchestration**
@@ -43,7 +44,7 @@
   - Surface validation/health data: add a `Route.TEST_LLM_CONFIG` endpoint that pings the configured gateway/providers, return structured errors, and show the status next to provider cards in `ProjectLLMSettings`.
 
 - **Frontend follow-ups**
-  - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names), disable the “Send” button until a valid selection exists, and auto-pick each provider’s `default_model_id` after a config save.
+  - Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.
   - Use the `supports_reasoning` flag to drive the Deep Thinking toggle (disable it for models that do not support reasoning, and show why).
   - Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.
 
