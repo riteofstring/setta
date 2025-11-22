@@ -9,6 +9,7 @@ from setta.llm import (
     build_request_context,
     validate_request,
 )
+from setta.llm.config_store import infer_provider_headers, normalize_gateway_url
 from setta.types.llm_config import LLMModelConfigPayload, LLMProviderConfigPayload
 from setta.types.chat_messages import LLMModelSelection
 
@@ -300,6 +301,82 @@ class ConfigRequestContextTests(unittest.TestCase):
                 project_config_id=None,
                 deep_think=False,
             )
+
+    def test_build_request_context_adds_authorization_header(self) -> None:
+        config = LLMConfig(
+            providers=[
+                LLMProviderConfig(
+                    provider_id="openai",
+                    display_name="OpenAI",
+                    api_key="sk-test-key",
+                    models=[
+                        LLMModelConfig(
+                            model_id="gpt-4o",
+                            display_name="GPT-4o",
+                        )
+                    ],
+                )
+            ]
+        )
+        selection = LLMModelSelection(providerId="openai", modelId="gpt-4o")
+
+        context = build_request_context(
+            config,
+            selection,
+            project_config_id=None,
+            deep_think=False,
+        )
+
+        self.assertEqual(
+            context.extra_headers,
+            {"Authorization": "Bearer sk-test-key"},
+        )
+
+
+class ConfigDefaultHelperTests(unittest.TestCase):
+    def test_infer_provider_headers_promotes_api_key(self) -> None:
+        provider = LLMProviderConfig(
+            provider_id="openai",
+            display_name="OpenAI",
+            api_key="sk-test",
+        )
+
+        headers = infer_provider_headers(provider)
+
+        self.assertEqual(headers, {"Authorization": "Bearer sk-test"})
+
+    def test_infer_provider_headers_respects_existing_authorization(self) -> None:
+        provider = LLMProviderConfig(
+            provider_id="openai",
+            display_name="OpenAI",
+            api_key="sk-test",
+            extra_headers={"Authorization": "Token existing"},
+        )
+
+        headers = infer_provider_headers(provider)
+
+        self.assertEqual(headers, {"Authorization": "Token existing"})
+
+    def test_infer_provider_headers_can_skip_authed_header(self) -> None:
+        provider = LLMProviderConfig(
+            provider_id="openai",
+            display_name="OpenAI",
+            api_key="sk-test",
+        )
+
+        headers = infer_provider_headers(provider, include_authorization=False)
+
+        self.assertIsNone(headers)
+
+    def test_normalize_gateway_url_appends_version_path(self) -> None:
+        normalized = normalize_gateway_url("http://127.0.0.1:8787/")
+
+        self.assertEqual(normalized, "http://127.0.0.1:8787/v1")
+
+    def test_normalize_gateway_url_preserves_existing_path(self) -> None:
+        normalized = normalize_gateway_url("http://example.com/api/v2")
+
+        self.assertEqual(normalized, "http://example.com/api/v2")
 
 
 if __name__ == "__main__":

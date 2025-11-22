@@ -2,7 +2,12 @@
 
 from portkey_ai import Portkey
 
-from setta.llm.config_store import LLMConfig, LLMProviderConfig
+from setta.llm.config_store import (
+    LLMConfig,
+    LLMProviderConfig,
+    infer_provider_headers,
+    normalize_gateway_url,
+)
 from setta.types.llm_config import (
     LLMConfigTestResultPayload,
     LLMGatewayTestResultPayload,
@@ -45,13 +50,17 @@ def _test_gateway(
     *,
     timeout: float,
 ) -> LLMGatewayTestResultPayload:
+    health_base_url = _health_base_url(gateway_url)
     candidates = list(_gateway_health_candidates())
-    client = Portkey(base_url=gateway_url, request_timeout=timeout)
+    client = Portkey(
+        base_url=health_base_url,
+        request_timeout=_portkey_timeout_ms(timeout),
+    )
     errors: list[str] = []
 
     for path in candidates:
         ok, detail = _portkey_health_check(client, path)
-        url = _combine_url(gateway_url, path)
+        url = _combine_url(health_base_url, path)
         if ok:
             return LLMGatewayTestResultPayload(ok=True, url=url)
         errors.append(f"{url}: {detail}")
@@ -73,8 +82,8 @@ def _test_provider(
     fallback_gateway_url: str,
     timeout: float,
 ) -> LLMProviderTestResultPayload:
-    base_url = provider.base_url or fallback_gateway_url
-    headers = dict(provider.extra_headers or {})
+    base_url = normalize_gateway_url(provider.base_url or fallback_gateway_url)
+    headers = infer_provider_headers(provider) or {}
     header_names = {key.lower() for key in headers}
     missing_authorization = not provider.api_key and "authorization" not in header_names
 
@@ -86,7 +95,7 @@ def _test_provider(
         api_key=provider.api_key or None,
         base_url=base_url,
         provider=provider.provider_id,
-        request_timeout=timeout,
+        request_timeout=_portkey_timeout_ms(timeout),
     )
 
     errors: list[LLMProviderTestErrorPayload] = []
@@ -141,6 +150,7 @@ def _iter_scoped_providers(
 
 def _gateway_health_candidates() -> list[str]:
     return [
+        "/",
         "/health",
         "/v1/health",
         "/portkey-ai/gateway/health",
@@ -177,6 +187,17 @@ def _combine_url(base_url: str, path: str) -> str:
 
 def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/")
+
+
+def _health_base_url(gateway_url: str) -> str:
+    trimmed = gateway_url.rstrip("/")
+    if trimmed.endswith("/v1"):
+        return trimmed[: -len("/v1")]
+    return trimmed
+
+
+def _portkey_timeout_ms(timeout_seconds: float) -> int:
+    return int(timeout_seconds * 1000)
 
 
 def _trim_error(value: str) -> str:

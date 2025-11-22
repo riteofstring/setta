@@ -9,6 +9,7 @@ from setta.llm.config_store import (
     LLMProviderConfig,
     add_preset_to_config,
     config_to_payload,
+    infer_provider_headers,
     load_llm_config,
     payload_to_config,
     resolve_model_selection,
@@ -121,7 +122,7 @@ def build_request_context(
         model=resolved.model,
         project_config_id=resolved.project_config_id,
         request_params=request_params,
-        extra_headers=_clone_headers(resolved.provider.extra_headers),
+        extra_headers=infer_provider_headers(resolved.provider),
     )
 
 
@@ -132,9 +133,3 @@ def _resolve_project_scope(
     if project_config_id is not None:
         return project_config_id
     return config.default_project_config_id
-
-
-def _clone_headers(headers: dict[str, str] | None) -> dict[str, str] | None:
-    if headers is None:
-        return None
-    return dict(headers)

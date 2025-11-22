@@ -20,6 +20,7 @@ from setta.llm import (
     ToolResultEvent,
 )
 from setta.llm.config_api import build_request_context
+from setta.llm.config_store import normalize_gateway_url
 from setta.llm.portkey_adapter import (
     astream_portkey_response,
     build_portkey_payload,
@@ -404,7 +405,9 @@ class ChatManager:
     def _build_portkey_client(self, provider: LLMProviderConfig) -> AsyncPortkey:
         """Construct a Portkey client that talks to the configured gateway or provider."""
 
-        base_url = provider.base_url or self._llm_config.gateway_url
+        base_url = normalize_gateway_url(
+            provider.base_url or self._llm_config.gateway_url
+        )
         api_key = provider.api_key or None
         return AsyncPortkey(
             api_key=api_key,

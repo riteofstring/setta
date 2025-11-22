@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse, urlunparse
 
 from setta.llm.constants import CONFIG_PATH, DEFAULT_GATEWAY_URL
 from setta.llm.models import JSONValue
@@ -259,6 +260,49 @@ def build_llm_request_params(
         params["reasoning"] = reasoning_payload
 
     return params or None
+
+
+def infer_provider_headers(
+    provider: LLMProviderConfig,
+    *,
+    include_authorization: bool | None = None,
+) -> dict[str, str] | None:
+    """Merge explicit headers with optional Authorization inference.
+
+    include_authorization:
+        - True: add Authorization from api_key when not present.
+        - False: never derive Authorization, but keep any user-specified header.
+        - None: add Authorization only when api_key is set and no Authorization header exists.
+    """
+
+    headers = _clone_headers(provider.extra_headers)
+    has_auth_header = _has_authorization_header(headers)
+
+    if include_authorization is None:
+        include_authorization = bool(provider.api_key) and not has_auth_header
+
+    if include_authorization and provider.api_key and not has_auth_header:
+        headers = headers or {}
+        headers["Authorization"] = f"Bearer {provider.api_key}"
+
+    return headers or None
+
+
+def normalize_gateway_url(base_url: str) -> str:
+    """Append a versioned path when the gateway URL points at the bare host."""
+
+    trimmed = base_url.rstrip("/")
+    parsed = urlparse(trimmed)
+    if parsed.scheme and parsed.netloc:
+        path = parsed.path.rstrip("/")
+        normalized_path = path if path not in {"", "/"} else "/v1"
+        normalized = parsed._replace(path=normalized_path)
+        rebuilt = urlunparse(normalized)
+        return rebuilt.rstrip("/")
+
+    if trimmed.endswith("/v1"):
+        return trimmed
+    return f"{trimmed}/v1"
 
 
 def _llm_config_to_full_payload(config: LLMConfig) -> LLMConfigPayload:

@@ -21,6 +21,7 @@ _BUNDLED_GATEWAY_DIR = (
 )
 _BUNDLED_GATEWAY_START = _BUNDLED_GATEWAY_DIR / "build" / "start-server.js"
 _BUNDLED_GATEWAY_DEPS = ("@hono/node-server", "hono")
+_HEALTH_PATHS = ("", "v1/health", "portkey-ai/gateway/health")
 
 
 def has_bundled_gateway() -> bool:
@@ -142,9 +143,10 @@ class DevGatewayManager:
         )
 
     def _is_healthy(self) -> bool:
-        normalized = self._gateway_url.rstrip("/")
-        for path in ("v1/health", "portkey-ai/gateway/health"):
-            if _check_health(f"{normalized}/{path}"):
+        base_url = _health_base_url(self._gateway_url)
+        for path in _HEALTH_PATHS:
+            url = base_url if not path else f"{base_url}/{path}"
+            if _check_health(url):
                 return True
         return _check_socket(self._gateway_url)
 
@@ -183,3 +185,10 @@ def _bundled_gateway_dependencies_present() -> bool:
             return False
 
     return True
+
+
+def _health_base_url(gateway_url: str) -> str:
+    trimmed = gateway_url.rstrip("/")
+    if trimmed.endswith("/v1"):
+        return trimmed[: -len("/v1")]
+    return trimmed
