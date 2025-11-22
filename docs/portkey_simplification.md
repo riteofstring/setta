@@ -14,10 +14,10 @@
 - Validation runs through the SDK: `models.list()` and gateway health via Portkey so runtime and probes share the same auth/base URL setup.
 - Presets remain the UX focus; broaden catalog as needed without reintroducing routing complexity.
 
-## Open items to confirm/decide
-- Portkey routing with provider keys: confirmed we can stick to the minimal Portkey fields (`api_key`, `base_url`/gateway URL, and `provider`) with no `x-portkey-provider` header; payloads stay OpenAI-shaped and rely on the provider flag.
-- Chunk shapes: if Portkey always emits OpenAI-format deltas, the adapter stays tiny; if provider-specific shapes appear, we may need a narrow switch but still inside `ChatManager`.
-- Preset breadth: expanding presets to Google/xAI/etc. aligns with the UX goal of populated dropdowns—confirm this expectation for the frontend.
+## Status of open items
+- **Portkey routing with provider keys:** Confirmed—stay on minimal fields (`api_key`, `base_url`/gateway URL, `provider`), no `x-portkey-provider` header, OpenAI-shaped payloads.
+- **Chunk shapes:** Still to verify against real streams; if provider-specific shapes show up we’ll add a narrow switch inside `ChatManager`, otherwise keep the thin adapter.
+- **Preset breadth:** Pending decision on how wide the catalog should go (Google/xAI/etc. already present); align with frontend UX expectations.
 
 ## Proposed plan
 1) Maintain the flattened stack: keep `ChatManager` + Portkey SDK only.
