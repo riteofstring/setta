@@ -89,7 +89,9 @@ class DevGatewayManager:
 
     def _launch_bundled_gateway(self) -> subprocess.Popen[str]:
         if not self._node_path:
-            raise RuntimeError("Node.js is required to launch the bundled Portkey gateway.")
+            raise RuntimeError(
+                "Node.js is required to launch the bundled Portkey gateway."
+            )
 
         if not has_bundled_gateway():
             raise RuntimeError("Bundled Portkey gateway assets are missing.")

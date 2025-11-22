@@ -61,6 +61,7 @@ class LLMProviderTestErrorPayload(BaseModel):
 class LLMProviderTestResultPayload(BaseModel):
     provider_id: str
     display_name: str
+    project_config_id: str | None = None
     base_url: str | None = None
     ok: bool = False
     errors: list[LLMProviderTestErrorPayload] = Field(default_factory=list)

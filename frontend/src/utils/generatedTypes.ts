@@ -8074,6 +8074,7 @@ export function createLLMProviderTestErrorPayload(
 export const LLMProviderTestResultPayloadSchema = z.object({
   provider_id: z.string(),
   display_name: z.string(),
+  project_config_id: z.union([z.string(), z.null()]).default(null),
   base_url: z.union([z.string(), z.null()]).default(null),
   ok: z.boolean().default(false),
   errors: z.array(LLMProviderTestErrorPayloadSchema).default([]),

@@ -22,14 +22,21 @@ def test_llm_config(
     """Run connectivity checks for the configured gateway + providers."""
 
     gateway = _test_gateway(llm_config.gateway_url, timeout=timeout)
-    providers = [
-        _test_provider(
-            provider,
-            fallback_gateway_url=llm_config.gateway_url,
-            timeout=timeout,
+    providers = []
+    seen_scopes: set[tuple[str | None, str]] = set()
+    for project_config_id, scoped_provider in _iter_scoped_providers(llm_config):
+        scope_key = (project_config_id, scoped_provider.provider_id)
+        if scope_key in seen_scopes:
+            continue
+        seen_scopes.add(scope_key)
+        providers.append(
+            _test_provider(
+                scoped_provider,
+                project_config_id=project_config_id,
+                fallback_gateway_url=llm_config.gateway_url,
+                timeout=timeout,
+            )
         )
-        for provider in llm_config.iter_all_providers()
-    ]
     return LLMConfigTestResultPayload(gateway=gateway, providers=providers)
 
 
@@ -62,6 +69,7 @@ def _test_gateway(
 def _test_provider(
     provider: LLMProviderConfig,
     *,
+    project_config_id: str | None,
     fallback_gateway_url: str,
     timeout: float,
 ) -> LLMProviderTestResultPayload:
@@ -87,6 +95,7 @@ def _test_provider(
         return LLMProviderTestResultPayload(
             provider_id=provider.provider_id,
             display_name=provider.display_name,
+            project_config_id=project_config_id,
             base_url=_normalize_base_url(base_url),
             ok=True,
             errors=[],
@@ -111,10 +120,23 @@ def _test_provider(
     return LLMProviderTestResultPayload(
         provider_id=provider.provider_id,
         display_name=provider.display_name,
+        project_config_id=project_config_id,
         base_url=_normalize_base_url(base_url),
         ok=False,
         errors=errors,
     )
+
+
+def _iter_scoped_providers(
+    llm_config: LLMConfig,
+) -> list[tuple[str | None, LLMProviderConfig]]:
+    scoped: list[tuple[str | None, LLMProviderConfig]] = [
+        (None, provider) for provider in llm_config.providers
+    ]
+    for project_config_id, project in llm_config.project_configs.items():
+        for provider in project.providers:
+            scoped.append((project_config_id, provider))
+    return scoped
 
 
 def _gateway_health_candidates() -> list[str]:

@@ -130,8 +130,16 @@ export function ProjectLLMSettings() {
     if (!testResult) {
       return new Map<string, LLMProviderTestResultPayload>();
     }
+    const defaultScopeProviders = testResult.providers.filter(
+      (provider) =>
+        provider.project_config_id === null ||
+        provider.project_config_id === undefined,
+    );
     return new Map(
-      testResult.providers.map((provider) => [provider.provider_id, provider]),
+      defaultScopeProviders.map((provider) => [
+        provider.provider_id,
+        provider,
+      ]),
     );
   }, [testResult]);
 

@@ -68,8 +68,11 @@ export function notifyLLMConfigTestResult(
   const failingProviders = result.providers.filter((provider) => !provider.ok);
   for (const provider of failingProviders) {
     const detail = provider.errors[0]?.message || "Provider check failed";
+    const scopeLabel = provider.project_config_id
+      ? `${provider.display_name} (project ${provider.project_config_id})`
+      : provider.display_name;
     addTemporaryNotification(
-      `${provider.display_name}: ${detail}`,
+      `${scopeLabel}: ${detail}`,
       SettaNotificationTypeEnum.error,
     );
   }
