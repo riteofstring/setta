@@ -1,63 +1,36 @@
+**Goal**
+- Enable chatting with a wide range of LLMs (OpenAI, Anthropic, Google, Mistral, xAI, etc.) via Portkey.
+- Let those LLMs invoke Setta MCP tools and stream tool calls/results live.
+- Stream chats and tool outputs into the frontend when connected, while persisting transcripts for reconnects and headless runs.
+- Make LLM configuration easy in the frontend (API keys, base URLs, presets) while still allowing raw JSON edits to `setta_files/llm_config.json`.
+
 **Guiding Principles**
-- This initiative is a full-stack overhaul, not a piecemeal patch. Prefer deleting brittle Anthropic-era code and rewriting around the new abstractions instead of layering compatibility shims.
-- "No backwards compatibility" refers to the legacy Anthropic stack: we can break old chats/config formats or delete unused code without worrying about old consumers, but the new Portkey paths can evolve freely without temporary bridges to the old world.
-- Favor cohesive modules (e.g., `setta.llm.*`, config stores, orchestrator) even if it means moving large chunks of logic or renaming APIs; the end goal is a maintainable Portkey-first stack.
+- Full-stack overhaul; prefer deleting legacy Anthropic-era paths over compatibility shims.
+- Portkey-first design; cohesive modules (config, transport, state machine, persistence) beat piecemeal fixes.
+- No backward compatibility guarantees for old chat/config formats.
 
-**Key Findings**
-- Deep-thinking / per-model parameterization is not hooked up. `_build_request_params` returns `None`, the `supports_reasoning` flag inside the config is unused, and there is no `TEST_LLM_CONFIG` or other validation route to ensure the Portkey gateway is reachable with the provided provider keys.
-- The backend never reloads runtime state when `setta_files/llm_config.json` changes—the watcher only broadcasts to the UI—so the orchestrator would continue using stale credentials even after the user saves new ones. We also removed the old chat tests (`tests/project_state/chats/test_chats.py`) without replacing them, leaving the new `setta.llm` models, Portkey adapter, and chat persistence flows completely untested.
+**Current State**
+- Portkey transport is wired end-to-end: provider/model selections are required, provider-scoped clients cache credentials, and gateway health/provider tests exist.
+- Neutral LLM models and chat persistence are in place: messages store structured blocks, stream status is persisted, tool results are recorded, and reconnect hydration merges active streams.
+- Config UX is live: preset-aware editor with GET/SET/TEST routes, project-scoped configs, default selection handling, and notification surfacing for failures.
+- Deep thinking/reasoning requests respect per-model support and default parameters; chat requests validate credentials up front.
+- Gateway assets ship with the package and a dev helper can auto-start the bundled gateway.
 
-**Completed So Far**
-- **Backend abstraction:** Added `backend/setta/llm/models.py` with normalized `LLMMessage`/`LLMStreamEvent` models and rewired `backend/setta/mcp/chat_manager.py` to stream directly via provider-scoped Portkey clients while accumulating tool calls/results with structured events.
-- **Tool + persistence overhaul:** `backend/setta/mcp/client.py` emits OpenAI-compatible tool definitions, `ChatMessage`/`Chat` in `backend/setta/types/chat_messages.py` now persist neutral content blocks, and websocket payloads send serialized `LLMStreamEvent`s instead of Anthropic SDK objects. Tool results are broadcast immediately and stored as `LLMToolResultBlock`s.
-- **Frontend event pipeline:** `frontend/src/state/actions/ai.ts`, `ProjectChatCore.tsx`, and related helpers consume the new message_started/text_delta/tool_call/tool_result events, push deltas into code/text sections via `streamInto`, and drop all Anthropic chunk handling and fake blocks.
-- **Gateway config UX:** Introduced `backend/setta/llm/config_store.py`, `config_watch.py`, and `backend/setta/types/llm_config.py`, plus GET/SET routes in `backend/setta/routers/ai.py`. The frontend exposes the Config editor (`ProjectLLMSettings.tsx`), listens for `LLMConfigUpdated` websocket events, and surfaces provider/model presets via `backend/setta/llm/presets.py` and the new `GET_LLM_PRESETS` endpoint. `.env`-based API-key plumbing and hard-coded `MODEL_GROUPS` were removed in favor of the persisted JSON config.
-- **Baseline cleanup:** Removed noisy debug prints from `/getLLMResponse`, trimmed websocket console spam, and taught the AI store to clear stale `userSelectedLLM` values whenever the config drops a model so the UI never references deleted entries after a save.
-- **Server wiring:** `SettaFastAPIState` now loads `llm_config.json`, keeps the parsed `LLMConfig` on the app state, and injects it into `ChatManager`, which now builds provider-scoped Portkey clients targeting the configured gateway URL. The next steps are to thread provider/model selections and keys into that orchestrator path.
-- **Provider-aware orchestration:** `ChatManager.process_query` resolves `{providerId, modelId}` via `resolve_model_selection`, builds a provider-scoped Portkey client that carries API keys/base URLs/extra headers/default parameters, and streams each response with the concrete model ID instead of the legacy plain string.
-- **Provider-scoped Portkey clients:** `ChatManager` now caches Portkey clients per provider so chatting with OpenAI vs Anthropic uses the correct API key, base URL, and headers immediately after the config reloads—no more sharing the first client for every provider.
-- **Model defaults + reasoning toggle:** `_build_request_params` finally merges each model’s `default_parameters` and attaches Portkey’s `reasoning` payload whenever Deep Thinking is enabled on a model that declares `supports_reasoning`, so the gateway receives the right knobs automatically.
-- **Config selection guardrails:** Introduced `resolve_model_selection` so every chat request fails fast when a provider/model ID is missing, paving the way for credential-aware orchestration without silent fallbacks.
-- **Provider-aware chat selection:** `/getLLMResponse` now requires a `{ providerId, modelId }` payload, `ChatManager` accepts the structured selection, and the legacy plain `model` string has been removed so future work can locate provider credentials.
-- **Frontend provider selection:** The chat combobox now tracks `{ providerId, modelId }`, serializing the pair with helper utilities so `/getLLMResponse` always receives the provider context instead of the legacy `model_id`.
-- **Structured chat selection gating:** The AI store now persists `{ providerId, modelId, displayName }` objects per project, `ProjectChat.tsx` hydrates combobox options from presets/config, and `ChatInput` refuses to send or accept text until a valid provider/model is picked, preventing request without credentials.
-- **Persisted model selections:** Chats now store their provider/model pair in `Chat.modelSelection`, `GET_LLM_CHAT` returns that selection, and the AI store restores the saved combo so resuming a chat reuses the original credentials automatically.
-- **Live config reloads:** `register_llm_config_watch` now reloads the JSON, notifies `SettaFastAPIState`, and resets `ChatManager` so new providers/keys are honored immediately without restarting the backend.
-- **Default model auto-selection:** The AI store now reuses an existing provider/model choice only when it still exists in the config and otherwise auto-selects the first provider default (`default_model_id`) so the UI always has a concrete selection once the config loads.
-- **Streaming lifecycle + cancellation:** `ChatManager` now tracks every in-flight Portkey task, exposes `is_waiting_for_response`/`get_current_stream`, and lets `/stopLLMChat` cancel the active task so the frontend stop button halts generation immediately.
-- **Gateway + provider validation:** Added the `Route.TEST_LLM_CONFIG` endpoint, typed payloads, and backend probes that hit the Portkey gateway’s health route plus each provider’s `/models` listing so the UI can immediately report whether saved credentials/base URLs are reachable.
-- **Streaming persistence:** `_StreamingTranscriptRecorder` snapshots assistant/tool-call deltas to disk during `ChatManager` streams so reconnecting clients always see the latest transcript even if the backend crashed mid-response.
-- **Deep thinking toggle guardrails:** The Project chat view decodes the selected provider/model, disables the Deep Thinking switch whenever `supports_reasoning` is false or no model is selected, and automatically clears the toggle so unsupported combinations never send reasoning requests.
-- **Gateway validation UI:** The settings panel now runs `TEST_LLM_CONFIG` before saving, surfaces gateway/provider health badges with inline errors, and blocks invalid configs so users always know when the Portkey gateway or provider credentials fail.
-- **SDK-driven validation:** Backend LLM config tests now use the Portkey SDK (gateway health + `models.list()`) so probes mirror runtime auth/base URL/provider selection instead of raw HTTP header guesses.
-- **Reconnection hydration:** When the websocket connection opens we immediately refetch the active chat, merging the persisted assistant snapshot with `_active_streams` so reconnecting tabs resume in-flight responses without manual navigation.
-- **Streaming status persistence:** Each chat now records a `streamStatus`, we flip it when orchestration starts/completes/cancels, and the frontend surfaces the persisted state so reloads still show whether a response is in flight.
-- **Preset-aware backend config:** `LLMConfig` now accepts provider/model `preset_id`s, hydrates missing fields from `backend/setta/llm/presets.py`, and serializes only the overrides, so `llm_config.json` can stay minimalist while still expanding to full runtime metadata.
-- **Reasoning request enforcement:** `_build_request_params` now deep-clones each model’s `default_parameters`, refuses Deep Thinking requests for models that lack `supports_reasoning`, and injects a sane `reasoning` payload (with a default `effort`) so Portkey receives the per-model defaults consistently.
-- **Project ID tracking:** Chats now persist their `projectConfigId`, backend responses expose it, and metadata loaders understand the new field so future project-scoped configs can reload the exact credentials used when the chat was created.
-- **Project-scoped selection memory:** The frontend keeps `userSelectedLLM` values keyed by `projectConfigId`, restoring the last provider/model combo whenever the user switches projects so we can drop the legacy global selection.
-- **Project-aware provider resolution:** Backend config lookups now honor `project_config_id`, so chats resolve providers/models from their project slice of `llm_config.json` and orchestrators cache per-project credentials instead of relying on the global config.
-- **Preset-driven editor foundation:** `ProjectLLMSettings` now carries provider/model `preset_id`s through the zod schemas, hydrates project-scoped config fields, tags catalog entries in the UI, and sends structured payloads so backend diffing can persist only the user’s overrides.
-- **Preset override persistence:** The config store now serializes only preset references plus explicit overrides (API keys, renamed labels, tweaked defaults), `payload_to_config` feeds sparse payloads straight through the preset merger, and the editor diffs against catalog providers so saving rewrites `llm_config.json` with concise overrides instead of duplicating preset metadata.
-- **Preset reset UX:** The provider editor exposes a `Reset to preset` button that rehydrates an existing provider from its catalog entry while preserving API keys/headers, so users can pull in the latest preset metadata without manually deleting and re-adding providers.
-- **Dev gateway auto-start:** The backend `setta start` entrypoint now wires through a `DevGatewayManager` that shells out to `pnpm exec gateway` whenever `SETTA_DEV_MODE=true`, waits for the local Portkey health checks before bringing up FastAPI, and respects `SETTA_SKIP_LOCAL_GATEWAY` so contributors can opt out.
-- **Gateway routing via provider flag:** `ChatManager` now leans on the Portkey `provider` parameter (plus per-provider base URLs/keys) instead of custom `x-portkey-provider` headers, and `TEST_LLM_CONFIG` mirrors the same SDK path during its health probes so configs validate without custom `extra_headers`.
-- **Config error surfacing:** `ProjectLLMSettings` and the chat view now read shared `llmConfigError` state, show inline banners, and gate auto-validation when load/save/test calls fail so users immediately see gateway/provider issues.
-- **Bundled gateway artifacts:** The `@portkey-ai/gateway` CLI bundle (build output + deps) now lives under `backend/setta/static/portkey_gateway`, `build.sh` syncs it from the frontend dependencies, `pyproject.toml` ships the entire `static/` tree, and `test_install.sh` smoke-tests the bundle so `pip install setta` carries the gateway with the frontend.
-- **Chunk adapter regression tests:** `tests/llm/test_chat_manager_simplification.py` covers response.completed chunks, string content with stream targets, and tool-call deltas to lock the thin Portkey adapter in place.
+**Open Gaps (refactor scope)**
+- Layer the chat pipeline: Portkey transport adapter → stream state machine (status, tool-call accumulation, cancellation) → persistence/metadata; centralize request-context building (credentials, headers, defaults).
+- Normalize config/preset merging in one module with a minimal API (`load/save`, payload conversions, `add_preset`, `resolve_selection`, `validate_request`) and explicit project scoping.
+- Centralize frontend streaming status updates and selection/config sanitization in shared helpers instead of scattered chunk handlers.
+- Broaden tests to cover state-machine flows (happy path, cancel, tool-call completion, snapshot interval) and config normalization (preset overrides, project scoping, reasoning/credential validation).
 
-**Remaining Work**
-- **Preset-driven configuration UX**
-  - ~~  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.~~
+**Completed Highlights**
+- Neutral LLM models + Portkey adapter with provider-scoped clients and selection guardrails.
+- Persisted chat state: structured content blocks, stream status, tool results, reconnection hydration, and stop/cancel support.
+- Config UX + presets + validation: editor, GET/SET/TEST endpoints, project-scoped configs, default selection/gating, and inline error surfacing.
+- Deep thinking + model defaults enforced per-model with reasoning payloads.
+- Gateway bundling + dev auto-start helper for local Portkey.
+- Frontend selection gating and streaming pipeline for message/text/tool events.
+- Notifications/logging for LLM/config failures.
+- Tests/docs: adapter + persistence + config suites; Portkey config workflow documented.
 
-- **Frontend follow-ups**
-  - ~~Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.~~
-  - ~~Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.~~
-
-- **Testing, docs, and cleanup**
-  - ~~Replace the deleted `tests/project_state/chats/test_chats.py` with new suites that cover `setta.llm` serialization, Portkey chunk normalization (mocking the SDK), MCP tool execution, and chat persistence round-trips (`python -m unittest discover tests`).~~ (new `tests/llm/test_chat_persistence.py` + adapter tests)
-  - ~~Document the new config file + Portkey gateway workflow in `docs/`/`README`, including manual verification steps (e.g., start the self-hosted gateway, run `pnpm start`, send a chat, verify tool streaming).~~ (`docs/portkey_config_workflow.md`)
-  - ~~Remove remaining `.env`-centric constants/watchers once the config-driven flow is live, and add structured logging around `LLMOrchestrator` so failures (invalid API key, tool errors) are visible to both logs and frontend notifications.~~ (env-key constants dropped, orchestration logs + frontend notifications on failures)
-- **Remaining work:** none; the Portkey gateway bundle now ships with the package alongside the frontend assets.
-
-Progress on the items above will fully activate the Portkey-powered stack: the UI already edits `setta_files/llm_config.json`, and the backend now has neutral LLM models, so wiring those configs into the orchestrator, cancelation flow, and validation/tests are the last major blockers.
+**Note**
+- Immediate regressions to fix before continuing the refactor are tracked in `docs/llm_simplification_plan.md`.
