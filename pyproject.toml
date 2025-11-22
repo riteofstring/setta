@@ -64,7 +64,6 @@ include = [
 [tool.hatch.build]
 artifacts = [
     "backend/setta/static/frontend/**",
-    "backend/setta/static/portkey_gateway/**",
 ]
 
 # UV-specific configuration

@@ -60,8 +60,6 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        if app.state.setta.local_gateway:
-            app.state.setta.local_gateway.stop(force=True)
         app.state.setta.specific_file_watcher.stop()
         await app.state.setta.mcp_client.stop()
         await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
