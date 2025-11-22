@@ -366,7 +366,9 @@ class ChatManager:
 
         base_url = provider.base_url or self._llm_config.gateway_url
         api_key = provider.api_key or None
-        default_request_params = self._build_default_request_params(provider)
+        default_request_params = self._build_default_request_params(
+            provider, base_url
+        )
         return PortkeyClient(
             api_key=api_key,
             base_url=base_url,
@@ -374,12 +376,41 @@ class ChatManager:
         )
 
     def _build_default_request_params(
-        self, provider: LLMProviderConfig
+        self,
+        provider: LLMProviderConfig,
+        base_url: str | None,
     ) -> dict[str, object] | None:
-        headers = provider.extra_headers
+        headers = self._build_gateway_headers(provider, base_url)
         if not headers:
             return None
-        return {"extra_headers": dict(headers)}
+        return {"extra_headers": headers}
+
+    def _build_gateway_headers(
+        self,
+        provider: LLMProviderConfig,
+        base_url: str | None,
+    ) -> dict[str, str] | None:
+        headers: dict[str, str] = dict(provider.extra_headers or {})
+        if self._should_inject_gateway_provider_header(provider, base_url):
+            headers.setdefault("x-portkey-provider", provider.provider_id)
+        return headers or None
+
+    def _should_inject_gateway_provider_header(
+        self,
+        provider: LLMProviderConfig,
+        base_url: str | None,
+    ) -> bool:
+        if not base_url:
+            return False
+        normalized_base = base_url.rstrip("/")
+        normalized_gateway = (self._llm_config.gateway_url or "").rstrip("/")
+        if not normalized_gateway:
+            return False
+        if normalized_base == normalized_gateway:
+            return True
+        if normalized_base == f"{normalized_gateway}/v1":
+            return True
+        return False
 
     def _build_request_params(
         self, *, deep_think: bool, model: LLMModelConfig | None

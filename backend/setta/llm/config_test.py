@@ -24,7 +24,12 @@ def test_llm_config(
 ) -> LLMConfigTestResultPayload:
     """Run connectivity checks for the configured gateway + providers."""
 
-    gateway = _test_gateway(llm_config.gateway_url, timeout=timeout)
+    gateway_provider = _pick_gateway_probe_provider(llm_config)
+    gateway = _test_gateway(
+        llm_config.gateway_url,
+        timeout=timeout,
+        provider_for_headers=gateway_provider,
+    )
     providers = [
         _test_provider(
             provider,
@@ -40,12 +45,14 @@ def _test_gateway(
     gateway_url: str,
     *,
     timeout: float,
+    provider_for_headers: LLMProviderConfig | None,
 ) -> LLMGatewayTestResultPayload:
     candidates = list(_gateway_health_candidates(gateway_url))
     errors: list[str] = []
+    headers = _gateway_probe_headers(provider_for_headers, gateway_url)
 
     for url in candidates:
-        ok, detail = _http_get(url, timeout=timeout)
+        ok, detail = _http_get(url, headers=headers, timeout=timeout)
         if ok:
             return LLMGatewayTestResultPayload(ok=True, url=url)
         errors.append(f"{url}: {detail}")
@@ -71,6 +78,8 @@ def _test_provider(
     base_url = provider.base_url or fallback_gateway_url
     candidates = list(_provider_models_candidates(base_url))
     headers = dict(provider.extra_headers or {})
+    if _should_use_gateway_headers(base_url, fallback_gateway_url):
+        headers.setdefault("x-portkey-provider", provider.provider_id)
     header_names = {key.lower() for key in headers}
     if provider.api_key and "authorization" not in header_names:
         headers["Authorization"] = f"Bearer {provider.api_key}"
@@ -157,6 +166,27 @@ def _gateway_health_candidates(gateway_url: str) -> Iterable[str]:
     return _dedupe(urls)
 
 
+def _pick_gateway_probe_provider(
+    llm_config: LLMConfig,
+) -> LLMProviderConfig | None:
+    providers = llm_config.iter_all_providers()
+    if providers:
+        return providers[0]
+    return None
+
+
+def _gateway_probe_headers(
+    provider: LLMProviderConfig | None,
+    gateway_url: str,
+) -> dict[str, str] | None:
+    if provider is None:
+        return None
+    base_url = provider.base_url or gateway_url
+    if not _should_use_gateway_headers(base_url, gateway_url):
+        return None
+    return {"x-portkey-provider": provider.provider_id}
+
+
 def _provider_models_candidates(base_url: str) -> Iterable[str]:
     normalized = _normalize_base_url(base_url)
     if not normalized:
@@ -174,6 +204,23 @@ def _provider_models_candidates(base_url: str) -> Iterable[str]:
 
 def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/")
+
+
+def _should_use_gateway_headers(
+    base_url: str | None,
+    gateway_url: str,
+) -> bool:
+    if not base_url:
+        return True
+    normalized_base = base_url.rstrip("/")
+    normalized_gateway = gateway_url.rstrip("/")
+    if not normalized_gateway:
+        return False
+    if normalized_base == normalized_gateway:
+        return True
+    if normalized_base == f"{normalized_gateway}/v1":
+        return True
+    return False
 
 
 def _strip_suffix(value: str, suffix: str) -> str:

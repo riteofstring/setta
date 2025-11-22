@@ -39,6 +39,8 @@
 - **Preset-driven editor foundation:** `ProjectLLMSettings` now carries provider/model `preset_id`s through the zod schemas, hydrates project-scoped config fields, tags catalog entries in the UI, and sends structured payloads so backend diffing can persist only the user’s overrides.
 - **Preset override persistence:** The config store now serializes only preset references plus explicit overrides (API keys, renamed labels, tweaked defaults), `payload_to_config` feeds sparse payloads straight through the preset merger, and the editor diffs against catalog providers so saving rewrites `llm_config.json` with concise overrides instead of duplicating preset metadata.
 - **Preset reset UX:** The provider editor exposes a `Reset to preset` button that rehydrates an existing provider from its catalog entry while preserving API keys/headers, so users can pull in the latest preset metadata without manually deleting and re-adding providers.
+- **Dev gateway auto-start:** The backend `setta start` entrypoint now wires through a `DevGatewayManager` that shells out to `pnpm exec gateway` whenever `SETTA_DEV_MODE=true`, waits for the local Portkey health checks before bringing up FastAPI, and respects `SETTA_SKIP_LOCAL_GATEWAY` so contributors can opt out.
+- **Gateway header injection:** `ChatManager` now injects the `x-portkey-provider` header whenever a provider proxies through the bundled gateway, and `TEST_LLM_CONFIG` mirrors the same header during its health probes so configs validate without custom `extra_headers`.
 
 **Remaining Work**
 - **Preset-driven configuration UX**
@@ -54,6 +56,5 @@
   - Remove remaining `.env`-centric constants/watchers once the config-driven flow is live, and add structured logging around `LLMOrchestrator` so failures (invalid API key, tool errors) are visible to both logs and frontend notifications.
 - **Local gateway bundling + lifecycle**
   - Vendor the `@portkey-ai/gateway` CLI bundle (the same artifacts `npx @portkey-ai/gateway` launches) inside the Python package, update `pyproject.toml`/`build.sh` to ship it with the wheel, and add smoke checks so `pip install setta` includes the bundled gateway alongside the frontend assets.
-  - Teach `SettaFastAPIState` (and the dev scripts like `pnpm start`) to spin up the local Portkey gateway process during startup, health-check `http://localhost:8787/v1` before serving requests, and track/shutdown the child process when Setta exits so users always have a working gateway without installing Node deps separately.
 
 Progress on the items above will fully activate the Portkey-powered stack: the UI already edits `setta_files/llm_config.json`, and the backend now has neutral LLM models, so wiring those configs into the orchestrator, cancelation flow, and validation/tests are the last major blockers.
