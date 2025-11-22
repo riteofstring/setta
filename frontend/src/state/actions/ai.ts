@@ -33,6 +33,7 @@ import {
   type LLMConfigTestResultPayload,
   type LLMPresetCatalogPayload,
   type LLMModelSelection,
+  type LLMProviderConfigPayload,
   type LLMStreamingResponse,
   type MessageStartedEvent,
   SettaNotificationTypeEnum,
@@ -104,9 +105,11 @@ function selectionToKey(selection: StoredLLMSelection | null): string | null {
   });
 }
 
-function buildSelectionLookup(config: LLMConfigPayload): SelectionLookup {
+function buildSelectionLookup(
+  providers: LLMProviderConfigPayload[],
+): SelectionLookup {
   const lookup: SelectionLookup = new Map();
-  for (const provider of config.providers) {
+  for (const provider of providers) {
     const providerDisplayName = provider.display_name ?? provider.provider_id;
     for (const model of provider.models ?? []) {
       const selection = makeStoredSelection({
@@ -125,10 +128,10 @@ function buildSelectionLookup(config: LLMConfigPayload): SelectionLookup {
 }
 
 function findDefaultModelSelection(
-  config: LLMConfigPayload,
+  providers: LLMProviderConfigPayload[],
   lookup: SelectionLookup,
 ): StoredLLMSelection | null {
-  for (const provider of config.providers) {
+  for (const provider of providers) {
     const defaultModelId = provider.default_model_id;
     if (!defaultModelId) {
       continue;
@@ -145,9 +148,52 @@ function findDefaultModelSelection(
   return null;
 }
 
+function resolveProjectConfigId(
+  projectConfigId: string | null | undefined,
+): string | null {
+  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return null;
+  }
+  return projectConfigId;
+}
+
+function getProvidersForProjectInternal(
+  config: LLMConfigPayload,
+  projectConfigId: string | null,
+): LLMProviderConfigPayload[] {
+  if (projectConfigId) {
+    const projectConfig = config.project_configs[projectConfigId];
+    if (projectConfig) {
+      return projectConfig.providers ?? [];
+    }
+  }
+  const defaultProjectId = resolveProjectConfigId(
+    config.default_project_config_id,
+  );
+  if (defaultProjectId) {
+    const defaultProject = config.project_configs[defaultProjectId];
+    if (defaultProject) {
+      return defaultProject.providers ?? [];
+    }
+  }
+  return config.providers ?? [];
+}
+
+export function getProvidersForProject(
+  config: LLMConfigPayload | null,
+  projectConfigId: string | null | undefined,
+): LLMProviderConfigPayload[] {
+  if (!config) {
+    return [];
+  }
+  const resolvedProjectId = resolveProjectConfigId(projectConfigId);
+  return getProvidersForProjectInternal(config, resolvedProjectId);
+}
+
 function hydrateSelectionFromConfig(
   selection: LLMModelSelection | null | undefined,
   config: LLMConfigPayload | null,
+  projectConfigId: string | null | undefined = null,
 ): StoredLLMSelection | null {
   if (!selection) {
     return null;
@@ -158,7 +204,8 @@ function hydrateSelectionFromConfig(
       modelId: selection.modelId,
     });
   }
-  const provider = config.providers.find(
+  const providers = getProvidersForProject(config, projectConfigId);
+  const provider = providers.find(
     (candidate) => candidate.provider_id === selection.providerId,
   );
   const model = provider?.models?.find(
@@ -199,23 +246,38 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
     useProjectState.getState().projectConfig.id,
   );
   useAIStore.setState((state) => {
-    const selectionLookup = buildSelectionLookup(config);
-    const cleanedSelections: Record<string, StoredLLMSelection | null> = {};
-    const currentSelections = state.userSelectedLLMByProject ?? {};
-    for (const [projectId, selection] of Object.entries(currentSelections)) {
-      const key = selectionToKey(selection);
-      cleanedSelections[projectId] = key
-        ? selectionLookup.get(key) ?? null
-        : null;
+    const projectIds = new Set<string>([
+      ...Object.keys(state.userSelectedLLMByProject ?? {}),
+      activeProjectId,
+    ]);
+    for (const projectId of Object.keys(config.project_configs ?? {})) {
+      projectIds.add(normalizeProjectConfigId(projectId));
+    }
+    if (config.default_project_config_id) {
+      projectIds.add(normalizeProjectConfigId(config.default_project_config_id));
     }
 
-    const existingSelection = cleanedSelections[activeProjectId] ?? null;
-    const fallbackSelection = findDefaultModelSelection(
-      config,
-      selectionLookup,
-    );
-    const nextSelection = existingSelection ?? fallbackSelection ?? null;
-    cleanedSelections[activeProjectId] = nextSelection;
+    const cleanedSelections: Record<string, StoredLLMSelection | null> = {};
+    for (const projectId of projectIds) {
+      const resolvedProjectId = resolveProjectConfigId(projectId);
+      const providers = getProvidersForProjectInternal(
+        config,
+        resolvedProjectId,
+      );
+      const selectionLookup = buildSelectionLookup(providers);
+      const initialSelection =
+        state.userSelectedLLMByProject?.[projectId] ?? null;
+      const key = selectionToKey(initialSelection);
+      const sanitizedSelection = key ? selectionLookup.get(key) ?? null : null;
+      const fallbackSelection = findDefaultModelSelection(
+        providers,
+        selectionLookup,
+      );
+      cleanedSelections[projectId] =
+        sanitizedSelection ?? fallbackSelection ?? null;
+    }
+
+    const nextSelection = cleanedSelections[activeProjectId] ?? null;
 
     return {
       llmConfig: config,
@@ -346,9 +408,12 @@ export async function getLLMChat(chatId: string) {
           modelId: modelSelection.modelId,
         })
       : null;
+    const responseProjectConfigId =
+      res.data.projectConfigId ?? projectConfigId ?? null;
     const hydratedSelection = hydrateSelectionFromConfig(
       modelSelection,
       useAIStore.getState().llmConfig,
+      responseProjectConfigId,
     );
     const nextWaitingForResponse =
       isStreamingStatus(streamStatus) || waitingForResponse;
@@ -368,10 +433,7 @@ export async function getLLMChat(chatId: string) {
       currentChatId: chatId,
     }));
     if (hydratedSelection) {
-      setProjectLLMSelection(
-        res.data.projectConfigId ?? projectConfigId,
-        hydratedSelection,
-      );
+      setProjectLLMSelection(responseProjectConfigId, hydratedSelection);
     }
   } else {
     useAIStore.setState({ currentChatId: null });

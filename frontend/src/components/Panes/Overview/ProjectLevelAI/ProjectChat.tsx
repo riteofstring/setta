@@ -8,9 +8,14 @@ import {
   createNewLLMChat,
   getUUIDMappingForLLM,
   loadLLMConfig,
+  getProvidersForProject,
   setCurrentProjectLLMSelection,
 } from "state/actions/ai";
-import { useAIStore, type StoredLLMSelection } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  type StoredLLMSelection,
+} from "state/definitions";
 import { C } from "utils/c";
 import { encodeModelSelectionKey } from "utils/llmSelection";
 import { shallow } from "zustand/shallow";
@@ -34,6 +39,7 @@ export function ProjectChat() {
     }),
     shallow,
   );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
 
   useEffect(() => {
     getUUIDMappingForLLM();
@@ -47,12 +53,17 @@ export function ProjectChat() {
 
   const [deepThink, setDeepThink] = useState(false);
 
+  const projectProviders = useMemo(
+    () => getProvidersForProject(llmConfig, projectConfigId),
+    [llmConfig, projectConfigId],
+  );
+
   const selectedModel = useMemo(() => {
-    if (!llmConfig || !userSelectedLLM) {
+    if (!userSelectedLLM) {
       return null;
     }
 
-    const provider = llmConfig.providers.find(
+    const provider = projectProviders.find(
       (candidate) => candidate.provider_id === userSelectedLLM.providerId,
     );
     if (!provider) {
@@ -63,7 +74,7 @@ export function ProjectChat() {
     return (
       models.find((model) => model.model_id === userSelectedLLM.modelId) ?? null
     );
-  }, [llmConfig, userSelectedLLM]);
+  }, [projectProviders, userSelectedLLM]);
 
   const deepThinkingDisabledReason = useMemo(() => {
     if (!llmConfigLoaded) {
@@ -110,7 +121,7 @@ export function ProjectChat() {
   // Memoize filtered model groups
   const { filteredModelGroups, selectionLookup } = useMemo(() => {
     const lookup = new Map<string, StoredLLMSelection>();
-    const groups = (llmConfig?.providers ?? [])
+    const groups = projectProviders
       .map((provider) => {
         const providerDisplayName =
           provider.display_name ?? provider.provider_id;
@@ -135,7 +146,7 @@ export function ProjectChat() {
       })
       .filter((group) => group.items.length > 0);
     return { filteredModelGroups: groups, selectionLookup: lookup };
-  }, [llmConfig]);
+  }, [projectProviders]);
 
   const noModelsAvailable = llmConfigLoaded && filteredModelGroups.length === 0;
   const configPath = `${C.SETTA_FILES_FOLDER}/llm_config.json`;
