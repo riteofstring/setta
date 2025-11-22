@@ -12,7 +12,6 @@ import {
 import {
   loadLLMConfig,
   loadLLMPresets,
-  notifyLLMConfigTestResult,
   saveLLMConfig,
   testLLMConfig,
 } from "state/actions/ai";
@@ -142,14 +141,6 @@ export function ProjectLLMSettings() {
     );
   }, [testResult]);
 
-  if (!llmConfigLoaded || !editableConfig) {
-    return (
-      <div className="flex h-full items-center justify-center text-xs text-setta-500 dark:text-setta-400">
-        Loading LLM configuration...
-      </div>
-    );
-  }
-
   const updateConfig = (
     updater: (curr: EditableLLMConfig) => EditableLLMConfig,
   ) => {
@@ -235,7 +226,6 @@ export function ProjectLLMSettings() {
       try {
         const result = await testLLMConfig(payload);
         setTestResult(result);
-        notifyLLMConfigTestResult(result);
         const passed = didConfigTestPass(result);
         return { passed, result };
       } catch (exc) {
@@ -251,7 +241,7 @@ export function ProjectLLMSettings() {
         setTesting(false);
       }
     },
-    [notifyLLMConfigTestResult, testLLMConfig],
+    [testLLMConfig],
   );
 
   useEffect(() => {
@@ -277,6 +267,14 @@ export function ProjectLLMSettings() {
     testResult,
     testing,
   ]);
+
+  if (!llmConfigLoaded || !editableConfig) {
+    return (
+      <div className="flex h-full items-center justify-center text-xs text-setta-500 dark:text-setta-400">
+        Loading LLM configuration...
+      </div>
+    );
+  }
 
   const handleTest = async () => {
     if (!editableConfig) {
