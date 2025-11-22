@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
@@ -190,36 +190,6 @@ class ChatMetadata(BaseModel):
         )
 
 
-class ToolResult(BaseModel):
-    """Structured tool output keyed by tool_call_id."""
-
-    type: Literal["tool_result"] = "tool_result"
-    tool_call_id: str
-    name: str | None = None
-    output_text: str | None = None
-    output_json: JSONValue | None = None
-    is_error: bool = False
-
-    def to_block(self) -> LLMToolResultBlock:
-        return LLMToolResultBlock(
-            tool_call_id=self.tool_call_id,
-            name=self.name,
-            output_text=self.output_text,
-            output_json=self.output_json,
-            is_error=self.is_error,
-        )
-
-    @classmethod
-    def from_block(cls, block: LLMToolResultBlock) -> "ToolResult":
-        return cls(
-            tool_call_id=block.tool_call_id,
-            name=block.name,
-            output_text=block.output_text,
-            output_json=block.output_json,
-            is_error=block.is_error,
-        )
-
-
 LLMStreamingResponseChunk = LLMStreamEvent
 
 
@@ -293,5 +263,4 @@ __all__ = [
     "ChatMetadata",
     "LLMStreamingResponse",
     "LLMStreamingResponseChunk",
-    "ToolResult",
 ]

@@ -20,7 +20,6 @@ from setta.types.chat_messages import (
     ChatMetadata,
     ChatStreamStatus,
     LLMModelSelection,
-    ToolResult,
 )
 from setta.types.llm_config import (
     LLMConfigPayload,
@@ -53,7 +52,6 @@ class GetLLMChatRequest(BaseModel):
 
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[ChatMessage]
-    toolResults: dict[str, ToolResult]
     waitingForResponse: bool
     modelSelection: LLMModelSelection | None
     projectConfigId: str | None
@@ -247,10 +245,8 @@ async def route_get_llm_chat(
     current_stream = state.chat_manager.get_current_stream(x.chatId)
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
-    messages, tool_results = state.chat_manager.separate_tool_results(messages)
     return GetLLMChatRequestResponse(
         messages=messages,
-        toolResults=tool_results,
         waitingForResponse=waiting_for_response,
         modelSelection=chat.modelSelection,
         projectConfigId=chat.projectConfigId,

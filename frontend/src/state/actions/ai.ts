@@ -25,7 +25,6 @@ import {
   createLLMTextBlock,
   createLLMToolCallBlock,
   createLLMToolResultBlock,
-  createToolResult,
   IDToUUIDForLLM,
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
@@ -388,7 +387,6 @@ function isStreamingStatus(status: string | null | undefined): boolean {
 export function getDefaultChatDetails() {
   return {
     messages: [],
-    toolResults: {},
     waitingForResponse: false,
     streamStatus: ChatStreamStatusEnum.IDLE,
     streamTarget: null,
@@ -402,7 +400,6 @@ export async function getLLMChat(chatId: string) {
   if (res200(res)) {
     const {
       messages,
-      toolResults,
       waitingForResponse,
       modelSelection,
       streamStatus,
@@ -429,7 +426,6 @@ export async function getLLMChat(chatId: string) {
           ...getDefaultChatDetails(),
           ...(state.chatDetails[chatId] ?? {}),
           messages,
-          toolResults,
           waitingForResponse: nextWaitingForResponse,
           streamStatus: streamStatus ?? ChatStreamStatusEnum.IDLE,
           modelSelectionKey,
@@ -714,7 +710,6 @@ function llmToolResult(
   useAIStore.setState((state) => {
     const currDetails = state.chatDetails[chatId];
     const currMessages = currDetails?.messages ?? [];
-    let toolCallName: string | null = null;
     let newMessages = currMessages;
 
     if (assistantMessageId) {
@@ -730,14 +725,12 @@ function llmToolResult(
             block.tool_call_id === chunk.tool_call_id,
         );
 
-        toolCallName =
-          toolCallBlock && toolCallBlock.type === "tool_call"
-            ? toolCallBlock.name
-            : null;
-
         const resultBlock = createLLMToolResultBlock({
           tool_call_id: chunk.tool_call_id,
-          name: toolCallName,
+          name:
+            toolCallBlock && toolCallBlock.type === "tool_call"
+              ? toolCallBlock.name
+              : null,
           output_text: chunk.output_text ?? null,
           output_json: chunk.output ?? null,
           is_error: chunk.is_error ?? false,
@@ -756,17 +749,6 @@ function llmToolResult(
       }
     }
 
-    const nextToolResults = {
-      ...(currDetails?.toolResults ?? {}),
-      [chunk.tool_call_id]: createToolResult({
-        tool_call_id: chunk.tool_call_id,
-        name: toolCallName,
-        output_text: chunk.output_text ?? null,
-        output_json: chunk.output ?? null,
-        is_error: chunk.is_error ?? false,
-      }),
-    };
-
     return {
       chatDetails: {
         ...state.chatDetails,
@@ -774,7 +756,6 @@ function llmToolResult(
           ...getDefaultChatDetails(),
           ...(currDetails ?? {}),
           messages: newMessages,
-          toolResults: nextToolResults,
           waitingForResponse: true,
           streamStatus: ChatStreamStatusEnum.STREAMING,
         },

@@ -1,6 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdCode, MdErrorOutline } from "react-icons/md";
@@ -57,6 +57,56 @@ const formatToolArgs = (args) => {
     return JSON.stringify(args, null, 2);
   } catch {
     return args;
+  }
+};
+
+const parseToolArguments = (block) => {
+  if (!block) return null;
+  if (block.arguments_json) {
+    return block.arguments_json;
+  }
+  if (block.arguments_text) {
+    try {
+      return JSON.parse(block.arguments_text);
+    } catch {
+      return block.arguments_text;
+    }
+  }
+  return null;
+};
+
+const deriveToolResults = (messages) => {
+  const results = {};
+  for (const message of messages ?? []) {
+    for (const block of message?.content ?? []) {
+      if (block?.type === "tool_result" && block.tool_call_id) {
+        results[block.tool_call_id] = block;
+      }
+    }
+  }
+  return results;
+};
+
+const getToolCallId = (block) => block?.tool_call_id ?? block?.id ?? null;
+
+const formatToolResultMessage = (toolResult) => {
+  if (!toolResult) {
+    return null;
+  }
+  if (toolResult.output_text) {
+    return toolResult.output_text;
+  }
+  const outputJson = toolResult.output_json;
+  if (outputJson === null || outputJson === undefined) {
+    return null;
+  }
+  if (typeof outputJson === "string") {
+    return outputJson;
+  }
+  try {
+    return JSON.stringify(outputJson, null, 2);
+  } catch {
+    return String(outputJson);
   }
 };
 
@@ -312,23 +362,24 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           isStreaming={isStreaming}
         />
       );
-    case C.LLM_TOOL_USE:
-      // Get the result for this tool_use if available
-      const toolResult = toolResults[item.id];
-      const hasResult = !!toolResult;
-
-      // Determine success/failure status
-      const isSuccess = hasResult && !toolResult.is_error;
+    case "tool_call":
+    case C.LLM_TOOL_USE: {
+      const toolCallId = getToolCallId(item);
+      const toolResult = toolCallId ? toolResults[toolCallId] : undefined;
+      const isSuccess = toolResult ? !toolResult.is_error : false;
+      const args = parseToolArguments(item);
+      const result = toolResult?.output_text ?? toolResult?.output_json;
 
       return (
         <ToolCall
           name={item.name}
-          args={item.input}
-          result={hasResult ? toolResult.content?.[0]?.text : undefined}
+          args={args}
+          result={result}
           success={isSuccess}
           isStreaming={isStreaming}
         />
       );
+    }
     case C.LLM_THINKING:
       return (
         <ThinkingBox
@@ -337,16 +388,22 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           isStreaming={isStreaming}
         />
       );
-    case C.LLM_STREAMING_INTO_CODE_BLOCK:
+    case C.LLM_STREAMING_INTO_CODE_BLOCK: {
+      const toolCallId = getToolCallId(item);
+      const result = toolCallId ? toolResults[toolCallId] : undefined;
+
       return (
         <StreamingIntoCodeBlock
           sectionId={item.sectionId}
           isStreaming={isStreaming}
           done={item.done}
-          isError={item.isError}
-          content={item.content?.[0]?.text}
+          isError={result?.is_error ?? item.isError}
+          content={formatToolResultMessage(result) ?? item.content?.[0]?.text}
         />
       );
+    }
+    case "tool_result":
+      return null;
     default:
       return null;
   }
@@ -428,11 +485,14 @@ function ChatMessages({ messages, toolResults, waitingForResponse }) {
 // Message list component
 const MessageList = memo(function MessageList({
   messages,
-  toolResults,
   waitingForResponse,
   idToUUIDForLLM,
   currentChatId,
 }) {
+  const toolResults = useMemo(
+    () => deriveToolResults(messages),
+    [messages],
+  );
   // TODO: make more efficient
   const consolidatedMessages = consolidateAssistantMessages(
     messages,
@@ -481,7 +541,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 }: ProjectChatCoreProps) {
   const {
     messages,
-    toolResults,
     waitingForResponse,
     idToUUIDForLLM,
     currentChatId,
@@ -490,10 +549,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (!x.currentChatId || !details) {
       return { ...getDefaultChatDetails(), currentChatId: x.currentChatId };
     }
-    const { messages, toolResults, waitingForResponse } = details;
+    const { messages, waitingForResponse } = details;
     return {
       messages,
-      toolResults,
       waitingForResponse,
       idToUUIDForLLM: x.idToUUIDForLLM,
       currentChatId: x.currentChatId,
@@ -510,7 +568,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     <>
       <MessageList
         messages={messages}
-        toolResults={toolResults}
         waitingForResponse={waitingForResponse}
         idToUUIDForLLM={idToUUIDForLLM}
         currentChatId={currentChatId}
@@ -574,24 +631,34 @@ const consolidateAssistantMessages = (
 
       for (const item of message.content) {
         if (
-          item.type === C.LLM_TOOL_USE &&
+          (item.type === "tool_call" || item.type === C.LLM_TOOL_USE) &&
           item.name === startStreamingInto.name
         ) {
-          sectionId = idToUUIDForLLM[item.input.sectionId];
+          const args = parseToolArguments(item);
+          const toolCallId = getToolCallId(item);
+          const result = toolCallId ? toolResults[toolCallId] : undefined;
+          const sectionIdArg = args?.sectionId ?? args?.section_id;
+          sectionId =
+            (sectionIdArg && idToUUIDForLLM[sectionIdArg]) || sectionIdArg;
           streamingItem = {
             type: C.LLM_STREAMING_INTO_CODE_BLOCK,
             sectionId,
             done: false,
-            isError: toolResults[item.id]?.is_error,
-            content: toolResults[item.id]?.content,
+            isError: result?.is_error,
+            content: formatToolResultMessage(result),
           };
           filteredContent.push(streamingItem);
         } else if (
-          item.type === C.LLM_TOOL_USE &&
+          (item.type === "tool_call" || item.type === C.LLM_TOOL_USE) &&
           item.name === stopStreamingInto.name
         ) {
-          streamingItem.done = true;
-          streamingItem = null;
+          if (streamingItem) {
+            streamingItem.done = true;
+            streamingItem = null;
+          }
+        } else if (item.type === "tool_result") {
+          // Tool results are rendered alongside their corresponding calls
+          continue;
         } else if (streamingItem && item.type === "text") {
           // Skip text content while streaming
         } else {

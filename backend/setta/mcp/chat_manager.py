@@ -38,7 +38,6 @@ from setta.types.chat_messages import (
     ChatMetadata,
     ChatStreamStatus,
     LLMModelSelection,
-    ToolResult,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 
@@ -142,35 +141,6 @@ class ChatManager:
 
     def delete_chat(self, chat_id: str) -> None:
         self._dbe.delete_chat_file(chat_id)
-
-    # ---------------------------------------------------------------------
-    # Tool result utilities
-
-    def separate_tool_results(
-        self,
-        messages: list[ChatMessage],
-    ) -> tuple[list[ChatMessage], dict[str, ToolResult]]:
-        """Split tool-result blocks out of messages for easier frontend rendering."""
-
-        cleaned_messages: list[ChatMessage] = []
-        tool_results: dict[str, ToolResult] = {}
-
-        for message in messages:
-            retained_blocks = []
-            for block in message.content:
-                if isinstance(block, LLMToolResultBlock):
-                    tool_results[block.tool_call_id] = ToolResult.from_block(block)
-                    continue
-                retained_blocks.append(block)
-
-            if not retained_blocks:
-                continue
-
-            cleaned_messages.append(
-                message.model_copy(update={"content": retained_blocks})
-            )
-
-        return cleaned_messages, tool_results
 
     # ---------------------------------------------------------------------
     # LLM orchestration

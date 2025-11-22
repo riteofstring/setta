@@ -7436,33 +7436,6 @@ export function createChatMetadata(
   return ChatMetadataSchema.parse(options);
 }
 
-export const ToolResultSchema = z.object({
-  type: z.literal("tool_result").default("tool_result" as const),
-  tool_call_id: z.string(),
-  name: z.union([z.string(), z.null()]).default(null),
-  output_text: z.union([z.string(), z.null()]).default(null),
-  output_json: z
-    .union([
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-    ])
-    .default(null),
-  is_error: z.boolean().default(false),
-});
-
-export type ToolResult = z.infer<typeof ToolResultSchema>;
-
-export function createToolResult(
-  options: Partial<ToolResult> = {},
-): ToolResult {
-  return ToolResultSchema.parse(options);
-}
-
 export const BaseClipboardDataSchema = z.object({
   type: z.any(),
   data: z.any(),
@@ -8343,7 +8316,6 @@ export function createGetLLMChatRequest(
 
 export const GetLLMChatRequestResponseSchema = z.object({
   messages: z.array(ChatMessageSchema),
-  toolResults: z.record(z.string(), ToolResultSchema),
   waitingForResponse: z.boolean(),
   modelSelection: z.union([LLMModelSelectionSchema, z.null()]),
   projectConfigId: z.union([z.string(), z.null()]),
