@@ -108,6 +108,68 @@ class ConfigStoreAddPresetTests(unittest.TestCase):
         self.assertEqual(project.providers, [provider])
 
 
+class ConfigSerializationRoundTripTests(unittest.TestCase):
+    def test_preset_config_round_trip_preserves_overrides(self) -> None:
+        llm_config = LLMConfig(
+            gateway_url="http://gateway",
+            default_project_config_id="proj-1",
+            project_configs={
+                "proj-1": LLMProjectConfig(project_config_id="proj-1"),
+            },
+        )
+        default_provider = add_preset_to_config(llm_config, preset_id="openai")
+        overrides = LLMProviderConfigPayload(
+            provider_id="openai-sandbox",
+            display_name="OpenAI Sandbox",
+            default_model_id="gpt-4o",
+            models=[
+                LLMModelConfigPayload(
+                    preset_id="gpt-4o-mini",
+                    default_parameters={"temperature": 0.3},
+                )
+            ],
+        )
+
+        scoped_provider = add_preset_to_config(
+            llm_config,
+            preset_id="openai",
+            overrides=overrides,
+            project_config_id="proj-1",
+        )
+
+        serialized = llm_config.to_dict()
+
+        self.assertEqual(serialized["providers"], [{"preset_id": "openai"}])
+        project_payload = serialized["project_configs"]["proj-1"]["providers"][0]
+        self.assertEqual(project_payload["preset_id"], "openai")
+        self.assertEqual(project_payload["provider_id"], "openai-sandbox")
+        self.assertEqual(project_payload["display_name"], "OpenAI Sandbox")
+        self.assertEqual(project_payload["default_model_id"], "gpt-4o")
+        models_payload = project_payload["models"]
+        self.assertEqual(models_payload[0]["preset_id"], "gpt-4o-mini")
+        self.assertEqual(models_payload[0]["default_parameters"], {"temperature": 0.3})
+
+        restored = LLMConfig.from_dict(serialized)
+
+        self.assertEqual(len(restored.providers), 1)
+        restored_default = restored.providers[0]
+        self.assertEqual(restored_default.provider_id, default_provider.provider_id)
+        self.assertEqual(
+            restored_default.default_model_id, default_provider.default_model_id
+        )
+        restored_model_ids = {model.model_id for model in restored_default.models}
+        self.assertTrue({"gpt-4o", "gpt-4o-mini"}.issubset(restored_model_ids))
+
+        scoped_restored = restored.project_configs["proj-1"].providers[0]
+        self.assertEqual(scoped_restored.provider_id, scoped_provider.provider_id)
+        self.assertEqual(scoped_restored.display_name, scoped_provider.display_name)
+        self.assertEqual(scoped_restored.default_model_id, "gpt-4o")
+        tuned_model = next(
+            model for model in scoped_restored.models if model.preset_id == "gpt-4o-mini"
+        )
+        self.assertEqual(tuned_model.default_parameters, {"temperature": 0.3})
+
+
 class ConfigProviderResolutionTests(unittest.TestCase):
     def test_providers_for_project_rejects_unknown_scope(self) -> None:
         default_provider = LLMProviderConfig(
