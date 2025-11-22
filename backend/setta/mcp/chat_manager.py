@@ -44,6 +44,7 @@ from setta.types.notifications import SettaNotification, SettaNotificationType
 if TYPE_CHECKING:
     from mcp.types import CallToolResult
 
+    from setta.llm.portkey_client import ToolDefinition
     from setta.mcp.client import MCPClient
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -198,107 +199,107 @@ class ChatManager:
             assistant_message=assistant_message,
         )
 
-        history = chat.to_history()
-        tools = self._mcp_client.available_tools or None
-        request_params = validate_llm_request(
-            provider_config,
-            model_config,
-            deep_think=deep_think,
-        )
-        extra_headers = self._build_extra_headers(provider_config)
-
         try:
-            async for event in self._astream_portkey_response(
-                client=client,
-                response_message_id=response_message_id,
-                history=history,
-                model=model_config.model_id,
-                tools=tools,
-                request_params=request_params,
-                extra_headers=extra_headers,
-                provider_id=provider_config.provider_id,
-            ):
-                accumulator.apply_event(event)
-                tool_calls.observe_event(event)
-                recorder.maybe_persist_snapshot(assistant_message)
+            history = chat.to_history()
+            tools = self._available_tools_or_none()
+            request_params = validate_llm_request(
+                provider_config,
+                model_config,
+                deep_think=deep_think,
+            )
+            extra_headers = self._build_extra_headers(provider_config)
+
+            try:
+                async for event in self._astream_portkey_response(
+                    client=client,
+                    response_message_id=response_message_id,
+                    history=history,
+                    model=model_config.model_id,
+                    tools=tools,
+                    request_params=request_params,
+                    extra_headers=extra_headers,
+                    provider_id=provider_config.provider_id,
+                ):
+                    accumulator.apply_event(event)
+                    tool_calls.observe_event(event)
+                    recorder.maybe_persist_snapshot(assistant_message)
+                    await self._wmh_frontend_sender.send_streaming_response(
+                        chatId=chat.id,
+                        assistant_message_id=response_message_id,
+                        chunk=event,
+                    )
+                    if isinstance(event, ResponseCompletedEvent) and (
+                        event.finish_reason == "tool_calls"
+                    ):
+                        await self._resolve_tool_calls(
+                            chat_id=chat.id,
+                            assistant_message_id=response_message_id,
+                            tool_calls=tool_calls.consume_ready_calls(),
+                            accumulator=accumulator,
+                            recorder=recorder,
+                        )
+            except asyncio.CancelledError:
+                self._set_stream_status(chat, ChatStreamStatus.CANCELED)
                 await self._wmh_frontend_sender.send_streaming_response(
                     chatId=chat.id,
                     assistant_message_id=response_message_id,
-                    chunk=event,
+                    chunk=ResponseCompletedEvent(
+                        message_id=response_message_id,
+                        status=ResponseFinishStatus.CANCELED,
+                        finish_reason="canceled",
+                    ),
                 )
-                if isinstance(event, ResponseCompletedEvent) and (
-                    event.finish_reason == "tool_calls"
-                ):
-                    await self._resolve_tool_calls(
-                        chat_id=chat.id,
-                        assistant_message_id=response_message_id,
-                        tool_calls=tool_calls.consume_ready_calls(),
-                        accumulator=accumulator,
-                        recorder=recorder,
-                    )
-        except asyncio.CancelledError:
-            self._set_stream_status(chat, ChatStreamStatus.CANCELED)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat.id,
-                assistant_message_id=response_message_id,
-                chunk=ResponseCompletedEvent(
-                    message_id=response_message_id,
-                    status=ResponseFinishStatus.CANCELED,
-                    finish_reason="canceled",
-                ),
-            )
-            self._persist_final_chat(
-                chat=chat,
-                assistant_message=assistant_message,
-                status=ChatStreamStatus.CANCELED,
-            )
-            logger.info(
-                "Canceled LLM stream",
-                extra={
-                    "chat_id": chat.id,
-                    "project_config_id": project_scope_id,
-                    "provider_id": provider_config.provider_id,
-                    "model_id": model_config.model_id,
-                },
-            )
-            return
-        except Exception as exc:
-            self._set_stream_status(chat, ChatStreamStatus.ERROR)
-            error_reason = str(exc)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat.id,
-                assistant_message_id=response_message_id,
-                chunk=ResponseCompletedEvent(
-                    message_id=response_message_id,
-                    status=ResponseFinishStatus.ERROR,
-                    finish_reason="error",
-                    error_reason=error_reason,
-                ),
-            )
-            self._persist_final_chat(
-                chat=chat,
-                assistant_message=assistant_message,
-                status=ChatStreamStatus.ERROR,
-            )
-            logger.exception(
-                "LLM stream failed",
-                extra={
-                    "chat_id": chat.id,
-                    "project_config_id": project_scope_id,
-                    "provider_id": provider_config.provider_id,
-                    "model_id": model_config.model_id,
-                },
-            )
-            await self._notify_llm_failure(
-                chat_id=chat.id,
-                project_config_id=project_scope_id,
-                provider_id=provider_config.provider_id,
-                model_id=model_config.model_id,
-                error_message=error_reason,
-            )
-            raise
+                self._persist_final_chat(
+                    chat=chat,
+                    assistant_message=assistant_message,
+                    status=ChatStreamStatus.CANCELED,
+                )
+                logger.info(
+                    "Canceled LLM stream",
+                    extra={
+                        "chat_id": chat.id,
+                        "project_config_id": project_scope_id,
+                        "provider_id": provider_config.provider_id,
+                        "model_id": model_config.model_id,
+                    },
+                )
+                return
+            except Exception as exc:
+                self._set_stream_status(chat, ChatStreamStatus.ERROR)
+                error_reason = str(exc)
+                await self._wmh_frontend_sender.send_streaming_response(
+                    chatId=chat.id,
+                    assistant_message_id=response_message_id,
+                    chunk=ResponseCompletedEvent(
+                        message_id=response_message_id,
+                        status=ResponseFinishStatus.ERROR,
+                        finish_reason="error",
+                        error_reason=error_reason,
+                    ),
+                )
+                self._persist_final_chat(
+                    chat=chat,
+                    assistant_message=assistant_message,
+                    status=ChatStreamStatus.ERROR,
+                )
+                logger.exception(
+                    "LLM stream failed",
+                    extra={
+                        "chat_id": chat.id,
+                        "project_config_id": project_scope_id,
+                        "provider_id": provider_config.provider_id,
+                        "model_id": model_config.model_id,
+                    },
+                )
+                await self._notify_llm_failure(
+                    chat_id=chat.id,
+                    project_config_id=project_scope_id,
+                    provider_id=provider_config.provider_id,
+                    model_id=model_config.model_id,
+                    error_message=error_reason,
+                )
+                raise
 
-        try:
             self._persist_final_chat(
                 chat=chat,
                 assistant_message=assistant_message,
@@ -540,7 +541,19 @@ class ChatManager:
             raise ValueError("Tool call missing name")
 
         arguments = tool_call.to_arguments_dict()
-        result = await self._mcp_client.call_tool(tool_name, arguments)
+        client = self._mcp_client
+        if client is None:
+            logger.warning("Skipping tool %s: MCP client unavailable", tool_name)
+            return self._tool_failure_result(
+                tool_call, "MCP client unavailable; tool call skipped"
+            )
+
+        try:
+            result = await client.call_tool(tool_name, arguments)
+        except Exception as exc:
+            logger.error("Tool %s failed via MCP: %s", tool_name, exc)
+            return self._tool_failure_result(tool_call, f"MCP tool call failed: {exc}")
+
         output_text = _extract_tool_output_text(result)
         return ToolResultEvent(
             tool_call_id=tool_call.tool_call_id,
@@ -576,6 +589,27 @@ class ChatManager:
             },
         )
         await self._wmh_frontend_sender.broadcast_notification(notification)
+
+    def _available_tools_or_none(self) -> list["ToolDefinition"] | None:
+        client = self._mcp_client
+        if client is None:
+            logger.debug("MCP client unavailable; skipping tool advertisement")
+            return None
+
+        tools = getattr(client, "available_tools", None)
+        if not tools:
+            return None
+        return tools
+
+    def _tool_failure_result(
+        self, tool_call: "_PendingToolCall", detail: str
+    ) -> ToolResultEvent:
+        return ToolResultEvent(
+            tool_call_id=tool_call.tool_call_id,
+            output={"error": detail},
+            output_text=detail,
+            is_error=True,
+        )
 
 
 def _events_from_chunk(

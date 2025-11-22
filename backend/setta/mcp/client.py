@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from contextlib import AsyncExitStack
 from typing import Any
 
@@ -16,6 +17,8 @@ from setta.mcp.str_replace_editor_tool_fns import (
 )
 from setta.utils.constants import C
 
+logger = logging.getLogger(__name__)
+
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
@@ -25,6 +28,8 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
         self.server_url = server_url
         self.available_tools: list[ToolDefinition] = []
+        self._shutdown = False
+        self._connected = False
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -33,12 +38,12 @@ class MCPClient:
             url: URL to the MCP server
             retry_delay: Delay between retry attempts in seconds
         """
-        print("Starting MCP client connection...", flush=True)
+        logger.info("Starting MCP client connection")
         url = self.server_url
 
-        while True:
+        while not self._shutdown:
             try:
-                print(f"Attempting to connect to {url}...", flush=True)
+                logger.info("Attempting to connect to %s", url)
 
                 # Create and enter the SSE client context
                 stdio_transport = await self.exit_stack.enter_async_context(
@@ -53,7 +58,8 @@ class MCPClient:
 
                 # Initialize the session
                 await self.session.initialize()
-                print(f"Connected to {url}...", flush=True)
+                self._connected = True
+                logger.info("Connected to %s", url)
                 # List available tools to verify connection
                 response = await self.session.list_tools()
                 self.available_tools = [
@@ -63,22 +69,34 @@ class MCPClient:
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
 
+                if self._shutdown:
+                    break
+
             except asyncio.TimeoutError:
-                print(
-                    f"Connection timed out, retrying in {retry_delay} seconds...",
-                    flush=True,
+                self._connected = False
+                if self._shutdown:
+                    break
+                logger.warning(
+                    "MCP connection timed out; retrying in %s seconds", retry_delay
                 )
             except Exception as e:
-                print(f"Connection error: {e}", flush=True)
-                print(f"Retrying in {retry_delay} seconds...", flush=True)
+                self._connected = False
+                if self._shutdown:
+                    logger.info("MCP client shutdown requested: %s", e)
+                    break
+                logger.error("MCP connection error: %s", e)
+                logger.info("Retrying in %s seconds", retry_delay)
 
             # Close any open contexts before retrying
             await self.exit_stack.aclose()
+            self.session = None
             self.exit_stack = (
                 AsyncExitStack()
             )  # Create a new stack for the next attempt
 
             # Wait before retrying
+            if self._shutdown:
+                break
             await asyncio.sleep(retry_delay)
 
     async def _keep_alive(self):
@@ -86,9 +104,17 @@ class MCPClient:
         if not self.session:
             raise ValueError
 
-        while True:
-            await asyncio.sleep(10)
-            await self.session.send_ping()
+        while not self._shutdown:
+            try:
+                await asyncio.sleep(10)
+                await self.session.send_ping()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if self._shutdown:
+                    break
+                logger.warning("MCP keep-alive failed: %s", exc)
+                raise
 
     async def call_tool(self, tool_name: str, tool_args: dict):
         if tool_name == C.LLM_STR_REPLACE_EDITOR_TOOL:
@@ -100,12 +126,15 @@ class MCPClient:
         return await self.session.call_tool(tool_name, tool_args)
 
     async def stop(self):
+        self._shutdown = True
+
         # Then close the exit stack to release resources
         await self.exit_stack.aclose()
 
-        # Set flags to indicate shutdown
-        self._shutdown = True
-        print("MCPClient resources cleaned up successfully")
+        self.session = None
+        self._connected = False
+        self.available_tools = []
+        logger.info("MCPClient resources cleaned up successfully")
 
 
 def tool_definition_from_mcp(tool: Any) -> ToolDefinition:
