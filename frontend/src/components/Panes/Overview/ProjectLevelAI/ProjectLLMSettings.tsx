@@ -1,5 +1,4 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
-import isEqual from "lodash/isEqual";
 import {
   MdAdd,
   MdCheckCircle,
@@ -1128,11 +1127,11 @@ function editableProviderToPayload(
   provider: EditableProvider,
   presetLookup: Map<string, LLMProviderPresetPayload>,
 ): LLMProviderConfigPayload {
+  const presetId = provider.preset_id ?? null;
   const preset =
-    provider.preset_id && presetLookup.size > 0
-      ? presetLookup.get(provider.preset_id) ?? null
+    presetId && presetLookup.size > 0
+      ? presetLookup.get(presetId) ?? null
       : null;
-  const baseProvider = preset?.provider ?? null;
 
   const headerEntries = provider.headerRows
     .map((row) => ({
@@ -1147,165 +1146,95 @@ function editableProviderToPayload(
           return acc;
         }, {} as Record<string, string>)
       : null;
-  const validModelIds = new Set(
-    provider.models
-      .map((model) => model.model_id)
-      .filter((item): item is string => Boolean(item)),
+
+  const presetModelLookup =
+    preset?.provider.models && preset.provider.models.length > 0
+      ? new Map(
+          preset.provider.models
+            .map((model) => {
+              const key = model.model_id ?? model.preset_id;
+              if (!key) {
+                return null;
+              }
+              return [key, model] as const;
+            })
+            .filter(
+              (
+                entry,
+              ): entry is readonly [string, LLMModelConfigPayload] =>
+                Boolean(entry),
+            ),
+        )
+      : null;
+  const modelsPayload = normalizeModelPayloads(
+    provider.models,
+    presetModelLookup,
   );
-  const computedDefaultModelId =
-    provider.default_model_id && validModelIds.has(provider.default_model_id)
-      ? provider.default_model_id
-      : provider.models[0]?.model_id ?? null;
+  const computedDefaultModelId = resolveDefaultModelId(
+    provider.default_model_id,
+    modelsPayload,
+    preset?.provider.default_model_id ?? null,
+  );
 
   const payload: LLMProviderConfigPayload = {
     provider_id: provider.provider_id,
-    preset_id: provider.preset_id ?? undefined,
+    display_name: provider.display_name,
+    preset_id: presetId,
+    api_key: provider.api_key,
+    base_url: provider.base_url,
+    default_model_id: computedDefaultModelId,
+    extra_headers: extraHeaders,
+    models: modelsPayload,
   };
-
-  if (!baseProvider || provider.display_name !== baseProvider.display_name) {
-    payload.display_name = provider.display_name;
-  }
-
-  if (!baseProvider) {
-    payload.api_key = provider.api_key;
-  } else if (provider.api_key) {
-    payload.api_key = provider.api_key;
-  }
-
-  if (!baseProvider || provider.base_url !== baseProvider.base_url) {
-    payload.base_url = provider.base_url;
-  }
-
-  if (
-    !baseProvider ||
-    computedDefaultModelId !== baseProvider.default_model_id
-  ) {
-    payload.default_model_id = computedDefaultModelId;
-  }
-
-  if (
-    !baseProvider ||
-    !areHeadersEqual(extraHeaders, baseProvider.extra_headers ?? null)
-  ) {
-    payload.extra_headers = extraHeaders;
-  }
-
-  const modelsPayload = buildModelOverrides(
-    provider.models,
-    baseProvider ? baseProvider.models : null,
-  );
-  if (modelsPayload !== null) {
-    payload.models = modelsPayload;
-  }
 
   return payload;
 }
 
-function areHeadersEqual(
-  a: Record<string, string> | null,
-  b: Record<string, string> | null,
-): boolean {
-  if (!a && !b) {
-    return true;
-  }
-  return isEqual(a ?? null, b ?? null);
-}
-
-function buildModelOverrides(
+function normalizeModelPayloads(
   models: LLMModelConfigPayload[],
-  baseModels: LLMModelConfigPayload[] | null,
-): LLMModelConfigPayload[] | null {
-  if (!baseModels || baseModels.length === 0) {
-    return models;
-  }
-
-  const baseById = new Map<string, LLMModelConfigPayload>();
-  for (const baseModel of baseModels) {
-    if (baseModel.model_id) {
-      baseById.set(baseModel.model_id, baseModel);
-    }
-    if (baseModel.preset_id) {
-      baseById.set(baseModel.preset_id, baseModel);
-    }
-  }
-
-  const overrides = models.map((model) => {
-    const baseModel =
-      (model.preset_id ? baseById.get(model.preset_id) : null) ??
-      (model.model_id ? baseById.get(model.model_id) : null) ??
-      null;
-
-    if (!baseModel) {
-      return {
-        model_id: model.model_id,
-        display_name: model.display_name,
-        supports_reasoning: model.supports_reasoning,
-        default_parameters:
-          model.default_parameters === undefined
-            ? null
-            : model.default_parameters,
-        preset_id: model.preset_id ?? undefined,
-      };
-    }
-
-    const entry: LLMModelConfigPayload = {
-      preset_id: model.preset_id ?? baseModel.model_id ?? undefined,
+  presetModelLookup: Map<string, LLMModelConfigPayload> | null,
+): LLMModelConfigPayload[] {
+  return models.map((model) => {
+    const matchesPreset =
+      presetModelLookup && model.model_id
+        ? presetModelLookup.has(model.model_id)
+        : false;
+    const presetId =
+      model.preset_id ?? (matchesPreset ? model.model_id ?? null : null);
+    return {
+      model_id: model.model_id,
+      display_name: model.display_name,
+      supports_reasoning: model.supports_reasoning ?? false,
+      default_parameters:
+        model.default_parameters === undefined
+          ? null
+          : model.default_parameters,
+      preset_id: presetId,
     };
-
-    if (model.model_id && model.model_id !== baseModel.model_id) {
-      entry.model_id = model.model_id;
-    }
-    if (model.display_name !== baseModel.display_name) {
-      entry.display_name = model.display_name;
-    }
-    if (model.supports_reasoning !== baseModel.supports_reasoning) {
-      entry.supports_reasoning = model.supports_reasoning;
-    }
-
-    const baseParams =
-      baseModel.default_parameters === undefined
-        ? null
-        : baseModel.default_parameters;
-    const currentParams =
-      model.default_parameters === undefined
-        ? null
-        : model.default_parameters;
-    if (!isEqual(currentParams, baseParams)) {
-      entry.default_parameters = currentParams;
-    }
-
-    return entry;
   });
-
-  const matchesBase =
-    overrides.length === baseModels.length &&
-    overrides.every((entry, index) =>
-      presetReferenceMatchesBase(entry, baseModels[index]),
-    );
-
-  if (matchesBase) {
-    return null;
-  }
-
-  return overrides;
 }
 
-function presetReferenceMatchesBase(
-  entry: LLMModelConfigPayload,
-  baseModel: LLMModelConfigPayload,
-): boolean {
-  const presetId = entry.preset_id ?? null;
-  const basePresetId = baseModel.preset_id ?? baseModel.model_id ?? null;
-  if (presetId !== basePresetId) {
-    return false;
-  }
-  const keys = Object.entries(entry).filter(([key, value]) => {
-    if (key === "preset_id") {
-      return false;
+function resolveDefaultModelId(
+  requestedId: string | null | undefined,
+  models: LLMModelConfigPayload[],
+  presetDefaultId: string | null,
+): string | null {
+  const validModelIds = new Set(
+    models
+      .map((model) => model.model_id)
+      .filter((item): item is string => Boolean(item)),
+  );
+  const candidates = [
+    requestedId,
+    presetDefaultId,
+    models[0]?.model_id ?? null,
+  ];
+  for (const candidate of candidates) {
+    if (candidate && validModelIds.has(candidate)) {
+      return candidate;
     }
-    return value !== undefined && value !== null;
-  });
-  return keys.length === 0;
+  }
+  return null;
 }
 
 type TestStatusBadgeProps = {
