@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -34,6 +35,7 @@ import {
   type LLMModelSelection,
   type LLMStreamingResponse,
   type MessageStartedEvent,
+  SettaNotificationTypeEnum,
   type TextDeltaEvent,
   type ToolCallDeltaEvent,
   type ToolResultEvent,
@@ -43,6 +45,40 @@ import { getSectionType, getSectionVariant } from "./sectionInfos";
 import { encodeModelSelectionKey } from "utils/llmSelection";
 
 type SelectionLookup = Map<string, StoredLLMSelection>;
+
+function parseEndpointError(res: unknown, fallback: string): string {
+  const data = (res as { data?: unknown })?.data;
+  if (data && typeof data === "object" && "detail" in data) {
+    const detail = (data as Record<string, unknown>).detail;
+    return typeof detail === "string" ? detail : String(detail);
+  }
+  return fallback;
+}
+
+export function notifyLLMConfigTestResult(
+  result: LLMConfigTestResultPayload,
+): void {
+  if (!result.gateway.ok) {
+    const detail = result.gateway.error || "Gateway check failed";
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
+  }
+
+  const failingProviders = result.providers.filter((provider) => !provider.ok);
+  for (const provider of failingProviders) {
+    const detail = provider.errors[0]?.message || "Provider check failed";
+    addTemporaryNotification(
+      `${provider.display_name}: ${detail}`,
+      SettaNotificationTypeEnum.error,
+    );
+  }
+
+  if (result.gateway.ok && failingProviders.length === 0) {
+    addTemporaryNotification(
+      "LLM gateway and providers validated successfully",
+      SettaNotificationTypeEnum.success,
+    );
+  }
+}
 
 function makeStoredSelection(params: {
   providerId: string;
@@ -136,17 +172,25 @@ function hydrateSelectionFromConfig(
   });
 }
 
-export async function loadLLMConfig() {
+export async function loadLLMConfig(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
   const res = await route_get_llm_config();
   if (res200(res)) {
     applyLLMConfigUpdate(res.data);
-    return;
+    return { ok: true as const };
   }
 
+  const detail = parseEndpointError(
+    res,
+    "Failed to load LLM configuration",
+  );
+  addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
   useAIStore.setState({
     llmConfig: null,
     llmConfigLoaded: true,
   });
+  return { ok: false as const, error: detail };
 }
 
 export function applyLLMConfigUpdate(config: LLMConfigPayload) {
@@ -245,10 +289,11 @@ export async function saveLLMConfig(payload: LLMConfigPayload) {
     applyLLMConfigUpdate(res.data);
     return { ok: true as const };
   }
-  const detail =
-    res.data && typeof res.data === "object" && "detail" in res.data
-      ? String(res.data.detail)
-      : "Failed to save LLM configuration";
+  const detail = parseEndpointError(
+    res,
+    "Failed to save LLM configuration",
+  );
+  addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
   return { ok: false as const, error: detail };
 }
 
@@ -259,10 +304,10 @@ export async function testLLMConfig(
   if (res200(res)) {
     return res.data;
   }
-  const detail =
-    res.data && typeof res.data === "object" && "detail" in res.data
-      ? String(res.data.detail)
-      : "Failed to test LLM configuration";
+  const detail = parseEndpointError(
+    res,
+    "Failed to test LLM configuration",
+  );
   throw new Error(detail);
 }
 
