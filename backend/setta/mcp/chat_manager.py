@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_STREAM_PERSIST_INTERVAL_SECONDS: float | None = None
+_STREAM_PERSIST_INTERVAL_SECONDS: float = 0.5
 
 
 class ChatManager:
@@ -856,13 +856,16 @@ class _StreamingTranscriptRecorder:
 
     chat: Chat
     persist_chat: Callable[[Chat], None]
-    persist_interval_seconds: float | None
+    persist_interval_seconds: float = _STREAM_PERSIST_INTERVAL_SECONDS
     _last_persist_monotonic: float | None = field(default=None, init=False)
 
-    def maybe_persist_snapshot(self, assistant_message: LLMMessage) -> None:
-        if self.persist_interval_seconds is None:
-            return
+    def persist_snapshot(self, assistant_message: LLMMessage) -> None:
+        """Persist immediately, bypassing the interval gate (for crash recovery)."""
 
+        now = time.monotonic()
+        self._persist_snapshot(assistant_message, now)
+
+    def maybe_persist_snapshot(self, assistant_message: LLMMessage) -> None:
         now = time.monotonic()
         if (
             self._last_persist_monotonic is not None
@@ -870,6 +873,9 @@ class _StreamingTranscriptRecorder:
         ):
             return
 
+        self._persist_snapshot(assistant_message, now)
+
+    def _persist_snapshot(self, assistant_message: LLMMessage, now: float) -> None:
         snapshot = self.chat.model_copy(deep=True)
         snapshot.streamStatus = ChatStreamStatus.STREAMING
         snapshot.add_message(assistant_message)
