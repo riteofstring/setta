@@ -1,21 +1,23 @@
 import unittest
 
-from setta.llm.config_store import (
+from setta.llm import (
     LLMConfig,
     LLMModelConfig,
     LLMProjectConfig,
     LLMProviderConfig,
-    add_preset_to_config,
-    validate_llm_request,
+    add_preset,
+    build_request_context,
+    validate_request,
 )
 from setta.types.llm_config import LLMModelConfigPayload, LLMProviderConfigPayload
+from setta.types.chat_messages import LLMModelSelection
 
 
 class ConfigStoreAddPresetTests(unittest.TestCase):
     def test_add_preset_populates_default_provider(self) -> None:
         config = LLMConfig()
 
-        provider = add_preset_to_config(config, preset_id="openai")
+        provider = add_preset(config, preset_id="openai")
 
         self.assertEqual(len(config.providers), 1)
         self.assertEqual(provider.preset_id, "openai")
@@ -45,7 +47,7 @@ class ConfigStoreAddPresetTests(unittest.TestCase):
             ]
         )
 
-        provider = add_preset_to_config(config, preset_id="openai")
+        provider = add_preset(config, preset_id="openai")
 
         self.assertEqual(provider.preset_id, "openai")
         self.assertEqual(provider.api_key, "sk-live")
@@ -76,7 +78,7 @@ class ConfigStoreAddPresetTests(unittest.TestCase):
             ],
         )
 
-        provider = add_preset_to_config(
+        provider = add_preset(
             config,
             preset_id="openai",
             overrides=overrides,
@@ -98,7 +100,7 @@ class ConfigStoreAddPresetTests(unittest.TestCase):
             }
         )
 
-        provider = add_preset_to_config(
+        provider = add_preset(
             config,
             preset_id="openai",
             project_config_id="proj-1",
@@ -117,7 +119,7 @@ class ConfigSerializationRoundTripTests(unittest.TestCase):
                 "proj-1": LLMProjectConfig(project_config_id="proj-1"),
             },
         )
-        default_provider = add_preset_to_config(llm_config, preset_id="openai")
+        default_provider = add_preset(llm_config, preset_id="openai")
         overrides = LLMProviderConfigPayload(
             provider_id="openai-sandbox",
             display_name="OpenAI Sandbox",
@@ -130,7 +132,7 @@ class ConfigSerializationRoundTripTests(unittest.TestCase):
             ],
         )
 
-        scoped_provider = add_preset_to_config(
+        scoped_provider = add_preset(
             llm_config,
             preset_id="openai",
             overrides=overrides,
@@ -210,7 +212,7 @@ class ConfigValidationHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ValueError, "Provider 'OpenAI' is missing credentials."
         ):
-            validate_llm_request(provider, model, deep_think=False)
+            validate_request(provider, model, deep_think=False)
 
     def test_validate_llm_request_allows_authorization_header(self) -> None:
         provider = LLMProviderConfig(
@@ -224,12 +226,80 @@ class ConfigValidationHelperTests(unittest.TestCase):
             supports_reasoning=True,
         )
 
-        params = validate_llm_request(provider, model, deep_think=True)
+        params = validate_request(provider, model, deep_think=True)
 
         self.assertIn("reasoning", params or {})
         reasoning = params["reasoning"]
         self.assertIsInstance(reasoning, dict)
         self.assertEqual(reasoning.get("effort"), "medium")
+
+
+class ConfigRequestContextTests(unittest.TestCase):
+    def test_build_request_context_uses_scoped_config_and_reasoning(self) -> None:
+        config = LLMConfig(
+            default_project_config_id="proj-1",
+            project_configs={
+                "proj-1": LLMProjectConfig(
+                    project_config_id="proj-1",
+                    providers=[
+                        LLMProviderConfig(
+                            provider_id="openai",
+                            display_name="OpenAI Scoped",
+                            api_key="sk-test",
+                            extra_headers={"Authorization": "Bearer scoped"},
+                            models=[
+                                LLMModelConfig(
+                                    model_id="gpt-4o",
+                                    display_name="GPT-4o",
+                                    supports_reasoning=True,
+                                    default_parameters={"temperature": 0.2},
+                                )
+                            ],
+                        )
+                    ],
+                )
+            },
+        )
+        selection = LLMModelSelection(providerId="openai", modelId="gpt-4o")
+
+        context = build_request_context(
+            config,
+            selection,
+            project_config_id=None,
+            deep_think=True,
+        )
+
+        self.assertEqual(context.project_config_id, "proj-1")
+        self.assertEqual(context.provider.display_name, "OpenAI Scoped")
+        self.assertEqual(context.model.model_id, "gpt-4o")
+        self.assertEqual(context.request_params["reasoning"]["effort"], "medium")
+        self.assertEqual(context.extra_headers, {"Authorization": "Bearer scoped"})
+
+    def test_build_request_context_requires_credentials(self) -> None:
+        config = LLMConfig(
+            providers=[
+                LLMProviderConfig(
+                    provider_id="anthropic",
+                    display_name="Anthropic",
+                    models=[
+                        LLMModelConfig(
+                            model_id="claude-3",
+                            display_name="Claude 3",
+                            supports_reasoning=False,
+                        )
+                    ],
+                )
+            ]
+        )
+        selection = LLMModelSelection(providerId="anthropic", modelId="claude-3")
+
+        with self.assertRaisesRegex(ValueError, "missing credentials"):
+            build_request_context(
+                config,
+                selection,
+                project_config_id=None,
+                deep_think=False,
+            )
 
 
 if __name__ == "__main__":

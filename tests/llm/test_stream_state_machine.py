@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from setta.database.db_objs import DBE
-from setta.llm.config_store import (
+from setta.llm import (
     LLMConfig,
     LLMModelConfig,
     LLMProjectConfig,
@@ -67,17 +67,12 @@ class ScriptedChatManager(ChatManager):
     def _acquire_portkey_client(self, provider, *, project_config_id):
         return object()
 
-    async def _astream_portkey_response(
+    async def _astream_response(
         self,
         *,
         client,
         response_message_id: str,
-        history,
-        model: str,
-        tools,
-        request_params,
-        extra_headers,
-        provider_id: str,
+        payload,
     ):
         for event in self._script_builder(response_message_id):
             yield event

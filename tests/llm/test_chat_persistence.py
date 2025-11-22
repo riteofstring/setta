@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from setta.database.db_objs import DBE
-from setta.llm.config_store import LLMConfig
+from setta.llm import LLMConfig
 from setta.llm.models import (
     LLMMessage,
     LLMRole,
@@ -12,11 +12,11 @@ from setta.llm.models import (
     LLMToolResultBlock,
     ToolCallDeltaEvent,
 )
-from setta.mcp.chat_manager import (
-    ChatManager,
-    _PendingToolCall,
-    _StreamingTranscriptRecorder,
+from setta.llm.stream_state_machine import (
+    PendingToolCall,
+    StreamingTranscriptRecorder,
 )
+from setta.mcp.chat_manager import ChatManager
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
@@ -67,7 +67,7 @@ class ChatPersistenceTests(unittest.TestCase):
         self.assertFalse(tool_result.is_error)
 
     def test_pending_tool_call_validates_arguments_json(self) -> None:
-        call = _PendingToolCall(tool_call_id="call-1")
+        call = PendingToolCall(tool_call_id="call-1")
         call.add_delta(
             ToolCallDeltaEvent(
                 tool_call_id="call-1",
@@ -88,7 +88,7 @@ class ChatPersistenceTests(unittest.TestCase):
         self.assertEqual(args, {"foo": "bar"})
         self.assertEqual(call.name, "my_tool")
 
-        invalid = _PendingToolCall(tool_call_id="call-2")
+        invalid = PendingToolCall(tool_call_id="call-2")
         invalid.add_delta(
             ToolCallDeltaEvent(
                 tool_call_id="call-2",
@@ -99,7 +99,7 @@ class ChatPersistenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             invalid.to_arguments_dict()
 
-        scalar = _PendingToolCall(tool_call_id="call-3")
+        scalar = PendingToolCall(tool_call_id="call-3")
         scalar.add_delta(
             ToolCallDeltaEvent(
                 tool_call_id="call-3",
@@ -163,7 +163,7 @@ class ChatPersistenceTests(unittest.TestCase):
                 content=[LLMTextBlock(text="ping")],
             )
         )
-        recorder = _StreamingTranscriptRecorder(
+        recorder = StreamingTranscriptRecorder(
             chat=chat,
             persist_chat=manager._persist_chat,
         )
@@ -183,6 +183,40 @@ class ChatPersistenceTests(unittest.TestCase):
             persisted.messages[-1].content[0].text,
             "partial",
         )
+
+    def test_streaming_recorder_respects_interval_gate(self) -> None:
+        manager = ChatManager(
+            self.dbe,
+            mcp_client=None,
+            wmh_frontend_sender=None,
+            llm_config=LLMConfig(),
+        )
+        chat = Chat(
+            name="Interval",
+            modelSelection=LLMModelSelection(providerId="openai", modelId="gpt-4o"),
+        )
+        chat.add_message(
+            ChatMessage(
+                role=LLMRole.USER,
+                content=[LLMTextBlock(text="hello")],
+            )
+        )
+        persisted_snapshots: list[Chat] = []
+        recorder = StreamingTranscriptRecorder(
+            chat=chat,
+            persist_chat=lambda snapshot: persisted_snapshots.append(snapshot),
+            persist_interval_seconds=10.0,
+        )
+        assistant_message = LLMMessage(
+            message_id="assistant-interval",
+            role=LLMRole.ASSISTANT,
+            content=[LLMTextBlock(text="first")],
+        )
+
+        recorder.maybe_persist_snapshot(assistant_message)
+        recorder.maybe_persist_snapshot(assistant_message)
+
+        self.assertEqual(len(persisted_snapshots), 1)
 
 
 if __name__ == "__main__":

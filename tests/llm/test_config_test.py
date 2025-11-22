@@ -1,6 +1,6 @@
 import unittest
 
-from setta.llm.config_store import (
+from setta.llm import (
     LLMConfig,
     LLMProjectConfig,
     LLMProviderConfig,

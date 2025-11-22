@@ -2,11 +2,30 @@ import _ from "lodash";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
-  NULL_PROJECT_CONFIG_ID,
   useAIStore,
   useProjectState,
   type StoredLLMSelection,
 } from "state/definitions";
+import {
+  buildSelectionLookup,
+  findDefaultModelSelection,
+  getProvidersForProject,
+  hydrateSelectionFromConfig,
+  makeStoredSelection,
+  normalizeProjectConfigId,
+  resolveProjectConfigId,
+  selectionToKey,
+} from "state/llm/configSelectors";
+import {
+  applyMessageStarted,
+  applyResponseCompleted,
+  applyTextDelta,
+  applyToolCallDelta,
+  applyToolResult,
+  getDefaultChatDetails,
+  isStreamingStatus,
+  updateChatDetails,
+} from "state/llm/streamingState";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
@@ -23,30 +42,18 @@ import {
   ChatStreamStatusEnum,
   createChatMessage,
   createLLMTextBlock,
-  createLLMToolCallBlock,
-  createLLMToolResultBlock,
   IDToUUIDForLLM,
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
-  ResponseFinishStatusEnum,
   type LLMConfigPayload,
   type LLMConfigTestResultPayload,
   type LLMPresetCatalogPayload,
-  type LLMModelSelection,
-  type LLMProviderConfigPayload,
   type LLMStreamingResponse,
-  type MessageStartedEvent,
-  type ResponseCompletedEvent,
   SettaNotificationTypeEnum,
-  type TextDeltaEvent,
-  type ToolCallDeltaEvent,
-  type ToolResultEvent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
 import { encodeModelSelectionKey } from "utils/llmSelection";
-
-type SelectionLookup = Map<string, StoredLLMSelection>;
 
 function parseEndpointError(res: unknown, fallback: string): string {
   const data = (res as { data?: unknown })?.data;
@@ -83,144 +90,6 @@ export function notifyLLMConfigTestResult(
       SettaNotificationTypeEnum.success,
     );
   }
-}
-
-function makeStoredSelection(params: {
-  providerId: string;
-  modelId: string;
-  providerDisplayName?: string | null;
-  modelDisplayName?: string | null;
-}): StoredLLMSelection {
-  return {
-    providerId: params.providerId,
-    modelId: params.modelId,
-    providerDisplayName: params.providerDisplayName ?? params.providerId,
-    modelDisplayName: params.modelDisplayName ?? params.modelId,
-  };
-}
-
-function selectionToKey(selection: StoredLLMSelection | null): string | null {
-  if (!selection) {
-    return null;
-  }
-  return encodeModelSelectionKey({
-    providerId: selection.providerId,
-    modelId: selection.modelId,
-  });
-}
-
-function buildSelectionLookup(
-  providers: LLMProviderConfigPayload[],
-): SelectionLookup {
-  const lookup: SelectionLookup = new Map();
-  for (const provider of providers) {
-    const providerDisplayName = provider.display_name ?? provider.provider_id;
-    for (const model of provider.models ?? []) {
-      const selection = makeStoredSelection({
-        providerId: provider.provider_id,
-        modelId: model.model_id,
-        providerDisplayName,
-        modelDisplayName: model.display_name,
-      });
-      const key = selectionToKey(selection);
-      if (key) {
-        lookup.set(key, selection);
-      }
-    }
-  }
-  return lookup;
-}
-
-function findDefaultModelSelection(
-  providers: LLMProviderConfigPayload[],
-  lookup: SelectionLookup,
-): StoredLLMSelection | null {
-  for (const provider of providers) {
-    const defaultModelId = provider.default_model_id;
-    if (!defaultModelId) {
-      continue;
-    }
-    const key = encodeModelSelectionKey({
-      providerId: provider.provider_id,
-      modelId: defaultModelId,
-    });
-    const selection = lookup.get(key);
-    if (selection) {
-      return selection;
-    }
-  }
-  return null;
-}
-
-function resolveProjectConfigId(
-  projectConfigId: string | null | undefined,
-): string | null {
-  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return null;
-  }
-  return projectConfigId;
-}
-
-function getProvidersForProjectInternal(
-  config: LLMConfigPayload,
-  projectConfigId: string | null,
-): LLMProviderConfigPayload[] {
-  if (projectConfigId) {
-    const projectConfig = config.project_configs[projectConfigId];
-    if (projectConfig) {
-      return projectConfig.providers ?? [];
-    }
-  }
-  const defaultProjectId = resolveProjectConfigId(
-    config.default_project_config_id,
-  );
-  if (defaultProjectId) {
-    const defaultProject = config.project_configs[defaultProjectId];
-    if (defaultProject) {
-      return defaultProject.providers ?? [];
-    }
-  }
-  return config.providers ?? [];
-}
-
-export function getProvidersForProject(
-  config: LLMConfigPayload | null,
-  projectConfigId: string | null | undefined,
-): LLMProviderConfigPayload[] {
-  if (!config) {
-    return [];
-  }
-  const resolvedProjectId = resolveProjectConfigId(projectConfigId);
-  return getProvidersForProjectInternal(config, resolvedProjectId);
-}
-
-function hydrateSelectionFromConfig(
-  selection: LLMModelSelection | null | undefined,
-  config: LLMConfigPayload | null,
-  projectConfigId: string | null | undefined = null,
-): StoredLLMSelection | null {
-  if (!selection) {
-    return null;
-  }
-  if (!config) {
-    return makeStoredSelection({
-      providerId: selection.providerId,
-      modelId: selection.modelId,
-    });
-  }
-  const providers = getProvidersForProject(config, projectConfigId);
-  const provider = providers.find(
-    (candidate) => candidate.provider_id === selection.providerId,
-  );
-  const model = provider?.models?.find(
-    (candidate) => candidate.model_id === selection.modelId,
-  );
-  return makeStoredSelection({
-    providerId: selection.providerId,
-    modelId: selection.modelId,
-    providerDisplayName: provider?.display_name,
-    modelDisplayName: model?.display_name,
-  });
 }
 
 export async function loadLLMConfig(): Promise<
@@ -264,10 +133,7 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
     const cleanedSelections: Record<string, StoredLLMSelection | null> = {};
     for (const projectId of projectIds) {
       const resolvedProjectId = resolveProjectConfigId(projectId);
-      const providers = getProvidersForProjectInternal(
-        config,
-        resolvedProjectId,
-      );
+      const providers = getProvidersForProject(config, resolvedProjectId);
       const selectionLookup = buildSelectionLookup(providers);
       const initialSelection =
         state.userSelectedLLMByProject?.[projectId] ?? null;
@@ -291,12 +157,6 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
       userSelectedLLMByProject: cleanedSelections,
     };
   });
-}
-
-function normalizeProjectConfigId(
-  projectConfigId: string | null | undefined,
-): string {
-  return projectConfigId ?? NULL_PROJECT_CONFIG_ID;
 }
 
 function setProjectLLMSelection(
@@ -380,20 +240,6 @@ export async function testLLMConfig(
   throw new Error(detail);
 }
 
-function isStreamingStatus(status: string | null | undefined): boolean {
-  return status === ChatStreamStatusEnum.STREAMING;
-}
-
-export function getDefaultChatDetails() {
-  return {
-    messages: [],
-    waitingForResponse: false,
-    streamStatus: ChatStreamStatusEnum.IDLE,
-    streamTarget: null,
-    modelSelectionKey: null,
-  };
-}
-
 export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
@@ -419,20 +265,14 @@ export async function getLLMChat(chatId: string) {
     );
     const nextWaitingForResponse =
       isStreamingStatus(streamStatus) || waitingForResponse;
-    useAIStore.setState((state) => ({
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(state.chatDetails[chatId] ?? {}),
-          messages,
-          waitingForResponse: nextWaitingForResponse,
-          streamStatus: streamStatus ?? ChatStreamStatusEnum.IDLE,
-          modelSelectionKey,
-        },
-      },
-      currentChatId: chatId,
+    updateChatDetails(chatId, (details) => ({
+      ...details,
+      messages,
+      waitingForResponse: nextWaitingForResponse,
+      streamStatus: streamStatus ?? ChatStreamStatusEnum.IDLE,
+      modelSelectionKey,
     }));
+    useAIStore.setState({ currentChatId: chatId });
     if (hydratedSelection) {
       setProjectLLMSelection(responseProjectConfigId, hydratedSelection);
     }
@@ -520,19 +360,19 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
 
     switch (chunk.event_type) {
       case LLMStreamEventTypeEnum.MESSAGE_STARTED:
-        llmMessageStarted(chatId, chunk);
+        applyMessageStarted(chatId, chunk);
         return;
       case LLMStreamEventTypeEnum.TEXT_DELTA:
-        llmTextDelta(chatId, chunk);
+        applyTextDelta(chatId, chunk);
         return;
       case LLMStreamEventTypeEnum.TOOL_CALL_DELTA:
-        llmToolCallDelta(chatId, assistantMessageId, chunk);
+        applyToolCallDelta(chatId, assistantMessageId, chunk);
         return;
       case LLMStreamEventTypeEnum.TOOL_RESULT:
-        llmToolResult(chatId, assistantMessageId, chunk);
+        applyToolResult(chatId, assistantMessageId, chunk);
         return;
       case LLMStreamEventTypeEnum.RESPONSE_COMPLETED:
-        llmResponseCompleted(chatId, chunk);
+        applyResponseCompleted(chatId, chunk);
         return;
       default:
         return;
@@ -542,259 +382,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
 }
 
-function llmMessageStarted(chatId: string, chunk: MessageStartedEvent) {
-  const message = createChatMessage({
-    id: chunk.message_id,
-    role: chunk.role,
-    content: [],
-  });
-
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    const currMessages = currDetails?.messages ?? [];
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          messages: [...currMessages, message],
-          waitingForResponse: true,
-          streamStatus: ChatStreamStatusEnum.STREAMING,
-        },
-      },
-    };
-  });
-}
-
-function llmTextDelta(chatId: string, chunk: TextDeltaEvent) {
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    const currMessages = currDetails?.messages ?? [];
-    const messageIndex = currMessages.findIndex(
-      (m) => m.id === chunk.message_id,
-    );
-    if (messageIndex === -1) {
-      return {};
-    }
-
-    const message = currMessages[messageIndex];
-    const content = [...message.content];
-    const streamTarget = chunk.stream_target ?? null;
-
-    const blockIndex = content.findIndex(
-      (block) =>
-        block?.type === "text" &&
-        (block.stream_target ?? null) === streamTarget,
-    );
-
-    let newContent = content;
-    if (blockIndex === -1) {
-      newContent = [
-        ...content,
-        createLLMTextBlock({ text: chunk.delta, stream_target: streamTarget }),
-      ];
-    } else {
-      const existingBlock = content[blockIndex];
-      if (!existingBlock || existingBlock.type !== "text") {
-        return {};
-      }
-      newContent = [...content];
-      newContent[blockIndex] = {
-        ...existingBlock,
-        text: `${existingBlock.text ?? ""}${chunk.delta}`,
-      };
-    }
-
-    const updatedMessage = { ...message, content: newContent };
-    const newMessages = [
-      ...currMessages.slice(0, messageIndex),
-      updatedMessage,
-      ...currMessages.slice(messageIndex + 1),
-    ];
-
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          messages: newMessages,
-          waitingForResponse: true,
-          streamStatus: ChatStreamStatusEnum.STREAMING,
-        },
-      },
-    };
-  });
-}
-
-function llmToolCallDelta(
-  chatId: string,
-  assistantMessageId: string | null,
-  chunk: ToolCallDeltaEvent,
-) {
-  if (!assistantMessageId) {
-    return;
-  }
-
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    const currMessages = currDetails?.messages ?? [];
-    const messageIndex = currMessages.findIndex(
-      (m) => m.id === assistantMessageId,
-    );
-    if (messageIndex === -1) {
-      return {};
-    }
-
-    const message = currMessages[messageIndex];
-    const content = [...message.content];
-    const blockIndex = content.findIndex(
-      (block) =>
-        block?.type === "tool_call" &&
-        block.tool_call_id === chunk.tool_call_id,
-    );
-
-    let newContent = content;
-    if (blockIndex === -1) {
-      newContent = [
-        ...content,
-        createLLMToolCallBlock({
-          tool_call_id: chunk.tool_call_id,
-          name: chunk.name ?? "",
-          arguments_text: chunk.arguments_delta ?? "",
-        }),
-      ];
-    } else {
-      const existingBlock = content[blockIndex];
-      if (!existingBlock || existingBlock.type !== "tool_call") {
-        return {};
-      }
-      newContent = [...content];
-      newContent[blockIndex] = {
-        ...existingBlock,
-        name: chunk.name ?? existingBlock.name,
-        arguments_text: `${existingBlock.arguments_text ?? ""}${
-          chunk.arguments_delta
-        }`,
-      };
-    }
-
-    const updatedMessage = { ...message, content: newContent };
-    const newMessages = [
-      ...currMessages.slice(0, messageIndex),
-      updatedMessage,
-      ...currMessages.slice(messageIndex + 1),
-    ];
-
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          messages: newMessages,
-          waitingForResponse: true,
-          streamStatus: ChatStreamStatusEnum.STREAMING,
-        },
-      },
-    };
-  });
-}
-
-function llmToolResult(
-  chatId: string,
-  assistantMessageId: string | null,
-  chunk: ToolResultEvent,
-) {
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    const currMessages = currDetails?.messages ?? [];
-    let newMessages = currMessages;
-
-    if (assistantMessageId) {
-      const messageIndex = currMessages.findIndex(
-        (m) => m.id === assistantMessageId,
-      );
-      if (messageIndex !== -1) {
-        const message = currMessages[messageIndex];
-        const content = [...message.content];
-        const toolCallBlock = content.find(
-          (block) =>
-            block?.type === "tool_call" &&
-            block.tool_call_id === chunk.tool_call_id,
-        );
-
-        const resultBlock = createLLMToolResultBlock({
-          tool_call_id: chunk.tool_call_id,
-          name:
-            toolCallBlock && toolCallBlock.type === "tool_call"
-              ? toolCallBlock.name
-              : null,
-          output_text: chunk.output_text ?? null,
-          output_json: chunk.output ?? null,
-          is_error: chunk.is_error ?? false,
-        });
-
-        const updatedMessage = {
-          ...message,
-          content: [...content, resultBlock],
-        };
-
-        newMessages = [
-          ...currMessages.slice(0, messageIndex),
-          updatedMessage,
-          ...currMessages.slice(messageIndex + 1),
-        ];
-      }
-    }
-
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          messages: newMessages,
-          waitingForResponse: true,
-          streamStatus: ChatStreamStatusEnum.STREAMING,
-        },
-      },
-    };
-  });
-}
-
-function llmResponseCompleted(
-  chatId: string,
-  chunk: ResponseCompletedEvent | null,
-) {
-  const finishStatus = chunk?.status;
-  const finishReason = chunk?.finish_reason;
-  let streamStatus = ChatStreamStatusEnum.COMPLETED;
-
-  if (
-    finishStatus === ResponseFinishStatusEnum.CANCELED ||
-    finishReason === "canceled"
-  ) {
-    streamStatus = ChatStreamStatusEnum.CANCELED;
-  } else if (finishStatus === ResponseFinishStatusEnum.ERROR) {
-    streamStatus = ChatStreamStatusEnum.ERROR;
-  }
-
-  useAIStore.setState((state) => {
-    const currDetails = state.chatDetails[chatId];
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(currDetails ?? {}),
-          waitingForResponse: false,
-          streamStatus,
-        },
-      },
-    };
-  });
 }
 
 function streamInto(chatId, streamTarget, content) {

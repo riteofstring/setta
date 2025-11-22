@@ -17,10 +17,9 @@
 - Gateway assets ship with the package and a dev helper can auto-start the bundled gateway.
 
 **Open Gaps (refactor scope)**
-- Layer the chat pipeline: Portkey transport adapter → stream state machine (status, tool-call accumulation, cancellation) → persistence/metadata; centralize request-context building (credentials, headers, defaults).
-- Normalize config/preset merging in one module with a minimal API (`load/save`, payload conversions, `add_preset`, `resolve_selection`, `validate_request`) and explicit project scoping.
-- Centralize frontend streaming status updates and selection/config sanitization in shared helpers instead of scattered chunk handlers.
-- Broaden tests to cover state-machine flows (happy path, cancel, tool-call completion, snapshot interval) and config normalization (preset overrides, project scoping, reasoning/credential validation).
+- Finalize UX polish and docs for the new pipeline (diagram + request → events → persistence example) and update README/DEV notes.
+- Smoke the full-stack flow with the Portkey gateway (stream + tool calls + reconnect) and note any remaining edge regressions to close.
+- Apply the shared streaming/config helpers wherever ad-hoc code remains (if any) and delete leftover legacy helpers once verified.
 
 **Completed Highlights**
 - Neutral LLM models + Portkey adapter with provider-scoped clients and selection guardrails.
@@ -28,9 +27,10 @@
 - Config UX + presets + validation: editor, GET/SET/TEST endpoints, project-scoped configs, default selection/gating, and inline error surfacing.
 - Deep thinking + model defaults enforced per-model with reasoning payloads.
 - Gateway bundling + dev auto-start helper for local Portkey.
-- Frontend selection gating and streaming pipeline for message/text/tool events.
+- Layered chat pipeline in place: centralized request-context builder, Portkey transport adapter, stream state machine, and persistence/metadata helpers.
+- Frontend selection gating and streaming pipeline for message/text/tool events with shared helpers for config/selection sanitization.
 - Notifications/logging for LLM/config failures.
-- Tests/docs: adapter + persistence + config suites; Portkey config workflow documented.
+- Broadened tests: stream state machine happy/error/tool-result paths, snapshot persistence interval, config normalization/validation, and watcher error handling; Portkey config workflow documented.
 
 **Note**
 - Immediate regressions to fix before continuing the refactor are tracked in `docs/llm_simplification_plan.md`.

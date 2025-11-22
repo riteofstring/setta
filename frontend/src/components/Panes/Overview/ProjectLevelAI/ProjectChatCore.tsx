@@ -11,11 +11,11 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import {
-  getDefaultChatDetails,
   getLLMChat,
   startStreamingInto,
   stopStreamingInto,
 } from "state/actions/ai";
+import { getDefaultChatDetails } from "state/llm/streamingState";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import {
   useAIStore,

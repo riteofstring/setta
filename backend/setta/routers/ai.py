@@ -1,14 +1,14 @@
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.llm.config_store import (
-    add_preset_to_config,
-    config_to_payload,
-    load_llm_config,
-    payload_to_config,
-    resolve_model_selection,
-    save_llm_config,
-    validate_llm_request,
+from setta.llm import (
+    add_preset,
+    config_payload,
+    load_config,
+    payload_to_config_model,
+    resolve_selection,
+    save_config,
+    validate_request,
 )
 from setta.llm.config_test import test_llm_config
 from setta.llm.presets import get_llm_provider_presets
@@ -86,14 +86,14 @@ async def route_get_llm_response(
         )
 
     try:
-        provider_config, model_config = resolve_model_selection(
+        resolved = resolve_selection(
             llm_config,
             x.modelSelection,
             project_config_id=x.projectConfigId,
         )
-        validate_llm_request(
-            provider_config,
-            model_config,
+        validate_request(
+            resolved.provider,
+            resolved.model,
             deep_think=x.deepThink,
         )
     except (TypeError, ValueError) as exc:
@@ -120,8 +120,8 @@ async def route_get_llm_response(
 
 @router.post(Route.GET_LLM_CONFIG)
 def route_get_llm_config() -> LLMConfigPayload:
-    config = load_llm_config()
-    return config_to_payload(config)
+    config = load_config()
+    return config_payload(config)
 
 
 @router.post(Route.GET_LLM_PRESETS)
@@ -137,9 +137,9 @@ async def route_add_llm_preset(
     payload: AddLLMPresetRequest,
     state: AppStateFromRequest,
 ) -> LLMConfigPayload:
-    config = load_llm_config()
+    config = load_config()
     try:
-        add_preset_to_config(
+        add_preset(
             config,
             preset_id=payload.presetId,
             provider_id=payload.providerId,
@@ -149,10 +149,10 @@ async def route_add_llm_preset(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    save_llm_config(config)
+    save_config(config)
     notification = SettaNotification(message=f"Added preset '{payload.presetId}'")
     await state.wmh_frontend_sender.broadcast_notification(notification)
-    return config_to_payload(config)
+    return config_payload(config)
 
 
 @router.post(Route.TEST_LLM_CONFIG)
@@ -162,7 +162,7 @@ def route_test_llm_config(
 ) -> LLMConfigTestResultPayload:
     config_payload = payload.config if payload else None
     config = (
-        payload_to_config(config_payload)
+        payload_to_config_model(config_payload)
         if config_payload is not None
         else state.llm_config
     )
@@ -174,10 +174,10 @@ async def route_set_llm_config(
     payload: LLMConfigPayload,
     state: AppStateFromRequest,
 ) -> LLMConfigPayload:
-    config = payload_to_config(payload)
+    config = payload_to_config_model(payload)
 
     try:
-        save_llm_config(config)
+        save_config(config)
     except Exception as exc:  # pragma: no cover - defensive logging path
         notification = SettaNotification(
             message="Error saving LLM configuration",
@@ -190,7 +190,7 @@ async def route_set_llm_config(
 
     notification = SettaNotification(message="Saved LLM configuration")
     await state.wmh_frontend_sender.broadcast_notification(notification)
-    return config_to_payload(config)
+    return config_payload(config)
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)

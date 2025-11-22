@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.llm.config_store import LLMConfig, config_to_payload, load_llm_config
+from setta.llm import LLMConfig
+from setta.llm.config_api import config_payload, load_config
 from setta.llm.constants import CONFIG_PATH
 from setta.types.llm_config import LLMConfigPayload
 from setta.types.notifications import SettaNotification, SettaNotificationType
@@ -36,7 +37,7 @@ def register_llm_config_watch(
 
     async def _handle_config_update(_: FileWatcherCoreUpdate) -> None:
         try:
-            updated = load_llm_config(config_path=resolved_path)
+            updated = load_config(config_path=resolved_path)
         except json.JSONDecodeError as exc:
             logger.error(
                 "Invalid JSON in %s (line %s column %s): %s",
@@ -69,7 +70,7 @@ def register_llm_config_watch(
 
         _apply_config_update(llm_config, updated)
         chat_manager.update_llm_config(llm_config)
-        payload: LLMConfigPayload = config_to_payload(llm_config)
+        payload: LLMConfigPayload = config_payload(llm_config)
         await frontend_sender.broadcast_llm_config(payload)
 
     specific_file_watcher.update_callbacks(

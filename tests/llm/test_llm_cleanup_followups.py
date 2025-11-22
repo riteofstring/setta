@@ -6,14 +6,14 @@ from pathlib import Path
 
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.llm.config_store import (
+from setta.llm import (
     LLMConfig,
     LLMModelConfig,
     LLMProjectConfig,
     LLMProviderConfig,
-    load_llm_config,
-    resolve_model_selection,
-    save_llm_config,
+    load_config,
+    resolve_selection,
+    save_config,
 )
 from setta.llm.config_test import test_llm_config
 from setta.llm.config_watch import register_llm_config_watch
@@ -56,12 +56,12 @@ class ProjectAwareSelectionTests(unittest.TestCase):
         )
         selection = LLMModelSelection(providerId="openai", modelId="gpt-4o-mini")
 
-        provider, model = resolve_model_selection(
+        resolved = resolve_selection(
             llm_config, selection, project_config_id="proj-1"
         )
 
-        self.assertEqual(provider.display_name, "Project OpenAI")
-        self.assertEqual(model.model_id, "gpt-4o-mini")
+        self.assertEqual(resolved.provider.display_name, "Project OpenAI")
+        self.assertEqual(resolved.model.model_id, "gpt-4o-mini")
 
     def test_resolve_model_selection_uses_default_project_scope(self) -> None:
         scoped_provider = LLMProviderConfig(
@@ -80,12 +80,12 @@ class ProjectAwareSelectionTests(unittest.TestCase):
         )
         selection = LLMModelSelection(providerId="anthropic", modelId="claude-3")
 
-        provider, model = resolve_model_selection(
+        resolved = resolve_selection(
             llm_config, selection, project_config_id=None
         )
 
-        self.assertEqual(provider.display_name, "Scoped Anthropic")
-        self.assertEqual(model.model_id, "claude-3")
+        self.assertEqual(resolved.provider.display_name, "Scoped Anthropic")
+        self.assertEqual(resolved.model.model_id, "claude-3")
 
 
 class _RecordingFrontendSender:
@@ -113,17 +113,12 @@ class _NullMCPClient:
 
 
 class _SlowChatManager(ChatManager):
-    async def _astream_portkey_response(
+    async def _astream_response(
         self,
         *,
         client,
         response_message_id: str,
-        history,
-        model: str,
-        tools,
-        request_params,
-        extra_headers,
-        provider_id: str,
+        payload,
     ):
         yield MessageStartedEvent(
             message_id=response_message_id,
@@ -218,8 +213,8 @@ class LLMConfigWatcherTests(unittest.IsolatedAsyncioTestCase):
                     )
                 ],
             )
-            save_llm_config(initial_config, config_path=config_path)
-            llm_config = load_llm_config(config_path=config_path)
+            save_config(initial_config, config_path=config_path)
+            llm_config = load_config(config_path=config_path)
             frontend = _RecordingFrontendSender()
             watcher = SpecificFileWatcher()
             manager = _SlowChatManager(

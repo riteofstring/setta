@@ -3,7 +3,11 @@ import unittest
 from pathlib import Path
 
 from setta.database.db_objs import DBE
-from setta.llm.config_store import LLMConfig, LLMProviderConfig
+from setta.llm import LLMConfig, LLMProviderConfig
+from setta.llm.portkey_adapter import (
+    build_portkey_payload,
+    events_from_chunk,
+)
 from setta.llm.models import (
     LLMHistory,
     LLMMessage,
@@ -12,7 +16,7 @@ from setta.llm.models import (
     TextDeltaEvent,
     ToolCallDeltaEvent,
 )
-from setta.mcp.chat_manager import ChatManager, _events_from_chunk
+from setta.mcp.chat_manager import ChatManager
 
 
 class ChatManagerSimplificationTest(unittest.TestCase):
@@ -39,7 +43,7 @@ class ChatManagerSimplificationTest(unittest.TestCase):
         history = LLMHistory(
             messages=[LLMMessage(message_id="m1", role=LLMRole.USER, content=[])]
         )
-        payload = self.manager._build_portkey_payload(
+        payload = build_portkey_payload(
             history=history,
             model="gpt-4o",
             tools=None,
@@ -66,7 +70,7 @@ class ChatManagerSimplificationTest(unittest.TestCase):
                 }
             ]
         }
-        events = _events_from_chunk(chunk, response_message_id="resp-1")
+        events = events_from_chunk(chunk, response_message_id="resp-1")
         self.assertEqual(len(events), 2)
         self.assertIsInstance(events[0], TextDeltaEvent)
         self.assertEqual(events[0].delta, "hello")
@@ -87,7 +91,7 @@ class ChatManagerSimplificationTest(unittest.TestCase):
                 }
             ]
         }
-        events = _events_from_chunk(chunk, response_message_id="resp-2")
+        events = events_from_chunk(chunk, response_message_id="resp-2")
         self.assertEqual(len(events), 1)
         text_event = events[0]
         self.assertIsInstance(text_event, TextDeltaEvent)
@@ -96,7 +100,7 @@ class ChatManagerSimplificationTest(unittest.TestCase):
 
     def test_chunk_adapter_emits_response_completed_event(self) -> None:
         chunk = {"type": "response.completed", "finish_reason": "length"}
-        events = _events_from_chunk(chunk, response_message_id="resp-3")
+        events = events_from_chunk(chunk, response_message_id="resp-3")
         self.assertEqual(len(events), 1)
         completed = events[0]
         self.assertIsInstance(completed, ResponseCompletedEvent)
@@ -120,7 +124,7 @@ class ChatManagerSimplificationTest(unittest.TestCase):
                 }
             ]
         }
-        events = _events_from_chunk(chunk, response_message_id="resp-4")
+        events = events_from_chunk(chunk, response_message_id="resp-4")
         self.assertEqual(len(events), 1)
         event = events[0]
         self.assertIsInstance(event, ToolCallDeltaEvent)
