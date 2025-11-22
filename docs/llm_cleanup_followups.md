@@ -10,9 +10,10 @@ Pending items to simplify and harden the Portkey-centric stack (builds on `docs/
 - LLM config watcher now leaves the previous config in place on invalid JSON/validation errors and broadcasts an error notification to the UI.
 - Frontend now sends full provider/model payloads (with `preset_id`) and relies on backend slimming, removing client-side preset diffing.
 - Provider resolution now raises on unknown `project_config_id`, removing silent fallback to default providers.
+- Backend regression tests cover project-scoped model selection, stop/cancel final completion chunks, watcher error notifications, and scoped validation payloads.
 
 ## Open issues
-- Test gaps: minimal coverage for project-scoped selection/UI plumbing, stop/cancel behavior, watcher error handling, and validation payloads beyond scoped dedupe.
+- UI coverage still light for project-scoped model picker defaults, stop/cancel UI state, and surfacing watcher errors to the user.
 
 ## Proposed actions
-- Backfill tests for project-aware selections, cancel/stop lifecycle, watcher error surfacing, and validation payloads.
+- Add frontend regression tests (Vitest/RTL) for project-aware selections, stop/cancel lifecycle, and watcher error surfacing in the UI.
