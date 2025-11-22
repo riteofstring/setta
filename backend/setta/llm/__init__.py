@@ -3,11 +3,13 @@ from .config_store import (
     LLMModelConfig,
     LLMProjectConfig,
     LLMProviderConfig,
+    build_llm_request_params,
     config_to_payload,
     load_llm_config,
     payload_to_config,
     resolve_model_selection,
     save_llm_config,
+    validate_llm_request,
 )
 from .config_test import test_llm_config
 from .models import (
@@ -36,11 +38,13 @@ __all__ = [
     "LLMModelConfig",
     "LLMProviderConfig",
     "LLMProjectConfig",
+    "build_llm_request_params",
     "config_to_payload",
     "load_llm_config",
     "payload_to_config",
     "resolve_model_selection",
     "save_llm_config",
+    "validate_llm_request",
     "test_llm_config",
     "JSONValue",
     "LLMContentBlock",

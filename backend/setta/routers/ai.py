@@ -8,6 +8,7 @@ from setta.llm.config_store import (
     payload_to_config,
     resolve_model_selection,
     save_llm_config,
+    validate_llm_request,
 )
 from setta.llm.config_test import test_llm_config
 from setta.llm.presets import get_llm_provider_presets
@@ -87,14 +88,15 @@ async def route_get_llm_response(
         )
 
     try:
-        _, model_config = resolve_model_selection(
+        provider_config, model_config = resolve_model_selection(
             llm_config,
             x.modelSelection,
             project_config_id=x.projectConfigId,
         )
-        state.chat_manager._build_request_params(
+        validate_llm_request(
+            provider_config,
+            model_config,
             deep_think=x.deepThink,
-            model=model_config,
         )
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))

@@ -5,6 +5,9 @@
 - Make failures and cancellations explicit to the frontend; avoid UI states that require manual refresh.
 - Keep the Portkey-first flow intact while trimming scaffolding from the refactor spike.
 
+## Progress
+- Workstream 1 is implemented: config/preset hydration now uses preset IDs + overrides, `_merge_*` helpers are removed, and a shared validator enforces credentials + deep_think support for both the router and orchestrator.
+
 ## Workstream 1: Config + Preset Model Unification
 - Collapse the parallel dataclasses and Pydantic payload models into one canonical model shape with a single hydration path: `payload -> hydrate presets -> normalize -> persist`.
 - Replace `_maybe_set`/`_merge_*` diff logic with explicit “persist overrides” serialization: store preset IDs plus user overrides; expand to full runtime objects when loading.

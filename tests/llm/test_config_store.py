@@ -6,6 +6,7 @@ from setta.llm.config_store import (
     LLMProjectConfig,
     LLMProviderConfig,
     add_preset_to_config,
+    validate_llm_request,
 )
 from setta.types.llm_config import LLMModelConfigPayload, LLMProviderConfigPayload
 
@@ -134,6 +135,39 @@ class ConfigProviderResolutionTests(unittest.TestCase):
             "Unknown project config: proj-missing",
         ):
             config.providers_for_project("proj-missing")
+
+
+class ConfigValidationHelperTests(unittest.TestCase):
+    def test_validate_llm_request_requires_credentials(self) -> None:
+        provider = LLMProviderConfig(
+            provider_id="openai",
+            display_name="OpenAI",
+        )
+        model = LLMModelConfig(model_id="gpt-4o", display_name="GPT-4o")
+
+        with self.assertRaisesRegex(
+            ValueError, "Provider 'OpenAI' is missing credentials."
+        ):
+            validate_llm_request(provider, model, deep_think=False)
+
+    def test_validate_llm_request_allows_authorization_header(self) -> None:
+        provider = LLMProviderConfig(
+            provider_id="openai",
+            display_name="OpenAI",
+            extra_headers={"Authorization": "Bearer test"},
+        )
+        model = LLMModelConfig(
+            model_id="gpt-4o",
+            display_name="GPT-4o",
+            supports_reasoning=True,
+        )
+
+        params = validate_llm_request(provider, model, deep_think=True)
+
+        self.assertIn("reasoning", params or {})
+        reasoning = params["reasoning"]
+        self.assertIsInstance(reasoning, dict)
+        self.assertEqual(reasoning.get("effort"), "medium")
 
 
 if __name__ == "__main__":

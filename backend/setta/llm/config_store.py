@@ -20,9 +20,6 @@ if TYPE_CHECKING:
     from setta.types.chat_messages import LLMModelSelection
 
 
-_MISSING = object()
-
-
 @dataclass
 class LLMModelConfig:
     """Model metadata and default parameters for the local gateway."""
@@ -32,84 +29,6 @@ class LLMModelConfig:
     supports_reasoning: bool = False
     default_parameters: dict[str, JSONValue] | None = None
     preset_id: str | None = None
-
-    def to_dict(self, *, base_model: "LLMModelConfig | None" = None) -> dict[str, Any]:
-        """Serialize the config, optionally diffing against a preset model."""
-
-        data: dict[str, Any] = {}
-        if self.preset_id is not None:
-            data["preset_id"] = self.preset_id
-        _maybe_set(
-            data,
-            "model_id",
-            self.model_id,
-            base_value=base_model.model_id if base_model else _MISSING,
-        )
-        _maybe_set(
-            data,
-            "display_name",
-            self.display_name,
-            base_value=base_model.display_name if base_model else _MISSING,
-        )
-        _maybe_set(
-            data,
-            "supports_reasoning",
-            self.supports_reasoning,
-            base_value=base_model.supports_reasoning if base_model else _MISSING,
-        )
-        _maybe_set(
-            data,
-            "default_parameters",
-            self.default_parameters,
-            base_value=base_model.default_parameters if base_model else _MISSING,
-            include_none=True,
-        )
-        return data
-
-    @classmethod
-    def from_dict(
-        cls,
-        payload: dict[str, Any],
-        base_model: "LLMModelConfig | None" = None,
-    ) -> "LLMModelConfig":
-        preset_id = payload.get("preset_id")
-        if preset_id is not None and base_model is None:
-            raise ValueError(f"Unknown preset model: {preset_id}")
-
-        model_id = _coalesce_value(
-            payload,
-            "model_id",
-            base_model.model_id if base_model else None,
-        )
-        display_name = _coalesce_value(
-            payload,
-            "display_name",
-            base_model.display_name if base_model else None,
-        )
-        supports_reasoning = payload.get(
-            "supports_reasoning",
-            base_model.supports_reasoning if base_model else False,
-        )
-        if "default_parameters" in payload:
-            default_parameters = _clone_json(payload["default_parameters"])
-        else:
-            default_parameters = _clone_json(
-                base_model.default_parameters if base_model else None
-            )
-
-        resolved_preset_id = (
-            preset_id
-            if preset_id is not None
-            else (base_model.preset_id if base_model and base_model.preset_id else None)
-        )
-
-        return cls(
-            model_id=model_id,
-            display_name=display_name,
-            supports_reasoning=supports_reasoning,
-            default_parameters=default_parameters,
-            preset_id=resolved_preset_id,
-        )
 
 
 @dataclass
@@ -125,160 +44,6 @@ class LLMProviderConfig:
     extra_headers: dict[str, str] | None = None
     models: list[LLMModelConfig] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
-        base_provider = _lookup_preset_provider(self.preset_id)
-        base_config = base_provider.provider if base_provider else None
-
-        data: dict[str, Any] = {}
-        if self.preset_id is not None:
-            data["preset_id"] = self.preset_id
-
-        _maybe_set(
-            data,
-            "provider_id",
-            self.provider_id,
-            base_value=base_config.provider_id if base_config else _MISSING,
-        )
-        _maybe_set(
-            data,
-            "display_name",
-            self.display_name,
-            base_value=base_config.display_name if base_config else _MISSING,
-        )
-        _maybe_set(
-            data,
-            "api_key",
-            self.api_key,
-            base_value=base_config.api_key if base_config else _MISSING,
-        )
-        _maybe_set(
-            data,
-            "base_url",
-            self.base_url,
-            base_value=base_config.base_url if base_config else _MISSING,
-            include_none=True,
-        )
-        _maybe_set(
-            data,
-            "default_model_id",
-            self.default_model_id,
-            base_value=base_config.default_model_id if base_config else _MISSING,
-            include_none=True,
-        )
-        _maybe_set(
-            data,
-            "extra_headers",
-            self.extra_headers,
-            base_value=base_config.extra_headers if base_config else _MISSING,
-            include_none=True,
-        )
-
-        models_payload = self._serialize_models(
-            base_models=base_config.models if base_config else None
-        )
-        if models_payload is not None:
-            data["models"] = models_payload
-
-        return data
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "LLMProviderConfig":
-        preset_id = payload.get("preset_id")
-        preset = _lookup_preset_provider(preset_id, strict=bool(preset_id))
-        base_provider = preset.provider if preset else None
-
-        provider_id = _coalesce_value(
-            payload,
-            "provider_id",
-            base_provider.provider_id if base_provider else None,
-        )
-        display_name = _coalesce_value(
-            payload,
-            "display_name",
-            base_provider.display_name if base_provider else provider_id,
-        )
-        if "api_key" in payload:
-            api_key = payload["api_key"] or ""
-        else:
-            api_key = base_provider.api_key if base_provider else ""
-        base_url = (
-            payload["base_url"]
-            if "base_url" in payload
-            else (base_provider.base_url if base_provider else None)
-        )
-        default_model_id = (
-            payload["default_model_id"]
-            if "default_model_id" in payload
-            else (base_provider.default_model_id if base_provider else None)
-        )
-        extra_headers = _clone_headers(
-            payload.get(
-                "extra_headers",
-                base_provider.extra_headers if base_provider else None,
-            )
-        )
-
-        models_payload = payload.get("models")
-        models = _hydrate_models(
-            base_models=base_provider.models if base_provider else None,
-            overrides=models_payload,
-        )
-
-        return cls(
-            provider_id=provider_id,
-            display_name=display_name,
-            preset_id=preset.preset_id if preset else None,
-            api_key=api_key,
-            base_url=base_url,
-            default_model_id=default_model_id,
-            extra_headers=extra_headers,
-            models=models,
-        )
-
-    def _serialize_models(
-        self,
-        *,
-        base_models: list[LLMModelConfig] | None,
-    ) -> list[dict[str, Any]] | None:
-        if not self.models and not base_models:
-            return []
-
-        if not base_models:
-            return [model.to_dict() for model in self.models]
-
-        if self._models_match_base(base_models):
-            return None
-
-        base_models_by_id = {model.model_id: model for model in base_models}
-        for model in base_models:
-            if model.preset_id:
-                base_models_by_id.setdefault(model.preset_id, model)
-
-        serialized: list[dict[str, Any]] = []
-        for model in self.models:
-            base_model = None
-            if model.preset_id and model.preset_id in base_models_by_id:
-                base_model = base_models_by_id[model.preset_id]
-            elif model.model_id in base_models_by_id:
-                base_model = base_models_by_id[model.model_id]
-            serialized.append(model.to_dict(base_model=base_model))
-
-        return serialized
-
-    def _models_match_base(self, base_models: list[LLMModelConfig]) -> bool:
-        if len(self.models) != len(base_models):
-            return False
-        for current, base in zip(self.models, base_models):
-            if current.model_id != base.model_id:
-                return False
-            if current.display_name != base.display_name:
-                return False
-            if current.supports_reasoning != base.supports_reasoning:
-                return False
-            if _value_differs(current.default_parameters, base.default_parameters):
-                return False
-        return True
-
 
 @dataclass
 class LLMProjectConfig:
@@ -286,59 +51,6 @@ class LLMProjectConfig:
 
     project_config_id: str
     providers: list[LLMProviderConfig] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "providers": [provider.to_dict() for provider in self.providers],
-        }
-
-    @classmethod
-    def from_payload(
-        cls,
-        project_config_id: str,
-        payload: LLMProjectConfigPayload,
-    ) -> "LLMProjectConfig":
-        return cls(
-            project_config_id=project_config_id,
-            providers=[
-                LLMProviderConfig(
-                    provider_id=provider.provider_id,
-                    display_name=provider.display_name,
-                    preset_id=provider.preset_id,
-                    api_key=provider.api_key,
-                    base_url=provider.base_url,
-                    default_model_id=provider.default_model_id,
-                    extra_headers=provider.extra_headers,
-                    models=[
-                        LLMModelConfig(
-                            model_id=model.model_id,
-                            display_name=model.display_name,
-                            supports_reasoning=model.supports_reasoning,
-                            default_parameters=model.default_parameters,
-                            preset_id=model.preset_id,
-                        )
-                        for model in provider.models
-                    ],
-                )
-                for provider in payload.providers
-            ],
-        )
-
-    @classmethod
-    def from_dict(
-        cls,
-        project_config_id: str,
-        payload: dict[str, Any],
-    ) -> "LLMProjectConfig":
-        providers_payload = payload.get("providers", [])
-        if not isinstance(providers_payload, list):
-            raise TypeError("Project providers payload must be a list")
-        return cls(
-            project_config_id=project_config_id,
-            providers=[
-                LLMProviderConfig.from_dict(provider) for provider in providers_payload
-            ],
-        )
 
 
 @dataclass
@@ -351,36 +63,13 @@ class LLMConfig:
     project_configs: dict[str, LLMProjectConfig] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "gateway_url": self.gateway_url,
-            "providers": [provider.to_dict() for provider in self.providers],
-            "default_project_config_id": self.default_project_config_id,
-            "project_configs": {
-                project_id: project.to_dict()
-                for project_id, project in self.project_configs.items()
-            },
-        }
+        payload = _llm_config_to_override_payload(self)
+        return payload.model_dump(mode="python", exclude_none=True)
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "LLMConfig":
-        providers_payload = payload.get("providers", [])
-        project_configs_payload = payload.get("project_configs") or {}
-        if not isinstance(project_configs_payload, dict):
-            raise TypeError("project_configs payload must be an object")
-
-        project_configs = {
-            project_id: LLMProjectConfig.from_dict(project_id, project_payload)
-            for project_id, project_payload in project_configs_payload.items()
-        }
-
-        return cls(
-            gateway_url=payload.get("gateway_url", DEFAULT_GATEWAY_URL),
-            providers=[
-                LLMProviderConfig.from_dict(provider) for provider in providers_payload
-            ],
-            default_project_config_id=payload.get("default_project_config_id"),
-            project_configs=project_configs,
-        )
+        payload_model = LLMConfigPayload.model_validate(payload)
+        return _hydrate_llm_config(payload_model)
 
     def providers_for_project(
         self,
@@ -430,29 +119,18 @@ def save_llm_config(config: LLMConfig, config_path: Path | None = None) -> None:
 def config_to_payload(config: LLMConfig) -> LLMConfigPayload:
     """Convert the dataclass configuration into the Pydantic payload used by APIs."""
 
-    return LLMConfigPayload(
-        gateway_url=config.gateway_url,
-        providers=[
-            _provider_config_to_payload(provider) for provider in config.providers
-        ],
-        default_project_config_id=config.default_project_config_id,
-        project_configs={
-            project_id: LLMProjectConfigPayload(
-                providers=[
-                    _provider_config_to_payload(provider)
-                    for provider in project.providers
-                ]
-            )
-            for project_id, project in config.project_configs.items()
-        },
-    )
+    return _llm_config_to_full_payload(config)
 
 
 def payload_to_config(payload: LLMConfigPayload) -> LLMConfig:
     """Convert an API payload back into the runtime dataclass."""
 
-    payload_dict = payload.model_dump(mode="python", exclude_unset=True)
-    return LLMConfig.from_dict(payload_dict)
+    payload_model = (
+        payload
+        if isinstance(payload, LLMConfigPayload)
+        else LLMConfigPayload.model_validate(payload)
+    )
+    return _hydrate_llm_config(payload_model)
 
 
 def add_preset_to_config(
@@ -470,42 +148,38 @@ def add_preset_to_config(
         raise ValueError(f"Unknown LLM provider preset: {preset_id}")
 
     provider_list = _resolve_provider_collection(config, project_config_id)
-    base_provider = LLMProviderConfig.from_dict({"preset_id": preset.preset_id})
-
-    target_provider_id = (
-        provider_id
-        or (overrides.provider_id if overrides else None)
-        or base_provider.provider_id
+    base_payload = preset.to_payload().provider.model_copy(
+        update={"preset_id": preset.preset_id}
     )
 
-    existing_index = _find_provider_index(provider_list, target_provider_id)
+    existing_index = _find_provider_index(
+        provider_list,
+        provider_id
+        or (overrides.provider_id if overrides else None)
+        or base_payload.provider_id,
+    )
     existing_provider = (
         provider_list[existing_index] if existing_index is not None else None
     )
-
-    base_payload = _provider_payload_to_dict(_provider_config_to_payload(base_provider))
-    existing_payload = (
-        _provider_payload_to_dict(_provider_config_to_payload(existing_provider))
-        if existing_provider
-        else None
-    )
-    override_payload = (
-        overrides.model_dump(mode="python", exclude_unset=True)
-        if overrides is not None
-        else None
+    existing_overrides = (
+        _serialize_provider_overrides(existing_provider) if existing_provider else None
     )
 
-    merged_payload = _merge_provider_payload_dicts(
+    merged_payload = _merge_provider_payload_overrides(
         base_payload,
         [
-            existing_payload,
-            override_payload,
+            existing_overrides,
+            overrides,
         ],
     )
-    merged_payload["preset_id"] = preset.preset_id
-    merged_payload["provider_id"] = target_provider_id
+    merged_payload.provider_id = (
+        provider_id
+        or merged_payload.provider_id
+        or base_payload.provider_id
+        or preset.preset_id
+    )
 
-    provider = LLMProviderConfig.from_dict(merged_payload)
+    provider = _hydrate_provider(merged_payload, preset=preset)
     if existing_index is None:
         provider_list.append(provider)
     else:
@@ -548,6 +222,398 @@ def _get_model(provider: LLMProviderConfig, model_id: str) -> LLMModelConfig:
     )
 
 
+def validate_llm_request(
+    provider: LLMProviderConfig,
+    model: LLMModelConfig | None,
+    *,
+    deep_think: bool,
+) -> dict[str, object] | None:
+    """Validate credentials and model capabilities for a request."""
+
+    if not provider.api_key and not _has_authorization_header(provider.extra_headers):
+        raise ValueError(
+            f"Provider '{provider.display_name}' is missing credentials."
+        )
+    return build_llm_request_params(model=model, deep_think=deep_think)
+
+
+def build_llm_request_params(
+    *,
+    model: LLMModelConfig | None,
+    deep_think: bool,
+) -> dict[str, object] | None:
+    """Materialize the model parameters for a request, validating reasoning support."""
+
+    if model is None:
+        if deep_think:
+            raise ValueError("Deep Thinking requires a model selection.")
+        return None
+
+    params = _clone_model_default_parameters(model)
+
+    if deep_think:
+        if not model.supports_reasoning:
+            raise ValueError(
+                f"Model '{model.display_name}' does not support Deep Thinking."
+            )
+        reasoning_payload = _extract_reasoning_payload(params)
+        reasoning_payload.setdefault("effort", "medium")
+        params["reasoning"] = reasoning_payload
+
+    return params or None
+
+
+def _llm_config_to_full_payload(config: LLMConfig) -> LLMConfigPayload:
+    return LLMConfigPayload(
+        gateway_url=config.gateway_url,
+        providers=[
+            _provider_config_to_payload(provider) for provider in config.providers
+        ],
+        default_project_config_id=config.default_project_config_id,
+        project_configs={
+            project_id: LLMProjectConfigPayload(
+                providers=[
+                    _provider_config_to_payload(provider)
+                    for provider in project.providers
+                ]
+            )
+            for project_id, project in config.project_configs.items()
+        },
+    )
+
+
+def _llm_config_to_override_payload(config: LLMConfig) -> LLMConfigPayload:
+    return LLMConfigPayload(
+        gateway_url=config.gateway_url,
+        providers=[
+            _serialize_provider_overrides(provider) for provider in config.providers
+        ],
+        default_project_config_id=config.default_project_config_id,
+        project_configs={
+            project_id: LLMProjectConfigPayload(
+                providers=[
+                    _serialize_provider_overrides(provider)
+                    for provider in project.providers
+                ]
+            )
+            for project_id, project in config.project_configs.items()
+        },
+    )
+
+
+def _hydrate_llm_config(payload: LLMConfigPayload) -> LLMConfig:
+    providers = _hydrate_provider_list(payload.providers)
+    project_configs = {
+        project_id: LLMProjectConfig(
+            project_config_id=project_id,
+            providers=_hydrate_provider_list(project_payload.providers),
+        )
+        for project_id, project_payload in payload.project_configs.items()
+    }
+    return LLMConfig(
+        gateway_url=payload.gateway_url,
+        providers=providers,
+        default_project_config_id=payload.default_project_config_id,
+        project_configs=project_configs,
+    )
+
+
+def _hydrate_provider_list(
+    payloads: list[LLMProviderConfigPayload],
+) -> list[LLMProviderConfig]:
+    hydrated: list[LLMProviderConfig] = []
+    seen_ids: set[str] = set()
+
+    for provider_payload in payloads:
+        preset_lookup_id = provider_payload.preset_id or provider_payload.provider_id
+        preset = _lookup_preset_provider(
+            preset_lookup_id,
+            strict=bool(provider_payload.preset_id),
+        )
+        provider = _hydrate_provider(provider_payload, preset=preset)
+        if provider.provider_id in seen_ids:
+            raise ValueError(
+                f"Duplicate LLM provider_id '{provider.provider_id}' in config"
+            )
+        seen_ids.add(provider.provider_id)
+        hydrated.append(provider)
+
+    return hydrated
+
+
+def _hydrate_provider(
+    payload: LLMProviderConfigPayload,
+    *,
+    preset: "LLMProviderPreset | None",
+) -> LLMProviderConfig:
+    base_provider = preset.provider if preset else None
+
+    provider_id = (
+        payload.provider_id
+        if payload.provider_id is not None
+        else (base_provider.provider_id if base_provider else None)
+    )
+    if provider_id is None:
+        raise ValueError("Provider config missing provider_id")
+
+    display_name = (
+        payload.display_name
+        if payload.display_name is not None
+        else (base_provider.display_name if base_provider else provider_id)
+    )
+    api_key = (
+        payload.api_key
+        if payload.api_key is not None
+        else (base_provider.api_key if base_provider else "")
+    )
+    base_url = (
+        payload.base_url
+        if payload.base_url is not None
+        else (base_provider.base_url if base_provider else None)
+    )
+    default_model_id = (
+        payload.default_model_id
+        if payload.default_model_id is not None
+        else (base_provider.default_model_id if base_provider else None)
+    )
+    extra_headers = (
+        _clone_headers(payload.extra_headers)
+        if payload.extra_headers is not None
+        else _clone_headers(base_provider.extra_headers if base_provider else None)
+    )
+
+    models = _hydrate_models(
+        base_models=base_provider.models if base_provider else None,
+        overrides=payload.models,
+        provider_id=provider_id,
+    )
+    resolved_default_model_id = _resolve_default_model_id(
+        default_model_id,
+        models,
+        provider_id=provider_id,
+    )
+
+    return LLMProviderConfig(
+        provider_id=provider_id,
+        display_name=display_name,
+        preset_id=preset.preset_id if preset else payload.preset_id,
+        api_key=api_key or "",
+        base_url=base_url,
+        default_model_id=resolved_default_model_id,
+        extra_headers=extra_headers,
+        models=models,
+    )
+
+
+def _hydrate_models(
+    *,
+    base_models: list[LLMModelConfig] | None,
+    overrides: list[LLMModelConfigPayload] | None,
+    provider_id: str,
+) -> list[LLMModelConfig]:
+    base_models = base_models or []
+    models: list[LLMModelConfig] = [_clone_model(model) for model in base_models]
+
+    index_by_key: dict[str, int] = {}
+    seen_ids: set[str] = set()
+    for idx, model in enumerate(models):
+        seen_ids.add(model.model_id)
+        index_by_key[model.model_id] = idx
+        if model.preset_id:
+            index_by_key.setdefault(model.preset_id, idx)
+
+    if overrides:
+        for override in overrides:
+            base_index = None
+            if override.preset_id:
+                base_index = index_by_key.get(override.preset_id)
+                if base_index is None and base_models:
+                    raise ValueError(
+                        f"Unknown model preset '{override.preset_id}' "
+                        f"for provider '{provider_id}'"
+                    )
+            elif override.model_id:
+                base_index = index_by_key.get(override.model_id)
+
+            base_model = models[base_index] if base_index is not None else None
+            hydrated = _hydrate_model(override, base_model=base_model)
+
+            if hydrated.preset_id is None and base_model:
+                hydrated.preset_id = base_model.preset_id or base_model.model_id
+
+            if base_index is None:
+                if hydrated.model_id in seen_ids:
+                    raise ValueError(
+                        f"Duplicate model id '{hydrated.model_id}' "
+                        f"for provider '{provider_id}'"
+                    )
+                models.append(hydrated)
+                base_index = len(models) - 1
+            else:
+                previous_id = models[base_index].model_id
+                if (
+                    hydrated.model_id != previous_id
+                    and hydrated.model_id in seen_ids
+                ):
+                    raise ValueError(
+                        f"Duplicate model id '{hydrated.model_id}' "
+                        f"for provider '{provider_id}'"
+                    )
+                seen_ids.discard(previous_id)
+                models[base_index] = hydrated
+
+            seen_ids.add(hydrated.model_id)
+            index_by_key[hydrated.model_id] = base_index
+            if hydrated.preset_id:
+                index_by_key[hydrated.preset_id] = base_index
+
+    return models
+
+
+def _hydrate_model(
+    payload: LLMModelConfigPayload,
+    *,
+    base_model: LLMModelConfig | None,
+) -> LLMModelConfig:
+    preset_id = payload.preset_id or (base_model.preset_id if base_model else None)
+    model_id = payload.model_id or (base_model.model_id if base_model else None)
+    if not model_id:
+        raise ValueError("Model config missing model_id")
+
+    display_name = (
+        payload.display_name
+        if payload.display_name is not None
+        else (base_model.display_name if base_model else model_id)
+    )
+    supports_reasoning = (
+        payload.supports_reasoning
+        if payload.supports_reasoning is not None
+        else (base_model.supports_reasoning if base_model else False)
+    )
+    default_parameters = (
+        _clone_json(payload.default_parameters)
+        if payload.default_parameters is not None
+        else _clone_json(base_model.default_parameters if base_model else None)
+    )
+
+    return LLMModelConfig(
+        model_id=model_id,
+        display_name=display_name,
+        supports_reasoning=supports_reasoning,
+        default_parameters=default_parameters,
+        preset_id=preset_id,
+    )
+
+
+def _resolve_default_model_id(
+    default_model_id: str | None,
+    models: list[LLMModelConfig],
+    *,
+    provider_id: str,
+) -> str | None:
+    if default_model_id is None:
+        return None if not models else models[0].model_id
+
+    for model in models:
+        if model.model_id == default_model_id:
+            return default_model_id
+    raise ValueError(
+        f"Default model_id '{default_model_id}' not found for provider '{provider_id}'"
+    )
+
+
+def _serialize_provider_overrides(
+    provider: LLMProviderConfig | None,
+) -> LLMProviderConfigPayload:
+    if provider is None:
+        return LLMProviderConfigPayload()
+
+    preset = _lookup_preset_provider(provider.preset_id or provider.provider_id)
+    base_provider = preset.provider if preset else None
+
+    data: dict[str, Any] = {}
+    if provider.preset_id:
+        data["preset_id"] = provider.preset_id
+
+    if base_provider is None or provider.provider_id != base_provider.provider_id:
+        data["provider_id"] = provider.provider_id
+    if base_provider is None or provider.display_name != base_provider.display_name:
+        data["display_name"] = provider.display_name
+    if base_provider is None or provider.api_key != base_provider.api_key:
+        data["api_key"] = provider.api_key
+    if base_provider is None or provider.base_url != base_provider.base_url:
+        data["base_url"] = provider.base_url
+    if (
+        base_provider is None
+        or provider.default_model_id != base_provider.default_model_id
+    ):
+        data["default_model_id"] = provider.default_model_id
+    if base_provider is None or provider.extra_headers != base_provider.extra_headers:
+        data["extra_headers"] = _clone_headers(provider.extra_headers)
+
+    model_overrides = _serialize_model_overrides(
+        provider.models,
+        base_provider.models if base_provider else None,
+    )
+    if model_overrides is not None:
+        data["models"] = model_overrides
+
+    if "preset_id" not in data and preset:
+        data["preset_id"] = preset.preset_id
+
+    return LLMProviderConfigPayload(**data)
+
+
+def _serialize_model_overrides(
+    models: list[LLMModelConfig],
+    base_models: list[LLMModelConfig] | None,
+) -> list[LLMModelConfigPayload] | None:
+    base_models = base_models or []
+    base_by_key: dict[str, LLMModelConfig] = {model.model_id: model for model in base_models}
+    for model in base_models:
+        if model.preset_id:
+            base_by_key.setdefault(model.preset_id, model)
+
+    overrides: list[LLMModelConfigPayload] = []
+    for model in models:
+        base_model = base_by_key.get(model.preset_id or model.model_id)
+        payload = _model_overrides(model, base_model)
+        if payload is not None:
+            overrides.append(payload)
+
+    if base_models and not overrides:
+        return None
+    return overrides
+
+
+def _model_overrides(
+    model: LLMModelConfig,
+    base_model: LLMModelConfig | None,
+) -> LLMModelConfigPayload | None:
+    data: dict[str, Any] = {}
+    if model.preset_id:
+        data["preset_id"] = model.preset_id
+    if (
+        base_model is None
+        or model.model_id != base_model.model_id
+        or model.preset_id is None
+    ):
+        data["model_id"] = model.model_id
+    if base_model is None or model.display_name != base_model.display_name:
+        data["display_name"] = model.display_name
+    if (
+        base_model is None
+        or model.supports_reasoning != base_model.supports_reasoning
+    ):
+        data["supports_reasoning"] = model.supports_reasoning
+    if base_model is None or model.default_parameters != base_model.default_parameters:
+        data["default_parameters"] = _clone_json(model.default_parameters)
+
+    if base_model is not None and data.keys() == {"preset_id"}:
+        return None
+    return LLMModelConfigPayload(**data)
+
+
 def _lookup_preset_provider(
     preset_id: str | None,
     *,
@@ -565,114 +631,64 @@ def _lookup_preset_provider(
     return preset
 
 
-def _hydrate_models(
-    *,
-    base_models: list[LLMModelConfig] | None,
-    overrides: list[dict[str, Any]] | None,
-) -> list[LLMModelConfig]:
-    base_models = base_models or []
+def _merge_provider_payload_overrides(
+    base_payload: LLMProviderConfigPayload,
+    overlays: list[LLMProviderConfigPayload | None],
+) -> LLMProviderConfigPayload:
+    merged_data = base_payload.model_dump(mode="python", exclude_unset=False)
+    merged_models = merged_data.get("models")
 
-    if overrides is None:
-        return [
-            LLMModelConfig(
-                model_id=model.model_id,
-                display_name=model.display_name,
-                supports_reasoning=model.supports_reasoning,
-                default_parameters=_clone_json(model.default_parameters),
-                preset_id=model.preset_id or model.model_id,
+    for overlay in overlays:
+        if overlay is None:
+            continue
+        overlay_data = overlay.model_dump(mode="python", exclude_unset=True)
+        if "models" in overlay_data and overlay_data["models"] is not None:
+            merged_models = _merge_model_payloads(
+                merged_models,
+                overlay_data["models"],
             )
-            for model in base_models
-        ]
+        for key, value in overlay_data.items():
+            if key in {"models", "preset_id"}:
+                continue
+            merged_data[key] = value
 
-    hydrated: list[LLMModelConfig] = []
-    base_by_id: dict[str, LLMModelConfig] = {
-        model.model_id: model for model in base_models
-    }
-    for model in base_models:
-        if model.preset_id:
-            base_by_id.setdefault(model.preset_id, model)
+    if merged_models is not None:
+        merged_data["models"] = merged_models
 
-    for entry in overrides:
-        if not isinstance(entry, dict):
-            raise TypeError("Model override payload must be an object.")
-
-        preset_id = entry.get("preset_id")
-        base_model = None
-        if preset_id:
-            base_model = base_by_id.get(preset_id)
-            if base_model is None:
-                raise ValueError(
-                    f"Unknown model preset '{preset_id}' for provider override."
-                )
-        elif base_by_id:
-            entry_id = entry.get("model_id")
-            if isinstance(entry_id, str):
-                base_model = base_by_id.get(entry_id)
-
-        model = LLMModelConfig.from_dict(entry, base_model=base_model)
-        hydrated.append(model)
-
-    return hydrated
+    return LLMProviderConfigPayload.model_validate(merged_data)
 
 
-def _coalesce_value(
-    payload: dict[str, Any],
-    key: str,
-    fallback: Any,
-) -> Any:
-    if key in payload:
-        value = payload[key]
-        if value is None:
-            if fallback is None:
-                raise ValueError(f"Missing required config field: {key}")
-            return fallback
-        return value
-    if fallback is None:
-        raise ValueError(f"Missing required config field: {key}")
-    return fallback
+def _merge_model_payloads(
+    base_models: list[dict[str, Any]] | None,
+    overrides: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = [deepcopy(model) for model in base_models or []]
+    index_by_key: dict[str, int] = {}
+    for idx, model in enumerate(merged):
+        key = _model_payload_key(model)
+        if key:
+            index_by_key.setdefault(key, idx)
+
+    for override in overrides:
+        key = _model_payload_key(override)
+        if key and key in index_by_key:
+            merged[index_by_key[key]].update(override)
+            continue
+        merged.append(deepcopy(override))
+        if key:
+            index_by_key[key] = len(merged) - 1
+
+    return merged
 
 
-def _clone_headers(headers: dict[str, str] | None) -> dict[str, str] | None:
-    if headers is None:
-        return None
-    return dict(headers)
-
-
-def _clone_json(
-    payload: dict[str, JSONValue] | None,
-) -> dict[str, JSONValue] | None:
-    if payload is None:
-        return None
-    return deepcopy(payload)
-
-
-def _maybe_set(
-    data: dict[str, Any],
-    key: str,
-    value: Any,
-    *,
-    base_value: Any = _MISSING,
-    include_none: bool = False,
-) -> None:
-    if base_value is _MISSING:
-        if value is None:
-            return
-        data[key] = value
-        return
-    if include_none:
-        if _value_differs(value, base_value):
-            data[key] = value
-        return
-    if value is None:
-        if base_value is not None:
-            data[key] = value
-        return
-    if _value_differs(value, base_value):
-        data[key] = value
-
-
-def _value_differs(current: Any, base_value: Any) -> bool:
-    return current != base_value
+def _model_payload_key(payload: dict[str, Any]) -> str | None:
+    preset_id = payload.get("preset_id")
+    if isinstance(preset_id, str) and preset_id:
+        return preset_id
+    model_id = payload.get("model_id")
+    if isinstance(model_id, str) and model_id:
+        return model_id
+    return None
 
 
 def _provider_config_to_payload(
@@ -723,66 +739,54 @@ def _find_provider_index(
     return None
 
 
-def _provider_payload_to_dict(
-    payload: LLMProviderConfigPayload | None,
-) -> dict[str, Any]:
+def _has_authorization_header(headers: dict[str, str] | None) -> bool:
+    if not headers:
+        return False
+    return any(
+        key.lower() == "authorization" and bool(value)
+        for key, value in headers.items()
+    )
+
+
+def _clone_model_default_parameters(model: LLMModelConfig) -> dict[str, object]:
+    payload = model.default_parameters
     if payload is None:
         return {}
-    return payload.model_dump(mode="python", exclude_unset=False)
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"Model '{model.display_name}' default_parameters must be a JSON object."
+        )
+    return json.loads(json.dumps(payload))
 
 
-def _merge_provider_payload_dicts(
-    base_payload: dict[str, Any],
-    overlays: list[dict[str, Any] | None],
-) -> dict[str, Any]:
-    merged = deepcopy(base_payload)
-    for overlay in overlays:
-        if not overlay:
-            continue
-        for key, value in overlay.items():
-            if key == "preset_id":
-                continue
-            if key == "models" and value is not None:
-                existing_models = merged.get("models") or []
-                merged["models"] = _merge_model_payloads(existing_models, value)
-                continue
-            merged[key] = value
-    return merged
+def _extract_reasoning_payload(params: dict[str, object]) -> dict[str, object]:
+    reasoning = params.get("reasoning")
+    if reasoning is None:
+        return {}
+    if not isinstance(reasoning, dict):
+        raise TypeError("Reasoning defaults must be provided as a JSON object.")
+    return dict(reasoning)
 
 
-def _merge_model_payloads(
-    base_models: list[dict[str, Any]],
-    overrides: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    merged: list[dict[str, Any]] = [deepcopy(model) for model in base_models]
-    index_by_key: dict[str, int] = {}
-    for idx, model in enumerate(merged):
-        key = _model_override_key(model)
-        if key:
-            index_by_key.setdefault(key, idx)
-
-    for override in overrides:
-        key = _model_override_key(override)
-        if key and key in index_by_key:
-            target = merged[index_by_key[key]]
-            target.update(override)
-            continue
-
-        entry = deepcopy(override)
-        if "preset_id" not in entry or not entry["preset_id"]:
-            entry["preset_id"] = entry.get("model_id")
-        merged.append(entry)
-        if key:
-            index_by_key[key] = len(merged) - 1
-
-    return merged
+def _clone_headers(headers: dict[str, str] | None) -> dict[str, str] | None:
+    if headers is None:
+        return None
+    return dict(headers)
 
 
-def _model_override_key(payload: dict[str, Any]) -> str | None:
-    model_id = payload.get("model_id")
-    if isinstance(model_id, str) and model_id:
-        return model_id
-    preset_id = payload.get("preset_id")
-    if isinstance(preset_id, str) and preset_id:
-        return preset_id
-    return None
+def _clone_json(
+    payload: dict[str, JSONValue] | None,
+) -> dict[str, JSONValue] | None:
+    if payload is None:
+        return None
+    return deepcopy(payload)
+
+
+def _clone_model(model: LLMModelConfig) -> LLMModelConfig:
+    return LLMModelConfig(
+        model_id=model.model_id,
+        display_name=model.display_name,
+        supports_reasoning=model.supports_reasoning,
+        default_parameters=_clone_json(model.default_parameters),
+        preset_id=model.preset_id or model.model_id,
+    )

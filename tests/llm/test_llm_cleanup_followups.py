@@ -151,6 +151,7 @@ class ChatStopLifecycleTests(unittest.IsolatedAsyncioTestCase):
                             LLMProviderConfig(
                                 provider_id="openai",
                                 display_name="Project OpenAI",
+                                api_key="test-key",
                                 models=[
                                     LLMModelConfig(
                                         model_id="gpt-4o", display_name="GPT-4o"

@@ -28,6 +28,7 @@ from setta.llm import (
     TextDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
+    validate_llm_request,
     resolve_model_selection,
 )
 from setta.types.chat_messages import (
@@ -222,9 +223,10 @@ class ChatManager:
 
         history = chat.to_history()
         tools = self._mcp_client.available_tools or None
-        request_params = self._build_request_params(
+        request_params = validate_llm_request(
+            provider_config,
+            model_config,
             deep_think=deep_think,
-            model=model_config,
         )
         extra_headers = self._build_extra_headers(provider_config)
 
@@ -496,50 +498,6 @@ class ChatManager:
             yield ResponseCompletedEvent(
                 message_id=response_message_id, finish_reason=None
             )
-
-    def _build_request_params(
-        self, *, deep_think: bool, model: LLMModelConfig | None
-    ) -> dict[str, object] | None:
-        if model is None:
-            if deep_think:
-                raise ValueError("Deep Thinking requires a model selection.")
-            return None
-
-        params = self._clone_model_default_parameters(model)
-
-        if deep_think:
-            if not model.supports_reasoning:
-                raise ValueError(
-                    f"Model '{model.display_name}' does not support Deep Thinking."
-                )
-            reasoning_payload = self._extract_reasoning_payload(params)
-            reasoning_payload.setdefault("effort", "medium")
-            params["reasoning"] = reasoning_payload
-
-        return params or None
-
-    def _clone_model_default_parameters(
-        self, model: LLMModelConfig
-    ) -> dict[str, object]:
-        payload = model.default_parameters
-        if payload is None:
-            return {}
-        if not isinstance(payload, dict):
-            raise TypeError(
-                f"Model '{model.display_name}' default_parameters must be a JSON object."
-            )
-        # Deep copy so per-request mutations never bleed into the stored config.
-        return json.loads(json.dumps(payload))
-
-    def _extract_reasoning_payload(
-        self, params: dict[str, object]
-    ) -> dict[str, object]:
-        reasoning = params.get("reasoning")
-        if reasoning is None:
-            return {}
-        if not isinstance(reasoning, dict):
-            raise TypeError("Reasoning defaults must be provided as a JSON object.")
-        return dict(reasoning)
 
     async def _resolve_tool_calls(
         self,
