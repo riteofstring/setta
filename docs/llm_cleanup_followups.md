@@ -9,11 +9,10 @@ Pending items to simplify and harden the Portkey-centric stack (builds on `docs/
 - `TEST_LLM_CONFIG` results now carry `projectConfigId` and dedupe probes per scoped provider so validation errors stay tied to the correct project.
 - LLM config watcher now leaves the previous config in place on invalid JSON/validation errors and broadcasts an error notification to the UI.
 - Frontend now sends full provider/model payloads (with `preset_id`) and relies on backend slimming, removing client-side preset diffing.
+- Provider resolution now raises on unknown `project_config_id`, removing silent fallback to default providers.
 
 ## Open issues
-- Provider resolution quietly falls back when a `project_config_id` is unknown; this can route through the wrong provider/credentials.
 - Test gaps: minimal coverage for project-scoped selection/UI plumbing, stop/cancel behavior, watcher error handling, and validation payloads beyond scoped dedupe.
 
 ## Proposed actions
-- Harden provider resolution by failing loudly on unknown `project_config_id` in selection/route plumbing.
 - Backfill tests for project-aware selections, cancel/stop lifecycle, watcher error surfacing, and validation payloads.

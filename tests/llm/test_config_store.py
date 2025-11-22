@@ -107,5 +107,34 @@ class ConfigStoreAddPresetTests(unittest.TestCase):
         self.assertEqual(project.providers, [provider])
 
 
+class ConfigProviderResolutionTests(unittest.TestCase):
+    def test_providers_for_project_rejects_unknown_scope(self) -> None:
+        default_provider = LLMProviderConfig(
+            provider_id="openai",
+            display_name="OpenAI",
+            models=[
+                LLMModelConfig(
+                    model_id="gpt-4o",
+                    display_name="GPT-4o",
+                )
+            ],
+        )
+        config = LLMConfig(
+            default_project_config_id="proj-default",
+            project_configs={
+                "proj-default": LLMProjectConfig(
+                    project_config_id="proj-default",
+                    providers=[default_provider],
+                )
+            },
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unknown project config: proj-missing",
+        ):
+            config.providers_for_project("proj-missing")
+
+
 if __name__ == "__main__":
     unittest.main()

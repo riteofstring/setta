@@ -386,10 +386,11 @@ class LLMConfig:
         self,
         project_config_id: str | None,
     ) -> list[LLMProviderConfig]:
-        if project_config_id:
+        if project_config_id is not None:
             project = self.project_configs.get(project_config_id)
-            if project:
-                return project.providers
+            if project is None:
+                raise ValueError(f"Unknown project config: {project_config_id}")
+            return project.providers
         if self.default_project_config_id:
             project = self.project_configs.get(self.default_project_config_id)
             if project:
