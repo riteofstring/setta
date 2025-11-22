@@ -3,9 +3,10 @@
 import asyncio
 import inspect
 import json
+import logging
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from portkey_ai import AsyncPortkey
 
@@ -37,12 +38,16 @@ from setta.types.chat_messages import (
     LLMModelSelection,
     ToolResult,
 )
+from setta.types.notifications import SettaNotification, SettaNotificationType
 
 if TYPE_CHECKING:
     from mcp.types import CallToolResult
 
     from setta.mcp.client import MCPClient
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+
+logger = logging.getLogger(__name__)
 
 
 class ChatManager:
@@ -189,6 +194,16 @@ class ChatManager:
             role=LLMRole.ASSISTANT,
             content=[],
         )
+        logger.info(
+            "Starting LLM stream",
+            extra={
+                "chat_id": chat.id,
+                "project_config_id": project_scope_id,
+                "provider_id": provider_config.provider_id,
+                "model_id": model_config.model_id,
+                "deep_think": deep_think,
+            },
+        )
         accumulator = _AssistantMessageAccumulator(assistant_message)
         recorder = _StreamingTranscriptRecorder(
             chat=chat,
@@ -246,17 +261,51 @@ class ChatManager:
             chat.streamStatus = ChatStreamStatus.CANCELED
             recorder.persist_snapshot(assistant_message)
             self._active_streams.pop(chat.id, None)
+            logger.info(
+                "Canceled LLM stream",
+                extra={
+                    "chat_id": chat.id,
+                    "project_config_id": project_scope_id,
+                    "provider_id": provider_config.provider_id,
+                    "model_id": model_config.model_id,
+                },
+            )
             return
-        except Exception:
+        except Exception as exc:
             chat.streamStatus = ChatStreamStatus.COMPLETED
             recorder.persist_snapshot(assistant_message)
             self._active_streams.pop(chat.id, None)
+            logger.exception(
+                "LLM stream failed",
+                extra={
+                    "chat_id": chat.id,
+                    "project_config_id": project_scope_id,
+                    "provider_id": provider_config.provider_id,
+                    "model_id": model_config.model_id,
+                },
+            )
+            await self._notify_llm_failure(
+                chat_id=chat.id,
+                project_config_id=project_scope_id,
+                provider_id=provider_config.provider_id,
+                model_id=model_config.model_id,
+                error_message=str(exc),
+            )
             raise
 
         try:
             chat.add_message(assistant_message)
             chat.streamStatus = ChatStreamStatus.COMPLETED
             self._persist_chat(chat)
+            logger.info(
+                "Completed LLM stream",
+                extra={
+                    "chat_id": chat.id,
+                    "project_config_id": project_scope_id,
+                    "provider_id": provider_config.provider_id,
+                    "model_id": model_config.model_id,
+                },
+            )
         finally:
             self._active_streams.pop(chat.id, None)
 
@@ -520,6 +569,34 @@ class ChatManager:
             output_text=output_text,
             is_error=bool(getattr(result, "isError", False)),
         )
+
+    async def _notify_llm_failure(
+        self,
+        *,
+        chat_id: str,
+        project_config_id: str | None,
+        provider_id: str,
+        model_id: str,
+        error_message: str,
+    ) -> None:
+        if not self._wmh_frontend_sender:
+            return
+
+        detail = error_message.strip() or "LLM request failed"
+        if len(detail) > 200:
+            detail = f"{detail[:200]}..."
+
+        notification = SettaNotification(
+            projectConfigId=project_config_id,
+            type=SettaNotificationType.error,
+            message=(f"LLM request for {provider_id}:{model_id} failed: {detail}"),
+            metadata={
+                "chatId": chat_id,
+                "providerId": provider_id,
+                "modelId": model_id,
+            },
+        )
+        await self._wmh_frontend_sender.broadcast_notification(notification)
 
 
 def _events_from_chunk(

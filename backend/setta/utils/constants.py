@@ -52,9 +52,6 @@ class C:
 
     NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS"
 
-    # LLM API key names
-    LLM_API_KEY_NAMES = {"Anthropic": "ANTHROPIC_API_KEY", "OpenAI": "OPENAI_API_KEY"}
-
     # LLM message types
     LLM_MESSAGE_START = "message_start"
     LLM_CONTENT_BLOCK_START = "content_block_start"

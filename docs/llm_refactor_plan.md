@@ -54,9 +54,9 @@
   - ~~Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.~~
 
 - **Testing, docs, and cleanup**
-  - Replace the deleted `tests/project_state/chats/test_chats.py` with new suites that cover `setta.llm` serialization, Portkey chunk normalization (mocking the SDK), MCP tool execution, and chat persistence round-trips (`python -m unittest discover tests`).
-  - Document the new config file + Portkey gateway workflow in `docs/`/`README`, including manual verification steps (e.g., start the self-hosted gateway, run `pnpm start`, send a chat, verify tool streaming).
-  - Remove remaining `.env`-centric constants/watchers once the config-driven flow is live, and add structured logging around `LLMOrchestrator` so failures (invalid API key, tool errors) are visible to both logs and frontend notifications.
+  - ~~Replace the deleted `tests/project_state/chats/test_chats.py` with new suites that cover `setta.llm` serialization, Portkey chunk normalization (mocking the SDK), MCP tool execution, and chat persistence round-trips (`python -m unittest discover tests`).~~ (new `tests/llm/test_chat_persistence.py` + adapter tests)
+  - ~~Document the new config file + Portkey gateway workflow in `docs/`/`README`, including manual verification steps (e.g., start the self-hosted gateway, run `pnpm start`, send a chat, verify tool streaming).~~ (`docs/portkey_config_workflow.md`)
+  - ~~Remove remaining `.env`-centric constants/watchers once the config-driven flow is live, and add structured logging around `LLMOrchestrator` so failures (invalid API key, tool errors) are visible to both logs and frontend notifications.~~ (env-key constants dropped, orchestration logs + frontend notifications on failures)
 - **Local gateway bundling + lifecycle**
   - Vendor the `@portkey-ai/gateway` CLI bundle (the same artifacts `npx @portkey-ai/gateway` launches) inside the Python package, update `pyproject.toml`/`build.sh` to ship it with the wheel, and add smoke checks so `pip install setta` includes the bundled gateway alongside the frontend assets.
 

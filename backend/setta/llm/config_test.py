@@ -49,7 +49,9 @@ def _test_gateway(
             return LLMGatewayTestResultPayload(ok=True, url=url)
         errors.append(f"{url}: {detail}")
 
-    message = "; ".join(errors) if errors else "No health endpoint candidates were generated"
+    message = (
+        "; ".join(errors) if errors else "No health endpoint candidates were generated"
+    )
     return LLMGatewayTestResultPayload(
         ok=False,
         url=_combine_url(gateway_url, candidates[0]) if candidates else None,
