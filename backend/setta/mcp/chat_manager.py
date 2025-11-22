@@ -1,24 +1,28 @@
 """Chat persistence manager built on the neutral LLM models."""
 
 import asyncio
+import inspect
 import json
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Any
+
+from portkey_ai import AsyncPortkey
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.llm import (
     LLMConfig,
+    LLMHistory,
     LLMMessage,
     LLMModelConfig,
-    LLMOrchestrator,
     LLMProviderConfig,
     LLMRole,
     LLMStreamEvent,
     LLMTextBlock,
     LLMToolCallBlock,
     LLMToolResultBlock,
-    PortkeyClient,
+    MessageStartedEvent,
     ResponseCompletedEvent,
     TextDeltaEvent,
     ToolCallDeltaEvent,
@@ -49,7 +53,6 @@ class ChatManager:
         dbe: DBE,
         mcp_client: "MCPClient",
         wmh_frontend_sender: "WMHFrontendSender",
-        orchestrator: LLMOrchestrator | None = None,
         *,
         llm_config: LLMConfig,
     ) -> None:
@@ -57,17 +60,14 @@ class ChatManager:
         self._mcp_client = mcp_client
         self._wmh_frontend_sender = wmh_frontend_sender
         self._llm_config = llm_config
-        self._shared_orchestrator = orchestrator
-        self._provider_orchestrators: dict[tuple[str | None, str], LLMOrchestrator] = {}
         self._active_streams: dict[str, _ActiveStream] = {}
+        self._provider_clients: dict[tuple[str | None, str], AsyncPortkey] = {}
 
     def update_llm_config(self, llm_config: LLMConfig) -> None:
         """Replace the cached config so future requests use fresh credentials."""
 
         self._llm_config = llm_config
-        # Drop any orchestrator constructed from the previous config.
-        self._provider_orchestrators.clear()
-        self._shared_orchestrator = None
+        self._provider_clients.clear()
 
     # ---------------------------------------------------------------------
     # Persistence helpers
@@ -180,7 +180,7 @@ class ChatManager:
             model_selection,
             project_config_id=project_scope_id,
         )
-        orchestrator = self._acquire_orchestrator(
+        client = self._acquire_portkey_client(
             provider_config,
             project_config_id=project_scope_id,
         )
@@ -211,14 +211,18 @@ class ChatManager:
             deep_think=deep_think,
             model=model_config,
         )
+        extra_headers = self._build_extra_headers(provider_config)
 
         try:
-            async for event in orchestrator.astream_response(
+            async for event in self._astream_portkey_response(
+                client=client,
                 response_message_id=response_message_id,
                 history=history,
                 model=model_config.model_id,
                 tools=tools,
                 request_params=request_params,
+                extra_headers=extra_headers,
+                provider_id=provider_config.provider_id,
             ):
                 accumulator.apply_event(event)
                 tool_calls.observe_event(event)
@@ -335,82 +339,106 @@ class ChatManager:
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
 
-    def _acquire_orchestrator(
+    def _acquire_portkey_client(
         self,
         provider: LLMProviderConfig,
         *,
         project_config_id: str | None,
-    ) -> LLMOrchestrator:
-        """Return a provider-scoped orchestrator, building and caching when needed."""
-
-        if self._shared_orchestrator is not None:
-            return self._shared_orchestrator
+    ) -> AsyncPortkey:
+        """Return a provider-scoped Portkey client, building and caching when needed."""
 
         cache_key = (project_config_id, provider.provider_id)
-        cached = self._provider_orchestrators.get(cache_key)
+        cached = self._provider_clients.get(cache_key)
         if cached is not None:
             return cached
 
-        orchestrator = self._build_orchestrator(provider)
-        self._provider_orchestrators[cache_key] = orchestrator
-        return orchestrator
+        client = self._build_portkey_client(provider)
+        self._provider_clients[cache_key] = client
+        return client
 
-    def _build_orchestrator(self, provider: LLMProviderConfig) -> LLMOrchestrator:
-        """Initialize the Portkey-backed orchestrator using the stored config."""
-
-        gateway = self._build_portkey_gateway(provider)
-        return LLMOrchestrator(gateway)
-
-    def _build_portkey_gateway(self, provider: LLMProviderConfig) -> PortkeyClient:
-        """Construct a Portkey client that talks to the configured gateway."""
+    def _build_portkey_client(self, provider: LLMProviderConfig) -> AsyncPortkey:
+        """Construct a Portkey client that talks to the configured gateway or provider."""
 
         base_url = provider.base_url or self._llm_config.gateway_url
         api_key = provider.api_key or None
-        default_request_params = self._build_default_request_params(
-            provider, base_url
-        )
-        return PortkeyClient(
+        return AsyncPortkey(
             api_key=api_key,
             base_url=base_url,
-            default_request_params=default_request_params,
+            provider=provider.provider_id,
         )
 
-    def _build_default_request_params(
-        self,
-        provider: LLMProviderConfig,
-        base_url: str | None,
-    ) -> dict[str, object] | None:
-        headers = self._build_gateway_headers(provider, base_url)
+    def _build_extra_headers(
+        self, provider: LLMProviderConfig
+    ) -> dict[str, str] | None:
+        headers = provider.extra_headers
         if not headers:
             return None
-        return {"extra_headers": headers}
+        return dict(headers)
 
-    def _build_gateway_headers(
+    def _build_portkey_payload(
         self,
-        provider: LLMProviderConfig,
-        base_url: str | None,
-    ) -> dict[str, str] | None:
-        headers: dict[str, str] = dict(provider.extra_headers or {})
-        if self._should_inject_gateway_provider_header(provider, base_url):
-            headers.setdefault("x-portkey-provider", provider.provider_id)
-        return headers or None
+        *,
+        history: LLMHistory,
+        model: str,
+        tools: list[dict[str, Any]] | None,
+        request_params: dict[str, object] | None,
+        extra_headers: dict[str, str] | None,
+        provider_id: str,
+    ) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "model": model,
+            "messages": history.to_openai_messages(),
+            "stream": True,
+            "provider": provider_id,
+        }
+        if tools:
+            payload["tools"] = tools
+        if request_params:
+            payload.update(request_params)
+        if extra_headers:
+            payload["extra_headers"] = extra_headers
+        return payload
 
-    def _should_inject_gateway_provider_header(
+    async def _astream_portkey_response(
         self,
-        provider: LLMProviderConfig,
-        base_url: str | None,
-    ) -> bool:
-        if not base_url:
-            return False
-        normalized_base = base_url.rstrip("/")
-        normalized_gateway = (self._llm_config.gateway_url or "").rstrip("/")
-        if not normalized_gateway:
-            return False
-        if normalized_base == normalized_gateway:
-            return True
-        if normalized_base == f"{normalized_gateway}/v1":
-            return True
-        return False
+        *,
+        client: AsyncPortkey,
+        response_message_id: str,
+        history: LLMHistory,
+        model: str,
+        tools: list[dict[str, Any]] | None,
+        request_params: dict[str, object] | None,
+        extra_headers: dict[str, str] | None,
+        provider_id: str,
+    ) -> AsyncIterator[LLMStreamEvent]:
+        payload = self._build_portkey_payload(
+            history=history,
+            model=model,
+            tools=tools,
+            request_params=request_params,
+            extra_headers=extra_headers,
+            provider_id=provider_id,
+        )
+        stream = client.chat.completions.create(**payload)
+        if inspect.isawaitable(stream):
+            stream = await stream
+
+        yield MessageStartedEvent(
+            message_id=response_message_id,
+            role=LLMRole.ASSISTANT,
+        )
+
+        completed = False
+        async for chunk in stream:
+            for event in _events_from_chunk(chunk, response_message_id):
+                if isinstance(event, ResponseCompletedEvent):
+                    completed = True
+                yield event
+
+        if not completed:
+            yield ResponseCompletedEvent(
+                message_id=response_message_id, finish_reason=None
+            )
 
     def _build_request_params(
         self, *, deep_think: bool, model: LLMModelConfig | None
@@ -492,6 +520,130 @@ class ChatManager:
             output_text=output_text,
             is_error=bool(getattr(result, "isError", False)),
         )
+
+
+def _events_from_chunk(
+    chunk: Any,
+    response_message_id: str,
+) -> list[LLMStreamEvent]:
+    chunk_type = _get_attr(chunk, "type")
+    events: list[LLMStreamEvent] = []
+
+    if chunk_type == "response.completed":
+        finish_reason = _get_attr(chunk, "finish_reason")
+        events.append(
+            ResponseCompletedEvent(
+                message_id=response_message_id,
+                finish_reason=finish_reason,
+            )
+        )
+        return events
+
+    choice = _get_first_choice(chunk)
+    if choice is None:
+        return events
+
+    delta = _get_attr(choice, "delta")
+    if delta is not None:
+        for text_delta, stream_target in _text_deltas(delta):
+            events.append(
+                TextDeltaEvent(
+                    message_id=response_message_id,
+                    delta=text_delta,
+                    stream_target=stream_target,
+                )
+            )
+        events.extend(_tool_call_deltas(delta))
+
+    finish_reason = _get_attr(choice, "finish_reason")
+    if finish_reason is not None:
+        events.append(
+            ResponseCompletedEvent(
+                message_id=response_message_id,
+                finish_reason=finish_reason,
+            )
+        )
+
+    return events
+
+
+def _text_deltas(delta: Any) -> Iterator[tuple[str, str | None]]:
+    content = _get_attr(delta, "content")
+    if content is None:
+        return
+
+    if isinstance(content, str):
+        yield content, None
+        return
+
+    if isinstance(content, list):
+        for part in content:
+            yield from _text_part(part)
+        return
+
+    text = _get_attr(content, "text")
+    if text:
+        stream_target = _get_attr(content, "stream_target")
+        yield text, stream_target
+
+
+def _text_part(
+    part: Any,
+) -> Iterator[tuple[str, str | None]]:
+    if isinstance(part, str):
+        yield part, None
+        return
+
+    text = _get_attr(part, "text")
+    if not text:
+        return
+
+    stream_target = _get_attr(part, "stream_target")
+    yield text, stream_target
+
+
+def _tool_call_deltas(delta: Any) -> list[ToolCallDeltaEvent]:
+    tool_calls = _get_attr(delta, "tool_calls")
+    if not tool_calls:
+        return []
+
+    events: list[ToolCallDeltaEvent] = []
+    for call in tool_calls:
+        call_id = _get_attr(call, "id") or _get_attr(call, "tool_call_id")
+        if not call_id:
+            continue
+
+        function = _get_attr(call, "function")
+        arguments_delta = ""
+        name = None
+        if function is not None:
+            arguments_delta = _get_attr(function, "arguments") or ""
+            name = _get_attr(function, "name")
+
+        events.append(
+            ToolCallDeltaEvent(
+                tool_call_id=call_id,
+                arguments_delta=arguments_delta,
+                name=name,
+            )
+        )
+
+    return events
+
+
+def _get_first_choice(chunk: Any) -> Any | None:
+    choices = _get_attr(chunk, "choices")
+    if not choices:
+        return None
+    return choices[0]
+
+
+def _get_attr(data: Any, name: str) -> Any:
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        return data.get(name)
+    return getattr(data, name, None)
 
 
 @dataclass

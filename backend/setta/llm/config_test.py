@@ -1,9 +1,6 @@
 """Active validation for the Portkey gateway + provider configuration."""
 
-from typing import Iterable
-
-import requests
-from requests import RequestException
+from portkey_ai import Portkey
 
 from setta.llm.config_store import LLMConfig, LLMProviderConfig
 from setta.types.llm_config import (
@@ -24,12 +21,7 @@ def test_llm_config(
 ) -> LLMConfigTestResultPayload:
     """Run connectivity checks for the configured gateway + providers."""
 
-    gateway_provider = _pick_gateway_probe_provider(llm_config)
-    gateway = _test_gateway(
-        llm_config.gateway_url,
-        timeout=timeout,
-        provider_for_headers=gateway_provider,
-    )
+    gateway = _test_gateway(llm_config.gateway_url, timeout=timeout)
     providers = [
         _test_provider(
             provider,
@@ -45,26 +37,22 @@ def _test_gateway(
     gateway_url: str,
     *,
     timeout: float,
-    provider_for_headers: LLMProviderConfig | None,
 ) -> LLMGatewayTestResultPayload:
-    candidates = list(_gateway_health_candidates(gateway_url))
+    candidates = list(_gateway_health_candidates())
+    client = Portkey(base_url=gateway_url, request_timeout=timeout)
     errors: list[str] = []
-    headers = _gateway_probe_headers(provider_for_headers, gateway_url)
 
-    for url in candidates:
-        ok, detail = _http_get(url, headers=headers, timeout=timeout)
+    for path in candidates:
+        ok, detail = _portkey_health_check(client, path)
+        url = _combine_url(gateway_url, path)
         if ok:
             return LLMGatewayTestResultPayload(ok=True, url=url)
         errors.append(f"{url}: {detail}")
 
-    if errors:
-        message = "; ".join(errors)
-    else:
-        message = "No health endpoint candidates were generated"
-
+    message = "; ".join(errors) if errors else "No health endpoint candidates were generated"
     return LLMGatewayTestResultPayload(
         ok=False,
-        url=candidates[0] if candidates else None,
+        url=_combine_url(gateway_url, candidates[0]) if candidates else None,
         error=message,
     )
 
@@ -76,32 +64,36 @@ def _test_provider(
     timeout: float,
 ) -> LLMProviderTestResultPayload:
     base_url = provider.base_url or fallback_gateway_url
-    candidates = list(_provider_models_candidates(base_url))
     headers = dict(provider.extra_headers or {})
-    if _should_use_gateway_headers(base_url, fallback_gateway_url):
-        headers.setdefault("x-portkey-provider", provider.provider_id)
     header_names = {key.lower() for key in headers}
-    if provider.api_key and "authorization" not in header_names:
-        headers["Authorization"] = f"Bearer {provider.api_key}"
-
     missing_authorization = not provider.api_key and "authorization" not in header_names
 
+    kwargs: dict[str, object] = {}
+    if headers:
+        kwargs["extra_headers"] = headers
+
+    client = Portkey(
+        api_key=provider.api_key or None,
+        base_url=base_url,
+        provider=provider.provider_id,
+        request_timeout=timeout,
+    )
+
     errors: list[LLMProviderTestErrorPayload] = []
-    for url in candidates:
-        ok, detail = _http_get(url, headers=headers or None, timeout=timeout)
-        if ok:
-            tested_base = _strip_suffix(url, "/models")
-            return LLMProviderTestResultPayload(
-                provider_id=provider.provider_id,
-                display_name=provider.display_name,
-                base_url=tested_base,
-                ok=True,
-                errors=[],
-            )
+    try:
+        client.models.list(**kwargs)
+        return LLMProviderTestResultPayload(
+            provider_id=provider.provider_id,
+            display_name=provider.display_name,
+            base_url=_normalize_base_url(base_url),
+            ok=True,
+            errors=[],
+        )
+    except Exception as exc:  # noqa: BLE001 - surface the raw portkey/openai error message
         errors.append(
             LLMProviderTestErrorPayload(
                 code="request_failed",
-                message=f"{url}: {detail}",
+                message=_trim_error(str(exc)),
             )
         )
 
@@ -114,130 +106,60 @@ def _test_provider(
             ),
         )
 
-    tested_base_url = (
-        _strip_suffix(candidates[0], "/models")
-        if candidates
-        else _normalize_base_url(base_url)
-    )
     return LLMProviderTestResultPayload(
         provider_id=provider.provider_id,
         display_name=provider.display_name,
-        base_url=tested_base_url,
+        base_url=_normalize_base_url(base_url),
         ok=False,
         errors=errors,
     )
 
 
-def _http_get(
-    url: str,
-    *,
-    timeout: float,
-    headers: dict[str, str] | None = None,
+def _gateway_health_candidates() -> list[str]:
+    return [
+        "/health",
+        "/v1/health",
+        "/portkey-ai/gateway/health",
+    ]
+
+
+def _portkey_health_check(
+    client: Portkey,
+    path: str,
 ) -> tuple[bool, str]:
     try:
-        response = requests.get(url, headers=headers, timeout=timeout)
-    except RequestException as exc:
-        return False, str(exc)
+        response = client.get(path=path, headers={}, cast_to=None)
+    except Exception as exc:  # noqa: BLE001 - surfacing raw connection/timeout errors
+        return False, _trim_error(str(exc))
 
-    if 200 <= response.status_code < 300:
+    status = getattr(response, "status_code", None)
+    if status is None or 200 <= status < 300:
         return True, ""
 
-    snippet = response.text.strip() or response.reason or ""
-    if len(snippet) > ERROR_SNIPPET_LIMIT:
-        snippet = f"{snippet[:ERROR_SNIPPET_LIMIT]}..."
-    return False, f"status {response.status_code}: {snippet}"
+    snippet = getattr(response, "text", "") or getattr(response, "reason", "") or ""
+    snippet = _trim_error(snippet)
+    if snippet:
+        return False, f"status {status}: {snippet}"
+    return False, f"status {status}"
 
 
-def _gateway_health_candidates(gateway_url: str) -> Iterable[str]:
-    normalized = _normalize_base_url(gateway_url)
-    if not normalized:
-        return []
-
-    urls: list[str] = []
-    urls.append(f"{normalized}/health")
-    if not normalized.endswith("/v1"):
-        urls.append(f"{normalized}/v1/health")
-        urls.append(f"{normalized}/portkey-ai/gateway/health")
-    else:
-        root = normalized[: -len("/v1")]
-        if root:
-            urls.append(f"{root}/health")
-            urls.append(f"{root}/portkey-ai/gateway/health")
-    return _dedupe(urls)
-
-
-def _pick_gateway_probe_provider(
-    llm_config: LLMConfig,
-) -> LLMProviderConfig | None:
-    providers = llm_config.iter_all_providers()
-    if providers:
-        return providers[0]
-    return None
-
-
-def _gateway_probe_headers(
-    provider: LLMProviderConfig | None,
-    gateway_url: str,
-) -> dict[str, str] | None:
-    if provider is None:
-        return None
-    base_url = provider.base_url or gateway_url
-    if not _should_use_gateway_headers(base_url, gateway_url):
-        return None
-    return {"x-portkey-provider": provider.provider_id}
-
-
-def _provider_models_candidates(base_url: str) -> Iterable[str]:
-    normalized = _normalize_base_url(base_url)
-    if not normalized:
-        return []
-
-    urls = [f"{normalized}/models"]
-    if normalized.endswith("/v1"):
-        root = normalized[: -len("/v1")]
-        if root:
-            urls.append(f"{root}/models")
-    else:
-        urls.append(f"{normalized}/v1/models")
-    return _dedupe(urls)
+def _combine_url(base_url: str, path: str) -> str:
+    normalized_base = _normalize_base_url(base_url)
+    normalized_path = path if path.startswith("/") else f"/{path}"
+    if not normalized_base:
+        return normalized_path
+    return f"{normalized_base}{normalized_path}"
 
 
 def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/")
 
 
-def _should_use_gateway_headers(
-    base_url: str | None,
-    gateway_url: str,
-) -> bool:
-    if not base_url:
-        return True
-    normalized_base = base_url.rstrip("/")
-    normalized_gateway = gateway_url.rstrip("/")
-    if not normalized_gateway:
-        return False
-    if normalized_base == normalized_gateway:
-        return True
-    if normalized_base == f"{normalized_gateway}/v1":
-        return True
-    return False
-
-
-def _strip_suffix(value: str, suffix: str) -> str:
-    if value.endswith(suffix):
-        return value[: -len(suffix)]
-    return value
-
-
-def _dedupe(urls: Iterable[str]) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for url in urls:
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        ordered.append(url)
-    return ordered
+def _trim_error(value: str) -> str:
+    value = value.strip()
+    if len(value) <= ERROR_SNIPPET_LIMIT:
+        return value
+    return f"{value[:ERROR_SNIPPET_LIMIT]}..."
 
 
 __all__ = ["test_llm_config"]
