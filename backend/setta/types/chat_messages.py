@@ -21,6 +21,7 @@ from setta.llm.models import (
     LLMToolResultBlock,
     MessageStartedEvent,
     ResponseCompletedEvent,
+    ResponseFinishStatus,
     TextDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
@@ -42,6 +43,7 @@ class ChatStreamStatus(str, Enum):
     STREAMING = "streaming"
     COMPLETED = "completed"
     CANCELED = "canceled"
+    ERROR = "error"
 
 
 class LLMModelSelection(BaseModel):
@@ -276,7 +278,9 @@ def _stream_event_from_dict(payload: dict[str, Any]) -> LLMStreamEvent:
     if event_type is LLMStreamEventType.RESPONSE_COMPLETED:
         return ResponseCompletedEvent(
             message_id=payload["message_id"],
+            status=ResponseFinishStatus(payload.get("status", "completed")),
             finish_reason=payload.get("finish_reason"),
+            error_reason=payload.get("error_reason"),
         )
 
     raise ValueError(f"Unsupported stream event type: {payload['event_type']}")

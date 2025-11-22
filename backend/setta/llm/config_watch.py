@@ -9,8 +9,8 @@ from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.llm.config_store import LLMConfig, config_to_payload, load_llm_config
 from setta.llm.constants import CONFIG_PATH
 from setta.types.llm_config import LLMConfigPayload
-from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 

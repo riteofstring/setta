@@ -284,6 +284,7 @@ export const ChatStreamStatusEnum = {
   STREAMING: "streaming",
   COMPLETED: "completed",
   CANCELED: "canceled",
+  ERROR: "error",
 } as const;
 
 export type ChatStreamStatus = ObjectValues<typeof ChatStreamStatusEnum>;
@@ -306,6 +307,16 @@ export const LLMStreamEventTypeEnum = {
 } as const;
 
 export type LLMStreamEventType = ObjectValues<typeof LLMStreamEventTypeEnum>;
+
+export const ResponseFinishStatusEnum = {
+  COMPLETED: "completed",
+  CANCELED: "canceled",
+  ERROR: "error",
+} as const;
+
+export type ResponseFinishStatus = ObjectValues<
+  typeof ResponseFinishStatusEnum
+>;
 
 export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
 
@@ -1153,7 +1164,11 @@ export function createToolResultEvent(
 
 export const ResponseCompletedEventSchema = z.object({
   message_id: z.string(),
+  status: z
+    .enum(ResponseFinishStatusEnum)
+    .default(ResponseFinishStatusEnum.COMPLETED),
   finish_reason: z.union([z.string(), z.null()]).default(null),
+  error_reason: z.union([z.string(), z.null()]).default(null),
   event_type: z
     .enum(LLMStreamEventTypeEnum)
     .default(LLMStreamEventTypeEnum.RESPONSE_COMPLETED),

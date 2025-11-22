@@ -29,6 +29,7 @@ import {
   IDToUUIDForLLM,
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
+  ResponseFinishStatusEnum,
   type LLMConfigPayload,
   type LLMConfigTestResultPayload,
   type LLMPresetCatalogPayload,
@@ -786,10 +787,18 @@ function llmResponseCompleted(
   chatId: string,
   chunk: ResponseCompletedEvent | null,
 ) {
-  const streamStatus =
-    chunk?.finish_reason === "canceled"
-      ? ChatStreamStatusEnum.CANCELED
-      : ChatStreamStatusEnum.COMPLETED;
+  const finishStatus = chunk?.status;
+  const finishReason = chunk?.finish_reason;
+  let streamStatus = ChatStreamStatusEnum.COMPLETED;
+
+  if (
+    finishStatus === ResponseFinishStatusEnum.CANCELED ||
+    finishReason === "canceled"
+  ) {
+    streamStatus = ChatStreamStatusEnum.CANCELED;
+  } else if (finishStatus === ResponseFinishStatusEnum.ERROR) {
+    streamStatus = ChatStreamStatusEnum.ERROR;
+  }
 
   useAIStore.setState((state) => {
     const currDetails = state.chatDetails[chatId];

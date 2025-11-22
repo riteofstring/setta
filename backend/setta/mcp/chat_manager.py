@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import json
 import logging
+import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
@@ -16,7 +17,6 @@ from setta.llm import (
     LLMConfig,
     LLMHistory,
     LLMMessage,
-    LLMModelConfig,
     LLMProviderConfig,
     LLMRole,
     LLMStreamEvent,
@@ -25,11 +25,12 @@ from setta.llm import (
     LLMToolResultBlock,
     MessageStartedEvent,
     ResponseCompletedEvent,
+    ResponseFinishStatus,
     TextDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
-    validate_llm_request,
     resolve_model_selection,
+    validate_llm_request,
 )
 from setta.types.chat_messages import (
     Chat,
@@ -49,6 +50,8 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+_STREAM_PERSIST_INTERVAL_SECONDS: float | None = None
 
 
 class ChatManager:
@@ -130,6 +133,10 @@ class ChatManager:
                 continue
             metadata.append(ChatMetadata.from_chat(chat))
 
+        for item in metadata:
+            if item.id in self._active_streams:
+                item.streamStatus = ChatStreamStatus.STREAMING
+
         metadata.sort(key=lambda item: item.lastUpdated, reverse=True)
         return metadata
 
@@ -209,9 +216,9 @@ class ChatManager:
         recorder = _StreamingTranscriptRecorder(
             chat=chat,
             persist_chat=self._persist_chat,
+            persist_interval_seconds=_STREAM_PERSIST_INTERVAL_SECONDS,
         )
-        chat.streamStatus = ChatStreamStatus.STREAMING
-        recorder.persist_snapshot(assistant_message)
+        self._set_stream_status(chat, ChatStreamStatus.STREAMING)
         tool_calls = _ToolCallAccumulator()
         current_task = asyncio.current_task()
         if current_task is None:
@@ -243,7 +250,7 @@ class ChatManager:
             ):
                 accumulator.apply_event(event)
                 tool_calls.observe_event(event)
-                recorder.persist_snapshot(assistant_message)
+                recorder.maybe_persist_snapshot(assistant_message)
                 await self._wmh_frontend_sender.send_streaming_response(
                     chatId=chat.id,
                     assistant_message_id=response_message_id,
@@ -260,9 +267,21 @@ class ChatManager:
                         recorder=recorder,
                     )
         except asyncio.CancelledError:
-            chat.streamStatus = ChatStreamStatus.CANCELED
-            recorder.persist_snapshot(assistant_message)
-            self._active_streams.pop(chat.id, None)
+            self._set_stream_status(chat, ChatStreamStatus.CANCELED)
+            await self._wmh_frontend_sender.send_streaming_response(
+                chatId=chat.id,
+                assistant_message_id=response_message_id,
+                chunk=ResponseCompletedEvent(
+                    message_id=response_message_id,
+                    status=ResponseFinishStatus.CANCELED,
+                    finish_reason="canceled",
+                ),
+            )
+            self._persist_final_chat(
+                chat=chat,
+                assistant_message=assistant_message,
+                status=ChatStreamStatus.CANCELED,
+            )
             logger.info(
                 "Canceled LLM stream",
                 extra={
@@ -272,19 +291,25 @@ class ChatManager:
                     "model_id": model_config.model_id,
                 },
             )
+            return
+        except Exception as exc:
+            self._set_stream_status(chat, ChatStreamStatus.ERROR)
+            error_reason = str(exc)
             await self._wmh_frontend_sender.send_streaming_response(
                 chatId=chat.id,
                 assistant_message_id=response_message_id,
                 chunk=ResponseCompletedEvent(
                     message_id=response_message_id,
-                    finish_reason="canceled",
+                    status=ResponseFinishStatus.ERROR,
+                    finish_reason="error",
+                    error_reason=error_reason,
                 ),
             )
-            return
-        except Exception as exc:
-            chat.streamStatus = ChatStreamStatus.COMPLETED
-            recorder.persist_snapshot(assistant_message)
-            self._active_streams.pop(chat.id, None)
+            self._persist_final_chat(
+                chat=chat,
+                assistant_message=assistant_message,
+                status=ChatStreamStatus.ERROR,
+            )
             logger.exception(
                 "LLM stream failed",
                 extra={
@@ -299,14 +324,16 @@ class ChatManager:
                 project_config_id=project_scope_id,
                 provider_id=provider_config.provider_id,
                 model_id=model_config.model_id,
-                error_message=str(exc),
+                error_message=error_reason,
             )
             raise
 
         try:
-            chat.add_message(assistant_message)
-            chat.streamStatus = ChatStreamStatus.COMPLETED
-            self._persist_chat(chat)
+            self._persist_final_chat(
+                chat=chat,
+                assistant_message=assistant_message,
+                status=ChatStreamStatus.COMPLETED,
+            )
             logger.info(
                 "Completed LLM stream",
                 extra={
@@ -394,6 +421,20 @@ class ChatManager:
                 if snippet:
                     return snippet[:80]
         return "Untitled Chat"
+
+    def _set_stream_status(self, chat: Chat, status: ChatStreamStatus) -> None:
+        chat.streamStatus = status
+
+    def _persist_final_chat(
+        self,
+        *,
+        chat: Chat,
+        assistant_message: LLMMessage,
+        status: ChatStreamStatus,
+    ) -> None:
+        chat.streamStatus = status
+        chat.add_message(assistant_message)
+        self._persist_chat(chat)
 
     def _persist_chat(self, chat: Chat) -> None:
         self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
@@ -496,7 +537,9 @@ class ChatManager:
 
         if not completed:
             yield ResponseCompletedEvent(
-                message_id=response_message_id, finish_reason=None
+                message_id=response_message_id,
+                status=ResponseFinishStatus.COMPLETED,
+                finish_reason=None,
             )
 
     async def _resolve_tool_calls(
@@ -514,7 +557,7 @@ class ChatManager:
         for tool_call in tool_calls:
             event = await self._call_tool(tool_call)
             accumulator.apply_event(event)
-            recorder.persist_snapshot(accumulator.message)
+            recorder.maybe_persist_snapshot(accumulator.message)
             await self._wmh_frontend_sender.send_streaming_response(
                 chatId=chat_id,
                 assistant_message_id=assistant_message_id,
@@ -577,6 +620,7 @@ def _events_from_chunk(
         events.append(
             ResponseCompletedEvent(
                 message_id=response_message_id,
+                status=ResponseFinishStatus.COMPLETED,
                 finish_reason=finish_reason,
             )
         )
@@ -603,6 +647,7 @@ def _events_from_chunk(
         events.append(
             ResponseCompletedEvent(
                 message_id=response_message_id,
+                status=ResponseFinishStatus.COMPLETED,
                 finish_reason=finish_reason,
             )
         )
@@ -807,11 +852,25 @@ class _StreamingTranscriptRecorder:
 
     chat: Chat
     persist_chat: Callable[[Chat], None]
+    persist_interval_seconds: float | None
+    _last_persist_monotonic: float | None = field(default=None, init=False)
 
-    def persist_snapshot(self, assistant_message: LLMMessage) -> None:
+    def maybe_persist_snapshot(self, assistant_message: LLMMessage) -> None:
+        if self.persist_interval_seconds is None:
+            return
+
+        now = time.monotonic()
+        if (
+            self._last_persist_monotonic is not None
+            and (now - self._last_persist_monotonic) < self.persist_interval_seconds
+        ):
+            return
+
         snapshot = self.chat.model_copy(deep=True)
+        snapshot.streamStatus = ChatStreamStatus.STREAMING
         snapshot.add_message(assistant_message)
         self.persist_chat(snapshot)
+        self._last_persist_monotonic = now
 
 
 def _extract_tool_output_text(result: "CallToolResult") -> str | None:

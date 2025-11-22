@@ -244,6 +244,12 @@ class LLMStreamEventType(str, Enum):
     RESPONSE_COMPLETED = "response_completed"
 
 
+class ResponseFinishStatus(str, Enum):
+    COMPLETED = "completed"
+    CANCELED = "canceled"
+    ERROR = "error"
+
+
 @dataclass
 class MessageStartedEvent:
     message_id: str
@@ -318,16 +324,21 @@ class ToolResultEvent:
 @dataclass
 class ResponseCompletedEvent:
     message_id: str
+    status: ResponseFinishStatus = ResponseFinishStatus.COMPLETED
     finish_reason: str | None = None
+    error_reason: str | None = None
     event_type: LLMStreamEventType = LLMStreamEventType.RESPONSE_COMPLETED
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
             "event_type": self.event_type.value,
             "message_id": self.message_id,
+            "status": self.status.value,
         }
         if self.finish_reason is not None:
             data["finish_reason"] = self.finish_reason
+        if self.error_reason is not None:
+            data["error_reason"] = self.error_reason
         return data
 
 

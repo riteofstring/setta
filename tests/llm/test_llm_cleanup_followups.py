@@ -252,7 +252,9 @@ class LLMConfigWatcherTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 frontend.notifications[-1].type, SettaNotificationType.error
             )
-            self.assertIn("Keeping the previous LLM config", frontend.notifications[-1].message)
+            self.assertIn(
+                "Keeping the previous LLM config", frontend.notifications[-1].message
+            )
 
             invalid_payload = {"project_configs": {"proj-1": {"providers": "bad"}}}
             config_path.write_text(json.dumps(invalid_payload), encoding="utf-8")

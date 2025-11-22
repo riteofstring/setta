@@ -231,9 +231,7 @@ def validate_llm_request(
     """Validate credentials and model capabilities for a request."""
 
     if not provider.api_key and not _has_authorization_header(provider.extra_headers):
-        raise ValueError(
-            f"Provider '{provider.display_name}' is missing credentials."
-        )
+        raise ValueError(f"Provider '{provider.display_name}' is missing credentials.")
     return build_llm_request_params(model=model, deep_think=deep_think)
 
 
@@ -451,10 +449,7 @@ def _hydrate_models(
                 base_index = len(models) - 1
             else:
                 previous_id = models[base_index].model_id
-                if (
-                    hydrated.model_id != previous_id
-                    and hydrated.model_id in seen_ids
-                ):
+                if hydrated.model_id != previous_id and hydrated.model_id in seen_ids:
                     raise ValueError(
                         f"Duplicate model id '{hydrated.model_id}' "
                         f"for provider '{provider_id}'"
@@ -569,7 +564,9 @@ def _serialize_model_overrides(
     base_models: list[LLMModelConfig] | None,
 ) -> list[LLMModelConfigPayload] | None:
     base_models = base_models or []
-    base_by_key: dict[str, LLMModelConfig] = {model.model_id: model for model in base_models}
+    base_by_key: dict[str, LLMModelConfig] = {
+        model.model_id: model for model in base_models
+    }
     for model in base_models:
         if model.preset_id:
             base_by_key.setdefault(model.preset_id, model)
@@ -601,10 +598,7 @@ def _model_overrides(
         data["model_id"] = model.model_id
     if base_model is None or model.display_name != base_model.display_name:
         data["display_name"] = model.display_name
-    if (
-        base_model is None
-        or model.supports_reasoning != base_model.supports_reasoning
-    ):
+    if base_model is None or model.supports_reasoning != base_model.supports_reasoning:
         data["supports_reasoning"] = model.supports_reasoning
     if base_model is None or model.default_parameters != base_model.default_parameters:
         data["default_parameters"] = _clone_json(model.default_parameters)
@@ -743,8 +737,7 @@ def _has_authorization_header(headers: dict[str, str] | None) -> bool:
     if not headers:
         return False
     return any(
-        key.lower() == "authorization" and bool(value)
-        for key, value in headers.items()
+        key.lower() == "authorization" and bool(value) for key, value in headers.items()
     )
 
 

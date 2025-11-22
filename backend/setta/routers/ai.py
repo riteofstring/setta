@@ -240,7 +240,10 @@ async def route_get_llm_chat(
             )
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    waiting_for_response = chat.streamStatus is ChatStreamStatus.STREAMING
+    waiting_for_response = state.chat_manager.is_waiting_for_response(x.chatId)
+    stream_status = (
+        ChatStreamStatus.STREAMING if waiting_for_response else chat.streamStatus
+    )
     current_stream = state.chat_manager.get_current_stream(x.chatId)
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
@@ -251,7 +254,7 @@ async def route_get_llm_chat(
         waitingForResponse=waiting_for_response,
         modelSelection=chat.modelSelection,
         projectConfigId=chat.projectConfigId,
-        streamStatus=chat.streamStatus,
+        streamStatus=stream_status,
     )
 
 
