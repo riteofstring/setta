@@ -525,6 +525,7 @@ class ChatManager:
         if not tool_calls:
             return
 
+        emitted_result = False
         for tool_call in tool_calls:
             event = await self._call_tool(tool_call)
             accumulator.apply_event(event)
@@ -533,6 +534,19 @@ class ChatManager:
                 chatId=chat_id,
                 assistant_message_id=assistant_message_id,
                 chunk=event,
+            )
+            emitted_result = True
+
+        if emitted_result:
+            completion = ResponseCompletedEvent(
+                message_id=assistant_message_id,
+                status=ResponseFinishStatus.COMPLETED,
+                finish_reason="tool_results",
+            )
+            await self._wmh_frontend_sender.send_streaming_response(
+                chatId=chat_id,
+                assistant_message_id=assistant_message_id,
+                chunk=completion,
             )
 
     async def _call_tool(self, tool_call: "_PendingToolCall") -> ToolResultEvent:

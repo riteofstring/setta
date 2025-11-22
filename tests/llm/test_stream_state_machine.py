@@ -233,6 +233,18 @@ class StreamStateTransitionTests(unittest.IsolatedAsyncioTestCase):
             any(isinstance(chunk, ToolResultEvent) for chunk in stream_events),
             "Expected tool result to be streamed to the frontend",
         )
+        result_index = max(
+            index
+            for index, chunk in enumerate(stream_events)
+            if isinstance(chunk, ToolResultEvent)
+        )
+        self.assertIsInstance(stream_events[-1], ResponseCompletedEvent)
+        self.assertEqual(stream_events[-1].finish_reason, "tool_results")
+        self.assertGreater(
+            len(stream_events) - 1,
+            result_index,
+            "Expected a completion event after the final tool result",
+        )
         self.assertEqual(chat.streamStatus, ChatStreamStatus.COMPLETED)
         self.assertFalse(manager.is_waiting_for_response(chat.id))
 
