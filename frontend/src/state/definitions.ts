@@ -355,6 +355,7 @@ export type ZustandAIStore = {
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: LLMConfig | null;
   llmConfigLoaded: boolean;
+  llmConfigError: string | null;
   llmPresets: LLMPresetCatalogPayload | null;
   llmPresetsLoaded: boolean;
 };
@@ -374,6 +375,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigLoaded: false,
+        llmConfigError: null,
         llmPresets: null,
         llmPresetsLoaded: false,
       }),

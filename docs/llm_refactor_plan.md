@@ -42,14 +42,16 @@
 - **Preset reset UX:** The provider editor exposes a `Reset to preset` button that rehydrates an existing provider from its catalog entry while preserving API keys/headers, so users can pull in the latest preset metadata without manually deleting and re-adding providers.
 - **Dev gateway auto-start:** The backend `setta start` entrypoint now wires through a `DevGatewayManager` that shells out to `pnpm exec gateway` whenever `SETTA_DEV_MODE=true`, waits for the local Portkey health checks before bringing up FastAPI, and respects `SETTA_SKIP_LOCAL_GATEWAY` so contributors can opt out.
 - **Gateway header injection:** `ChatManager` now injects the `x-portkey-provider` header whenever a provider proxies through the bundled gateway, and `TEST_LLM_CONFIG` mirrors the same header during its health probes so configs validate without custom `extra_headers`.
+- **Config error surfacing:** `ProjectLLMSettings` and the chat view now read shared `llmConfigError` state, show inline banners, and gate auto-validation when load/save/test calls fail so users immediately see gateway/provider issues.
+- **Chunk adapter regression tests:** `tests/llm/test_chat_manager_simplification.py` covers response.completed chunks, string content with stream targets, and tool-call deltas to lock the thin Portkey adapter in place.
 
 **Remaining Work**
 - **Preset-driven configuration UX**
-- ~~  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.~~
+  - ~~  - Provide an optional `addPreset` action that can rebuild the config from presets plus user overrides, ensuring new preset releases flow into existing installs without manual JSON surgery.~~
 
 - **Frontend follow-ups**
   - ~~Update `ProjectChat.tsx` / the AI store so selections carry provider + model identifiers (and maybe display names) and disable the “Send” button until a valid selection exists.~~
-  - Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.
+  - ~~Show inline errors / toast notifications when `loadLLMConfig` or `saveLLMConfig` fail, and surface the upcoming `TEST_LLM_CONFIG` results so users know whether the gateway is reachable.~~
 
 - **Testing, docs, and cleanup**
   - Replace the deleted `tests/project_state/chats/test_chats.py` with new suites that cover `setta.llm` serialization, Portkey chunk normalization (mocking the SDK), MCP tool execution, and chat persistence round-trips (`python -m unittest discover tests`).

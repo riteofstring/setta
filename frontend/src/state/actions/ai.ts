@@ -189,6 +189,7 @@ export async function loadLLMConfig(): Promise<
   useAIStore.setState({
     llmConfig: null,
     llmConfigLoaded: true,
+    llmConfigError: detail,
   });
   return { ok: false as const, error: detail };
 }
@@ -219,6 +220,7 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
     return {
       llmConfig: config,
       llmConfigLoaded: true,
+      llmConfigError: null,
       userSelectedLLM: nextSelection,
       userSelectedLLMByProject: cleanedSelections,
     };
@@ -294,6 +296,7 @@ export async function saveLLMConfig(payload: LLMConfigPayload) {
     "Failed to save LLM configuration",
   );
   addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
+  useAIStore.setState({ llmConfigError: detail });
   return { ok: false as const, error: detail };
 }
 

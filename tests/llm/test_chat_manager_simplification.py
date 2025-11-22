@@ -10,6 +10,7 @@ from setta.llm.models import (
     LLMRole,
     ResponseCompletedEvent,
     TextDeltaEvent,
+    ToolCallDeltaEvent,
 )
 from setta.mcp.chat_manager import ChatManager, _events_from_chunk
 
@@ -72,6 +73,60 @@ class ChatManagerSimplificationTest(unittest.TestCase):
         self.assertIsNone(events[0].stream_target)
         self.assertIsInstance(events[1], ResponseCompletedEvent)
         self.assertEqual(events[1].finish_reason, "stop")
+
+    def test_chunk_adapter_handles_string_content(self) -> None:
+        chunk = {
+            "choices": [
+                {
+                    "delta": {
+                        "content": {
+                            "text": "streamed",
+                            "stream_target": "analysis",
+                        }
+                    }
+                }
+            ]
+        }
+        events = _events_from_chunk(chunk, response_message_id="resp-2")
+        self.assertEqual(len(events), 1)
+        text_event = events[0]
+        self.assertIsInstance(text_event, TextDeltaEvent)
+        self.assertEqual(text_event.delta, "streamed")
+        self.assertEqual(text_event.stream_target, "analysis")
+
+    def test_chunk_adapter_emits_response_completed_event(self) -> None:
+        chunk = {"type": "response.completed", "finish_reason": "length"}
+        events = _events_from_chunk(chunk, response_message_id="resp-3")
+        self.assertEqual(len(events), 1)
+        completed = events[0]
+        self.assertIsInstance(completed, ResponseCompletedEvent)
+        self.assertEqual(completed.finish_reason, "length")
+
+    def test_chunk_adapter_maps_tool_call_deltas(self) -> None:
+        chunk = {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "function": {
+                                    "name": "my_tool",
+                                    "arguments": '{"foo": 1}',
+                                },
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        events = _events_from_chunk(chunk, response_message_id="resp-4")
+        self.assertEqual(len(events), 1)
+        event = events[0]
+        self.assertIsInstance(event, ToolCallDeltaEvent)
+        self.assertEqual(event.tool_call_id, "call_1")
+        self.assertEqual(event.arguments_delta, '{"foo": 1}')
+        self.assertEqual(event.name, "my_tool")
 
 
 if __name__ == "__main__":

@@ -45,10 +45,17 @@ type EditableLLMConfig = Omit<LLMConfigPayload, "providers"> & {
 };
 
 export function ProjectLLMSettings() {
-  const { llmConfig, llmConfigLoaded, llmPresets, llmPresetsLoaded } = useAIStore(
+  const {
+    llmConfig,
+    llmConfigLoaded,
+    llmConfigError,
+    llmPresets,
+    llmPresetsLoaded,
+  } = useAIStore(
     (x) => ({
       llmConfig: x.llmConfig,
       llmConfigLoaded: x.llmConfigLoaded,
+      llmConfigError: x.llmConfigError,
       llmPresets: x.llmPresets,
       llmPresetsLoaded: x.llmPresetsLoaded,
     }),
@@ -57,7 +64,6 @@ export function ProjectLLMSettings() {
 
   const [editableConfig, setEditableConfig] =
     useState<EditableLLMConfig | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -72,19 +78,17 @@ export function ProjectLLMSettings() {
     let canceled = false;
     void (async () => {
       try {
-        const result = await loadLLMConfig();
+        await loadLLMConfig();
         if (canceled) {
           return;
-        }
-        if (!result.ok) {
-          setLoadError(result.error);
-        } else {
-          setLoadError(null);
         }
       } catch (exc) {
         console.error(exc);
         if (!canceled) {
-          setLoadError("Failed to load LLM configuration");
+          useAIStore.setState({
+            llmConfigError: "Failed to load LLM configuration",
+            llmConfigLoaded: true,
+          });
         }
       }
     })();
@@ -110,9 +114,6 @@ export function ProjectLLMSettings() {
     setSaving(false);
     setTesting(false);
     setTestResult(null);
-    if (llmConfig) {
-      setLoadError(null);
-    }
   }, [llmConfigLoaded, llmConfig]);
 
   const configPath = `${C.SETTA_FILES_FOLDER}/llm_config.json`;
@@ -253,7 +254,7 @@ export function ProjectLLMSettings() {
       isDirty ||
       testing ||
       testResult ||
-      loadError
+      llmConfigError
     ) {
       return;
     }
@@ -263,7 +264,7 @@ export function ProjectLLMSettings() {
     editableConfig,
     isDirty,
     llmConfigLoaded,
-    loadError,
+    llmConfigError,
     providerPresetMap,
     runValidation,
     testResult,
@@ -311,9 +312,9 @@ export function ProjectLLMSettings() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
-      {loadError ? (
+      {llmConfigError ? (
         <div className="rounded-md border border-red-200/70 bg-red-50 p-3 text-[11px] text-red-700 shadow-sm dark:border-red-700/60 dark:bg-red-900/30 dark:text-red-200">
-          {loadError}
+          {llmConfigError}
         </div>
       ) : null}
       <div className="rounded-lg border border-setta-200/60 p-4 text-xs dark:border-setta-700/60">

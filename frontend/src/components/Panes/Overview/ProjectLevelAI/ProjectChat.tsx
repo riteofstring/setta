@@ -18,16 +18,22 @@ import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
 export function ProjectChat() {
-  const { llmConfig, llmConfigLoaded, viewHistory, userSelectedLLM } =
-    useAIStore(
-      (x) => ({
-        llmConfig: x.llmConfig,
-        llmConfigLoaded: x.llmConfigLoaded,
-        viewHistory: x.viewHistory,
-        userSelectedLLM: x.userSelectedLLM,
-      }),
-      shallow,
-    );
+  const {
+    llmConfig,
+    llmConfigLoaded,
+    llmConfigError,
+    viewHistory,
+    userSelectedLLM,
+  } = useAIStore(
+    (x) => ({
+      llmConfig: x.llmConfig,
+      llmConfigLoaded: x.llmConfigLoaded,
+      llmConfigError: x.llmConfigError,
+      viewHistory: x.viewHistory,
+      userSelectedLLM: x.userSelectedLLM,
+    }),
+    shallow,
+  );
 
   useEffect(() => {
     getUUIDMappingForLLM();
@@ -220,6 +226,14 @@ export function ProjectChat() {
           </div>
         )}
       </nav>
+
+      {llmConfigError ? (
+        <div className="mb-2 rounded-md border border-red-200/70 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/60 dark:bg-red-900/30 dark:text-red-200">
+          LLM configuration failed to load: {llmConfigError}. Update{" "}
+          <code className="font-mono text-[11px]">{configPath}</code> in
+          Settings to resume chatting.
+        </div>
+      ) : null}
 
       {viewHistory ? (
         <ProjectChatHistory />

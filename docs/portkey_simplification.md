@@ -16,7 +16,7 @@
 
 ## Status of open items
 - **Portkey routing with provider keys:** Confirmed—stay on minimal fields (`api_key`, `base_url`/gateway URL, `provider`), no `x-portkey-provider` header, OpenAI-shaped payloads.
-- **Chunk shapes:** Still to verify against real streams; if provider-specific shapes show up we’ll add a narrow switch inside `ChatManager`, otherwise keep the thin adapter.
+- **Chunk shapes:** Regression test now asserts response.completed, string content with stream targets, and tool-call deltas; keep the thin adapter unless real streams surface provider-specific shapes.
 - **Preset breadth:** Pending decision on how wide the catalog should go (Google/xAI/etc. already present); align with frontend UX expectations.
 
 ## Proposed plan
