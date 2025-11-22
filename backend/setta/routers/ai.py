@@ -80,25 +80,31 @@ async def route_get_llm_response(
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ) -> str | None:
+    llm_config = state.llm_config
+    if x.projectConfigId and x.projectConfigId not in llm_config.project_configs:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown projectConfigId '{x.projectConfigId}'"
+        )
+
+    try:
+        _, model_config = resolve_model_selection(
+            llm_config,
+            x.modelSelection,
+            project_config_id=x.projectConfigId,
+        )
+        state.chat_manager._build_request_params(
+            deep_think=x.deepThink,
+            model=model_config,
+        )
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     chat = state.chat_manager.get_or_create_chat(
         x.chatId,
         x.message,
         x.modelSelection,
         x.projectConfigId,
     )
-
-    _, model_config = resolve_model_selection(
-        state.llm_config,
-        x.modelSelection,
-        project_config_id=x.projectConfigId,
-    )
-    if x.deepThink and not model_config.supports_reasoning:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Model '{model_config.display_name}' does not support Deep Thinking."
-            ),
-        )
 
     if chat:
         background_tasks.add_task(
