@@ -16,6 +16,26 @@ logger = logging.getLogger(__name__)
 _SKIP_ENV_VAR = "SETTA_SKIP_LOCAL_GATEWAY"
 _HEALTH_POLL_SECONDS = 0.5
 _STARTUP_TIMEOUT_SECONDS = 20.0
+_BUNDLED_GATEWAY_DIR = (
+    Path(__file__).resolve().parent.parent / "static" / "portkey_gateway"
+)
+_BUNDLED_GATEWAY_START = _BUNDLED_GATEWAY_DIR / "build" / "start-server.js"
+
+
+def has_bundled_gateway() -> bool:
+    """Return True when the Portkey gateway bundle is present in the package."""
+
+    return (
+        _BUNDLED_GATEWAY_START.exists()
+        and (_BUNDLED_GATEWAY_DIR / "node_modules").exists()
+        and (_BUNDLED_GATEWAY_DIR / "package.json").exists()
+    )
+
+
+def bundled_gateway_path() -> Path:
+    """Path to the packaged Portkey gateway bundle."""
+
+    return _BUNDLED_GATEWAY_DIR
 
 
 class DevGatewayManager:
@@ -33,7 +53,11 @@ class DevGatewayManager:
         self._startup_timeout = startup_timeout
         self._process: subprocess.Popen[str] | None = None
         self._skip = bool(os.environ.get(_SKIP_ENV_VAR))
+        self._node_path = shutil.which("node")
         self._pnpm_path = shutil.which("pnpm")
+        self._bundled_gateway_dir = (
+            _BUNDLED_GATEWAY_DIR if has_bundled_gateway() else None
+        )
 
     def ensure_running(self) -> None:
         if self._skip:
@@ -59,6 +83,32 @@ class DevGatewayManager:
         self._process = None
 
     def _launch_gateway(self) -> subprocess.Popen[str]:
+        if self._bundled_gateway_dir:
+            return self._launch_bundled_gateway()
+        return self._launch_gateway_via_pnpm()
+
+    def _launch_bundled_gateway(self) -> subprocess.Popen[str]:
+        if not self._node_path:
+            raise RuntimeError("Node.js is required to launch the bundled Portkey gateway.")
+
+        if not has_bundled_gateway():
+            raise RuntimeError("Bundled Portkey gateway assets are missing.")
+
+        logger.info(
+            "Starting bundled Portkey gateway from %s.", self._bundled_gateway_dir
+        )
+        env = os.environ.copy()
+        env.setdefault("NODE_ENV", "production")
+        try:
+            return subprocess.Popen(
+                [self._node_path, str(_BUNDLED_GATEWAY_START)],
+                cwd=str(self._bundled_gateway_dir),
+                env=env,
+            )
+        except OSError as exc:
+            raise RuntimeError("Failed to start the bundled Portkey gateway.") from exc
+
+    def _launch_gateway_via_pnpm(self) -> subprocess.Popen[str]:
         if not self._pnpm_path:
             raise RuntimeError("pnpm is required to launch the Portkey gateway.")
 

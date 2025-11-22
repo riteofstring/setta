@@ -63,7 +63,7 @@ include = [
 
 [tool.hatch.build]
 artifacts = [
-    "backend/setta/static/frontend/**",
+    "backend/setta/static/**",
 ]
 
 # UV-specific configuration

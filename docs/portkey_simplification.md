@@ -6,6 +6,7 @@
 - Config validation uses the Portkey SDK: gateway health probes call Portkey `get`, provider tests call `models.list()` with provider-specific headers/keys, and we surface missing-authorization hints.
 - Config still centers on gateway URL + providers/models/presets; presets remain the UX surface for common providers.
 - Preset catalog now includes Google Gemini, Mistral, and xAI (Grok) alongside OpenAI and Anthropic to prefill the editor dropdowns.
+- Bundled `@portkey-ai/gateway` CLI + deps now live under `backend/setta/static/portkey_gateway`; `build.sh` syncs the bundle, `test_install.sh` smoke-tests it post-`pip install`, and `DevGatewayManager` launches the packaged copy before falling back to `pnpm exec gateway`.
 - Regression test codifies the minimal payload + OpenAI delta mapping so we keep the thin adapter: `tests/llm/test_chat_manager_simplification.py` asserts the provider-flagged payload and openai-style chunk parsing.
 
 ## Simplification direction (provider-keys-first)
@@ -18,6 +19,7 @@
 - **Portkey routing with provider keys:** Confirmed—stay on minimal fields (`api_key`, `base_url`/gateway URL, `provider`), no `x-portkey-provider` header, OpenAI-shaped payloads.
 - **Chunk shapes:** Regression test now asserts response.completed, string content with stream targets, and tool-call deltas; keep the thin adapter unless real streams surface provider-specific shapes.
 - **Preset breadth:** Pending decision on how wide the catalog should go (Google/xAI/etc. already present); align with frontend UX expectations.
+- Bundled gateway lifecycle is covered by the packaged assets and smoke tests; no further routing work remains here.
 
 ## Proposed plan
 1) Maintain the flattened stack: keep `ChatManager` + Portkey SDK only.
