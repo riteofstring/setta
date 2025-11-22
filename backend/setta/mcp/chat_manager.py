@@ -270,6 +270,14 @@ class ChatManager:
                     "model_id": model_config.model_id,
                 },
             )
+            await self._wmh_frontend_sender.send_streaming_response(
+                chatId=chat.id,
+                assistant_message_id=response_message_id,
+                chunk=ResponseCompletedEvent(
+                    message_id=response_message_id,
+                    finish_reason="canceled",
+                ),
+            )
             return
         except Exception as exc:
             chat.streamStatus = ChatStreamStatus.COMPLETED

@@ -36,6 +36,7 @@ import {
   type LLMProviderConfigPayload,
   type LLMStreamingResponse,
   type MessageStartedEvent,
+  type ResponseCompletedEvent,
   SettaNotificationTypeEnum,
   type TextDeltaEvent,
   type ToolCallDeltaEvent,
@@ -531,7 +532,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
         llmToolResult(chatId, assistantMessageId, chunk);
         return;
       case LLMStreamEventTypeEnum.RESPONSE_COMPLETED:
-        llmResponseCompleted(chatId);
+        llmResponseCompleted(chatId, chunk);
         return;
       default:
         return;
@@ -778,7 +779,15 @@ function llmToolResult(
   });
 }
 
-function llmResponseCompleted(chatId: string) {
+function llmResponseCompleted(
+  chatId: string,
+  chunk: ResponseCompletedEvent | null,
+) {
+  const streamStatus =
+    chunk?.finish_reason === "canceled"
+      ? ChatStreamStatusEnum.CANCELED
+      : ChatStreamStatusEnum.COMPLETED;
+
   useAIStore.setState((state) => {
     const currDetails = state.chatDetails[chatId];
     return {
@@ -788,7 +797,7 @@ function llmResponseCompleted(chatId: string) {
           ...getDefaultChatDetails(),
           ...(currDetails ?? {}),
           waitingForResponse: false,
-          streamStatus: ChatStreamStatusEnum.COMPLETED,
+          streamStatus,
         },
       },
     };
