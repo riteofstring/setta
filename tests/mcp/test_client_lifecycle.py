@@ -10,12 +10,15 @@ from setta.mcp.client import MCPClient
 class StubSSEContext:
     opened = 0
     closed = 0
+    fail_first = False
 
     def __init__(self, url: str) -> None:
         self.url = url
 
     async def __aenter__(self):
         type(self).opened += 1
+        if self.fail_first and type(self).opened == 1:
+            raise RuntimeError("connection failed")
         return object(), object()
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -25,6 +28,8 @@ class StubSSEContext:
 
 class StubClientSession:
     closed = 0
+    entered = 0
+    list_tools_calls = 0
 
     def __init__(self, read, write) -> None:
         self.read = read
@@ -33,6 +38,7 @@ class StubClientSession:
         self.pings = 0
 
     async def __aenter__(self):
+        type(self).entered += 1
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -43,6 +49,7 @@ class StubClientSession:
         self.initialized = True
 
     async def list_tools(self):
+        type(self).list_tools_calls += 1
         return types.SimpleNamespace(
             tools=[
                 types.SimpleNamespace(
@@ -61,7 +68,10 @@ class MCPClientLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         StubSSEContext.opened = 0
         StubSSEContext.closed = 0
+        StubSSEContext.fail_first = False
         StubClientSession.closed = 0
+        StubClientSession.entered = 0
+        StubClientSession.list_tools_calls = 0
         self._orig_sse_client = mcp_client_module.sse_client
         self._orig_client_session = mcp_client_module.ClientSession
         mcp_client_module.sse_client = StubSSEContext
@@ -96,6 +106,30 @@ class MCPClientLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(client._shutdown)
         self.assertIsNone(client.session)
         self.assertFalse(client._connected)
+        self.assertEqual(client.available_tools, [])
+        self.assertGreaterEqual(StubSSEContext.closed, 1)
+        self.assertGreaterEqual(StubClientSession.closed, 1)
+
+    async def test_retries_after_initial_connection_failure(self) -> None:
+        StubSSEContext.fail_first = True
+        client = MCPClient("http://localhost")
+        connect_task = asyncio.create_task(client.connect_to_server(retry_delay=0))
+
+        try:
+            await self._wait_until_connected(client)
+            self.assertGreaterEqual(StubSSEContext.opened, 2)
+            self.assertGreaterEqual(StubClientSession.entered, 1)
+            self.assertGreaterEqual(StubClientSession.list_tools_calls, 1)
+            self.assertTrue(client.available_tools)
+            await client.stop()
+            await asyncio.wait_for(connect_task, timeout=0.2)
+        finally:
+            if not connect_task.done():
+                connect_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await connect_task
+
+        self.assertTrue(client._shutdown)
         self.assertEqual(client.available_tools, [])
         self.assertGreaterEqual(StubSSEContext.closed, 1)
         self.assertGreaterEqual(StubClientSession.closed, 1)

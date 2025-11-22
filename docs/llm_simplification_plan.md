@@ -10,7 +10,7 @@
 - Workstream 2 is implemented: streaming now uses an explicit state machine (idle/streaming/completed/canceled/error), always emits a final completion/cancel/error event with finish/error reasons, and only persists at finish/cancel/error with an optional throttle for long streams.
 - Workstream 3 is implemented: tool results now live solely inside `LLMToolResultBlock` message content; the dual storage map and websocket stripping are removed so the frontend derives results from messages.
 - Workstream 4 is implemented: MCP client shutdown now honors a stop flag, uses logging instead of prints, and tool access is guarded when unavailable; frontend surfacing of MCP status remains optional.
-- Workstream 5 is partially implemented: backend regression tests added for config hydration round-trips, stream state transitions (success/error), tool call/result handling, and MCP client shutdown lifecycle.
+- Workstream 5 is implemented: backend regression tests cover config hydration round-trips, stream state transitions (success/error), tool call/result handling, and MCP client shutdown/retry lifecycle.
 
 ## Workstream 1: Config + Preset Model Unification
 - Collapse the parallel dataclasses and Pydantic payload models into one canonical model shape with a single hydration path: `payload -> hydrate presets -> normalize -> persist`.
