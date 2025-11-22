@@ -1,4 +1,4 @@
-model = "gpt-5-codex"
+model = "gpt-5.1-codex-max"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 approval_policy = "on-failure"
@@ -14,3 +14,7 @@ args = [
 
 [projects."/Users/kevin/Documents/AppDevelopment/setta"]
 trust_level = "trusted"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+"hide_gpt-5.1-codex-max_migration_prompt" = true
