@@ -142,6 +142,64 @@ _PROVIDER_PRESETS: tuple[LLMProviderPreset, ...] = (
         ),
         default_model_id="claude-3-5-sonnet-latest",
     ),
+    _build_provider(
+        provider_id="google",
+        display_name="Google Gemini",
+        description="Gemini models served via the Google AI API through Portkey.",
+        models=(
+            LLMModelConfig(
+                model_id="gemini-1.5-flash-latest",
+                display_name="Gemini 1.5 Flash",
+            ),
+            LLMModelConfig(
+                model_id="gemini-1.5-pro-latest",
+                display_name="Gemini 1.5 Pro",
+                supports_reasoning=True,
+            ),
+            LLMModelConfig(
+                model_id="gemini-1.0-pro",
+                display_name="Gemini 1.0 Pro",
+            ),
+        ),
+        default_model_id="gemini-1.5-flash-latest",
+    ),
+    _build_provider(
+        provider_id="mistral",
+        display_name="Mistral",
+        description="Mistral models routed through the Portkey gateway.",
+        models=(
+            LLMModelConfig(
+                model_id="mistral-small-latest",
+                display_name="Mistral Small",
+            ),
+            LLMModelConfig(
+                model_id="mistral-medium-latest",
+                display_name="Mistral Medium",
+            ),
+            LLMModelConfig(
+                model_id="mistral-large-latest",
+                display_name="Mistral Large",
+                supports_reasoning=True,
+            ),
+        ),
+        default_model_id="mistral-small-latest",
+    ),
+    _build_provider(
+        provider_id="xai",
+        display_name="xAI",
+        description="Grok models served via the xAI API.",
+        models=(
+            LLMModelConfig(
+                model_id="grok-2-mini-1212",
+                display_name="Grok 2 Mini",
+            ),
+            LLMModelConfig(
+                model_id="grok-2-1212",
+                display_name="Grok 2",
+            ),
+        ),
+        default_model_id="grok-2-mini-1212",
+    ),
 )
 
 

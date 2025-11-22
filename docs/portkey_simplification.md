@@ -5,6 +5,7 @@
 - Provider routing leans on Portkey SDK settings (`provider`, `base_url`, api key) instead of custom `x-portkey-provider` headers.
 - Config validation uses the Portkey SDK: gateway health probes call Portkey `get`, provider tests call `models.list()` with provider-specific headers/keys, and we surface missing-authorization hints.
 - Config still centers on gateway URL + providers/models/presets; presets remain the UX surface for common providers.
+- Preset catalog now includes Google Gemini, Mistral, and xAI (Grok) alongside OpenAI and Anthropic to prefill the editor dropdowns.
 
 ## Simplification direction (provider-keys-first)
 - Keep a single Portkey touchpoint: reuse the provider-scoped `AsyncPortkey` clients inside `ChatManager` and keep the adapter minimal.
