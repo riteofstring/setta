@@ -1,5 +1,7 @@
 """File watcher plumbing for ``setta_files/llm_config.json``."""
 
+import json
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -8,6 +10,7 @@ from setta.llm.config_store import LLMConfig, config_to_payload, load_llm_config
 from setta.llm.constants import CONFIG_PATH
 from setta.types.llm_config import LLMConfigPayload
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -15,6 +18,7 @@ if TYPE_CHECKING:
     from setta.mcp.chat_manager import ChatManager
 
 LLM_CONFIG_CALLBACK_CATEGORY = "llm_config"
+logger = logging.getLogger(__name__)
 
 
 def register_llm_config_watch(
@@ -31,7 +35,38 @@ def register_llm_config_watch(
     normalized_path = normalize_path(resolved_path)
 
     async def _handle_config_update(_: FileWatcherCoreUpdate) -> None:
-        updated = load_llm_config(config_path=resolved_path)
+        try:
+            updated = load_llm_config(config_path=resolved_path)
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Invalid JSON in %s (line %s column %s): %s",
+                resolved_path,
+                exc.lineno,
+                exc.colno,
+                exc.msg,
+            )
+            notification = SettaNotification(
+                type=SettaNotificationType.error,
+                message=(
+                    f"Invalid JSON in {normalized_path}: {exc.msg} "
+                    f"(line {exc.lineno}, column {exc.colno}). "
+                    "Keeping the previous LLM config."
+                ),
+            )
+            await frontend_sender.broadcast_notification(notification)
+            return
+        except (TypeError, ValueError) as exc:
+            logger.error("Invalid LLM config in %s: %s", resolved_path, exc)
+            notification = SettaNotification(
+                type=SettaNotificationType.error,
+                message=(
+                    f"Invalid LLM config in {normalized_path}: {exc}. "
+                    "Keeping the previous LLM config."
+                ),
+            )
+            await frontend_sender.broadcast_notification(notification)
+            return
+
         _apply_config_update(llm_config, updated)
         chat_manager.update_llm_config(llm_config)
         payload: LLMConfigPayload = config_to_payload(llm_config)
