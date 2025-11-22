@@ -8,7 +8,6 @@ import {
   createNewLLMChat,
   getUUIDMappingForLLM,
   loadLLMConfig,
-  getProvidersForProject,
   setCurrentProjectLLMSelection,
 } from "state/actions/ai";
 import {
@@ -16,6 +15,7 @@ import {
   useProjectState,
   type StoredLLMSelection,
 } from "state/definitions";
+import { getProvidersForProject } from "state/llm/configSelectors";
 import { C } from "utils/c";
 import { encodeModelSelectionKey } from "utils/llmSelection";
 import { shallow } from "zustand/shallow";

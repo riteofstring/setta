@@ -20,6 +20,7 @@ _BUNDLED_GATEWAY_DIR = (
     Path(__file__).resolve().parent.parent / "static" / "portkey_gateway"
 )
 _BUNDLED_GATEWAY_START = _BUNDLED_GATEWAY_DIR / "build" / "start-server.js"
+_BUNDLED_GATEWAY_DEPS = ("@hono/node-server", "hono")
 
 
 def has_bundled_gateway() -> bool:
@@ -27,8 +28,8 @@ def has_bundled_gateway() -> bool:
 
     return (
         _BUNDLED_GATEWAY_START.exists()
-        and (_BUNDLED_GATEWAY_DIR / "node_modules").exists()
         and (_BUNDLED_GATEWAY_DIR / "package.json").exists()
+        and _bundled_gateway_dependencies_present()
     )
 
 
@@ -170,3 +171,15 @@ def _check_socket(base_url: str) -> bool:
 def _default_frontend_dir() -> Path:
     project_root = Path(__file__).resolve().parents[3]
     return project_root / "frontend"
+
+
+def _bundled_gateway_dependencies_present() -> bool:
+    node_modules = _BUNDLED_GATEWAY_DIR / "node_modules"
+    if not node_modules.exists():
+        return False
+
+    for dependency in _BUNDLED_GATEWAY_DEPS:
+        if not (node_modules / dependency / "package.json").exists():
+            return False
+
+    return True

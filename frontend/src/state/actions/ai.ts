@@ -11,7 +11,6 @@ import {
   findDefaultModelSelection,
   getProvidersForProject,
   hydrateSelectionFromConfig,
-  makeStoredSelection,
   normalizeProjectConfigId,
   resolveProjectConfigId,
   selectionToKey,
@@ -30,9 +29,9 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
   route_get_all_llm_chat_metadata,
+  route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_presets,
-  route_get_llm_chat,
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
   route_set_llm_config,
@@ -45,15 +44,15 @@ import {
   IDToUUIDForLLM,
   LLMRoleEnum,
   LLMStreamEventTypeEnum,
+  SettaNotificationTypeEnum,
   type LLMConfigPayload,
   type LLMConfigTestResultPayload,
   type LLMPresetCatalogPayload,
   type LLMStreamingResponse,
-  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { getSectionType, getSectionVariant } from "./sectionInfos";
 import { encodeModelSelectionKey } from "utils/llmSelection";
+import { getSectionType, getSectionVariant } from "./sectionInfos";
 
 function parseEndpointError(res: unknown, fallback: string): string {
   const data = (res as { data?: unknown })?.data;
@@ -101,10 +100,7 @@ export async function loadLLMConfig(): Promise<
     return { ok: true as const };
   }
 
-  const detail = parseEndpointError(
-    res,
-    "Failed to load LLM configuration",
-  );
+  const detail = parseEndpointError(res, "Failed to load LLM configuration");
   addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
   useAIStore.setState({
     llmConfig: null,
@@ -127,7 +123,9 @@ export function applyLLMConfigUpdate(config: LLMConfigPayload) {
       projectIds.add(normalizeProjectConfigId(projectId));
     }
     if (config.default_project_config_id) {
-      projectIds.add(normalizeProjectConfigId(config.default_project_config_id));
+      projectIds.add(
+        normalizeProjectConfigId(config.default_project_config_id),
+      );
     }
 
     const cleanedSelections: Record<string, StoredLLMSelection | null> = {};
@@ -217,10 +215,7 @@ export async function saveLLMConfig(payload: LLMConfigPayload) {
     applyLLMConfigUpdate(res.data);
     return { ok: true as const };
   }
-  const detail = parseEndpointError(
-    res,
-    "Failed to save LLM configuration",
-  );
+  const detail = parseEndpointError(res, "Failed to save LLM configuration");
   addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
   useAIStore.setState({ llmConfigError: detail });
   return { ok: false as const, error: detail };
@@ -233,10 +228,7 @@ export async function testLLMConfig(
   if (res200(res)) {
     return res.data;
   }
-  const detail = parseEndpointError(
-    res,
-    "Failed to test LLM configuration",
-  );
+  const detail = parseEndpointError(res, "Failed to test LLM configuration");
   throw new Error(detail);
 }
 
@@ -244,12 +236,8 @@ export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const {
-      messages,
-      waitingForResponse,
-      modelSelection,
-      streamStatus,
-    } = res.data;
+    const { messages, waitingForResponse, modelSelection, streamStatus } =
+      res.data;
     const modelSelectionKey = modelSelection
       ? encodeModelSelectionKey({
           providerId: modelSelection.providerId,
@@ -380,8 +368,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);
   }
-}
-
 }
 
 function streamInto(chatId, streamTarget, content) {
