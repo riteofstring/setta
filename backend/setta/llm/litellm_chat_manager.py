@@ -1,10 +1,12 @@
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any, AsyncIterator, Iterator
 
 import litellm
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 
 from setta.database.db_objs import DBE
@@ -44,6 +46,14 @@ class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
 
 
+@dataclass
+class StreamingSession:
+    assistant_message: ChatMessage
+    stream: CustomStreamWrapper | None = None
+    cancel_requested: bool = False
+    started_at: float = field(default_factory=time.time)
+
+
 class LitellmChatManager:
     """
     Placeholder implementation that replaces the Anthropic-specific ChatManager.
@@ -63,6 +73,7 @@ class LitellmChatManager:
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
         self.config: LiteLLMConfig = load_litellm_config()
+        self._sessions: dict[str, StreamingSession] = {}
 
     def get_chat(self, chat_id: str) -> Chat | None:
         return load_chat(self.dbe, chat_id)
@@ -102,44 +113,57 @@ class LitellmChatManager:
             content=[],
         )
         tool_call_state = ToolCallStreamState()
-
-        await self.websocket_msg_handler.send_streaming_response(
-            chat.id,
-            assistant_message.id,
-            MessageStartEvent(message=assistant_message),
-        )
+        session = StreamingSession(assistant_message=assistant_message)
+        self._sessions[chat.id] = session
 
         try:
-            stream = await litellm.acompletion(**payload, stream=True)
-        except Exception:
-            logger.exception("litellm failed to start streaming for chat %s", chat.id)
-            raise
+            await self.websocket_msg_handler.send_streaming_response(
+                chat.id,
+                assistant_message.id,
+                MessageStartEvent(message=assistant_message),
+            )
 
-        async for chunk in self._iterate_stream(stream):
             try:
-                await self._handle_stream_chunk(
-                    chat.id,
-                    assistant_message,
-                    chunk,
-                    tool_call_state,
-                )
+                stream_result = await litellm.acompletion(**payload, stream=True)
             except Exception:
                 logger.exception(
-                    "litellm streaming chunk handling failed for chat %s", chat.id
+                    "litellm failed to start streaming for chat %s", chat.id
                 )
+                raise
 
-        await self.websocket_msg_handler.send_streaming_response(
-            chat.id,
-            assistant_message.id,
-            MessageStopEvent(message_id=assistant_message.id),
-        )
-        self._finalize_tool_calls(assistant_message, tool_call_state)
-        save_messages(self.dbe, chat.id, [assistant_message])
-        await self.websocket_msg_handler.send_streaming_response(
-            chat.id,
-            assistant_message.id,
-            MessageFinalizedEvent(message=assistant_message),
-        )
+            if not isinstance(stream_result, CustomStreamWrapper):
+                raise TypeError(
+                    "litellm.acompletion(stream=True) must return CustomStreamWrapper"
+                )
+            session.stream = stream_result
+
+            async for chunk in self._iterate_stream(stream_result):
+                try:
+                    await self._handle_stream_chunk(
+                        chat.id,
+                        assistant_message,
+                        chunk,
+                        tool_call_state,
+                    )
+                except Exception:
+                    logger.exception(
+                        "litellm streaming chunk handling failed for chat %s", chat.id
+                    )
+
+            await self.websocket_msg_handler.send_streaming_response(
+                chat.id,
+                assistant_message.id,
+                MessageStopEvent(message_id=assistant_message.id),
+            )
+            self._finalize_tool_calls(assistant_message, tool_call_state)
+            save_messages(self.dbe, chat.id, [assistant_message])
+            await self.websocket_msg_handler.send_streaming_response(
+                chat.id,
+                assistant_message.id,
+                MessageFinalizedEvent(message=assistant_message),
+            )
+        finally:
+            self._sessions.pop(chat.id, None)
 
     async def request_stop_streaming(self, chat_id: str) -> None:
         raise NotImplementedError(
@@ -201,13 +225,27 @@ class LitellmChatManager:
 
         return request
 
-    async def _iterate_stream(self, stream_result):
+    async def _iterate_stream(
+        self, stream_result: CustomStreamWrapper
+    ) -> AsyncIterator[ModelResponseStream]:
         if hasattr(stream_result, "__aiter__"):
             async for chunk in stream_result:
-                yield chunk
+                if isinstance(chunk, ModelResponseStream):
+                    yield chunk
+                else:
+                    logger.debug(
+                        "Skipping non-ModelResponseStream chunk from litellm stream: %s",
+                        type(chunk),
+                    )
             return
         for chunk in stream_result:
-            yield chunk
+            if isinstance(chunk, ModelResponseStream):
+                yield chunk
+            else:
+                logger.debug(
+                    "Skipping non-ModelResponseStream chunk from litellm stream: %s",
+                    type(chunk),
+                )
 
     async def _handle_stream_chunk(
         self,
