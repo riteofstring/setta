@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from typing import Any, AsyncIterator, Iterator
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
+from mcp.types import TextContent
 
 from setta.database.db_objs import DBE
 from setta.llm.config import LiteLLMConfig, load_litellm_config
@@ -51,7 +53,6 @@ class ToolCallStreamState:
 class StreamingSession:
     assistant_message: ChatMessage
     stream: CustomStreamWrapper | None = None
-    cancel_requested: bool = False
     started_at: float = field(default_factory=time.time)
 
 
@@ -75,6 +76,7 @@ class LitellmChatManager:
         self.websocket_msg_handler = websocket_msg_handler
         self.config: LiteLLMConfig = load_litellm_config()
         self._sessions: dict[str, StreamingSession] = {}
+        self._tasks: dict[str, asyncio.Task[Any]] = {}
 
     def get_chat(self, chat_id: str) -> Chat | None:
         return load_chat(self.dbe, chat_id)
@@ -97,6 +99,37 @@ class LitellmChatManager:
     def delete_chat(self, chat_id: str) -> None:
         delete_chat_record(self.dbe, chat_id)
 
+    def start_processing_query(
+        self,
+        projectConfigId: str,
+        chat: Chat,
+        model: str,
+        deepThink: bool,
+    ) -> None:
+        existing = self._tasks.get(chat.id)
+        if existing and not existing.done():
+            logger.info(
+                "Chat %s already has an active streaming task; cancelling it", chat.id
+            )
+            existing.cancel()
+        task = asyncio.create_task(
+            self.process_query(projectConfigId, chat, model, deepThink),
+            name=f"litellm-chat-{chat.id}",
+        )
+
+        def _cleanup(task: asyncio.Task[Any], chat_id: str) -> None:
+            self._tasks.pop(chat_id, None)
+            if task.cancelled():
+                return
+            exc = task.exception()
+            if exc:
+                logger.exception(
+                    "Streaming task for chat %s failed", chat_id, exc_info=exc
+                )
+
+        task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))
+        self._tasks[chat.id] = task
+
     async def process_query(
         self,
         projectConfigId: str,  # noqa: N803 (preserve existing API for now)
@@ -117,6 +150,7 @@ class LitellmChatManager:
         session = StreamingSession(assistant_message=assistant_message)
         self._sessions[chat.id] = session
 
+        stop_event_sent = False
         try:
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
@@ -154,6 +188,7 @@ class LitellmChatManager:
                 chat.id,
                 MessageStopEvent(message_id=assistant_message.id),
             )
+            stop_event_sent = True
             self._finalize_tool_calls(assistant_message, tool_call_state)
             tool_results = await self._run_tool_calls(chat.id, assistant_message)
             if tool_results:
@@ -167,28 +202,47 @@ class LitellmChatManager:
                 chat.id,
                 MessageFinalizedEvent(message=assistant_message),
             )
+        except asyncio.CancelledError:
+            if not stop_event_sent:
+                await self.websocket_msg_handler.send_streaming_response(
+                    chat.id,
+                    MessageStopEvent(message_id=assistant_message.id),
+                )
+                stop_event_sent = True
+            raise
         finally:
             self._sessions.pop(chat.id, None)
 
     async def request_stop_streaming(self, chat_id: str) -> None:
-        raise NotImplementedError(
-            "LitellmChatManager.request_stop_streaming is not implemented yet."
-        )
+        task = self._tasks.get(chat_id)
+        if not task:
+            logger.info("Stop requested for chat %s but no active task exists", chat_id)
+            return
+        task.cancel()
+        self._tasks.pop(chat_id, None)
 
     def is_waiting_for_response(self, chat_id: str) -> bool:
-        raise NotImplementedError(
-            "LitellmChatManager.is_waiting_for_response is not implemented yet."
-        )
+        return chat_id in self._sessions
 
-    def get_current_stream(self, chat_id: str):
-        raise NotImplementedError(
-            "LitellmChatManager.get_current_stream is not implemented yet."
-        )
+    def get_current_stream(self, chat_id: str) -> list[ChatMessage]:
+        session = self._sessions.get(chat_id)
+        if not session:
+            return []
+        return [session.assistant_message.model_copy(deep=True)]
 
-    def separate_tool_results(self, messages: list[ChatMessage]):
-        raise NotImplementedError(
-            "LitellmChatManager.separate_tool_results is not implemented yet."
-        )
+    def separate_tool_results(
+        self, messages: list[ChatMessage]
+    ) -> tuple[list[ChatMessage], dict[str, ToolResult]]:
+        tool_results: dict[str, ToolResult] = {}
+        filtered_messages: list[ChatMessage] = []
+        for message in messages:
+            if message.role == ChatRole.tool and message.tool_call_id:
+                tool_result = self._chat_message_to_tool_result(message)
+                if tool_result:
+                    tool_results[message.tool_call_id] = tool_result
+                continue
+            filtered_messages.append(message)
+        return filtered_messages, tool_results
 
     def _build_litellm_request_payload(
         self,
@@ -398,6 +452,25 @@ class LitellmChatManager:
                 )
             )
         return assistant_message.tool_calls[index]
+
+    def _chat_message_to_tool_result(self, message: ChatMessage) -> ToolResult | None:
+        if not message.tool_call_id:
+            return None
+        content: list[TextContent] = []
+        for entry in message.content:
+            if isinstance(entry, MessageTextContent) and entry.text:
+                content.append(TextContent(type="text", text=entry.text))
+        try:
+            return ToolResult(
+                tool_call_id=message.tool_call_id,
+                content=content,
+                is_error=False,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to convert tool message %s into ToolResult", message.id
+            )
+        return None
 
     def _finalize_tool_calls(
         self,

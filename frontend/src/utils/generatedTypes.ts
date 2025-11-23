@@ -1040,7 +1040,6 @@ export const ChatMessageSchema = z.object({
   ),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
   tool_call_id: z.union([z.string(), z.null()]).default(null),
-  metadata: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;

@@ -70,12 +70,10 @@ class ChatMessage(BaseModel):
     content: list[MessageContent]
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
-    metadata: dict[str, Any] | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
         output.pop("id", None)
-        output.pop("metadata", None)
 
         tool_calls = output.get("tool_calls")
         if tool_calls:

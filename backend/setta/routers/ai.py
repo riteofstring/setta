@@ -53,7 +53,6 @@ class GetLLMApiKeysRequest(BaseModel):
 @router.post(Route.GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
-    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ) -> str | None:
     # try:
@@ -61,15 +60,12 @@ async def route_get_llm_response(
     chat = state.chat_manager.get_or_create_chat(x.chatId, x.message)
 
     if chat:
-        background_tasks.add_task(
-            state.chat_manager.process_query,
+        state.chat_manager.start_processing_query(
             x.projectConfigId,
             chat,
             x.model,
             x.deepThink,
         )
-
-        # Return immediate response with session ID
         return chat.id
 
     # except Exception as e:
