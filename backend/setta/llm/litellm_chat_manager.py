@@ -340,13 +340,13 @@ class LitellmChatManager:
         text_deltas = self._build_text_deltas(delta, assistant_message)
         if not text_deltas:
             return
-            await self.websocket_msg_handler.send_streaming_response(
-                chat_id,
-                MessageDeltaEvent(
-                    message_id=assistant_message.id,
-                    content=text_deltas,
-                ),
-            )
+        await self.websocket_msg_handler.send_streaming_response(
+            chat_id,
+            MessageDeltaEvent(
+                message_id=assistant_message.id,
+                content=text_deltas,
+            ),
+        )
 
     def _build_text_deltas(
         self, delta: Delta, assistant_message: ChatMessage

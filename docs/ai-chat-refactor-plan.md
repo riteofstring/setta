@@ -73,6 +73,7 @@
 - ✅ Added the `litellm` dependency plus `backend/setta/llm/config.py`, and swapped the Anthropic `ChatManager` for `backend/setta/llm/litellm_chat_manager.py`, so all router entry points talk to the new manager/persistence stack.
 - ✅ Built typed streaming envelopes in `backend/setta/types/chat_stream_events.py`, rewired the WebSocket sender, and updated `frontend/src/state/actions/ai.ts` to consume `message_start`/`delta`/`tool_call_delta` events while assembling assistant messages in the Zustand store.
 - ✅ Implemented the LiteLLM streaming scaffolding (`ToolCallStreamState`, `_handle_text_deltas`, `_handle_tool_call_deltas`, `StreamingSession`) and bridged tool calls through `MCPClient.call_tool`, so streamed tool metadata is parsed and ready for MCP dispatch even though downstream wiring is still in progress.
+- ✅ Fixed `_handle_text_deltas` so it no longer returns before emitting `MessageDeltaEvent` updates, restoring incremental assistant text streaming over the WebSocket transport.
 - ✅ Replaced the bespoke MCP registry with the `SETTA_MCP_TOOLS` decorator, imported the MCP tools package from `server.py`, and introduced the tested `read_file_range` helper as the first deterministic building block for future file-edit tooling.
 - ✅ Wired `/getLLMResponse`, `/getLLMChat`, and `/stopLLMChat` to the new Litellm manager by implementing waiting-state helpers, exposing the in-flight assistant message, and launching/cancelling per-chat asyncio tasks instead of opaque `BackgroundTasks`, so the frontend can hydrate active streams and stop them without 500s.
 - ✅ Removed the ad-hoc `ChatMessage.metadata` blob so tool outputs and error flags will be modeled explicitly (via `role="tool"` messages) rather than smuggling data through untyped dicts.
@@ -80,7 +81,6 @@
 ## Remaining Work
 
 ### Backend / LiteLLM integration
-- `_handle_text_deltas` currently returns before calling `WMHFrontendSender.send_streaming_response` (see the early `return` on the `MessageDeltaEvent` block), so no `message_delta` updates ever reach the client. Fix the control flow, cover it with tests, and ensure assistant messages stream incrementally.
 - The LiteLLM payload built in `_build_litellm_request_payload` never includes `tools` (nor `tool_choice`), even though `MCPClient.available_tools` is populated. Tool calls therefore never fire. Inject tool schemas from the MCP client into the payload and make sure contextual args (e.g., `setta_chat_id`, `projectConfigId`) are forwarded when dispatching MCP calls.
 - `_run_tool_calls` executes MCP tools but the returned `ToolResult` values are neither persisted nor broadcast—`ToolResultEvent` is defined but unused. Save tool outputs (likely as `role="tool"` messages with structured `is_error` fields), emit `tool_result` WebSocket events, and keep `/getLLMChat` in sync.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
