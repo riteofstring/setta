@@ -13,12 +13,13 @@ import {
 import {
   AllProjectMetadata,
   APIKeys,
+  BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatMessage,
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
-  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
@@ -27,6 +28,7 @@ import {
   RenameRefactorBroadcastContent,
   SettaNotification,
   SettingsState,
+  ToolResult,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -338,11 +340,27 @@ export const useResizerStore = withProjectState(
   ),
 );
 
+export type ChatStreamTarget = {
+  sectionId: string;
+  before: string;
+  after: string;
+  contentToInsert: string;
+};
+
+export type ChatDetails = {
+  messages: Array<ChatMessage>;
+  toolResults: Record<string, ToolResult>;
+  toolCallArguments: Record<string, string>;
+  waitingForResponse: boolean;
+  streamTarget: ChatStreamTarget | null;
+};
+
 export type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysFilepath: string;
   apiKeysInitialLoadComplete: boolean;
   allChatMetadata: Array<ChatMetadata>;
+  chatDetails: Record<string, ChatDetails>;
   currentChatId: string | null;
   viewHistory: boolean;
   userSelectedLLM: string;
@@ -358,7 +376,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeys: {},
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
-        chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
+        chatDetails: {},
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,

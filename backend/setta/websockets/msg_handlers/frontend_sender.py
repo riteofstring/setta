@@ -7,8 +7,8 @@ from setta.project_state.project_manager_types import (
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat_stream_events import (
+    LLMStreamingResponse,
     LLMStreamingResponseChunk,
-    build_streaming_response,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
@@ -71,14 +71,12 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def send_streaming_response(
         self,
         chatId: str,
-        assistant_message_id: str | None,
         chunk: LLMStreamingResponseChunk,
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgLLMStreamingResponse(
-                content=build_streaming_response(
-                    chat_id=chatId,
-                    assistant_message_id=assistant_message_id,
+                content=LLMStreamingResponse(
+                    chatId=chatId,
                     chunk=chunk,
                 )
             ),

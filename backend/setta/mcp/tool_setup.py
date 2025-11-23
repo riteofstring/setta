@@ -1,6 +1,5 @@
 from typing import Callable
 
-
 SETTA_MCP_TOOLS: list[Callable] = []
 
 

@@ -119,7 +119,6 @@ class LitellmChatManager:
         try:
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
-                assistant_message.id,
                 MessageStartEvent(message=assistant_message),
             )
 
@@ -152,14 +151,12 @@ class LitellmChatManager:
 
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
-                assistant_message.id,
                 MessageStopEvent(message_id=assistant_message.id),
             )
             self._finalize_tool_calls(assistant_message, tool_call_state)
             save_messages(self.dbe, chat.id, [assistant_message])
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
-                assistant_message.id,
                 MessageFinalizedEvent(message=assistant_message),
             )
         finally:
@@ -281,14 +278,13 @@ class LitellmChatManager:
         text_deltas = self._build_text_deltas(delta, assistant_message)
         if not text_deltas:
             return
-        await self.websocket_msg_handler.send_streaming_response(
-            chat_id,
-            assistant_message.id,
-            MessageDeltaEvent(
-                message_id=assistant_message.id,
-                content=text_deltas,
-            ),
-        )
+            await self.websocket_msg_handler.send_streaming_response(
+                chat_id,
+                MessageDeltaEvent(
+                    message_id=assistant_message.id,
+                    content=text_deltas,
+                ),
+            )
 
     def _build_text_deltas(
         self, delta: Delta, assistant_message: ChatMessage
@@ -348,7 +344,6 @@ class LitellmChatManager:
                 continue
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
-                assistant_message.id,
                 event,
             )
 

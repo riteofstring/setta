@@ -4153,7 +4153,6 @@ export function createWebsocketMsgNotification(
 
 export const LLMStreamingResponseSchema = z.object({
   chatId: z.string(),
-  assistantMessageId: z.union([z.string(), z.null()]).default(null),
   chunk: z.union([
     MessageStartEventSchema,
     MessageDeltaEventSchema,

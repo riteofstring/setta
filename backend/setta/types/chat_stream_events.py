@@ -73,18 +73,4 @@ LLMStreamingResponseChunk = (
 
 class LLMStreamingResponse(BaseModel):
     chatId: str
-    assistantMessageId: str | None = None
     chunk: LLMStreamingResponseChunk
-
-
-def build_streaming_response(
-    chat_id: str,
-    assistant_message_id: str | None,
-    chunk: LLMStreamingResponseChunk,
-) -> LLMStreamingResponse:
-    """Small helper so every websocket sender emits the same envelope."""
-    return LLMStreamingResponse(
-        chatId=chat_id,
-        assistantMessageId=assistant_message_id,
-        chunk=chunk,
-    )
