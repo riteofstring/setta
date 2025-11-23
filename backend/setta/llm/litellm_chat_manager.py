@@ -27,6 +27,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
+    ToolResult,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -154,6 +155,13 @@ class LitellmChatManager:
                 MessageStopEvent(message_id=assistant_message.id),
             )
             self._finalize_tool_calls(assistant_message, tool_call_state)
+            tool_results = await self._run_tool_calls(chat.id, assistant_message)
+            if tool_results:
+                logger.debug(
+                    "Executed %s MCP tool calls for chat %s",
+                    len(tool_results),
+                    chat.id,
+                )
             save_messages(self.dbe, chat.id, [assistant_message])
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
@@ -405,6 +413,47 @@ class LitellmChatManager:
             tool_call.function.arguments = self._parse_tool_call_arguments(
                 raw_arguments, tool_call.id
             )
+
+    async def _run_tool_calls(
+        self,
+        chat_id: str,
+        assistant_message: ChatMessage,
+    ) -> list[ToolResult]:
+        if not assistant_message.tool_calls:
+            return []
+
+        results: list[ToolResult] = []
+        for tool_call in assistant_message.tool_calls:
+            result = await self._dispatch_tool_call(chat_id, tool_call)
+            results.append(result)
+        return results
+
+    async def _dispatch_tool_call(
+        self,
+        chat_id: str,
+        tool_call: ToolCall,
+    ) -> ToolResult:
+        tool_name = tool_call.function.name.strip()
+        if not tool_name:
+            raise ValueError(
+                f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
+            )
+        arguments = tool_call.function.arguments or {}
+        try:
+            call_result = await self.mcp_client.call_tool(tool_name, arguments)
+        except Exception:
+            logger.exception(
+                "MCP tool invocation failed for chat %s (tool=%s)",
+                chat_id,
+                tool_name,
+            )
+            raise
+
+        return ToolResult(
+            tool_call_id=tool_call.id,
+            content=call_result.content,
+            is_error=call_result.isError,
+        )
 
     def _parse_tool_call_arguments(
         self, arguments: str, tool_call_id: str
