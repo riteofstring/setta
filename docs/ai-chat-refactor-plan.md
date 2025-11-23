@@ -18,7 +18,7 @@
 - **LLM client**: New `litellm`-backed service with OpenAI-compatible message/tool_call schema. Single entry point handles chat, streaming, tool calls, and provider params (temperature, max_tokens, reasoning/thinking when supported).
 - **Chat session layer**: Owns chat metadata, persistence, and merging with in-flight streams. Stores provider-agnostic message structures (role/content, tool_calls, tool_results).
 - **Transport**: WebSocket streaming with a compact event envelope (`message_start`, `delta`, `tool_call_delta`, `tool_result`, `message_stop`, `message_finalized`) independent of Anthropic.
-- **MCP/tool router**: Keep MCP wiring lightweight by exposing a simple global `SETTA_MCP_TOOLS` list/decorator while the MCP server stays responsible for discovery, JSON schemas, and ID↔UUID translation wrappers.
+- **MCP/tool router**: Keep MCP wiring lightweight by exposing a simple global `SETTA_MCP_TOOLS` list/decorator while the MCP server stays responsible for discovery, JSON schemas, and ID↔UUID translation wrappers. LiteLLM tool calls should always be bridged through our running MCP client (`MCPClient.call_tool`) instead of resolving Python callables directly; the MCP session already knows every registered tool by name and can route requests for us.
 - **File edit pipeline**: Deterministic tools: read-range, apply unified diff/patch, insert-at-line, replace-range. Use DBE locks/backups to avoid corruption.
 - **Config layer**: Backend endpoints for listing/saving LLM configs (provider, model id, base_url, api_key env var name); frontend UI to manage multiple providers and select model per chat.
 
@@ -30,7 +30,7 @@
   - Persist final messages and tool results in provider-agnostic format; drop Anthropic-specific caches/thinking blocks unless mapped to provider params.
 - Redefine chat schemas (`backend/setta/types/chat_messages.py`) to OpenAI-style messages, tool_calls, and tool_results. Migrate DB read/write accordingly; allow wiping old chats.
 - Redesign WebSocket payloads to new event types and update `WMHFrontendSender`.
-- Keep MCP tool registration lightweight: expose core tools through the global `SETTA_MCP_TOOLS` list/decorator and let the MCP server keep handling schema generation plus Setta state/UUID translation wrappers.
+- Keep MCP tool registration lightweight: expose core tools through the global `SETTA_MCP_TOOLS` list/decorator and let the MCP server keep handling schema generation plus Setta state/UUID translation wrappers. LiteLLM tool calls should proxy through `MCPClient.call_tool` (which already routes by name) rather than a bespoke registry/lookup in the chat manager.
 - Remove/replace Anthropic text editor shim; rely on our patch/insert tools.
 - Add config endpoints: list/save LLM providers/models, read/write API keys from `.env` (name/value), list available models (optional static list or litellm config).
 
