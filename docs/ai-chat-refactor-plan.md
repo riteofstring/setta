@@ -69,3 +69,6 @@
 3) Config UI: provider/model/key management; per-chat model selection.  
 4) File-edit robustness: patch/insert tools, locks, error surfacing; remove Anthropic editor shim.  
 5) Cleanup + tests: drop old Anthropic codepaths, add tests and manual checklist.
+
+## Progress
+- ✅ Replaced `backend/setta/types/chat_messages.py` with OpenAI-style message/tool schemas and a provider-agnostic streaming envelope (breaking Anthropic Raw* usage so downstream layers can now be refactored).
