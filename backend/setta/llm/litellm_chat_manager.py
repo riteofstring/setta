@@ -8,6 +8,10 @@ from typing import Any, AsyncIterator, Iterator
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+from litellm.types.llms.openai import (
+    ChatCompletionToolParam,
+    ChatCompletionToolParamFunctionChunk,
+)
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 from mcp.types import TextContent
 
@@ -276,6 +280,9 @@ class LitellmChatManager:
         if model_override:
             request["model"] = model_override
         request["messages"] = messages
+        tools = self._build_tool_definitions()
+        if tools:
+            request["tools"] = tools
 
         if not request["model"]:
             raise ValueError(
@@ -283,6 +290,17 @@ class LitellmChatManager:
             )
 
         return request
+
+    def _build_tool_definitions(self) -> list[ChatCompletionToolParam]:
+        tools: list[ChatCompletionToolParam] = []
+        for tool in self.mcp_client.available_tools:
+            function_payload: ChatCompletionToolParamFunctionChunk = {
+                "name": tool.name,
+                "description": tool.description or "",
+                "parameters": tool.inputSchema,
+            }
+            tools.append({"type": "function", "function": function_payload})
+        return tools
 
     async def _iterate_stream(
         self, stream_result: CustomStreamWrapper

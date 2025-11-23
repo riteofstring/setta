@@ -77,11 +77,12 @@
 - ✅ Replaced the bespoke MCP registry with the `SETTA_MCP_TOOLS` decorator, imported the MCP tools package from `server.py`, and introduced the tested `read_file_range` helper as the first deterministic building block for future file-edit tooling.
 - ✅ Wired `/getLLMResponse`, `/getLLMChat`, and `/stopLLMChat` to the new Litellm manager by implementing waiting-state helpers, exposing the in-flight assistant message, and launching/cancelling per-chat asyncio tasks instead of opaque `BackgroundTasks`, so the frontend can hydrate active streams and stop them without 500s.
 - ✅ Removed the ad-hoc `ChatMessage.metadata` blob so tool outputs and error flags will be modeled explicitly (via `role="tool"` messages) rather than smuggling data through untyped dicts.
+- ✅ Swapped `MCPClient.available_tools` to native MCP `Tool` objects and inject them into the LiteLLM payload as OpenAI-style tool definitions, so models can finally emit structured tool calls.
 
 ## Remaining Work
 
 ### Backend / LiteLLM integration
-- The LiteLLM payload built in `_build_litellm_request_payload` never includes `tools` (nor `tool_choice`), even though `MCPClient.available_tools` is populated. Tool calls therefore never fire. Inject tool schemas from the MCP client into the payload and make sure contextual args (e.g., `setta_chat_id`, `projectConfigId`) are forwarded when dispatching MCP calls.
+- Thread contextual args (e.g., `setta_chat_id`, `projectConfigId`) through MCP tool invocation so each call knows which chat/project it belongs to once LiteLLM requests a tool.
 - `_run_tool_calls` executes MCP tools but the returned `ToolResult` values are neither persisted nor broadcast—`ToolResultEvent` is defined but unused. Save tool outputs (likely as `role="tool"` messages with structured `is_error` fields), emit `tool_result` WebSocket events, and keep `/getLLMChat` in sync.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
 - `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.

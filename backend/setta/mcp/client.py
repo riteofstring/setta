@@ -1,9 +1,9 @@
 import asyncio
 from contextlib import AsyncExitStack
 
-from anthropic.types import ToolParam
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from mcp.types import Tool
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
@@ -13,7 +13,7 @@ class MCPClient:
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.server_url = server_url
-        self.available_tools: list[ToolParam] = []
+        self.available_tools: list[Tool] = []
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -45,14 +45,7 @@ class MCPClient:
                 print(f"Connected to {url}...", flush=True)
                 # List available tools to verify connection
                 response = await self.session.list_tools()
-                self.available_tools = [
-                    ToolParam(
-                        name=tool.name,
-                        description=tool.description if tool.description else "",
-                        input_schema=tool.inputSchema,
-                    )
-                    for tool in response.tools
-                ]
+                self.available_tools = list(response.tools)
 
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
