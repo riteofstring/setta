@@ -10,7 +10,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact_messages import UpdateArtifactMsgContent
-from setta.types.chat_messages import LLMStreamingResponse
+from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
 from setta.types.listener import (
     ListenerCoverageSnapshot,

@@ -20,11 +20,13 @@ from setta.types.chat_messages import (
     Chat,
     ChatMessage,
     ChatRole,
+    MessageTextContent,
+)
+from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
-    MessageTextContent,
     MessageTextDelta,
 )
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
