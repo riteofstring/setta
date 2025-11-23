@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from setta.mcp.tool_registry import ToolRunContext
+from setta.mcp.tool_setup import ToolRunContext
 
 
 def read_file_range(

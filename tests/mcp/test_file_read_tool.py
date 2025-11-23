@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from setta.mcp.tool_registry import ToolRunContext
+from setta.mcp.tool_setup import ToolRunContext
 from setta.mcp.tools.file_read import read_file_range
 
 

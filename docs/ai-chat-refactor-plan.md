@@ -18,7 +18,7 @@
 - **LLM client**: New `litellm`-backed service with OpenAI-compatible message/tool_call schema. Single entry point handles chat, streaming, tool calls, and provider params (temperature, max_tokens, reasoning/thinking when supported).
 - **Chat session layer**: Owns chat metadata, persistence, and merging with in-flight streams. Stores provider-agnostic message structures (role/content, tool_calls, tool_results).
 - **Transport**: WebSocket streaming with a compact event envelope (`message_start`, `delta`, `tool_call_delta`, `tool_result`, `message_stop`, `message_finalized`) independent of Anthropic.
-- **MCP/tool router**: Typed registry in Python that auto-registers Setta tools with JSON schemas; wrappers inject Setta state and handle ID↔UUID translation.
+- **MCP/tool router**: Keep MCP wiring lightweight by exposing a simple global `SETTA_MCP_TOOLS` list/decorator while the MCP server stays responsible for discovery, JSON schemas, and ID↔UUID translation wrappers.
 - **File edit pipeline**: Deterministic tools: read-range, apply unified diff/patch, insert-at-line, replace-range. Use DBE locks/backups to avoid corruption.
 - **Config layer**: Backend endpoints for listing/saving LLM configs (provider, model id, base_url, api_key env var name); frontend UI to manage multiple providers and select model per chat.
 
@@ -30,10 +30,7 @@
   - Persist final messages and tool results in provider-agnostic format; drop Anthropic-specific caches/thinking blocks unless mapped to provider params.
 - Redefine chat schemas (`backend/setta/types/chat_messages.py`) to OpenAI-style messages, tool_calls, and tool_results. Migrate DB read/write accordingly; allow wiping old chats.
 - Redesign WebSocket payloads to new event types and update `WMHFrontendSender`.
-- Build `MCPToolRegistry`:
-  - Auto-register Python functions with JSON schema (no Anthropic `ToolParam`).
-  - Inject Setta state and ID↔UUID mapping inside the wrapper.
-  - Provide core Setta tools: read_section_text/code, insert/replace ranges, apply_patch, list files, search files, get project metadata, run formatter/tests, read terminal tail.
+- Keep MCP tool registration lightweight: expose core tools through the global `SETTA_MCP_TOOLS` list/decorator and let the MCP server keep handling schema generation plus Setta state/UUID translation wrappers.
 - Remove/replace Anthropic text editor shim; rely on our patch/insert tools.
 - Add config endpoints: list/save LLM providers/models, read/write API keys from `.env` (name/value), list available models (optional static list or litellm config).
 
@@ -45,7 +42,7 @@
 - Remove Anthropic-only model lists; pull models from config or static curated sets per provider.
 
 ## MCP/Tooling Enhancements
-- Solidify TS “@SETTA_MCP_TOOL” story: either remove or reimplement as generated MCP tools from frontend helpers (if needed), but primary tooling lives in backend registry.
+- Solidify TS “@SETTA_MCP_TOOL” story: either remove or reimplement as generated MCP tools from frontend helpers (if needed), but primary tooling keeps flowing through the backend `SETTA_MCP_TOOLS` list.
 - Provide clear tool docs/descriptions for better LLM grounding.
 - Ensure tool call arguments/returns are JSON-serializable and validated.
 
@@ -59,12 +56,12 @@
 - Remove unused Anthropic/Portkey artifacts once the new path is stable.
 
 ## Testing & Verification
-- Backend unit tests: litellm client (stream/non-stream, tool calls), tool registry schema validation, file-edit operations, chat persistence merge logic.
+- Backend unit tests: litellm client (stream/non-stream, tool calls), MCP tool schema validation, file-edit operations, chat persistence merge logic.
 - Manual/CLI checks: end-to-end stream with tool call, file edit via tool, stop request handling.
 - Keep `python -m unittest discover` as the backend test entry point.
 
 ## Milestones
-1) Backend core: new chat schemas, litellm client, streaming events, MCP registry + essential tools.  
+1) Backend core: new chat schemas, litellm client, streaming events, MCP tool list + essential tools.  
 2) Frontend streaming/UI: wire new event shapes, update chat components, tool call display.  
 3) Config UI: provider/model/key management; per-chat model selection.  
 4) File-edit robustness: patch/insert tools, locks, error surfacing; remove Anthropic editor shim.  
@@ -80,6 +77,6 @@
 - ✅ Implemented the initial LiteLLM streaming loop in `LitellmChatManager.process_query`, emitting provider-agnostic `message_start`/`message_delta`/`message_stop`/`message_finalized` events while persisting the assembled assistant message (tool-call deltas still pending).
 - ✅ Extended the LiteLLM streaming loop to process tool-call deltas: chunks now populate assistant `tool_calls`, emit `tool_call_delta` events, and persist parsed arguments so MCP routing can be layered in next.
 - ✅ Split streaming text handling into `_handle_text_deltas` to mirror `_handle_tool_call_deltas`, keeping the manager aligned with the new event model.
-- ✅ Created the provider-agnostic MCP tool registry (`backend/setta/mcp/tool_registry.py`) with `ToolDefinition`, `ToolRunContext`, and the shared `TOOL_REGISTRY` singleton so both the LiteLLM chat manager and future MCP server wiring can register/consume tool metadata without the legacy Anthropic shims.
+- ✅ Dropped the bespoke MCP tool registry in favor of a global `SETTA_MCP_TOOLS` list + decorator (now co-located with `ToolRunContext` in `backend/setta/mcp/tool_setup.py`), keeping the MCP server as the sole source of truth for discovery and schema exposure.
 - ✅ Introduced `backend/setta/types/chat_stream_events.py` as the single source for streaming event/delta models plus the `LLMStreamingResponse` envelope, and rewired the LiteLLM chat manager + WebSocket sender/types to consume it so no legacy Anthropic payload wrappers remain.
 - ✅ Added the first structured MCP tool (`read_file_range`) with workspace-scoped streaming reads plus unit tests, clearing out the Anthropic string-replace shim so upcoming LiteLLM tool calls have a deterministic file-read primitive.
