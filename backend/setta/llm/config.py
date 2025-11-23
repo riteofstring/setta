@@ -1,7 +1,6 @@
-from dataclasses import dataclass, field, asdict
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 from setta.utils.constants import C
 
@@ -9,13 +8,12 @@ from setta.utils.constants import C
 CONFIG_FILENAME = "llm_config.json"
 
 
-@dataclass(slots=True)
-class LiteLLMConfig:
-    model: str = "gpt-4o-mini"
-    provider: str | None = None
-    base_url: str | None = None
-    api_key_env: str | None = "OPENAI_API_KEY"
-    params: dict[str, Any] = field(default_factory=dict)
+class LiteLLMConfig(TypedDict):
+    model: NotRequired[str]
+    custom_llm_provider: NotRequired[str]
+    api_base: NotRequired[str]
+    api_key_env: NotRequired[str]
+    other_params: NotRequired[dict[str, Any]]
 
 
 def load_litellm_config(
@@ -31,7 +29,7 @@ def save_litellm_config(
     config_path: Path | None = None,
 ) -> None:
     path = _resolve_path(config_path)
-    path.write_text(json.dumps(asdict(config), indent=2))
+    path.write_text(json.dumps(config, indent=2))
 
 
 def _read_config(config_path: Path | None) -> dict[str, Any]:
