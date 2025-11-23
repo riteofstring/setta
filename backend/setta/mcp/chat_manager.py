@@ -1,555 +1,379 @@
-"""Chat persistence manager built on the neutral LLM models."""
-
 import asyncio
-import logging
-from typing import TYPE_CHECKING
+import json
 
-from portkey_ai import AsyncPortkey
+from anthropic import AsyncAnthropic
+from anthropic.types import (
+    CacheControlEphemeralParam,
+    ContentBlock,
+    MessageParam,
+    RawContentBlockDeltaEvent,
+    RawContentBlockStartEvent,
+    RawMessageStartEvent,
+    TextBlock,
+    TextBlockParam,
+    ThinkingBlock,
+    ThinkingBlockParam,
+    ThinkingConfigDisabledParam,
+    ThinkingConfigEnabledParam,
+    ToolResultBlockParam,
+    ToolTextEditor20250124Param,
+    ToolUseBlock,
+    ToolUseBlockParam,
+)
 
 from setta.database.db_objs import DBE
-from setta.database.utils import create_new_id
-from setta.llm import (
-    LLMConfig,
-    LLMHistory,
-    LLMMessage,
-    LLMProviderConfig,
-    LLMRole,
-    LLMTextBlock,
-    ResponseCompletedEvent,
-    ResponseFinishStatus,
-    ToolResultEvent,
-)
-from setta.llm.config_api import build_request_context
-from setta.llm.config_store import normalize_gateway_url
-from setta.llm.portkey_adapter import (
-    astream_portkey_response,
-    build_portkey_payload,
-)
-from setta.llm.stream_state_machine import (
-    ActiveStream,
-    PendingToolCall,
-    StreamStateMachine,
-    StreamingTranscriptRecorder,
-)
+from setta.mcp.client import MCPClient
+from setta.project_state.chats.load import load_all_chat_metadata, load_chat
+from setta.project_state.chats.save import create_new_chat, delete_chat, save_messages
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
-    ChatMetadata,
-    ChatStreamStatus,
-    LLMModelSelection,
+    ChatRole,
+    FullMessageStop,
+    ToolResult,
 )
-from setta.types.notifications import SettaNotification, SettaNotificationType
-
-if TYPE_CHECKING:
-    from mcp.types import CallToolResult
-
-    from setta.llm.portkey_client import ToolDefinition
-    from setta.mcp.client import MCPClient
-    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
-
-logger = logging.getLogger(__name__)
-
-_STREAM_PERSIST_INTERVAL_SECONDS: float = 0.5
+from setta.utils.constants import C
+from setta.utils.utils import get_absolute_path
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
 class ChatManager:
-    """Handles chat persistence and metadata enumeration."""
-
     def __init__(
-        self,
-        dbe: DBE,
-        mcp_client: "MCPClient",
-        wmh_frontend_sender: "WMHFrontendSender",
-        *,
-        llm_config: LLMConfig,
-    ) -> None:
-        self._dbe = dbe
-        self._mcp_client = mcp_client
-        self._wmh_frontend_sender = wmh_frontend_sender
-        self._llm_config = llm_config
-        self._active_streams: dict[str, ActiveStream] = {}
-        self._provider_clients: dict[tuple[str | None, str], AsyncPortkey] = {}
+        self, dbe: DBE, mcp_client: MCPClient, websocket_msg_handler: WMHFrontendSender
+    ):
+        self.dbe = dbe
+        self.mcp_client = mcp_client
+        self.websocket_msg_handler = websocket_msg_handler
+        self.current_streams: dict[str, list[ChatMessage]] = {}
+        self.stream_tasks = {}
+        self.anthropic = AsyncAnthropic()
+        with open(get_absolute_path(__file__, "system_prompt.md"), "r") as f:
+            self.system_prompt = f.read()
+        self.max_tokens = 20000
+        self.thinking_budget_tokens = 10000
+        self.cache_trigger_tokens = 1000
 
-    def update_llm_config(self, llm_config: LLMConfig) -> None:
-        """Replace the cached config so future requests use fresh credentials."""
+    def get_chat(self, chat_id: str):
+        return load_chat(self.dbe, chat_id)
 
-        self._llm_config = llm_config
-        self._provider_clients.clear()
+    def get_or_create_chat(self, chat_id: str | None, message: ChatMessage):
+        if not chat_id:
+            return self.create_new_chat(message)
+        chat = self.get_chat(chat_id)
+        if not chat:
+            return self.create_new_chat(message)
+        saved = self.save_messages_to_db(chat_id, [message])
+        return saved or self.get_chat(chat_id)
 
-    # ---------------------------------------------------------------------
-    # Persistence helpers
+    def save_messages_to_db(self, chat_id: str, messages: list[ChatMessage]):
+        return save_messages(self.dbe, chat_id, messages)
 
-    def get_or_create_chat(
-        self,
-        chat_id: str | None,
-        message: ChatMessage,
-        model_selection: LLMModelSelection,
-        project_config_id: str | None,
-    ) -> Chat:
-        """Load an existing chat (if any), append the message, and persist."""
-
-        if chat_id:
-            chat = self.get_chat(chat_id)
-            if chat is None:
-                chat = self._create_chat(
-                    message,
-                    model_selection,
-                    project_config_id=project_config_id,
-                )
-            else:
-                self._ensure_model_selection(chat, model_selection)
-                self._ensure_project_config(chat, project_config_id)
-                chat.add_message(message)
-        else:
-            chat = self._create_chat(
-                message,
-                model_selection,
-                project_config_id=project_config_id,
-            )
-
-        self._persist_chat(chat)
+    def save_current_stream_to_db(self, chat_id: str):
+        messages = self.get_current_stream(chat_id)
+        messages = self.remove_incomplete_tool_uses(messages)
+        chat = self.save_messages_to_db(chat_id, messages)
+        if not chat:
+            raise ValueError
         return chat
 
-    def get_chat(self, chat_id: str) -> Chat | None:
-        payload = self._dbe.read_chat(chat_id)
-        if payload is None:
-            return None
-        return Chat.model_validate(payload)
+    def create_new_chat(self, first_message: ChatMessage):
+        return create_new_chat(self.dbe, first_message)
 
-    def get_all_chat_metadata(self) -> list[ChatMetadata]:
-        """Return metadata for all chats stored on disk."""
+    def get_all_chat_metadata(self):
+        return load_all_chat_metadata(self.dbe)
 
-        metadata: list[ChatMetadata] = []
-        for path in self._dbe.list_chat_paths():
-            payload = self._dbe.read_json(path)
-            if not payload:
-                continue
-            try:
-                chat = Chat.model_validate(payload)
-            except Exception:
-                # Old / invalid chats can be skipped—we do not need backwards compat.
-                continue
-            metadata.append(ChatMetadata.from_chat(chat))
+    def delete_chat(self, chat_id: str):
+        delete_chat(self.dbe, chat_id)
 
-        for item in metadata:
-            if item.id in self._active_streams:
-                item.streamStatus = ChatStreamStatus.STREAMING
+    def is_waiting_for_response(self, chat_id: str):
+        return chat_id in self.current_streams
 
-        metadata.sort(key=lambda item: item.lastUpdated, reverse=True)
-        return metadata
+    def init_current_stream(self, chatId: str):
+        self.current_streams[chatId] = []
 
-    def delete_chat(self, chat_id: str) -> None:
-        self._dbe.delete_chat_file(chat_id)
+    def end_current_stream(self, chatId: str):
+        self.current_streams.pop(chatId, None)
 
-    # ---------------------------------------------------------------------
-    # LLM orchestration
+    def get_current_stream(self, chatId: str):
+        return self.current_streams.get(chatId, [])
 
     async def process_query(
-        self,
-        project_config_id: str | None,
-        chat: Chat,
-        deep_think: bool,
-    ) -> None:
-        """Stream a response from the Portkey-backed orchestrator."""
-
-        response_message_id = create_new_id()
-        model_selection = chat.modelSelection
-        if model_selection is None:
-            raise ValueError("Chat missing model selection")
-        request_context = build_request_context(
-            self._llm_config,
-            model_selection,
-            project_config_id=chat.projectConfigId or project_config_id,
-            deep_think=deep_think,
-        )
-        client = self._acquire_portkey_client(
-            request_context.provider,
-            project_config_id=request_context.project_config_id,
-        )
-        assistant_message = LLMMessage(
-            message_id=response_message_id,
-            role=LLMRole.ASSISTANT,
-            content=[],
-        )
-        logger.info(
-            "Starting LLM stream",
-            extra={
-                "chat_id": chat.id,
-                "project_config_id": request_context.project_config_id,
-                "provider_id": request_context.provider.provider_id,
-                "model_id": request_context.model.model_id,
-                "deep_think": deep_think,
-            },
-        )
-        recorder = StreamingTranscriptRecorder(
-            chat=chat,
-            persist_chat=self._persist_chat,
-            persist_interval_seconds=_STREAM_PERSIST_INTERVAL_SECONDS,
-        )
-        self._set_stream_status(chat, ChatStreamStatus.STREAMING)
-        stream_state = StreamStateMachine(
-            chat=chat,
-            assistant_message=assistant_message,
-            recorder=recorder,
-        )
-        current_task = asyncio.current_task()
-        if current_task is None:
-            raise RuntimeError("LLM orchestration must run inside an asyncio Task")
-        self._active_streams[chat.id] = ActiveStream(
-            task=current_task,
-            stream_state=stream_state,
-        )
-
-        try:
-            history = chat.to_history()
-            tools = self._available_tools_or_none()
-            payload = build_portkey_payload(
-                history=history,
-                model=request_context.model.model_id,
-                tools=tools,
-                request_params=request_context.request_params,
-                extra_headers=request_context.extra_headers,
-                provider_id=request_context.provider.provider_id,
-            )
-
-            async for event in self._astream_response(
-                client=client,
-                payload=payload,
-                response_message_id=response_message_id,
-            ):
-                step = stream_state.apply_event(event)
-                await self._wmh_frontend_sender.send_streaming_response(
-                    chatId=chat.id,
-                    assistant_message_id=response_message_id,
-                    chunk=event,
-                )
-                if step.pending_tool_calls:
-                    await self._resolve_tool_calls(
-                        chat_id=chat.id,
-                        assistant_message_id=response_message_id,
-                        tool_calls=step.pending_tool_calls,
-                        stream_state=stream_state,
-                    )
-        except asyncio.CancelledError:
-            stream_state.mark_canceled()
-            self._set_stream_status(chat, ChatStreamStatus.CANCELED)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat.id,
-                assistant_message_id=response_message_id,
-                chunk=ResponseCompletedEvent(
-                    message_id=response_message_id,
-                    status=ResponseFinishStatus.CANCELED,
-                    finish_reason="canceled",
-                ),
-            )
-            stream_state.persist_final_chat(self._persist_chat)
-            logger.info(
-                "Canceled LLM stream",
-                extra={
-                    "chat_id": chat.id,
-                    "project_config_id": request_context.project_config_id,
-                    "provider_id": request_context.provider.provider_id,
-                    "model_id": request_context.model.model_id,
-                },
-            )
-            return
-        except Exception as exc:
-            stream_state.mark_error()
-            self._set_stream_status(chat, ChatStreamStatus.ERROR)
-            error_reason = str(exc)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat.id,
-                assistant_message_id=response_message_id,
-                chunk=ResponseCompletedEvent(
-                    message_id=response_message_id,
-                    status=ResponseFinishStatus.ERROR,
-                    finish_reason="error",
-                    error_reason=error_reason,
-                ),
-            )
-            stream_state.persist_final_chat(self._persist_chat)
-            logger.exception(
-                "LLM stream failed",
-                extra={
-                    "chat_id": chat.id,
-                    "project_config_id": request_context.project_config_id,
-                    "provider_id": request_context.provider.provider_id,
-                    "model_id": request_context.model.model_id,
-                },
-            )
-            await self._notify_llm_failure(
-                chat_id=chat.id,
-                project_config_id=request_context.project_config_id,
-                provider_id=request_context.provider.provider_id,
-                model_id=request_context.model.model_id,
-                error_message=error_reason,
-            )
-            raise
-
-        else:
-            stream_state.finalize_status()
-            self._set_stream_status(chat, stream_state.status)
-            stream_state.persist_final_chat(self._persist_chat)
-            logger.info(
-                "Completed LLM stream",
-                extra={
-                    "chat_id": chat.id,
-                    "project_config_id": request_context.project_config_id,
-                    "provider_id": request_context.provider.provider_id,
-                    "model_id": request_context.model.model_id,
-                },
-            )
-        finally:
-            self._active_streams.pop(chat.id, None)
-
-    async def request_stop_streaming(self, chat_id: str) -> None:
-        active = self._active_streams.get(chat_id)
-        if active is None:
-            return
-        active.task.cancel()
-        try:
-            await active.task
-        except asyncio.CancelledError:
-            return
-
-    def is_waiting_for_response(self, chat_id: str) -> bool:
-        return chat_id in self._active_streams
-
-    def get_current_stream(self, chat_id: str) -> list[ChatMessage]:
-        active = self._active_streams.get(chat_id)
-        if active is None:
-            return []
-        return active.snapshot_messages()
-
-    # ---------------------------------------------------------------------
-
-    def _create_chat(
-        self,
-        initial_message: ChatMessage,
-        model_selection: LLMModelSelection,
-        *,
-        project_config_id: str | None,
-    ) -> Chat:
-        chat = Chat(
-            name=self._derive_chat_name(initial_message),
-            modelSelection=model_selection,
-            projectConfigId=project_config_id,
-        )
-        chat.add_message(initial_message)
-        return chat
-
-    def _ensure_model_selection(
-        self,
-        chat: Chat,
-        model_selection: LLMModelSelection,
-    ) -> None:
-        if chat.modelSelection is None:
-            chat.modelSelection = model_selection
-            return
-
-        if (
-            chat.modelSelection.providerId != model_selection.providerId
-            or chat.modelSelection.modelId != model_selection.modelId
-        ):
-            raise ValueError(
-                "Existing chat model selection cannot be changed mid-conversation"
-            )
-
-    def _ensure_project_config(
-        self,
-        chat: Chat,
-        project_config_id: str | None,
-    ) -> None:
-        if chat.projectConfigId is None:
-            chat.projectConfigId = project_config_id
-            return
-        if project_config_id is not None and chat.projectConfigId != project_config_id:
-            raise ValueError(
-                "Existing chat project config cannot be changed mid-conversation"
-            )
-
-    def _derive_chat_name(self, message: ChatMessage) -> str:
-        """Use the first text block as the chat title, otherwise fallback."""
-
-        for block in message.content:
-            if isinstance(block, LLMTextBlock):
-                snippet = block.text.strip()
-                if snippet:
-                    return snippet[:80]
-        return "Untitled Chat"
-
-    def _set_stream_status(self, chat: Chat, status: ChatStreamStatus) -> None:
-        chat.streamStatus = status
-
-    def _persist_chat(self, chat: Chat) -> None:
-        self._dbe.write_chat(chat.id, chat.model_dump(mode="json"))
-
-    def _acquire_portkey_client(
-        self,
-        provider: LLMProviderConfig,
-        *,
-        project_config_id: str | None,
-    ) -> AsyncPortkey:
-        """Return a provider-scoped Portkey client, building and caching when needed."""
-
-        cache_key = (project_config_id, provider.provider_id)
-        cached = self._provider_clients.get(cache_key)
-        if cached is not None:
-            return cached
-
-        client = self._build_portkey_client(provider)
-        self._provider_clients[cache_key] = client
-        return client
-
-    def _build_portkey_client(self, provider: LLMProviderConfig) -> AsyncPortkey:
-        """Construct a Portkey client that talks to the configured gateway or provider."""
-
-        base_url = normalize_gateway_url(
-            provider.base_url or self._llm_config.gateway_url
-        )
-        api_key = provider.api_key or None
-        return AsyncPortkey(
-            api_key=api_key,
-            base_url=base_url,
-            provider=provider.provider_id,
-        )
-
-    async def _astream_response(
-        self,
-        *,
-        client: AsyncPortkey,
-        payload: dict[str, object],
-        response_message_id: str,
+        self, projectConfigId: str, chat: Chat, model: str, deepThink: bool
     ):
-        async for event in astream_portkey_response(
-            client=client,
-            payload=payload,
-            response_message_id=response_message_id,
-        ):
-            yield event
-
-    async def _resolve_tool_calls(
-        self,
-        *,
-        chat_id: str,
-        assistant_message_id: str,
-        tool_calls: list[PendingToolCall],
-        stream_state: StreamStateMachine,
-    ) -> None:
-        if not tool_calls:
-            return
-
-        emitted_result = False
-        for tool_call in tool_calls:
-            event = await self._call_tool(tool_call)
-            stream_state.apply_event(event)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat_id,
-                assistant_message_id=assistant_message_id,
-                chunk=event,
-            )
-            emitted_result = True
-
-        if emitted_result:
-            completion = ResponseCompletedEvent(
-                message_id=assistant_message_id,
-                status=ResponseFinishStatus.COMPLETED,
-                finish_reason="tool_results",
-            )
-            stream_state.apply_event(completion)
-            await self._wmh_frontend_sender.send_streaming_response(
-                chatId=chat_id,
-                assistant_message_id=assistant_message_id,
-                chunk=completion,
-            )
-
-    async def _call_tool(self, tool_call: PendingToolCall) -> ToolResultEvent:
-        tool_name = tool_call.name
-        if not tool_name:
-            raise ValueError("Tool call missing name")
-
-        arguments = tool_call.to_arguments_dict()
-        client = self._mcp_client
-        if client is None:
-            logger.warning("Skipping tool %s: MCP client unavailable", tool_name)
-            return self._tool_failure_result(
-                tool_call, "MCP client unavailable; tool call skipped"
-            )
-
+        chatId = chat.id
+        self.stream_tasks[chatId] = asyncio.current_task()
         try:
-            result = await client.call_tool(tool_name, arguments)
-        except Exception as exc:
-            logger.error("Tool %s failed via MCP: %s", tool_name, exc)
-            return self._tool_failure_result(tool_call, f"MCP tool call failed: {exc}")
+            await self._process_query(projectConfigId, chat, model, deepThink)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            # Clean up
+            self.stream_tasks.pop(chatId, None)
+            chat = self.save_current_stream_to_db(chatId)
+            self.end_current_stream(chatId)
+            messages, tool_results = self.separate_tool_results(chat.messages)
+            chunk = FullMessageStop(
+                type=C.LLM_FULL_MESSAGE_STOP,
+                messages=messages,
+                toolResults=tool_results,
+            )
+            await self.websocket_msg_handler.send_streaming_response(
+                chatId, None, chunk
+            )
 
-        output_text = _extract_tool_output_text(result)
-        return ToolResultEvent(
-            tool_call_id=tool_call.tool_call_id,
-            output=result.model_dump(),
-            output_text=output_text,
-            is_error=bool(getattr(result, "isError", False)),
-        )
+    async def _process_query(
+        self, projectConfigId: str, chat: Chat, model, deepThink: bool
+    ):
+        chatId = chat.id
+        original_messages = chat.messages
+        self.init_current_stream(chatId)
+        curr_stream = self.current_streams[chatId]
+        while True:
+            has_tool_call = False
 
-    async def _notify_llm_failure(
+            (
+                tools,
+                system,
+                messages,
+                thinking,
+            ) = await self.get_tools_system_messages_thinking(
+                original_messages, curr_stream, model, deepThink
+            )
+
+            print(f"{messages}\n\n\n", flush=True)
+
+            # Only need to specify cache_control once.
+            # Everything up to the first occurence of cache_control is cached.
+            # The read ordering is tools, system prompt, messages.
+            # By putting the system prompt in the cache, the tools are also included.
+            # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+            stream = await self.anthropic.messages.with_raw_response.create(
+                model=model,
+                max_tokens=self.max_tokens,
+                tools=tools,
+                system=system,
+                messages=messages,
+                thinking=thinking,
+                stream=True,
+            )
+
+            # print(
+            #     "remaining requests",
+            #     stream.headers.get("anthropic-ratelimit-requests-remaining"),
+            #     flush=True,
+            # )
+
+            # print(
+            #     "remaining input tokens",
+            #     stream.headers.get("anthropic-ratelimit-input-tokens-remaining"),
+            #     flush=True,
+            # )
+
+            # print(
+            #     "remaining output tokens",
+            #     stream.headers.get("anthropic-ratelimit-output-tokens-remaining"),
+            #     flush=True,
+            # )
+
+            assistant_message_id, latest_msg = await self.stream_responses(
+                chatId, stream
+            )
+
+            if latest_msg is None:
+                break
+
+            newer_msgs: list[ChatMessage] = []
+
+            for sub_msg in latest_msg:
+                if isinstance(sub_msg, ToolUseBlock):
+                    has_tool_call = True
+                    result = await self.mcp_client.call_tool(
+                        sub_msg.name,
+                        {
+                            C.MCP_PROJECT_CONFIG_ID_ARG_NAME: projectConfigId,
+                            C.MCP_CHAT_ID_ARG_NAME: chatId,
+                            **self.tool_use_input_str_to_dict(sub_msg.input),
+                        },
+                    )
+                    tool_result = ToolResult(
+                        type=C.LLM_TOOL_RESULT,
+                        tool_use_id=sub_msg.id,
+                        content=result.content,
+                        is_error=result.isError,
+                    )
+                    await self.websocket_msg_handler.send_streaming_response(
+                        chatId, assistant_message_id, tool_result
+                    )
+                    newer_msgs.append(
+                        ChatMessage(
+                            role=ChatRole.user,
+                            content=[tool_result],
+                        )
+                    )
+
+            curr_stream.extend(newer_msgs)
+            self.save_current_stream_to_db(chatId)
+
+            # If we processed the entire response without finding tool calls, we're done
+            if not has_tool_call:
+                break
+
+    async def stream_responses(self, chatId: str, stream):
+        # sends streaming response to frontend
+        # and also constructs the full message for use in process_query
+        assistant_message_id = None
+        llm_msgs = None
+
+        async for event in stream.parse():
+            if isinstance(event, RawMessageStartEvent):
+                print(event.message.usage, flush=True)
+                assistant_message_id = event.message.id
+                self.current_streams[chatId].append(
+                    ChatMessage(
+                        id=event.message.id,
+                        role=ChatRole(event.message.role),
+                        content=event.message.content,
+                    )
+                )
+                llm_msgs = self.current_streams[chatId][-1].content
+            elif llm_msgs is None:
+                continue
+
+            if isinstance(event, RawContentBlockStartEvent):
+                while len(llm_msgs) <= event.index:
+                    # append placeholder
+                    llm_msgs.append(TextBlock(text="", type="text"))  # type: ignore
+                llm_msgs[event.index] = event.content_block  # type: ignore
+            elif isinstance(event, RawContentBlockDeltaEvent):
+                curr_msg = llm_msgs[event.index]
+                if event.delta.type == C.LLM_TEXT_DELTA and isinstance(
+                    curr_msg, TextBlock
+                ):
+                    curr_msg.text += event.delta.text
+                elif event.delta.type == C.LLM_THINKING_DELTA and isinstance(
+                    curr_msg, ThinkingBlock
+                ):
+                    curr_msg.thinking += event.delta.thinking
+                elif event.delta.type == C.LLM_SIGNATURE_DELTA and isinstance(
+                    curr_msg, ThinkingBlock
+                ):
+                    curr_msg.signature = event.delta.signature
+                elif event.delta.type == C.LLM_INPUT_JSON_DELTA and isinstance(
+                    curr_msg, ToolUseBlock
+                ):
+                    if not isinstance(curr_msg.input, str):
+                        curr_msg.input = ""
+                    curr_msg.input += event.delta.partial_json
+
+            await self.websocket_msg_handler.send_streaming_response(
+                chatId, assistant_message_id, event
+            )
+
+        return assistant_message_id, llm_msgs
+
+    async def request_stop_streaming(self, chat_id: str):
+        task = self.stream_tasks.get(chat_id)
+        if task:
+            task.cancel()
+
+    def remove_incomplete_tool_uses(self, messages: list[ChatMessage]):
+        tool_use_has_result: set[str] = set()
+        for m in messages:
+            for c in m.content:
+                if isinstance(c, ToolUseBlock):
+                    if not isinstance(c.input, dict):
+                        c.input = self.tool_use_input_str_to_dict(c.input)
+                elif isinstance(c, ToolResult):
+                    tool_use_has_result.add(c.tool_use_id)
+
+        for m in messages:
+            new_content = []
+            for c in m.content:
+                if isinstance(c, ToolUseBlock) and c.id not in tool_use_has_result:
+                    continue
+                new_content.append(c)
+            m.content = new_content
+
+        return [m for m in messages if len(m.content) > 0]
+
+    def tool_use_input_str_to_dict(self, input: object):
+        if isinstance(input, str) and input:
+            return json.loads(input)
+        return {}
+
+    def separate_tool_results(self, messages: list[ChatMessage]):
+        tool_results: dict[str, ToolResult] = {}
+        filtered_messages: list[ChatMessage] = []
+        for m in messages:
+            if len(m.content) == 0:
+                continue
+            c = m.content[0]
+            if isinstance(c, ToolResult):
+                tool_results[c.tool_use_id] = c
+            else:
+                filtered_messages.append(m)
+        return filtered_messages, tool_results
+
+    async def get_tools_system_messages_thinking(
         self,
-        *,
-        chat_id: str,
-        project_config_id: str | None,
-        provider_id: str,
-        model_id: str,
-        error_message: str,
-    ) -> None:
-        if not self._wmh_frontend_sender:
-            return
+        messages: list[ChatMessage],
+        curr_stream: list[ChatMessage],
+        model: str,
+        deepThink: bool,
+    ):
+        tools = self.mcp_client.available_tools
+        tools = tools + maybe_get_str_replace_editor_tool(model)
 
-        detail = error_message.strip() or "LLM request failed"
-        if len(detail) > 200:
-            detail = f"{detail[:200]}..."
+        system = [
+            TextBlockParam(
+                type="text",
+                text=self.system_prompt,
+                cache_control=CacheControlEphemeralParam(type="ephemeral"),
+            )
+        ]
 
-        notification = SettaNotification(
-            projectConfigId=project_config_id,
-            type=SettaNotificationType.error,
-            message=(f"LLM request for {provider_id}:{model_id} failed: {detail}"),
-            metadata={
-                "chatId": chat_id,
-                "providerId": provider_id,
-                "modelId": model_id,
-            },
-        )
-        await self._wmh_frontend_sender.broadcast_notification(notification)
+        did_set_cache_control = False
+        output_messages: list[MessageParam] = []
+        for m in reversed([*messages, *curr_stream]):
+            content = []
+            for c in reversed(m.content):
+                c = convertToBlockParam(c)
+                if not did_set_cache_control and c["type"] != C.LLM_THINKING:
+                    c["cache_control"] = CacheControlEphemeralParam(type="ephemeral")
+                    did_set_cache_control = True
+                content.append(c)
+            output_messages.append(
+                MessageParam(role=m.role.value, content=reversed(content))
+            )
+        output_messages.reverse()
 
-    def _available_tools_or_none(self) -> list["ToolDefinition"] | None:
-        client = self._mcp_client
-        if client is None:
-            logger.debug("MCP client unavailable; skipping tool advertisement")
-            return None
+        if deepThink:
+            thinking = ThinkingConfigEnabledParam(
+                budget_tokens=self.thinking_budget_tokens, type="enabled"
+            )
+        else:
+            thinking = ThinkingConfigDisabledParam(type="disabled")
 
-        tools = getattr(client, "available_tools", None)
-        if not tools:
-            return None
-        return tools
-
-    def _tool_failure_result(
-        self, tool_call: PendingToolCall, detail: str
-    ) -> ToolResultEvent:
-        return ToolResultEvent(
-            tool_call_id=tool_call.tool_call_id,
-            output={"error": detail},
-            output_text=detail,
-            is_error=True,
-        )
+        return tools, system, output_messages, thinking
 
 
-def _extract_tool_output_text(result: "CallToolResult") -> str | None:
-    contents = getattr(result, "content", None)
-    if not contents:
-        return None
-    texts: list[str] = []
-    for item in contents:
-        text = getattr(item, "text", None)
-        if text:
-            texts.append(text)
-    if not texts:
-        return None
-    return "\n".join(texts)
+def maybe_get_str_replace_editor_tool(model_name: str):
+    if "claude-3-7-sonnet" in model_name:
+        return [
+            ToolTextEditor20250124Param(
+                name="str_replace_editor", type="text_editor_20250124"
+            )
+        ]
+    return []
+
+
+def convertToBlockParam(c: ContentBlock | ToolResult):
+    if isinstance(c, TextBlock):
+        return TextBlockParam(**c.model_dump())
+    elif isinstance(c, ToolResult):
+        return ToolResultBlockParam(**c.model_dump(exclude_defaults=True))
+    elif isinstance(c, ToolUseBlock):
+        return ToolUseBlockParam(**c.model_dump())
+    elif isinstance(c, ThinkingBlock):
+        return ThinkingBlockParam(**c.model_dump())
+    raise ValueError

@@ -197,7 +197,6 @@ export const BackendWebsocketMsgTypeSet = new Set([
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
-  "LLMConfigUpdated",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerCoverageSnapshot",
@@ -224,7 +223,6 @@ export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
   "CurrentAddressUpdate",
-  "LLMConfigUpdated",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerCoverageSnapshot",
@@ -279,44 +277,9 @@ export const DrawAreaModeEnum = {
 
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
-export const ChatStreamStatusEnum = {
-  IDLE: "idle",
-  STREAMING: "streaming",
-  COMPLETED: "completed",
-  CANCELED: "canceled",
-  ERROR: "error",
-} as const;
+export const ChatRoleEnum = { user: "user", assistant: "assistant" } as const;
 
-export type ChatStreamStatus = ObjectValues<typeof ChatStreamStatusEnum>;
-
-export const LLMRoleEnum = {
-  SYSTEM: "system",
-  USER: "user",
-  ASSISTANT: "assistant",
-  TOOL: "tool",
-} as const;
-
-export type LLMRole = ObjectValues<typeof LLMRoleEnum>;
-
-export const LLMStreamEventTypeEnum = {
-  MESSAGE_STARTED: "message_started",
-  TEXT_DELTA: "text_delta",
-  TOOL_CALL_DELTA: "tool_call_delta",
-  TOOL_RESULT: "tool_result",
-  RESPONSE_COMPLETED: "response_completed",
-} as const;
-
-export type LLMStreamEventType = ObjectValues<typeof LLMStreamEventTypeEnum>;
-
-export const ResponseFinishStatusEnum = {
-  COMPLETED: "completed",
-  CANCELED: "canceled",
-  ERROR: "error",
-} as const;
-
-export type ResponseFinishStatus = ObjectValues<
-  typeof ResponseFinishStatusEnum
->;
+export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
 export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
 
@@ -519,12 +482,8 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
-  GET_LLM_CONFIG: "/getLLMConfig",
-  GET_LLM_PRESETS: "/getLLMPresets",
-  ADD_LLM_PRESET: "/addLLMPreset",
-  SET_LLM_CONFIG: "/setLLMConfig",
-  TEST_LLM_CONFIG: "/testLLMConfig",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
+  SET_LLM_API_KEYS: "/setLLMApiKeys",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
@@ -685,7 +644,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
   ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
-  LLMConfigUpdated: "LLMConfigUpdated",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -715,6 +673,10 @@ export const SaveConflictStrategyEnum = {
 export type SaveConflictStrategy = ObjectValues<
   typeof SaveConflictStrategyEnum
 >;
+
+export const APIKeysSchema = z.record(z.string(), z.string());
+
+export type APIKeys = z.infer<typeof APIKeysSchema>;
 
 export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
 
@@ -981,225 +943,673 @@ export function createBaseArtifactUnionWithDiscriminator(
   return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const JSONValueSchema = z.union([
-  z.string(),
-  z.int(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.record(z.string(), z.any()),
-  z.array(z.any()),
-]);
-
-export type JSONValue = z.infer<typeof JSONValueSchema>;
-
-export const LLMTextBlockSchema = z.object({
-  type: z.literal("text").default("text"),
-  text: z.string().default(""),
-  stream_target: z.union([z.string(), z.null()]).default(null),
+export const CitationCharLocationSchema = z.object({
+  cited_text: z.string(),
+  document_index: z.int(),
+  document_title: z.union([z.string(), z.null()]).default(null),
+  end_char_index: z.int(),
+  start_char_index: z.int(),
+  type: z.literal("char_location"),
 });
 
-export type LLMTextBlock = z.infer<typeof LLMTextBlockSchema>;
+export type CitationCharLocation = z.infer<typeof CitationCharLocationSchema>;
 
-export function createLLMTextBlock(
-  options: Partial<LLMTextBlock> = {},
-): LLMTextBlock {
-  return LLMTextBlockSchema.parse(options);
+export function createCitationCharLocation(
+  options: Partial<CitationCharLocation> = {},
+): CitationCharLocation {
+  return CitationCharLocationSchema.parse(options);
 }
 
-export const LLMReasoningBlockSchema = z.object({
-  type: z.literal("reasoning").default("reasoning"),
-  text: z.string().default(""),
-  token_count: z.union([z.int(), z.null()]).default(null),
-  label: z.union([z.string(), z.null()]).default(null),
+export const CitationPageLocationSchema = z.object({
+  cited_text: z.string(),
+  document_index: z.int(),
+  document_title: z.union([z.string(), z.null()]).default(null),
+  end_page_number: z.int(),
+  start_page_number: z.int(),
+  type: z.literal("page_location"),
 });
 
-export type LLMReasoningBlock = z.infer<typeof LLMReasoningBlockSchema>;
+export type CitationPageLocation = z.infer<typeof CitationPageLocationSchema>;
 
-export function createLLMReasoningBlock(
-  options: Partial<LLMReasoningBlock> = {},
-): LLMReasoningBlock {
-  return LLMReasoningBlockSchema.parse(options);
+export function createCitationPageLocation(
+  options: Partial<CitationPageLocation> = {},
+): CitationPageLocation {
+  return CitationPageLocationSchema.parse(options);
 }
 
-export const LLMToolCallBlockSchema = z.object({
-  type: z.literal("tool_call").default("tool_call"),
-  tool_call_id: z.string().default(""),
-  name: z.string().default(""),
-  arguments_text: z.union([z.string(), z.null()]).default(null),
-  arguments_json: z
-    .union([
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-    ])
-    .default(null),
+export const CitationContentBlockLocationSchema = z.object({
+  cited_text: z.string(),
+  document_index: z.int(),
+  document_title: z.union([z.string(), z.null()]).default(null),
+  end_block_index: z.int(),
+  start_block_index: z.int(),
+  type: z.literal("content_block_location"),
 });
 
-export type LLMToolCallBlock = z.infer<typeof LLMToolCallBlockSchema>;
-
-export function createLLMToolCallBlock(
-  options: Partial<LLMToolCallBlock> = {},
-): LLMToolCallBlock {
-  return LLMToolCallBlockSchema.parse(options);
-}
-
-export const LLMToolResultBlockSchema = z.object({
-  type: z.literal("tool_result").default("tool_result"),
-  tool_call_id: z.string().default(""),
-  name: z.union([z.string(), z.null()]).default(null),
-  output_text: z.union([z.string(), z.null()]).default(null),
-  output_json: z
-    .union([
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-    ])
-    .default(null),
-  is_error: z.boolean().default(false),
-});
-
-export type LLMToolResultBlock = z.infer<typeof LLMToolResultBlockSchema>;
-
-export function createLLMToolResultBlock(
-  options: Partial<LLMToolResultBlock> = {},
-): LLMToolResultBlock {
-  return LLMToolResultBlockSchema.parse(options);
-}
-
-export const LLMContentBlockSchema = z.union([
-  LLMTextBlockSchema,
-  LLMReasoningBlockSchema,
-  LLMToolCallBlockSchema,
-  LLMToolResultBlockSchema,
-]);
-
-export type LLMContentBlock = z.infer<typeof LLMContentBlockSchema>;
-
-export const MessageStartedEventSchema = z.object({
-  message_id: z.string(),
-  role: z.enum(LLMRoleEnum),
-  event_type: z
-    .enum(LLMStreamEventTypeEnum)
-    .default(LLMStreamEventTypeEnum.MESSAGE_STARTED),
-});
-
-export type MessageStartedEvent = z.infer<typeof MessageStartedEventSchema>;
-
-export function createMessageStartedEvent(
-  options: Partial<MessageStartedEvent> = {},
-): MessageStartedEvent {
-  return MessageStartedEventSchema.parse(options);
-}
-
-export const TextDeltaEventSchema = z.object({
-  message_id: z.string(),
-  delta: z.string(),
-  stream_target: z.union([z.string(), z.null()]).default(null),
-  event_type: z
-    .enum(LLMStreamEventTypeEnum)
-    .default(LLMStreamEventTypeEnum.TEXT_DELTA),
-});
-
-export type TextDeltaEvent = z.infer<typeof TextDeltaEventSchema>;
-
-export function createTextDeltaEvent(
-  options: Partial<TextDeltaEvent> = {},
-): TextDeltaEvent {
-  return TextDeltaEventSchema.parse(options);
-}
-
-export const ToolCallDeltaEventSchema = z.object({
-  tool_call_id: z.string(),
-  arguments_delta: z.string(),
-  name: z.union([z.string(), z.null()]).default(null),
-  event_type: z
-    .enum(LLMStreamEventTypeEnum)
-    .default(LLMStreamEventTypeEnum.TOOL_CALL_DELTA),
-});
-
-export type ToolCallDeltaEvent = z.infer<typeof ToolCallDeltaEventSchema>;
-
-export function createToolCallDeltaEvent(
-  options: Partial<ToolCallDeltaEvent> = {},
-): ToolCallDeltaEvent {
-  return ToolCallDeltaEventSchema.parse(options);
-}
-
-export const ToolResultEventSchema = z.object({
-  tool_call_id: z.string(),
-  output: z
-    .union([
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-    ])
-    .default(null),
-  output_text: z.union([z.string(), z.null()]).default(null),
-  is_error: z.boolean().default(false),
-  event_type: z
-    .enum(LLMStreamEventTypeEnum)
-    .default(LLMStreamEventTypeEnum.TOOL_RESULT),
-});
-
-export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
-
-export function createToolResultEvent(
-  options: Partial<ToolResultEvent> = {},
-): ToolResultEvent {
-  return ToolResultEventSchema.parse(options);
-}
-
-export const ResponseCompletedEventSchema = z.object({
-  message_id: z.string(),
-  status: z
-    .enum(ResponseFinishStatusEnum)
-    .default(ResponseFinishStatusEnum.COMPLETED),
-  finish_reason: z.union([z.string(), z.null()]).default(null),
-  error_reason: z.union([z.string(), z.null()]).default(null),
-  event_type: z
-    .enum(LLMStreamEventTypeEnum)
-    .default(LLMStreamEventTypeEnum.RESPONSE_COMPLETED),
-});
-
-export type ResponseCompletedEvent = z.infer<
-  typeof ResponseCompletedEventSchema
+export type CitationContentBlockLocation = z.infer<
+  typeof CitationContentBlockLocationSchema
 >;
 
-export function createResponseCompletedEvent(
-  options: Partial<ResponseCompletedEvent> = {},
-): ResponseCompletedEvent {
-  return ResponseCompletedEventSchema.parse(options);
+export function createCitationContentBlockLocation(
+  options: Partial<CitationContentBlockLocation> = {},
+): CitationContentBlockLocation {
+  return CitationContentBlockLocationSchema.parse(options);
 }
 
-export const LLMStreamEventSchema = z.union([
-  MessageStartedEventSchema,
-  TextDeltaEventSchema,
-  ToolCallDeltaEventSchema,
-  ToolResultEventSchema,
-  ResponseCompletedEventSchema,
+export const CitationsWebSearchResultLocationSchema = z.object({
+  cited_text: z.string(),
+  encrypted_index: z.string(),
+  title: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("web_search_result_location"),
+  url: z.string(),
+});
+
+export type CitationsWebSearchResultLocation = z.infer<
+  typeof CitationsWebSearchResultLocationSchema
+>;
+
+export function createCitationsWebSearchResultLocation(
+  options: Partial<CitationsWebSearchResultLocation> = {},
+): CitationsWebSearchResultLocation {
+  return CitationsWebSearchResultLocationSchema.parse(options);
+}
+
+export const TextBlockSchema = z.object({
+  citations: z
+    .union([
+      z.array(
+        z.union([
+          CitationCharLocationSchema,
+          CitationPageLocationSchema,
+          CitationContentBlockLocationSchema,
+          CitationsWebSearchResultLocationSchema,
+        ]),
+      ),
+      z.null(),
+    ])
+    .default(null),
+  text: z.string(),
+  type: z.literal("text"),
+});
+
+export type TextBlock = z.infer<typeof TextBlockSchema>;
+
+export function createTextBlock(options: Partial<TextBlock> = {}): TextBlock {
+  return TextBlockSchema.parse(options);
+}
+
+export const ToolUseBlockSchema = z.object({
+  id: z.string(),
+  input: z.any(),
+  name: z.string(),
+  type: z.literal("tool_use"),
+});
+
+export type ToolUseBlock = z.infer<typeof ToolUseBlockSchema>;
+
+export function createToolUseBlock(
+  options: Partial<ToolUseBlock> = {},
+): ToolUseBlock {
+  return ToolUseBlockSchema.parse(options);
+}
+
+export const ServerToolUseBlockSchema = z.object({
+  id: z.string(),
+  input: z.any(),
+  name: z.literal("web_search"),
+  type: z.literal("server_tool_use"),
+});
+
+export type ServerToolUseBlock = z.infer<typeof ServerToolUseBlockSchema>;
+
+export function createServerToolUseBlock(
+  options: Partial<ServerToolUseBlock> = {},
+): ServerToolUseBlock {
+  return ServerToolUseBlockSchema.parse(options);
+}
+
+export const WebSearchToolResultErrorSchema = z.object({
+  error_code: z.literal([
+    "invalid_tool_input",
+    "unavailable",
+    "max_uses_exceeded",
+    "too_many_requests",
+    "query_too_long",
+  ]),
+  type: z.literal("web_search_tool_result_error"),
+});
+
+export type WebSearchToolResultError = z.infer<
+  typeof WebSearchToolResultErrorSchema
+>;
+
+export function createWebSearchToolResultError(
+  options: Partial<WebSearchToolResultError> = {},
+): WebSearchToolResultError {
+  return WebSearchToolResultErrorSchema.parse(options);
+}
+
+export const WebSearchResultBlockSchema = z.object({
+  encrypted_content: z.string(),
+  page_age: z.union([z.string(), z.null()]).default(null),
+  title: z.string(),
+  type: z.literal("web_search_result"),
+  url: z.string(),
+});
+
+export type WebSearchResultBlock = z.infer<typeof WebSearchResultBlockSchema>;
+
+export function createWebSearchResultBlock(
+  options: Partial<WebSearchResultBlock> = {},
+): WebSearchResultBlock {
+  return WebSearchResultBlockSchema.parse(options);
+}
+
+export const WebSearchToolResultBlockSchema = z.object({
+  content: z.union([
+    WebSearchToolResultErrorSchema,
+    z.array(WebSearchResultBlockSchema),
+  ]),
+  tool_use_id: z.string(),
+  type: z.literal("web_search_tool_result"),
+});
+
+export type WebSearchToolResultBlock = z.infer<
+  typeof WebSearchToolResultBlockSchema
+>;
+
+export function createWebSearchToolResultBlock(
+  options: Partial<WebSearchToolResultBlock> = {},
+): WebSearchToolResultBlock {
+  return WebSearchToolResultBlockSchema.parse(options);
+}
+
+export const ThinkingBlockSchema = z.object({
+  signature: z.string(),
+  thinking: z.string(),
+  type: z.literal("thinking"),
+});
+
+export type ThinkingBlock = z.infer<typeof ThinkingBlockSchema>;
+
+export function createThinkingBlock(
+  options: Partial<ThinkingBlock> = {},
+): ThinkingBlock {
+  return ThinkingBlockSchema.parse(options);
+}
+
+export const RedactedThinkingBlockSchema = z.object({
+  data: z.string(),
+  type: z.literal("redacted_thinking"),
+});
+
+export type RedactedThinkingBlock = z.infer<typeof RedactedThinkingBlockSchema>;
+
+export function createRedactedThinkingBlock(
+  options: Partial<RedactedThinkingBlock> = {},
+): RedactedThinkingBlock {
+  return RedactedThinkingBlockSchema.parse(options);
+}
+
+export const ContentBlockSchema = z.union([
+  TextBlockSchema,
+  ToolUseBlockSchema,
+  ServerToolUseBlockSchema,
+  WebSearchToolResultBlockSchema,
+  ThinkingBlockSchema,
+  RedactedThinkingBlockSchema,
 ]);
 
-export type LLMStreamEvent = z.infer<typeof LLMStreamEventSchema>;
+export type ContentBlock = z.infer<typeof ContentBlockSchema>;
+
+export const AnnotationsSchema = z.object({
+  audience: z
+    .union([z.array(z.literal(["user", "assistant"])), z.null()])
+    .default(null),
+  priority: z.union([z.number(), z.null()]).default(null),
+});
+
+export type Annotations = z.infer<typeof AnnotationsSchema>;
+
+export function createAnnotations(
+  options: Partial<Annotations> = {},
+): Annotations {
+  return AnnotationsSchema.parse(options);
+}
+
+export const TextContentSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+});
+
+export type TextContent = z.infer<typeof TextContentSchema>;
+
+export function createTextContent(
+  options: Partial<TextContent> = {},
+): TextContent {
+  return TextContentSchema.parse(options);
+}
+
+export const ImageContentSchema = z.object({
+  type: z.literal("image"),
+  data: z.string(),
+  mimeType: z.string(),
+  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+});
+
+export type ImageContent = z.infer<typeof ImageContentSchema>;
+
+export function createImageContent(
+  options: Partial<ImageContent> = {},
+): ImageContent {
+  return ImageContentSchema.parse(options);
+}
+
+export const TextResourceContentsSchema = z.object({
+  uri: z.url(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  text: z.string(),
+});
+
+export type TextResourceContents = z.infer<typeof TextResourceContentsSchema>;
+
+export function createTextResourceContents(
+  options: Partial<TextResourceContents> = {},
+): TextResourceContents {
+  return TextResourceContentsSchema.parse(options);
+}
+
+export const BlobResourceContentsSchema = z.object({
+  uri: z.url(),
+  mimeType: z.union([z.string(), z.null()]).default(null),
+  blob: z.string(),
+});
+
+export type BlobResourceContents = z.infer<typeof BlobResourceContentsSchema>;
+
+export function createBlobResourceContents(
+  options: Partial<BlobResourceContents> = {},
+): BlobResourceContents {
+  return BlobResourceContentsSchema.parse(options);
+}
+
+export const EmbeddedResourceSchema = z.object({
+  type: z.literal("resource"),
+  resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
+  annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+});
+
+export type EmbeddedResource = z.infer<typeof EmbeddedResourceSchema>;
+
+export function createEmbeddedResource(
+  options: Partial<EmbeddedResource> = {},
+): EmbeddedResource {
+  return EmbeddedResourceSchema.parse(options);
+}
+
+export const ToolResultSchema = z.object({
+  type: z.literal("tool_result"),
+  tool_use_id: z.string(),
+  content: z.array(
+    z.union([TextContentSchema, ImageContentSchema, EmbeddedResourceSchema]),
+  ),
+  is_error: z.boolean(),
+});
+
+export type ToolResult = z.infer<typeof ToolResultSchema>;
+
+export function createToolResult(
+  options: Partial<ToolResult> = {},
+): ToolResult {
+  return ToolResultSchema.parse(options);
+}
+
+export const ChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.enum(ChatRoleEnum),
+  content: z.array(
+    z.union([
+      z.union([
+        TextBlockSchema,
+        ToolUseBlockSchema,
+        ServerToolUseBlockSchema,
+        WebSearchToolResultBlockSchema,
+        ThinkingBlockSchema,
+        RedactedThinkingBlockSchema,
+      ]),
+      ToolResultSchema,
+    ]),
+  ),
+});
+
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+export function createChatMessage(
+  options: Partial<ChatMessage> = {},
+): ChatMessage {
+  return ChatMessageSchema.parse(options);
+}
+
+export const FullMessageStopSchema = z.object({
+  type: z.literal("full_message_stop"),
+  messages: z.array(ChatMessageSchema),
+  toolResults: z.record(z.string(), ToolResultSchema),
+});
+
+export type FullMessageStop = z.infer<typeof FullMessageStopSchema>;
+
+export function createFullMessageStop(
+  options: Partial<FullMessageStop> = {},
+): FullMessageStop {
+  return FullMessageStopSchema.parse(options);
+}
+
+export const ServerToolUsageSchema = z.object({
+  web_search_requests: z.int(),
+});
+
+export type ServerToolUsage = z.infer<typeof ServerToolUsageSchema>;
+
+export function createServerToolUsage(
+  options: Partial<ServerToolUsage> = {},
+): ServerToolUsage {
+  return ServerToolUsageSchema.parse(options);
+}
+
+export const UsageSchema = z.object({
+  cache_creation_input_tokens: z.union([z.int(), z.null()]).default(null),
+  cache_read_input_tokens: z.union([z.int(), z.null()]).default(null),
+  input_tokens: z.int(),
+  output_tokens: z.int(),
+  server_tool_use: z.union([ServerToolUsageSchema, z.null()]).default(null),
+  service_tier: z
+    .union([z.literal(["standard", "priority", "batch"]), z.null()])
+    .default(null),
+});
+
+export type Usage = z.infer<typeof UsageSchema>;
+
+export function createUsage(options: Partial<Usage> = {}): Usage {
+  return UsageSchema.parse(options);
+}
+
+export const MessageSchema = z.object({
+  id: z.string(),
+  content: z.array(
+    z.union([
+      TextBlockSchema,
+      ToolUseBlockSchema,
+      ServerToolUseBlockSchema,
+      WebSearchToolResultBlockSchema,
+      ThinkingBlockSchema,
+      RedactedThinkingBlockSchema,
+    ]),
+  ),
+  model: z.union([
+    z.literal([
+      "claude-3-7-sonnet-latest",
+      "claude-3-7-sonnet-20250219",
+      "claude-3-5-haiku-latest",
+      "claude-3-5-haiku-20241022",
+      "claude-sonnet-4-20250514",
+      "claude-sonnet-4-0",
+      "claude-4-sonnet-20250514",
+      "claude-3-5-sonnet-latest",
+      "claude-3-5-sonnet-20241022",
+      "claude-3-5-sonnet-20240620",
+      "claude-opus-4-0",
+      "claude-opus-4-20250514",
+      "claude-4-opus-20250514",
+      "claude-3-opus-latest",
+      "claude-3-opus-20240229",
+      "claude-3-sonnet-20240229",
+      "claude-3-haiku-20240307",
+      "claude-2.1",
+      "claude-2.0",
+    ]),
+    z.string(),
+  ]),
+  role: z.literal("assistant"),
+  stop_reason: z
+    .union([
+      z.literal([
+        "end_turn",
+        "max_tokens",
+        "stop_sequence",
+        "tool_use",
+        "pause_turn",
+        "refusal",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  stop_sequence: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("message"),
+  usage: UsageSchema,
+});
+
+export type Message = z.infer<typeof MessageSchema>;
+
+export function createMessage(options: Partial<Message> = {}): Message {
+  return MessageSchema.parse(options);
+}
+
+export const RawMessageStartEventSchema = z.object({
+  message: MessageSchema,
+  type: z.literal("message_start"),
+});
+
+export type RawMessageStartEvent = z.infer<typeof RawMessageStartEventSchema>;
+
+export function createRawMessageStartEvent(
+  options: Partial<RawMessageStartEvent> = {},
+): RawMessageStartEvent {
+  return RawMessageStartEventSchema.parse(options);
+}
+
+export const RawContentBlockStartEventSchema = z.object({
+  content_block: z.union([
+    TextBlockSchema,
+    ToolUseBlockSchema,
+    ServerToolUseBlockSchema,
+    WebSearchToolResultBlockSchema,
+    ThinkingBlockSchema,
+    RedactedThinkingBlockSchema,
+  ]),
+  index: z.int(),
+  type: z.literal("content_block_start"),
+});
+
+export type RawContentBlockStartEvent = z.infer<
+  typeof RawContentBlockStartEventSchema
+>;
+
+export function createRawContentBlockStartEvent(
+  options: Partial<RawContentBlockStartEvent> = {},
+): RawContentBlockStartEvent {
+  return RawContentBlockStartEventSchema.parse(options);
+}
+
+export const TextDeltaSchema = z.object({
+  text: z.string(),
+  type: z.literal("text_delta"),
+});
+
+export type TextDelta = z.infer<typeof TextDeltaSchema>;
+
+export function createTextDelta(options: Partial<TextDelta> = {}): TextDelta {
+  return TextDeltaSchema.parse(options);
+}
+
+export const InputJSONDeltaSchema = z.object({
+  partial_json: z.string(),
+  type: z.literal("input_json_delta"),
+});
+
+export type InputJSONDelta = z.infer<typeof InputJSONDeltaSchema>;
+
+export function createInputJSONDelta(
+  options: Partial<InputJSONDelta> = {},
+): InputJSONDelta {
+  return InputJSONDeltaSchema.parse(options);
+}
+
+export const CitationsDeltaSchema = z.object({
+  citation: z.union([
+    CitationCharLocationSchema,
+    CitationPageLocationSchema,
+    CitationContentBlockLocationSchema,
+    CitationsWebSearchResultLocationSchema,
+  ]),
+  type: z.literal("citations_delta"),
+});
+
+export type CitationsDelta = z.infer<typeof CitationsDeltaSchema>;
+
+export function createCitationsDelta(
+  options: Partial<CitationsDelta> = {},
+): CitationsDelta {
+  return CitationsDeltaSchema.parse(options);
+}
+
+export const ThinkingDeltaSchema = z.object({
+  thinking: z.string(),
+  type: z.literal("thinking_delta"),
+});
+
+export type ThinkingDelta = z.infer<typeof ThinkingDeltaSchema>;
+
+export function createThinkingDelta(
+  options: Partial<ThinkingDelta> = {},
+): ThinkingDelta {
+  return ThinkingDeltaSchema.parse(options);
+}
+
+export const SignatureDeltaSchema = z.object({
+  signature: z.string(),
+  type: z.literal("signature_delta"),
+});
+
+export type SignatureDelta = z.infer<typeof SignatureDeltaSchema>;
+
+export function createSignatureDelta(
+  options: Partial<SignatureDelta> = {},
+): SignatureDelta {
+  return SignatureDeltaSchema.parse(options);
+}
+
+export const RawContentBlockDeltaEventSchema = z.object({
+  delta: z.union([
+    TextDeltaSchema,
+    InputJSONDeltaSchema,
+    CitationsDeltaSchema,
+    ThinkingDeltaSchema,
+    SignatureDeltaSchema,
+  ]),
+  index: z.int(),
+  type: z.literal("content_block_delta"),
+});
+
+export type RawContentBlockDeltaEvent = z.infer<
+  typeof RawContentBlockDeltaEventSchema
+>;
+
+export function createRawContentBlockDeltaEvent(
+  options: Partial<RawContentBlockDeltaEvent> = {},
+): RawContentBlockDeltaEvent {
+  return RawContentBlockDeltaEventSchema.parse(options);
+}
+
+export const RawContentBlockStopEventSchema = z.object({
+  index: z.int(),
+  type: z.literal("content_block_stop"),
+});
+
+export type RawContentBlockStopEvent = z.infer<
+  typeof RawContentBlockStopEventSchema
+>;
+
+export function createRawContentBlockStopEvent(
+  options: Partial<RawContentBlockStopEvent> = {},
+): RawContentBlockStopEvent {
+  return RawContentBlockStopEventSchema.parse(options);
+}
+
+export const DeltaSchema = z.object({
+  stop_reason: z
+    .union([
+      z.literal([
+        "end_turn",
+        "max_tokens",
+        "stop_sequence",
+        "tool_use",
+        "pause_turn",
+        "refusal",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  stop_sequence: z.union([z.string(), z.null()]).default(null),
+});
+
+export type Delta = z.infer<typeof DeltaSchema>;
+
+export function createDelta(options: Partial<Delta> = {}): Delta {
+  return DeltaSchema.parse(options);
+}
+
+export const MessageDeltaUsageSchema = z.object({
+  cache_creation_input_tokens: z.union([z.int(), z.null()]).default(null),
+  cache_read_input_tokens: z.union([z.int(), z.null()]).default(null),
+  input_tokens: z.union([z.int(), z.null()]).default(null),
+  output_tokens: z.int(),
+  server_tool_use: z.union([ServerToolUsageSchema, z.null()]).default(null),
+});
+
+export type MessageDeltaUsage = z.infer<typeof MessageDeltaUsageSchema>;
+
+export function createMessageDeltaUsage(
+  options: Partial<MessageDeltaUsage> = {},
+): MessageDeltaUsage {
+  return MessageDeltaUsageSchema.parse(options);
+}
+
+export const RawMessageDeltaEventSchema = z.object({
+  delta: DeltaSchema,
+  type: z.literal("message_delta"),
+  usage: MessageDeltaUsageSchema,
+});
+
+export type RawMessageDeltaEvent = z.infer<typeof RawMessageDeltaEventSchema>;
+
+export function createRawMessageDeltaEvent(
+  options: Partial<RawMessageDeltaEvent> = {},
+): RawMessageDeltaEvent {
+  return RawMessageDeltaEventSchema.parse(options);
+}
+
+export const RawMessageStopEventSchema = z.object({
+  type: z.literal("message_stop"),
+});
+
+export type RawMessageStopEvent = z.infer<typeof RawMessageStopEventSchema>;
+
+export function createRawMessageStopEvent(
+  options: Partial<RawMessageStopEvent> = {},
+): RawMessageStopEvent {
+  return RawMessageStopEventSchema.parse(options);
+}
 
 export const LLMStreamingResponseChunkSchema = z.union([
-  MessageStartedEventSchema,
-  TextDeltaEventSchema,
-  ToolCallDeltaEventSchema,
-  ToolResultEventSchema,
-  ResponseCompletedEventSchema,
+  FullMessageStopSchema,
+  ToolResultSchema,
+  RawMessageStartEventSchema,
+  RawContentBlockStartEventSchema,
+  RawContentBlockDeltaEventSchema,
+  RawContentBlockStopEventSchema,
+  RawMessageDeltaEventSchema,
+  RawMessageStopEventSchema,
 ]);
 
 export type LLMStreamingResponseChunk = z.infer<
@@ -4092,13 +4502,16 @@ export function createWebsocketMsgNotification(
 
 export const LLMStreamingResponseSchema = z.object({
   chatId: z.string(),
-  assistantMessageId: z.union([z.string(), z.null()]).default(null),
+  assistantMessageId: z.union([z.string(), z.null()]),
   chunk: z.union([
-    MessageStartedEventSchema,
-    TextDeltaEventSchema,
-    ToolCallDeltaEventSchema,
-    ToolResultEventSchema,
-    ResponseCompletedEventSchema,
+    FullMessageStopSchema,
+    ToolResultSchema,
+    RawMessageStartEventSchema,
+    RawContentBlockStartEventSchema,
+    RawContentBlockDeltaEventSchema,
+    RawContentBlockStopEventSchema,
+    RawMessageDeltaEventSchema,
+    RawMessageStopEventSchema,
   ]),
 });
 
@@ -5360,106 +5773,6 @@ export function createWebsocketMsgListenerCoverageSnapshot(
   return WebsocketMsgListenerCoverageSnapshotSchema.parse(options);
 }
 
-export const LLMModelConfigPayloadSchema = z.object({
-  model_id: z.union([z.string(), z.null()]).default(null),
-  display_name: z.union([z.string(), z.null()]).default(null),
-  supports_reasoning: z.union([z.boolean(), z.null()]).default(null),
-  default_parameters: z
-    .union([
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-    ])
-    .default(null),
-  preset_id: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LLMModelConfigPayload = z.infer<typeof LLMModelConfigPayloadSchema>;
-
-export function createLLMModelConfigPayload(
-  options: Partial<LLMModelConfigPayload> = {},
-): LLMModelConfigPayload {
-  return LLMModelConfigPayloadSchema.parse(options);
-}
-
-export const LLMProviderConfigPayloadSchema = z.object({
-  provider_id: z.union([z.string(), z.null()]).default(null),
-  display_name: z.union([z.string(), z.null()]).default(null),
-  preset_id: z.union([z.string(), z.null()]).default(null),
-  api_key: z.union([z.string(), z.null()]).default(null),
-  base_url: z.union([z.string(), z.null()]).default(null),
-  default_model_id: z.union([z.string(), z.null()]).default(null),
-  extra_headers: z
-    .union([z.record(z.string(), z.string()), z.null()])
-    .default(null),
-  models: z
-    .union([z.array(LLMModelConfigPayloadSchema), z.null()])
-    .default(null),
-});
-
-export type LLMProviderConfigPayload = z.infer<
-  typeof LLMProviderConfigPayloadSchema
->;
-
-export function createLLMProviderConfigPayload(
-  options: Partial<LLMProviderConfigPayload> = {},
-): LLMProviderConfigPayload {
-  return LLMProviderConfigPayloadSchema.parse(options);
-}
-
-export const LLMProjectConfigPayloadSchema = z.object({
-  providers: z.array(LLMProviderConfigPayloadSchema).default([]),
-});
-
-export type LLMProjectConfigPayload = z.infer<
-  typeof LLMProjectConfigPayloadSchema
->;
-
-export function createLLMProjectConfigPayload(
-  options: Partial<LLMProjectConfigPayload> = {},
-): LLMProjectConfigPayload {
-  return LLMProjectConfigPayloadSchema.parse(options);
-}
-
-export const LLMConfigPayloadSchema = z.object({
-  gateway_url: z.string().default("http://127.0.0.1:8787" as const),
-  providers: z.array(LLMProviderConfigPayloadSchema).default([]),
-  default_project_config_id: z.union([z.string(), z.null()]).default(null),
-  project_configs: z
-    .record(z.string(), LLMProjectConfigPayloadSchema)
-    .default({}),
-});
-
-export type LLMConfigPayload = z.infer<typeof LLMConfigPayloadSchema>;
-
-export function createLLMConfigPayload(
-  options: Partial<LLMConfigPayload> = {},
-): LLMConfigPayload {
-  return LLMConfigPayloadSchema.parse(options);
-}
-
-export const WebsocketMsgLLMConfigUpdatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: LLMConfigPayloadSchema,
-  messageType: z
-    .literal("LLMConfigUpdated")
-    .default(WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated),
-});
-
-export type WebsocketMsgLLMConfigUpdated = z.infer<
-  typeof WebsocketMsgLLMConfigUpdatedSchema
->;
-
-export function createWebsocketMsgLLMConfigUpdated(
-  options: Partial<WebsocketMsgLLMConfigUpdated> = {},
-): WebsocketMsgLLMConfigUpdated {
-  return WebsocketMsgLLMConfigUpdatedSchema.parse(options);
-}
-
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5473,7 +5786,6 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerCoverageSnapshotSchema,
-  WebsocketMsgLLMConfigUpdatedSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5494,7 +5806,6 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerCoverageSnapshotSchema,
-    WebsocketMsgLLMConfigUpdatedSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5832,7 +6143,6 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerCoverageSnapshotSchema,
-  WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
@@ -5861,7 +6171,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerCoverageSnapshotSchema,
-    WebsocketMsgLLMConfigUpdatedSchema,
     WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
@@ -7350,68 +7659,11 @@ export function createBaseChartSettings(
   return BaseChartSettingsSchema.parse(options);
 }
 
-export const ChatMessageSchema = z.object({
-  id: z.string().default(create_new_id),
-  role: z.enum(LLMRoleEnum).default(LLMRoleEnum.USER),
-  content: z
-    .array(
-      z.union([
-        LLMTextBlockSchema,
-        LLMReasoningBlockSchema,
-        LLMToolCallBlockSchema,
-        LLMToolResultBlockSchema,
-      ]),
-    )
-    .default([]),
-  name: z.union([z.string(), z.null()]).default(null),
-  metadata: z
-    .union([
-      z.record(
-        z.string(),
-        z.union([
-          z.string(),
-          z.int(),
-          z.number(),
-          z.boolean(),
-          z.null(),
-          z.record(z.string(), z.any()),
-          z.array(z.any()),
-        ]),
-      ),
-      z.null(),
-    ])
-    .default(null),
-});
-
-export type ChatMessage = z.infer<typeof ChatMessageSchema>;
-
-export function createChatMessage(
-  options: Partial<ChatMessage> = {},
-): ChatMessage {
-  return ChatMessageSchema.parse(options);
-}
-
-export const LLMModelSelectionSchema = z.object({
-  providerId: z.string(),
-  modelId: z.string(),
-});
-
-export type LLMModelSelection = z.infer<typeof LLMModelSelectionSchema>;
-
-export function createLLMModelSelection(
-  options: Partial<LLMModelSelection> = {},
-): LLMModelSelection {
-  return LLMModelSelectionSchema.parse(options);
-}
-
 export const ChatSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
-  messages: z.array(ChatMessageSchema).default([]),
-  projectConfigId: z.union([z.string(), z.null()]).default(null),
-  modelSelection: z.union([LLMModelSelectionSchema, z.null()]).default(null),
-  streamStatus: z.enum(ChatStreamStatusEnum).default(ChatStreamStatusEnum.IDLE),
+  messages: z.array(ChatMessageSchema),
 });
 
 export type Chat = z.infer<typeof ChatSchema>;
@@ -7424,8 +7676,6 @@ export const ChatMetadataSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
-  projectConfigId: z.union([z.string(), z.null()]).default(null),
-  streamStatus: z.enum(ChatStreamStatusEnum).default(ChatStreamStatusEnum.IDLE),
 });
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
@@ -8028,102 +8278,6 @@ export function createListenerRealtimeDelta(
   return ListenerRealtimeDeltaSchema.parse(options);
 }
 
-export const LLMGatewayTestResultPayloadSchema = z.object({
-  ok: z.boolean(),
-  url: z.union([z.string(), z.null()]).default(null),
-  error: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LLMGatewayTestResultPayload = z.infer<
-  typeof LLMGatewayTestResultPayloadSchema
->;
-
-export function createLLMGatewayTestResultPayload(
-  options: Partial<LLMGatewayTestResultPayload> = {},
-): LLMGatewayTestResultPayload {
-  return LLMGatewayTestResultPayloadSchema.parse(options);
-}
-
-export const LLMProviderTestErrorPayloadSchema = z.object({
-  message: z.string(),
-  code: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LLMProviderTestErrorPayload = z.infer<
-  typeof LLMProviderTestErrorPayloadSchema
->;
-
-export function createLLMProviderTestErrorPayload(
-  options: Partial<LLMProviderTestErrorPayload> = {},
-): LLMProviderTestErrorPayload {
-  return LLMProviderTestErrorPayloadSchema.parse(options);
-}
-
-export const LLMProviderTestResultPayloadSchema = z.object({
-  provider_id: z.string(),
-  display_name: z.string(),
-  project_config_id: z.union([z.string(), z.null()]).default(null),
-  base_url: z.union([z.string(), z.null()]).default(null),
-  ok: z.boolean().default(false),
-  errors: z.array(LLMProviderTestErrorPayloadSchema).default([]),
-});
-
-export type LLMProviderTestResultPayload = z.infer<
-  typeof LLMProviderTestResultPayloadSchema
->;
-
-export function createLLMProviderTestResultPayload(
-  options: Partial<LLMProviderTestResultPayload> = {},
-): LLMProviderTestResultPayload {
-  return LLMProviderTestResultPayloadSchema.parse(options);
-}
-
-export const LLMConfigTestResultPayloadSchema = z.object({
-  gateway: LLMGatewayTestResultPayloadSchema,
-  providers: z.array(LLMProviderTestResultPayloadSchema).default([]),
-});
-
-export type LLMConfigTestResultPayload = z.infer<
-  typeof LLMConfigTestResultPayloadSchema
->;
-
-export function createLLMConfigTestResultPayload(
-  options: Partial<LLMConfigTestResultPayload> = {},
-): LLMConfigTestResultPayload {
-  return LLMConfigTestResultPayloadSchema.parse(options);
-}
-
-export const LLMProviderPresetPayloadSchema = z.object({
-  preset_id: z.string(),
-  label: z.string(),
-  description: z.union([z.string(), z.null()]).default(null),
-  provider: LLMProviderConfigPayloadSchema,
-});
-
-export type LLMProviderPresetPayload = z.infer<
-  typeof LLMProviderPresetPayloadSchema
->;
-
-export function createLLMProviderPresetPayload(
-  options: Partial<LLMProviderPresetPayload> = {},
-): LLMProviderPresetPayload {
-  return LLMProviderPresetPayloadSchema.parse(options);
-}
-
-export const LLMPresetCatalogPayloadSchema = z.object({
-  providers: z.array(LLMProviderPresetPayloadSchema).default([]),
-});
-
-export type LLMPresetCatalogPayload = z.infer<
-  typeof LLMPresetCatalogPayloadSchema
->;
-
-export function createLLMPresetCatalogPayload(
-  options: Partial<LLMPresetCatalogPayload> = {},
-): LLMPresetCatalogPayload {
-  return LLMPresetCatalogPayloadSchema.parse(options);
-}
-
 export const BrowserAreaItemSchema = z.object({
   id: z.string(),
   type: z.any(),
@@ -8274,21 +8428,6 @@ export function createWebsocketMsg(
   return WebsocketMsgSchema.parse(options);
 }
 
-export const AddLLMPresetRequestSchema = z.object({
-  presetId: z.string(),
-  providerId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: z.union([z.string(), z.null()]).default(null),
-  overrides: z.union([LLMProviderConfigPayloadSchema, z.null()]).default(null),
-});
-
-export type AddLLMPresetRequest = z.infer<typeof AddLLMPresetRequestSchema>;
-
-export function createAddLLMPresetRequest(
-  options: Partial<AddLLMPresetRequest> = {},
-): AddLLMPresetRequest {
-  return AddLLMPresetRequestSchema.parse(options);
-}
-
 export const DeleteLLMChatRequestSchema = z.object({
   chatId: z.string(),
 });
@@ -8299,6 +8438,18 @@ export function createDeleteLLMChatRequest(
   options: Partial<DeleteLLMChatRequest> = {},
 ): DeleteLLMChatRequest {
   return DeleteLLMChatRequestSchema.parse(options);
+}
+
+export const GetLLMApiKeysRequestSchema = z.object({
+  apiKeysFilepath: z.string(),
+});
+
+export type GetLLMApiKeysRequest = z.infer<typeof GetLLMApiKeysRequestSchema>;
+
+export function createGetLLMApiKeysRequest(
+  options: Partial<GetLLMApiKeysRequest> = {},
+): GetLLMApiKeysRequest {
+  return GetLLMApiKeysRequestSchema.parse(options);
 }
 
 export const GetLLMChatRequestSchema = z.object({
@@ -8316,10 +8467,8 @@ export function createGetLLMChatRequest(
 
 export const GetLLMChatRequestResponseSchema = z.object({
   messages: z.array(ChatMessageSchema),
+  toolResults: z.record(z.string(), ToolResultSchema),
   waitingForResponse: z.boolean(),
-  modelSelection: z.union([LLMModelSelectionSchema, z.null()]),
-  projectConfigId: z.union([z.string(), z.null()]),
-  streamStatus: z.enum(ChatStreamStatusEnum),
 });
 
 export type GetLLMChatRequestResponse = z.infer<
@@ -8336,7 +8485,7 @@ export const GetLLMResponseRequestSchema = z.object({
   projectConfigId: z.string(),
   chatId: z.union([z.string(), z.null()]),
   message: ChatMessageSchema,
-  modelSelection: LLMModelSelectionSchema,
+  model: z.string(),
   deepThink: z.boolean(),
 });
 
@@ -8346,6 +8495,19 @@ export function createGetLLMResponseRequest(
   options: Partial<GetLLMResponseRequest> = {},
 ): GetLLMResponseRequest {
   return GetLLMResponseRequestSchema.parse(options);
+}
+
+export const SetLLMApiKeysRequestSchema = z.object({
+  apiKeys: z.record(z.string(), z.string()),
+  apiKeysFilepath: z.string(),
+});
+
+export type SetLLMApiKeysRequest = z.infer<typeof SetLLMApiKeysRequestSchema>;
+
+export function createSetLLMApiKeysRequest(
+  options: Partial<SetLLMApiKeysRequest> = {},
+): SetLLMApiKeysRequest {
+  return SetLLMApiKeysRequestSchema.parse(options);
 }
 
 export const StopLLMChatRequestSchema = z.object({
@@ -8358,18 +8520,6 @@ export function createStopLLMChatRequest(
   options: Partial<StopLLMChatRequest> = {},
 ): StopLLMChatRequest {
   return StopLLMChatRequestSchema.parse(options);
-}
-
-export const TestLLMConfigRequestSchema = z.object({
-  config: z.union([LLMConfigPayloadSchema, z.null()]).default(null),
-});
-
-export type TestLLMConfigRequest = z.infer<typeof TestLLMConfigRequestSchema>;
-
-export function createTestLLMConfigRequest(
-  options: Partial<TestLLMConfigRequest> = {},
-): TestLLMConfigRequest {
-  return TestLLMConfigRequestSchema.parse(options);
 }
 
 export const ArtifactSaveResultSchema = z.object({
@@ -9783,59 +9933,6 @@ export function createRunCodeRequest(
   options: Partial<RunCodeRequest> = {},
 ): RunCodeRequest {
   return RunCodeRequestSchema.parse(options);
-}
-
-export const LLMMessageSchema = z.object({
-  message_id: z.string(),
-  role: z.enum(LLMRoleEnum),
-  content: z
-    .array(
-      z.union([
-        LLMTextBlockSchema,
-        LLMReasoningBlockSchema,
-        LLMToolCallBlockSchema,
-        LLMToolResultBlockSchema,
-      ]),
-    )
-    .default([]),
-  name: z.union([z.string(), z.null()]).default(null),
-  metadata: z
-    .union([
-      z.record(
-        z.string(),
-        z.union([
-          z.string(),
-          z.int(),
-          z.number(),
-          z.boolean(),
-          z.null(),
-          z.record(z.string(), z.any()),
-          z.array(z.any()),
-        ]),
-      ),
-      z.null(),
-    ])
-    .default(null),
-});
-
-export type LLMMessage = z.infer<typeof LLMMessageSchema>;
-
-export function createLLMMessage(
-  options: Partial<LLMMessage> = {},
-): LLMMessage {
-  return LLMMessageSchema.parse(options);
-}
-
-export const LLMHistorySchema = z.object({
-  messages: z.array(LLMMessageSchema).default([]),
-});
-
-export type LLMHistory = z.infer<typeof LLMHistorySchema>;
-
-export function createLLMHistory(
-  options: Partial<LLMHistory> = {},
-): LLMHistory {
-  return LLMHistorySchema.parse(options);
 }
 
 export const BaseDependencyKeySchema = z.object({

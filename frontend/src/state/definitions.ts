@@ -12,10 +12,13 @@ import {
 } from "utils/constants";
 import {
   AllProjectMetadata,
-  BaseDependencyKeyUnion,
+  APIKeys,
   BrushStrokeMapping,
   ChartDataMapping,
   ChatMetadata,
+  createProjectConfig,
+  createSingletonSections,
+  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
@@ -25,10 +28,6 @@ import {
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
-  createProjectConfig,
-  createSingletonSections,
-  LLMConfig,
-  LLMPresetCatalogPayload,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -339,25 +338,15 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-export type StoredLLMSelection = {
-  providerId: string;
-  modelId: string;
-  providerDisplayName: string;
-  modelDisplayName: string;
-};
-
 export type ZustandAIStore = {
+  apiKeys: APIKeys;
+  apiKeysFilepath: string;
+  apiKeysInitialLoadComplete: boolean;
   allChatMetadata: Array<ChatMetadata>;
   currentChatId: string | null;
   viewHistory: boolean;
-  userSelectedLLM: StoredLLMSelection | null;
-  userSelectedLLMByProject: Record<string, StoredLLMSelection | null>;
+  userSelectedLLM: string;
   idToUUIDForLLM: IDToUUIDForLLM;
-  llmConfig: LLMConfig | null;
-  llmConfigLoaded: boolean;
-  llmConfigError: string | null;
-  llmPresets: LLMPresetCatalogPayload | null;
-  llmPresetsLoaded: boolean;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -366,60 +355,28 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
     persist(
       () => ({
         // State
-        chatDetails: {}, // chatId to {messages, waitingForResponse, streamStatus, streamTarget}
+        apiKeys: {},
+        apiKeysFilepath: ".env",
+        apiKeysInitialLoadComplete: false,
+        chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
-        userSelectedLLM: null,
-        userSelectedLLMByProject: {},
+        userSelectedLLM: "",
         idToUUIDForLLM: {},
-        llmConfig: null,
-        llmConfigLoaded: false,
-        llmConfigError: null,
-        llmPresets: null,
-        llmPresetsLoaded: false,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
+          apiKeysFilepath: state.apiKeysFilepath,
           currentChatId: state.currentChatId,
           userSelectedLLM: state.userSelectedLLM,
-          userSelectedLLMByProject: state.userSelectedLLMByProject,
           viewHistory: state.viewHistory,
         }),
       },
     ),
   ),
 );
-
-useProjectState.subscribe(
-  (state) => state.projectConfig.id,
-  (projectConfigId) => {
-    const normalizedProjectId = projectConfigId ?? NULL_PROJECT_CONFIG_ID;
-    useAIStore.setState((aiState) => {
-      const nextSelection =
-        aiState.userSelectedLLMByProject[normalizedProjectId] ?? null;
-      if (areSelectionsEqual(aiState.userSelectedLLM, nextSelection)) {
-        return {};
-      }
-      return { userSelectedLLM: nextSelection };
-    });
-  },
-  { fireImmediately: true },
-);
-
-function areSelectionsEqual(
-  a: StoredLLMSelection | null,
-  b: StoredLLMSelection | null,
-) {
-  if (!a && !b) {
-    return true;
-  }
-  if (!a || !b) {
-    return false;
-  }
-  return a.providerId === b.providerId && a.modelId === b.modelId;
-}
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;

@@ -4,23 +4,7 @@ import site
 from pathlib import Path
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers.kqueue import KqueueObserver
-
-# Keep this list small and focused; each excluded directory avoids a kqueue watch.
-_EXCLUDED_DIR_NAMES = {
-    ".cache",
-    ".git",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".venv",
-    "__pycache__",
-    "node_modules",
-    "setta_files",
-}
-
-
-def _should_exclude(path: Path) -> bool:
-    return any(part in _EXCLUDED_DIR_NAMES for part in path.parts)
+from watchdog.observers import Observer
 
 
 class LSPFileWatcher:
@@ -32,7 +16,7 @@ class LSPFileWatcher:
             notify_callback: Callback function that sends notifications to the LSP server.
                            Should accept FileSystemEvent as parameter.
         """
-        self.observer = KqueueObserver()
+        self.observer = Observer()
         self.watched_paths: set[str] = set()
         self.handler = LSPEventHandler(notify_callback, asyncio.get_event_loop())
 
@@ -47,7 +31,9 @@ class LSPFileWatcher:
             raise ValueError(f"Path does not exist: {path}")
 
         absolute_path = os.path.abspath(path)
-        self._schedule_with_exclusions(Path(absolute_path))
+        if absolute_path not in self.watched_paths:
+            self.watched_paths.add(absolute_path)
+            self.observer.schedule(self.handler, absolute_path, recursive=True)
 
     def add_python_site_packages(self) -> None:
         """Add Python site-packages directories to watched paths."""
@@ -66,36 +52,6 @@ class LSPFileWatcher:
         """Stop the file watcher."""
         self.observer.stop()
         self.observer.join()
-
-    def _schedule_with_exclusions(self, path: Path) -> None:
-        """
-        Recursively schedule watchers while skipping excluded directories such as node_modules.
-        """
-        if _should_exclude(path) or path.is_symlink():
-            return
-
-        self._schedule_path(path)
-        if not path.is_dir():
-            return
-
-        try:
-            children = [
-                child
-                for child in path.iterdir()
-                if child.is_dir() and not child.is_symlink() and not _should_exclude(child)
-            ]
-        except OSError:
-            return
-
-        for child in children:
-            self._schedule_with_exclusions(child)
-
-    def _schedule_path(self, path: Path) -> None:
-        resolved = str(path.resolve())
-        if resolved in self.watched_paths:
-            return
-        self.watched_paths.add(resolved)
-        self.observer.schedule(self.handler, resolved, recursive=False)
 
 
 class LSPEventHandler(FileSystemEventHandler):

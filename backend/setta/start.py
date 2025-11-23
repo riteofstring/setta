@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -8,11 +7,8 @@ import click
 import uvicorn
 
 from . import __version__
-from .llm.dev_gateway import DevGatewayManager
-from .utils.constants import IS_DEV_MODE, C
+from .utils.constants import C
 from .websockets.connect import connect as _connect
-
-_GATEWAY_STARTED_ENV = "SETTA_DEV_GATEWAY_STARTED"
 
 
 @click.command()
@@ -86,16 +82,7 @@ def cli(ctx, reload, host: str, port: int, log_level):
         )
         server = uvicorn.Server(config)
 
-        gateway_manager: DevGatewayManager | None = None
-        try:
-            if IS_DEV_MODE and not os.environ.get(_GATEWAY_STARTED_ENV):
-                gateway_manager = DevGatewayManager()
-                gateway_manager.ensure_running()
-                os.environ[_GATEWAY_STARTED_ENV] = "1"
-            server.run()
-        finally:
-            if gateway_manager:
-                gateway_manager.stop()
+        server.run()
 
 
 cli.add_command(connect)

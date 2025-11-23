@@ -1,269 +1,50 @@
 import _ from "lodash";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import {
-  useAIStore,
-  useProjectState,
-  type StoredLLMSelection,
-} from "state/definitions";
-import {
-  buildSelectionLookup,
-  findDefaultModelSelection,
-  getProvidersForProject,
-  hydrateSelectionFromConfig,
-  normalizeProjectConfigId,
-  resolveProjectConfigId,
-  selectionToKey,
-} from "state/llm/configSelectors";
-import {
-  applyMessageStarted,
-  applyResponseCompleted,
-  applyTextDelta,
-  applyToolCallDelta,
-  applyToolResult,
-  getDefaultChatDetails,
-  isStreamingStatus,
-  updateChatDetails,
-} from "state/llm/streamingState";
+import { useAIStore, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
   route_get_all_llm_chat_metadata,
   route_get_llm_chat,
-  route_get_llm_config,
-  route_get_llm_presets,
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
-  route_set_llm_config,
-  route_test_llm_config,
 } from "utils/generatedEndpoints";
 import {
-  ChatStreamStatusEnum,
-  createChatMessage,
-  createLLMTextBlock,
+  ChatRoleEnum,
+  createTextBlock,
   IDToUUIDForLLM,
-  LLMRoleEnum,
-  LLMStreamEventTypeEnum,
-  SettaNotificationTypeEnum,
-  type LLMConfigPayload,
-  type LLMConfigTestResultPayload,
-  type LLMPresetCatalogPayload,
-  type LLMStreamingResponse,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { encodeModelSelectionKey } from "utils/llmSelection";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
 
-function parseEndpointError(res: unknown, fallback: string): string {
-  const data = (res as { data?: unknown })?.data;
-  if (data && typeof data === "object" && "detail" in data) {
-    const detail = (data as Record<string, unknown>).detail;
-    return typeof detail === "string" ? detail : String(detail);
-  }
-  return fallback;
-}
-
-export function notifyLLMConfigTestResult(
-  result: LLMConfigTestResultPayload,
-): void {
-  if (!result.gateway.ok) {
-    const detail = result.gateway.error || "Gateway check failed";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
-  }
-
-  const failingProviders = result.providers.filter((provider) => !provider.ok);
-  for (const provider of failingProviders) {
-    const detail = provider.errors[0]?.message || "Provider check failed";
-    const scopeLabel = provider.project_config_id
-      ? `${provider.display_name} (project ${provider.project_config_id})`
-      : provider.display_name;
-    addTemporaryNotification(
-      `${scopeLabel}: ${detail}`,
-      SettaNotificationTypeEnum.error,
-    );
-  }
-
-  if (result.gateway.ok && failingProviders.length === 0) {
-    addTemporaryNotification(
-      "LLM gateway and providers validated successfully",
-      SettaNotificationTypeEnum.success,
-    );
-  }
-}
-
-export async function loadLLMConfig(): Promise<
-  { ok: true } | { ok: false; error: string }
-> {
-  const res = await route_get_llm_config();
-  if (res200(res)) {
-    applyLLMConfigUpdate(res.data);
-    return { ok: true as const };
-  }
-
-  const detail = parseEndpointError(res, "Failed to load LLM configuration");
-  addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
-  useAIStore.setState({
-    llmConfig: null,
-    llmConfigLoaded: true,
-    llmConfigError: detail,
-  });
-  return { ok: false as const, error: detail };
-}
-
-export function applyLLMConfigUpdate(config: LLMConfigPayload) {
-  const activeProjectId = normalizeProjectConfigId(
-    useProjectState.getState().projectConfig.id,
-  );
-  useAIStore.setState((state) => {
-    const projectIds = new Set<string>([
-      ...Object.keys(state.userSelectedLLMByProject ?? {}),
-      activeProjectId,
-    ]);
-    for (const projectId of Object.keys(config.project_configs ?? {})) {
-      projectIds.add(normalizeProjectConfigId(projectId));
-    }
-    if (config.default_project_config_id) {
-      projectIds.add(
-        normalizeProjectConfigId(config.default_project_config_id),
-      );
-    }
-
-    const cleanedSelections: Record<string, StoredLLMSelection | null> = {};
-    for (const projectId of projectIds) {
-      const resolvedProjectId = resolveProjectConfigId(projectId);
-      const providers = getProvidersForProject(config, resolvedProjectId);
-      const selectionLookup = buildSelectionLookup(providers);
-      const initialSelection =
-        state.userSelectedLLMByProject?.[projectId] ?? null;
-      const key = selectionToKey(initialSelection);
-      const sanitizedSelection = key ? selectionLookup.get(key) ?? null : null;
-      const fallbackSelection = findDefaultModelSelection(
-        providers,
-        selectionLookup,
-      );
-      cleanedSelections[projectId] =
-        sanitizedSelection ?? fallbackSelection ?? null;
-    }
-
-    const nextSelection = cleanedSelections[activeProjectId] ?? null;
-
-    return {
-      llmConfig: config,
-      llmConfigLoaded: true,
-      llmConfigError: null,
-      userSelectedLLM: nextSelection,
-      userSelectedLLMByProject: cleanedSelections,
-    };
-  });
-}
-
-function setProjectLLMSelection(
-  projectConfigId: string | null | undefined,
-  selection: StoredLLMSelection | null,
-) {
-  const normalizedId = normalizeProjectConfigId(projectConfigId);
-  const activeProjectId = normalizeProjectConfigId(
-    useProjectState.getState().projectConfig.id,
-  );
-  useAIStore.setState((state) => {
-    const nextSelections = {
-      ...(state.userSelectedLLMByProject ?? {}),
-      [normalizedId]: selection,
-    };
-    if (normalizedId === activeProjectId) {
-      return {
-        userSelectedLLM: selection,
-        userSelectedLLMByProject: nextSelections,
-      };
-    }
-    return {
-      userSelectedLLMByProject: nextSelections,
-    };
-  });
-}
-
-export function setCurrentProjectLLMSelection(
-  selection: StoredLLMSelection | null,
-) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-  setProjectLLMSelection(projectConfigId, selection);
-}
-
-export async function loadLLMPresets() {
-  const res = await route_get_llm_presets();
-  if (res200(res)) {
-    applyLLMPresetsUpdate(res.data);
-    return;
-  }
-
-  useAIStore.setState({
-    llmPresets: null,
-    llmPresetsLoaded: true,
-  });
-}
-
-export function applyLLMPresetsUpdate(catalog: LLMPresetCatalogPayload) {
-  useAIStore.setState({
-    llmPresets: catalog,
-    llmPresetsLoaded: true,
-  });
-}
-
-export async function saveLLMConfig(payload: LLMConfigPayload) {
-  const res = await route_set_llm_config(payload);
-  if (res200(res)) {
-    applyLLMConfigUpdate(res.data);
-    return { ok: true as const };
-  }
-  const detail = parseEndpointError(res, "Failed to save LLM configuration");
-  addTemporaryNotification(detail, SettaNotificationTypeEnum.error);
-  useAIStore.setState({ llmConfigError: detail });
-  return { ok: false as const, error: detail };
-}
-
-export async function testLLMConfig(
-  payload: LLMConfigPayload,
-): Promise<LLMConfigTestResultPayload> {
-  const res = await route_test_llm_config({ config: payload });
-  if (res200(res)) {
-    return res.data;
-  }
-  const detail = parseEndpointError(res, "Failed to test LLM configuration");
-  throw new Error(detail);
+export function getDefaultChatDetails() {
+  return {
+    messages: [],
+    toolResults: {},
+    waitingForResponse: false,
+    streamTarget: null,
+  };
 }
 
 export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, waitingForResponse, modelSelection, streamStatus } =
-      res.data;
-    const modelSelectionKey = modelSelection
-      ? encodeModelSelectionKey({
-          providerId: modelSelection.providerId,
-          modelId: modelSelection.modelId,
-        })
-      : null;
-    const responseProjectConfigId =
-      res.data.projectConfigId ?? projectConfigId ?? null;
-    const hydratedSelection = hydrateSelectionFromConfig(
-      modelSelection,
-      useAIStore.getState().llmConfig,
-      responseProjectConfigId,
-    );
-    const nextWaitingForResponse =
-      isStreamingStatus(streamStatus) || waitingForResponse;
-    updateChatDetails(chatId, (details) => ({
-      ...details,
-      messages,
-      waitingForResponse: nextWaitingForResponse,
-      streamStatus: streamStatus ?? ChatStreamStatusEnum.IDLE,
-      modelSelectionKey,
+    const { messages, toolResults, waitingForResponse } = res.data;
+    useAIStore.setState((state) => ({
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(state.chatDetails[chatId] ?? {}),
+          messages,
+          toolResults,
+          waitingForResponse,
+        },
+      },
+      currentChatId: chatId,
     }));
-    useAIStore.setState({ currentChatId: chatId });
-    if (hydratedSelection) {
-      setProjectLLMSelection(responseProjectConfigId, hydratedSelection);
-    }
   } else {
     useAIStore.setState({ currentChatId: null });
   }
@@ -292,37 +73,21 @@ export function goToChat(id) {
   useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
-export async function rehydrateActiveChat() {
-  const { currentChatId } = useAIStore.getState();
-  if (!currentChatId) {
-    return;
-  }
-  await getLLMChat(currentChatId);
-}
-
 export async function submitMessage(message: string, deepThink) {
   if (!message.trim()) return;
 
   // Add user message immediately for responsive UI
-  const userMessage = createChatMessage({
+  const userMessage = {
     id: createNewId(),
-    role: LLMRoleEnum.USER,
-    content: [createLLMTextBlock({ text: message })],
-  });
+    role: ChatRoleEnum.user,
+    content: [createTextBlock({ text: message, type: "text" })],
+  };
 
   const state = useAIStore.getState();
-  const selection = state.userSelectedLLM;
-  if (!selection) {
-    throw new Error("LLM model selection is required");
-  }
-  const modelSelection = {
-    providerId: selection.providerId,
-    modelId: selection.modelId,
-  };
 
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),
-    modelSelection,
+    model: state.userSelectedLLM,
     message: userMessage,
     deepThink,
     chatId: state.currentChatId,
@@ -333,41 +98,244 @@ export async function submitMessage(message: string, deepThink) {
   }
 }
 
-export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
+export function receiveLLMResponseChunk(msg) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
     const { chatDetails } = useAIStore.getState();
-    const streamTarget = chatDetails[chatId]?.streamTarget;
-
     if (
-      streamTarget &&
-      chunk.event_type === LLMStreamEventTypeEnum.TEXT_DELTA
+      chatDetails[chatId]?.streamTarget &&
+      chunk.type === C.LLM_CONTENT_BLOCK_DELTA &&
+      chunk.delta.type === C.LLM_TEXT_DELTA
     ) {
-      streamInto(chatId, streamTarget, chunk.delta);
+      streamInto(chatId, chatDetails[chatId].streamTarget, chunk.delta.text);
     }
 
-    switch (chunk.event_type) {
-      case LLMStreamEventTypeEnum.MESSAGE_STARTED:
-        applyMessageStarted(chatId, chunk);
+    // Handle different chunk types
+    switch (chunk.type) {
+      case C.LLM_MESSAGE_START:
+        llmMessageStart(chatId, chunk);
         return;
-      case LLMStreamEventTypeEnum.TEXT_DELTA:
-        applyTextDelta(chatId, chunk);
+      case C.LLM_CONTENT_BLOCK_START:
+        llmContentBlockStart(chatId, assistantMessageId, chunk);
         return;
-      case LLMStreamEventTypeEnum.TOOL_CALL_DELTA:
-        applyToolCallDelta(chatId, assistantMessageId, chunk);
+      case C.LLM_CONTENT_BLOCK_DELTA:
+        llmContentBlockDelta(chatId, assistantMessageId, chunk);
         return;
-      case LLMStreamEventTypeEnum.TOOL_RESULT:
-        applyToolResult(chatId, assistantMessageId, chunk);
+      case C.LLM_CONTENT_BLOCK_STOP:
+        llmContentBlockStop(chatId, assistantMessageId, chunk);
         return;
-      case LLMStreamEventTypeEnum.RESPONSE_COMPLETED:
-        applyResponseCompleted(chatId, chunk);
+      case C.LLM_TOOL_RESULT:
+        llmToolResult(chatId, chunk);
         return;
-      default:
+      case C.LLM_FULL_MESSAGE_STOP:
+        llmFullMessageStop(chatId, chunk);
         return;
     }
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);
   }
+}
+
+function llmMessageStart(chatId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: [...(currDetails?.messages ?? []), chunk.message],
+        },
+      },
+    };
+  });
+}
+
+function llmContentBlockStart(chatId, assistantMessageId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+
+    // Create new content array with the updated chunk
+    const message = currMessages[messageIndex];
+    const newContentArray = [...message.content];
+    while (newContentArray.length <= chunk.index) {
+      newContentArray.push(null);
+    }
+    newContentArray[chunk.index] = chunk.content_block;
+
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...currMessages.slice(0, messageIndex),
+      updatedMessage,
+      ...currMessages.slice(messageIndex + 1),
+    ];
+
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+        },
+      },
+    };
+  });
+}
+
+function llmContentBlockDelta(chatId, assistantMessageId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+    const message = currMessages[messageIndex];
+    const newContentArray = [...message.content];
+    const currMsg = newContentArray[chunk.index];
+    let updated = true;
+    switch (chunk.delta.type) {
+      case C.LLM_TEXT_DELTA:
+        currMsg.text += chunk.delta.text;
+        break;
+      case C.LLM_THINKING_DELTA:
+        currMsg.thinking += chunk.delta.thinking;
+        break;
+      case C.LLM_SIGNATURE_DELTA:
+        currMsg.signature = chunk.delta.signature;
+        break;
+      case C.LLM_INPUT_JSON_DELTA:
+        if (typeof currMsg.input !== "string") {
+          currMsg.input = "";
+        }
+        currMsg.input += chunk.delta.partial_json;
+        break;
+      default:
+        updated = false;
+    }
+
+    if (!updated) {
+      return {};
+    }
+
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...currMessages.slice(0, messageIndex),
+      updatedMessage,
+      ...currMessages.slice(messageIndex + 1),
+    ];
+
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+        },
+      },
+    };
+  });
+}
+
+function llmContentBlockStop(chatId, assistantMessageId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+    const message = currMessages[messageIndex];
+    const newContentArray = [...message.content];
+    const currMsg = newContentArray[chunk.index];
+    if (currMsg.type === C.LLM_TOOL_USE) {
+      if (currMsg.input) {
+        currMsg.input = JSON.parse(currMsg.input);
+      } else {
+        currMsg.input = {};
+      }
+    } else {
+      return {};
+    }
+
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...currMessages.slice(0, messageIndex),
+      updatedMessage,
+      ...currMessages.slice(messageIndex + 1),
+    ];
+
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+        },
+      },
+    };
+  });
+}
+
+function llmToolResult(chatId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          toolResults: {
+            ...(currDetails?.toolResults ?? {}),
+            [chunk.tool_use_id]: chunk,
+          },
+        },
+      },
+    };
+  });
+}
+
+function llmFullMessageStop(chatId, chunk) {
+  const { messages, toolResults } = chunk;
+  console.log("messages", messages);
+  useAIStore.setState((state) => {
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          messages,
+          toolResults,
+          waitingForResponse: false,
+          streamTarget: null,
+        },
+      },
+    };
+  });
 }
 
 function streamInto(chatId, streamTarget, content) {

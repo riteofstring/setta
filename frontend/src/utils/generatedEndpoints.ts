@@ -189,34 +189,10 @@ export async function route_get_llm_response(
   return await post("/getLLMResponse", x);
 }
 
-export async function route_get_llm_config(): Promise<
-  ResponseDataAndStatus<gt.LLMConfigPayload>
-> {
-  return await post("/getLLMConfig");
-}
-
-export async function route_get_llm_presets(): Promise<
-  ResponseDataAndStatus<gt.LLMPresetCatalogPayload>
-> {
-  return await post("/getLLMPresets");
-}
-
-export async function route_add_llm_preset(
-  payload: gt.AddLLMPresetRequest,
-): Promise<ResponseDataAndStatus<gt.LLMConfigPayload>> {
-  return await post("/addLLMPreset", payload);
-}
-
-export async function route_test_llm_config(
-  payload: gt.TestLLMConfigRequest | null,
-): Promise<ResponseDataAndStatus<gt.LLMConfigTestResultPayload>> {
-  return await post("/testLLMConfig", payload);
-}
-
-export async function route_set_llm_config(
-  payload: gt.LLMConfigPayload,
-): Promise<ResponseDataAndStatus<gt.LLMConfigPayload>> {
-  return await post("/setLLMConfig", payload);
+export async function route_set_llm_api_keys(
+  x: gt.SetLLMApiKeysRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setLLMApiKeys", x);
 }
 
 export async function route_get_all_llm_chat_metadata(): Promise<

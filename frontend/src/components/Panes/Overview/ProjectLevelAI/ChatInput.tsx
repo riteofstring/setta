@@ -1,16 +1,7 @@
 import { memo, useState } from "react";
 import { IoSend, IoStop } from "react-icons/io5";
 import { submitMessage } from "state/actions/ai";
-import type { StoredLLMSelection } from "state/definitions";
 import { route_stop_llm_chat } from "utils/generatedEndpoints";
-
-type ChatInputProps = {
-  deepThink: boolean;
-  placeholderText: string;
-  waitingForResponse: boolean;
-  userSelectedLLM: StoredLLMSelection | null;
-  currentChatId: string | null;
-};
 
 export const ChatInput = memo(function ChatInput({
   deepThink,
@@ -18,7 +9,7 @@ export const ChatInput = memo(function ChatInput({
   waitingForResponse,
   userSelectedLLM,
   currentChatId,
-}: ChatInputProps) {
+}) {
   const disabled = !userSelectedLLM;
   // Keep input state local to this component
   const [inputValue, setInputValue] = useState("");

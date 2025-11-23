@@ -27,12 +27,13 @@ dependencies = [
     "basedpyright==1.25.0",  # later versions were slower, so stick with this version
     "docstring-to-markdown==0.17",
     "watchdog==6.0.0",
+    "python-dotenv==1.1.0",
     "mcp==1.9.3",
+    "anthropic==0.52.2",
     "ruff==0.12.12",
     "pydantic==2.11.5",
     "lsprotocol==2023.0.1",
     "watchfiles==0.24.0",
-    "portkey-ai==2.0.4"
 ]
 
 [project.urls]
@@ -63,7 +64,7 @@ include = [
 
 [tool.hatch.build]
 artifacts = [
-    "backend/setta/static/**",
+    "backend/setta/static/frontend/**",
 ]
 
 # UV-specific configuration

@@ -32,12 +32,7 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
-import {
-  applyLLMConfigUpdate,
-  receiveLLMResponseChunk,
-  rehydrateActiveChat,
-  updateUUIDMappingForLLM,
-} from "./ai";
+import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -81,7 +76,6 @@ export const openWebSocket = _.debounce(
             processProjectStateUpdateFromBackend(res.data);
           }
         }
-        await rehydrateActiveChat();
       });
 
       wss.addEventListener("message", (event) => {
@@ -121,6 +115,7 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
 
 function receiveMessage(message: string) {
   const m: FrontendWebsocketMsgUnion = JSON.parse(message);
+  console.log(m);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
@@ -147,8 +142,6 @@ function receiveMessage(message: string) {
       return updateArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated:
-      return applyLLMConfigUpdate(m.content);
     default:
       return m satisfies never;
   }
