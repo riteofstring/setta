@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Any
 
@@ -11,14 +10,7 @@ from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
     save_messages,
 )
-from setta.types.chat_messages import (
-    Chat,
-    ChatMessage,
-    MessageContent,
-    MessageImageUrlContent,
-    MessageTextContent,
-    ToolCall,
-)
+from setta.types.chat_messages import Chat, ChatMessage
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
@@ -105,7 +97,10 @@ class LitellmChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to `litellm.acompletion`.
         """
-        messages = [self._serialize_chat_message(message) for message in chat.messages]
+        messages: list[dict[str, Any]] = []
+        for message in chat.messages:
+            payload = message.to_openai_format()
+            messages.append(payload)
         request = {}
         config = self.config.copy()
         if "api_key_env" in config:
@@ -125,54 +120,8 @@ class LitellmChatManager:
         request["messages"] = messages
 
         if not request["model"]:
-            raise ValueError("liteLLM config must specify a model via config or override")
+            raise ValueError(
+                "liteLLM config must specify a model via config or override"
+            )
 
         return request
-
-    def _serialize_chat_message(self, message: ChatMessage) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "role": message.role.value,
-            "content": [
-                self._serialize_content_block(block) for block in message.content
-            ],
-        }
-
-        if message.tool_calls:
-            payload["tool_calls"] = [
-                self._serialize_tool_call(call) for call in message.tool_calls
-            ]
-
-        if message.tool_call_id:
-            payload["tool_call_id"] = message.tool_call_id
-
-        return payload
-
-    def _serialize_tool_call(self, call: ToolCall) -> dict[str, Any]:
-        arguments = call.function.arguments or {}
-        serialized_arguments = json.dumps(arguments)
-        return {
-            "id": call.id,
-            "type": call.type,
-            "function": {
-                "name": call.function.name,
-                "arguments": serialized_arguments,
-            },
-        }
-
-    def _serialize_content_block(self, block: MessageContent) -> dict[str, Any]:
-        if isinstance(block, MessageTextContent):
-            return {
-                "type": "text",
-                "text": block.text,
-            }
-
-        if isinstance(block, MessageImageUrlContent):
-            image_url: dict[str, Any] = {"url": block.url}
-            if block.detail:
-                image_url["detail"] = block.detail
-            return {
-                "type": "image_url",
-                "image_url": image_url,
-            }
-
-        raise TypeError(f"Unsupported message content block: {type(block)}")
