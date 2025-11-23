@@ -1,9 +1,7 @@
 from typing import TYPE_CHECKING
 
-from anthropic.types import TextBlock
-
 from setta.project_state.chats.load import load_chat
-from setta.types.chat_messages import Chat, ChatMessage
+from setta.types.chat_messages import Chat, ChatMessage, MessageTextContent
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
 
@@ -12,14 +10,10 @@ if TYPE_CHECKING:
 
 
 def create_new_chat_name(first_message: ChatMessage) -> str:
-    name = None
     for content_block in first_message.content:
-        if isinstance(content_block, TextBlock):
-            name = content_block.text[:30]
-            break
-    if not name:
-        name = generate_memorable_string()
-    return name
+        if isinstance(content_block, MessageTextContent) and content_block.text:
+            return content_block.text[:30]
+    return generate_memorable_string()
 
 
 def _persist_chat(dbe: "DBE", chat: Chat) -> Chat:

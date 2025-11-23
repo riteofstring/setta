@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 from typing import cast
 
-from anthropic.types import TextBlock
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
@@ -12,14 +11,19 @@ from setta.project_state.chats.save import (
     delete_chat,
     save_messages,
 )
-from setta.types.chat_messages import Chat, ChatMessage, ChatRole
+from setta.types.chat_messages import (
+    Chat,
+    ChatMessage,
+    ChatRole,
+    MessageTextContent,
+)
 
 
 def create_message(text: str, role: ChatRole = ChatRole.user) -> ChatMessage:
     return ChatMessage(
         id=create_new_id(),
         role=role,
-        content=[TextBlock(type="text", text=text)],
+        content=[MessageTextContent(type="text", text=text)],
     )
 
 
@@ -40,8 +44,8 @@ class ChatStorageTests(unittest.TestCase):
         self.assertEqual(chat.name, loaded_chat.name)
         self.assertEqual(1, len(loaded_chat.messages))
         text_block = loaded_chat.messages[0].content[0]
-        self.assertIsInstance(text_block, TextBlock)
-        text_block = cast("TextBlock", text_block)
+        self.assertIsInstance(text_block, MessageTextContent)
+        text_block = cast("MessageTextContent", text_block)
         self.assertEqual("Hello there", text_block.text)
 
     def test_save_messages_appends_and_updates_timestamp(self):
