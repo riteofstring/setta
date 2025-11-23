@@ -5,8 +5,8 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.llm.litellm_chat_manager import LitellmChatManager
+from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts

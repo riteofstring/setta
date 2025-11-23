@@ -4,7 +4,6 @@ from typing import Any, NotRequired, TypedDict
 
 from setta.utils.constants import C
 
-
 CONFIG_FILENAME = "llm_config.json"
 
 

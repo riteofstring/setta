@@ -11,8 +11,10 @@ from setta.mcp.client import MCPClient
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
     create_new_chat,
-    delete_chat as delete_chat_record,
     save_messages,
+)
+from setta.project_state.chats.save import (
+    delete_chat as delete_chat_record,
 )
 from setta.types.chat_messages import (
     Chat,
@@ -26,7 +28,6 @@ from setta.types.chat_messages import (
     MessageTextDelta,
 )
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
 
 logger = logging.getLogger(__name__)
 
