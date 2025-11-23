@@ -1,9 +1,11 @@
+import json
 import logging
 import os
+from dataclasses import dataclass, field
 from typing import Any, Iterator
 
 import litellm
-from litellm.types.utils import ModelResponseStream
+from litellm.types.utils import ModelResponseStream, Delta, ChatCompletionDeltaToolCall
 
 from setta.database.db_objs import DBE
 from setta.llm.config import LiteLLMConfig, load_litellm_config
@@ -21,6 +23,8 @@ from setta.types.chat_messages import (
     ChatMessage,
     ChatRole,
     MessageTextContent,
+    ToolCall,
+    ToolCallFunction,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -28,10 +32,16 @@ from setta.types.chat_stream_events import (
     MessageStartEvent,
     MessageStopEvent,
     MessageTextDelta,
+    ToolCallDeltaEvent,
 )
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ToolCallStreamState:
+    argument_buffers: dict[int, str] = field(default_factory=dict)
 
 
 class LitellmChatManager:
@@ -86,12 +96,12 @@ class LitellmChatManager:
             chat,
             model_override=model or None,
         )
-        payload["stream"] = True
 
         assistant_message = ChatMessage(
             role=ChatRole.assistant,
             content=[],
         )
+        tool_call_state = ToolCallStreamState()
 
         await self.websocket_msg_handler.send_streaming_response(
             chat.id,
@@ -100,14 +110,19 @@ class LitellmChatManager:
         )
 
         try:
-            stream = await litellm.acompletion(**payload)
+            stream = await litellm.acompletion(**payload, stream=True)
         except Exception:
             logger.exception("litellm failed to start streaming for chat %s", chat.id)
             raise
 
         async for chunk in self._iterate_stream(stream):
             try:
-                await self._handle_stream_chunk(chat.id, assistant_message, chunk)
+                await self._handle_stream_chunk(
+                    chat.id,
+                    assistant_message,
+                    chunk,
+                    tool_call_state,
+                )
             except Exception:
                 logger.exception(
                     "litellm streaming chunk handling failed for chat %s", chat.id
@@ -118,6 +133,7 @@ class LitellmChatManager:
             assistant_message.id,
             MessageStopEvent(message_id=assistant_message.id),
         )
+        self._finalize_tool_calls(assistant_message, tool_call_state)
         save_messages(self.dbe, chat.id, [assistant_message])
         await self.websocket_msg_handler.send_streaming_response(
             chat.id,
@@ -198,6 +214,7 @@ class LitellmChatManager:
         chat_id: str,
         assistant_message: ChatMessage,
         chunk: ModelResponseStream,
+        tool_call_state: ToolCallStreamState,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -208,10 +225,39 @@ class LitellmChatManager:
         if not delta:
             return
 
-        delta_content = delta.content
-        content_entries = list(self._iter_content_entries(delta_content))
-        if not content_entries:
+        await self._handle_text_deltas(chat_id, assistant_message, delta)
+
+        await self._handle_tool_call_deltas(
+            chat_id,
+            assistant_message,
+            delta,
+            tool_call_state,
+        )
+
+    async def _handle_text_deltas(
+        self,
+        chat_id: str,
+        assistant_message: ChatMessage,
+        delta: Delta,
+    ) -> None:
+        text_deltas = self._build_text_deltas(delta, assistant_message)
+        if not text_deltas:
             return
+        await self.websocket_msg_handler.send_streaming_response(
+            chat_id,
+            assistant_message.id,
+            MessageDeltaEvent(
+                message_id=assistant_message.id,
+                content=text_deltas,
+            ),
+        )
+
+    def _build_text_deltas(
+        self, delta: Delta, assistant_message: ChatMessage
+    ) -> list[MessageTextDelta]:
+        content_entries = list(self._iter_content_entries(delta))
+        if not content_entries:
+            return []
 
         deltas: list[MessageTextDelta] = []
         for entry_type, text_value, provided_index in content_entries:
@@ -223,25 +269,14 @@ class LitellmChatManager:
             block = self._ensure_text_content_block(assistant_message, index)
             block.text += text_value
             deltas.append(MessageTextDelta(index=index, text=text_value))
-
-        if not deltas:
-            return
-
-        await self.websocket_msg_handler.send_streaming_response(
-            chat_id,
-            assistant_message.id,
-            MessageDeltaEvent(
-                message_id=assistant_message.id,
-                content=deltas,
-            ),
-        )
+        return deltas
 
     def _iter_content_entries(
-        self, content: Any
+        self, delta: Delta
     ) -> Iterator[tuple[str | None, str | None, int | None]]:
-        if content is None:
+        if delta.content is None:
             return
-        entries = content if isinstance(content, list) else [content]
+        entries = delta.content if isinstance(delta.content, list) else [delta.content]
         for entry in entries:
             if isinstance(entry, str):
                 yield None, entry, None
@@ -253,6 +288,106 @@ class LitellmChatManager:
             text_value = getattr(entry, "text", None)
             index = getattr(entry, "index", None)
             yield entry_type, text_value, index
+
+    async def _handle_tool_call_deltas(
+        self,
+        chat_id: str,
+        assistant_message: ChatMessage,
+        delta: Delta,
+        tool_call_state: ToolCallStreamState,
+    ) -> None:
+        entries = delta.tool_calls
+        if not entries:
+            return
+
+        for entry in entries:
+            event = self._apply_tool_call_delta(
+                assistant_message,
+                entry,
+                tool_call_state,
+            )
+            if not event:
+                continue
+            await self.websocket_msg_handler.send_streaming_response(
+                chat_id,
+                assistant_message.id,
+                event,
+            )
+
+    def _apply_tool_call_delta(
+        self,
+        assistant_message: ChatMessage,
+        entry: ChatCompletionDeltaToolCall,
+        tool_call_state: ToolCallStreamState,
+    ) -> ToolCallDeltaEvent | None:
+        index = entry.index
+        if index < 0:
+            raise IndexError
+
+        tool_call = self._ensure_tool_call_entry(assistant_message, index)
+
+        if entry.id:
+            tool_call.id = entry.id
+
+        if entry.function.name:
+            tool_call.function.name = entry.function.name
+
+        buffer = tool_call_state.argument_buffers.get(index, "")
+        buffer += entry.function.arguments
+        tool_call_state.argument_buffers[index] = buffer
+
+        return ToolCallDeltaEvent(
+            message_id=assistant_message.id,
+            tool_call_id=tool_call.id,
+            arguments_delta=entry.function.arguments,
+        )
+
+    def _ensure_tool_call_entry(
+        self, assistant_message: ChatMessage, index: int
+    ) -> ToolCall:
+        if assistant_message.tool_calls is None:
+            assistant_message.tool_calls = []
+        while len(assistant_message.tool_calls) <= index:
+            assistant_message.tool_calls.append(
+                ToolCall(
+                    function=ToolCallFunction(
+                        name="",
+                        arguments={},
+                    )
+                )
+            )
+        return assistant_message.tool_calls[index]
+
+    def _finalize_tool_calls(
+        self,
+        assistant_message: ChatMessage,
+        tool_call_state: ToolCallStreamState,
+    ) -> None:
+        if not assistant_message.tool_calls:
+            return
+        for index, tool_call in enumerate(assistant_message.tool_calls):
+            raw_arguments = tool_call_state.argument_buffers.get(index)
+            if not raw_arguments:
+                continue
+            tool_call.function.arguments = self._parse_tool_call_arguments(
+                raw_arguments, tool_call.id
+            )
+
+    def _parse_tool_call_arguments(
+        self, arguments: str, tool_call_id: str
+    ) -> dict[str, Any]:
+        try:
+            data = arguments.strip()
+            if not data:
+                return {}
+            return json.loads(data)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Failed to parse tool call arguments for tool_call_id=%s",
+                tool_call_id,
+                exc_info=True,
+            )
+            return {}
 
     def _resolve_content_index(
         self, provided_index: Any, assistant_message: ChatMessage
