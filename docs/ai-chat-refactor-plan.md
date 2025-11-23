@@ -47,6 +47,7 @@
 - Ensure tool call arguments/returns are JSON-serializable and validated.
 
 ## File Editing Strategy
+- Defer implementing new write-capable MCP tools until the rest of the AI/chat refactor is stable; the existing `read_file_range` tool is sufficient for interim testing.
 - Prefer structured operations: read-range, insert-at-line, replace-range, apply unified diff.
 - For streaming inserts into sections, reuse `start/stop` streaming semantics but backed by shared patch utilities.
 - Guard writes with DBE locks; emit errors clearly to the LLM if conflicts occur.
