@@ -69,18 +69,41 @@
 5) Cleanup + tests: drop old Anthropic codepaths, add tests and manual checklist.
 
 ## Progress
-- ✅ Replaced `backend/setta/types/chat_messages.py` with OpenAI-style message/tool schemas and a provider-agnostic streaming envelope (breaking Anthropic Raw* usage so downstream layers can now be refactored).
-- ✅ Added `litellm` as a backend dependency and introduced `backend/setta/llm/config.py`, which reads/writes `setta_files/llm_config.json` with model/provider/base_url/api-key-env defaults so the new chat manager has a file-driven source of truth.
-- ✅ Deleted the Anthropic-specific `ChatManager` and replaced it with the new `backend/setta/llm/litellm_chat_manager.py` entry point, so upcoming work can build the litellm streaming/tool-call pipeline without legacy shims (methods fail fast until implemented).
-- ✅ Rewired chat persistence helpers/tests to the new message schema and hooked `LitellmChatManager` to them, so chats can now be created, appended, listed, and deleted without any Anthropic-only assumptions.
-- ✅ Expanded the LiteLLM config surface to a typed dict and taught `LitellmChatManager` how to serialize stored chat/tool data into the OpenAI-compatible payload (`messages`, `tool_calls`, `image_url` blocks, env-var API keys, provider params). This unlocks end-to-end request construction once streaming is implemented.
-- ✅ Shifted OpenAI payload serialization into `ChatMessage.to_openai_format()` and updated `image_url` content to the nested shape, allowing `LitellmChatManager` to consume the schema directly without bespoke helper functions.
-- ✅ Implemented the initial LiteLLM streaming loop in `LitellmChatManager.process_query`, emitting provider-agnostic `message_start`/`message_delta`/`message_stop`/`message_finalized` events while persisting the assembled assistant message (tool-call deltas still pending).
-- ✅ Extended the LiteLLM streaming loop to process tool-call deltas: chunks now populate assistant `tool_calls`, emit `tool_call_delta` events, and persist parsed arguments so MCP routing can be layered in next.
-- ✅ Split streaming text handling into `_handle_text_deltas` to mirror `_handle_tool_call_deltas`, keeping the manager aligned with the new event model.
-- ✅ Dropped the bespoke MCP tool registry in favor of a global `SETTA_MCP_TOOLS` list + decorator (kept lightweight inside `backend/setta/mcp/tool_setup.py`), keeping the MCP server as the sole source of truth for discovery and schema exposure.
-- ✅ Introduced `backend/setta/types/chat_stream_events.py` as the single source for streaming event/delta models plus the `LLMStreamingResponse` envelope, and rewired the LiteLLM chat manager + WebSocket sender/types to consume it so no legacy Anthropic payload wrappers remain.
-- ✅ Added the first structured MCP tool (`read_file_range`) with workspace-scoped streaming reads plus unit tests, clearing out the Anthropic string-replace shim so upcoming LiteLLM tool calls have a deterministic file-read primitive.
-- ✅ Added `StreamingSession` tracking inside `LitellmChatManager`, enforcing that LiteLLM streams expose `CustomStreamWrapper` handles, registering session state for each chat, and cleaning up bookkeeping after completion so stop/waiting APIs can build on real session data.
-- ✅ Simplified the streaming envelope and frontend state: dropped the unused `assistantMessageId`, rebuilt `receiveLLMResponseChunk` around the new OpenAI-style events, and typed `chatDetails`/`ChatDetails` so the Zustand store mirrors the backend message/tool schemas without any Anthropic-era shims.
-- ✅ Hooked LiteLLM tool calls to the MCP client so we now parse streamed arguments, invoke `MCPClient.call_tool` for each function call, and surface the normalized `ToolResult` payloads for future websocket/tool-result wiring.
+- ✅ Standardized chat persistence to the new OpenAI-style schema in `backend/setta/types/chat_messages.py`, including `ChatMessage.to_openai_format()` so LiteLLM always serializes messages/tool calls/image blocks from a single source of truth.
+- ✅ Added the `litellm` dependency plus `backend/setta/llm/config.py`, and swapped the Anthropic `ChatManager` for `backend/setta/llm/litellm_chat_manager.py`, so all router entry points talk to the new manager/persistence stack.
+- ✅ Built typed streaming envelopes in `backend/setta/types/chat_stream_events.py`, rewired the WebSocket sender, and updated `frontend/src/state/actions/ai.ts` to consume `message_start`/`delta`/`tool_call_delta` events while assembling assistant messages in the Zustand store.
+- ✅ Implemented the LiteLLM streaming scaffolding (`ToolCallStreamState`, `_handle_text_deltas`, `_handle_tool_call_deltas`, `StreamingSession`) and bridged tool calls through `MCPClient.call_tool`, so streamed tool metadata is parsed and ready for MCP dispatch even though downstream wiring is still in progress.
+- ✅ Replaced the bespoke MCP registry with the `SETTA_MCP_TOOLS` decorator, imported the MCP tools package from `server.py`, and introduced the tested `read_file_range` helper as the first deterministic building block for future file-edit tooling.
+
+## Remaining Work
+
+### Backend / LiteLLM integration
+- `backend/setta/llm/litellm_chat_manager.py` still raises `NotImplementedError` for `request_stop_streaming`, `is_waiting_for_response`, `get_current_stream`, and `separate_tool_results`. As a result `/getLLMChat` and `/stopLLMChat` 500 and the frontend can’t hydrate waiting states. Implement these methods using `StreamingSession` state so routers work again.
+- `_handle_text_deltas` currently returns before calling `WMHFrontendSender.send_streaming_response` (see the early `return` on the `MessageDeltaEvent` block), so no `message_delta` updates ever reach the client. Fix the control flow, cover it with tests, and ensure assistant messages stream incrementally.
+- The LiteLLM payload built in `_build_litellm_request_payload` never includes `tools` (nor `tool_choice`), even though `MCPClient.available_tools` is populated. Tool calls therefore never fire. Inject tool schemas from the MCP client into the payload and make sure contextual args (e.g., `setta_chat_id`, `projectConfigId`) are forwarded when dispatching MCP calls.
+- `_run_tool_calls` executes MCP tools but the returned `ToolResult` values are neither persisted nor broadcast—`ToolResultEvent` is defined but unused. Save tool outputs (likely as `role="tool"` messages or in a dedicated map), emit `tool_result` WebSocket events, and complete `separate_tool_results` so `/getLLMChat` can replay results.
+- Streaming session bookkeeping isn’t exposed: the manager never marks chats as “waiting,” `request_stop_streaming` can’t cancel `CustomStreamWrapper` handles, and `get_current_stream` can’t merge in-flight assistant messages. Wire `StreamingSession` data into those APIs and honor the `StopLLMChat` endpoint.
+- `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
+- `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.
+
+### MCP tools & file editing
+- `read_file_range` lives in `backend/setta/mcp/tools/file_read.py` but it isn’t decorated with `@setta_tool`, so `SETTA_MCP_TOOLS` never exports it even though we import the module in `server.py`. Register it (with a descriptive docstring) so LiteLLM can actually call the tool.
+- Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. Build them as MCP tools so the old Anthropic-era `startStreamingInto` shim can be removed.
+- Provide richer tool metadata: JSON schemas/descriptions are still minimal, making it hard for LiteLLM to ground requests.
+- Make sure LiteLLM discovers tools through the MCP client rather than assuming hard-coded helpers—`MCPClient.available_tools` is ready but currently unused.
+
+### Frontend / chat UI
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` wraps the entire pane in `apiKeysInitialLoadComplete && (…)`, but `apiKeysInitialLoadComplete` is never flipped anywhere in `frontend/src/state/definitions.ts`. The chat UI never renders until we hydrate API keys or remove that gate.
+- The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the forthcoming LLM config endpoints instead of static data.
+- `ProjectChatCore.tsx` still assumes Anthropic-style `tool_use`, `thinking`, and `startStreamingInto` content blocks. It ignores `message.tool_calls` and the streamed `toolCallArguments` gathered in `state/actions/ai.ts`, so tool call progress/results never display. Rebuild the renderer around the new OpenAI-style schema (text + image content plus explicit `tool_calls`) and surface streamed arguments/results to the user.
+- `handleToolResult` updates the store, but the UI has nowhere to show tool result payloads or errors, and there is no stop button to call `/stopLLMChat`. Add those affordances once the backend emits the corresponding events.
+- Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
+
+### Configuration & API keys
+- There is no endpoint or file-watcher flow that loads existing API keys into `useAIStore`, so `apiKeys` stays empty and `apiKeysInitialLoadComplete` cannot flip. Add a `GET_LLM_API_KEYS` route (and/or watcher) to hydrate the store on startup.
+- Expose and persist `setta_files/llm_config.json` so the UI can manage provider/model/base_url/api-key-env mappings instead of writing raw `.env` variables via `route_set_llm_api_keys`.
+- Persist per-chat provider/model selections server-side (or at least fetch defaults from the backend) so reloads keep context; `userSelectedLLM` is currently a client-only string.
+
+### Testing & verification
+- Add backend unit tests for `LitellmChatManager`: payload construction, streaming chunk handling, `MessageDeltaEvent` emission, tool call argument parsing, session cancellation, and WebSocket dispatch. None exist today.
+- Add integration coverage (or a documented manual checklist) for end-to-end LiteLLM streaming with MCP tools, file-edit operations, and config persistence. Right now the only automated exercise is `tests/mcp/test_file_read_tool.py`.
