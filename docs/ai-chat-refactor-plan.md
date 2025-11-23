@@ -73,3 +73,4 @@
 ## Progress
 - ✅ Replaced `backend/setta/types/chat_messages.py` with OpenAI-style message/tool schemas and a provider-agnostic streaming envelope (breaking Anthropic Raw* usage so downstream layers can now be refactored).
 - ✅ Added `litellm` as a backend dependency and introduced `backend/setta/llm/config.py`, which reads/writes `setta_files/llm_config.json` with model/provider/base_url/api-key-env defaults so the new chat manager has a file-driven source of truth.
+- ✅ Deleted the Anthropic-specific `ChatManager` and replaced it with the new `backend/setta/llm/litellm_chat_manager.py` entry point, so upcoming work can build the litellm streaming/tool-call pipeline without legacy shims (methods fail fast until implemented).
