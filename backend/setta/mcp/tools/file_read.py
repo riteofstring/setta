@@ -1,17 +1,15 @@
 from pathlib import Path
 from typing import Any
 
-from setta.mcp.tool_setup import ToolRunContext
-
 
 def read_file_range(
-    context: ToolRunContext,
     *,
     path: str,
     start_line: int | None = None,
     end_line: int | None = None,
+    workspace_root: str | Path | None = None,
 ) -> dict[str, Any]:
-    file_path = context.filesystem_path(path).resolve()
+    file_path = _resolve_path(path, workspace_root)
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
     if not file_path.is_file():
@@ -40,7 +38,8 @@ def read_file_range(
             if resolved_end is not None and line_number >= resolved_end:
                 break
 
-    relative_path = _relative_to_workspace(file_path, context.workspace_root)
+    base = _workspace_root(workspace_root)
+    relative_path = _relative_to_workspace(file_path, base)
 
     return {
         "path": relative_path,
@@ -68,9 +67,21 @@ def _normalize_end_line(end_line: int | None) -> int | None:
     return end_line
 
 
+def _workspace_root(workspace_root: str | Path | None) -> Path:
+    if workspace_root is None:
+        return Path.cwd()
+    return Path(workspace_root).resolve()
+
+
+def _resolve_path(path: str, workspace_root: str | Path | None) -> Path:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return (_workspace_root(workspace_root) / candidate).resolve()
+
+
 def _relative_to_workspace(file_path: Path, workspace_root: Path) -> str:
-    base = workspace_root.resolve()
     try:
-        return str(file_path.relative_to(base))
+        return str(file_path.relative_to(workspace_root))
     except ValueError:
         return str(file_path)
