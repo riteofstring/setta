@@ -82,3 +82,4 @@
 - ✅ Split streaming text handling into `_handle_text_deltas` to mirror `_handle_tool_call_deltas`, keeping the manager aligned with the new event model.
 - ✅ Created the provider-agnostic MCP tool registry (`backend/setta/mcp/tool_registry.py`) with `ToolDefinition`, `ToolRunContext`, and the shared `TOOL_REGISTRY` singleton so both the LiteLLM chat manager and future MCP server wiring can register/consume tool metadata without the legacy Anthropic shims.
 - ✅ Introduced `backend/setta/types/chat_stream_events.py` as the single source for streaming event/delta models plus the `LLMStreamingResponse` envelope, and rewired the LiteLLM chat manager + WebSocket sender/types to consume it so no legacy Anthropic payload wrappers remain.
+- ✅ Added the first structured MCP tool (`read_file_range`) with workspace-scoped streaming reads plus unit tests, clearing out the Anthropic string-replace shim so upcoming LiteLLM tool calls have a deterministic file-read primitive.

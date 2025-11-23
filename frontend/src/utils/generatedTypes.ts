@@ -286,6 +286,17 @@ export const ChatRoleEnum = {
 
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
+export const StreamingEventTypeEnum = {
+  MESSAGE_START: "message_start",
+  DELTA: "delta",
+  TOOL_CALL_DELTA: "tool_call_delta",
+  TOOL_RESULT: "tool_result",
+  MESSAGE_STOP: "message_stop",
+  MESSAGE_FINALIZED: "message_finalized",
+} as const;
+
+export type StreamingEventType = ObjectValues<typeof StreamingEventTypeEnum>;
+
 export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
 
 export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
@@ -989,6 +1000,13 @@ export function createMessageImageUrlContent(
   return MessageImageUrlContentSchema.parse(options);
 }
 
+export const MessageContentSchema = z.union([
+  MessageTextContentSchema,
+  MessageImageUrlContentSchema,
+]);
+
+export type MessageContent = z.infer<typeof MessageContentSchema>;
+
 export const ToolCallFunctionSchema = z.object({
   name: z.string(),
   arguments: z.record(z.string(), z.any()).default({}),
@@ -1034,7 +1052,9 @@ export function createChatMessage(
 }
 
 export const MessageStartEventSchema = z.object({
-  type: z.literal("message_start").default("message_start" as const),
+  type: z
+    .literal("message_start")
+    .default(StreamingEventTypeEnum.MESSAGE_START),
   message: ChatMessageSchema,
 });
 
@@ -1061,7 +1081,7 @@ export function createMessageTextDelta(
 }
 
 export const MessageDeltaEventSchema = z.object({
-  type: z.literal("delta").default("delta" as const),
+  type: z.literal("delta").default(StreamingEventTypeEnum.DELTA),
   message_id: z.string(),
   content: z.union([z.array(MessageTextDeltaSchema), z.null()]).default(null),
 });
@@ -1075,7 +1095,9 @@ export function createMessageDeltaEvent(
 }
 
 export const ToolCallDeltaEventSchema = z.object({
-  type: z.literal("tool_call_delta").default("tool_call_delta" as const),
+  type: z
+    .literal("tool_call_delta")
+    .default(StreamingEventTypeEnum.TOOL_CALL_DELTA),
   message_id: z.string(),
   tool_call_id: z.string(),
   arguments_delta: z.string(),
@@ -1192,7 +1214,7 @@ export function createToolResult(
 }
 
 export const ToolResultEventSchema = z.object({
-  type: z.literal("tool_result").default("tool_result" as const),
+  type: z.literal("tool_result").default(StreamingEventTypeEnum.TOOL_RESULT),
   result: ToolResultSchema,
 });
 
@@ -1205,7 +1227,7 @@ export function createToolResultEvent(
 }
 
 export const MessageStopEventSchema = z.object({
-  type: z.literal("message_stop").default("message_stop" as const),
+  type: z.literal("message_stop").default(StreamingEventTypeEnum.MESSAGE_STOP),
   message_id: z.string(),
 });
 
@@ -1218,7 +1240,9 @@ export function createMessageStopEvent(
 }
 
 export const MessageFinalizedEventSchema = z.object({
-  type: z.literal("message_finalized").default("message_finalized" as const),
+  type: z
+    .literal("message_finalized")
+    .default(StreamingEventTypeEnum.MESSAGE_FINALIZED),
   message: ChatMessageSchema,
 });
 
@@ -1242,13 +1266,6 @@ export const LLMStreamingResponseChunkSchema = z.union([
 export type LLMStreamingResponseChunk = z.infer<
   typeof LLMStreamingResponseChunkSchema
 >;
-
-export const MessageContentSchema = z.union([
-  MessageTextContentSchema,
-  MessageImageUrlContentSchema,
-]);
-
-export type MessageContent = z.infer<typeof MessageContentSchema>;
 
 export const AllImplFieldsSchema = z.literal([
   "activeLayerIdx",

@@ -20,7 +20,7 @@ def getInstalledPythonPackages():
 @setta_tool
 def getTerminalOutput(setta_state: SettaFastAPIState, sectionId: ID):
     """
-    Returns the history of outputs of a terminal
+    Returns the history of outputs of a terminal.
     Args:
         sectionId: The id of the terminal.
     """

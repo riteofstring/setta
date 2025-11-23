@@ -1,19 +1,9 @@
 import asyncio
-import json
 from contextlib import AsyncExitStack
 
 from anthropic.types import ToolParam
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from mcp.types import CallToolResult, TextContent
-
-from setta.mcp.str_replace_editor_tool_fns import (
-    handle_str_replace_editor_tool_create,
-    handle_str_replace_editor_tool_insert,
-    handle_str_replace_editor_tool_str_replace,
-    handle_str_replace_editor_tool_view,
-)
-from setta.utils.constants import C
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
@@ -95,9 +85,6 @@ class MCPClient:
             await self.session.send_ping()
 
     async def call_tool(self, tool_name: str, tool_args: dict):
-        if tool_name == C.LLM_STR_REPLACE_EDITOR_TOOL:
-            return handle_str_replace_editor_tool(tool_args)
-
         if not self.session:
             raise ValueError
 
@@ -110,41 +97,3 @@ class MCPClient:
         # Set flags to indicate shutdown
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
-
-
-def handle_str_replace_editor_tool(tool_args: dict):
-    content = ""
-    isError = False
-    try:
-        command = tool_args["command"]
-        file_path = tool_args["path"]
-        if command == "view":
-            content = handle_str_replace_editor_tool_view(
-                file_path, tool_args.get("view_range")
-            )
-        elif command == "str_replace":
-            content = handle_str_replace_editor_tool_str_replace(
-                file_path, tool_args["old_str"], tool_args["new_str"]
-            )
-        elif command == "create":
-            content = handle_str_replace_editor_tool_create(
-                file_path, tool_args["file_text"]
-            )
-        elif command == "insert":
-            content = handle_str_replace_editor_tool_insert(
-                file_path, tool_args["insert_line"], tool_args["new_str"]
-            )
-        elif command == "undo_edit":
-            # TODO
-            content = "undo_edit is not yet implemented"
-            isError = True
-    except Exception as e:
-        content = str(e)
-        isError = True
-
-    if not isinstance(content, str):
-        content = json.dumps(content)
-
-    return CallToolResult(
-        content=[TextContent(type="text", text=content)], isError=isError
-    )

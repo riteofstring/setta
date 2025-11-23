@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator
 
 import litellm
-from litellm.types.utils import ModelResponseStream, Delta, ChatCompletionDeltaToolCall
+from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 
 from setta.database.db_objs import DBE
 from setta.llm.config import LiteLLMConfig, load_litellm_config

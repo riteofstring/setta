@@ -1,0 +1,76 @@
+from pathlib import Path
+from typing import Any
+
+from setta.mcp.tool_registry import ToolRunContext
+
+
+def read_file_range(
+    context: ToolRunContext,
+    *,
+    path: str,
+    start_line: int | None = None,
+    end_line: int | None = None,
+) -> dict[str, Any]:
+    file_path = context.filesystem_path(path).resolve()
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    if not file_path.is_file():
+        raise ValueError(f"Path is not a file: {file_path}")
+
+    resolved_start = _normalize_start_line(start_line)
+    resolved_end = _normalize_end_line(end_line)
+    if resolved_end is not None and resolved_end < resolved_start:
+        raise ValueError("end_line must be greater than or equal to start_line")
+
+    snippet_lines: list[str] = []
+    realized_end_line = resolved_start - 1
+
+    try:
+        handle = file_path.open("r", encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"File is not UTF-8 encoded: {file_path}") from exc
+
+    with handle:
+        for line_number, raw_line in enumerate(handle, start=1):
+            if line_number >= resolved_start and (
+                resolved_end is None or line_number <= resolved_end
+            ):
+                snippet_lines.append(raw_line.rstrip("\r\n"))
+                realized_end_line = line_number
+            if resolved_end is not None and line_number >= resolved_end:
+                break
+
+    relative_path = _relative_to_workspace(file_path, context.workspace_root)
+
+    return {
+        "path": relative_path,
+        "absolute_path": str(file_path),
+        "start_line": resolved_start,
+        "end_line": realized_end_line,
+        "encoding": "utf-8",
+        "content": "\n".join(snippet_lines),
+    }
+
+
+def _normalize_start_line(start_line: int | None) -> int:
+    if start_line is None:
+        return 1
+    if start_line < 1:
+        raise ValueError("start_line must be at least 1")
+    return start_line
+
+
+def _normalize_end_line(end_line: int | None) -> int | None:
+    if end_line is None:
+        return None
+    if end_line < 1:
+        raise ValueError("end_line must be at least 1")
+    return end_line
+
+
+def _relative_to_workspace(file_path: Path, workspace_root: Path) -> str:
+    base = workspace_root.resolve()
+    try:
+        return str(file_path.relative_to(base))
+    except ValueError:
+        return str(file_path)

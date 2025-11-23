@@ -74,7 +74,6 @@ class C:
     LLM_THINKING = "thinking"
     LLM_TOOL_USE = "tool_use"
     LLM_TOOL_RESULT = "tool_result"
-    LLM_STR_REPLACE_EDITOR_TOOL = "str_replace_editor"
     SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR"
 
     MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
