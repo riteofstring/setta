@@ -139,8 +139,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <NotificationsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    case OverviewTabNameEnum.ProjectAISettings:
-      return <ProjectLLMSettings />;
+    // case OverviewTabNameEnum.ProjectAISettings:
+      // return <ProjectLLMSettings />;
     default:
       return selectedTabName satisfies never;
   }
