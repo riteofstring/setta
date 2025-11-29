@@ -44,13 +44,13 @@ class AllLLMConfigs(BaseModel):
         llm_config_id: str,
     ) -> LLMConfig:
         if not llm_config_id:
-            raise ValueError("liteLLM config requires a provider id")
+            raise ValueError("LLM config requires a provider id")
         config = self.configs.get(llm_config_id)
         if not config:
-            raise ValueError(f"liteLLM config missing provider '{llm_config_id}'")
+            raise ValueError(f"LLM config missing provider '{llm_config_id}'")
         return config
 
-    def build_litellm_params(
+    def build_llm_params(
         self,
         llm_config: LLMConfig,
     ) -> tuple[dict[str, Any], str | None]:

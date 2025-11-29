@@ -1,4 +1,4 @@
-"""File watcher that keeps the LiteLLM config in sync with disk edits."""
+"""File watcher that keeps the LLM config in sync with disk edits."""
 
 import logging
 from pathlib import Path
@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from setta.llm.config import load_litellm_config
-from setta.llm.litellm_chat_manager import LitellmChatManager
+from setta.llm.config import load_llm_config
+from setta.llm.llm_chat_manager import LLMChatManager
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.constants import CWD, C
@@ -29,7 +29,7 @@ class LLMConfigWatcher:
     def __init__(
         self,
         specific_file_watcher: "SpecificFileWatcher",
-        chat_manager: LitellmChatManager,
+        chat_manager: LLMChatManager,
         websocket_msg_handler: WMHFrontendSender,
         *,
         config_path: Path | None = None,
@@ -54,7 +54,7 @@ class LLMConfigWatcher:
 
     async def _reload_config(self) -> None:
         try:
-            config = load_litellm_config(self._config_path)
+            config = load_llm_config(self._config_path)
         except ValidationError as exc:
             logger.exception("Invalid LLM config", exc_info=exc)
             await self.websocket_msg_handler.broadcast_notification(
@@ -67,6 +67,6 @@ class LLMConfigWatcher:
 
         self.chat_manager.update_config(config)
         logger.info(
-            "Reloaded LiteLLM config with %s providers",
+            "Reloaded LLM config with %s providers",
             len(self.chat_manager.config.configs),
         )

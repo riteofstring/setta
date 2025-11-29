@@ -1,17 +1,17 @@
-# AI/Chat/MCP Refactor Plan (LiteLLM-first)
+# AI/Chat/MCP Refactor Plan (LLM-first)
 
 ## Goals
-- Support every provider we care about through `litellm`, including streamed deltas and streamed tool calls.
+- Support every provider we care about through the shared LLM client, including streamed deltas and streamed tool calls.
 - Keep chat persistence, transport, and UI agnostic to vendor-specific payloads.
 - Route all automated edits through deterministic MCP tools so Setta can apply file changes safely.
 - Offer a modern settings experience for multiple providers, models, base URLs, and API-key storage.
 - Embrace the new architecture; no backward compatibility with the Anthropic stack is required.
 
 ## Strategy & Architecture
-- **LiteLLM client** – `backend/setta/llm/litellm_chat_manager.py` is the single entry point for chat, streaming, tool calls, cancellation, and per-chat parameter overrides. It always speaks the OpenAI-style schema so any LiteLLM-supported backend fits.
+- **LLM client** – `backend/setta/llm/llm_chat_manager.py` is the single entry point for chat, streaming, tool calls, cancellation, and per-chat parameter overrides. It always speaks the OpenAI-style schema so any supported provider fits.
 - **Chat session & persistence** – Chats store provider-agnostic message structures (`System|User|Assistant|ToolChatMessage`) plus the exact `LLMConfig` that produced them. Streaming sessions merge in-flight deltas with persisted history before returning data to the frontend.
 - **Transport** – WebSocket payloads are normalized to a compact envelope (`MessageStart`, `MessageDelta`, `ToolCallDelta`, `ToolResult`, `MessageStop`, `MessageFinalized`) so the frontend reducer never has to care about the upstream vendor.
-- **MCP & tool routing** – Python tools register through the global `SETTA_MCP_TOOLS` decorator, the MCP server advertises schemas/IDs, and LiteLLM tool calls are bridged via `MCPClient.call_tool` so every invocation flows through the same audited channel.
+- **MCP & tool routing** – Python tools register through the global `SETTA_MCP_TOOLS` decorator, the MCP server advertises schemas/IDs, and LLM tool calls are bridged via `MCPClient.call_tool` so every invocation flows through the same audited channel.
 - **File editing pipeline** – We will grow a deterministic library of read/insert/replace/apply_patch operations that acquire DBE locks, validate schema expectations, and emit structured errors back to the LLM when conflicts occur.
 - **Configuration UX** – Provider/model/base-url/api-key data lives in `setta_files/llm_config.json` and `.env`. The backend exposes CRUD routes plus a watcher so the frontend can manage configs, promote temporary entries, and pick a model per chat.
 
@@ -19,18 +19,18 @@
 
 ### Completed Work
 #### Backend + Streaming
-- Chat persistence now uses the OpenAI-style schema in `backend/setta/types/chat_messages.py`, including explicit assistant, user, system, and tool-role records plus helper methods for LiteLLM payloads. Each chat stores the exact `LLMConfig` (id, model, provider, base URL, env var, params) that generated its transcript.
-- The Anthropic chat manager was replaced with `LitellmChatManager`, which builds request payloads, runs `litellm.acompletion(..., stream=True)`, hydrates streaming sessions, and supports stop requests via asyncio task cancellation.
+- Chat persistence now uses the OpenAI-style schema in `backend/setta/types/chat_messages.py`, including explicit assistant, user, system, and tool-role records plus helper methods for LLM payloads. Each chat stores the exact `LLMConfig` (id, model, provider, base URL, env var, params) that generated its transcript.
+- The Anthropic chat manager was replaced with `LLMChatManager`, which builds request payloads, runs the streaming completion flow, hydrates streaming sessions, and supports stop requests via asyncio task cancellation.
 - Streaming envelopes (`backend/setta/types/chat_stream_events.py`) flow through `WMHFrontendSender` and are consumed by `frontend/src/state/actions/ai.ts`/`ProjectChatCore.tsx`, so the UI now renders text deltas, tool-call deltas, tool results, and finalized messages in real time.
 
 #### MCP & Tooling
-- The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LiteLLM request as OpenAI-style tool definitions.
+- The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LLM request as OpenAI-style tool definitions.
 - Tool calls are streamed as deltas, executed via `MCPClient.call_tool`, persisted as `ToolChatMessage`s, and echoed back to the frontend through `ToolResultEvent`s so the UI can render argument progress and results without custom maps.
 - `backend/setta/mcp/tools/file_read.py` established the first deterministic helper (`read_file_range`) that uses workspace-aware paths, validation, and consistent JSON output.
 
 #### Config & Persistence
 - `backend/setta/types/llm_config.py` defines `LLMConfig`/`AllLLMConfigs`, including `temporary` entries. `merge_chat_llm_configs` injects stored chat configs so `/llm/config` always exposes the providers used by historic chats.
-- `LLMConfigWatcher` listens for changes to `setta_files/llm_config.json` and hot-reloads `LitellmChatManager`. `/llm/config` and `/llm/apiKeys` routes (plus the `.env` helpers) now own provider CRUD and key persistence.
+- `LLMConfigWatcher` listens for changes to `setta_files/llm_config.json` and hot-reloads `LLMChatManager`. `/llm/config` and `/llm/apiKeys` routes (plus the `.env` helpers) now own provider CRUD and key persistence.
 - The frontend Zustand store gained `allLLMConfigs`, API-key state, and the `loadLLMConfig`/`loadLLMApiKeys` actions so UI panes can hydrate from those new routes once invoked.
 
 #### Frontend
@@ -39,15 +39,15 @@
 - The model picker uses data from `allLLMConfigs` (once loaded), hides entries whose API keys are missing, and enforces per-message validation before dispatching `/getLLMResponse`.
 
 ### Outstanding Work
-#### Backend / LiteLLM Integration
+#### Backend / LLM Integration
 - Thread contextual information (chat id, `projectConfigId`, and any future section metadata) through MCP tool invocations so every tool can reason about the active project/chat without guessing.
-- Decide how `deepThink`, reasoning modes, or project-specific hints map onto LiteLLM parameters and MCP inputs, then plumb those values through `_build_litellm_request_payload`.
+- Decide how `deepThink`, reasoning modes, or project-specific hints map onto LLM parameters and MCP inputs, then plumb those values through `_build_llm_request_payload`.
 - Harden config ingestion: reject duplicate IDs or incomplete entries in `/llm/config`, validate referenced API keys, and ensure `merge_chat_llm_configs` never persists `temporary` configs back to disk while still surfacing them to clients.
 - When `LLMConfigWatcher` reloads configs, broadcast an event (or push through the WebSocket notification bus) so connected frontends refresh automatically instead of polling.
 
 #### MCP & File Editing
 - Build the deterministic write tools (insert-at-line, replace-range, apply unified diff/patch, append, etc.), wrap them with DBE-backed locks/backups, and expose them through MCP so LLMs edit files safely.
-- Flesh out tool documentation and JSON schemas so LiteLLM has enough structure to ground tool-call arguments; `read_file_range` proves the plumbing but still needs richer metadata/examples.
+- Flesh out tool documentation and JSON schemas so the LLM has enough structure to ground tool-call arguments; `read_file_range` proves the plumbing but still needs richer metadata/examples.
 - Expand the MCP surface area beyond the initial file-read helper (e.g., project metadata, search utilities) so LLMs have the context they need before we rely on automated edits.
 
 #### Frontend & Config UX
@@ -57,11 +57,11 @@
 - Add listeners for backend config/API-key broadcasts so updates triggered by `LLMConfigWatcher` or the settings pane propagate to all clients without manual refreshes.
 
 #### Observability & Testing
-- Add backend unit tests around `LitellmChatManager` (payload construction, streaming chunk handling, tool-call parsing, cancellation, and MessageDelta emissions) plus failure-path coverage for MCP dispatch.
+- Add backend unit tests around `LLMChatManager` (payload construction, streaming chunk handling, tool-call parsing, cancellation, and MessageDelta emissions) plus failure-path coverage for MCP dispatch.
 - Cover the config helpers (`merge_chat_llm_configs`, `_strip_temporary_configs`, load/save flows) and the deterministic MCP tools (`read_file_range` today, write tools later).
 - Provide integration or manual smoke tests that exercise end-to-end streaming, MCP tool execution, config reloads, and stop requests so we can gate releases on something stronger than `tests/mcp/test_file_read_tool.py`.
 
 ## File Editing Strategy
-- Defer additional write-capable MCP tools until LiteLLM + config plumbing is stable, but keep the target shape in mind: read-range, insert-at-line, replace-range, and apply unified diff are the primitives we will expose.
+- Defer additional write-capable MCP tools until the new LLM + config plumbing is stable, but keep the target shape in mind: read-range, insert-at-line, replace-range, and apply unified diff are the primitives we will expose.
 - Every tool should operate on UTF-8 text, leverage workspace-relative paths, and take explicit start/end offsets instead of “find and replace” guesses. When a tool can’t fulfill its contract it must return a structured error that the LLM can reason about.
 - Guard all write operations with DBE locks/backups to prevent corruption, and emit high-signal error events over the WebSocket channel whenever contention or validation failures occur.

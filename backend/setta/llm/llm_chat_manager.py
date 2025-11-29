@@ -17,7 +17,7 @@ from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelRespons
 from setta.database.db_objs import DBE
 from setta.llm.config import (
     AllLLMConfigs,
-    load_litellm_config,
+    load_llm_config,
     merge_chat_llm_configs,
 )
 from setta.mcp.client import MCPClient
@@ -65,13 +65,13 @@ class StreamingSession:
     started_at: float = field(default_factory=time.time)
 
 
-class LitellmChatManager:
+class LLMChatManager:
     """
     Placeholder implementation that replaces the Anthropic-specific ChatManager.
 
-    The next steps in the refactor will flesh out this class to drive litellm
-    streaming, tool calls, and persistence. For now we keep the interface the
-    routers expect while intentionally failing fast when invoked.
+    The next steps in the refactor will flesh out this class to drive the LLM
+    client streaming, tool calls, and persistence. For now we keep the interface
+    the routers expect while intentionally failing fast when invoked.
     """
 
     def __init__(
@@ -83,7 +83,7 @@ class LitellmChatManager:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.config: AllLLMConfigs = self._hydrate_config(load_litellm_config())
+        self.config: AllLLMConfigs = self._hydrate_config(load_llm_config())
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
 
@@ -131,7 +131,7 @@ class LitellmChatManager:
             existing.cancel()
         task = asyncio.create_task(
             self.process_query(projectConfigId, chat, deepThink),
-            name=f"litellm-chat-{chat.id}",
+            name=f"llm-chat-{chat.id}",
         )
 
         def _cleanup(task: asyncio.Task[Any], chat_id: str) -> None:
@@ -153,7 +153,7 @@ class LitellmChatManager:
         chat: Chat,
         deepThink: bool,  # noqa: N803 (preserve existing API for now)
     ):
-        payload = self._build_litellm_request_payload(chat)
+        payload = self._build_llm_request_payload(chat)
 
         assistant_message = AssistantChatMessage(
             content=[],
@@ -172,15 +172,11 @@ class LitellmChatManager:
             try:
                 stream_result = await litellm.acompletion(**payload, stream=True)
             except Exception:
-                logger.exception(
-                    "litellm failed to start streaming for chat %s", chat.id
-                )
+                logger.exception("LLM client failed to start streaming for chat %s", chat.id)
                 raise
 
             if not isinstance(stream_result, CustomStreamWrapper):
-                raise TypeError(
-                    "litellm.acompletion(stream=True) must return CustomStreamWrapper"
-                )
+                raise TypeError("LLM streaming must return a CustomStreamWrapper")
             session.stream = stream_result
 
             async for chunk in self._iterate_stream(stream_result):
@@ -193,7 +189,7 @@ class LitellmChatManager:
                     )
                 except Exception:
                     logger.exception(
-                        "litellm streaming chunk handling failed for chat %s", chat.id
+                        "LLM streaming chunk handling failed for chat %s", chat.id
                     )
 
             await self.websocket_msg_handler.send_streaming_response(
@@ -245,18 +241,18 @@ class LitellmChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    def _build_litellm_request_payload(self, chat: Chat) -> dict[str, Any]:
+    def _build_llm_request_payload(self, chat: Chat) -> dict[str, Any]:
         """
-        Normalize a persisted chat into the kwargs expected by `litellm`.
+        Normalize a persisted chat into the kwargs expected by the LLM client.
 
         The payload mirrors the OpenAI chat/completions schema so the streaming
-        layer can pass it directly to `litellm.acompletion`.
+        layer can pass it directly to the configured completion client.
         """
         messages: list[dict[str, Any]] = []
         for message in chat.messages:
             payload = message.to_openai_format()
             messages.append(payload)
-        request, api_key_env = self.config.build_litellm_params(chat.llmConfig)
+        request, api_key_env = self.config.build_llm_params(chat.llmConfig)
         if api_key_env:
             api_key = os.getenv(api_key_env)
             if api_key:
@@ -268,9 +264,7 @@ class LitellmChatManager:
             request["tools"] = tools
 
         if not request["model"]:
-            raise ValueError(
-                "liteLLM config must specify a model via config or override"
-            )
+            raise ValueError("LLM config must specify a model via config or override")
 
         return request
 
@@ -294,7 +288,7 @@ class LitellmChatManager:
                     yield chunk
                 else:
                     logger.debug(
-                        "Skipping non-ModelResponseStream chunk from litellm stream: %s",
+                        "Skipping non-ModelResponseStream chunk from LLM stream: %s",
                         type(chunk),
                     )
             return
@@ -303,7 +297,7 @@ class LitellmChatManager:
                 yield chunk
             else:
                 logger.debug(
-                    "Skipping non-ModelResponseStream chunk from litellm stream: %s",
+                    "Skipping non-ModelResponseStream chunk from LLM stream: %s",
                     type(chunk),
                 )
 

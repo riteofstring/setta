@@ -8,7 +8,7 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.llm.config_watcher import LLMConfigWatcher
-from setta.llm.litellm_chat_manager import LitellmChatManager
+from setta.llm.llm_chat_manager import LLMChatManager
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
@@ -116,7 +116,7 @@ class SettaFastAPIState:
         self.mcp_client = MCPClient(
             f"{C.BACKEND}/mcp",
         )
-        self.chat_manager = LitellmChatManager(
+        self.chat_manager = LLMChatManager(
             self.dbe, self.mcp_client, self.wmh_frontend_sender
         )
         self.llm_config_watcher = LLMConfigWatcher(

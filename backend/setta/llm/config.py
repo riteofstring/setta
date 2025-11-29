@@ -1,4 +1,4 @@
-"""Helpers for persisting the LiteLLM configuration file."""
+"""Helpers for persisting the LLM configuration file."""
 
 import json
 from pathlib import Path
@@ -10,7 +10,7 @@ from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 
 
-def load_litellm_config(
+def load_llm_config(
     config_path: Path | None = None,
 ) -> AllLLMConfigs:
     """Load and validate ``setta_files/llm_config.json``."""
@@ -21,11 +21,11 @@ def load_litellm_config(
     return AllLLMConfigs.model_validate(raw)
 
 
-def save_litellm_config(
+def save_llm_config(
     config: AllLLMConfigs,
     config_path: Path | None = None,
 ) -> None:
-    """Persist the LiteLLM configuration, writing canonical JSON."""
+    """Persist the LLM configuration, writing canonical JSON."""
     path = _resolve_path(config_path)
     sanitized = _strip_temporary_configs(config)
     path.write_text(
