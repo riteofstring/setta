@@ -42,6 +42,7 @@ from setta.types.chat_stream_events import (
     MessageStopEvent,
     MessageTextDelta,
     ToolCallDeltaEvent,
+    ToolResultEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.utils.timestamps import get_now_timestamp
@@ -525,7 +526,7 @@ class LitellmChatManager:
             raise
         completed_at = get_now_timestamp()
 
-        return ToolChatMessage(
+        tool_chat_message = ToolChatMessage(
             tool_call_id=tool_call.id,
             tool_name=tool_name,
             arguments=json.loads(json.dumps(arguments)),
@@ -535,6 +536,13 @@ class LitellmChatManager:
             started_at=started_at,
             completed_at=completed_at,
         )
+        await self.websocket_msg_handler.send_streaming_response(
+            chat_id,
+            ToolResultEvent(
+                result=tool_chat_message,
+            ),
+        )
+        return tool_chat_message
 
     def _parse_tool_call_arguments(
         self, arguments: str, tool_call_id: str

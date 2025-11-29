@@ -79,12 +79,13 @@
 - ✅ Removed the ad-hoc `ChatMessage.metadata` blob so tool outputs and error flags will be modeled explicitly (via `role="tool"` messages) rather than smuggling data through untyped dicts.
 - ✅ Swapped `MCPClient.available_tools` to native MCP `Tool` objects and inject them into the LiteLLM payload as OpenAI-style tool definitions, so models can finally emit structured tool calls.
 - ✅ Broke the legacy `ChatMessage` model into `SystemChatMessage`, `UserChatMessage`, `AssistantChatMessage`, and `ToolChatMessage`, regenerated the discriminated unions, and synced the TS helpers so persistence, routers, and Litellm streaming all share the same typed schema.
+- ✅ Broadcast MCP tool completions as `ToolResultEvent`s directly from `_dispatch_tool_call`, so every tool call now pushes a structured result over the websocket while still being persisted as `ToolChatMessage`s.
 
 ## Remaining Work
 
 ### Backend / LiteLLM integration
 - Thread contextual args (e.g., `setta_chat_id`, `projectConfigId`) through MCP tool invocation so each call knows which chat/project it belongs to once LiteLLM requests a tool. Defer this until every other refactor task in this plan is complete so we only wire the final data shapes once.
-- Persisted tool outputs as first-class `ToolChatMessage`s, but we still need to broadcast `ToolResultEvent`s over the websocket and hydrate `/getLLMChat` responses with those tool messages.
+- Tool results now stream over the websocket, but `/getLLMChat` still strips them out and the frontend doesn’t hydrate `ToolChatMessage`s inline. Decide whether to include tool messages directly in the history payload or expose an explicit map so the UI can surface results beside each tool call.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
 - `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.
 
