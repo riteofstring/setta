@@ -28,7 +28,6 @@ export class C {
   static LLM_INPUT_JSON_DELTA = "input_json_delta";
   static LLM_MESSAGE_START = "message_start";
   static LLM_SIGNATURE_DELTA = "signature_delta";
-  static LLM_STREAMING_INTO_CODE_BLOCK = "llm_streaming_into_code_block";
   static LLM_TEXT = "text";
   static LLM_TEXT_DELTA = "text_delta";
   static LLM_THINKING = "thinking";

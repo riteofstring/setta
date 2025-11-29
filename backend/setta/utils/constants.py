@@ -61,7 +61,6 @@ class C:
     LLM_CONTENT_BLOCK_DELTA = "content_block_delta"
     LLM_CONTENT_BLOCK_STOP = "content_block_stop"
     LLM_FULL_MESSAGE_STOP = "full_message_stop"
-    LLM_STREAMING_INTO_CODE_BLOCK = "llm_streaming_into_code_block"
     LLM_TEXT_DELTA = "text_delta"
     LLM_THINKING_DELTA = "thinking_delta"
     LLM_SIGNATURE_DELTA = "signature_delta"

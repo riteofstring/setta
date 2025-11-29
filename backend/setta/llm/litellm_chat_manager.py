@@ -28,7 +28,6 @@ from setta.project_state.chats.save import (
 from setta.types.chat import Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
-    JSONValue,
     MessageTextContent,
     ToolCall,
     ToolCallFunction,

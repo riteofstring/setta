@@ -3,21 +3,15 @@ import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { memo, useEffect, useRef } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
-import { MdCode, MdErrorOutline } from "react-icons/md";
+import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import {
-  getDefaultChatDetails,
-  getLLMChat,
-  startStreamingInto,
-  stopStreamingInto,
-} from "state/actions/ai";
-import { goToSection } from "state/actions/sections/sectionPositions";
-import { useAIStore, useProjectState } from "state/definitions";
+import { getDefaultChatDetails, getLLMChat } from "state/actions/ai";
+import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
@@ -55,103 +49,6 @@ const formatToolArgs = (args) => {
     return args;
   }
 };
-
-function StreamingIntoCodeBlockMessage({ sectionName, sectionId }) {
-  return sectionName ? (
-    <>
-      Writing into section{" "}
-      <span
-        className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-        onClick={(e) => {
-          e.stopPropagation();
-          goToSection(sectionId);
-        }}
-      >
-        {sectionName}
-      </span>
-    </>
-  ) : (
-    "Writing into a section"
-  );
-}
-
-function StreamingIntoCodeBlockError({ sectionName, sectionId, errorMessage }) {
-  return sectionName ? (
-    <>
-      Failed to write into{" "}
-      <span
-        className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-        onClick={(e) => {
-          e.stopPropagation();
-          goToSection(sectionId);
-        }}
-      >
-        {sectionName}
-      </span>
-      : {errorMessage}
-    </>
-  ) : (
-    `Failed to write into a section: ${errorMessage}`
-  );
-}
-
-const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
-  sectionId,
-  isStreaming,
-  done,
-  isError,
-  content,
-}) {
-  const sectionName = useProjectState((x) => x.sections[sectionId]?.name);
-
-  return (
-    <Accordion.Root type="single" collapsible>
-      <Accordion.Item value="details">
-        <Accordion.Trigger className="relative my-1 flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-900 dark:hover:bg-setta-950 dark:hover:shadow-none">
-          <div className="px-2 py-2 ">
-            <MdCode
-              size={15}
-              className="min-w-6 text-setta-200 dark:text-setta-400"
-            />
-          </div>
-
-          <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
-            <StreamingIntoCodeBlockMessage
-              sectionName={sectionName}
-              sectionId={sectionId}
-            />
-          </div>
-          {done ? (
-            <IoMdCheckmark className="mr-1.5 text-setta-400" />
-          ) : isError ? (
-            <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
-          ) : isStreaming ? (
-            <i className="gg-spinner !scale-125 self-center justify-self-end text-setta-500/70" />
-          ) : null}
-        </Accordion.Trigger>
-
-        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="bg-setta-300 p-3 dark:bg-setta-860">
-            <div className="text-xs text-setta-700 dark:text-setta-300">
-              {isError ? (
-                <StreamingIntoCodeBlockError
-                  sectionName={sectionName}
-                  sectionId={sectionId}
-                  errorMessage={content}
-                />
-              ) : (
-                <StreamingIntoCodeBlockMessage
-                  sectionName={sectionName}
-                  sectionId={sectionId}
-                />
-              )}
-            </div>
-          </div>
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
-  );
-});
 
 const ThinkingBox = memo(({ content, signature, isStreaming }) => {
   // signature is an empty string until thinking is done
@@ -333,16 +230,6 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           isStreaming={isStreaming}
         />
       );
-    case C.LLM_STREAMING_INTO_CODE_BLOCK:
-      return (
-        <StreamingIntoCodeBlock
-          sectionId={item.sectionId}
-          isStreaming={isStreaming}
-          done={item.done}
-          isError={item.isError}
-          content={item.content?.[0]?.text}
-        />
-      );
     default:
       return null;
   }
@@ -426,15 +313,10 @@ const MessageList = memo(function MessageList({
   messages,
   toolResults,
   waitingForResponse,
-  idToUUIDForLLM,
   currentChatId,
 }) {
   // TODO: make more efficient
-  const consolidatedMessages = consolidateAssistantMessages(
-    messages,
-    toolResults,
-    idToUUIDForLLM,
-  );
+  const consolidatedMessages = consolidateAssistantMessages(messages);
 
   if (!currentChatId) {
     return (
@@ -473,7 +355,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     messages,
     toolResults,
     waitingForResponse,
-    idToUUIDForLLM,
     currentChatId,
   } = useAIStore((x) => {
     const details = x.chatDetails[x.currentChatId];
@@ -485,7 +366,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       messages,
       toolResults,
       waitingForResponse,
-      idToUUIDForLLM: x.idToUUIDForLLM,
       currentChatId: x.currentChatId,
     };
   }, shallow);
@@ -502,7 +382,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messages={messages}
         toolResults={toolResults}
         waitingForResponse={waitingForResponse}
-        idToUUIDForLLM={idToUUIDForLLM}
         currentChatId={currentChatId}
       />
       <ChatInput
@@ -517,11 +396,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 });
 
 // Consolidate assistant messages and handle tool results
-const consolidateAssistantMessages = (
-  messages,
-  toolResults,
-  idToUUIDForLLM,
-) => {
+const consolidateAssistantMessages = (messages) => {
   const processedMessages = [];
   let currentAssistantMessage = null;
 
@@ -553,52 +428,5 @@ const consolidateAssistantMessages = (
     processedMessages.push(currentAssistantMessage);
   }
 
-  // Second pass: filter out text content between startStreamingInto and stopStreamingInto
-  const finalMessages = [];
-  let sectionId;
-
-  for (const message of processedMessages) {
-    if (message.role === C.LLM_ASSISTANT_ROLE) {
-      const filteredContent = [];
-      let streamingItem = null;
-
-      for (const item of message.content) {
-        if (
-          item.type === C.LLM_TOOL_USE &&
-          item.name === startStreamingInto.name
-        ) {
-          sectionId = idToUUIDForLLM[item.input.sectionId];
-          streamingItem = {
-            type: C.LLM_STREAMING_INTO_CODE_BLOCK,
-            sectionId,
-            done: false,
-            isError: toolResults[item.id]?.is_error,
-            content: toolResults[item.id]?.content,
-          };
-          filteredContent.push(streamingItem);
-        } else if (
-          item.type === C.LLM_TOOL_USE &&
-          item.name === stopStreamingInto.name
-        ) {
-          streamingItem.done = true;
-          streamingItem = null;
-        } else if (streamingItem && item.type === "text") {
-          // Skip text content while streaming
-        } else {
-          filteredContent.push(item);
-        }
-      }
-
-      if (filteredContent.length > 0) {
-        finalMessages.push({
-          ...message,
-          content: filteredContent,
-        });
-      }
-    } else {
-      finalMessages.push(message);
-    }
-  }
-
-  return finalMessages;
+  return processedMessages;
 };

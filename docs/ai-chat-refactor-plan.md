@@ -80,6 +80,7 @@
 - ✅ Swapped `MCPClient.available_tools` to native MCP `Tool` objects and inject them into the LiteLLM payload as OpenAI-style tool definitions, so models can finally emit structured tool calls.
 - ✅ Broke the legacy `ChatMessage` model into `SystemChatMessage`, `UserChatMessage`, `AssistantChatMessage`, and `ToolChatMessage`, regenerated the discriminated unions, and synced the TS helpers so persistence, routers, and Litellm streaming all share the same typed schema.
 - ✅ Broadcast MCP tool completions as `ToolResultEvent`s directly from `_dispatch_tool_call`, so every tool call now pushes a structured result over the websocket while still being persisted as `ToolChatMessage`s.
+- ✅ Deleted the frontend-only `startStreamingInto`/`stopStreamingInto` shim and its UI hooks so future file editing must flow through backend MCP tools instead of mutating local state only.
 
 ## Remaining Work
 
@@ -91,14 +92,14 @@
 
 ### MCP tools & file editing
 - `read_file_range` lives in `backend/setta/mcp/tools/file_read.py` but it isn’t decorated with `@setta_tool`, so `SETTA_MCP_TOOLS` never exports it even though we import the module in `server.py`. Register it (with a descriptive docstring) so LiteLLM can actually call the tool.
-- Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. Build them as MCP tools so the old Anthropic-era `startStreamingInto` shim can be removed.
+- Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. Build them as MCP tools now that the legacy streaming shim is gone, so LLMs can edit real files through vetted operations.
 - Provide richer tool metadata: JSON schemas/descriptions are still minimal, making it hard for LiteLLM to ground requests.
 - Make sure LiteLLM discovers tools through the MCP client rather than assuming hard-coded helpers—`MCPClient.available_tools` is ready but currently unused.
 
 ### Frontend / chat UI
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` wraps the entire pane in `apiKeysInitialLoadComplete && (…)`, but `apiKeysInitialLoadComplete` is never flipped anywhere in `frontend/src/state/definitions.ts`. The chat UI never renders until we hydrate API keys or remove that gate.
 - The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the forthcoming LLM config endpoints instead of static data.
-- `ProjectChatCore.tsx` still assumes Anthropic-style `tool_use`, `thinking`, and `startStreamingInto` content blocks. It ignores `message.tool_calls` and the streamed `toolCallArguments` gathered in `state/actions/ai.ts`, so tool call progress/results never display. Rebuild the renderer around the new OpenAI-style schema (text + image content plus explicit `tool_calls`) and surface streamed arguments/results to the user.
+- `ProjectChatCore.tsx` still ignores OpenAI-style `message.tool_calls` and the streamed `toolCallArguments` gathered in `state/actions/ai.ts`, so tool call progress/results never display even after removing the old streaming shim. Rebuild the renderer around the new schema (text + image content plus explicit `tool_calls`) and surface streamed arguments/results to the user.
 - `handleToolResult` updates the store, but the UI has nowhere to show tool result payloads or errors, and there is no stop button to call `/stopLLMChat`. Add those affordances once the backend emits the corresponding events.
 - Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
 

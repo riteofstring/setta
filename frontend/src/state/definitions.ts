@@ -340,19 +340,11 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-export type ChatStreamTarget = {
-  sectionId: string;
-  before: string;
-  after: string;
-  contentToInsert: string;
-};
-
 export type ChatDetails = {
   messages: Array<ChatMessage>;
   toolResults: Record<string, ToolResult>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
-  streamTarget: ChatStreamTarget | null;
 };
 
 export type ZustandAIStore = {
