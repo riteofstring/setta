@@ -1,9 +1,12 @@
-from pathlib import Path
-
-from dotenv import dotenv_values, load_dotenv
-from fastapi import HTTPException, Query
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
+from setta.llm.api_keys import (
+    read_env_file,
+    reload_process_env,
+    resolve_env_path,
+    write_env_file,
+)
 from setta.llm.config import save_llm_config
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -11,18 +14,13 @@ from setta.types.ai import APIKeys
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
-from setta.utils.constants import CWD
+from setta.utils.constants import C
 
 router = SettaAPIRouter()
 
 
-class APIKeysResponse(BaseModel):
-    filepath: str
-    apiKeys: APIKeys = Field(default_factory=dict)
-
-
 class UpdateAPIKeysRequest(BaseModel):
-    filepath: str = ".env"
+    filepath: str = C.DOT_ENV_FILENAME
     apiKeys: APIKeys = Field(default_factory=dict)
 
 
@@ -44,22 +42,18 @@ def route_set_llm_config(
 @router.get(Route.LLM_API_KEYS)
 def route_get_llm_api_keys(
     state: AppStateFromRequest,
-    filepath: str = Query(".env"),
-) -> APIKeysResponse:
-    path = _resolve_env_path(filepath)
-    env_vars = _read_env_file(path)
-    filtered = _filter_env_vars_for_config(env_vars, state.chat_manager.config)
-    return APIKeysResponse(filepath=str(path), apiKeys=filtered)
+) -> APIKeys:
+    return state.chat_manager.api_keys
 
 
 @router.post(Route.LLM_API_KEYS)
 async def route_set_llm_api_keys(
     payload: UpdateAPIKeysRequest,
     state: AppStateFromRequest,
-) -> APIKeysResponse:
-    path = _resolve_env_path(payload.filepath)
+) -> APIKeys:
+    path = resolve_env_path(payload.filepath)
     try:
-        env_vars = _read_env_file(path)
+        env_vars = read_env_file(path)
         mutated = False
         for key, value in payload.apiKeys.items():
             normalized_key = key.strip()
@@ -75,8 +69,8 @@ async def route_set_llm_api_keys(
                     env_vars.pop(normalized_key)
                     mutated = True
         if mutated:
-            _write_env_file(path, env_vars)
-            load_dotenv(dotenv_path=path, override=True)
+            write_env_file(path, env_vars)
+            reload_process_env(path)
         notification = SettaNotification(message="Saved LLM API keys")
         await state.wmh_frontend_sender.broadcast_notification(notification)
     except Exception as exc:
@@ -88,49 +82,5 @@ async def route_set_llm_api_keys(
         raise HTTPException(
             status_code=500, detail="Failed to save LLM API keys"
         ) from exc
-    filtered = _filter_env_vars_for_config(env_vars, state.chat_manager.config)
-    return APIKeysResponse(filepath=str(path), apiKeys=filtered)
-
-
-def _resolve_env_path(filepath: str | None) -> Path:
-    raw = Path(filepath or ".env")
-    if not raw.is_absolute():
-        raw = (CWD / raw).resolve()
-    return raw
-
-
-def _read_env_file(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-    env_vars = dotenv_values(str(path))
-    return {key: value for key, value in env_vars.items() if value is not None}
-
-
-def _write_env_file(path: Path, env_vars: dict[str, str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [f"{key}={value}" for key, value in env_vars.items()]
-    content = "\n".join(lines)
-    if content:
-        content += "\n"
-    path.write_text(content)
-
-
-def _collect_config_api_key_names(config: AllLLMConfigs) -> set[str]:
-    keys: set[str] = set()
-    for provider in config.configs.values():
-        if provider.api_key_env:
-            keys.add(provider.api_key_env)
-    return keys
-
-
-def _filter_env_vars_for_config(
-    env_vars: dict[str, str],
-    config: AllLLMConfigs,
-) -> APIKeys:
-    desired = _collect_config_api_key_names(config)
-    filtered: APIKeys = {}
-    for key in desired:
-        value = env_vars.get(key)
-        if value is not None:
-            filtered[key] = value
-    return filtered
+    state.chat_manager.update_api_keys(env_vars)
+    return state.chat_manager.api_keys

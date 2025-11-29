@@ -20,7 +20,7 @@
 ### Completed Work
 - Backend chat persistence now records `chat.llmConfig` (a full `LLMConfig`). `LLMChatManager.get_or_create_chat` requires a `llmConfigId`, resolves it, and saves the resolved config with the new chat so payloads stay portable even if the config entry later disappears from disk.
 - LLM payload construction (`build_llm_params`) reads the stored config directly, so stream replays are deterministic and do not depend on local config state.
-- `/llm/config` and `/llm/apiKeys` ship structured Pydantic models, and `LLMConfigWatcher` reloads `setta_files/llm_config.json` inside `LLMChatManager` so backend routers always serve the latest entries.
+- `/llm/config` and `/llm/apiKeys` ship structured Pydantic models, and `LLMConfigWatcher` reloads `setta_files/llm_config.json` inside `LLMChatManager` so backend routers always serve the latest entries. Both watchers now fire immediately on startup and broadcast config/API-key updates whenever the disk data changes, so clients receive pushes instead of polling.
 - The Zustand AI store exposes `allLLMConfigs`, API-key data, and helper actions to fetch them. `ProjectChat` already renders dropdown options from `allLLMConfigs`, filters entries that lack loaded API keys, and passes the selection back to `submitMessage`.
 - Temporary configs are already created when loading chat metadata; `save_llm_config` trims them before writing to disk so exports stay clean.
 
@@ -30,4 +30,4 @@
 - Surface `temporary` configs in the dropdown/settings with a clear badge (“from chat history”), and add an affordance to promote or discard them so duplicate chats do not pile up.
 - Ensure chat export/import flows (and any upcoming sharing features) include the stored `LLMConfig` blob and generated ids so collaborators always see the exact provider parameters that produced a transcript.
 - Add backend tests for `_strip_temporary_configs`, `merge_chat_llm_configs`, and config save/load flows, plus frontend coverage (or a documented manual test plan) for selecting configs, filtering by API-key availability, and persisting the resolved config per chat.
-- Broadcast config/API-key updates to the frontend (or add polling) so the dropdown/settings refresh when `LLMConfigWatcher` reloads disk changes or a user edits configs through the UI. Currently the watcher only updates backend state.
+- Subscribe the frontend to the new config/API-key WebSocket broadcasts so the dropdown/settings refresh automatically when the backend reloads disk changes or another client edits configs.

@@ -8,7 +8,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.ai import IDToUUIDForLLM
+from setta.types.ai import APIKeys, IDToUUIDForLLM
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
@@ -23,6 +23,7 @@ from setta.types.listener import (
     ListenerRegisterContent,
     RealtimeUIChangeContent,
 )
+from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -43,6 +44,8 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     AllProjectMetadata = "AllProjectMetadata"
     UpdateArtifacts = "UpdateArtifacts"
     ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
+    LLMConfigUpdated = "LLMConfigUpdated"
+    LLMApiKeysUpdated = "LLMApiKeysUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -184,6 +187,20 @@ class WebsocketMsgListenerCoverageSnapshot(FrontendWebsocketMsg):
     content: ListenerCoverageSnapshot
     messageType: Literal[WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot] = (
         WebsocketMsgTypeForFrontend.ListenerCoverageSnapshot
+    )
+
+
+class WebsocketMsgLLMConfigUpdated(FrontendWebsocketMsg):
+    content: AllLLMConfigs
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMConfigUpdated] = (
+        WebsocketMsgTypeForFrontend.LLMConfigUpdated
+    )
+
+
+class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
+    content: APIKeys
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
+        WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
     )
 
 

@@ -210,6 +210,8 @@ export const BackendWebsocketMsgTypeSet = new Set([
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
+  "LLMApiKeysUpdated",
+  "LLMConfigUpdated",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerCoverageSnapshot",
@@ -236,6 +238,8 @@ export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllProjectMetadata",
   "CurrentAddressUpdate",
+  "LLMApiKeysUpdated",
+  "LLMConfigUpdated",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "ListenerCoverageSnapshot",
@@ -674,6 +678,8 @@ export const WebsocketMsgTypeForFrontendEnum = {
   AllProjectMetadata: "AllProjectMetadata",
   UpdateArtifacts: "UpdateArtifacts",
   ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  LLMConfigUpdated: "LLMConfigUpdated",
+  LLMApiKeysUpdated: "LLMApiKeysUpdated",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -5572,6 +5578,73 @@ export function createWebsocketMsgListenerCoverageSnapshot(
   return WebsocketMsgListenerCoverageSnapshotSchema.parse(options);
 }
 
+export const LLMConfigSchema = z.object({
+  id: z.string(),
+  model: z.string(),
+  provider: z.union([z.string(), z.null()]).default(null),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  api_key_env: z.union([z.string(), z.null()]).default(null),
+  other_params: z
+    .union([z.record(z.string(), z.any()), z.null()])
+    .default(null),
+  temporary: z.boolean().default(false),
+});
+
+export type LLMConfig = z.infer<typeof LLMConfigSchema>;
+
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
+}
+
+export const AllLLMConfigsSchema = z.object({
+  configs: z.record(z.string(), LLMConfigSchema).default({}),
+  default_config_id: z.union([z.string(), z.null()]).default(null),
+});
+
+export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
+
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return AllLLMConfigsSchema.parse(options);
+}
+
+export const WebsocketMsgLLMConfigUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AllLLMConfigsSchema,
+  messageType: z
+    .literal("LLMConfigUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated),
+});
+
+export type WebsocketMsgLLMConfigUpdated = z.infer<
+  typeof WebsocketMsgLLMConfigUpdatedSchema
+>;
+
+export function createWebsocketMsgLLMConfigUpdated(
+  options: Partial<WebsocketMsgLLMConfigUpdated> = {},
+): WebsocketMsgLLMConfigUpdated {
+  return WebsocketMsgLLMConfigUpdatedSchema.parse(options);
+}
+
+export const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.record(z.string(), z.string()),
+  messageType: z
+    .literal("LLMApiKeysUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
+});
+
+export type WebsocketMsgLLMApiKeysUpdated = z.infer<
+  typeof WebsocketMsgLLMApiKeysUpdatedSchema
+>;
+
+export function createWebsocketMsgLLMApiKeysUpdated(
+  options: Partial<WebsocketMsgLLMApiKeysUpdated> = {},
+): WebsocketMsgLLMApiKeysUpdated {
+  return WebsocketMsgLLMApiKeysUpdatedSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -5585,6 +5658,8 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerCoverageSnapshotSchema,
+  WebsocketMsgLLMConfigUpdatedSchema,
+  WebsocketMsgLLMApiKeysUpdatedSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5605,6 +5680,8 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerCoverageSnapshotSchema,
+    WebsocketMsgLLMConfigUpdatedSchema,
+    WebsocketMsgLLMApiKeysUpdatedSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5942,6 +6019,8 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgListenerCoverageSnapshotSchema,
+  WebsocketMsgLLMConfigUpdatedSchema,
+  WebsocketMsgLLMApiKeysUpdatedSchema,
   WebsocketMsgRealtimeUIChangeSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgListenerRealtimeEventSchema,
@@ -5970,6 +6049,8 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgListenerCoverageSnapshotSchema,
+    WebsocketMsgLLMConfigUpdatedSchema,
+    WebsocketMsgLLMApiKeysUpdatedSchema,
     WebsocketMsgRealtimeUIChangeSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgListenerRealtimeEventSchema,
@@ -7458,24 +7539,6 @@ export function createBaseChartSettings(
   return BaseChartSettingsSchema.parse(options);
 }
 
-export const LLMConfigSchema = z.object({
-  id: z.string(),
-  model: z.string(),
-  provider: z.union([z.string(), z.null()]).default(null),
-  base_url: z.union([z.string(), z.null()]).default(null),
-  api_key_env: z.union([z.string(), z.null()]).default(null),
-  other_params: z
-    .union([z.record(z.string(), z.any()), z.null()])
-    .default(null),
-  temporary: z.boolean().default(false),
-});
-
-export type LLMConfig = z.infer<typeof LLMConfigSchema>;
-
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return LLMConfigSchema.parse(options);
-}
-
 export const ChatSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
@@ -8133,19 +8196,6 @@ export function createListenerRealtimeDelta(
   return ListenerRealtimeDeltaSchema.parse(options);
 }
 
-export const AllLLMConfigsSchema = z.object({
-  configs: z.record(z.string(), LLMConfigSchema).default({}),
-  default_config_id: z.union([z.string(), z.null()]).default(null),
-});
-
-export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
-
-export function createAllLLMConfigs(
-  options: Partial<AllLLMConfigs> = {},
-): AllLLMConfigs {
-  return AllLLMConfigsSchema.parse(options);
-}
-
 export const BrowserAreaItemSchema = z.object({
   id: z.string(),
   type: z.any(),
@@ -8483,19 +8533,6 @@ export function createDocstringToMarkdownRequest(
   options: Partial<DocstringToMarkdownRequest> = {},
 ): DocstringToMarkdownRequest {
   return DocstringToMarkdownRequestSchema.parse(options);
-}
-
-export const APIKeysResponseSchema = z.object({
-  filepath: z.string(),
-  apiKeys: z.record(z.string(), z.string()).default({}),
-});
-
-export type APIKeysResponse = z.infer<typeof APIKeysResponseSchema>;
-
-export function createAPIKeysResponse(
-  options: Partial<APIKeysResponse> = {},
-): APIKeysResponse {
-  return APIKeysResponseSchema.parse(options);
 }
 
 export const UpdateAPIKeysRequestSchema = z.object({

@@ -14,6 +14,8 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgLLMApiKeysUpdated,
+    WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -39,6 +41,8 @@ WebsocketMsgUnion = (
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
     | WebsocketMsgListenerCoverageSnapshot
+    | WebsocketMsgLLMConfigUpdated
+    | WebsocketMsgLLMApiKeysUpdated
     | WebsocketMsgRealtimeUIChange
     | WebsocketMsgCurrentAddressUpdate
     | WebsocketMsgListenerRealtimeEvent
@@ -70,6 +74,8 @@ WebsocketMsgTypeSet = set(
         "AllProjectMetadata",
         "UpdateArtifacts",
         "ListenerCoverageSnapshot",
+        "LLMConfigUpdated",
+        "LLMApiKeysUpdated",
         "RealtimeUIChange",
         "CurrentAddressUpdate",
         "ListenerRealtimeEvent",
@@ -95,6 +101,8 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
     | WebsocketMsgListenerCoverageSnapshot
+    | WebsocketMsgLLMConfigUpdated
+    | WebsocketMsgLLMApiKeysUpdated
 )
 
 FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -119,6 +127,8 @@ FrontendWebsocketMsgTypeSet = set(
         "AllProjectMetadata",
         "UpdateArtifacts",
         "ListenerCoverageSnapshot",
+        "LLMConfigUpdated",
+        "LLMApiKeysUpdated",
     ]
 )
 

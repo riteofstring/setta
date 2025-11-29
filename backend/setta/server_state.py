@@ -1,13 +1,12 @@
 import asyncio
 
-from dotenv import load_dotenv
-
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.llm.config_watcher import LLMConfigWatcher
+from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
@@ -35,7 +34,6 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 class SettaFastAPIState:
     def __init__(self, app):
-        load_dotenv(override=True)
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
@@ -119,6 +117,12 @@ class SettaFastAPIState:
         self.chat_manager = LLMChatManager(
             self.dbe, self.mcp_client, self.wmh_frontend_sender
         )
+        self.dotenv_watcher = DotEnvWatcher(
+            self.specific_file_watcher,
+            self.chat_manager,
+            self.wmh_frontend_sender,
+        )
+        self.dotenv_watcher.start()
         self.llm_config_watcher = LLMConfigWatcher(
             self.specific_file_watcher,
             self.chat_manager,

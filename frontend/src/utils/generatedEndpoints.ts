@@ -195,15 +195,15 @@ export async function route_set_llm_config(
   return await post("/llm/config", config);
 }
 
-export async function route_get_llm_api_keys(
-  filepath: string,
-): Promise<ResponseDataAndStatus<gt.APIKeysResponse>> {
-  return await get("/llmKeys", { filepath });
+export async function route_get_llm_api_keys(): Promise<
+  ResponseDataAndStatus<Record<string, string>>
+> {
+  return await get("/llmKeys");
 }
 
 export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequest,
-): Promise<ResponseDataAndStatus<gt.APIKeysResponse>> {
+): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/llmKeys", payload);
 }
 

@@ -15,11 +15,8 @@ from litellm.types.llms.openai import (
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 
 from setta.database.db_objs import DBE
-from setta.llm.config import (
-    AllLLMConfigs,
-    load_llm_config,
-    merge_chat_llm_configs,
-)
+from setta.llm.api_keys import filter_env_vars_for_config
+from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.mcp.client import MCPClient
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
@@ -29,6 +26,7 @@ from setta.project_state.chats.save import (
 from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
+from setta.types.ai import APIKeys
 from setta.types.chat import Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -83,7 +81,9 @@ class LLMChatManager:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.config: AllLLMConfigs = self._hydrate_config(load_llm_config())
+        self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
+        self.api_keys: APIKeys = {}
+        self._raw_env_vars: APIKeys = {}
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
 
@@ -92,6 +92,11 @@ class LLMChatManager:
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = self._hydrate_config(config)
+        self._sync_api_keys()
+
+    def update_api_keys(self, payload: APIKeys) -> None:
+        self._raw_env_vars = dict(payload)
+        self._sync_api_keys()
 
     def get_or_create_chat(
         self,
@@ -116,6 +121,12 @@ class LLMChatManager:
     def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
         metadata = self.get_all_chat_metadata()
         return merge_chat_llm_configs(config, metadata)
+
+    def _sync_api_keys(self) -> None:
+        if not self._raw_env_vars:
+            self.api_keys = {}
+            return
+        self.api_keys = filter_env_vars_for_config(self._raw_env_vars, self.config)
 
     def start_processing_query(
         self,
@@ -172,7 +183,9 @@ class LLMChatManager:
             try:
                 stream_result = await litellm.acompletion(**payload, stream=True)
             except Exception:
-                logger.exception("LLM client failed to start streaming for chat %s", chat.id)
+                logger.exception(
+                    "LLM client failed to start streaming for chat %s", chat.id
+                )
                 raise
 
             if not isinstance(stream_result, CustomStreamWrapper):

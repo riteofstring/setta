@@ -30,7 +30,8 @@
 
 #### Config & Persistence
 - `backend/setta/types/llm_config.py` defines `LLMConfig`/`AllLLMConfigs`, including `temporary` entries. `merge_chat_llm_configs` injects stored chat configs so `/llm/config` always exposes the providers used by historic chats.
-- `LLMConfigWatcher` listens for changes to `setta_files/llm_config.json` and hot-reloads `LLMChatManager`. `/llm/config` and `/llm/apiKeys` routes (plus the `.env` helpers) now own provider CRUD and key persistence.
+- `LLMConfigWatcher` listens for changes to `setta_files/llm_config.json`, hot-reloads `LLMChatManager`, and now broadcasts both config and filtered API-key snapshots so every client hears about disk edits immediately. The watcher fires immediately on startup, which (paired with the DotEnv watcher) means `LLMChatManager` no longer loads from disk in `__init__`.
+- `DotEnvWatcher` mirrors the config watcher: it fires immediately, reloads `.env` into process state, filters the keys through `LLMChatManager`, and broadcasts the filtered set so the frontend always reflects whichever providers are required by the current config.
 - The frontend Zustand store gained `allLLMConfigs`, API-key state, and the `loadLLMConfig`/`loadLLMApiKeys` actions so UI panes can hydrate from those new routes once invoked.
 
 #### Frontend
@@ -43,7 +44,6 @@
 - Thread contextual information (chat id, `projectConfigId`, and any future section metadata) through MCP tool invocations so every tool can reason about the active project/chat without guessing.
 - Decide how `deepThink`, reasoning modes, or project-specific hints map onto LLM parameters and MCP inputs, then plumb those values through `_build_llm_request_payload`.
 - Harden config ingestion: reject duplicate IDs or incomplete entries in `/llm/config`, validate referenced API keys, and ensure `merge_chat_llm_configs` never persists `temporary` configs back to disk while still surfacing them to clients.
-- When `LLMConfigWatcher` reloads configs, broadcast an event (or push through the WebSocket notification bus) so connected frontends refresh automatically instead of polling.
 
 #### MCP & File Editing
 - Build the deterministic write tools (insert-at-line, replace-range, apply unified diff/patch, append, etc.), wrap them with DBE-backed locks/backups, and expose them through MCP so LLMs edit files safely.

@@ -4,7 +4,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.ai import IDToUUIDForLLM
+from setta.types.ai import APIKeys, IDToUUIDForLLM
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat_stream_events import (
     LLMStreamingResponse,
@@ -13,6 +13,7 @@ from setta.types.chat_stream_events import (
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.listener import ListenerCoverageSnapshot
+from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -26,6 +27,8 @@ from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgListenerCoverageSnapshot,
+    WebsocketMsgLLMApiKeysUpdated,
+    WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -142,5 +145,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgListenerCoverageSnapshot(content=snapshot),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_llm_config_update(self, config: AllLLMConfigs):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgLLMConfigUpdated(content=config),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_llm_api_keys_update(self, payload: APIKeys):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgLLMApiKeysUpdated(content=payload),
             connectionType=WebsocketConnectionType.FRONTEND,
         )

@@ -49,7 +49,7 @@ class LLMConfigWatcher:
         self.specific_file_watcher.update_callbacks(
             callbacks,
             self.CATEGORY,
-            fire_immediately=set(),
+            fire_immediately={self._normalized_path},
         )
 
     async def _reload_config(self) -> None:
@@ -69,4 +69,11 @@ class LLMConfigWatcher:
         logger.info(
             "Reloaded LLM config with %s providers",
             len(self.chat_manager.config.configs),
+        )
+
+        await self.websocket_msg_handler.broadcast_llm_config_update(
+            self.chat_manager.config
+        )
+        await self.websocket_msg_handler.broadcast_llm_api_keys_update(
+            self.chat_manager.api_keys
         )
