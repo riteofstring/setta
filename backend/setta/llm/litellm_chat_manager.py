@@ -87,6 +87,9 @@ class LitellmChatManager:
     def get_chat(self, chat_id: str) -> Chat | None:
         return load_chat(self.dbe, chat_id)
 
+    def update_config(self, config: LiteLLMConfig) -> None:
+        self.config = config
+
     def get_or_create_chat(
         self,
         chat_id: str | None,

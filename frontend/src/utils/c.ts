@@ -20,6 +20,7 @@ export class C {
     Anthropic: "ANTHROPIC_API_KEY",
     OpenAI: "OPENAI_API_KEY",
   };
+  static LLM_CONFIG_FILENAME = "llm_config.json";
   static LLM_TEXT = "text";
   static LLM_THINKING = "thinking";
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";

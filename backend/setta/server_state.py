@@ -5,6 +5,7 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.litellm_chat_manager import LitellmChatManager
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
@@ -115,6 +116,12 @@ class SettaFastAPIState:
         self.chat_manager = LitellmChatManager(
             self.dbe, self.mcp_client, self.wmh_frontend_sender
         )
+        self.llm_config_watcher = LLMConfigWatcher(
+            self.specific_file_watcher,
+            self.chat_manager,
+            self.wmh_frontend_sender,
+        )
+        self.llm_config_watcher.start()
 
         asyncio.create_task(self.mcp_client.connect_to_server())
         asyncio.create_task(start_lsps(self.lsps, self.lsp_readers, self.lsp_writers))

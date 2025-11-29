@@ -7,8 +7,6 @@ from typing import Any
 from setta.types.llm_config import LiteLLMConfig
 from setta.utils.constants import C
 
-CONFIG_FILENAME = "llm_config.json"
-
 
 def load_litellm_config(
     config_path: Path | None = None,
@@ -49,6 +47,6 @@ def _resolve_path(config_path: Path | None) -> Path:
     if config_path:
         path = config_path
     else:
-        path = Path(C.SETTA_FILES_FOLDER) / CONFIG_FILENAME
+        path = Path(C.SETTA_FILES_FOLDER) / C.LLM_CONFIG_FILENAME
     path.parent.mkdir(parents=True, exist_ok=True)
     return path

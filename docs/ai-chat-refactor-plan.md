@@ -84,6 +84,7 @@
 - ✅ Dropped the bespoke frontend `toolResults` map and `/getLLMChat` filtering so `ToolChatMessage`s now live inline in both the backend and frontend chat history; the UI renders assistant tool calls (plus streamed argument deltas) without extra state.
 - ✅ Registered `read_file_range` with `@setta_tool` so it flows through `SETTA_MCP_TOOLS` and is discoverable by LiteLLM/MCP clients without relying on Anthropic-era shims.
 - ✅ Rebuilt the LiteLLM config layer with Pydantic models (`backend/setta/types/llm_config.py`), centralized provider resolution + payload building, and updated `LitellmChatManager` to consume those helpers so future CRUD endpoints can just read/write structured provider dictionaries.
+- ✅ Added an `LLMConfigWatcher` that hooks into the existing file watcher stack, hot-reloads `setta_files/llm_config.json` inside `LitellmChatManager`, and surfaces validation errors over the websocket so backend/front stay aligned without a restart.
 
 ## Remaining Work
 
@@ -105,7 +106,7 @@
 
 ### Configuration & API keys
 - There is no endpoint or file-watcher flow that loads existing API keys into `useAIStore`, so `apiKeys` stays empty and `apiKeysInitialLoadComplete` cannot flip. Add a `GET_LLM_API_KEYS` route (and/or watcher) to hydrate the store on startup.
-- Expose and persist `setta_files/llm_config.json` so the UI can manage provider/model/base_url/api-key-env mappings instead of writing raw `.env` variables via `route_set_llm_api_keys`.
+- With the backend now watching `setta_files/llm_config.json`, add CRUD endpoints plus websocket broadcasts so the frontend consumes the hot-reloaded config instead of static `MODEL_GROUPS` data, and hook the UI into that stream.
 - Persist per-chat provider/model selections server-side (or at least fetch defaults from the backend) so reloads keep context; `userSelectedLLM` is currently a client-only string.
 
 ### Testing & verification
