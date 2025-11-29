@@ -47,7 +47,7 @@ class ChatStorageTests(unittest.TestCase):
 
     def test_create_and_load_chat(self):
         first_message = create_message("Hello there")
-        chat = create_new_chat(self.dbe, first_message)
+        chat = create_new_chat(self.dbe, first_message, selected_llm="gpt-4o")
         loaded = load_chat(self.dbe, chat.id)
 
         self.assertIsNotNone(loaded)
@@ -62,7 +62,7 @@ class ChatStorageTests(unittest.TestCase):
 
     def test_save_messages_appends_and_updates_timestamp(self):
         first_message = create_message("Hi")
-        chat = create_new_chat(self.dbe, first_message)
+        chat = create_new_chat(self.dbe, first_message, selected_llm="gpt-4o")
         initial_last_updated = chat.lastUpdated
 
         follow_up = create_message("Hey!", ChatRole.assistant)
@@ -80,8 +80,12 @@ class ChatStorageTests(unittest.TestCase):
         self.assertEqual(2, len(again_chat.messages))
 
     def test_load_metadata_and_delete_chat(self):
-        chat_one = create_new_chat(self.dbe, create_message("First"))
-        chat_two = create_new_chat(self.dbe, create_message("Second"))
+        chat_one = create_new_chat(
+            self.dbe, create_message("First"), selected_llm="gpt-4o"
+        )
+        chat_two = create_new_chat(
+            self.dbe, create_message("Second"), selected_llm="gpt-4-mini"
+        )
 
         metadata = load_all_chat_metadata(self.dbe)
         self.assertEqual([chat_one.id, chat_two.id], [m.id for m in metadata])

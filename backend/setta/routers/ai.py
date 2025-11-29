@@ -35,6 +35,7 @@ class GetLLMChatRequest(BaseModel):
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
+    selectedLLM: str
 
 
 class StopLLMChatRequest(BaseModel):
@@ -52,7 +53,13 @@ async def route_get_llm_response(
 ) -> str | None:
     # try:
     print(x, flush=True)
-    chat = state.chat_manager.get_or_create_chat(x.chatId, x.message)
+    if not x.model:
+        raise HTTPException(status_code=400, detail="Model is required")
+    chat = state.chat_manager.get_or_create_chat(
+        x.chatId,
+        x.message,
+        selected_llm=x.model,
+    )
 
     if chat:
         state.chat_manager.start_processing_query(
@@ -125,6 +132,7 @@ async def route_get_llm_chat(
     return GetLLMChatRequestResponse(
         messages=messages,
         waitingForResponse=waiting_for_response,
+        selectedLLM=chat.selectedLLM,
     )
 
 

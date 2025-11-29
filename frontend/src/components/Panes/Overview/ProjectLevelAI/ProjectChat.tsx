@@ -4,8 +4,13 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { createNewLLMChat, getUUIDMappingForLLM } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
+import {
+  createNewLLMChat,
+  getUUIDMappingForLLM,
+  pickDefaultModel,
+  setActiveChatSelectedLLM,
+} from "state/actions/ai";
+import { NEW_CHAT_ID, useAIStore } from "state/definitions";
 import { C } from "utils/c";
 import { MODEL_GROUPS } from "utils/constants";
 import { shallow } from "zustand/shallow";
@@ -13,22 +18,34 @@ import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
 export function ProjectChat() {
-  const { apiKeys, apiKeysInitialLoadComplete, viewHistory, userSelectedLLM } =
-    useAIStore(
-      (x) => ({
-        apiKeys: x.apiKeys,
-        apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-        viewHistory: x.viewHistory,
-        userSelectedLLM: x.userSelectedLLM,
-      }),
-      shallow,
-    );
+  const {
+    apiKeys,
+    apiKeysInitialLoadComplete,
+    viewHistory,
+    currentChatId,
+    chatDetails,
+    llmConfig,
+  } = useAIStore(
+    (x) => ({
+      apiKeys: x.apiKeys,
+      apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+      viewHistory: x.viewHistory,
+      currentChatId: x.currentChatId,
+      chatDetails: x.chatDetails,
+      llmConfig: x.llmConfig,
+    }),
+    shallow,
+  );
 
   useEffect(() => {
     getUUIDMappingForLLM();
   }, []);
 
   const [deepThink, setDeepThink] = useState(false);
+  const activeChatId = currentChatId ?? NEW_CHAT_ID;
+  const defaultModel = useMemo(() => pickDefaultModel(llmConfig), [llmConfig]);
+  const selectedLLM =
+    chatDetails[activeChatId]?.selectedLLM || defaultModel || null;
 
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(
@@ -88,10 +105,10 @@ export function ProjectChat() {
 
               <IdNameCombobox
                 allItems={filteredModelGroups}
-                value={userSelectedLLM}
+                value={selectedLLM ?? ""}
                 small={false}
                 onSelectedItemChange={(model) =>
-                  useAIStore.setState({ userSelectedLLM: model })
+                  setActiveChatSelectedLLM(model || null)
                 }
                 placeholder={
                   noModelsAvailable
@@ -99,7 +116,7 @@ export function ProjectChat() {
                     : "Select an LLM"
                 }
                 // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={`${!userSelectedLLM ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                bg={`${!selectedLLM ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
@@ -113,12 +130,12 @@ export function ProjectChat() {
             placeholderText={
               noModelsAvailable
                 ? "Add API key!"
-                : !userSelectedLLM
-                  ? "Select an LLM"
-                  : "Type a message..."
+                : !selectedLLM
+                    ? "Select an LLM"
+                    : "Type a message..."
             }
             deepThink={deepThink}
-            userSelectedLLM={userSelectedLLM}
+            selectedLLM={selectedLLM}
           />
         )}
       </div>

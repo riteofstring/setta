@@ -10,8 +10,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { getDefaultChatDetails, getLLMChat } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
+import { getLLMChat } from "state/actions/ai";
+import { createDefaultChatDetails, useAIStore } from "state/definitions";
 import { C } from "utils/c";
 import { ChatRoleEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -402,14 +402,14 @@ const MessageList = memo(function MessageList({
 export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   deepThink,
-  userSelectedLLM,
+  selectedLLM,
 }) {
   const { messages, toolCallArguments, waitingForResponse, currentChatId } =
     useAIStore((x) => {
       const details = x.chatDetails[x.currentChatId];
       if (!x.currentChatId || !details) {
         return {
-          ...getDefaultChatDetails(),
+          ...createDefaultChatDetails(),
           currentChatId: x.currentChatId,
         };
       }
@@ -440,7 +440,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         deepThink={deepThink}
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
-        userSelectedLLM={userSelectedLLM}
+        selectedLLM={selectedLLM}
         currentChatId={currentChatId}
       />
     </>

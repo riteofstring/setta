@@ -22,3 +22,11 @@ class ChatMetadata(BaseModel):
 
 class Chat(ChatMetadata):
     messages: list[BaseChatMessageUnion]
+    selectedLLM: str = Field(default="")
+
+    @field_validator("selectedLLM", mode="before")
+    @classmethod
+    def ensure_string(cls, value: str | None) -> str:
+        if value is None:
+            return ""
+        return value

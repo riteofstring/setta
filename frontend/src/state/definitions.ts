@@ -344,7 +344,19 @@ export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
+  selectedLLM: string | null;
 };
+
+export const NEW_CHAT_ID = "__new_chat__";
+
+export function createDefaultChatDetails(): ChatDetails {
+  return {
+    messages: [],
+    toolCallArguments: {},
+    waitingForResponse: false,
+    selectedLLM: null,
+  };
+}
 
 export type ZustandAIStore = {
   apiKeys: APIKeys;
@@ -355,7 +367,6 @@ export type ZustandAIStore = {
   chatDetails: Record<string, ChatDetails>;
   currentChatId: string | null;
   viewHistory: boolean;
-  userSelectedLLM: string;
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: LiteLLMConfig | null;
   llmConfigInitialLoadComplete: boolean;
@@ -372,11 +383,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
-        chatDetails: {},
+        chatDetails: {
+          [NEW_CHAT_ID]: createDefaultChatDetails(),
+        },
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
-        userSelectedLLM: "",
         idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigInitialLoadComplete: false,
@@ -387,7 +399,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         partialize: (state) => ({
           apiKeysFilepath: state.apiKeysFilepath,
           currentChatId: state.currentChatId,
-          userSelectedLLM: state.userSelectedLLM,
           viewHistory: state.viewHistory,
         }),
       },
