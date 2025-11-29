@@ -52,7 +52,7 @@
 - Expand the MCP surface area beyond the initial file-read helper (e.g., project metadata, search utilities) so LLMs have the context they need before we rely on automated edits.
 
 #### Frontend & Config UX
-- Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support.
+- Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support. **Intentionally defer this work until the end of the refactor so we can focus on the chat pipeline first—even if that leaves the existing settings view in a broken state meanwhile.**
 - Surface `temporary` configs (those injected from chat history) inside the dropdown/settings, give them a badge such as “from chat history”, and provide an affordance to promote/edit them so users know whether a chat references a transient model.
 - Subscribe to the watcher-triggered WebSocket broadcasts (or manually refresh the AI store after edits) so updates propagate across tabs without manual reloads.
 
