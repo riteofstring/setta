@@ -6,7 +6,7 @@ from setta.file_watchers.utils import get_llm_api_keys_from_env_vars
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import APIKeys, IDToUUIDForLLM
-from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
+from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolChatMessage
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
@@ -38,7 +38,7 @@ class GetLLMChatRequest(BaseModel):
 
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[ChatMessage]
-    toolResults: dict[str, ToolResult]
+    toolResults: dict[str, ToolChatMessage]
     waitingForResponse: bool
 
 

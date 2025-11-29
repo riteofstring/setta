@@ -28,7 +28,7 @@ import {
   RenameRefactorBroadcastContent,
   SettaNotification,
   SettingsState,
-  ToolResult,
+  ToolChatMessage,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -349,7 +349,7 @@ export type ChatStreamTarget = {
 
 export type ChatDetails = {
   messages: Array<ChatMessage>;
-  toolResults: Record<string, ToolResult>;
+  toolResults: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
   streamTarget: ChatStreamTarget | null;

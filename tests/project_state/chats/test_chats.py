@@ -12,19 +12,26 @@ from setta.project_state.chats.save import (
     save_messages,
 )
 from setta.types.chat_messages import (
+    AssistantChatMessage,
     Chat,
     ChatMessage,
     ChatRole,
     MessageTextContent,
+    SystemChatMessage,
+    ToolChatMessage,
+    UserChatMessage,
 )
 
 
 def create_message(text: str, role: ChatRole = ChatRole.user) -> ChatMessage:
-    return ChatMessage(
-        id=create_new_id(),
-        role=role,
-        content=[MessageTextContent(type="text", text=text)],
-    )
+    content = [MessageTextContent(type="text", text=text)]
+    if role == ChatRole.system:
+        return SystemChatMessage(content=content)
+    if role == ChatRole.assistant:
+        return AssistantChatMessage(content=content)
+    if role == ChatRole.tool:
+        return ToolChatMessage(tool_call_id=create_new_id())
+    return UserChatMessage(content=content)
 
 
 class ChatStorageTests(unittest.TestCase):
