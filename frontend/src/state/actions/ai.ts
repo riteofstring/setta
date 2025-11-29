@@ -31,25 +31,22 @@ export async function loadLLMConfig() {
   if (res200(res)) {
     useAIStore.setState({
       allLLMConfigs: res.data,
-      llmConfigInitialLoadComplete: true,
-      llmConfigLoadError: null,
+      allLLMConfigsInitialLoadComplete: true,
+      allLLMConfigsLoadError: null,
     });
   } else {
     useAIStore.setState({
-      llmConfigInitialLoadComplete: true,
-      llmConfigLoadError: "Failed to load LLM config",
+      allLLMConfigsInitialLoadComplete: true,
+      allLLMConfigsLoadError: "Failed to load LLM config",
     });
   }
 }
 
-export async function loadLLMApiKeys(filepath?: string) {
-  const state = useAIStore.getState();
-  const targetFilepath = filepath ?? state.apiKeysFilepath;
-  const res = await route_get_llm_api_keys(targetFilepath);
+export async function loadLLMApiKeys() {
+  const res = await route_get_llm_api_keys();
   if (res200(res)) {
     useAIStore.setState({
-      apiKeys: res.data.apiKeys,
-      apiKeysFilepath: res.data.filepath,
+      apiKeys: res.data,
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: null,
     });

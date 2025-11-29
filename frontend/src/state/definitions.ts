@@ -349,15 +349,14 @@ export type ChatDetails = {
 
 export type ZustandAIStore = {
   apiKeys: APIKeys;
-  apiKeysFilepath: string;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   viewHistory: boolean;
   allLLMConfigs: AllLLMConfigs | null;
-  llmConfigInitialLoadComplete: boolean;
-  llmConfigLoadError: string | null;
+  allLLMConfigsInitialLoadComplete: boolean;
+  allLLMConfigsLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -367,15 +366,14 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       () => ({
         // State
         apiKeys: {},
-        apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         chatDetails: {},
         allChatMetadata: [],
         viewHistory: false,
         allLLMConfigs: null,
-        llmConfigInitialLoadComplete: false,
-        llmConfigLoadError: null,
+        allLLMConfigsInitialLoadComplete: false,
+        allLLMConfigsLoadError: null,
       }),
       {
         name: "setta_ai_data",

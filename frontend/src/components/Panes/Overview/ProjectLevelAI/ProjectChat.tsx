@@ -11,10 +11,12 @@ import { useLocalValue } from "state/hooks/utils";
 import { AllLLMConfigs } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
+import { useHydrateLLMState } from "./useHydrateLLMState";
 
 export function ProjectChat() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [deepThink, setDeepThink] = useState(false);
+  useHydrateLLMState();
 
   const {
     apiKeys,
@@ -32,7 +34,7 @@ export function ProjectChat() {
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
       viewHistory: x.viewHistory,
       allLLMConfigs: x.allLLMConfigs,
-      llmConfigInitialLoadComplete: x.llmConfigInitialLoadComplete,
+      llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       llmConfigId,
     };
   }, _.isEqual);

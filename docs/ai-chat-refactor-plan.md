@@ -38,6 +38,7 @@
 - Streaming reducers were rewritten in `frontend/src/state/actions/ai.ts` to handle the new event envelope, assemble assistant messages incrementally, and stream tool-call arguments/results into the store.
 - `ProjectChatCore` renders provider-agnostic chat bubbles, tool-call accordions, and a stop button wired to `/stopLLMChat`. Chat selection moved out of global state so panes encapsulate their current chat id and "deep think" toggle.
 - The model picker uses data from `allLLMConfigs` (once loaded), hides entries whose API keys are missing, and enforces per-message validation before dispatching `/getLLMResponse`.
+- `ProjectChat` and `ProjectLLMSettings` now share a hydration hook that fires `loadLLMConfig()`/`loadLLMApiKeys()` as soon as either pane mounts, so the gating flags flip without requiring a full-app bootstrap.
 
 ### Outstanding Work
 #### Backend / LLM Integration
@@ -51,7 +52,6 @@
 - Expand the MCP surface area beyond the initial file-read helper (e.g., project metadata, search utilities) so LLMs have the context they need before we rely on automated edits.
 
 #### Frontend & Config UX
-- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` still gates the entire pane behind `apiKeysInitialLoadComplete && llmConfigInitialLoadComplete`, but nothing currently calls `loadLLMApiKeys()` or `loadLLMConfig()`. Trigger those loads (and subsequent refreshes) during app startup or when the pane mounts so the chat UI renders by default.
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support.
 - Surface `temporary` configs (those injected from chat history) inside the dropdown/settings, give them a badge such as “from chat history”, and provide an affordance to promote/edit them so users know whether a chat references a transient model.
 - Subscribe to the watcher-triggered WebSocket broadcasts (or manually refresh the AI store after edits) so updates propagate across tabs without manual reloads.

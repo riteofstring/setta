@@ -8358,18 +8358,6 @@ export function createDeleteLLMChatRequest(
   return DeleteLLMChatRequestSchema.parse(options);
 }
 
-export const GetLLMApiKeysRequestSchema = z.object({
-  apiKeysFilepath: z.string(),
-});
-
-export type GetLLMApiKeysRequest = z.infer<typeof GetLLMApiKeysRequestSchema>;
-
-export function createGetLLMApiKeysRequest(
-  options: Partial<GetLLMApiKeysRequest> = {},
-): GetLLMApiKeysRequest {
-  return GetLLMApiKeysRequestSchema.parse(options);
-}
-
 export const GetLLMChatRequestSchema = z.object({
   chatId: z.string(),
   projectConfigId: z.union([z.string(), z.null()]),

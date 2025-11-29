@@ -1614,30 +1614,3 @@ class BaseProjectManager(ABC):
         if not pending:
             return
         await self.load_json_sources(self.json_source.json_sources, pending)
-
-
-# function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
-#   return [state.apiKeysFilepath];
-# }
-
-#   useAIStore.subscribe(
-#     apiKeysFilepathSubscriptionFn,
-#     (filepaths) =>
-#       route_file_watch_list({
-#         filepaths,
-#         fileWatchGroupName: FileWatchGroupNameEnum.apiKeys,
-#       }),
-#     {
-#       equalityFn: _.isEqual,
-#       fireImmediately: true,
-#     },
-#   );
-
-
-# async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {
-#   const { fileContent } = updatedFileInfo;
-#   useAIStore.setState({
-#     apiKeys: fileContent,
-#     apiKeysInitialLoadComplete: true,
-#   });
-# }

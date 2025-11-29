@@ -7,7 +7,6 @@ from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
-from setta.utils.constants import CWD
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 

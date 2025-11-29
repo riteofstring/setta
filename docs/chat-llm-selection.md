@@ -24,9 +24,9 @@
 - `LLMConfigWatcher` and `DotEnvWatcher` watch the DBE-managed files, reload `LLMChatManager`, and broadcast config/API-key updates whenever disk data changes. Both fire immediately on startup, so clients receive pushes instead of polling.
 - The Zustand AI store exposes `allLLMConfigs`, API-key data, and helper actions to fetch them. `ProjectChat` already renders dropdown options from `allLLMConfigs`, filters entries that lack loaded API keys, and passes the selection back to `submitMessage`.
 - Temporary configs are already created when loading chat metadata; `save_llm_config` trims them before writing to disk so exports stay clean.
+- `ProjectChat` and `ProjectLLMSettings` now mount a shared hydration hook that calls `loadLLMApiKeys()`/`loadLLMConfig()`, so the panes automatically fetch configs as soon as the user opens either surface.
 
 ### Remaining Work
-- Automatically hydrate the AI store by calling `loadLLMApiKeys()` and `loadLLMConfig()` when the project loads or when the chat pane mounts. Today those actions exist but are never invoked, so `apiKeysInitialLoadComplete`/`llmConfigInitialLoadComplete` stay `false` and the chat UI never renders.
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` logic in `ProjectLLMSettings.tsx` with views that read/write `/llm/config` and `/llm/apiKeys`, including controls for provider, model, base URL, API-key env var name, and other parameters.
 - Surface `temporary` configs in the dropdown/settings with a clear badge (“from chat history”), and add an affordance to promote or discard them so duplicate chats do not pile up.
 - Ensure chat export/import flows (and any upcoming sharing features) include the stored `LLMConfig` blob and generated ids so collaborators always see the exact provider parameters that produced a transcript.

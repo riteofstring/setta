@@ -4,6 +4,7 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { MODEL_GROUPS } from "utils/constants";
 import { route_set_llm_api_keys } from "utils/generatedEndpoints";
+import { useHydrateLLMState } from "./useHydrateLLMState";
 
 const IsolatedInput = ({ apiKeyName }) => {
   const initialValue = useAIStore((x) => x.apiKeys[apiKeyName] ?? "");
@@ -13,8 +14,8 @@ const IsolatedInput = ({ apiKeyName }) => {
       apiKeys: { ...state.apiKeys, [apiKeyName]: v },
     }));
 
-    const { apiKeys, apiKeysFilepath } = useAIStore.getState();
-    route_set_llm_api_keys({ apiKeys, apiKeysFilepath });
+    const { apiKeys } = useAIStore.getState();
+    route_set_llm_api_keys({ apiKeys });
   };
 
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
@@ -38,6 +39,7 @@ const IsolatedInput = ({ apiKeyName }) => {
 };
 
 export function ProjectLLMSettings() {
+  useHydrateLLMState();
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
       {MODEL_GROUPS.map((group) => (

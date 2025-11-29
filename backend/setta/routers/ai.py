@@ -43,10 +43,6 @@ class StopLLMChatRequest(BaseModel):
     chatId: str
 
 
-class GetLLMApiKeysRequest(BaseModel):
-    apiKeysFilepath: str
-
-
 @router.post(Route.GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
