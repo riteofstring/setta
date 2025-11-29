@@ -42,7 +42,7 @@
 
 ### Outstanding Work
 #### Backend / LLM Integration
-- Thread contextual information (chat id, `projectConfigId`, and any future section metadata) through MCP tool invocations so every tool can reason about the active project/chat without guessing.
+- Thread contextual information (chat id, `projectConfigId`, and any future section metadata) through MCP tool invocations so every tool can reason about the active project/chat without guessing. **Explicitly defer this until later in the refactor so we can focus on the other backend items first, even if tooling stays blind to context for now.**
 - Decide how `deepThink`, reasoning modes, or project-specific hints map onto LLM parameters and MCP inputs, then plumb those values through `_build_llm_request_payload`.
 - Harden config ingestion: reject duplicate IDs or incomplete entries in `/llm/config`, validate referenced API keys, and ensure `merge_chat_llm_configs` never persists `temporary` configs back to disk while still surfacing them to clients.
 
