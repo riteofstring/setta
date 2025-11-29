@@ -12,17 +12,6 @@ import { AllLLMConfigs } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
-function pickDefaultConfigId(config: AllLLMConfigs | null) {
-  if (!config) {
-    return null;
-  }
-  if (config.default_config_id && config.configs[config.default_config_id]) {
-    return config.default_config_id;
-  }
-  const [firstId] = Object.keys(config.configs);
-  return firstId ?? null;
-}
-
 export function ProjectChat() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [deepThink, setDeepThink] = useState(false);
@@ -36,7 +25,8 @@ export function ProjectChat() {
     llmConfigId,
   } = useAIStore((x) => {
     const llmConfig = chatId ? x.chatDetails[chatId]?.llmConfig : null;
-    const llmConfigId = llmConfig?.id ?? null;
+    const llmConfigId = llmConfig?.id ?? pickDefaultConfigId(x.allLLMConfigs);
+
     return {
       apiKeys: x.apiKeys,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
@@ -175,4 +165,15 @@ export function ProjectChat() {
       </div>
     )
   );
+}
+
+function pickDefaultConfigId(config: AllLLMConfigs | null) {
+  if (!config) {
+    return null;
+  }
+  if (config.default_config_id && config.configs[config.default_config_id]) {
+    return config.default_config_id;
+  }
+  const [firstId] = Object.keys(config.configs);
+  return firstId ?? null;
 }
