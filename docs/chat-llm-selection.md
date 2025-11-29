@@ -25,10 +25,10 @@
 - The Zustand AI store exposes `allLLMConfigs`, API-key data, and helper actions to fetch them. `ProjectChat` already renders dropdown options from `allLLMConfigs`, filters entries that lack loaded API keys, and passes the selection back to `submitMessage`.
 - Temporary configs are already created when loading chat metadata; `save_llm_config` trims them before writing to disk so exports stay clean.
 - `ProjectChat` and `ProjectLLMSettings` now mount a shared hydration hook that calls `loadLLMApiKeys()`/`loadLLMConfig()`, so the panes automatically fetch configs as soon as the user opens either surface.
+- Frontend websocket handling now updates the AI store when `LLMConfigUpdated` or `LLMApiKeysUpdated` events arrive, keeping dropdown data fresh without manual reloads.
 
 ### Remaining Work
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` logic in `ProjectLLMSettings.tsx` with views that read/write `/llm/config` and `/llm/apiKeys`, including controls for provider, model, base URL, API-key env var name, and other parameters. **Explicitly leave this for the final phase of the refactor; we are fine with the current component being broken until then.**
 - Surface `temporary` configs in the dropdown/settings with a clear badge (“from chat history”), and add an affordance to promote or discard them so duplicate chats do not pile up.
 - Ensure chat export/import flows (and any upcoming sharing features) include the stored `LLMConfig` blob and generated ids so collaborators always see the exact provider parameters that produced a transcript.
 - Add backend tests for `_strip_temporary_configs`, `merge_chat_llm_configs`, and config save/load flows, plus frontend coverage (or a documented manual test plan) for selecting configs, filtering by API-key availability, and persisting the resolved config per chat.
-- Subscribe the frontend to the new config/API-key WebSocket broadcasts so the dropdown/settings refresh automatically when the backend reloads disk changes or another client edits configs.

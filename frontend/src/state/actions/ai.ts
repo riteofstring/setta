@@ -10,6 +10,8 @@ import {
   route_get_llm_response,
 } from "utils/generatedEndpoints";
 import {
+  AllLLMConfigs,
+  APIKeys,
   BaseChatMessageUnion,
   ChatRoleEnum,
   LLMStreamingResponse,
@@ -29,11 +31,7 @@ import { createNewId } from "utils/idNameCreation";
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
   if (res200(res)) {
-    useAIStore.setState({
-      allLLMConfigs: res.data,
-      allLLMConfigsInitialLoadComplete: true,
-      allLLMConfigsLoadError: null,
-    });
+    receiveLLMConfigUpdate(res.data);
   } else {
     useAIStore.setState({
       allLLMConfigsInitialLoadComplete: true,
@@ -45,17 +43,29 @@ export async function loadLLMConfig() {
 export async function loadLLMApiKeys() {
   const res = await route_get_llm_api_keys();
   if (res200(res)) {
-    useAIStore.setState({
-      apiKeys: res.data,
-      apiKeysInitialLoadComplete: true,
-      apiKeysLoadError: null,
-    });
+    receiveLLMApiKeysUpdate(res.data);
   } else {
     useAIStore.setState({
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: "Failed to load LLM API keys",
     });
   }
+}
+
+export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
+  useAIStore.setState({
+    allLLMConfigs: payload,
+    allLLMConfigsInitialLoadComplete: true,
+    allLLMConfigsLoadError: null,
+  });
+}
+
+export function receiveLLMApiKeysUpdate(payload: APIKeys) {
+  useAIStore.setState({
+    apiKeys: payload,
+    apiKeysInitialLoadComplete: true,
+    apiKeysLoadError: null,
+  });
 }
 
 export function getDefaultChatDetails(): ChatDetails {

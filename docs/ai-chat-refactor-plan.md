@@ -39,6 +39,7 @@
 - `ProjectChatCore` renders provider-agnostic chat bubbles, tool-call accordions, and a stop button wired to `/stopLLMChat`. Chat selection moved out of global state so panes encapsulate their current chat id and "deep think" toggle.
 - The model picker uses data from `allLLMConfigs` (once loaded), hides entries whose API keys are missing, and enforces per-message validation before dispatching `/getLLMResponse`.
 - `ProjectChat` and `ProjectLLMSettings` now share a hydration hook that fires `loadLLMConfig()`/`loadLLMApiKeys()` as soon as either pane mounts, so the gating flags flip without requiring a full-app bootstrap.
+- The frontend now listens for `LLMConfigUpdated` and `LLMApiKeysUpdated` websocket events so config/API-key edits propagate instantly without manual reloads.
 
 ### Outstanding Work
 #### Backend / LLM Integration
@@ -54,7 +55,6 @@
 #### Frontend & Config UX
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support. **Intentionally defer this work until the end of the refactor so we can focus on the chat pipeline first—even if that leaves the existing settings view in a broken state meanwhile.**
 - Surface `temporary` configs (those injected from chat history) inside the dropdown/settings, give them a badge such as “from chat history”, and provide an affordance to promote/edit them so users know whether a chat references a transient model.
-- Subscribe to the watcher-triggered WebSocket broadcasts (or manually refresh the AI store after edits) so updates propagate across tabs without manual reloads.
 
 #### Observability & Testing
 - Add backend unit tests around `LLMChatManager` (payload construction, streaming chunk handling, tool-call parsing, cancellation, and MessageDelta emissions) plus failure-path coverage for MCP dispatch.
