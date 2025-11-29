@@ -88,6 +88,7 @@
 - ✅ Exposed `/llm/config` + `/llm/apiKeys` FastAPI routes backed by `SettaAPIRouter`, so the frontend can manage provider configs and `.env` secrets without touching the Anthropic-era endpoints; the old `/setLLMApiKeys` handler and helper were deleted.
 - ✅ Hydrated the Zustand AI store with `llmConfig`, load/error flags, and the new `loadLLMConfig`/`loadLLMApiKeys` actions so the frontend can fetch provider metadata and `.env` secrets from the new LiteLLM endpoints.
 - ✅ Started persisting a per-chat `llmConfig` snapshot, updated the routers to accept `llmConfigId`, and taught the frontend submission flow to resolve an id before calling `/getLLMResponse`, so every new chat carries the provider/model parameters that were in effect when it was created.
+- ✅ `build_litellm_params` now accepts stored `llmConfig` snapshots, so LiteLLM payloads are generated directly from the chat metadata without re-resolving config ids.
 
 ## Remaining Work
 
@@ -95,7 +96,7 @@
 - Thread contextual args (e.g., `setta_chat_id`, `projectConfigId`) through MCP tool invocation so each call knows which chat/project it belongs to once LiteLLM requests a tool. Defer this until every other refactor task in this plan is complete so we only wire the final data shapes once.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
 - Flesh out LiteLLM config validation/error handling (duplicate ids, missing base URLs/API keys) and make sure `AllLLMConfigs` rejects partially filled entries coming from the `/llm/config` endpoint.
-- Persist the `llmConfigId` alongside the snapshot on `Chat` and update `_build_litellm_request_payload` to read that id (instead of the current placeholder) so LiteLLM requests use the exact provider that created the chat.
+- We no longer plan to persist `llmConfigId`; instead, rely entirely on the stored snapshot and make the frontend surface when a live config matches that snapshot (or is missing).
 
 ### MCP tools & file editing
 - Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. We will defer these until the other refactor tasks are complete, then build them as MCP tools so LLMs can edit real files through vetted operations.

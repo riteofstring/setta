@@ -248,8 +248,7 @@ class LitellmChatManager:
         for message in chat.messages:
             payload = message.to_openai_format()
             messages.append(payload)
-        llm_config_id = ""  # TODO:infer config id from chat.llmConfig
-        request, api_key_env = self.config.build_litellm_params(llm_config_id)
+        request, api_key_env = self.config.build_litellm_params(chat.llmConfig)
         if api_key_env:
             api_key = os.getenv(api_key_env)
             if api_key:
