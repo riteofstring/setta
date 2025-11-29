@@ -373,7 +373,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         chatDetails: {},
         allChatMetadata: [],
         viewHistory: false,
-        llmConfig: null,
+        allLLMConfigs: null,
         llmConfigInitialLoadComplete: false,
         llmConfigLoadError: null,
       }),

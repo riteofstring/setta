@@ -13,7 +13,7 @@ export const ChatInput = memo(function ChatInput({
   deepThink: boolean;
   placeholderText: string | undefined;
   waitingForResponse: boolean;
-  selectedLLMConfigId: string;
+  selectedLLMConfigId: string | null;
   chatId: string | null;
 }) {
   const disabled = !selectedLLMConfigId;

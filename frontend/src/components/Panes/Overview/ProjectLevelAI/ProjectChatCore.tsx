@@ -362,7 +362,7 @@ function ChatMessages({
 const MessageList = memo(function MessageList({
   messages,
   waitingForResponse,
-  currentChatId,
+  chatId,
   toolCallArguments,
 }) {
   const filteredMessages = messages.filter(
@@ -370,7 +370,7 @@ const MessageList = memo(function MessageList({
   );
   const consolidatedMessages = consolidateAssistantMessages(filteredMessages);
 
-  if (!currentChatId) {
+  if (!chatId) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
         <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
@@ -400,40 +400,38 @@ const MessageList = memo(function MessageList({
 
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({
+  chatId,
   placeholderText,
   deepThink,
   selectedLLMConfigId,
+}: {
+  chatId: string | null;
+  placeholderText: string;
+  deepThink: boolean;
+  selectedLLMConfigId: string | null;
 }) {
-  const { messages, toolCallArguments, waitingForResponse, currentChatId } =
-    useAIStore((x) => {
-      const details = x.chatDetails[x.currentChatId];
-      if (!x.currentChatId || !details) {
-        return {
-          ...getDefaultChatDetails(),
-          currentChatId: x.currentChatId,
-        };
+  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
+    (state) => {
+      if (!chatId) {
+        return getDefaultChatDetails();
       }
-      const { messages, toolCallArguments, waitingForResponse } = details;
-      return {
-        messages,
-        toolCallArguments,
-        waitingForResponse,
-        currentChatId: x.currentChatId,
-      };
-    }, shallow);
+      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+    },
+    shallow,
+  );
 
   useEffect(() => {
-    if (currentChatId) {
-      getLLMChat(currentChatId);
+    if (chatId) {
+      getLLMChat(chatId);
     }
-  }, [currentChatId]);
+  }, [chatId]);
 
   return (
     <>
       <MessageList
         messages={messages}
         waitingForResponse={waitingForResponse}
-        currentChatId={currentChatId}
+        chatId={chatId}
         toolCallArguments={toolCallArguments}
       />
       <ChatInput
@@ -441,7 +439,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
         selectedLLMConfigId={selectedLLMConfigId}
-        chatId={currentChatId}
+        chatId={chatId}
       />
     </>
   );

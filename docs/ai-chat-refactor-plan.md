@@ -90,6 +90,7 @@
 - ✅ Started persisting the exact `LLMConfig` used by each chat, updated the routers to accept `llmConfigId`, and taught the frontend submission flow to resolve an id before calling `/getLLMResponse`, so every new chat carries the provider/model parameters that were in effect when it was created.
 - ✅ `build_litellm_params` now accepts the stored per-chat `LLMConfig`, so LiteLLM payloads are generated directly from the chat metadata without re-resolving config ids.
 - ✅ `LLMConfig` models now require stable `id` values plus a `temporary` flag, `_strip_temporary_configs` keeps disk writes clean, and `merge_chat_llm_configs` injects every stored chat config into the in-memory config set so the frontend always sees the exact provider/model that produced a transcript without running brittle “best match” heuristics.
+- ✅ Removed `currentChatId` from the Zustand AI store in favor of local `ProjectChat` state, and rewired `ProjectChatCore`, `ProjectChatHistory`, and `ChatInput` to consume the lifted state/props so chat selection stays encapsulated in the pane.
 
 ## Remaining Work
 
@@ -107,7 +108,6 @@
 ### Frontend / chat UI
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` wraps the entire pane in `apiKeysInitialLoadComplete && (…)`, but `apiKeysInitialLoadComplete` is never flipped anywhere in `frontend/src/state/definitions.ts`. The chat UI never renders until we hydrate API keys or remove that gate.
 - The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the `/llm/config` endpoints instead of static data.
-- The current `ProjectChat.tsx` cleanup introduces local `chatId`/`selectedLLMConfigId` state without wiring it to stored chats yet, so the dropdown/input are effectively disconnected. Finish that refactor once the config merge work settles.
 - Add a UX affordance (e.g., inline banners or alerts) for tool failures plus a stop button that calls `/stopLLMChat` now that the backend exposes cancellation.
 - Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
 

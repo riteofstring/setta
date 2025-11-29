@@ -23,7 +23,7 @@ function pickDefaultConfigId(config: AllLLMConfigs | null) {
 }
 
 export function ProjectChat() {
-  const [chatId, setChatId] = useState("");
+  const [chatId, setChatId] = useState<string | null>(null);
   const [deepThink, setDeepThink] = useState(false);
 
   const {
@@ -151,9 +151,10 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory />
+          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
         ) : (
           <ProjectChatCore
+            chatId={chatId}
             placeholderText={
               noConfigsAvailable
                 ? "Add API key!"
