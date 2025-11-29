@@ -7478,6 +7478,7 @@ export const ChatSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
+  llmConfig: LLMConfigSchema,
   messages: z.array(
     z.union([
       SystemChatMessageSchema,
@@ -7486,7 +7487,6 @@ export const ChatSchema = z.object({
       ToolChatMessageSchema,
     ]),
   ),
-  llmConfig: LLMConfigSchema,
 });
 
 export type Chat = z.infer<typeof ChatSchema>;
@@ -7499,6 +7499,7 @@ export const ChatMetadataSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
+  llmConfig: LLMConfigSchema,
 });
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
@@ -8340,6 +8341,7 @@ export const GetLLMChatRequestResponseSchema = z.object({
     ]),
   ),
   waitingForResponse: z.boolean(),
+  llmConfig: LLMConfigSchema,
 });
 
 export type GetLLMChatRequestResponse = z.infer<

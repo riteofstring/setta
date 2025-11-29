@@ -9,6 +9,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
+from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
@@ -35,6 +36,7 @@ class GetLLMChatRequest(BaseModel):
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
+    llmConfig: LLMConfig
 
 
 class StopLLMChatRequest(BaseModel):
@@ -124,6 +126,7 @@ async def route_get_llm_chat(
     return GetLLMChatRequestResponse(
         messages=messages,
         waitingForResponse=waiting_for_response,
+        llmConfig=chat.llmConfig,
     )
 
 

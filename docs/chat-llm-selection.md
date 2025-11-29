@@ -44,9 +44,10 @@
 - LiteLLM config models were renamed to `AllLLMConfigs`/`LLMConfig`, and `/llm/config` plus the Zustand store now speak that shape (including `default_config_id` resolution) so the frontend can look up config ids deterministically.
 - `/getLLMResponse` accepts `llmConfigId`, and the frontend resolves the id for the user’s dropdown choice before sending a chat request, so the backend can capture which config entry the user attempted to use even when the snapshot diverges later (the id is used only to fetch the snapshot, not persisted).
 - LiteLLM payload construction now reads the stored `llmConfig` snapshot directly, so chats remain portable even if a config id is missing locally.
+- Snapshot-matching heuristics now live in `matchConfigIdForSnapshot`, and the chat UI derives the active config id per conversation (no more global `userSelectedLLM`). Whenever chats or configs load, the dropdown auto-selects the best match yet remains overrideable locally.
+- The chat dropdown is now populated from live `/llm/config` data (filtered by available API keys), with provider/base URL context appended to duplicate model names.
 
 ## Next Steps
-1. Implement snapshot-matching heuristics (provider/model/base URL/other params) so the UI can pre-select a live config when it lines up with the stored chat snapshot.
-2. Replace the `userSelectedLLM: string` store field with a selection that points at a config id (or stored snapshot), and hydrate it from the chat metadata so reloads don’t fall back to the default model.
-3. Update the chat pane dropdown/UI to render the live config list, show duplicate model names with config labels, and surface the “stale config” badge whenever the stored snapshot no longer matches an active config entry.
-4. Ensure chat exports/imports keep the stored snapshot and metadata so collaboration and restores retain the provider context even without config ids.
+1. Surface stale-config warnings/badges when a stored snapshot can’t be matched to any live entry so users understand why the dropdown is empty.
+2. Keep the snapshot (and any upcoming UI metadata) flowing through chat export/import paths so collaborators always see the provenance.
+3. Add automated coverage for the matching heuristics (overlapping configs, diverging `other_params`, missing API keys) to lock in the selection behavior.

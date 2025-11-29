@@ -11,7 +11,6 @@ import {
   route_get_uuid_mapping_for_llm,
 } from "utils/generatedEndpoints";
 import {
-  AllLLMConfigs,
   BaseChatMessageUnion,
   ChatRoleEnum,
   IDToUUIDForLLM,
@@ -29,60 +28,13 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
-function pickDefaultModel(config: AllLLMConfigs): string | null {
-  if (!config) {
-    return null;
-  }
-  if (config.default_config_id) {
-    const defaultConfig = config.configs[config.default_config_id];
-    if (defaultConfig?.model) {
-      return defaultConfig.model;
-    }
-  }
-  const firstProvider = Object.values(config.configs)[0];
-  return firstProvider?.model ?? null;
-}
-
-function resolveConfigIdForModel(
-  config: AllLLMConfigs | null,
-  modelName: string | null,
-): string | null {
-  if (!config) {
-    return null;
-  }
-  if (modelName) {
-    for (const [llmConfigId, provider] of Object.entries(config.configs)) {
-      if (provider.model === modelName) {
-        return llmConfigId;
-      }
-    }
-  }
-  if (config.default_config_id) {
-    return config.default_config_id;
-  }
-  const [firstId] = Object.keys(config.configs);
-  return firstId ?? null;
-}
-
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
   if (res200(res)) {
-    useAIStore.setState((state) => {
-      const updates: Partial<ZustandAIStore> = {
-        llmConfig: res.data,
-        llmConfigInitialLoadComplete: true,
-        llmConfigLoadError: null,
-      };
-      if (!state.userSelectedLLM) {
-        const defaultModel = pickDefaultModel(res.data);
-        if (defaultModel) {
-          return {
-            ...updates,
-            userSelectedLLM: defaultModel,
-          };
-        }
-      }
-      return updates;
+    useAIStore.setState({
+      llmConfig: res.data,
+      llmConfigInitialLoadComplete: true,
+      llmConfigLoadError: null,
     });
   } else {
     useAIStore.setState({
@@ -116,6 +68,7 @@ export function getDefaultChatDetails(): ChatDetails {
     messages: [],
     toolCallArguments: {},
     waitingForResponse: false,
+    llmConfigSnapshot: null,
   };
 }
 
@@ -123,7 +76,7 @@ export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, waitingForResponse } = res.data;
+    const { messages, waitingForResponse, llmConfig } = res.data;
     useAIStore.setState((state) => ({
       chatDetails: {
         ...state.chatDetails,
@@ -132,6 +85,7 @@ export async function getLLMChat(chatId: string) {
           ...(state.chatDetails[chatId] ?? {}),
           messages,
           waitingForResponse,
+          llmConfigSnapshot: llmConfig,
         },
       },
       currentChatId: chatId,
@@ -164,7 +118,11 @@ export function goToChat(id) {
   useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
-export async function submitMessage(message: string, deepThink) {
+export async function submitMessage(
+  message: string,
+  deepThink,
+  llmConfigId: string,
+) {
   if (!message.trim()) return;
 
   // Add user message immediately for responsive UI
@@ -175,14 +133,6 @@ export async function submitMessage(message: string, deepThink) {
   };
 
   const state = useAIStore.getState();
-  const llmConfigId = resolveConfigIdForModel(
-    state.llmConfig ?? null,
-    state.userSelectedLLM ?? null,
-  );
-  if (!llmConfigId) {
-    throw new Error("No LiteLLM config id available for chat submission");
-  }
-
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),
     message: userMessage,

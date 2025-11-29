@@ -12,6 +12,7 @@ class ChatMetadata(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
+    llmConfig: LLMConfig
 
     @field_validator("lastUpdated", mode="before")
     @classmethod
@@ -23,4 +24,3 @@ class ChatMetadata(BaseModel):
 
 class Chat(ChatMetadata):
     messages: list[BaseChatMessageUnion]
-    llmConfig: LLMConfig

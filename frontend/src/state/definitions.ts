@@ -11,20 +11,21 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
+  BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
   ChatMetadata,
-  BaseChatMessageUnion,
-  AllLLMConfigs,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
   ListenerCoverageSnapshot,
+  LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaNotification,
@@ -344,6 +345,7 @@ export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
+  llmConfigSnapshot: LLMConfig | null;
 };
 
 export type ZustandAIStore = {
@@ -355,7 +357,6 @@ export type ZustandAIStore = {
   chatDetails: Record<string, ChatDetails>;
   currentChatId: string | null;
   viewHistory: boolean;
-  userSelectedLLM: string;
   idToUUIDForLLM: IDToUUIDForLLM;
   llmConfig: AllLLMConfigs | null;
   llmConfigInitialLoadComplete: boolean;
@@ -376,7 +377,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
-        userSelectedLLM: "",
         idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigInitialLoadComplete: false,
@@ -385,9 +385,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       {
         name: "setta_ai_data",
         partialize: (state) => ({
-          apiKeysFilepath: state.apiKeysFilepath,
           currentChatId: state.currentChatId,
-          userSelectedLLM: state.userSelectedLLM,
           viewHistory: state.viewHistory,
         }),
       },
