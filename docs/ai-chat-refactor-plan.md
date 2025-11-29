@@ -84,7 +84,7 @@
 
 ### Backend / LiteLLM integration
 - Thread contextual args (e.g., `setta_chat_id`, `projectConfigId`) through MCP tool invocation so each call knows which chat/project it belongs to once LiteLLM requests a tool.
-- `_run_tool_calls` executes MCP tools but the returned `ToolResult` values are neither persisted nor broadcast—`ToolResultEvent` is defined but unused. Save tool outputs (likely as `role="tool"` messages with structured `is_error` fields), emit `tool_result` WebSocket events, and keep `/getLLMChat` in sync.
+- Persisted tool outputs as first-class `ToolChatMessage`s, but we still need to broadcast `ToolResultEvent`s over the websocket and hydrate `/getLLMChat` responses with those tool messages.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
 - `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.
 

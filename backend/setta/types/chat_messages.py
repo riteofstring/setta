@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
@@ -6,6 +7,9 @@ from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
 
 from setta.database.utils import create_new_id
+from setta.utils.timestamps import get_now_timestamp
+
+JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 
 class ChatRole(str, Enum):
@@ -95,7 +99,12 @@ class UserChatMessage(ContentChatMessage):
 class ToolChatMessage(BaseChatMessage):
     role: Literal[ChatRole.tool] = ChatRole.tool
     tool_call_id: str
+    tool_name: str | None = None
+    arguments: JSONValue = Field(default_factory=dict)
+    result: JSONValue = None
     content: list[TextContent | ImageContent | EmbeddedResource] = Field(
         default_factory=list
     )
     is_error: bool = False
+    started_at: datetime = Field(default_factory=get_now_timestamp)
+    completed_at: datetime | None = None

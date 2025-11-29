@@ -28,6 +28,7 @@ from setta.project_state.chats.save import (
 from setta.types.chat import Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
+    JSONValue,
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
@@ -43,6 +44,7 @@ from setta.types.chat_stream_events import (
     ToolCallDeltaEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
+from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -194,13 +196,16 @@ class LitellmChatManager:
             stop_event_sent = True
             self._finalize_tool_calls(assistant_message, tool_call_state)
             tool_results = await self._run_tool_calls(chat.id, assistant_message)
+            new_messages: list[BaseChatMessageUnion] = [assistant_message]
             if tool_results:
+                new_messages.extend(tool_results)
                 logger.debug(
                     "Executed %s MCP tool calls for chat %s",
                     len(tool_results),
                     chat.id,
                 )
-            save_messages(self.dbe, chat.id, [assistant_message])
+            save_messages(self.dbe, chat.id, new_messages)
+
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
                 MessageFinalizedEvent(message=assistant_message),
@@ -508,6 +513,7 @@ class LitellmChatManager:
                 f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
             )
         arguments = tool_call.function.arguments or {}
+        started_at = get_now_timestamp()
         try:
             call_result = await self.mcp_client.call_tool(tool_name, arguments)
         except Exception:
@@ -517,11 +523,17 @@ class LitellmChatManager:
                 tool_name,
             )
             raise
+        completed_at = get_now_timestamp()
 
         return ToolChatMessage(
             tool_call_id=tool_call.id,
+            tool_name=tool_name,
+            arguments=json.loads(json.dumps(arguments)),
             content=call_result.content,
             is_error=call_result.isError,
+            result=call_result.model_dump(),
+            started_at=started_at,
+            completed_at=completed_at,
         )
 
     def _parse_tool_call_arguments(

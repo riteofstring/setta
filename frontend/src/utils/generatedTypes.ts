@@ -1177,12 +1177,37 @@ export const ToolChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("tool").default(ChatRoleEnum.tool),
   tool_call_id: z.string(),
+  tool_name: z.union([z.string(), z.null()]).default(null),
+  arguments: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default({}),
+  result: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
   content: z
     .array(
       z.union([TextContentSchema, ImageContentSchema, EmbeddedResourceSchema]),
     )
     .default([]),
   is_error: z.boolean().default(false),
+  started_at: z.iso.datetime().default(get_now_timestamp),
+  completed_at: z.union([z.iso.datetime(), z.null()]).default(null),
 });
 
 export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
@@ -1201,6 +1226,18 @@ export const BaseChatMessageUnionSchema = z.union([
 ]);
 
 export type BaseChatMessageUnion = z.infer<typeof BaseChatMessageUnionSchema>;
+
+export const JSONValueSchema = z.union([
+  z.record(z.string(), z.any()),
+  z.array(z.any()),
+  z.string(),
+  z.int(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+export type JSONValue = z.infer<typeof JSONValueSchema>;
 
 export const MessageContentSchema = z.union([
   MessageTextContentSchema,
@@ -7456,7 +7493,7 @@ export function createChatMetadata(
 
 export const BaseChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
-  role: z.enum(ChatRoleEnum),
+  role: z.any(),
 });
 
 export type BaseChatMessage = z.infer<typeof BaseChatMessageSchema>;
@@ -7469,7 +7506,7 @@ export function createBaseChatMessage(
 
 export const ContentChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
-  role: z.enum(ChatRoleEnum),
+  role: z.any(),
   content: z
     .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
     .default([]),
