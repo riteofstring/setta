@@ -34,16 +34,11 @@ def _copy_messages(messages: list[BaseChatMessageUnion]) -> list[BaseChatMessage
     return [_copy_message(message) for message in messages]
 
 
-def create_new_chat(
-    dbe: "DBE",
-    first_message: BaseChatMessageUnion,
-    selected_llm: str,
-) -> Chat:
+def create_new_chat(dbe: "DBE", first_message: BaseChatMessageUnion) -> Chat:
     name = create_new_chat_name(first_message)
     chat = Chat(
         name=name,
         messages=_copy_messages([first_message]),
-        selectedLLM=selected_llm,
     )
     return _persist_chat(dbe, chat)
 
@@ -53,11 +48,7 @@ def delete_chat(dbe: "DBE", chat_id: str) -> None:
 
 
 def save_messages(
-    dbe: "DBE",
-    chat_id: str,
-    messages: list[BaseChatMessageUnion],
-    *,
-    selected_llm: str | None = None,
+    dbe: "DBE", chat_id: str, messages: list[BaseChatMessageUnion]
 ) -> Chat | None:
     if len(messages) == 0:
         return load_chat(dbe, chat_id)
@@ -73,6 +64,4 @@ def save_messages(
 
     chat.messages.extend(_copy_messages(new_messages))
     chat.lastUpdated = get_now_timestamp()
-    if selected_llm is not None:
-        chat.selectedLLM = selected_llm
     return _persist_chat(dbe, chat)

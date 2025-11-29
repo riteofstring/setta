@@ -1,11 +1,5 @@
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import {
-  ChatDetails,
-  NEW_CHAT_ID,
-  ZustandAIStore,
-  createDefaultChatDetails,
-  useAIStore,
-} from "state/definitions";
+import { ChatDetails, ZustandAIStore, useAIStore } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
@@ -35,7 +29,7 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
-export function pickDefaultModel(config: LiteLLMConfig | null): string | null {
+function pickDefaultModel(config: LiteLLMConfig): string | null {
   if (!config) {
     return null;
   }
@@ -58,17 +52,13 @@ export async function loadLLMConfig() {
         llmConfigInitialLoadComplete: true,
         llmConfigLoadError: null,
       };
-      const defaultModel = pickDefaultModel(res.data);
-      if (defaultModel) {
-        const chatDetails = { ...state.chatDetails };
-        const newChatDetails =
-          chatDetails[NEW_CHAT_ID] ?? createDefaultChatDetails();
-        if (!newChatDetails.selectedLLM) {
-          chatDetails[NEW_CHAT_ID] = {
-            ...newChatDetails,
-            selectedLLM: defaultModel,
+      if (!state.userSelectedLLM) {
+        const defaultModel = pickDefaultModel(res.data);
+        if (defaultModel) {
+          return {
+            ...updates,
+            userSelectedLLM: defaultModel,
           };
-          updates.chatDetails = chatDetails;
         }
       }
       return updates;
@@ -100,21 +90,27 @@ export async function loadLLMApiKeys(filepath?: string) {
   }
 }
 
+export function getDefaultChatDetails(): ChatDetails {
+  return {
+    messages: [],
+    toolCallArguments: {},
+    waitingForResponse: false,
+  };
+}
+
 export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, waitingForResponse, selectedLLM } = res.data;
+    const { messages, waitingForResponse } = res.data;
     useAIStore.setState((state) => ({
       chatDetails: {
         ...state.chatDetails,
         [chatId]: {
-          ...createDefaultChatDetails(),
+          ...getDefaultChatDetails(),
           ...(state.chatDetails[chatId] ?? {}),
           messages,
           waitingForResponse,
-          selectedLLM:
-            selectedLLM || state.chatDetails[chatId]?.selectedLLM || null,
         },
       },
       currentChatId: chatId,
@@ -128,23 +124,6 @@ export async function createNewLLMChat() {
   useAIStore.setState({
     currentChatId: null,
     viewHistory: false,
-  });
-}
-
-export function setActiveChatSelectedLLM(model: string | null) {
-  useAIStore.setState((state) => {
-    const chatId = state.currentChatId ?? NEW_CHAT_ID;
-    const nextDetails = {
-      ...createDefaultChatDetails(),
-      ...(state.chatDetails[chatId] ?? {}),
-      selectedLLM: model,
-    };
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: nextDetails,
-      },
-    };
   });
 }
 
@@ -175,20 +154,10 @@ export async function submitMessage(message: string, deepThink) {
   };
 
   const state = useAIStore.getState();
-  const activeChatId = state.currentChatId ?? NEW_CHAT_ID;
-  const activeDetails = {
-    ...createDefaultChatDetails(),
-    ...(state.chatDetails[activeChatId] ?? {}),
-  };
-  const selectedLLM =
-    activeDetails.selectedLLM || pickDefaultModel(state.llmConfig);
-  if (!selectedLLM) {
-    return;
-  }
 
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),
-    model: selectedLLM,
+    model: state.userSelectedLLM,
     message: userMessage,
     deepThink,
     chatId: state.currentChatId,
@@ -356,7 +325,7 @@ function updateChatDetails(
 ) {
   useAIStore.setState((state) => {
     const baseDetails: ChatDetailsState = {
-      ...createDefaultChatDetails(),
+      ...getDefaultChatDetails(),
       ...(state.chatDetails[chatId] ?? {}),
     };
     const nextDetails = updater(baseDetails);

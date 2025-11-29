@@ -94,29 +94,13 @@ class LitellmChatManager:
         self,
         chat_id: str | None,
         message: UserChatMessage,
-        *,
-        selected_llm: str,
     ) -> Chat:
-        if not selected_llm:
-            raise ValueError("selected_llm must be provided")
         if chat_id:
             chat = load_chat(self.dbe, chat_id)
             if chat:
-                updated = save_messages(
-                    self.dbe,
-                    chat.id,
-                    [message],
-                    selected_llm=selected_llm,
-                )
-                if updated:
-                    return updated
-                chat.selectedLLM = selected_llm
-                return chat
-        return create_new_chat(
-            self.dbe,
-            message,
-            selected_llm=selected_llm,
-        )
+                updated = save_messages(self.dbe, chat.id, [message])
+                return updated or chat
+        return create_new_chat(self.dbe, message)
 
     def get_all_chat_metadata(self):
         return load_all_chat_metadata(self.dbe)
@@ -223,12 +207,7 @@ class LitellmChatManager:
                     len(tool_results),
                     chat.id,
                 )
-            save_messages(
-                self.dbe,
-                chat.id,
-                new_messages,
-                selected_llm=chat.selectedLLM,
-            )
+            save_messages(self.dbe, chat.id, new_messages)
 
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
