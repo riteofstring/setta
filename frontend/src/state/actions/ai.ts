@@ -14,6 +14,7 @@ import {
   APIKeys,
   BaseChatMessageUnion,
   ChatRoleEnum,
+  createMessageTextContent,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -24,7 +25,6 @@ import {
   ToolCall,
   ToolCallDeltaEvent,
   ToolResultEvent,
-  createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
@@ -127,7 +127,7 @@ export async function submitMessage(
   const userMessage = {
     id: createNewId(),
     role: ChatRoleEnum.user,
-    content: createMessageTextContent({ text: message }),
+    content: [createMessageTextContent({ text: message })],
   };
 
   const res = await route_get_llm_response({

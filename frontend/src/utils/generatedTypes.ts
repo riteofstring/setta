@@ -980,7 +980,7 @@ export function createBaseArtifactUnionWithDiscriminator(
 }
 
 export const MessageTextContentSchema = z.object({
-  type: z.literal("text"),
+  type: z.literal("text").default("text" as const),
   text: z.string(),
 });
 
@@ -1006,7 +1006,7 @@ export function createMessageImageUrl(
 }
 
 export const MessageImageUrlContentSchema = z.object({
-  type: z.literal("image_url"),
+  type: z.literal("image_url").default("image_url" as const),
   image_url: MessageImageUrlSchema,
 });
 
