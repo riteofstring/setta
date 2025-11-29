@@ -1,7 +1,10 @@
 from pathlib import Path
 from typing import Any
 
+from setta.mcp.tool_setup import setta_tool
 
+
+@setta_tool
 def read_file_range(
     *,
     path: str,
@@ -9,6 +12,7 @@ def read_file_range(
     end_line: int | None = None,
     workspace_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    """Return the requested line range from a UTF-8 text file."""
     file_path = _resolve_path(path, workspace_root)
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")

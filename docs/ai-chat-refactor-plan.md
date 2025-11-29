@@ -82,6 +82,7 @@
 - ✅ Broadcast MCP tool completions as `ToolResultEvent`s directly from `_dispatch_tool_call`, so every tool call now pushes a structured result over the websocket while still being persisted as `ToolChatMessage`s.
 - ✅ Deleted the frontend-only `startStreamingInto`/`stopStreamingInto` shim and its UI hooks so future file editing must flow through backend MCP tools instead of mutating local state only.
 - ✅ Dropped the bespoke frontend `toolResults` map and `/getLLMChat` filtering so `ToolChatMessage`s now live inline in both the backend and frontend chat history; the UI renders assistant tool calls (plus streamed argument deltas) without extra state.
+- ✅ Registered `read_file_range` with `@setta_tool` so it flows through `SETTA_MCP_TOOLS` and is discoverable by LiteLLM/MCP clients without relying on Anthropic-era shims.
 
 ## Remaining Work
 
@@ -91,7 +92,6 @@
 - `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.
 
 ### MCP tools & file editing
-- `read_file_range` lives in `backend/setta/mcp/tools/file_read.py` but it isn’t decorated with `@setta_tool`, so `SETTA_MCP_TOOLS` never exports it even though we import the module in `server.py`. Register it (with a descriptive docstring) so LiteLLM can actually call the tool.
 - Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. Build them as MCP tools now that the legacy streaming shim is gone, so LLMs can edit real files through vetted operations.
 - Provide richer tool metadata: JSON schemas/descriptions are still minimal, making it hard for LiteLLM to ground requests.
 - Make sure LiteLLM discovers tools through the MCP client rather than assuming hard-coded helpers—`MCPClient.available_tools` is ready but currently unused.
