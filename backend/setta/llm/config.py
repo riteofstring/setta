@@ -11,7 +11,9 @@ from setta.utils.generate_memorable_string import generate_memorable_available_s
 def load_llm_config(dbe: DBE) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
     if not raw:
-        return AllLLMConfigs()
+        config = AllLLMConfigs()
+        dbe.write_llm_config(config.model_dump(exclude_unset=True))
+        return config
     return AllLLMConfigs.model_validate(raw)
 
 
