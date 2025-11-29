@@ -198,13 +198,13 @@ export async function route_set_llm_config(
 export async function route_get_llm_api_keys(): Promise<
   ResponseDataAndStatus<Record<string, string>>
 > {
-  return await get("/llmKeys");
+  return await get("/llm/apiKeys");
 }
 
 export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequest,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
-  return await post("/llmKeys", payload);
+  return await post("/llm/apiKeys", payload);
 }
 
 export async function route_get_llm_response(
