@@ -8112,6 +8112,37 @@ export function createListenerRealtimeDelta(
   return ListenerRealtimeDeltaSchema.parse(options);
 }
 
+export const LLMProviderConfigSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  api_key_env: z.union([z.string(), z.null()]).default(null),
+  other_params: z
+    .union([z.record(z.string(), z.any()), z.null()])
+    .default(null),
+});
+
+export type LLMProviderConfig = z.infer<typeof LLMProviderConfigSchema>;
+
+export function createLLMProviderConfig(
+  options: Partial<LLMProviderConfig> = {},
+): LLMProviderConfig {
+  return LLMProviderConfigSchema.parse(options);
+}
+
+export const LiteLLMConfigSchema = z.object({
+  providers: z.record(z.string(), LLMProviderConfigSchema).default({}),
+  default_provider_id: z.union([z.string(), z.null()]).default(null),
+});
+
+export type LiteLLMConfig = z.infer<typeof LiteLLMConfigSchema>;
+
+export function createLiteLLMConfig(
+  options: Partial<LiteLLMConfig> = {},
+): LiteLLMConfig {
+  return LiteLLMConfigSchema.parse(options);
+}
+
 export const BrowserAreaItemSchema = z.object({
   id: z.string(),
   type: z.any(),

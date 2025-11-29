@@ -253,19 +253,11 @@ class LitellmChatManager:
         for message in chat.messages:
             payload = message.to_openai_format()
             messages.append(payload)
-        request = {}
-        config = self.config.copy()
-        if "api_key_env" in config:
-            api_key = os.getenv(config["api_key_env"])
+        request, api_key_env = self.config.build_litellm_params()
+        if api_key_env:
+            api_key = os.getenv(api_key_env)
             if api_key:
                 request["api_key"] = api_key
-            config.pop("api_key_env")
-
-        if "other_params" in config:
-            request.update(config["other_params"])
-            config.pop("other_params")
-
-        request.update(config)
 
         if model_override:
             request["model"] = model_override

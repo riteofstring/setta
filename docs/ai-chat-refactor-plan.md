@@ -83,6 +83,7 @@
 - ✅ Deleted the frontend-only `startStreamingInto`/`stopStreamingInto` shim and its UI hooks so future file editing must flow through backend MCP tools instead of mutating local state only.
 - ✅ Dropped the bespoke frontend `toolResults` map and `/getLLMChat` filtering so `ToolChatMessage`s now live inline in both the backend and frontend chat history; the UI renders assistant tool calls (plus streamed argument deltas) without extra state.
 - ✅ Registered `read_file_range` with `@setta_tool` so it flows through `SETTA_MCP_TOOLS` and is discoverable by LiteLLM/MCP clients without relying on Anthropic-era shims.
+- ✅ Rebuilt the LiteLLM config layer with Pydantic models (`backend/setta/types/llm_config.py`), centralized provider resolution + payload building, and updated `LitellmChatManager` to consume those helpers so future CRUD endpoints can just read/write structured provider dictionaries.
 
 ## Remaining Work
 

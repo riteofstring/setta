@@ -1,34 +1,35 @@
+"""Helpers for persisting the LiteLLM configuration file."""
+
 import json
 from pathlib import Path
-from typing import Any, NotRequired, TypedDict
+from typing import Any
 
+from setta.types.llm_config import LiteLLMConfig
 from setta.utils.constants import C
 
 CONFIG_FILENAME = "llm_config.json"
 
 
-class LiteLLMConfig(TypedDict):
-    model: NotRequired[str]
-    custom_llm_provider: NotRequired[str]
-    api_base: NotRequired[str]
-    api_key_env: NotRequired[str]
-    other_params: NotRequired[dict[str, Any]]
-
-
 def load_litellm_config(
     config_path: Path | None = None,
 ) -> LiteLLMConfig:
+    """Load and validate ``setta_files/llm_config.json``."""
+
     raw = _read_config(config_path)
-    config = LiteLLMConfig(**raw)
-    return config
+    if not raw:
+        return LiteLLMConfig()
+    return LiteLLMConfig.model_validate(raw)
 
 
 def save_litellm_config(
     config: LiteLLMConfig,
     config_path: Path | None = None,
 ) -> None:
+    """Persist the LiteLLM configuration, writing canonical JSON."""
     path = _resolve_path(config_path)
-    path.write_text(json.dumps(config, indent=2))
+    path.write_text(
+        config.model_dump_json(indent=2, exclude_unset=True) + "\n",
+    )
 
 
 def _read_config(config_path: Path | None) -> dict[str, Any]:
