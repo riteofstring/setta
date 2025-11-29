@@ -8,12 +8,8 @@ import {
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
-  route_set_llm_api_keys,
-  route_set_llm_config,
 } from "utils/generatedEndpoints";
 import {
-  AllLLMConfigs,
-  APIKeys,
   BaseChatMessageUnion,
   ChatRoleEnum,
   LLMStreamingResponse,
@@ -27,7 +23,6 @@ import {
   ToolCallDeltaEvent,
   ToolResultEvent,
   createMessageTextContent,
-  createAllLLMConfigs,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
@@ -61,50 +56,6 @@ export async function loadLLMApiKeys() {
       apiKeysLoadError: "Failed to load LLM API keys",
     });
   }
-}
-
-export async function mutateLLMConfig(
-  mutator: (config: AllLLMConfigs) => AllLLMConfigs | null,
-) {
-  const currentConfig =
-    useAIStore.getState().allLLMConfigs ?? createAllLLMConfigs();
-  const updatedConfig = mutator(currentConfig);
-  if (!updatedConfig) {
-    return;
-  }
-  const res = await route_set_llm_config(updatedConfig);
-  if (res200(res)) {
-    useAIStore.setState({
-      allLLMConfigs: res.data,
-      allLLMConfigsInitialLoadComplete: true,
-      allLLMConfigsLoadError: null,
-    });
-  } else {
-    useAIStore.setState({
-      allLLMConfigsLoadError: "Failed to save LLM config",
-    });
-  }
-}
-
-export async function setLLMApiKeyValue(
-  envVarName: string,
-  secret: string,
-) {
-  const normalizedEnvName = envVarName.trim();
-  if (!normalizedEnvName) {
-    return;
-  }
-  useAIStore.setState((state) => {
-    const apiKeys: APIKeys = { ...state.apiKeys };
-    if (secret.trim()) {
-      apiKeys[normalizedEnvName] = secret.trim();
-    } else {
-      delete apiKeys[normalizedEnvName];
-    }
-    return { apiKeys };
-  });
-  const { apiKeys } = useAIStore.getState();
-  await route_set_llm_api_keys({ apiKeys });
 }
 
 export function getDefaultChatDetails(): ChatDetails {

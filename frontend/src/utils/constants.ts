@@ -135,48 +135,24 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 
-export type KnownLLMModelGroup = {
-  provider: string;
-  models: Array<{
-    id: string;
-    name: string;
-    baseUrl?: string | null;
-  }>;
-};
-
-export const KNOWN_LLM_MODEL_GROUPS: Array<KnownLLMModelGroup> = [
+export const MODEL_GROUPS = [
   {
-    provider: "OpenAI",
-    models: [
-      { id: "gpt-4o", name: "GPT-4o" },
-      { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-      { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
-      { id: "gpt-4", name: "GPT-4" },
-      { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
-    ],
-  },
-  {
-    provider: "Anthropic",
-    models: [
+    group: "Anthropic",
+    items: [
       { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
       { id: "claude-3-sonnet-20240229", name: "Claude 3 Sonnet" },
       { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
       { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
+      { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet" },
     ],
   },
   {
-    provider: "Google",
-    models: [
-      {
-        id: "gemini-1.5-pro",
-        name: "Gemini 1.5 Pro",
-        baseUrl: "https://generativelanguage.googleapis.com",
-      },
-      {
-        id: "gemini-1.5-flash",
-        name: "Gemini 1.5 Flash",
-        baseUrl: "https://generativelanguage.googleapis.com",
-      },
+    group: "OpenAI",
+    items: [
+      { id: "gpt-4o", name: "GPT-4o" },
+      { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+      { id: "gpt-4", name: "GPT-4" },
+      { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
     ],
   },
 ];
