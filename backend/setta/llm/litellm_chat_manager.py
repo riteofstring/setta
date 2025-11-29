@@ -27,13 +27,13 @@ from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
 from setta.types.chat_messages import (
-    AssistantChatMessage,
     Chat,
     ChatMessage,
+    ChatRole,
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
-    ToolChatMessage,
+    ToolResult,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -42,7 +42,6 @@ from setta.types.chat_stream_events import (
     MessageStopEvent,
     MessageTextDelta,
     ToolCallDeltaEvent,
-    ToolResultEvent,
 )
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -195,15 +194,14 @@ class LitellmChatManager:
             )
             stop_event_sent = True
             self._finalize_tool_calls(assistant_message, tool_call_state)
-            tool_messages = await self._run_tool_calls(chat.id, assistant_message)
-            if tool_messages:
+            tool_results = await self._run_tool_calls(chat.id, assistant_message)
+            if tool_results:
                 logger.debug(
                     "Executed %s MCP tool calls for chat %s",
-                    len(tool_messages),
+                    len(tool_results),
                     chat.id,
                 )
-            messages_to_save = [assistant_message, *tool_messages]
-            save_messages(self.dbe, chat.id, messages_to_save)
+            save_messages(self.dbe, chat.id, [assistant_message])
             await self.websocket_msg_handler.send_streaming_response(
                 chat.id,
                 MessageFinalizedEvent(message=assistant_message),
@@ -238,12 +236,14 @@ class LitellmChatManager:
 
     def separate_tool_results(
         self, messages: list[ChatMessage]
-    ) -> tuple[list[ChatMessage], dict[str, ToolChatMessage]]:
-        tool_results: dict[str, ToolChatMessage] = {}
+    ) -> tuple[list[ChatMessage], dict[str, ToolResult]]:
+        tool_results: dict[str, ToolResult] = {}
         filtered_messages: list[ChatMessage] = []
         for message in messages:
-            if isinstance(message, ToolChatMessage):
-                tool_results[message.tool_call_id] = message
+            if message.role == ChatRole.tool and message.tool_call_id:
+                tool_result = self._chat_message_to_tool_result(message)
+                if tool_result:
+                    tool_results[message.tool_call_id] = tool_result
                 continue
             filtered_messages.append(message)
         return filtered_messages, tool_results
@@ -471,6 +471,25 @@ class LitellmChatManager:
             )
         return assistant_message.tool_calls[index]
 
+    def _chat_message_to_tool_result(self, message: ChatMessage) -> ToolResult | None:
+        if not message.tool_call_id:
+            return None
+        content: list[TextContent] = []
+        for entry in message.content:
+            if isinstance(entry, MessageTextContent) and entry.text:
+                content.append(TextContent(type="text", text=entry.text))
+        try:
+            return ToolResult(
+                tool_call_id=message.tool_call_id,
+                content=content,
+                is_error=False,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to convert tool message %s into ToolResult", message.id
+            )
+        return None
+
     def _finalize_tool_calls(
         self,
         assistant_message: ChatMessage,
@@ -489,26 +508,22 @@ class LitellmChatManager:
     async def _run_tool_calls(
         self,
         chat_id: str,
-        assistant_message: AssistantChatMessage,
-    ) -> list[ToolChatMessage]:
+        assistant_message: ChatMessage,
+    ) -> list[ToolResult]:
         if not assistant_message.tool_calls:
             return []
 
-        tool_messages: list[ToolChatMessage] = []
+        results: list[ToolResult] = []
         for tool_call in assistant_message.tool_calls:
             result = await self._dispatch_tool_call(chat_id, tool_call)
-            await self.websocket_msg_handler.send_streaming_response(
-                chat_id,
-                ToolResultEvent(result=result),
-            )
-            tool_messages.append(result)
-        return tool_messages
+            results.append(result)
+        return results
 
     async def _dispatch_tool_call(
         self,
         chat_id: str,
         tool_call: ToolCall,
-    ) -> ToolChatMessage:
+    ) -> ToolResult:
         tool_name = tool_call.function.name.strip()
         if not tool_name:
             raise ValueError(
@@ -525,11 +540,10 @@ class LitellmChatManager:
             )
             raise
 
-        content = [entry.model_copy(deep=True) for entry in call_result.content or []]
-        return ToolChatMessage(
+        return ToolResult(
             tool_call_id=tool_call.id,
-            result_content=content,
-            is_error=bool(call_result.isError),
+            content=call_result.content,
+            is_error=call_result.isError,
         )
 
     def _parse_tool_call_arguments(
