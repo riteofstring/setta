@@ -1,5 +1,18 @@
 import { useState } from "react";
+import type { FocusEvent, KeyboardEvent } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
+
+type PasswordInputProps = {
+  className: string;
+  value: string;
+  onChange: (value: string) => void;
+  onEscape?: () => void;
+  onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  isDisabled: boolean;
+  gridArea?: string;
+  placeholder?: string;
+};
 
 export function PasswordInput({
   className,
@@ -10,7 +23,8 @@ export function PasswordInput({
   onKeyDown,
   isDisabled,
   gridArea = "section-value",
-}) {
+  placeholder,
+}: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {
@@ -32,6 +46,7 @@ export function PasswordInput({
             onEscape?.();
           }
         }}
+        placeholder={placeholder}
       />
       <button
         type="button"
