@@ -20,7 +20,7 @@ class ChatRole(str, Enum):
 
 
 class MessageTextContent(BaseModel):
-    type: Literal["text"]
+    type: Literal["text"] = "text"
     text: str
 
 
@@ -30,7 +30,7 @@ class MessageImageUrl(BaseModel):
 
 
 class MessageImageUrlContent(BaseModel):
-    type: Literal["image_url"]
+    type: Literal["image_url"] = "image_url"
     image_url: MessageImageUrl
 
 
