@@ -44,7 +44,7 @@
 - LiteLLM config models were renamed to `AllLLMConfigs`/`LLMConfig`, and `/llm/config` plus the Zustand store now speak that shape (including `default_config_id` resolution) so the frontend can look up config ids deterministically.
 - `/getLLMResponse` accepts `llmConfigId`, and the frontend resolves the id for the user’s dropdown choice before sending a chat request, so the backend can capture which config entry the user attempted to use even when the snapshot diverges later (the id is used only to fetch the snapshot, not persisted).
 - LiteLLM payload construction now reads the stored `llmConfig` snapshot directly, so chats remain portable even if a config id is missing locally.
-- Snapshot-matching heuristics now live in `matchConfigIdForSnapshot`, and the chat UI derives the active config id per conversation (no more global `userSelectedLLM`). Whenever chats or configs load, the dropdown auto-selects the best match yet remains overrideable locally.
+- Snapshot-matching heuristics now live in `matchConfigIdForChatLLMConfig`, and the chat UI derives the active config id per conversation (no more global `userSelectedLLM`). Whenever chats or configs load, the dropdown auto-selects the best match yet remains overrideable locally.
 - The chat dropdown is now populated from live `/llm/config` data (filtered by available API keys), with provider/base URL context appended to duplicate model names.
 
 ## Next Steps

@@ -1,6 +1,21 @@
-import isEqual from "lodash/isEqual";
+import _ from "lodash";
+import { AllLLMConfigs, LLMConfig, ObjectValues } from "utils/generatedTypes";
 
-import { AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
+export const ChatLLMConfigMatchStatusEnum = {
+  MATCHED: "matched",
+  STALE: "stale",
+  UNKNOWN: "unknown",
+} as const;
+
+export type ChatLLMConfigMatchStatus = ObjectValues<
+  typeof ChatLLMConfigMatchStatusEnum
+>;
+
+export type ChatLLMConfigSelection = {
+  chatLLMConfig: LLMConfig | null;
+  matchedConfigId: string | null;
+  matchStatus: ChatLLMConfigMatchStatus;
+};
 
 function otherParamsEqual(
   a: Record<string, unknown> | null | undefined,
@@ -12,7 +27,7 @@ function otherParamsEqual(
   if (!a || !b) {
     return false;
   }
-  return isEqual(a, b);
+  return _.isEqual(a, b);
 }
 
 function fieldEquals<T extends keyof LLMConfig>(
@@ -24,21 +39,21 @@ function fieldEquals<T extends keyof LLMConfig>(
 }
 
 function evaluateMatchTier(
-  snapshot: LLMConfig,
+  chatLLMConfig: LLMConfig,
   candidate: LLMConfig,
 ): number {
-  if (!snapshot.model) {
+  if (!chatLLMConfig.model) {
     return 0;
   }
-  const sameModel = fieldEquals(snapshot, candidate, "model");
+  const sameModel = fieldEquals(chatLLMConfig, candidate, "model");
   if (!sameModel) {
     return 0;
   }
-  const sameProvider = fieldEquals(snapshot, candidate, "provider");
-  const sameBaseUrl = fieldEquals(snapshot, candidate, "base_url");
-  const sameApiKeyEnv = fieldEquals(snapshot, candidate, "api_key_env");
+  const sameProvider = fieldEquals(chatLLMConfig, candidate, "provider");
+  const sameBaseUrl = fieldEquals(chatLLMConfig, candidate, "base_url");
+  const sameApiKeyEnv = fieldEquals(chatLLMConfig, candidate, "api_key_env");
   const sameOtherParams = otherParamsEqual(
-    snapshot.other_params,
+    chatLLMConfig.other_params,
     candidate.other_params,
   );
 
@@ -63,17 +78,17 @@ type MatchResult = {
   isDefault: boolean;
 };
 
-export function matchConfigIdForSnapshot(
-  snapshot: LLMConfig | null | undefined,
+export function matchConfigIdForChatLLMConfig(
+  chatLLMConfig: LLMConfig | null | undefined,
   liveConfigs: AllLLMConfigs | null | undefined,
 ): string | null {
-  if (!snapshot || !liveConfigs) {
+  if (!chatLLMConfig || !liveConfigs) {
     return null;
   }
 
   const results: MatchResult[] = [];
   for (const [configId, candidate] of Object.entries(liveConfigs.configs)) {
-    const score = evaluateMatchTier(snapshot, candidate);
+    const score = evaluateMatchTier(chatLLMConfig, candidate);
     if (score === 0) {
       continue;
     }
@@ -99,4 +114,41 @@ export function matchConfigIdForSnapshot(
   });
 
   return results[0]?.id ?? null;
+}
+
+export function computeConfigSelectionForChat(
+  chatLLMConfig: LLMConfig | null | undefined,
+  liveConfigs: AllLLMConfigs | null | undefined,
+): ChatLLMConfigSelection {
+  const chatConfig = chatLLMConfig ?? null;
+  const matchedConfigId = matchConfigIdForChatLLMConfig(
+    chatConfig,
+    liveConfigs,
+  );
+  const matchStatus = deriveMatchStatus(
+    chatConfig,
+    matchedConfigId,
+    liveConfigs,
+  );
+  return {
+    chatLLMConfig: chatConfig,
+    matchedConfigId,
+    matchStatus,
+  };
+}
+
+function deriveMatchStatus(
+  chatLLMConfig: LLMConfig | null,
+  matchedConfigId: string | null,
+  liveConfigs: AllLLMConfigs | null | undefined,
+): ChatLLMConfigMatchStatus {
+  if (!chatLLMConfig) {
+    return ChatLLMConfigMatchStatusEnum.UNKNOWN;
+  }
+  if (!liveConfigs) {
+    return ChatLLMConfigMatchStatusEnum.UNKNOWN;
+  }
+  return matchedConfigId
+    ? ChatLLMConfigMatchStatusEnum.MATCHED
+    : ChatLLMConfigMatchStatusEnum.STALE;
 }

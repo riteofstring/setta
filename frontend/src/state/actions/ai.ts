@@ -1,5 +1,5 @@
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { ChatDetails, ZustandAIStore, useAIStore } from "state/definitions";
+import { ChatDetails, useAIStore } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,

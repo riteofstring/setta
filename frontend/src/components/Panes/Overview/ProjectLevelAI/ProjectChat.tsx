@@ -6,7 +6,7 @@ import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { createNewLLMChat, getUUIDMappingForLLM } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import { matchConfigIdForSnapshot } from "utils/llmConfigMatching";
+import { computeConfigSelectionForChat } from "utils/llmConfigMatching";
 import { AllLLMConfigs } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";
@@ -56,7 +56,7 @@ export function ProjectChat() {
   const manualSelectionRef = useRef(false);
   const lastHydratedChatIdRef = useRef<string | null>(null);
 
-  const currentChatSnapshot = useMemo(() => {
+  const currentChatLLMConfig = useMemo(() => {
     if (!currentChatId) {
       return null;
     }
@@ -68,6 +68,11 @@ export function ProjectChat() {
     return metadata?.llmConfig ?? null;
   }, [allChatMetadata, chatDetails, currentChatId]);
 
+  const currentChatLLMConfigSelection = useMemo(
+    () => computeConfigSelectionForChat(currentChatLLMConfig, llmConfig),
+    [currentChatLLMConfig, llmConfig],
+  );
+
   useEffect(() => {
     if (!llmConfig) {
       lastHydratedChatIdRef.current = currentChatId;
@@ -76,9 +81,7 @@ export function ProjectChat() {
       return;
     }
 
-    const matchedFromSnapshot = currentChatSnapshot
-      ? matchConfigIdForSnapshot(currentChatSnapshot, llmConfig)
-      : null;
+    const matchedFromSnapshot = currentChatLLMConfigSelection.matchedConfigId;
     const defaultConfigId = pickDefaultConfigId(llmConfig);
     const desiredSelection = matchedFromSnapshot ?? defaultConfigId ?? null;
 
@@ -100,7 +103,7 @@ export function ProjectChat() {
       manualSelectionRef.current = false;
       setSelectedConfigId(desiredSelection);
     }
-  }, [currentChatId, currentChatSnapshot, llmConfig, selectedConfigId]);
+  }, [currentChatId, currentChatLLMConfigSelection, llmConfig, selectedConfigId]);
 
   const availableConfigGroups = useMemo(() => {
     if (!llmConfig) {
