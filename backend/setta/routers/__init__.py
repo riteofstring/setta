@@ -2,6 +2,7 @@ from .ai import router as ai_router
 from .artifact import router as artifact_router
 from .code_info import router as code_info_router
 from .listener import router as listener_router
+from .llm_config import router as llm_config_router
 from .lsp import router as lsp_router
 from .project_manager import router as project_manager_router
 from .projects import router as projects_router
