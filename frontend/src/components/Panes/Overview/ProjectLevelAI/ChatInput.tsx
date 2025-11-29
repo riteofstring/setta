@@ -8,7 +8,13 @@ export const ChatInput = memo(function ChatInput({
   placeholderText,
   waitingForResponse,
   selectedLLMConfigId,
-  currentChatId,
+  chatId,
+}: {
+  deepThink: boolean;
+  placeholderText: string | undefined;
+  waitingForResponse: boolean;
+  selectedLLMConfigId: string;
+  chatId: string | null;
 }) {
   const disabled = !selectedLLMConfigId;
   // Keep input state local to this component
@@ -16,8 +22,8 @@ export const ChatInput = memo(function ChatInput({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (waitingForResponse) {
-      route_stop_llm_chat({ chatId: currentChatId });
+    if (waitingForResponse && chatId) {
+      route_stop_llm_chat({ chatId });
       return;
     }
 
@@ -25,7 +31,7 @@ export const ChatInput = memo(function ChatInput({
     if (!selectedLLMConfigId) return;
 
     // Only communicate with parent on submission
-    submitMessage(inputValue, deepThink, selectedLLMConfigId);
+    submitMessage(chatId, inputValue, deepThink, selectedLLMConfigId);
     setInputValue("");
   };
 

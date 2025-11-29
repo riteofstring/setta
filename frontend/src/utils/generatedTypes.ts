@@ -7459,6 +7459,7 @@ export function createBaseChartSettings(
 }
 
 export const LLMConfigSchema = z.object({
+  id: z.string(),
   model: z.string(),
   provider: z.union([z.string(), z.null()]).default(null),
   base_url: z.union([z.string(), z.null()]).default(null),
@@ -7466,6 +7467,7 @@ export const LLMConfigSchema = z.object({
   other_params: z
     .union([z.record(z.string(), z.any()), z.null()])
     .default(null),
+  temporary: z.boolean().default(false),
 });
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;

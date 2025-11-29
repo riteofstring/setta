@@ -86,9 +86,10 @@
 - ✅ Rebuilt the LiteLLM config layer with Pydantic models (`backend/setta/types/llm_config.py`), centralized provider resolution + payload building, and updated `LitellmChatManager` to consume those helpers so future CRUD endpoints can just read/write structured provider dictionaries.
 - ✅ Added an `LLMConfigWatcher` that hooks into the existing file watcher stack, hot-reloads `setta_files/llm_config.json` inside `LitellmChatManager`, and surfaces validation errors over the websocket so backend/front stay aligned without a restart.
 - ✅ Exposed `/llm/config` + `/llm/apiKeys` FastAPI routes backed by `SettaAPIRouter`, so the frontend can manage provider configs and `.env` secrets without touching the Anthropic-era endpoints; the old `/setLLMApiKeys` handler and helper were deleted.
-- ✅ Hydrated the Zustand AI store with `llmConfig`, load/error flags, and the new `loadLLMConfig`/`loadLLMApiKeys` actions so the frontend can fetch provider metadata and `.env` secrets from the new LiteLLM endpoints.
-- ✅ Started persisting a per-chat `llmConfig` snapshot, updated the routers to accept `llmConfigId`, and taught the frontend submission flow to resolve an id before calling `/getLLMResponse`, so every new chat carries the provider/model parameters that were in effect when it was created.
-- ✅ `build_litellm_params` now accepts stored `llmConfig` snapshots, so LiteLLM payloads are generated directly from the chat metadata without re-resolving config ids.
+- ✅ Hydrated the Zustand AI store with `allLLMConfigs`, load/error flags, and the new `loadLLMConfig`/`loadLLMApiKeys` actions so the frontend can fetch provider metadata and `.env` secrets from the new LiteLLM endpoints.
+- ✅ Started persisting the exact `LLMConfig` used by each chat, updated the routers to accept `llmConfigId`, and taught the frontend submission flow to resolve an id before calling `/getLLMResponse`, so every new chat carries the provider/model parameters that were in effect when it was created.
+- ✅ `build_litellm_params` now accepts the stored per-chat `LLMConfig`, so LiteLLM payloads are generated directly from the chat metadata without re-resolving config ids.
+- ✅ `LLMConfig` models now require stable `id` values plus a `temporary` flag, `_strip_temporary_configs` keeps disk writes clean, and `merge_chat_llm_configs` injects every stored chat config into the in-memory config set so the frontend always sees the exact provider/model that produced a transcript without running brittle “best match” heuristics.
 
 ## Remaining Work
 
@@ -96,7 +97,7 @@
 - Thread contextual args (e.g., `setta_chat_id`, `projectConfigId`) through MCP tool invocation so each call knows which chat/project it belongs to once LiteLLM requests a tool. Defer this until every other refactor task in this plan is complete so we only wire the final data shapes once.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
 - Flesh out LiteLLM config validation/error handling (duplicate ids, missing base URLs/API keys) and make sure `AllLLMConfigs` rejects partially filled entries coming from the `/llm/config` endpoint.
-- We no longer plan to persist `llmConfigId`; instead, rely entirely on the stored snapshot and make the frontend surface when a live config matches that snapshot (or is missing).
+- Now that `merge_chat_llm_configs` injects stored chat configs as `temporary` entries, add validation/tests plus a push/broadcast path so the frontend always sees those entries (and we never leak them to disk) whenever chats are created or deleted.
 
 ### MCP tools & file editing
 - Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. We will defer these until the other refactor tasks are complete, then build them as MCP tools so LLMs can edit real files through vetted operations.
@@ -106,13 +107,14 @@
 ### Frontend / chat UI
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` wraps the entire pane in `apiKeysInitialLoadComplete && (…)`, but `apiKeysInitialLoadComplete` is never flipped anywhere in `frontend/src/state/definitions.ts`. The chat UI never renders until we hydrate API keys or remove that gate.
 - The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the `/llm/config` endpoints instead of static data.
+- The current `ProjectChat.tsx` cleanup introduces local `chatId`/`selectedLLMConfigId` state without wiring it to stored chats yet, so the dropdown/input are effectively disconnected. Finish that refactor once the config merge work settles.
 - Add a UX affordance (e.g., inline banners or alerts) for tool failures plus a stop button that calls `/stopLLMChat` now that the backend exposes cancellation.
 - Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
 
 ### Configuration & API keys
 - `loadLLMApiKeys` and `loadLLMConfig` exist but still need to run automatically (and receive watcher pushes/websocket broadcasts) so the Zustand store hydrates on startup instead of depending on manual button clicks.
 - The backend now exposes `/llm/config`, but we still need frontend listeners (and ideally websocket broadcasts) so the UI consumes the hot-reloaded config instead of static `MODEL_GROUPS` data — the new Zustand fields are ready, they just need to be wired into the settings panes/model pickers.
-- Persist per-chat provider/model selections server-side (or at least fetch defaults from the backend) so reloads keep context; `userSelectedLLM` is currently a client-only string.
+- Finish removing `userSelectedLLM`/`llmConfig` remnants from the Zustand store (the persist slice still writes `llmConfig`) and wire every consumer to `allLLMConfigs`, including the temporary chat-sourced entries that now come back from the backend.
 
 ### Testing & verification
 - Add backend unit tests for `LitellmChatManager`: payload construction, streaming chunk handling, `MessageDeltaEvent` emission, tool call argument parsing, session cancellation, and WebSocket dispatch. None exist today.

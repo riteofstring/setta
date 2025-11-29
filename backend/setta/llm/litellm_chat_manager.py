@@ -15,7 +15,11 @@ from litellm.types.llms.openai import (
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 
 from setta.database.db_objs import DBE
-from setta.llm.config import AllLLMConfigs, load_litellm_config
+from setta.llm.config import (
+    AllLLMConfigs,
+    load_litellm_config,
+    merge_chat_llm_configs,
+)
 from setta.mcp.client import MCPClient
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
@@ -79,7 +83,7 @@ class LitellmChatManager:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.config: AllLLMConfigs = load_litellm_config()
+        self.config: AllLLMConfigs = self._hydrate_config(load_litellm_config())
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
 
@@ -87,7 +91,7 @@ class LitellmChatManager:
         return load_chat(self.dbe, chat_id)
 
     def update_config(self, config: AllLLMConfigs) -> None:
-        self.config = config
+        self.config = self._hydrate_config(config)
 
     def get_or_create_chat(
         self,
@@ -108,6 +112,10 @@ class LitellmChatManager:
 
     def delete_chat(self, chat_id: str) -> None:
         delete_chat_record(self.dbe, chat_id)
+
+    def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
+        metadata = self.get_all_chat_metadata()
+        return merge_chat_llm_configs(config, metadata)
 
     def start_processing_query(
         self,

@@ -8,12 +8,10 @@ import {
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
-  route_get_uuid_mapping_for_llm,
 } from "utils/generatedEndpoints";
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
-  IDToUUIDForLLM,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -32,7 +30,7 @@ export async function loadLLMConfig() {
   const res = await route_get_llm_config();
   if (res200(res)) {
     useAIStore.setState({
-      llmConfig: res.data,
+      allLLMConfigs: res.data,
       llmConfigInitialLoadComplete: true,
       llmConfigLoadError: null,
     });
@@ -68,7 +66,7 @@ export function getDefaultChatDetails(): ChatDetails {
     messages: [],
     toolCallArguments: {},
     waitingForResponse: false,
-    llmConfigSnapshot: null,
+    llmConfig: null,
   };
 }
 
@@ -85,19 +83,15 @@ export async function getLLMChat(chatId: string) {
           ...(state.chatDetails[chatId] ?? {}),
           messages,
           waitingForResponse,
-          llmConfigSnapshot: llmConfig,
+          llmConfig: llmConfig,
         },
       },
-      currentChatId: chatId,
     }));
-  } else {
-    useAIStore.setState({ currentChatId: null });
   }
 }
 
 export async function createNewLLMChat() {
   useAIStore.setState({
-    currentChatId: null,
     viewHistory: false,
   });
 }
@@ -114,11 +108,8 @@ export async function deleteLLMChat(chatId: string) {
   await getAllLLMChatMetadata();
 }
 
-export function goToChat(id) {
-  useAIStore.setState({ currentChatId: id, viewHistory: false });
-}
-
 export async function submitMessage(
+  chatId: string | null,
   message: string,
   deepThink,
   llmConfigId: string,
@@ -132,17 +123,16 @@ export async function submitMessage(
     content: createMessageTextContent({ text: message }),
   };
 
-  const state = useAIStore.getState();
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),
     message: userMessage,
     deepThink,
-    chatId: state.currentChatId,
+    chatId,
     llmConfigId,
   });
   if (res200(res)) {
-    const chatId = res.data;
-    await getLLMChat(chatId);
+    const returnedChatId = res.data;
+    await getLLMChat(returnedChatId);
   }
 }
 
@@ -353,15 +343,4 @@ function upsertMessage(
   const nextMessages = [...messages];
   nextMessages[existingIndex] = message;
   return nextMessages;
-}
-
-export function updateUUIDMappingForLLM(idToUUIDForLLM: IDToUUIDForLLM) {
-  useAIStore.setState({ idToUUIDForLLM });
-}
-
-export async function getUUIDMappingForLLM() {
-  const res = await route_get_uuid_mapping_for_llm();
-  if (res200(res)) {
-    updateUUIDMappingForLLM(res.data);
-  }
 }

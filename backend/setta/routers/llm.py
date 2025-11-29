@@ -38,7 +38,7 @@ def route_set_llm_config(
 ) -> AllLLMConfigs:
     save_litellm_config(config)
     state.chat_manager.update_config(config)
-    return config
+    return state.chat_manager.config
 
 
 @router.get(Route.LLM_API_KEYS)

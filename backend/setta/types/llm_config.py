@@ -1,16 +1,18 @@
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class LLMConfig(BaseModel):
     """Configuration for a single provider/model combination."""
 
+    id: str
     model: str
     provider: str | None = None
     base_url: str | None = None
     api_key_env: str | None = None
     other_params: dict[str, Any] | None = None
+    temporary: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -22,6 +24,20 @@ class AllLLMConfigs(BaseModel):
     default_config_id: str | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate_configs(self) -> "AllLLMConfigs":
+        normalized: dict[str, LLMConfig] = {}
+        for config_id, config in self.configs.items():
+            normalized[config_id] = config.model_copy(
+                update={
+                    "id": config.id or config_id,
+                }
+            )
+        self.configs = normalized
+        if self.default_config_id and self.default_config_id not in normalized:
+            self.default_config_id = None
+        return self
 
     def resolve_config(
         self,

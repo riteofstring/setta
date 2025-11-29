@@ -1,10 +1,6 @@
 import { useEffect } from "react";
 import { FiTrash2 } from "react-icons/fi";
-import {
-  deleteLLMChat,
-  getAllLLMChatMetadata,
-  goToChat,
-} from "state/actions/ai";
+import { deleteLLMChat, getAllLLMChatMetadata } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 

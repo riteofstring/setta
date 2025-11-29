@@ -441,7 +441,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
         selectedLLMConfigId={selectedLLMConfigId}
-        currentChatId={currentChatId}
+        chatId={currentChatId}
       />
     </>
   );

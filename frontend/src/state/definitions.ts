@@ -22,7 +22,6 @@ import {
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
-  IDToUUIDForLLM,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
@@ -345,7 +344,7 @@ export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
-  llmConfigSnapshot: LLMConfig | null;
+  llmConfig: LLMConfig | null;
 };
 
 export type ZustandAIStore = {
@@ -355,10 +354,8 @@ export type ZustandAIStore = {
   apiKeysLoadError: string | null;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
-  currentChatId: string | null;
   viewHistory: boolean;
-  idToUUIDForLLM: IDToUUIDForLLM;
-  llmConfig: AllLLMConfigs | null;
+  allLLMConfigs: AllLLMConfigs | null;
   llmConfigInitialLoadComplete: boolean;
   llmConfigLoadError: string | null;
 };
@@ -375,9 +372,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeysLoadError: null,
         chatDetails: {},
         allChatMetadata: [],
-        currentChatId: null, // id of currently viewed chat
         viewHistory: false,
-        idToUUIDForLLM: {},
         llmConfig: null,
         llmConfigInitialLoadComplete: false,
         llmConfigLoadError: null,
@@ -385,7 +380,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       {
         name: "setta_ai_data",
         partialize: (state) => ({
-          currentChatId: state.currentChatId,
           viewHistory: state.viewHistory,
         }),
       },
