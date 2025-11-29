@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
@@ -7,7 +6,6 @@ from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
 
 from setta.database.utils import create_new_id
-from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
 class ChatRole(str, Enum):
@@ -58,48 +56,46 @@ class ToolCall(BaseModel):
     function: ToolCallFunction
 
 
-class ToolResult(BaseModel):
-    tool_call_id: str
-    content: list[TextContent | ImageContent | EmbeddedResource]
-    is_error: bool = False
-
-
-class ChatMessage(BaseModel):
+class BaseChatMessage(BaseModel):
     id: str = Field(default_factory=create_new_id)
-    role: ChatRole
-    content: list[MessageContent]
-    tool_calls: list[ToolCall] | None = None
-    tool_call_id: str | None = None
+    role: Any
 
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
         output.pop("id", None)
-
-        tool_calls = output.get("tool_calls")
-        if tool_calls:
-            for call in tool_calls:
-                function = call.get("function")
-                if not isinstance(function, dict):
-                    continue
-                arguments = function.get("arguments") or {}
-                if not isinstance(arguments, str):
-                    function["arguments"] = json.dumps(arguments)
-
         return output
 
 
-class ChatMetadata(BaseModel):
-    id: str = Field(default_factory=create_new_id)
-    name: str
-    lastUpdated: datetime = Field(default_factory=get_now_timestamp)
-
-    @field_validator("lastUpdated", mode="before")
-    @classmethod
-    def parse_last_updated(cls, v):
-        if isinstance(v, str):
-            return parse_timestamp_str(v)
-        return v
+class ContentChatMessage(BaseChatMessage):
+    content: list[MessageContent] = Field(default_factory=list)
 
 
-class Chat(ChatMetadata):
-    messages: list[ChatMessage]
+class SystemChatMessage(ContentChatMessage):
+    role: Literal[ChatRole.system] = ChatRole.system
+
+
+class AssistantChatMessage(ContentChatMessage):
+    role: Literal[ChatRole.assistant] = ChatRole.assistant
+    tool_calls: list[ToolCall] | None = None
+
+    def to_openai_format(self) -> dict[str, Any]:
+        output = super().to_openai_format()
+        tool_calls = output["tool_calls"]
+        if tool_calls:
+            for call in tool_calls:
+                function = call["function"]
+                function["arguments"] = json.dumps(function["arguments"])
+        return output
+
+
+class UserChatMessage(ContentChatMessage):
+    role: Literal[ChatRole.user] = ChatRole.user
+
+
+class ToolChatMessage(BaseChatMessage):
+    role: Literal[ChatRole.tool] = ChatRole.tool
+    tool_call_id: str
+    content: list[TextContent | ImageContent | EmbeddedResource] = Field(
+        default_factory=list
+    )
+    is_error: bool = False

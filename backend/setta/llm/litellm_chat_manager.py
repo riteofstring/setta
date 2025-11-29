@@ -13,7 +13,6 @@ from litellm.types.llms.openai import (
     ChatCompletionToolParamFunctionChunk,
 )
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
-from mcp.types import TextContent
 
 from setta.database.db_objs import DBE
 from setta.llm.config import LiteLLMConfig, load_litellm_config
@@ -26,14 +25,14 @@ from setta.project_state.chats.save import (
 from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
+from setta.types.chat import Chat
 from setta.types.chat_messages import (
-    Chat,
-    ChatMessage,
-    ChatRole,
+    AssistantChatMessage,
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
-    ToolResult,
+    ToolChatMessage,
+    UserChatMessage,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -43,6 +42,7 @@ from setta.types.chat_stream_events import (
     MessageTextDelta,
     ToolCallDeltaEvent,
 )
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class ToolCallStreamState:
 
 @dataclass
 class StreamingSession:
-    assistant_message: ChatMessage
+    assistant_message: AssistantChatMessage
     stream: CustomStreamWrapper | None = None
     started_at: float = field(default_factory=time.time)
 
@@ -88,7 +88,7 @@ class LitellmChatManager:
     def get_or_create_chat(
         self,
         chat_id: str | None,
-        message: ChatMessage,
+        message: UserChatMessage,
     ) -> Chat:
         if chat_id:
             chat = load_chat(self.dbe, chat_id)
@@ -146,8 +146,7 @@ class LitellmChatManager:
             model_override=model or None,
         )
 
-        assistant_message = ChatMessage(
-            role=ChatRole.assistant,
+        assistant_message = AssistantChatMessage(
             content=[],
         )
         tool_call_state = ToolCallStreamState()
@@ -228,22 +227,20 @@ class LitellmChatManager:
     def is_waiting_for_response(self, chat_id: str) -> bool:
         return chat_id in self._sessions
 
-    def get_current_stream(self, chat_id: str) -> list[ChatMessage]:
+    def get_current_stream(self, chat_id: str) -> list[BaseChatMessageUnion]:
         session = self._sessions.get(chat_id)
         if not session:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
     def separate_tool_results(
-        self, messages: list[ChatMessage]
-    ) -> tuple[list[ChatMessage], dict[str, ToolResult]]:
-        tool_results: dict[str, ToolResult] = {}
-        filtered_messages: list[ChatMessage] = []
+        self, messages: list[BaseChatMessageUnion]
+    ) -> tuple[list[BaseChatMessageUnion], dict[str, ToolChatMessage]]:
+        tool_results: dict[str, ToolChatMessage] = {}
+        filtered_messages: list[BaseChatMessageUnion] = []
         for message in messages:
-            if message.role == ChatRole.tool and message.tool_call_id:
-                tool_result = self._chat_message_to_tool_result(message)
-                if tool_result:
-                    tool_results[message.tool_call_id] = tool_result
+            if isinstance(message, ToolChatMessage) and message.tool_call_id:
+                tool_results[message.tool_call_id] = message.model_copy(deep=True)
                 continue
             filtered_messages.append(message)
         return filtered_messages, tool_results
@@ -327,7 +324,7 @@ class LitellmChatManager:
     async def _handle_stream_chunk(
         self,
         chat_id: str,
-        assistant_message: ChatMessage,
+        assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
     ) -> None:
@@ -352,7 +349,7 @@ class LitellmChatManager:
     async def _handle_text_deltas(
         self,
         chat_id: str,
-        assistant_message: ChatMessage,
+        assistant_message: AssistantChatMessage,
         delta: Delta,
     ) -> None:
         text_deltas = self._build_text_deltas(delta, assistant_message)
@@ -367,7 +364,7 @@ class LitellmChatManager:
         )
 
     def _build_text_deltas(
-        self, delta: Delta, assistant_message: ChatMessage
+        self, delta: Delta, assistant_message: AssistantChatMessage
     ) -> list[MessageTextDelta]:
         content_entries = list(self._iter_content_entries(delta))
         if not content_entries:
@@ -406,7 +403,7 @@ class LitellmChatManager:
     async def _handle_tool_call_deltas(
         self,
         chat_id: str,
-        assistant_message: ChatMessage,
+        assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
     ) -> None:
@@ -429,7 +426,7 @@ class LitellmChatManager:
 
     def _apply_tool_call_delta(
         self,
-        assistant_message: ChatMessage,
+        assistant_message: AssistantChatMessage,
         entry: ChatCompletionDeltaToolCall,
         tool_call_state: ToolCallStreamState,
     ) -> ToolCallDeltaEvent | None:
@@ -456,7 +453,7 @@ class LitellmChatManager:
         )
 
     def _ensure_tool_call_entry(
-        self, assistant_message: ChatMessage, index: int
+        self, assistant_message: AssistantChatMessage, index: int
     ) -> ToolCall:
         if assistant_message.tool_calls is None:
             assistant_message.tool_calls = []
@@ -471,28 +468,9 @@ class LitellmChatManager:
             )
         return assistant_message.tool_calls[index]
 
-    def _chat_message_to_tool_result(self, message: ChatMessage) -> ToolResult | None:
-        if not message.tool_call_id:
-            return None
-        content: list[TextContent] = []
-        for entry in message.content:
-            if isinstance(entry, MessageTextContent) and entry.text:
-                content.append(TextContent(type="text", text=entry.text))
-        try:
-            return ToolResult(
-                tool_call_id=message.tool_call_id,
-                content=content,
-                is_error=False,
-            )
-        except Exception:
-            logger.exception(
-                "Failed to convert tool message %s into ToolResult", message.id
-            )
-        return None
-
     def _finalize_tool_calls(
         self,
-        assistant_message: ChatMessage,
+        assistant_message: AssistantChatMessage,
         tool_call_state: ToolCallStreamState,
     ) -> None:
         if not assistant_message.tool_calls:
@@ -508,12 +486,12 @@ class LitellmChatManager:
     async def _run_tool_calls(
         self,
         chat_id: str,
-        assistant_message: ChatMessage,
-    ) -> list[ToolResult]:
+        assistant_message: AssistantChatMessage,
+    ) -> list[ToolChatMessage]:
         if not assistant_message.tool_calls:
             return []
 
-        results: list[ToolResult] = []
+        results: list[ToolChatMessage] = []
         for tool_call in assistant_message.tool_calls:
             result = await self._dispatch_tool_call(chat_id, tool_call)
             results.append(result)
@@ -523,7 +501,7 @@ class LitellmChatManager:
         self,
         chat_id: str,
         tool_call: ToolCall,
-    ) -> ToolResult:
+    ) -> ToolChatMessage:
         tool_name = tool_call.function.name.strip()
         if not tool_name:
             raise ValueError(
@@ -540,7 +518,7 @@ class LitellmChatManager:
             )
             raise
 
-        return ToolResult(
+        return ToolChatMessage(
             tool_call_id=tool_call.id,
             content=call_result.content,
             is_error=call_result.isError,
@@ -563,7 +541,7 @@ class LitellmChatManager:
             return {}
 
     def _resolve_content_index(
-        self, provided_index: Any, assistant_message: ChatMessage
+        self, provided_index: Any, assistant_message: AssistantChatMessage
     ) -> int:
         if isinstance(provided_index, int) and provided_index >= 0:
             return provided_index
@@ -573,7 +551,7 @@ class LitellmChatManager:
 
     def _ensure_text_content_block(
         self,
-        assistant_message: ChatMessage,
+        assistant_message: AssistantChatMessage,
         index: int,
     ) -> MessageTextContent:
         while len(assistant_message.content) <= index:

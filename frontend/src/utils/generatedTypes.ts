@@ -14,6 +14,19 @@ export type ID = z.infer<typeof IDSchema>;
 export type ObjectValues<T> = T[keyof T];
 export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
 
+export const BaseChatMessageTypeSet = new Set([
+  "assistant",
+  "system",
+  "tool",
+  "user",
+]);
+
+export const ContentChatMessageTypeSet = new Set([
+  "assistant",
+  "system",
+  "user",
+]);
+
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
 export const BaseDependencyKeyTypeSet = new Set(["Section", "SectionParam"]);
@@ -1000,12 +1013,21 @@ export function createMessageImageUrlContent(
   return MessageImageUrlContentSchema.parse(options);
 }
 
-export const MessageContentSchema = z.union([
-  MessageTextContentSchema,
-  MessageImageUrlContentSchema,
-]);
+export const SystemChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("system").default(ChatRoleEnum.system),
+  content: z
+    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .default([]),
+});
 
-export type MessageContent = z.infer<typeof MessageContentSchema>;
+export type SystemChatMessage = z.infer<typeof SystemChatMessageSchema>;
+
+export function createSystemChatMessage(
+  options: Partial<SystemChatMessage> = {},
+): SystemChatMessage {
+  return SystemChatMessageSchema.parse(options);
+}
 
 export const ToolCallFunctionSchema = z.object({
   name: z.string(),
@@ -1032,82 +1054,37 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
   return ToolCallSchema.parse(options);
 }
 
-export const ChatMessageSchema = z.object({
+export const AssistantChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
-  role: z.enum(ChatRoleEnum),
-  content: z.array(
-    z.union([MessageTextContentSchema, MessageImageUrlContentSchema]),
-  ),
+  role: z.literal("assistant").default(ChatRoleEnum.assistant),
+  content: z
+    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
-  tool_call_id: z.union([z.string(), z.null()]).default(null),
 });
 
-export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type AssistantChatMessage = z.infer<typeof AssistantChatMessageSchema>;
 
-export function createChatMessage(
-  options: Partial<ChatMessage> = {},
-): ChatMessage {
-  return ChatMessageSchema.parse(options);
+export function createAssistantChatMessage(
+  options: Partial<AssistantChatMessage> = {},
+): AssistantChatMessage {
+  return AssistantChatMessageSchema.parse(options);
 }
 
-export const MessageStartEventSchema = z.object({
-  type: z
-    .literal("message_start")
-    .default(StreamingEventTypeEnum.MESSAGE_START),
-  message: ChatMessageSchema,
+export const UserChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("user").default(ChatRoleEnum.user),
+  content: z
+    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .default([]),
 });
 
-export type MessageStartEvent = z.infer<typeof MessageStartEventSchema>;
+export type UserChatMessage = z.infer<typeof UserChatMessageSchema>;
 
-export function createMessageStartEvent(
-  options: Partial<MessageStartEvent> = {},
-): MessageStartEvent {
-  return MessageStartEventSchema.parse(options);
-}
-
-export const MessageTextDeltaSchema = z.object({
-  type: z.literal("text_delta").default("text_delta" as const),
-  index: z.int(),
-  text: z.string(),
-});
-
-export type MessageTextDelta = z.infer<typeof MessageTextDeltaSchema>;
-
-export function createMessageTextDelta(
-  options: Partial<MessageTextDelta> = {},
-): MessageTextDelta {
-  return MessageTextDeltaSchema.parse(options);
-}
-
-export const MessageDeltaEventSchema = z.object({
-  type: z.literal("delta").default(StreamingEventTypeEnum.DELTA),
-  message_id: z.string(),
-  content: z.union([z.array(MessageTextDeltaSchema), z.null()]).default(null),
-});
-
-export type MessageDeltaEvent = z.infer<typeof MessageDeltaEventSchema>;
-
-export function createMessageDeltaEvent(
-  options: Partial<MessageDeltaEvent> = {},
-): MessageDeltaEvent {
-  return MessageDeltaEventSchema.parse(options);
-}
-
-export const ToolCallDeltaEventSchema = z.object({
-  type: z
-    .literal("tool_call_delta")
-    .default(StreamingEventTypeEnum.TOOL_CALL_DELTA),
-  message_id: z.string(),
-  tool_call_id: z.string(),
-  arguments_delta: z.string(),
-});
-
-export type ToolCallDeltaEvent = z.infer<typeof ToolCallDeltaEventSchema>;
-
-export function createToolCallDeltaEvent(
-  options: Partial<ToolCallDeltaEvent> = {},
-): ToolCallDeltaEvent {
-  return ToolCallDeltaEventSchema.parse(options);
+export function createUserChatMessage(
+  options: Partial<UserChatMessage> = {},
+): UserChatMessage {
+  return UserChatMessageSchema.parse(options);
 }
 
 export const AnnotationsSchema = z.object({
@@ -1196,25 +1173,130 @@ export function createEmbeddedResource(
   return EmbeddedResourceSchema.parse(options);
 }
 
-export const ToolResultSchema = z.object({
+export const ToolChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.literal("tool").default(ChatRoleEnum.tool),
   tool_call_id: z.string(),
-  content: z.array(
-    z.union([TextContentSchema, ImageContentSchema, EmbeddedResourceSchema]),
-  ),
+  content: z
+    .array(
+      z.union([TextContentSchema, ImageContentSchema, EmbeddedResourceSchema]),
+    )
+    .default([]),
   is_error: z.boolean().default(false),
 });
 
-export type ToolResult = z.infer<typeof ToolResultSchema>;
+export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
 
-export function createToolResult(
-  options: Partial<ToolResult> = {},
-): ToolResult {
-  return ToolResultSchema.parse(options);
+export function createToolChatMessage(
+  options: Partial<ToolChatMessage> = {},
+): ToolChatMessage {
+  return ToolChatMessageSchema.parse(options);
+}
+
+export const BaseChatMessageUnionSchema = z.union([
+  SystemChatMessageSchema,
+  AssistantChatMessageSchema,
+  UserChatMessageSchema,
+  ToolChatMessageSchema,
+]);
+
+export type BaseChatMessageUnion = z.infer<typeof BaseChatMessageUnionSchema>;
+
+export const MessageContentSchema = z.union([
+  MessageTextContentSchema,
+  MessageImageUrlContentSchema,
+]);
+
+export type MessageContent = z.infer<typeof MessageContentSchema>;
+
+export const BaseChatMessageUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "role",
+  [
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ],
+);
+
+export type BaseChatMessageUnionWithDiscriminator = z.infer<
+  typeof BaseChatMessageUnionWithDiscriminatorSchema
+>;
+
+export function createBaseChatMessageUnionWithDiscriminator(
+  options: Partial<BaseChatMessageUnionWithDiscriminator> = {},
+): BaseChatMessageUnionWithDiscriminator {
+  return BaseChatMessageUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const MessageStartEventSchema = z.object({
+  type: z
+    .literal("message_start")
+    .default(StreamingEventTypeEnum.MESSAGE_START),
+  message: z.union([
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ]),
+});
+
+export type MessageStartEvent = z.infer<typeof MessageStartEventSchema>;
+
+export function createMessageStartEvent(
+  options: Partial<MessageStartEvent> = {},
+): MessageStartEvent {
+  return MessageStartEventSchema.parse(options);
+}
+
+export const MessageTextDeltaSchema = z.object({
+  type: z.literal("text_delta").default("text_delta" as const),
+  index: z.int(),
+  text: z.string(),
+});
+
+export type MessageTextDelta = z.infer<typeof MessageTextDeltaSchema>;
+
+export function createMessageTextDelta(
+  options: Partial<MessageTextDelta> = {},
+): MessageTextDelta {
+  return MessageTextDeltaSchema.parse(options);
+}
+
+export const MessageDeltaEventSchema = z.object({
+  type: z.literal("delta").default(StreamingEventTypeEnum.DELTA),
+  message_id: z.string(),
+  content: z.union([z.array(MessageTextDeltaSchema), z.null()]).default(null),
+});
+
+export type MessageDeltaEvent = z.infer<typeof MessageDeltaEventSchema>;
+
+export function createMessageDeltaEvent(
+  options: Partial<MessageDeltaEvent> = {},
+): MessageDeltaEvent {
+  return MessageDeltaEventSchema.parse(options);
+}
+
+export const ToolCallDeltaEventSchema = z.object({
+  type: z
+    .literal("tool_call_delta")
+    .default(StreamingEventTypeEnum.TOOL_CALL_DELTA),
+  message_id: z.string(),
+  tool_call_id: z.string(),
+  arguments_delta: z.string(),
+});
+
+export type ToolCallDeltaEvent = z.infer<typeof ToolCallDeltaEventSchema>;
+
+export function createToolCallDeltaEvent(
+  options: Partial<ToolCallDeltaEvent> = {},
+): ToolCallDeltaEvent {
+  return ToolCallDeltaEventSchema.parse(options);
 }
 
 export const ToolResultEventSchema = z.object({
   type: z.literal("tool_result").default(StreamingEventTypeEnum.TOOL_RESULT),
-  result: ToolResultSchema,
+  result: ToolChatMessageSchema,
 });
 
 export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
@@ -1242,7 +1324,12 @@ export const MessageFinalizedEventSchema = z.object({
   type: z
     .literal("message_finalized")
     .default(StreamingEventTypeEnum.MESSAGE_FINALIZED),
-  message: ChatMessageSchema,
+  message: z.union([
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ]),
 });
 
 export type MessageFinalizedEvent = z.infer<typeof MessageFinalizedEventSchema>;
@@ -1393,6 +1480,33 @@ export function createBaseChartSettingsUnionWithDiscriminator(
   options: Partial<BaseChartSettingsUnionWithDiscriminator> = {},
 ): BaseChartSettingsUnionWithDiscriminator {
   return BaseChartSettingsUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const ContentChatMessageUnionSchema = z.union([
+  SystemChatMessageSchema,
+  AssistantChatMessageSchema,
+  UserChatMessageSchema,
+]);
+
+export type ContentChatMessageUnion = z.infer<
+  typeof ContentChatMessageUnionSchema
+>;
+
+export const ContentChatMessageUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("role", [
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+  ]);
+
+export type ContentChatMessageUnionWithDiscriminator = z.infer<
+  typeof ContentChatMessageUnionWithDiscriminatorSchema
+>;
+
+export function createContentChatMessageUnionWithDiscriminator(
+  options: Partial<ContentChatMessageUnionWithDiscriminator> = {},
+): ContentChatMessageUnionWithDiscriminator {
+  return ContentChatMessageUnionWithDiscriminatorSchema.parse(options);
 }
 
 export const CodeFileBindingSchema = z.object({
@@ -7310,7 +7424,14 @@ export const ChatSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
-  messages: z.array(ChatMessageSchema),
+  messages: z.array(
+    z.union([
+      SystemChatMessageSchema,
+      AssistantChatMessageSchema,
+      UserChatMessageSchema,
+      ToolChatMessageSchema,
+    ]),
+  ),
 });
 
 export type Chat = z.infer<typeof ChatSchema>;
@@ -7331,6 +7452,35 @@ export function createChatMetadata(
   options: Partial<ChatMetadata> = {},
 ): ChatMetadata {
   return ChatMetadataSchema.parse(options);
+}
+
+export const BaseChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.enum(ChatRoleEnum),
+});
+
+export type BaseChatMessage = z.infer<typeof BaseChatMessageSchema>;
+
+export function createBaseChatMessage(
+  options: Partial<BaseChatMessage> = {},
+): BaseChatMessage {
+  return BaseChatMessageSchema.parse(options);
+}
+
+export const ContentChatMessageSchema = z.object({
+  id: z.string().default(create_new_id),
+  role: z.enum(ChatRoleEnum),
+  content: z
+    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .default([]),
+});
+
+export type ContentChatMessage = z.infer<typeof ContentChatMessageSchema>;
+
+export function createContentChatMessage(
+  options: Partial<ContentChatMessage> = {},
+): ContentChatMessage {
+  return ContentChatMessageSchema.parse(options);
 }
 
 export const BaseClipboardDataSchema = z.object({
@@ -8113,8 +8263,15 @@ export function createGetLLMChatRequest(
 }
 
 export const GetLLMChatRequestResponseSchema = z.object({
-  messages: z.array(ChatMessageSchema),
-  toolResults: z.record(z.string(), ToolResultSchema),
+  messages: z.array(
+    z.discriminatedUnion("role", [
+      SystemChatMessageSchema,
+      AssistantChatMessageSchema,
+      UserChatMessageSchema,
+      ToolChatMessageSchema,
+    ]),
+  ),
+  toolResults: z.record(z.string(), ToolChatMessageSchema),
   waitingForResponse: z.boolean(),
 });
 
@@ -8131,7 +8288,12 @@ export function createGetLLMChatRequestResponse(
 export const GetLLMResponseRequestSchema = z.object({
   projectConfigId: z.string(),
   chatId: z.union([z.string(), z.null()]),
-  message: ChatMessageSchema,
+  message: z.union([
+    SystemChatMessageSchema,
+    AssistantChatMessageSchema,
+    UserChatMessageSchema,
+    ToolChatMessageSchema,
+  ]),
   model: z.string(),
   deepThink: z.boolean(),
 });

@@ -11,20 +11,32 @@ from setta.project_state.chats.save import (
     delete_chat,
     save_messages,
 )
+from setta.types.chat import Chat
 from setta.types.chat_messages import (
-    Chat,
-    ChatMessage,
+    AssistantChatMessage,
     ChatRole,
     MessageTextContent,
+    SystemChatMessage,
+    ToolChatMessage,
+    UserChatMessage,
 )
 
 
-def create_message(text: str, role: ChatRole = ChatRole.user) -> ChatMessage:
-    return ChatMessage(
-        id=create_new_id(),
-        role=role,
-        content=[MessageTextContent(type="text", text=text)],
-    )
+def create_message(text: str, role: ChatRole = ChatRole.user):
+    content_block = MessageTextContent(type="text", text=text)
+    if role == ChatRole.user:
+        return UserChatMessage(id=create_new_id(), content=[content_block])
+    if role == ChatRole.assistant:
+        return AssistantChatMessage(id=create_new_id(), content=[content_block])
+    if role == ChatRole.system:
+        return SystemChatMessage(id=create_new_id(), content=[content_block])
+    if role == ChatRole.tool:
+        return ToolChatMessage(
+            id=create_new_id(),
+            tool_call_id=create_new_id(),
+            content=[],
+        )
+    raise ValueError(f"Unsupported chat role: {role}")
 
 
 class ChatStorageTests(unittest.TestCase):

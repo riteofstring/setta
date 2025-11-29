@@ -3,7 +3,7 @@ import logging
 from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
-from setta.types.chat_messages import Chat, ChatMetadata
+from setta.types.chat import Chat, ChatMetadata
 
 logger = logging.getLogger(__name__)
 

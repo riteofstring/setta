@@ -6,7 +6,12 @@ from setta.file_watchers.utils import get_llm_api_keys_from_env_vars
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import APIKeys, IDToUUIDForLLM
-from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
+from setta.types.chat import ChatMetadata
+from setta.types.chat_messages import ToolChatMessage
+from setta.types.generated.chat_messages import (
+    BaseChatMessageUnion,
+    BaseChatMessageUnionWithDiscriminator,
+)
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
@@ -17,7 +22,7 @@ router = SettaAPIRouter()
 class GetLLMResponseRequest(BaseModel):
     projectConfigId: str
     chatId: str | None
-    message: ChatMessage
+    message: BaseChatMessageUnionWithDiscriminator
     model: str
     deepThink: bool
 
@@ -37,8 +42,8 @@ class GetLLMChatRequest(BaseModel):
 
 
 class GetLLMChatRequestResponse(BaseModel):
-    messages: list[ChatMessage]
-    toolResults: dict[str, ToolResult]
+    messages: list[BaseChatMessageUnionWithDiscriminator]
+    toolResults: dict[str, ToolChatMessage]
     waitingForResponse: bool
 
 
@@ -181,7 +186,7 @@ async def route_get_llm_chat(
 
 
 def merge_db_messages_with_current_stream(
-    db_messages: list[ChatMessage], current_stream: list[ChatMessage]
+    db_messages: list[BaseChatMessageUnion], current_stream: list[BaseChatMessageUnion]
 ):
     # Create a set of existing message IDs for efficient lookup
     existing_ids = {message.id for message in db_messages}

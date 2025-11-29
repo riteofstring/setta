@@ -177,6 +177,21 @@ def generate_dependency_value_unions(output_file: Path):
     print(f"wrote to {output_file}")
 
 
+def generate_chat_messages_unions(output_file: Path):
+    import setta.types.chat_messages
+
+    code = construct_unions(
+        setta.types.chat_messages,
+        setta.types.chat_messages.BaseChatMessage,
+        "role",
+        setta.types.chat_messages,
+        lambda x: x,
+    )
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         raise ValueError
@@ -226,6 +241,14 @@ if __name__ == "__main__":
             output_file=(
                 get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
                 / "dependency_values.py"
+            )
+        )
+    elif sys.argv[1] == "chat_messages":
+        # has to be done separately due to import dependencies
+        generate_chat_messages_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "chat_messages.py"
             )
         )
     else:

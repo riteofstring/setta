@@ -78,6 +78,7 @@
 - ✅ Wired `/getLLMResponse`, `/getLLMChat`, and `/stopLLMChat` to the new Litellm manager by implementing waiting-state helpers, exposing the in-flight assistant message, and launching/cancelling per-chat asyncio tasks instead of opaque `BackgroundTasks`, so the frontend can hydrate active streams and stop them without 500s.
 - ✅ Removed the ad-hoc `ChatMessage.metadata` blob so tool outputs and error flags will be modeled explicitly (via `role="tool"` messages) rather than smuggling data through untyped dicts.
 - ✅ Swapped `MCPClient.available_tools` to native MCP `Tool` objects and inject them into the LiteLLM payload as OpenAI-style tool definitions, so models can finally emit structured tool calls.
+- ✅ Broke the legacy `ChatMessage` model into `SystemChatMessage`, `UserChatMessage`, `AssistantChatMessage`, and `ToolChatMessage`, regenerated the discriminated unions, and synced the TS helpers so persistence, routers, and Litellm streaming all share the same typed schema.
 
 ## Remaining Work
 

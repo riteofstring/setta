@@ -3,7 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from setta.types.chat_messages import ChatMessage, ToolResult
+from setta.types.chat_messages import ToolChatMessage
+from setta.types.generated.chat_messages import (
+    BaseChatMessageUnionWithDiscriminator,
+)
 
 
 class StreamingEventType(str, Enum):
@@ -26,7 +29,7 @@ MessageContentDelta = MessageTextDelta
 
 class MessageStartEvent(BaseModel):
     type: Literal[StreamingEventType.MESSAGE_START] = StreamingEventType.MESSAGE_START
-    message: ChatMessage
+    message: BaseChatMessageUnionWithDiscriminator
 
 
 class MessageDeltaEvent(BaseModel):
@@ -46,7 +49,7 @@ class ToolCallDeltaEvent(BaseModel):
 
 class ToolResultEvent(BaseModel):
     type: Literal[StreamingEventType.TOOL_RESULT] = StreamingEventType.TOOL_RESULT
-    result: ToolResult
+    result: ToolChatMessage
 
 
 class MessageStopEvent(BaseModel):
@@ -58,7 +61,7 @@ class MessageFinalizedEvent(BaseModel):
     type: Literal[StreamingEventType.MESSAGE_FINALIZED] = (
         StreamingEventType.MESSAGE_FINALIZED
     )
-    message: ChatMessage
+    message: BaseChatMessageUnionWithDiscriminator
 
 
 LLMStreamingResponseChunk = (
