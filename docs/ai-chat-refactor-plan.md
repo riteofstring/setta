@@ -86,6 +86,7 @@
 - ✅ Rebuilt the LiteLLM config layer with Pydantic models (`backend/setta/types/llm_config.py`), centralized provider resolution + payload building, and updated `LitellmChatManager` to consume those helpers so future CRUD endpoints can just read/write structured provider dictionaries.
 - ✅ Added an `LLMConfigWatcher` that hooks into the existing file watcher stack, hot-reloads `setta_files/llm_config.json` inside `LitellmChatManager`, and surfaces validation errors over the websocket so backend/front stay aligned without a restart.
 - ✅ Exposed `/llm/config` + `/llm/apiKeys` FastAPI routes backed by `SettaAPIRouter`, so the frontend can manage provider configs and `.env` secrets without touching the Anthropic-era endpoints; the old `/setLLMApiKeys` handler and helper were deleted.
+- ✅ Hydrated the Zustand AI store with `llmConfig`, load/error flags, and the new `loadLLMConfig`/`loadLLMApiKeys` actions so the frontend can fetch provider metadata and `.env` secrets from the new LiteLLM endpoints.
 
 ## Remaining Work
 
@@ -106,8 +107,8 @@
 - Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
 
 ### Configuration & API keys
-- There is no endpoint or file-watcher flow that loads existing API keys into `useAIStore`, so `apiKeys` stays empty and `apiKeysInitialLoadComplete` cannot flip. Add a `GET_LLM_API_KEYS` route (and/or watcher) to hydrate the store on startup.
-- The backend now exposes `/llm/config`, but we still need frontend listeners (and ideally websocket broadcasts) so the UI consumes the hot-reloaded config instead of static `MODEL_GROUPS` data.
+- `loadLLMApiKeys` and `loadLLMConfig` exist but still need to run automatically (and receive watcher pushes/websocket broadcasts) so the Zustand store hydrates on startup instead of depending on manual button clicks.
+- The backend now exposes `/llm/config`, but we still need frontend listeners (and ideally websocket broadcasts) so the UI consumes the hot-reloaded config instead of static `MODEL_GROUPS` data — the new Zustand fields are ready, they just need to be wired into the settings panes/model pickers.
 - Persist per-chat provider/model selections server-side (or at least fetch defaults from the backend) so reloads keep context; `userSelectedLLM` is currently a client-only string.
 
 ### Testing & verification

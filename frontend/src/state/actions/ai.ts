@@ -1,18 +1,21 @@
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { ChatDetails, useAIStore } from "state/definitions";
+import { ChatDetails, ZustandAIStore, useAIStore } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
   route_get_all_llm_chat_metadata,
+  route_get_llm_api_keys,
   route_get_llm_chat,
+  route_get_llm_config,
   route_get_llm_response,
   route_get_uuid_mapping_for_llm,
 } from "utils/generatedEndpoints";
 import {
-  ChatMessage,
+  BaseChatMessageUnion,
   ChatRoleEnum,
   IDToUUIDForLLM,
   LLMStreamingResponse,
+  LiteLLMConfig,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -25,6 +28,67 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+
+function pickDefaultModel(config: LiteLLMConfig): string | null {
+  if (!config) {
+    return null;
+  }
+  if (config.default_provider_id) {
+    const defaultConfig = config.providers[config.default_provider_id];
+    if (defaultConfig?.model) {
+      return defaultConfig.model;
+    }
+  }
+  const firstProvider = Object.values(config.providers)[0];
+  return firstProvider?.model ?? null;
+}
+
+export async function loadLLMConfig() {
+  const res = await route_get_llm_config();
+  if (res200(res)) {
+    useAIStore.setState((state) => {
+      const updates: Partial<ZustandAIStore> = {
+        llmConfig: res.data,
+        llmConfigInitialLoadComplete: true,
+        llmConfigLoadError: null,
+      };
+      if (!state.userSelectedLLM) {
+        const defaultModel = pickDefaultModel(res.data);
+        if (defaultModel) {
+          return {
+            ...updates,
+            userSelectedLLM: defaultModel,
+          };
+        }
+      }
+      return updates;
+    });
+  } else {
+    useAIStore.setState({
+      llmConfigInitialLoadComplete: true,
+      llmConfigLoadError: "Failed to load LLM config",
+    });
+  }
+}
+
+export async function loadLLMApiKeys(filepath?: string) {
+  const state = useAIStore.getState();
+  const targetFilepath = filepath ?? state.apiKeysFilepath;
+  const res = await route_get_llm_api_keys(targetFilepath);
+  if (res200(res)) {
+    useAIStore.setState({
+      apiKeys: res.data.apiKeys,
+      apiKeysFilepath: res.data.filepath,
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError: null,
+    });
+  } else {
+    useAIStore.setState({
+      apiKeysInitialLoadComplete: true,
+      apiKeysLoadError: "Failed to load LLM API keys",
+    });
+  }
+}
 
 export function getDefaultChatDetails(): ChatDetails {
   return {
@@ -278,10 +342,10 @@ function updateChatDetails(
 }
 
 function updateMessageById(
-  messages: Array<ChatMessage>,
+  messages: Array<BaseChatMessageUnion>,
   messageId: string | null,
-  updater: (message: ChatMessage) => ChatMessage | null,
-): { messages: Array<ChatMessage>; changed: boolean } {
+  updater: (message: BaseChatMessageUnion) => BaseChatMessageUnion | null,
+): { messages: Array<BaseChatMessageUnion>; changed: boolean } {
   if (!messageId) {
     return { messages, changed: false };
   }
@@ -299,8 +363,8 @@ function updateMessageById(
 }
 
 function upsertMessage(
-  messages: Array<ChatMessage>,
-  message: ChatMessage,
+  messages: Array<BaseChatMessageUnion>,
+  message: BaseChatMessageUnion,
   targetId: string | null = null,
 ) {
   const idToUse = targetId ?? message.id;

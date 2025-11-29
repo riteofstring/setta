@@ -16,8 +16,9 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  ChatMessage,
   ChatMetadata,
+  BaseChatMessageUnion,
+  LiteLLMConfig,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -340,7 +341,7 @@ export const useResizerStore = withProjectState(
 );
 
 export type ChatDetails = {
-  messages: Array<ChatMessage>;
+  messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
 };
@@ -349,12 +350,16 @@ export type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysFilepath: string;
   apiKeysInitialLoadComplete: boolean;
+  apiKeysLoadError: string | null;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   currentChatId: string | null;
   viewHistory: boolean;
   userSelectedLLM: string;
   idToUUIDForLLM: IDToUUIDForLLM;
+  llmConfig: LiteLLMConfig | null;
+  llmConfigInitialLoadComplete: boolean;
+  llmConfigLoadError: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -366,12 +371,16 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeys: {},
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
+        apiKeysLoadError: null,
         chatDetails: {},
         allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
         userSelectedLLM: "",
         idToUUIDForLLM: {},
+        llmConfig: null,
+        llmConfigInitialLoadComplete: false,
+        llmConfigLoadError: null,
       }),
       {
         name: "setta_ai_data",
