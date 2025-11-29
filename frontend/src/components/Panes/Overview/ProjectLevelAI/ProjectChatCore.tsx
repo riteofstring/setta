@@ -403,12 +403,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
   placeholderText,
   deepThink,
-  selectedLLMConfigId,
+  llmConfigId,
 }: {
   chatId: string | null;
   placeholderText: string;
   deepThink: boolean;
-  selectedLLMConfigId: string | null;
+  llmConfigId: string | null;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
@@ -438,7 +438,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         deepThink={deepThink}
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
-        selectedLLMConfigId={selectedLLMConfigId}
+        llmConfigId={llmConfigId}
         chatId={chatId}
       />
     </>

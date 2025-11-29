@@ -7,6 +7,7 @@ import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { createNewLLMChat } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
+import { useLocalValue } from "state/hooks/utils";
 import { AllLLMConfigs } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
@@ -30,17 +31,24 @@ export function ProjectChat() {
     apiKeys,
     apiKeysInitialLoadComplete,
     viewHistory,
-    llmConfig: allLLMConfigs,
+    allLLMConfigs,
     llmConfigInitialLoadComplete,
+    llmConfigId,
   } = useAIStore((x) => {
+    const llmConfig = chatId ? x.chatDetails[chatId]?.llmConfig : null;
+    const llmConfigId = llmConfig?.id ?? null;
     return {
       apiKeys: x.apiKeys,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
       viewHistory: x.viewHistory,
-      llmConfig: x.allLLMConfigs,
+      allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.llmConfigInitialLoadComplete,
+      llmConfigId,
     };
   }, _.isEqual);
+
+  const [selectedLLMConfigId, setSelectedLLMConfigId] =
+    useLocalValue(llmConfigId);
 
   const availableConfigGroups = useMemo(() => {
     if (!allLLMConfigs) {
@@ -134,9 +142,7 @@ export function ProjectChat() {
                 allItems={availableConfigGroups}
                 value={selectedLLMConfigId}
                 small={false}
-                onSelectedItemChange={(model) => {
-                  setSelectedLLMConfigId(model);
-                }}
+                onSelectedItemChange={setSelectedLLMConfigId}
                 placeholder={
                   noConfigsAvailable
                     ? "Add an LLM config or API key"
@@ -163,7 +169,7 @@ export function ProjectChat() {
                   : "Type a message..."
             }
             deepThink={deepThink}
-            selectedLLMConfigId={selectedLLMConfigId}
+            llmConfigId={selectedLLMConfigId}
           />
         )}
       </div>

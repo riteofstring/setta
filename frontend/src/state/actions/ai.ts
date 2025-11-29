@@ -285,14 +285,12 @@ function createToolCallPlaceholder(chunk: ToolCallDeltaEvent): ToolCall {
   };
 }
 
-type ChatDetailsState = ChatDetails;
-
 function updateChatDetails(
   chatId: string,
-  updater: (details: ChatDetailsState) => ChatDetailsState | null,
+  updater: (details: ChatDetails) => ChatDetails | null,
 ) {
   useAIStore.setState((state) => {
-    const baseDetails: ChatDetailsState = {
+    const baseDetails: ChatDetails = {
       ...getDefaultChatDetails(),
       ...(state.chatDetails[chatId] ?? {}),
     };

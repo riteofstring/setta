@@ -7,16 +7,16 @@ export const ChatInput = memo(function ChatInput({
   deepThink,
   placeholderText,
   waitingForResponse,
-  selectedLLMConfigId,
+  llmConfigId,
   chatId,
 }: {
   deepThink: boolean;
   placeholderText: string | undefined;
   waitingForResponse: boolean;
-  selectedLLMConfigId: string | null;
+  llmConfigId: string | null;
   chatId: string | null;
 }) {
-  const disabled = !selectedLLMConfigId;
+  const disabled = !llmConfigId;
   // Keep input state local to this component
   const [inputValue, setInputValue] = useState("");
 
@@ -28,10 +28,10 @@ export const ChatInput = memo(function ChatInput({
     }
 
     if (inputValue.trim() === "") return;
-    if (!selectedLLMConfigId) return;
+    if (!llmConfigId) return;
 
     // Only communicate with parent on submission
-    submitMessage(chatId, inputValue, deepThink, selectedLLMConfigId);
+    submitMessage(chatId, inputValue, deepThink, llmConfigId);
     setInputValue("");
   };
 
