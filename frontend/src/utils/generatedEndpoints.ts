@@ -1,4 +1,4 @@
-import { post, ResponseDataAndStatus } from "./endpointUtils";
+import { get, post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
 export async function route_load_all_project_metadata(): Promise<
@@ -183,16 +183,34 @@ export async function route_type_check(
   return await post("/typeCheck", x);
 }
 
+export async function route_get_llm_config(): Promise<
+  ResponseDataAndStatus<gt.LiteLLMConfig>
+> {
+  return await get("/llm/config");
+}
+
+export async function route_set_llm_config(
+  config: gt.LiteLLMConfig,
+): Promise<ResponseDataAndStatus<gt.LiteLLMConfig>> {
+  return await post("/llm/config", config);
+}
+
+export async function route_get_llm_api_keys(
+  filepath: string,
+): Promise<ResponseDataAndStatus<gt.APIKeysResponse>> {
+  return await get("/llmKeys", { filepath });
+}
+
+export async function route_set_llm_api_keys(
+  payload: gt.UpdateAPIKeysRequest,
+): Promise<ResponseDataAndStatus<gt.APIKeysResponse>> {
+  return await post("/llmKeys", payload);
+}
+
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequest,
 ): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/getLLMResponse", x);
-}
-
-export async function route_set_llm_api_keys(
-  x: gt.SetLLMApiKeysRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setLLMApiKeys", x);
 }
 
 export async function route_get_all_llm_chat_metadata(): Promise<

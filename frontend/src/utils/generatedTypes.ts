@@ -512,7 +512,8 @@ export const RouteEnum = {
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
-  SET_LLM_API_KEYS: "/setLLMApiKeys",
+  LLM_CONFIG: "/llm/config",
+  LLM_API_KEYS: "/llm/apiKeys",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
@@ -8373,19 +8374,6 @@ export function createGetLLMResponseRequest(
   return GetLLMResponseRequestSchema.parse(options);
 }
 
-export const SetLLMApiKeysRequestSchema = z.object({
-  apiKeys: z.record(z.string(), z.string()),
-  apiKeysFilepath: z.string(),
-});
-
-export type SetLLMApiKeysRequest = z.infer<typeof SetLLMApiKeysRequestSchema>;
-
-export function createSetLLMApiKeysRequest(
-  options: Partial<SetLLMApiKeysRequest> = {},
-): SetLLMApiKeysRequest {
-  return SetLLMApiKeysRequestSchema.parse(options);
-}
-
 export const StopLLMChatRequestSchema = z.object({
   chatId: z.string(),
 });
@@ -8492,6 +8480,32 @@ export function createDocstringToMarkdownRequest(
   options: Partial<DocstringToMarkdownRequest> = {},
 ): DocstringToMarkdownRequest {
   return DocstringToMarkdownRequestSchema.parse(options);
+}
+
+export const APIKeysResponseSchema = z.object({
+  filepath: z.string(),
+  apiKeys: z.record(z.string(), z.string()).default({}),
+});
+
+export type APIKeysResponse = z.infer<typeof APIKeysResponseSchema>;
+
+export function createAPIKeysResponse(
+  options: Partial<APIKeysResponse> = {},
+): APIKeysResponse {
+  return APIKeysResponseSchema.parse(options);
+}
+
+export const UpdateAPIKeysRequestSchema = z.object({
+  filepath: z.string().default(".env" as const),
+  apiKeys: z.record(z.string(), z.string()).default({}),
+});
+
+export type UpdateAPIKeysRequest = z.infer<typeof UpdateAPIKeysRequestSchema>;
+
+export function createUpdateAPIKeysRequest(
+  options: Partial<UpdateAPIKeysRequest> = {},
+): UpdateAPIKeysRequest {
+  return UpdateAPIKeysRequestSchema.parse(options);
 }
 
 export const TypeCheckRequestSchema = z.object({

@@ -1,11 +1,9 @@
-from dotenv import dotenv_values, load_dotenv
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.file_watchers.utils import get_llm_api_keys_from_env_vars
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.ai import APIKeys, IDToUUIDForLLM
+from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
@@ -14,7 +12,6 @@ from setta.types.generated.chat_messages import (
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
-load_dotenv()
 router = SettaAPIRouter()
 
 
@@ -24,11 +21,6 @@ class GetLLMResponseRequest(BaseModel):
     message: BaseChatMessageUnionWithDiscriminator
     model: str
     deepThink: bool
-
-
-class SetLLMApiKeysRequest(BaseModel):
-    apiKeys: APIKeys
-    apiKeysFilepath: str
 
 
 class DeleteLLMChatRequest(BaseModel):
@@ -79,51 +71,6 @@ async def route_get_llm_response(
     #         "error": error_message,
     #         "status": "error",
     #     }
-
-
-@router.post(Route.SET_LLM_API_KEYS)
-async def route_set_llm_api_keys(
-    x: SetLLMApiKeysRequest,
-    state: AppStateFromRequest,
-) -> None:
-    """
-    This endpoint accepts a list of API keys with their associated model IDs
-    and provider names, then writes them to the .env file in the correct format.
-    """
-    try:
-        env_vars = dotenv_values(x.apiKeysFilepath)
-
-        # Remove all existing API key variables first
-        # This ensures keys that were deleted on the frontend are also removed here
-        api_key_vars = get_llm_api_keys_from_env_vars(env_vars)
-        env_vars = {k: v for k, v in env_vars.items() if k not in api_key_vars}
-
-        # Add back only the API keys that are in the current request
-        for api_key_name, api_key in x.apiKeys.items():
-            api_key = api_key.strip()
-            if not api_key:
-                continue  # Skip empty keys
-            # Save the API key
-            env_vars[api_key_name] = api_key
-
-        # Write back to .env file
-        with open(x.apiKeysFilepath, "w") as env_file:
-            for key, value in env_vars.items():
-                env_file.write(f"{key}={value}\n")
-
-        # Reload the environment variables
-        load_dotenv(override=True)
-
-        print("Successfully updated API keys in .env file", flush=True)
-        notification = SettaNotification(message="Saved LLM API keys")
-
-    except Exception:
-        notification = SettaNotification(
-            message="Error saving LLM API keys",
-            type=SettaNotificationType.error,
-        )
-
-    await state.wmh_frontend_sender.broadcast_notification(notification)
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)

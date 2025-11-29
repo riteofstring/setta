@@ -1,5 +1,7 @@
 import asyncio
 
+from dotenv import load_dotenv
+
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -33,6 +35,7 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 class SettaFastAPIState:
     def __init__(self, app):
+        load_dotenv(override=True)
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)

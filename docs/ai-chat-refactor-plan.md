@@ -85,6 +85,7 @@
 - ✅ Registered `read_file_range` with `@setta_tool` so it flows through `SETTA_MCP_TOOLS` and is discoverable by LiteLLM/MCP clients without relying on Anthropic-era shims.
 - ✅ Rebuilt the LiteLLM config layer with Pydantic models (`backend/setta/types/llm_config.py`), centralized provider resolution + payload building, and updated `LitellmChatManager` to consume those helpers so future CRUD endpoints can just read/write structured provider dictionaries.
 - ✅ Added an `LLMConfigWatcher` that hooks into the existing file watcher stack, hot-reloads `setta_files/llm_config.json` inside `LitellmChatManager`, and surfaces validation errors over the websocket so backend/front stay aligned without a restart.
+- ✅ Exposed `/llm/config` + `/llm/apiKeys` FastAPI routes backed by `SettaAPIRouter`, so the frontend can manage provider configs and `.env` secrets without touching the Anthropic-era endpoints; the old `/setLLMApiKeys` handler and helper were deleted.
 
 ## Remaining Work
 
@@ -100,13 +101,13 @@
 
 ### Frontend / chat UI
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` wraps the entire pane in `apiKeysInitialLoadComplete && (…)`, but `apiKeysInitialLoadComplete` is never flipped anywhere in `frontend/src/state/definitions.ts`. The chat UI never renders until we hydrate API keys or remove that gate.
-- The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the forthcoming LLM config endpoints instead of static data.
+- The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the `/llm/config` endpoints instead of static data.
 - Add a UX affordance (e.g., inline banners or alerts) for tool failures plus a stop button that calls `/stopLLMChat` now that the backend exposes cancellation.
 - Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
 
 ### Configuration & API keys
 - There is no endpoint or file-watcher flow that loads existing API keys into `useAIStore`, so `apiKeys` stays empty and `apiKeysInitialLoadComplete` cannot flip. Add a `GET_LLM_API_KEYS` route (and/or watcher) to hydrate the store on startup.
-- With the backend now watching `setta_files/llm_config.json`, add CRUD endpoints plus websocket broadcasts so the frontend consumes the hot-reloaded config instead of static `MODEL_GROUPS` data, and hook the UI into that stream.
+- The backend now exposes `/llm/config`, but we still need frontend listeners (and ideally websocket broadcasts) so the UI consumes the hot-reloaded config instead of static `MODEL_GROUPS` data.
 - Persist per-chat provider/model selections server-side (or at least fetch defaults from the backend) so reloads keep context; `userSelectedLLM` is currently a client-only string.
 
 ### Testing & verification
