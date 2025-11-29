@@ -92,7 +92,7 @@
 - `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.
 
 ### MCP tools & file editing
-- Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. Build them as MCP tools now that the legacy streaming shim is gone, so LLMs can edit real files through vetted operations.
+- Deterministic write operations (`insert`, `replace`, `apply_patch`, locking/backups) from the “File Editing Strategy” section are still unimplemented. We will defer these until the other refactor tasks are complete, then build them as MCP tools so LLMs can edit real files through vetted operations.
 - Provide richer tool metadata: JSON schemas/descriptions are still minimal, making it hard for LiteLLM to ground requests.
 - Make sure LiteLLM discovers tools through the MCP client rather than assuming hard-coded helpers—`MCPClient.available_tools` is ready but currently unused.
 
