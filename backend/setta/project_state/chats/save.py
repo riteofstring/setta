@@ -7,6 +7,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
 )
+from setta.types.llm_config import LLMConfig
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
 
@@ -34,11 +35,16 @@ def _copy_messages(messages: list[BaseChatMessageUnion]) -> list[BaseChatMessage
     return [_copy_message(message) for message in messages]
 
 
-def create_new_chat(dbe: "DBE", first_message: BaseChatMessageUnion) -> Chat:
+def create_new_chat(
+    dbe: "DBE",
+    first_message: BaseChatMessageUnion,
+    llm_config: LLMConfig,
+) -> Chat:
     name = create_new_chat_name(first_message)
     chat = Chat(
         name=name,
         messages=_copy_messages([first_message]),
+        llmConfig=llm_config.model_copy(deep=True),
     )
     return _persist_chat(dbe, chat)
 

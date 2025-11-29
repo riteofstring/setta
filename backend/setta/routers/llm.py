@@ -8,7 +8,7 @@ from setta.llm.config import save_litellm_config
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import APIKeys
-from setta.types.llm_config import LiteLLMConfig
+from setta.types.llm_config import AllLLMConfigs
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 from setta.utils.constants import CWD
@@ -27,15 +27,15 @@ class UpdateAPIKeysRequest(BaseModel):
 
 
 @router.get(Route.LLM_CONFIG)
-def route_get_llm_config(state: AppStateFromRequest) -> LiteLLMConfig:
+def route_get_llm_config(state: AppStateFromRequest) -> AllLLMConfigs:
     return state.chat_manager.config
 
 
 @router.post(Route.LLM_CONFIG)
 def route_set_llm_config(
-    config: LiteLLMConfig,
+    config: AllLLMConfigs,
     state: AppStateFromRequest,
-) -> LiteLLMConfig:
+) -> AllLLMConfigs:
     save_litellm_config(config)
     state.chat_manager.update_config(config)
     return config
@@ -115,9 +115,9 @@ def _write_env_file(path: Path, env_vars: dict[str, str]) -> None:
     path.write_text(content)
 
 
-def _collect_config_api_key_names(config: LiteLLMConfig) -> set[str]:
+def _collect_config_api_key_names(config: AllLLMConfigs) -> set[str]:
     keys: set[str] = set()
-    for provider in config.providers.values():
+    for provider in config.configs.values():
         if provider.api_key_env:
             keys.add(provider.api_key_env)
     return keys
@@ -125,7 +125,7 @@ def _collect_config_api_key_names(config: LiteLLMConfig) -> set[str]:
 
 def _filter_env_vars_for_config(
     env_vars: dict[str, str],
-    config: LiteLLMConfig,
+    config: AllLLMConfigs,
 ) -> APIKeys:
     desired = _collect_config_api_key_names(config)
     filtered: APIKeys = {}

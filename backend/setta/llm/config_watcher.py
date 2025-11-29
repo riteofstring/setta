@@ -66,4 +66,4 @@ class LLMConfigWatcher:
             return
 
         self.chat_manager.update_config(config)
-        logger.info("Reloaded LiteLLM config with %s providers", len(config.providers))
+        logger.info("Reloaded LiteLLM config with %s providers", len(config.configs))

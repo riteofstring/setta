@@ -20,6 +20,13 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
+from setta.types.llm_config import LLMConfig
+
+DEFAULT_CONFIG_ID = "provider-one"
+
+
+def create_llm_config(model: str = "test-model") -> LLMConfig:
+    return LLMConfig(model=model)
 
 
 def create_message(text: str, role: ChatRole = ChatRole.user):
@@ -47,7 +54,12 @@ class ChatStorageTests(unittest.TestCase):
 
     def test_create_and_load_chat(self):
         first_message = create_message("Hello there")
-        chat = create_new_chat(self.dbe, first_message)
+        chat = create_new_chat(
+            self.dbe,
+            first_message,
+            DEFAULT_CONFIG_ID,
+            create_llm_config(),
+        )
         loaded = load_chat(self.dbe, chat.id)
 
         self.assertIsNotNone(loaded)
@@ -62,7 +74,12 @@ class ChatStorageTests(unittest.TestCase):
 
     def test_save_messages_appends_and_updates_timestamp(self):
         first_message = create_message("Hi")
-        chat = create_new_chat(self.dbe, first_message)
+        chat = create_new_chat(
+            self.dbe,
+            first_message,
+            DEFAULT_CONFIG_ID,
+            create_llm_config(),
+        )
         initial_last_updated = chat.lastUpdated
 
         follow_up = create_message("Hey!", ChatRole.assistant)
@@ -80,8 +97,18 @@ class ChatStorageTests(unittest.TestCase):
         self.assertEqual(2, len(again_chat.messages))
 
     def test_load_metadata_and_delete_chat(self):
-        chat_one = create_new_chat(self.dbe, create_message("First"))
-        chat_two = create_new_chat(self.dbe, create_message("Second"))
+        chat_one = create_new_chat(
+            self.dbe,
+            create_message("First"),
+            DEFAULT_CONFIG_ID,
+            create_llm_config("first-model"),
+        )
+        chat_two = create_new_chat(
+            self.dbe,
+            create_message("Second"),
+            "provider-two",
+            create_llm_config("second-model"),
+        )
 
         metadata = load_all_chat_metadata(self.dbe)
         self.assertEqual([chat_one.id, chat_two.id], [m.id for m in metadata])

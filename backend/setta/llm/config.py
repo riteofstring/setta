@@ -4,23 +4,23 @@ import json
 from pathlib import Path
 from typing import Any
 
-from setta.types.llm_config import LiteLLMConfig
+from setta.types.llm_config import AllLLMConfigs
 from setta.utils.constants import C
 
 
 def load_litellm_config(
     config_path: Path | None = None,
-) -> LiteLLMConfig:
+) -> AllLLMConfigs:
     """Load and validate ``setta_files/llm_config.json``."""
 
     raw = _read_config(config_path)
     if not raw:
-        return LiteLLMConfig()
-    return LiteLLMConfig.model_validate(raw)
+        return AllLLMConfigs()
+    return AllLLMConfigs.model_validate(raw)
 
 
 def save_litellm_config(
-    config: LiteLLMConfig,
+    config: AllLLMConfigs,
     config_path: Path | None = None,
 ) -> None:
     """Persist the LiteLLM configuration, writing canonical JSON."""

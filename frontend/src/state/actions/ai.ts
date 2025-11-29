@@ -11,11 +11,11 @@ import {
   route_get_uuid_mapping_for_llm,
 } from "utils/generatedEndpoints";
 import {
+  AllLLMConfigs,
   BaseChatMessageUnion,
   ChatRoleEnum,
   IDToUUIDForLLM,
   LLMStreamingResponse,
-  LiteLLMConfig,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -29,18 +29,39 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
-function pickDefaultModel(config: LiteLLMConfig): string | null {
+function pickDefaultModel(config: AllLLMConfigs): string | null {
   if (!config) {
     return null;
   }
-  if (config.default_provider_id) {
-    const defaultConfig = config.providers[config.default_provider_id];
+  if (config.default_config_id) {
+    const defaultConfig = config.configs[config.default_config_id];
     if (defaultConfig?.model) {
       return defaultConfig.model;
     }
   }
-  const firstProvider = Object.values(config.providers)[0];
+  const firstProvider = Object.values(config.configs)[0];
   return firstProvider?.model ?? null;
+}
+
+function resolveConfigIdForModel(
+  config: AllLLMConfigs | null,
+  modelName: string | null,
+): string | null {
+  if (!config) {
+    return null;
+  }
+  if (modelName) {
+    for (const [llmConfigId, provider] of Object.entries(config.configs)) {
+      if (provider.model === modelName) {
+        return llmConfigId;
+      }
+    }
+  }
+  if (config.default_config_id) {
+    return config.default_config_id;
+  }
+  const [firstId] = Object.keys(config.configs);
+  return firstId ?? null;
 }
 
 export async function loadLLMConfig() {
@@ -154,13 +175,20 @@ export async function submitMessage(message: string, deepThink) {
   };
 
   const state = useAIStore.getState();
+  const llmConfigId = resolveConfigIdForModel(
+    state.llmConfig ?? null,
+    state.userSelectedLLM ?? null,
+  );
+  if (!llmConfigId) {
+    throw new Error("No LiteLLM config id available for chat submission");
+  }
 
   const res = await route_get_llm_response({
     projectConfigId: getCurrProjectConfigId(),
-    model: state.userSelectedLLM,
     message: userMessage,
     deepThink,
     chatId: state.currentChatId,
+    llmConfigId,
   });
   if (res200(res)) {
     const chatId = res.data;

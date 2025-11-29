@@ -15,7 +15,7 @@
    - ✅ Keeps history tied to a specific config entry while the project stays local.
    - ❌ Not portable: if someone opens the project without that config entry, we can no longer resolve the id.
 
-3. **Store a full `LLMProviderConfig` snapshot on the chat.**
+3. **Store a full `LLMConfig` snapshot on the chat.**
    - ✅ Captures provider, model, base URL, key env var, and tuning params exactly as used.
    - ✅ Chat exports/imports remain deterministic; we can still render metadata even when the current LiteLLM config diverges.
    - ✅ Allows side-by-side comparisons of new vs. legacy configs.
@@ -39,8 +39,13 @@
 - Frontend UX stays simple while still reflecting duplicate models unambiguously.
 - Backend decisions (LiteLLM payloads, auditing, analytics) can reason about the exact provider settings used for every assistant response.
 
+## Status
+- Backend chat persistence now includes an `llmConfig: LLMConfig` snapshot, `LitellmChatManager.get_or_create_chat` requires a config id, and `create_new_chat` stores the resolved snapshot on every new chat (tests enforce passing a config when creating chats).
+- LiteLLM config models were renamed to `AllLLMConfigs`/`LLMConfig`, and `/llm/config` plus the Zustand store now speak that shape (including `default_config_id` resolution) so the frontend can look up config ids deterministically.
+- `/getLLMResponse` accepts `llmConfigId`, and the frontend resolves the id for the user’s dropdown choice before sending a chat request, so the backend can capture which config entry the user attempted to use even when the snapshot diverges later.
+
 ## Next Steps
-1. Extend the backend `Chat` schema to include `llm_config: LLMProviderConfig` (plus optional `config_id`).
-2. Remove `userSelectedLLM` from the frontend store and thread the new schema through chat creation endpoints.
-3. Update the chat pane dropdown to read from `llmConfig` state, apply the labeling rules above, and handle the “stale config” case.
-4. Ensure chat exports/imports include the stored config snapshot so collaboration remains lossless.
+1. Persist a `llmConfigId` (when known) alongside the snapshot on each `Chat`, and update `_build_litellm_request_payload` to read that id instead of the current placeholder so LiteLLM invokes the exact provider/model that created the chat.
+2. Replace the `userSelectedLLM: string` store field with a selection that points at a config id (or stored snapshot), and hydrate it from the chat metadata so reloads don’t fall back to the default model.
+3. Update the chat pane dropdown/UI to render the live config list, show duplicate model names with config labels, and surface the “stale config” badge whenever the stored snapshot no longer matches an active config entry.
+4. Ensure chat exports/imports include both the stored snapshot and optional `llmConfigId`, so collaboration and restores keep the provider context intact.

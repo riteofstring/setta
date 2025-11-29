@@ -18,7 +18,7 @@ import {
   ChartDataMapping,
   ChatMetadata,
   BaseChatMessageUnion,
-  LiteLLMConfig,
+  AllLLMConfigs,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -357,7 +357,7 @@ export type ZustandAIStore = {
   viewHistory: boolean;
   userSelectedLLM: string;
   idToUUIDForLLM: IDToUUIDForLLM;
-  llmConfig: LiteLLMConfig | null;
+  llmConfig: AllLLMConfigs | null;
   llmConfigInitialLoadComplete: boolean;
   llmConfigLoadError: string | null;
 };

@@ -7458,6 +7458,22 @@ export function createBaseChartSettings(
   return BaseChartSettingsSchema.parse(options);
 }
 
+export const LLMConfigSchema = z.object({
+  model: z.string(),
+  provider: z.union([z.string(), z.null()]).default(null),
+  base_url: z.union([z.string(), z.null()]).default(null),
+  api_key_env: z.union([z.string(), z.null()]).default(null),
+  other_params: z
+    .union([z.record(z.string(), z.any()), z.null()])
+    .default(null),
+});
+
+export type LLMConfig = z.infer<typeof LLMConfigSchema>;
+
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
+}
+
 export const ChatSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string(),
@@ -7470,6 +7486,7 @@ export const ChatSchema = z.object({
       ToolChatMessageSchema,
     ]),
   ),
+  llmConfig: LLMConfigSchema,
 });
 
 export type Chat = z.infer<typeof ChatSchema>;
@@ -8113,35 +8130,17 @@ export function createListenerRealtimeDelta(
   return ListenerRealtimeDeltaSchema.parse(options);
 }
 
-export const LLMProviderConfigSchema = z.object({
-  model: z.string(),
-  provider: z.union([z.string(), z.null()]).default(null),
-  base_url: z.union([z.string(), z.null()]).default(null),
-  api_key_env: z.union([z.string(), z.null()]).default(null),
-  other_params: z
-    .union([z.record(z.string(), z.any()), z.null()])
-    .default(null),
+export const AllLLMConfigsSchema = z.object({
+  configs: z.record(z.string(), LLMConfigSchema).default({}),
+  default_config_id: z.union([z.string(), z.null()]).default(null),
 });
 
-export type LLMProviderConfig = z.infer<typeof LLMProviderConfigSchema>;
+export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
 
-export function createLLMProviderConfig(
-  options: Partial<LLMProviderConfig> = {},
-): LLMProviderConfig {
-  return LLMProviderConfigSchema.parse(options);
-}
-
-export const LiteLLMConfigSchema = z.object({
-  providers: z.record(z.string(), LLMProviderConfigSchema).default({}),
-  default_provider_id: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LiteLLMConfig = z.infer<typeof LiteLLMConfigSchema>;
-
-export function createLiteLLMConfig(
-  options: Partial<LiteLLMConfig> = {},
-): LiteLLMConfig {
-  return LiteLLMConfigSchema.parse(options);
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return AllLLMConfigsSchema.parse(options);
 }
 
 export const BrowserAreaItemSchema = z.object({
@@ -8362,7 +8361,7 @@ export const GetLLMResponseRequestSchema = z.object({
     UserChatMessageSchema,
     ToolChatMessageSchema,
   ]),
-  model: z.string(),
+  llmConfigId: z.string(),
   deepThink: z.boolean(),
 });
 

@@ -15,7 +15,7 @@ from litellm.types.llms.openai import (
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 
 from setta.database.db_objs import DBE
-from setta.llm.config import LiteLLMConfig, load_litellm_config
+from setta.llm.config import AllLLMConfigs, load_litellm_config
 from setta.mcp.client import MCPClient
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
@@ -32,7 +32,6 @@ from setta.types.chat_messages import (
     ToolCall,
     ToolCallFunction,
     ToolChatMessage,
-    UserChatMessage,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -80,27 +79,29 @@ class LitellmChatManager:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.config: LiteLLMConfig = load_litellm_config()
+        self.config: AllLLMConfigs = load_litellm_config()
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
 
     def get_chat(self, chat_id: str) -> Chat | None:
         return load_chat(self.dbe, chat_id)
 
-    def update_config(self, config: LiteLLMConfig) -> None:
+    def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
 
     def get_or_create_chat(
         self,
         chat_id: str | None,
-        message: UserChatMessage,
+        message: BaseChatMessageUnion,
+        llm_config_id: str,
     ) -> Chat:
         if chat_id:
             chat = load_chat(self.dbe, chat_id)
             if chat:
                 updated = save_messages(self.dbe, chat.id, [message])
                 return updated or chat
-        return create_new_chat(self.dbe, message)
+        llm_config = self.config.resolve_config(llm_config_id)
+        return create_new_chat(self.dbe, message, llm_config)
 
     def get_all_chat_metadata(self):
         return load_all_chat_metadata(self.dbe)
@@ -112,7 +113,6 @@ class LitellmChatManager:
         self,
         projectConfigId: str,
         chat: Chat,
-        model: str,
         deepThink: bool,
     ) -> None:
         existing = self._tasks.get(chat.id)
@@ -122,7 +122,7 @@ class LitellmChatManager:
             )
             existing.cancel()
         task = asyncio.create_task(
-            self.process_query(projectConfigId, chat, model, deepThink),
+            self.process_query(projectConfigId, chat, deepThink),
             name=f"litellm-chat-{chat.id}",
         )
 
@@ -143,13 +143,9 @@ class LitellmChatManager:
         self,
         projectConfigId: str,  # noqa: N803 (preserve existing API for now)
         chat: Chat,
-        model: str,
         deepThink: bool,  # noqa: N803 (preserve existing API for now)
     ):
-        payload = self._build_litellm_request_payload(
-            chat,
-            model_override=model or None,
-        )
+        payload = self._build_litellm_request_payload(chat)
 
         assistant_message = AssistantChatMessage(
             content=[],
@@ -241,11 +237,7 @@ class LitellmChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    def _build_litellm_request_payload(
-        self,
-        chat: Chat,
-        model_override: str | None = None,
-    ) -> dict[str, Any]:
+    def _build_litellm_request_payload(self, chat: Chat) -> dict[str, Any]:
         """
         Normalize a persisted chat into the kwargs expected by `litellm`.
 
@@ -256,14 +248,13 @@ class LitellmChatManager:
         for message in chat.messages:
             payload = message.to_openai_format()
             messages.append(payload)
-        request, api_key_env = self.config.build_litellm_params()
+        llm_config_id = ""  # TODO:infer config id from chat.llmConfig
+        request, api_key_env = self.config.build_litellm_params(llm_config_id)
         if api_key_env:
             api_key = os.getenv(api_key_env)
             if api_key:
                 request["api_key"] = api_key
 
-        if model_override:
-            request["model"] = model_override
         request["messages"] = messages
         tools = self._build_tool_definitions()
         if tools:

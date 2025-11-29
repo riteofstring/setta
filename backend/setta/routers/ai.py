@@ -19,7 +19,7 @@ class GetLLMResponseRequest(BaseModel):
     projectConfigId: str
     chatId: str | None
     message: BaseChatMessageUnionWithDiscriminator
-    model: str
+    llmConfigId: str
     deepThink: bool
 
 
@@ -52,13 +52,12 @@ async def route_get_llm_response(
 ) -> str | None:
     # try:
     print(x, flush=True)
-    chat = state.chat_manager.get_or_create_chat(x.chatId, x.message)
+    chat = state.chat_manager.get_or_create_chat(x.chatId, x.message, x.llmConfigId)
 
     if chat:
         state.chat_manager.start_processing_query(
             x.projectConfigId,
             chat,
-            x.model,
             x.deepThink,
         )
         return chat.id

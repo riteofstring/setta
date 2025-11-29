@@ -184,14 +184,14 @@ export async function route_type_check(
 }
 
 export async function route_get_llm_config(): Promise<
-  ResponseDataAndStatus<gt.LiteLLMConfig>
+  ResponseDataAndStatus<gt.AllLLMConfigs>
 > {
   return await get("/llm/config");
 }
 
 export async function route_set_llm_config(
-  config: gt.LiteLLMConfig,
-): Promise<ResponseDataAndStatus<gt.LiteLLMConfig>> {
+  config: gt.AllLLMConfigs,
+): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
   return await post("/llm/config", config);
 }
 
