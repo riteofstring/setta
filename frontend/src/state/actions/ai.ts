@@ -29,7 +29,6 @@ import { createNewId } from "utils/idNameCreation";
 export function getDefaultChatDetails(): ChatDetails {
   return {
     messages: [],
-    toolResults: {},
     toolCallArguments: {},
     waitingForResponse: false,
   };
@@ -39,7 +38,7 @@ export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, toolResults, waitingForResponse } = res.data;
+    const { messages, waitingForResponse } = res.data;
     useAIStore.setState((state) => ({
       chatDetails: {
         ...state.chatDetails,
@@ -47,7 +46,6 @@ export async function getLLMChat(chatId: string) {
           ...getDefaultChatDetails(),
           ...(state.chatDetails[chatId] ?? {}),
           messages,
-          toolResults,
           waitingForResponse,
         },
       },
@@ -201,13 +199,12 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
 }
 
 function handleToolResult(chatId: string, chunk: ToolResultEvent) {
-  updateChatDetails(chatId, (details) => ({
-    ...details,
-    toolResults: {
-      ...(details.toolResults ?? {}),
-      [chunk.result.tool_call_id]: chunk.result,
-    },
-  }));
+  updateChatDetails(chatId, (details) => {
+    return {
+      ...details,
+      messages: upsertMessage(details.messages, chunk.result),
+    };
+  });
 }
 
 function handleMessageStop(chatId: string) {
@@ -220,20 +217,9 @@ function handleMessageStop(chatId: string) {
 function handleMessageFinalized(chatId: string, chunk: MessageFinalizedEvent) {
   const targetId = chunk.message.id;
   updateChatDetails(chatId, (details) => {
-    const idx = details.messages.findIndex(
-      (message) => message.id === targetId,
-    );
-    const nextMessages =
-      idx === -1
-        ? [...details.messages, chunk.message]
-        : [
-            ...details.messages.slice(0, idx),
-            chunk.message,
-            ...details.messages.slice(idx + 1),
-          ];
     return {
       ...details,
-      messages: nextMessages,
+      messages: upsertMessage(details.messages, chunk.message, targetId),
       waitingForResponse: false,
       toolCallArguments: {},
     };
@@ -310,6 +296,21 @@ function updateMessageById(
   const nextMessages = [...messages];
   nextMessages[index] = updatedMessage;
   return { messages: nextMessages, changed: true };
+}
+
+function upsertMessage(
+  messages: Array<ChatMessage>,
+  message: ChatMessage,
+  targetId: string | null = null,
+) {
+  const idToUse = targetId ?? message.id;
+  const existingIndex = messages.findIndex((entry) => entry.id === idToUse);
+  if (existingIndex === -1) {
+    return [...messages, message];
+  }
+  const nextMessages = [...messages];
+  nextMessages[existingIndex] = message;
+  return nextMessages;
 }
 
 export function updateUUIDMappingForLLM(idToUUIDForLLM: IDToUUIDForLLM) {

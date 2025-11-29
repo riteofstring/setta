@@ -238,18 +238,6 @@ class LitellmChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    def separate_tool_results(
-        self, messages: list[BaseChatMessageUnion]
-    ) -> tuple[list[BaseChatMessageUnion], dict[str, ToolChatMessage]]:
-        tool_results: dict[str, ToolChatMessage] = {}
-        filtered_messages: list[BaseChatMessageUnion] = []
-        for message in messages:
-            if isinstance(message, ToolChatMessage) and message.tool_call_id:
-                tool_results[message.tool_call_id] = message.model_copy(deep=True)
-                continue
-            filtered_messages.append(message)
-        return filtered_messages, tool_results
-
     def _build_litellm_request_payload(
         self,
         chat: Chat,

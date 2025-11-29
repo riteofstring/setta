@@ -8308,7 +8308,6 @@ export const GetLLMChatRequestResponseSchema = z.object({
       ToolChatMessageSchema,
     ]),
   ),
-  toolResults: z.record(z.string(), ToolChatMessageSchema),
   waitingForResponse: z.boolean(),
 });
 

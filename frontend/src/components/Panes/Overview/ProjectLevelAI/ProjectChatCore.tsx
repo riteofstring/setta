@@ -1,6 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -13,13 +13,14 @@ import remarkMath from "remark-math";
 import { getDefaultChatDetails, getLLMChat } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
+import { ChatRoleEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 function MarkdownContent({ content, className, role, isStreaming }) {
   // Only animate if this is an assistant message that's currently streaming
-  const shouldAnimate = role === C.LLM_ASSISTANT_ROLE && isStreaming;
+  const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
 
   // Use the typewriter effect
   const displayText = useTypewriterEffect(
@@ -42,11 +43,14 @@ function MarkdownContent({ content, className, role, isStreaming }) {
 
 const formatToolArgs = (args) => {
   if (!args) return "{}";
+  if (typeof args === "string") {
+    return args;
+  }
 
   try {
     return JSON.stringify(args, null, 2);
   } catch {
-    return args;
+    return String(args);
   }
 };
 
@@ -113,7 +117,7 @@ const ThinkingBox = memo(({ content, signature, isStreaming }) => {
           <MarkdownContent
             content={content}
             className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
-            role={C.LLM_ASSISTANT_ROLE}
+            role={ChatRoleEnum.assistant}
             isStreaming={isStreaming}
           />
         </Accordion.Content>
@@ -122,14 +126,18 @@ const ThinkingBox = memo(({ content, signature, isStreaming }) => {
   );
 });
 
-function ToolCallAccordionStatus({ result, success, isStreaming }) {
-  if (result) {
-    return success ? (
+function ToolCallAccordionStatus({ success, isStreaming }) {
+  if (success === true) {
+    return (
       <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-400" />
-    ) : (
+    );
+  }
+  if (success === false) {
+    return (
       <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
     );
-  } else if (isStreaming) {
+  }
+  if (isStreaming) {
     return (
       <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
     );
@@ -140,6 +148,26 @@ function ToolCallAccordionStatus({ result, success, isStreaming }) {
 }
 
 const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
+  const resultDisplay = (() => {
+    if (typeof result === "string" && result.trim().length > 0) {
+      return result;
+    }
+    if (result && typeof result === "object") {
+      try {
+        return JSON.stringify(result, null, 2);
+      } catch {
+        return String(result);
+      }
+    }
+    if (success === false) {
+      return "Tool execution failed";
+    }
+    if (success === true) {
+      return "Tool completed successfully";
+    }
+    return null;
+  })();
+
   return (
     <Accordion.Root type="single" collapsible>
       <Accordion.Item value="details">
@@ -155,7 +183,6 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
             {name}
           </div>
           <ToolCallAccordionStatus
-            result={result}
             success={success}
             isStreaming={isStreaming}
           />
@@ -172,19 +199,13 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
               </pre>
             </div>
           )}
-          {result && (
+          {resultDisplay && (
             <div className=" bg-setta-200 p-3  dark:bg-setta-900">
               <h3 className="!mt-0 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Result
               </h3>
               <pre className="m-0 cursor-auto font-mono text-xs text-setta-600 dark:text-setta-200">
-                {typeof result === "string"
-                  ? result
-                  : typeof result === "object"
-                    ? JSON.stringify(result, null, 2)
-                    : success
-                      ? "Tool completed successfully"
-                      : "Tool execution failed"}
+                {resultDisplay}
               </pre>
             </div>
           )}
@@ -194,31 +215,14 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
   );
 });
 
-const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
+const StreamItem = ({ item, isStreaming }) => {
   switch (item.type) {
     case C.LLM_TEXT:
       return (
         <MarkdownContent
           content={item.text}
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400 "
-          role={C.LLM_ASSISTANT_ROLE}
-          isStreaming={isStreaming}
-        />
-      );
-    case C.LLM_TOOL_USE:
-      // Get the result for this tool_use if available
-      const toolResult = toolResults[item.id];
-      const hasResult = !!toolResult;
-
-      // Determine success/failure status
-      const isSuccess = hasResult && !toolResult.is_error;
-
-      return (
-        <ToolCall
-          name={item.name}
-          args={item.input}
-          result={hasResult ? toolResult.content?.[0]?.text : undefined}
-          success={isSuccess}
+          role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
         />
       );
@@ -245,63 +249,109 @@ function LLMChatBubble({ children }) {
   );
 }
 
-const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
-  if (message.role === C.LLM_ASSISTANT_ROLE) {
+const ChatMessage = memo(
+  ({
+    message,
+    toolResultsById,
+    toolCallArguments,
+    isStreaming,
+    waitingForResponse,
+  }) => {
+    if (message.role === ChatRoleEnum.tool) {
+      return null;
+    }
+
+    if (message.role === ChatRoleEnum.assistant) {
+      const toolCalls = message.tool_calls ?? [];
+      return (
+        <LLMChatBubble>
+          {message.content.length === 0 && isStreaming && (
+            <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+          )}
+          {message.content.map((item, idx) => (
+            <StreamItem key={idx} item={item} isStreaming={isStreaming} />
+          ))}
+          {toolCalls.map((toolCall) => {
+            const toolResult = toolResultsById[toolCall.id];
+            const argsFromAssistant = toolCall.function?.arguments;
+            const pendingArgs = toolCallArguments?.[toolCall.id];
+            const argsToDisplay =
+              toolResult?.arguments &&
+              Object.keys(toolResult.arguments).length > 0
+                ? toolResult.arguments
+                : argsFromAssistant && Object.keys(argsFromAssistant).length > 0
+                  ? argsFromAssistant
+                  : pendingArgs;
+            return (
+              <ToolCall
+                key={toolCall.id}
+                name={
+                  toolResult?.tool_name ||
+                  toolCall.function?.name ||
+                  `Tool call ${toolCall.id}`
+                }
+                args={argsToDisplay}
+                result={formatToolResult(toolResult)}
+                success={toolResult ? !toolResult.is_error : undefined}
+                isStreaming={Boolean(waitingForResponse && !toolResult)}
+              />
+            );
+          })}
+        </LLMChatBubble>
+      );
+    }
+
     return (
-      <LLMChatBubble>
-        {message.content.length === 0 && isStreaming && (
-          <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
-        )}
-        {message.content.map((item, idx) => (
-          <StreamItem
-            key={idx}
-            item={item}
-            toolResults={toolResults}
-            isStreaming={isStreaming}
-          />
-        ))}
-      </LLMChatBubble>
+      <div className="my-4 flex justify-end">
+        <MarkdownContent
+          content={message.content?.[0]?.text ?? ""}
+          className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400"
+          role={message.role}
+          isStreaming={false}
+        />
+      </div>
     );
-  }
+  },
+);
 
-  return (
-    <div className="my-4 flex justify-end">
-      <MarkdownContent
-        content={message.content[0].text}
-        className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400"
-        role={message.role}
-        isStreaming={false}
-      />
-    </div>
+function ChatMessages({
+  messages,
+  waitingForResponse,
+  toolCallArguments,
+  allMessages,
+}) {
+  const toolResultsById = useMemo(
+    () => buildToolResultMap(allMessages ?? messages),
+    [allMessages, messages],
   );
-});
-
-function ChatMessages({ messages, toolResults, waitingForResponse }) {
   const output = [];
   for (const [idx, message] of messages.entries()) {
     output.push(
       <ChatMessage
         key={idx}
         message={message}
-        toolResults={toolResults}
+        toolResultsById={toolResultsById}
+        toolCallArguments={toolCallArguments}
         isStreaming={
-          waitingForResponse && message.role === C.LLM_ASSISTANT_ROLE
+          waitingForResponse && message.role === ChatRoleEnum.assistant
         }
+        waitingForResponse={waitingForResponse}
       />,
     );
   }
 
-  // add a temporary empty message for loading spinner to appear in
   if (
     waitingForResponse &&
-    messages[messages.length - 1]?.role !== C.LLM_ASSISTANT_ROLE
+    messages[messages.length - 1]?.role !== ChatRoleEnum.assistant
   ) {
     output.push(
       <ChatMessage
         key={messages.length}
-        message={{ role: C.LLM_ASSISTANT_ROLE, content: [] }}
-        toolResults={toolResults}
+        message={{ role: ChatRoleEnum.assistant, content: [] }}
+        toolResultsById={toolResultsById}
+        toolCallArguments={toolCallArguments}
         isStreaming={true}
+        waitingForResponse={waitingForResponse}
       />,
     );
   }
@@ -311,12 +361,14 @@ function ChatMessages({ messages, toolResults, waitingForResponse }) {
 // Message list component
 const MessageList = memo(function MessageList({
   messages,
-  toolResults,
   waitingForResponse,
   currentChatId,
+  toolCallArguments,
 }) {
-  // TODO: make more efficient
-  const consolidatedMessages = consolidateAssistantMessages(messages);
+  const filteredMessages = messages.filter(
+    (message) => message.role !== ChatRoleEnum.tool,
+  );
+  const consolidatedMessages = consolidateAssistantMessages(filteredMessages);
 
   if (!currentChatId) {
     return (
@@ -337,8 +389,9 @@ const MessageList = memo(function MessageList({
       <div>
         <ChatMessages
           messages={consolidatedMessages}
-          toolResults={toolResults}
           waitingForResponse={waitingForResponse}
+          toolCallArguments={toolCallArguments}
+          allMessages={messages}
         />
       </div>
     </div>
@@ -351,24 +404,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   deepThink,
   userSelectedLLM,
 }) {
-  const {
-    messages,
-    toolResults,
-    waitingForResponse,
-    currentChatId,
-  } = useAIStore((x) => {
-    const details = x.chatDetails[x.currentChatId];
-    if (!x.currentChatId || !details) {
-      return { ...getDefaultChatDetails(), currentChatId: x.currentChatId };
-    }
-    const { messages, toolResults, waitingForResponse } = details;
-    return {
-      messages,
-      toolResults,
-      waitingForResponse,
-      currentChatId: x.currentChatId,
-    };
-  }, shallow);
+  const { messages, toolCallArguments, waitingForResponse, currentChatId } =
+    useAIStore((x) => {
+      const details = x.chatDetails[x.currentChatId];
+      if (!x.currentChatId || !details) {
+        return {
+          ...getDefaultChatDetails(),
+          currentChatId: x.currentChatId,
+        };
+      }
+      const { messages, toolCallArguments, waitingForResponse } = details;
+      return {
+        messages,
+        toolCallArguments,
+        waitingForResponse,
+        currentChatId: x.currentChatId,
+      };
+    }, shallow);
 
   useEffect(() => {
     if (currentChatId) {
@@ -380,9 +432,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     <>
       <MessageList
         messages={messages}
-        toolResults={toolResults}
         waitingForResponse={waitingForResponse}
         currentChatId={currentChatId}
+        toolCallArguments={toolCallArguments}
       />
       <ChatInput
         deepThink={deepThink}
@@ -402,7 +454,7 @@ const consolidateAssistantMessages = (messages) => {
 
   for (const message of messages) {
     // If this is an assistant message
-    if (message.role === C.LLM_ASSISTANT_ROLE) {
+    if (message.role === ChatRoleEnum.assistant) {
       // If we're already building an assistant message, add this content to it
       if (currentAssistantMessage) {
         currentAssistantMessage.content.push(...message.content);
@@ -430,3 +482,33 @@ const consolidateAssistantMessages = (messages) => {
 
   return processedMessages;
 };
+
+function buildToolResultMap(messages) {
+  if (!messages) {
+    return {};
+  }
+  const map = {};
+  for (const message of messages) {
+    if (message.role === ChatRoleEnum.tool && message.tool_call_id) {
+      map[message.tool_call_id] = message;
+    }
+  }
+  return map;
+}
+
+function formatToolResult(toolResult) {
+  if (!toolResult) {
+    return undefined;
+  }
+  if (Array.isArray(toolResult.content) && toolResult.content.length > 0) {
+    return toolResult.content
+      .map((entry) => {
+        if (entry.type === "text") {
+          return entry.text;
+        }
+        return JSON.stringify(entry, null, 2);
+      })
+      .join("\n\n");
+  }
+  return toolResult.result;
+}

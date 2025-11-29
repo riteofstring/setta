@@ -7,7 +7,6 @@ from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.ai import APIKeys, IDToUUIDForLLM
 from setta.types.chat import ChatMetadata
-from setta.types.chat_messages import ToolChatMessage
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
@@ -43,7 +42,6 @@ class GetLLMChatRequest(BaseModel):
 
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
-    toolResults: dict[str, ToolChatMessage]
     waitingForResponse: bool
 
 
@@ -177,10 +175,8 @@ async def route_get_llm_chat(
     current_stream = state.chat_manager.get_current_stream(x.chatId)
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
-    messages, tool_results = state.chat_manager.separate_tool_results(messages)
     return GetLLMChatRequestResponse(
         messages=messages,
-        toolResults=tool_results,
         waitingForResponse=waiting_for_response,
     )
 

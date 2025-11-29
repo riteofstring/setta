@@ -55,25 +55,9 @@ class C:
     # LLM API key names
     LLM_API_KEY_NAMES = {"Anthropic": "ANTHROPIC_API_KEY", "OpenAI": "OPENAI_API_KEY"}
 
-    # LLM message types
-    LLM_MESSAGE_START = "message_start"
-    LLM_CONTENT_BLOCK_START = "content_block_start"
-    LLM_CONTENT_BLOCK_DELTA = "content_block_delta"
-    LLM_CONTENT_BLOCK_STOP = "content_block_stop"
-    LLM_FULL_MESSAGE_STOP = "full_message_stop"
-    LLM_TEXT_DELTA = "text_delta"
-    LLM_THINKING_DELTA = "thinking_delta"
-    LLM_SIGNATURE_DELTA = "signature_delta"
-    LLM_INPUT_JSON_DELTA = "input_json_delta"
-
     # LLM roles and types
-    LLM_ASSISTANT_ROLE = "assistant"
-    LLM_USER_ROLE = "user"
     LLM_TEXT = "text"
     LLM_THINKING = "thinking"
-    LLM_TOOL_USE = "tool_use"
-    LLM_TOOL_RESULT = "tool_result"
-    SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR"
 
     MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
     MCP_SETTA_STATE_ARG_NAME = "setta_state"

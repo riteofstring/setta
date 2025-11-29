@@ -81,12 +81,12 @@
 - ✅ Broke the legacy `ChatMessage` model into `SystemChatMessage`, `UserChatMessage`, `AssistantChatMessage`, and `ToolChatMessage`, regenerated the discriminated unions, and synced the TS helpers so persistence, routers, and Litellm streaming all share the same typed schema.
 - ✅ Broadcast MCP tool completions as `ToolResultEvent`s directly from `_dispatch_tool_call`, so every tool call now pushes a structured result over the websocket while still being persisted as `ToolChatMessage`s.
 - ✅ Deleted the frontend-only `startStreamingInto`/`stopStreamingInto` shim and its UI hooks so future file editing must flow through backend MCP tools instead of mutating local state only.
+- ✅ Dropped the bespoke frontend `toolResults` map and `/getLLMChat` filtering so `ToolChatMessage`s now live inline in both the backend and frontend chat history; the UI renders assistant tool calls (plus streamed argument deltas) without extra state.
 
 ## Remaining Work
 
 ### Backend / LiteLLM integration
 - Thread contextual args (e.g., `setta_chat_id`, `projectConfigId`) through MCP tool invocation so each call knows which chat/project it belongs to once LiteLLM requests a tool. Defer this until every other refactor task in this plan is complete so we only wire the final data shapes once.
-- Tool results now stream over the websocket, but `/getLLMChat` still strips them out and the frontend doesn’t hydrate `ToolChatMessage`s inline. Decide whether to include tool messages directly in the history payload or expose an explicit map so the UI can surface results beside each tool call.
 - `deepThink` and `projectConfigId` parameters are ignored. Decide how they map to LiteLLM settings or MCP context and thread them through the request payload/tool arguments.
 - `setta_files/llm_config.json` can be read/written via `load_litellm_config`, but there is no router exposing it. Add CRUD endpoints (and validation) so the frontend can manage provider/model/base_url/api-key-env selections.
 
@@ -99,8 +99,7 @@
 ### Frontend / chat UI
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` wraps the entire pane in `apiKeysInitialLoadComplete && (…)`, but `apiKeysInitialLoadComplete` is never flipped anywhere in `frontend/src/state/definitions.ts`. The chat UI never renders until we hydrate API keys or remove that gate.
 - The model picker and settings UI still rely on the static `MODEL_GROUPS` constant and hard-coded API key names; there is no surface for provider/base URL/model config or per-chat persistence. Hook these views up to the forthcoming LLM config endpoints instead of static data.
-- `ProjectChatCore.tsx` still ignores OpenAI-style `message.tool_calls` and the streamed `toolCallArguments` gathered in `state/actions/ai.ts`, so tool call progress/results never display even after removing the old streaming shim. Rebuild the renderer around the new schema (text + image content plus explicit `tool_calls`) and surface streamed arguments/results to the user.
-- `handleToolResult` updates the store, but the UI has nowhere to show tool result payloads or errors, and there is no stop button to call `/stopLLMChat`. Add those affordances once the backend emits the corresponding events.
+- Add a UX affordance (e.g., inline banners or alerts) for tool failures plus a stop button that calls `/stopLLMChat` now that the backend exposes cancellation.
 - Chat history waits on backend `waitingForResponse` flags, but those values are never returned because the chat manager doesn’t track them yet. Once backend support exists, plumb the data into the history list/spinners.
 
 ### Configuration & API keys

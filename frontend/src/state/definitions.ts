@@ -28,7 +28,6 @@ import {
   RenameRefactorBroadcastContent,
   SettaNotification,
   SettingsState,
-  ToolResult,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -342,7 +341,6 @@ export const useResizerStore = withProjectState(
 
 export type ChatDetails = {
   messages: Array<ChatMessage>;
-  toolResults: Record<string, ToolResult>;
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
 };

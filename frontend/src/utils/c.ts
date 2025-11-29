@@ -20,21 +20,8 @@ export class C {
     Anthropic: "ANTHROPIC_API_KEY",
     OpenAI: "OPENAI_API_KEY",
   };
-  static LLM_ASSISTANT_ROLE = "assistant";
-  static LLM_CONTENT_BLOCK_DELTA = "content_block_delta";
-  static LLM_CONTENT_BLOCK_START = "content_block_start";
-  static LLM_CONTENT_BLOCK_STOP = "content_block_stop";
-  static LLM_FULL_MESSAGE_STOP = "full_message_stop";
-  static LLM_INPUT_JSON_DELTA = "input_json_delta";
-  static LLM_MESSAGE_START = "message_start";
-  static LLM_SIGNATURE_DELTA = "signature_delta";
   static LLM_TEXT = "text";
-  static LLM_TEXT_DELTA = "text_delta";
   static LLM_THINKING = "thinking";
-  static LLM_THINKING_DELTA = "thinking_delta";
-  static LLM_TOOL_RESULT = "tool_result";
-  static LLM_TOOL_USE = "tool_use";
-  static LLM_USER_ROLE = "user";
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
   static MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
@@ -46,7 +33,6 @@ export class C {
     "setta_state",
     "projectConfigId",
   ];
-  static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SETTINGS_PROJECT_NAME = "settings";
   static WS_RUN_CODE = "runCode";
