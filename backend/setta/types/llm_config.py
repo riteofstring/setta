@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class LLMProviderConfig(BaseModel):
     """Configuration for a single provider/model combination."""
 
-    provider: str
     model: str
+    provider: str | None = None
     base_url: str | None = None
     api_key_env: str | None = None
     other_params: dict[str, Any] | None = None
@@ -40,10 +40,9 @@ class LiteLLMConfig(BaseModel):
         provider_id: str | None = None,
     ) -> tuple[dict[str, Any], str | None]:
         _, provider = self.resolve_provider(provider_id)
-        payload: dict[str, Any] = {
-            "model": provider.model,
-            "custom_llm_provider": provider.provider,
-        }
+        payload: dict[str, Any] = {"model": provider.model}
+        if provider.provider:
+            payload["custom_llm_provider"] = provider.provider
         if provider.base_url:
             payload["api_base"] = provider.base_url
         if provider.other_params:

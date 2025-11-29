@@ -8114,8 +8114,8 @@ export function createListenerRealtimeDelta(
 }
 
 export const LLMProviderConfigSchema = z.object({
-  provider: z.string(),
   model: z.string(),
+  provider: z.union([z.string(), z.null()]).default(null),
   base_url: z.union([z.string(), z.null()]).default(null),
   api_key_env: z.union([z.string(), z.null()]).default(null),
   other_params: z
