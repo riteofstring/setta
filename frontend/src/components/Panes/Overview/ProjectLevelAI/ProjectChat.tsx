@@ -66,7 +66,7 @@ export function ProjectChat() {
       if (!groups.has(groupName)) {
         groups.set(groupName, { group: groupName, items: [] });
       }
-      groups.get(groupName)!.items.push({ id: configId, name });
+      groups.get(groupName).items.push({ id: configId, name });
     }
     return Array.from(groups.values())
       .map((entry) => ({
