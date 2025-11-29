@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from setta.types.chat_messages import ChatMessage, ToolChatMessage
+from setta.types.chat_messages import ChatMessage, ToolResult
 
 
 class StreamingEventType(str, Enum):
