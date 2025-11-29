@@ -1,8 +1,10 @@
 import json
 import tempfile
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
+from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
 from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
@@ -20,6 +22,8 @@ class DBE:
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
         self.chats = self.path / "chats"
+        self.llm_config = self.path / "llm_config.json"
+        self.dot_env = self.path / ".env"
         self.path.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
@@ -139,6 +143,29 @@ class DBE:
 
     def write_settings_project(self, settings_project: ProjectStateSingleConfig):
         self.write_json(self.settings_project, settings_project.model_dump())
+
+    def read_llm_config(self) -> dict[str, Any]:
+        return self.read_json(self.llm_config)
+
+    def write_llm_config(self, payload: Any) -> None:
+        self.write_json(self.llm_config, payload)
+
+    def read_dot_env(self) -> dict[str, str]:
+        raw = self.read(self.dot_env)
+        if raw is None:
+            return {}
+        env_vars = dotenv_values(stream=StringIO(raw))
+        return {key: value for key, value in env_vars.items() if value is not None}
+
+    def reload_dot_env(self) -> None:
+        load_dotenv(dotenv_path=self.dot_env, override=True)
+
+    def write_dot_env(self, env_vars: dict[str, str]) -> None:
+        lines = [f"{key}={value}" for key, value in env_vars.items()]
+        content = "\n".join(lines)
+        if content:
+            content += "\n"
+        self.write(self.dot_env, content)
 
     def chat_path(self, chat_id: str) -> Path:
         return self.chats / f"{chat_id}.json"

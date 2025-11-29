@@ -15,13 +15,7 @@ export class C {
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
   static DEV_MODE_FRONTEND_PORT = 3000;
-  static DOT_ENV_FILENAME = ".env";
   static HOST = "127.0.0.1";
-  static LLM_API_KEY_NAMES = {
-    Anthropic: "ANTHROPIC_API_KEY",
-    OpenAI: "OPENAI_API_KEY",
-  };
-  static LLM_CONFIG_FILENAME = "llm_config.json";
   static LLM_TEXT = "text";
   static LLM_THINKING = "thinking";
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";

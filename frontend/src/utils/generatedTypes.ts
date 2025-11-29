@@ -8536,7 +8536,6 @@ export function createDocstringToMarkdownRequest(
 }
 
 export const UpdateAPIKeysRequestSchema = z.object({
-  filepath: z.string().default(".env" as const),
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
 

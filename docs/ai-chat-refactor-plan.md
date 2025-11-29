@@ -30,8 +30,8 @@
 
 #### Config & Persistence
 - `backend/setta/types/llm_config.py` defines `LLMConfig`/`AllLLMConfigs`, including `temporary` entries. `merge_chat_llm_configs` injects stored chat configs so `/llm/config` always exposes the providers used by historic chats.
-- `LLMConfigWatcher` listens for changes to `setta_files/llm_config.json`, hot-reloads `LLMChatManager`, and now broadcasts both config and filtered API-key snapshots so every client hears about disk edits immediately. The watcher fires immediately on startup, which (paired with the DotEnv watcher) means `LLMChatManager` no longer loads from disk in `__init__`.
-- `DotEnvWatcher` mirrors the config watcher: it fires immediately, reloads `.env` into process state, filters the keys through `LLMChatManager`, and broadcasts the filtered set so the frontend always reflects whichever providers are required by the current config.
+- Dedicated DBE helpers (`read_llm_config`, `write_llm_config`, `read_dot_env`, `write_dot_env`, `reload_dot_env`) now own the persistence and process-environment reloading for both `setta_files/llm_config.json` and `.env`, ensuring JSON validation, file-locking, and `load_dotenv(..., override=True)` semantics live in one place.
+- `LLMConfigWatcher` and `DotEnvWatcher` both listen to the DBE-managed paths, fire immediately on startup, reload their respective state into `LLMChatManager`, and broadcast config/API-key snapshots so every client hears about disk edits without polling.
 - The frontend Zustand store gained `allLLMConfigs`, API-key state, and the `loadLLMConfig`/`loadLLMApiKeys` actions so UI panes can hydrate from those new routes once invoked.
 
 #### Frontend
@@ -54,7 +54,7 @@
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` still gates the entire pane behind `apiKeysInitialLoadComplete && llmConfigInitialLoadComplete`, but nothing currently calls `loadLLMApiKeys()` or `loadLLMConfig()`. Trigger those loads (and subsequent refreshes) during app startup or when the pane mounts so the chat UI renders by default.
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support.
 - Surface `temporary` configs (those injected from chat history) inside the dropdown/settings, give them a badge such as “from chat history”, and provide an affordance to promote/edit them so users know whether a chat references a transient model.
-- Add listeners for backend config/API-key broadcasts so updates triggered by `LLMConfigWatcher` or the settings pane propagate to all clients without manual refreshes.
+- Subscribe to the watcher-triggered WebSocket broadcasts (or manually refresh the AI store after edits) so updates propagate across tabs without manual reloads.
 
 #### Observability & Testing
 - Add backend unit tests around `LLMChatManager` (payload construction, streaming chunk handling, tool-call parsing, cancellation, and MessageDelta emissions) plus failure-path coverage for MCP dispatch.

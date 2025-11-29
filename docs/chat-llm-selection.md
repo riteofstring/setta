@@ -20,7 +20,8 @@
 ### Completed Work
 - Backend chat persistence now records `chat.llmConfig` (a full `LLMConfig`). `LLMChatManager.get_or_create_chat` requires a `llmConfigId`, resolves it, and saves the resolved config with the new chat so payloads stay portable even if the config entry later disappears from disk.
 - LLM payload construction (`build_llm_params`) reads the stored config directly, so stream replays are deterministic and do not depend on local config state.
-- `/llm/config` and `/llm/apiKeys` ship structured Pydantic models, and `LLMConfigWatcher` reloads `setta_files/llm_config.json` inside `LLMChatManager` so backend routers always serve the latest entries. Both watchers now fire immediately on startup and broadcast config/API-key updates whenever the disk data changes, so clients receive pushes instead of polling.
+- `/llm/config` and `/llm/apiKeys` ship structured Pydantic models, and dedicated DBE helpers now read/write both `llm_config.json` and `.env` with file-locking, type validation, and `load_dotenv(..., override=True)` semantics. This means routers/watchers no longer hand-roll paths or JSON parsing.
+- `LLMConfigWatcher` and `DotEnvWatcher` watch the DBE-managed files, reload `LLMChatManager`, and broadcast config/API-key updates whenever disk data changes. Both fire immediately on startup, so clients receive pushes instead of polling.
 - The Zustand AI store exposes `allLLMConfigs`, API-key data, and helper actions to fetch them. `ProjectChat` already renders dropdown options from `allLLMConfigs`, filters entries that lack loaded API keys, and passes the selection back to `submitMessage`.
 - Temporary configs are already created when loading chat metadata; `save_llm_config` trims them before writing to disk so exports stay clean.
 

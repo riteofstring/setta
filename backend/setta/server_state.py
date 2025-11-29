@@ -121,12 +121,14 @@ class SettaFastAPIState:
             self.specific_file_watcher,
             self.chat_manager,
             self.wmh_frontend_sender,
+            self.dbe,
         )
         self.dotenv_watcher.start()
         self.llm_config_watcher = LLMConfigWatcher(
             self.specific_file_watcher,
             self.chat_manager,
             self.wmh_frontend_sender,
+            self.dbe,
         )
         self.llm_config_watcher.start()
 

@@ -52,11 +52,6 @@ class C:
 
     NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS"
 
-    # LLM API key names
-    LLM_API_KEY_NAMES = {"Anthropic": "ANTHROPIC_API_KEY", "OpenAI": "OPENAI_API_KEY"}
-    LLM_CONFIG_FILENAME = "llm_config.json"
-    DOT_ENV_FILENAME = ".env"
-
     # LLM roles and types
     LLM_TEXT = "text"
     LLM_THINKING = "thinking"

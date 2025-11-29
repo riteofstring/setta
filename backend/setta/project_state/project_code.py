@@ -67,8 +67,6 @@ class ProjectGenPythonCode(PythonCode):
         code_generator: PythonCodeGenerator,
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
-        # with open("test_project_state.json", "w") as f:
-        # json.dump(project_state, f)
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
