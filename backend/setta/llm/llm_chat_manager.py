@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Iterator, Literal, assert_never
 
 import litellm
-from litellm.utils import supports_reasoning as litellm_supports_reasoning
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import (
     ChatCompletionToolParam,
@@ -331,23 +330,90 @@ class LLMChatManager:
         provider = request.get("custom_llm_provider")
         if not model_name:
             return
-        if not self._supports_reasoning_effort(model_name, provider):
+        if not self._should_enable_reasoning_override(model_name, provider):
             return
 
         request["reasoning_effort"] = "high"
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[deep-think] enabling reasoning_effort=high for model=%s provider=%s",
+                model_name,
+                provider,
+            )
 
     @staticmethod
-    def _supports_reasoning_effort(
+    def _should_enable_reasoning_override(
         model_name: str,
         provider: str | None,
     ) -> bool:
-        try:
-            return litellm_supports_reasoning(model_name, provider)
-        except Exception:
-            logger.debug(
-                "Failed to resolve reasoning support via litellm metadata", exc_info=True
+        normalized_model = model_name.lower()
+        normalized_provider = (provider or "").lower()
+
+        if LLMChatManager._is_openai_reasoning_model(normalized_model):
+            if LLMChatManager._is_openai_provider(normalized_provider) or not normalized_provider:
+                return True
+
+        if LLMChatManager._is_claude_like_model(normalized_model):
+            if LLMChatManager._is_anthropic_provider(normalized_provider) or not normalized_provider:
+                return True
+
+        if LLMChatManager._is_gemini_like_model(normalized_model):
+            if LLMChatManager._is_google_provider(normalized_provider) or not normalized_provider:
+                return True
+
+        return False
+
+    @staticmethod
+    def _is_openai_reasoning_model(model_name: str) -> bool:
+        lowered = model_name.lower()
+        if "gpt" in lowered:
+            return True
+        return lowered.startswith(("o1", "o3", "o4"))
+
+    @staticmethod
+    def _is_openai_provider(provider: str) -> bool:
+        return any(
+            hint in provider
+            for hint in (
+                "openai",
+                "azure",
             )
-            return False
+        )
+
+    @staticmethod
+    def _is_claude_like_model(model_name: str) -> bool:
+        lowered = model_name.lower()
+        return "claude" in lowered or any(
+            lowered.startswith(prefix)
+            for prefix in ("sonnet", "haiku", "opus")
+        )
+
+    @staticmethod
+    def _is_gemini_like_model(model_name: str) -> bool:
+        return "gemini" in model_name.lower()
+
+    @staticmethod
+    def _is_anthropic_provider(provider: str) -> bool:
+        return any(
+            hint in provider
+            for hint in (
+                "anthropic",
+                "bedrock",
+                "bedrock-converse",
+                "aws_bedrock",
+            )
+        )
+
+    @staticmethod
+    def _is_google_provider(provider: str) -> bool:
+        return any(
+            hint in provider
+            for hint in (
+                "google",
+                "vertex",
+                "gemini",
+            )
+        )
 
     async def _iterate_stream(
         self, stream_result: CustomStreamWrapper
@@ -405,6 +471,13 @@ class LLMChatManager:
         text_deltas = self._build_text_deltas(delta, assistant_message)
         if not text_deltas:
             return
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[chat %s] streaming delta reasoning=%r thinking_blocks=%r",
+                chat_id,
+                getattr(delta, "reasoning_content", None),
+                getattr(delta, "thinking_blocks", None),
+            )
         await self.websocket_msg_handler.send_streaming_response(
             chat_id,
             MessageDeltaEvent(
@@ -422,7 +495,11 @@ class LLMChatManager:
 
         deltas: list[MessageContentDelta] = []
         for entry in content_entries:
-            index = self._resolve_content_index(entry.index, assistant_message)
+            index = self._resolve_content_index(
+                entry.index,
+                assistant_message,
+                entry.kind,
+            )
             match entry.kind:
                 case "thinking":
                     thinking_chunk = entry.text or ""
@@ -456,13 +533,62 @@ class LLMChatManager:
     def _iter_content_entries(
         self, delta: Delta
     ) -> Iterator[StreamContentEntry]:
-        if delta.content is None:
-            return
-        entries = delta.content if isinstance(delta.content, list) else [delta.content]
+        entries: list[Any] = []
+        if delta.content is not None:
+            entries = (
+                delta.content if isinstance(delta.content, list) else [delta.content]
+            )
+
+        buffered_entries: list[StreamContentEntry] = []
+        has_thinking_entry = False
+
         for entry in entries:
             normalized = self._normalize_content_entry(entry)
-            if normalized:
+            if not normalized:
+                continue
+            if normalized.kind == "thinking":
+                has_thinking_entry = True
+                if buffered_entries:
+                    for buffered in buffered_entries:
+                        yield buffered
+                    buffered_entries.clear()
                 yield normalized
+                continue
+            if has_thinking_entry:
+                yield normalized
+            else:
+                buffered_entries.append(normalized)
+
+        if not has_thinking_entry:
+            yield from self._iter_reasoning_entries(delta)
+            for buffered in buffered_entries:
+                yield buffered
+
+    def _iter_reasoning_entries(
+        self, delta: Delta
+    ) -> Iterator[StreamContentEntry]:
+        thinking_blocks = self._extract_thinking_blocks(delta)
+
+        yielded = False
+        for block in thinking_blocks:
+            normalized = self._normalize_content_entry(block)
+            if not normalized or normalized.kind != "thinking":
+                continue
+            if not normalized.text and normalized.signature is None:
+                continue
+            yielded = True
+            yield normalized
+        if yielded:
+            return
+
+        reasoning_content = getattr(delta, "reasoning_content", None)
+        if isinstance(reasoning_content, str) and reasoning_content:
+            yield StreamContentEntry(
+                kind="thinking",
+                text=reasoning_content,
+                index=None,
+                signature=None,
+            )
 
     def _normalize_content_entry(self, entry: Any) -> StreamContentEntry | None:
         if isinstance(entry, str):
@@ -507,6 +633,23 @@ class LLMChatManager:
         if not isinstance(text_value, str) or not text_value:
             return None
         return StreamContentEntry(kind="text", text=text_value, index=index)
+
+    def _extract_thinking_blocks(self, delta: Delta) -> list[Any]:
+        thinking_blocks: Any = getattr(delta, "thinking_blocks", None)
+        if thinking_blocks is None:
+            provider_specific_fields = getattr(delta, "provider_specific_fields", None)
+            if isinstance(provider_specific_fields, dict):
+                thinking_blocks = provider_specific_fields.get("thinking_blocks")
+            elif provider_specific_fields is not None:
+                thinking_blocks = getattr(
+                    provider_specific_fields, "thinking_blocks", None
+                )
+
+        if not thinking_blocks:
+            return []
+        if isinstance(thinking_blocks, list):
+            return list(thinking_blocks)
+        return [thinking_blocks]
 
     async def _handle_tool_call_deltas(
         self,
@@ -677,13 +820,29 @@ class LLMChatManager:
             return {}
 
     def _resolve_content_index(
-        self, provided_index: Any, assistant_message: AssistantChatMessage
+        self,
+        provided_index: Any,
+        assistant_message: AssistantChatMessage,
+        kind: Literal["text", "thinking"],
     ) -> int:
         if isinstance(provided_index, int) and provided_index >= 0:
             return provided_index
-        if assistant_message.content:
-            return len(assistant_message.content) - 1
-        return 0
+
+        content = assistant_message.content
+        if not content:
+            return 0
+
+        last_index = len(content) - 1
+        last_block = content[last_index]
+
+        # Keep extending the current block when the provider keeps streaming the
+        # same content type; otherwise append and hand back a fresh slot.
+        if kind == "thinking" and isinstance(last_block, MessageThinkingContent):
+            return last_index
+        if kind == "text" and isinstance(last_block, MessageTextContent):
+            return last_index
+
+        return len(content)
 
     def _ensure_text_content_block(
         self,

@@ -22,8 +22,9 @@
 - Chat persistence now uses the OpenAI-style schema in `backend/setta/types/chat_messages.py`, including explicit assistant, user, system, and tool-role records plus helper methods for LLM payloads. Each chat stores the exact `LLMConfig` (id, model, provider, base URL, env var, params) that generated its transcript.
 - The Anthropic chat manager was replaced with `LLMChatManager`, which builds request payloads, runs the streaming completion flow, hydrates streaming sessions, and supports stop requests via asyncio task cancellation.
 - Streaming envelopes (`backend/setta/types/chat_stream_events.py`) flow through `WMHFrontendSender` and are consumed by `frontend/src/state/actions/ai.ts`/`ProjectChatCore.tsx`, so the UI now renders text deltas, tool-call deltas, tool results, and finalized messages in real time.
+- Streaming delta handling now normalizes provider-specific `thinking_blocks`/`reasoning_content` in one pass and streams entries as they arrive, which keeps the assistant transcript readable even when providers omit indexes or split thinking/text payloads across custom fields.
 - Recent bugfixes: assistant messages without tool calls now serialize safely before invoking LiteLLM, and the frontend guards against stale `waitingForResponse` states so second messages no longer disappear when REST responses race with streaming events.
-- The `deepThink` toggle now feeds into LiteLLM’s reasoning metadata, automatically adding `reasoning_effort=high` for supported models and streaming the accompanying thinking deltas all the way through to the frontend UI.
+- The `deepThink` toggle now feeds internal heuristics for reasoning support: we bypass LiteLLM’s spotty metadata, recognize OpenAI/Anthropic/Google providers directly, and always emit the thinking blocks/`reasoning_content` stream so the UI shows every vendor’s reasoning traces without manual tweaks.
 
 #### MCP & Tooling
 - The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LLM request as OpenAI-style tool definitions.
