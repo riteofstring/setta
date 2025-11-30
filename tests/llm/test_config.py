@@ -1,7 +1,12 @@
+import tempfile
 import unittest
 from datetime import datetime
+from pathlib import Path
 
-from setta.llm.config import merge_chat_llm_configs
+from pydantic import ValidationError
+
+from setta.database.db_objs import DBE
+from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
 from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 
@@ -83,6 +88,60 @@ class MergeChatLLMConfigsTests(unittest.TestCase):
         temporary_configs = [cfg for cfg in merged.configs.values() if cfg.temporary]
         self.assertEqual(len(temporary_configs), 1)
         self.assertEqual(temporary_configs[0].model, "claude-3")
+
+
+class AllLLMConfigsValidationTests(unittest.TestCase):
+    def test_infers_id_from_config_key(self) -> None:
+        config = AllLLMConfigs.model_validate(
+            {
+                "configs": {
+                    "primary": {
+                        "model": "gpt-5.1",
+                        "provider": "openai",
+                    }
+                },
+                "default_config_id": "primary",
+            }
+        )
+
+        self.assertEqual(config.configs["primary"].id, "primary")
+
+    def test_rejects_inline_id_field(self) -> None:
+        with self.assertRaises(ValidationError):
+            AllLLMConfigs.model_validate(
+                {
+                    "configs": {
+                        "primary": {
+                            "id": "primary",
+                            "model": "gpt-5.1",
+                        }
+                    }
+                }
+            )
+
+
+class LLMConfigPersistenceTests(unittest.TestCase):
+    def test_save_llm_config_strips_ids_from_disk(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-5.1",
+                        provider="openai",
+                    )
+                },
+                default_config_id="primary",
+            )
+
+            save_llm_config(config, dbe)
+            raw = dbe.read_llm_config()
+
+            self.assertNotIn("id", raw["configs"]["primary"])
+
+            loaded = load_llm_config(dbe)
+            self.assertEqual(loaded.configs["primary"].id, "primary")
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -25,6 +25,11 @@ def save_llm_config(
     """Persist the LLM configuration, writing canonical JSON."""
     sanitized = _strip_temporary_configs(config)
     payload = sanitized.model_dump(exclude_unset=True)
+    configs = payload.get("configs")
+    if isinstance(configs, dict):
+        for entry in configs.values():
+            if isinstance(entry, dict) and "id" in entry:
+                entry.pop("id")
     dbe.write_llm_config(payload)
 
 
