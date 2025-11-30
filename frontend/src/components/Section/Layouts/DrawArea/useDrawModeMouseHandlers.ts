@@ -532,9 +532,9 @@ function drawingOnMouseUp(
         strokeRef.current,
         layer,
         layerCanvas,
-      tempCanvasRefs,
-      draftCanvasRef.current,
-    );
+        tempCanvasRefs,
+        draftCanvasRef.current,
+      );
     }
     flushRealtimeSnapshot();
   };

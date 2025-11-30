@@ -11,22 +11,19 @@ export function ProjectChatHistory({
   chatId: string | null | undefined;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
-  const { allChatMetadata, waitingForResponse } = useAIStore(
-    (x) => {
-      const waitingForResponse = {};
-      for (const c of x.allChatMetadata) {
-        waitingForResponse[c.id] = Boolean(
-          x.chatDetails[c.id]?.waitingForResponse ?? false,
-        );
-      }
+  const { allChatMetadata, waitingForResponse } = useAIStore((x) => {
+    const waitingForResponse = {};
+    for (const c of x.allChatMetadata) {
+      waitingForResponse[c.id] = Boolean(
+        x.chatDetails[c.id]?.waitingForResponse ?? false,
+      );
+    }
 
-      return {
-        allChatMetadata: x.allChatMetadata,
-        waitingForResponse,
-      };
-    },
-    shallow,
-  );
+    return {
+      allChatMetadata: x.allChatMetadata,
+      waitingForResponse,
+    };
+  }, shallow);
 
   useEffect(() => {
     getAllLLMChatMetadata();
