@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Literal, assert_never
+from typing import Any, AsyncIterator, Iterator, Literal, assert_never
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -485,12 +485,8 @@ class LLMChatManager:
     def _build_text_deltas(
         self, delta: Delta, assistant_message: AssistantChatMessage
     ) -> list[MessageContentDelta]:
-        content_entries = self._collect_content_entries(delta)
-        if not content_entries:
-            return []
-
         deltas: list[MessageContentDelta] = []
-        for entry in content_entries:
+        for entry in self._iter_content_entries(delta):
             index = self._resolve_content_index(
                 entry.index,
                 assistant_message,
@@ -526,68 +522,83 @@ class LLMChatManager:
                     assert_never(entry.kind)
         return deltas
 
-    def _collect_content_entries(self, delta: Delta) -> list[StreamContentEntry]:
-        entries = self._normalize_delta_content(delta)
-        has_thinking_entry = any(entry.kind == "thinking" for entry in entries)
-        if has_thinking_entry:
-            return entries
+    def _iter_content_entries(
+        self,
+        delta: Delta,
+    ) -> Iterator[StreamContentEntry]:
+        entries = list(self._iter_primary_content_entries(delta))
+        if any(entry.kind == "thinking" for entry in entries):
+            for entry in entries:
+                yield entry
+            return
 
-        reasoning_entries = self._collect_reasoning_entries(delta)
-        if reasoning_entries:
-            return reasoning_entries + entries
-        return entries
+        has_reasoning = False
+        for reasoning_entry in self._iter_reasoning_entries(delta):
+            has_reasoning = True
+            yield reasoning_entry
+        if has_reasoning:
+            for entry in entries:
+                yield entry
+            return
 
-    def _normalize_delta_content(self, delta: Delta) -> list[StreamContentEntry]:
-        if delta.content is None:
-            return []
-        raw_entries = (
-            delta.content if isinstance(delta.content, list) else [delta.content]
-        )
-        normalized: list[StreamContentEntry] = []
+        for entry in entries:
+            yield entry
+
+    def _iter_primary_content_entries(
+        self,
+        delta: Delta,
+    ) -> Iterator[StreamContentEntry]:
+        content = delta.content
+        if content is None:
+            return
+        raw_entries = content if isinstance(content, list) else [content]
         for entry in raw_entries:
             normalized_entry = self._normalize_content_entry(entry)
             if normalized_entry:
-                normalized.append(normalized_entry)
-        return normalized
+                yield normalized_entry
 
-    def _collect_reasoning_entries(self, delta: Delta) -> list[StreamContentEntry]:
-        thinking_blocks = self._extract_thinking_blocks(delta)
-
-        entries: list[StreamContentEntry] = []
-        for block in thinking_blocks:
-            normalized = self._normalize_content_entry(block)
+    def _iter_reasoning_entries(
+        self,
+        delta: Delta,
+    ) -> Iterator[StreamContentEntry]:
+        yielded = False
+        for block in self._extract_thinking_blocks(delta):
+            normalized = self._normalize_content_entry(block, default_kind="thinking")
             if not normalized or normalized.kind != "thinking":
                 continue
             if not normalized.text and normalized.signature is None:
                 continue
-            entries.append(normalized)
-        if entries:
-            return entries
+            yielded = True
+            yield normalized
+        if yielded:
+            return
 
         reasoning_content = getattr(delta, "reasoning_content", None)
         if isinstance(reasoning_content, str) and reasoning_content:
-            return [
-                StreamContentEntry(
-                    kind="thinking",
-                    text=reasoning_content,
-                    index=None,
-                    signature=None,
-                )
-            ]
-        return []
+            yield StreamContentEntry(
+                kind="thinking",
+                text=reasoning_content,
+                index=None,
+                signature=None,
+            )
 
-    def _normalize_content_entry(self, entry: Any) -> StreamContentEntry | None:
+    def _normalize_content_entry(
+        self,
+        entry: Any,
+        *,
+        default_kind: Literal["text", "thinking"] = "text",
+    ) -> StreamContentEntry | None:
         if isinstance(entry, str):
             text_value = entry
             if not text_value:
                 return None
-            return StreamContentEntry(kind="text", text=text_value, index=None)
+            return StreamContentEntry(kind=default_kind, text=text_value, index=None)
 
         payload = self._entry_to_mapping(entry)
         if payload is None:
             return None
 
-        entry_type = payload.get("type")
+        entry_type = payload.get("type") or default_kind
         index = payload.get("index")
         if entry_type == "thinking":
             thinking_value = payload.get("thinking")
@@ -598,7 +609,7 @@ class LLMChatManager:
                 index=index,
                 signature=signature if isinstance(signature, str) else None,
             )
-        if entry_type not in (None, "text"):
+        if entry_type != "text":
             return None
         text_value = payload.get("text")
         if not isinstance(text_value, str) or not text_value:
@@ -609,14 +620,22 @@ class LLMChatManager:
         if isinstance(entry, dict):
             return entry
 
-        extracted: dict[str, Any] = {}
-        found = False
-        for key in ("type", "index", "thinking", "signature", "text"):
-            if hasattr(entry, key):
-                extracted[key] = getattr(entry, key)
-                found = True
-        if found:
-            return extracted
+        if hasattr(entry, "model_dump"):
+            try:
+                data = entry.model_dump()
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                logger.debug("Failed to model_dump streaming entry", exc_info=True)
+
+        if hasattr(entry, "dict"):
+            data = entry.dict()
+            if isinstance(data, dict):
+                return data
+
+        payload = getattr(entry, "__dict__", None)
+        if isinstance(payload, dict):
+            return payload
         return None
 
     def _extract_thinking_blocks(self, delta: Delta) -> list[Any]:
