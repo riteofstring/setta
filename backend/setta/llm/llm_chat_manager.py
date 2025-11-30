@@ -493,7 +493,7 @@ class LLMChatManager:
     def _build_text_deltas(
         self, delta: Delta, assistant_message: AssistantChatMessage
     ) -> list[MessageContentDelta]:
-        entries = list(self._stream_entries_with_fallback(delta))
+        entries = self._collect_stream_entries(delta)
         if not entries:
             return []
 
@@ -526,72 +526,74 @@ class LLMChatManager:
             deltas.append(MessageTextDelta(index=index, text=entry.text))
         return deltas
 
-    def _stream_entries_with_fallback(
+    def _collect_stream_entries(self, delta: Delta) -> list[StreamContentEntry]:
+        primary_entries, has_thinking_payload = self._normalize_primary_entries(delta)
+        if has_thinking_payload:
+            return primary_entries
+
+        fallback_entries = self._collect_fallback_entries(delta)
+        if not fallback_entries:
+            return primary_entries
+        fallback_entries.extend(primary_entries)
+        return fallback_entries
+
+    def _normalize_primary_entries(
         self, delta: Delta
-    ) -> Iterator[StreamContentEntry]:
-        primary_entries = list(self._iter_primary_stream_entries(delta))
-        if self._has_thinking_payload(primary_entries):
-            yield from primary_entries
-            return
-
-        fallback_entries = list(self._iter_reasoning_fallback_entries(delta))
-        if fallback_entries:
-            yield from fallback_entries
-        yield from primary_entries
-
-    def _has_thinking_payload(
-        self, entries: list[StreamContentEntry]
-    ) -> bool:
-        for entry in entries:
+    ) -> tuple[list[StreamContentEntry], bool]:
+        entries: list[StreamContentEntry] = []
+        has_thinking_payload = False
+        for entry in self._iter_normalized_entries(delta.content, default_kind="text"):
+            entries.append(entry)
             if entry.kind == "thinking" and entry.has_payload:
-                return True
-        return False
+                has_thinking_payload = True
+        return entries, has_thinking_payload
 
-    def _iter_primary_stream_entries(
-        self, delta: Delta
-    ) -> Iterator[StreamContentEntry]:
-        content = delta.content
-        if content is None:
-            return
-        raw_entries = content if isinstance(content, list) else [content]
-        for entry in raw_entries:
-            normalized_entry = self._normalize_content_entry(entry)
-            if normalized_entry:
-                yield normalized_entry
-
-    def _iter_reasoning_fallback_entries(
-        self, delta: Delta
-    ) -> Iterator[StreamContentEntry]:
-        for entry in self._extract_thinking_blocks(delta):
-            normalized = self._normalize_content_entry(entry, default_kind="thinking")
-            if not normalized or normalized.kind != "thinking":
-                continue
-            if not normalized.has_payload:
-                continue
-            yield normalized
+    def _collect_fallback_entries(self, delta: Delta) -> list[StreamContentEntry]:
+        entries: list[StreamContentEntry] = []
+        for block in self._iter_thinking_payloads(delta):
+            normalized = self._normalize_entry(block, default_kind="thinking")
+            if normalized and normalized.has_payload:
+                entries.append(normalized)
 
         reasoning_content = getattr(delta, "reasoning_content", None)
         if isinstance(reasoning_content, str) and reasoning_content:
-            yield StreamContentEntry(
-                kind="thinking",
-                text=reasoning_content,
-                index=None,
-                signature=None,
+            entries.append(
+                StreamContentEntry(
+                    kind="thinking",
+                    text=reasoning_content,
+                    index=None,
+                    signature=None,
+                )
             )
+        return entries
 
-    def _normalize_content_entry(
+    def _iter_normalized_entries(
         self,
-        entry: Any,
+        payload: Any,
         *,
-        default_kind: Literal["text", "thinking"] = "text",
-    ) -> StreamContentEntry | None:
-        if isinstance(entry, str):
-            text_value = entry
-            if not text_value:
-                return None
-            return StreamContentEntry(kind=default_kind, text=text_value, index=None)
+        default_kind: Literal["text", "thinking"],
+    ) -> Iterator[StreamContentEntry]:
+        if payload is None:
+            return
 
-        payload = self._entry_to_mapping(entry)
+        raw_entries = payload if isinstance(payload, list) else [payload]
+        for raw_entry in raw_entries:
+            normalized = self._normalize_entry(raw_entry, default_kind=default_kind)
+            if normalized:
+                yield normalized
+
+    def _normalize_entry(
+        self,
+        raw_entry: Any,
+        *,
+        default_kind: Literal["text", "thinking"],
+    ) -> StreamContentEntry | None:
+        if isinstance(raw_entry, str):
+            if not raw_entry:
+                return None
+            return StreamContentEntry(kind=default_kind, text=raw_entry, index=None)
+
+        payload = self._coerce_stream_payload(raw_entry)
         if payload is None:
             return None
 
@@ -608,12 +610,13 @@ class LLMChatManager:
             )
         if entry_type != "text":
             return None
+
         text_value = payload.get("text")
         if not isinstance(text_value, str) or not text_value:
             return None
         return StreamContentEntry(kind="text", text=text_value, index=index)
 
-    def _entry_to_mapping(self, entry: Any) -> Mapping[str, Any] | None:
+    def _coerce_stream_payload(self, entry: Any) -> Mapping[str, Any] | None:
         if isinstance(entry, Mapping):
             return entry
 
@@ -638,7 +641,7 @@ class LLMChatManager:
             return payload
         return None
 
-    def _extract_thinking_blocks(self, delta: Delta) -> list[Any]:
+    def _iter_thinking_payloads(self, delta: Delta) -> Iterator[Any]:
         thinking_blocks: Any = getattr(delta, "thinking_blocks", None)
         if thinking_blocks is None:
             provider_specific_fields = getattr(delta, "provider_specific_fields", None)
@@ -650,10 +653,12 @@ class LLMChatManager:
                 )
 
         if not thinking_blocks:
-            return []
+            return
         if isinstance(thinking_blocks, list):
-            return list(thinking_blocks)
-        return [thinking_blocks]
+            for block in thinking_blocks:
+                yield block
+            return
+        yield thinking_blocks
 
     async def _handle_tool_call_deltas(
         self,

@@ -31,7 +31,7 @@ class StreamEntryFallbackTests(unittest.TestCase):
             reasoning_content="fallback",
         )
 
-        entries = list(manager._stream_entries_with_fallback(delta))
+        entries = manager._collect_stream_entries(delta)
 
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0], StreamContentEntry("thinking", "primary", None))
@@ -43,7 +43,7 @@ class StreamEntryFallbackTests(unittest.TestCase):
             reasoning_content="fallback",
         )
 
-        entries = list(manager._stream_entries_with_fallback(delta))
+        entries = manager._collect_stream_entries(delta)
 
         self.assertGreaterEqual(len(entries), 1)
         self.assertEqual(entries[0], StreamContentEntry("thinking", "fallback", None))
@@ -57,7 +57,7 @@ class StreamEntryFallbackTests(unittest.TestCase):
             provider_specific_fields=provider_specific(),
         )
 
-        entries = list(manager._stream_entries_with_fallback(delta))
+        entries = manager._collect_stream_entries(delta)
 
         self.assertEqual(entries, [StreamContentEntry("thinking", "details", None)])
 
