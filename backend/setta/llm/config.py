@@ -1,10 +1,11 @@
 """Helpers for persisting the LLM configuration file."""
 
+import json
 from typing import Any, Iterable
 
 from setta.database.db_objs import DBE
 from setta.types.chat import ChatMetadata
-from setta.types.llm_config import AllLLMConfigs
+from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 
 
@@ -44,15 +45,37 @@ def merge_chat_llm_configs(
     chat_metadata: Iterable[ChatMetadata],
 ) -> AllLLMConfigs:
     configs = dict(config.configs)
+    seen_signatures: dict[str, str] = {
+        _build_config_signature(entry): config_id
+        for config_id, entry in configs.items()
+    }
     for chat in chat_metadata:
-        currConfig = chat.llmConfig
-        currConfigId = currConfig.id
-        if not currConfigId or currConfigId in configs:
-            currConfigId = generate_memorable_available_string(configs.keys())
-        configs[currConfigId] = currConfig.model_copy(
-            update={"id": currConfigId, "temporary": True}
+        curr_config = chat.llmConfig
+        signature = _build_config_signature(curr_config)
+        if signature in seen_signatures:
+            continue
+        curr_config_id = curr_config.id
+        if not curr_config_id or curr_config_id in configs:
+            curr_config_id = generate_memorable_available_string(configs.keys())
+        configs[curr_config_id] = curr_config.model_copy(
+            update={"id": curr_config_id, "temporary": True}
         )
+        seen_signatures[signature] = curr_config_id
     return AllLLMConfigs(
         configs=configs,
         default_config_id=config.default_config_id,
+    )
+
+
+def _build_config_signature(config: LLMConfig) -> str:
+    """Create a stable fingerprint so we can deduplicate equivalent configs."""
+    payload = config.model_dump(
+        exclude={"id", "temporary"},
+        exclude_none=True,
+    )
+    return json.dumps(
+        payload,
+        sort_keys=True,
+        default=str,
+        separators=(",", ":"),
     )

@@ -30,7 +30,7 @@
 - `backend/setta/mcp/tools/file_read.py` established the first deterministic helper (`read_file_range`) that uses workspace-aware paths, validation, and consistent JSON output.
 
 #### Config & Persistence
-- `backend/setta/types/llm_config.py` defines `LLMConfig`/`AllLLMConfigs`, including `temporary` entries. `merge_chat_llm_configs` injects stored chat configs so `/llm/config` always exposes the providers used by historic chats.
+- `backend/setta/types/llm_config.py` defines `LLMConfig`/`AllLLMConfigs`, including `temporary` entries. `merge_chat_llm_configs` injects stored chat configs so `/llm/config` always exposes the providers used by historic chats, and now deduplicates equivalent configs so every chat that used the same provider/model combo no longer spawns another dropdown entry.
 - Dedicated DBE helpers (`read_llm_config`, `write_llm_config`, `read_dot_env`, `write_dot_env`, `reload_dot_env`) now own the persistence and process-environment reloading for both `setta_files/llm_config.json` and `.env`, ensuring JSON validation, file-locking, and `load_dotenv(..., override=True)` semantics live in one place.
 - `LLMConfigWatcher` and `DotEnvWatcher` both listen to the DBE-managed paths, fire immediately on startup, reload their respective state into `LLMChatManager`, and broadcast config/API-key snapshots so every client hears about disk edits without polling.
 - The frontend Zustand store gained `allLLMConfigs`, API-key state, and the `loadLLMConfig`/`loadLLMApiKeys` actions so UI panes can hydrate from those new routes once invoked.
@@ -45,7 +45,7 @@
 - The frontend now listens for `LLMConfigUpdated` and `LLMApiKeysUpdated` websocket events so config/API-key edits propagate instantly without manual reloads.
 
 #### Testing
-- Added regression tests for assistant message serialization (covering tool-call argument JSON conversion and the tool-call-less path) and refreshed the chat storage tests to assert against real `LLMConfig` instances. The full backend unittest suite now runs cleanly.
+- Added regression tests for assistant message serialization (covering tool-call argument JSON conversion and the tool-call-less path) and refreshed the chat storage tests to assert against real `LLMConfig` instances. Added targeted coverage for `merge_chat_llm_configs` so duplicate chat configs collapse to a single temporary entry. The full backend unittest suite now runs cleanly.
 
 ### Outstanding Work
 #### Backend / LLM Integration
