@@ -381,7 +381,6 @@ const MessageList = memo(function MessageList({
   const filteredMessages = messages.filter(
     (message) => message.role !== ChatRoleEnum.tool,
   );
-  const consolidatedMessages = consolidateAssistantMessages(filteredMessages);
 
   if (typeof chatId === "undefined") {
     return (
@@ -401,7 +400,7 @@ const MessageList = memo(function MessageList({
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
         <ChatMessages
-          messages={consolidatedMessages}
+          messages={filteredMessages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
           allMessages={messages}
@@ -486,42 +485,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     </>
   );
 });
-
-// Consolidate assistant messages and handle tool results
-const consolidateAssistantMessages = (messages) => {
-  const processedMessages = [];
-  let currentAssistantMessage = null;
-
-  for (const message of messages) {
-    // If this is an assistant message
-    if (message.role === ChatRoleEnum.assistant) {
-      // If we're already building an assistant message, add this content to it
-      if (currentAssistantMessage) {
-        currentAssistantMessage.content.push(...message.content);
-      } else {
-        // Start a new assistant message
-        currentAssistantMessage = {
-          ...message,
-          content: [...message.content],
-        };
-      }
-    } else {
-      // User message - add the current assistant message if we have one
-      if (currentAssistantMessage) {
-        processedMessages.push(currentAssistantMessage);
-        currentAssistantMessage = null;
-      }
-      processedMessages.push(message);
-    }
-  }
-
-  // Add the last assistant message if there is one
-  if (currentAssistantMessage) {
-    processedMessages.push(currentAssistantMessage);
-  }
-
-  return processedMessages;
-};
 
 function buildToolResultMap(messages) {
   if (!messages) {
