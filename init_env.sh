@@ -1,3 +1,3 @@
-uv sync --group dev
+uv sync --all-extras
 
 . ./activate.sh

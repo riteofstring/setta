@@ -48,6 +48,9 @@ dev = [
     "build==1.0.3",
     "pip-audit==2.9.0",
 ]
+gemini = [
+    "google-cloud-aiplatform==1.128.0",
+]
 
 [tool.hatch.version]
 path = "backend/setta/__init__.py"
@@ -65,11 +68,4 @@ include = [
 [tool.hatch.build]
 artifacts = [
     "backend/setta/static/frontend/**",
-]
-
-# UV-specific configuration
-[dependency-groups]
-dev = [
-    "build==1.0.3",
-    "pip-audit==2.9.0",
 ]
