@@ -48,7 +48,10 @@ export function ProjectChatHistory({
               className={`group/historyitem flex cursor-pointer flex-row justify-between gap-2 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-white hover:shadow-sm focus-visible:border-blue-500 hover:dark:bg-setta-800 ${
                 chat.id === chatId ? "bg-blue-600 dark:bg-blue-700" : ""
               }`}
-              onClick={() => setChatId(chat.id)}
+              onClick={() => {
+                setChatId(chat.id);
+                useAIStore.setState({ viewHistory: false });
+              }}
             >
               <div className="flex w-full flex-col gap-1">
                 <header className="flex gap-1">
