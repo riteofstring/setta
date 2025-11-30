@@ -456,59 +456,13 @@ class LLMChatManager:
     def _iter_content_entries(
         self, delta: Delta
     ) -> Iterator[StreamContentEntry]:
-        if delta.content is not None:
-            entries = (
-                delta.content if isinstance(delta.content, list) else [delta.content]
-            )
-            for entry in entries:
-                normalized = self._normalize_content_entry(entry)
-                if normalized:
-                    yield normalized
-
-        yield from self._iter_reasoning_entries(delta)
-
-    def _iter_reasoning_entries(
-        self, delta: Delta
-    ) -> Iterator[StreamContentEntry]:
-        reasoning_text = getattr(delta, "reasoning_content", None)
-        if isinstance(reasoning_text, str) and reasoning_text:
-            yield StreamContentEntry(kind="thinking", text=reasoning_text, index=None)
-
-        thinking_blocks = getattr(delta, "thinking_blocks", None)
-        if not thinking_blocks:
+        if delta.content is None:
             return
-
-        if not isinstance(thinking_blocks, list):
-            thinking_blocks = [thinking_blocks]
-
-        for block in thinking_blocks:
-            block_type = self._get_block_attr(block, "type")
-            if block_type == "redacted_thinking":
-                data = self._get_block_attr(block, "data")
-                if isinstance(data, str) and data:
-                    yield StreamContentEntry(
-                        kind="thinking",
-                        text="[reasoning redacted]",
-                        index=None,
-                    )
-                continue
-
-            thinking_text = self._get_block_attr(block, "thinking")
-            signature = self._get_block_attr(block, "signature")
-            if not thinking_text and signature is None:
-                continue
-            yield StreamContentEntry(
-                kind="thinking",
-                text=thinking_text or "",
-                index=None,
-                signature=signature if isinstance(signature, str) else None,
-            )
-
-    @staticmethod
-    def _get_block_attr(block: Any, attr: str) -> Any:
-        if isinstance(block, dict):
-            return block.get(attr)
-        return getattr(block, attr, None)
+        entries = delta.content if isinstance(delta.content, list) else [delta.content]
+        for entry in entries:
+            normalized = self._normalize_content_entry(entry)
+            if normalized:
+                yield normalized
 
     def _normalize_content_entry(self, entry: Any) -> StreamContentEntry | None:
         if isinstance(entry, str):
@@ -723,28 +677,13 @@ class LLMChatManager:
             return {}
 
     def _resolve_content_index(
-        self,
-        provided_index: Any,
-        assistant_message: AssistantChatMessage,
-        entry_kind: Literal["text", "thinking"],
+        self, provided_index: Any, assistant_message: AssistantChatMessage
     ) -> int:
         if isinstance(provided_index, int) and provided_index >= 0:
             return provided_index
-
-        content_length = len(assistant_message.content)
-        if content_length == 0:
-            return 0
-
-        last_block = assistant_message.content[-1]
-
-        if entry_kind == "thinking":
-            if isinstance(last_block, MessageThinkingContent):
-                return content_length - 1
-            return content_length
-
-        if isinstance(last_block, MessageTextContent):
-            return content_length - 1
-        return content_length
+        if assistant_message.content:
+            return len(assistant_message.content) - 1
+        return 0
 
     def _ensure_text_content_block(
         self,
