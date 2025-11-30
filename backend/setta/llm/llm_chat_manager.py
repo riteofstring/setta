@@ -321,53 +321,24 @@ class LLMChatManager:
         request: dict[str, Any],
         deep_think: bool,
     ) -> None:
-        model_name = request.get("model")
-        if not model_name:
+        if not deep_think:
+            return
+        if "reasoning_effort" in request:
             return
 
+        model_name = request.get("model")
         provider = request.get("custom_llm_provider")
-        reasoning_enabled = bool(request.get("reasoning_effort"))
-
-        if deep_think and not reasoning_enabled:
-            if self._should_enable_reasoning_override(model_name, provider):
-                request["reasoning_effort"] = "high"
-                reasoning_enabled = True
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "[deep-think] enabling reasoning_effort=high for model=%s provider=%s",
-                        model_name,
-                        provider,
-                    )
-
-        if reasoning_enabled:
-            self._maybe_enable_openai_responses_bridge(request, provider)
-
-    def _maybe_enable_openai_responses_bridge(
-        self,
-        request: dict[str, Any],
-        provider: str | None,
-    ) -> None:
-        model_name = request.get("model")
         if not model_name:
             return
-
-        normalized_model = model_name.lower()
-        if normalized_model.startswith("openai/responses/"):
-            return
-        if not self._is_openai_reasoning_model(normalized_model):
+        if not self._should_enable_reasoning_override(model_name, provider):
             return
 
-        normalized_provider = (provider or "").lower()
-        if normalized_provider and "openai" not in normalized_provider:
-            return
-
-        bridged = f"openai/responses/{model_name}"
-        request["model"] = bridged
+        request["reasoning_effort"] = "high"
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "[reasoning] routing model %s through responses bridge as %s",
+                "[deep-think] enabling reasoning_effort=high for model=%s provider=%s",
                 model_name,
-                bridged,
+                provider,
             )
 
     @staticmethod
