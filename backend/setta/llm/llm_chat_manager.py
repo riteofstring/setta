@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Iterator, Literal
 
@@ -63,6 +64,20 @@ class StreamingSession:
     assistant_message: AssistantChatMessage
     stream: CustomStreamWrapper | None = None
     started_at: float = field(default_factory=time.time)
+
+
+@dataclass
+class StreamContentEntry:
+    kind: Literal["text", "thinking"]
+    text: str
+    index: int | None
+    signature: str | None = None
+
+    @property
+    def has_payload(self) -> bool:
+        if self.kind == "text":
+            return bool(self.text)
+        return bool(self.text) or self.signature is not None
 
 
 
@@ -478,97 +493,103 @@ class LLMChatManager:
     def _build_text_deltas(
         self, delta: Delta, assistant_message: AssistantChatMessage
     ) -> list[MessageContentDelta]:
+        entries = list(self._stream_entries_with_fallback(delta))
+        if not entries:
+            return []
+
         deltas: list[MessageContentDelta] = []
-        saw_thinking_entry = False
-        for entry in self._iter_content_entries(delta):
-            delta_event, is_thinking_entry = self._apply_content_entry(
-                entry,
+        for entry in entries:
+            index = self._resolve_content_index(
+                entry.index,
                 assistant_message,
-                default_kind="text",
+                entry.kind,
             )
-            if is_thinking_entry:
-                saw_thinking_entry = True
-            if delta_event:
-                deltas.append(delta_event)
 
-        if saw_thinking_entry:
-            return deltas
+            if entry.kind == "thinking":
+                block = self._ensure_thinking_content_block(assistant_message, index)
+                if entry.text:
+                    block.thinking += entry.text
+                if entry.signature is not None:
+                    block.signature = entry.signature
+                if entry.has_payload:
+                    deltas.append(
+                        MessageThinkingDelta(
+                            index=index,
+                            thinking=entry.text,
+                            signature=entry.signature,
+                        )
+                    )
+                continue
 
-        for entry in self._iter_reasoning_fallback_entries(delta):
-            delta_event, _ = self._apply_content_entry(
-                entry,
-                assistant_message,
-                default_kind="thinking",
-            )
-            if delta_event:
-                deltas.append(delta_event)
+            block = self._ensure_text_content_block(assistant_message, index)
+            block.text += entry.text
+            deltas.append(MessageTextDelta(index=index, text=entry.text))
         return deltas
 
-    def _iter_content_entries(self, delta: Delta) -> Iterator[Any]:
+    def _stream_entries_with_fallback(
+        self, delta: Delta
+    ) -> Iterator[StreamContentEntry]:
+        primary_entries = list(self._iter_primary_stream_entries(delta))
+        if self._has_thinking_payload(primary_entries):
+            yield from primary_entries
+            return
+
+        fallback_entries = list(self._iter_reasoning_fallback_entries(delta))
+        if fallback_entries:
+            yield from fallback_entries
+        yield from primary_entries
+
+    def _has_thinking_payload(
+        self, entries: list[StreamContentEntry]
+    ) -> bool:
+        for entry in entries:
+            if entry.kind == "thinking" and entry.has_payload:
+                return True
+        return False
+
+    def _iter_primary_stream_entries(
+        self, delta: Delta
+    ) -> Iterator[StreamContentEntry]:
         content = delta.content
         if content is None:
             return
-        if isinstance(content, list):
-            yield from content
-            return
-        yield content
+        raw_entries = content if isinstance(content, list) else [content]
+        for entry in raw_entries:
+            normalized_entry = self._normalize_content_entry(entry)
+            if normalized_entry:
+                yield normalized_entry
 
-    def _iter_reasoning_fallback_entries(self, delta: Delta) -> Iterator[Any]:
-        yield from self._extract_thinking_blocks(delta)
+    def _iter_reasoning_fallback_entries(
+        self, delta: Delta
+    ) -> Iterator[StreamContentEntry]:
+        for entry in self._extract_thinking_blocks(delta):
+            normalized = self._normalize_content_entry(entry, default_kind="thinking")
+            if not normalized or normalized.kind != "thinking":
+                continue
+            if not normalized.has_payload:
+                continue
+            yield normalized
+
         reasoning_content = getattr(delta, "reasoning_content", None)
         if isinstance(reasoning_content, str) and reasoning_content:
-            yield reasoning_content
-
-    def _apply_content_entry(
-        self,
-        entry: Any,
-        assistant_message: AssistantChatMessage,
-        *,
-        default_kind: Literal["text", "thinking"],
-    ) -> tuple[MessageContentDelta | None, bool]:
-        normalized = self._normalize_content_payload(entry, default_kind=default_kind)
-        if not normalized:
-            return None, False
-
-        kind, chunk, provided_index, signature = normalized
-        index = self._resolve_content_index(
-            provided_index,
-            assistant_message,
-            kind,
-        )
-
-        if kind == "thinking":
-            if not chunk and signature is None:
-                return None, True
-            block = self._ensure_thinking_content_block(assistant_message, index)
-            if chunk:
-                block.thinking += chunk
-            if signature is not None:
-                block.signature = signature
-            return (
-                MessageThinkingDelta(
-                    index=index,
-                    thinking=chunk,
-                    signature=signature,
-                ),
-                True,
+            yield StreamContentEntry(
+                kind="thinking",
+                text=reasoning_content,
+                index=None,
+                signature=None,
             )
 
-        block = self._ensure_text_content_block(assistant_message, index)
-        block.text += chunk
-        return MessageTextDelta(index=index, text=chunk), False
-
-    def _normalize_content_payload(
+    def _normalize_content_entry(
         self,
         entry: Any,
         *,
         default_kind: Literal["text", "thinking"] = "text",
-    ) -> tuple[Literal["text", "thinking"], str, Any, str | None] | None:
+    ) -> StreamContentEntry | None:
         if isinstance(entry, str):
             text_value = entry
             if not text_value:
                 return None
-            return default_kind, text_value, None, None
+            return StreamContentEntry(kind=default_kind, text=text_value, index=None)
 
         payload = self._entry_to_mapping(entry)
         if payload is None:
@@ -579,21 +600,21 @@ class LLMChatManager:
         if entry_type == "thinking":
             thinking_value = payload.get("thinking")
             signature = payload.get("signature")
-            return (
-                "thinking",
-                thinking_value if isinstance(thinking_value, str) else "",
-                index,
-                signature if isinstance(signature, str) else None,
+            return StreamContentEntry(
+                kind="thinking",
+                text=thinking_value if isinstance(thinking_value, str) else "",
+                index=index,
+                signature=signature if isinstance(signature, str) else None,
             )
         if entry_type != "text":
             return None
         text_value = payload.get("text")
         if not isinstance(text_value, str) or not text_value:
             return None
-        return "text", text_value, index, None
+        return StreamContentEntry(kind="text", text=text_value, index=index)
 
-    def _entry_to_mapping(self, entry: Any) -> dict[str, Any] | None:
-        if isinstance(entry, dict):
+    def _entry_to_mapping(self, entry: Any) -> Mapping[str, Any] | None:
+        if isinstance(entry, Mapping):
             return entry
 
         model_dump = getattr(entry, "model_dump", None)
@@ -603,17 +624,17 @@ class LLMChatManager:
             except Exception:
                 logger.debug("Failed to model_dump streaming entry", exc_info=True)
             else:
-                if isinstance(data, dict):
+                if isinstance(data, Mapping):
                     return data
 
         dict_method = getattr(entry, "dict", None)
         if callable(dict_method):
             data = dict_method()
-            if isinstance(data, dict):
+            if isinstance(data, Mapping):
                 return data
 
         payload = getattr(entry, "__dict__", None)
-        if isinstance(payload, dict):
+        if isinstance(payload, Mapping):
             return payload
         return None
 
