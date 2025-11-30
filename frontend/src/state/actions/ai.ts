@@ -92,18 +92,24 @@ export async function getLLMChat(chatId: string) {
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
     const { messages, waitingForResponse, llmConfig } = res.data;
-    useAIStore.setState((state) => ({
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(state.chatDetails[chatId] ?? {}),
-          messages,
-          waitingForResponse,
-          llmConfig: llmConfig,
+    useAIStore.setState((state) => {
+      const existingDetails = state.chatDetails[chatId];
+      const nextWaitingForResponse = waitingForResponse
+        ? existingDetails?.waitingForResponse ?? true
+        : false; // keep false once streaming finishes to avoid stale flips
+      return {
+        chatDetails: {
+          ...state.chatDetails,
+          [chatId]: {
+            ...getDefaultChatDetails(),
+            ...(existingDetails ?? {}),
+            messages,
+            waitingForResponse: nextWaitingForResponse,
+            llmConfig: llmConfig,
+          },
         },
-      },
-    }));
+      };
+    });
   }
 }
 

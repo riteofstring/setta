@@ -25,8 +25,10 @@ from setta.types.llm_config import LLMConfig
 DEFAULT_CONFIG_ID = "provider-one"
 
 
-def create_llm_config(model: str = "test-model") -> LLMConfig:
-    return LLMConfig(model=model)
+def create_llm_config(
+    model: str = "test-model", config_id: str = DEFAULT_CONFIG_ID
+) -> LLMConfig:
+    return LLMConfig(id=config_id, model=model)
 
 
 def create_message(text: str, role: ChatRole = ChatRole.user):
@@ -57,7 +59,6 @@ class ChatStorageTests(unittest.TestCase):
         chat = create_new_chat(
             self.dbe,
             first_message,
-            DEFAULT_CONFIG_ID,
             create_llm_config(),
         )
         loaded = load_chat(self.dbe, chat.id)
@@ -77,7 +78,6 @@ class ChatStorageTests(unittest.TestCase):
         chat = create_new_chat(
             self.dbe,
             first_message,
-            DEFAULT_CONFIG_ID,
             create_llm_config(),
         )
         initial_last_updated = chat.lastUpdated
@@ -100,14 +100,12 @@ class ChatStorageTests(unittest.TestCase):
         chat_one = create_new_chat(
             self.dbe,
             create_message("First"),
-            DEFAULT_CONFIG_ID,
             create_llm_config("first-model"),
         )
         chat_two = create_new_chat(
             self.dbe,
             create_message("Second"),
-            "provider-two",
-            create_llm_config("second-model"),
+            create_llm_config("second-model", config_id="provider-two"),
         )
 
         metadata = load_all_chat_metadata(self.dbe)

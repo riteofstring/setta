@@ -84,7 +84,7 @@ class AssistantChatMessage(ContentChatMessage):
 
     def to_openai_format(self) -> dict[str, Any]:
         output = super().to_openai_format()
-        tool_calls = output["tool_calls"]
+        tool_calls = output.get("tool_calls")
         if tool_calls:
             for call in tool_calls:
                 function = call["function"]

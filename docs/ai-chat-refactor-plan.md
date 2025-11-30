@@ -22,6 +22,7 @@
 - Chat persistence now uses the OpenAI-style schema in `backend/setta/types/chat_messages.py`, including explicit assistant, user, system, and tool-role records plus helper methods for LLM payloads. Each chat stores the exact `LLMConfig` (id, model, provider, base URL, env var, params) that generated its transcript.
 - The Anthropic chat manager was replaced with `LLMChatManager`, which builds request payloads, runs the streaming completion flow, hydrates streaming sessions, and supports stop requests via asyncio task cancellation.
 - Streaming envelopes (`backend/setta/types/chat_stream_events.py`) flow through `WMHFrontendSender` and are consumed by `frontend/src/state/actions/ai.ts`/`ProjectChatCore.tsx`, so the UI now renders text deltas, tool-call deltas, tool results, and finalized messages in real time.
+- Recent bugfixes: assistant messages without tool calls now serialize safely before invoking LiteLLM, and the frontend guards against stale `waitingForResponse` states so second messages no longer disappear when REST responses race with streaming events.
 
 #### MCP & Tooling
 - The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LLM request as OpenAI-style tool definitions.
@@ -42,6 +43,9 @@
 - The model picker uses data from `allLLMConfigs` (once loaded), hides entries whose API keys are missing, and enforces per-message validation before dispatching `/getLLMResponse`.
 - `ProjectChat` and `ProjectLLMSettings` now share a hydration hook that fires `loadLLMConfig()`/`loadLLMApiKeys()` as soon as either pane mounts, so the gating flags flip without requiring a full-app bootstrap.
 - The frontend now listens for `LLMConfigUpdated` and `LLMApiKeysUpdated` websocket events so config/API-key edits propagate instantly without manual reloads.
+
+#### Testing
+- Added regression tests for assistant message serialization (covering tool-call argument JSON conversion and the tool-call-less path) and refreshed the chat storage tests to assert against real `LLMConfig` instances. The full backend unittest suite now runs cleanly.
 
 ### Outstanding Work
 #### Backend / LLM Integration
