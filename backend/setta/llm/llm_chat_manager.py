@@ -233,6 +233,13 @@ class LLMChatManager:
                     MessageStopEvent(message_id=assistant_message.id),
                 )
                 stop_event_sent = True
+            if self._should_persist_partial_message(assistant_message):
+                self._finalize_tool_calls(assistant_message, tool_call_state)
+                save_messages(self.dbe, chat.id, [assistant_message])
+                await self.websocket_msg_handler.send_streaming_response(
+                    chat.id,
+                    MessageFinalizedEvent(message=assistant_message),
+                )
             raise
         finally:
             self._sessions.pop(chat.id, None)
@@ -489,6 +496,20 @@ class LLMChatManager:
             result = await self._dispatch_tool_call(chat_id, tool_call)
             results.append(result)
         return results
+
+    def _should_persist_partial_message(
+        self,
+        assistant_message: AssistantChatMessage,
+    ) -> bool:
+        for block in assistant_message.content:
+            if isinstance(block, MessageTextContent):
+                if block.text.strip():
+                    return True
+                continue
+            return True
+        if assistant_message.tool_calls:
+            return True
+        return False
 
     async def _dispatch_tool_call(
         self,
