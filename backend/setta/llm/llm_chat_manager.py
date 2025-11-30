@@ -486,7 +486,7 @@ class LLMChatManager:
         self, delta: Delta, assistant_message: AssistantChatMessage
     ) -> list[MessageContentDelta]:
         deltas: list[MessageContentDelta] = []
-        for entry in self._collect_stream_entries(delta):
+        for entry in self._iter_stream_entries(delta):
             index = self._resolve_content_index(
                 entry.index,
                 assistant_message,
@@ -522,54 +522,50 @@ class LLMChatManager:
                     assert_never(entry.kind)
         return deltas
 
-    def _collect_stream_entries(self, delta: Delta) -> list[StreamContentEntry]:
-        primary_entries = list(self._iter_primary_content_entries(delta))
-        if any(entry.kind == "thinking" for entry in primary_entries):
-            return primary_entries
+    def _iter_stream_entries(self, delta: Delta) -> Iterator[StreamContentEntry]:
+        """Yield thinking blocks emitted via content before consulting reasoning fallbacks.
 
-        reasoning_entries = self._collect_reasoning_entries(delta)
-        if reasoning_entries:
-            return reasoning_entries + primary_entries
-        return primary_entries
+        Some providers mirror the same "thinking" payload across content and
+        provider-specific reasoning fields. We only consume the fallback when no
+        thinking chunk was streamed in the primary content to avoid duplicate UI
+        updates.
+        """
+        entries = list(self._iter_normalized_content_entries(delta))
+        if not any(entry.kind == "thinking" for entry in entries):
+            yield from self._iter_reasoning_entries(delta)
+        yield from entries
 
-    def _iter_primary_content_entries(
-        self,
-        delta: Delta,
+    def _iter_normalized_content_entries(
+        self, delta: Delta
     ) -> Iterator[StreamContentEntry]:
         content = delta.content
         if content is None:
             return
         raw_entries = content if isinstance(content, list) else [content]
         for entry in raw_entries:
-            normalized_entry = self._normalize_content_entry(entry)
+            normalized_entry = self._normalize_stream_entry(entry)
             if normalized_entry:
                 yield normalized_entry
 
-    def _collect_reasoning_entries(self, delta: Delta) -> list[StreamContentEntry]:
-        entries: list[StreamContentEntry] = []
+    def _iter_reasoning_entries(self, delta: Delta) -> Iterator[StreamContentEntry]:
         for block in self._extract_thinking_blocks(delta):
-            normalized = self._normalize_content_entry(block, default_kind="thinking")
+            normalized = self._normalize_stream_entry(block, default_kind="thinking")
             if not normalized or normalized.kind != "thinking":
                 continue
             if not normalized.text and normalized.signature is None:
                 continue
-            entries.append(normalized)
-        if entries:
-            return entries
+            yield normalized
 
         reasoning_content = getattr(delta, "reasoning_content", None)
         if isinstance(reasoning_content, str) and reasoning_content:
-            return [
-                StreamContentEntry(
-                    kind="thinking",
-                    text=reasoning_content,
-                    index=None,
-                    signature=None,
-                )
-            ]
-        return []
+            yield StreamContentEntry(
+                kind="thinking",
+                text=reasoning_content,
+                index=None,
+                signature=None,
+            )
 
-    def _normalize_content_entry(
+    def _normalize_stream_entry(
         self,
         entry: Any,
         *,
