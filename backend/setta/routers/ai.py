@@ -17,7 +17,6 @@ router = SettaAPIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    projectConfigId: str
     chatId: str | None
     message: BaseChatMessageUnionWithDiscriminator
     llmConfigId: str
@@ -54,7 +53,6 @@ async def route_get_llm_response(
 
     if chat:
         state.chat_manager.start_processing_query(
-            x.projectConfigId,
             chat,
             x.deepThink,
         )

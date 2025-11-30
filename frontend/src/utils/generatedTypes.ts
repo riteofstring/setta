@@ -8463,7 +8463,6 @@ export function createGetLLMChatRequestResponse(
 }
 
 export const GetLLMResponseRequestSchema = z.object({
-  projectConfigId: z.string(),
   chatId: z.union([z.string(), z.null()]),
   message: z.union([
     SystemChatMessageSchema,

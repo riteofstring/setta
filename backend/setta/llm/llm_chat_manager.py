@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Iterator, Literal, assert_never
@@ -75,13 +74,7 @@ class StreamContentEntry:
 
 
 class LLMChatManager:
-    """
-    Placeholder implementation that replaces the Anthropic-specific ChatManager.
-
-    The next steps in the refactor will flesh out this class to drive the LLM
-    client streaming, tool calls, and persistence. For now we keep the interface
-    the routers expect while intentionally failing fast when invoked.
-    """
+    """Coordinates chat persistence, streaming responses, and tool execution."""
 
     def __init__(
         self,
@@ -141,7 +134,6 @@ class LLMChatManager:
 
     def start_processing_query(
         self,
-        projectConfigId: str,
         chat: Chat,
         deepThink: bool,
     ) -> None:
@@ -152,7 +144,7 @@ class LLMChatManager:
             )
             existing.cancel()
         task = asyncio.create_task(
-            self.process_query(projectConfigId, chat, deepThink),
+            self.process_query(chat, deepThink),
             name=f"llm-chat-{chat.id}",
         )
 
@@ -169,12 +161,7 @@ class LLMChatManager:
         task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))
         self._tasks[chat.id] = task
 
-    async def process_query(
-        self,
-        projectConfigId: str,  # noqa: N803 (preserve existing API for now)
-        chat: Chat,
-        deepThink: bool,  # noqa: N803 (preserve existing API for now)
-    ):
+    async def process_query(self, chat: Chat, deepThink: bool):
         payload = self._build_llm_request_payload(chat, deepThink)
 
         assistant_message = AssistantChatMessage(
@@ -289,7 +276,7 @@ class LLMChatManager:
             messages.append(payload)
         request, api_key_env = self.config.build_llm_params(chat.llmConfig)
         if api_key_env:
-            api_key = os.getenv(api_key_env)
+            api_key = self.api_keys.get(api_key_env)
             if api_key:
                 request["api_key"] = api_key
 
@@ -329,9 +316,12 @@ class LLMChatManager:
         model_name = request.get("model")
         provider = request.get("custom_llm_provider")
         if not model_name:
-            return
+            raise ValueError("Deep think requires a configured model")
         if not self._should_enable_reasoning_override(model_name, provider):
-            return
+            provider_display = provider or "default"
+            raise ValueError(
+                f"Deep think is not supported for model '{model_name}' via provider '{provider_display}'"
+            )
 
         request["reasoning_effort"] = "high"
         if logger.isEnabledFor(logging.DEBUG):
@@ -350,15 +340,24 @@ class LLMChatManager:
         normalized_provider = (provider or "").lower()
 
         if LLMChatManager._is_openai_reasoning_model(normalized_model):
-            if LLMChatManager._is_openai_provider(normalized_provider) or not normalized_provider:
+            if (
+                LLMChatManager._is_openai_provider(normalized_provider)
+                or not normalized_provider
+            ):
                 return True
 
         if LLMChatManager._is_claude_like_model(normalized_model):
-            if LLMChatManager._is_anthropic_provider(normalized_provider) or not normalized_provider:
+            if (
+                LLMChatManager._is_anthropic_provider(normalized_provider)
+                or not normalized_provider
+            ):
                 return True
 
         if LLMChatManager._is_gemini_like_model(normalized_model):
-            if LLMChatManager._is_google_provider(normalized_provider) or not normalized_provider:
+            if (
+                LLMChatManager._is_google_provider(normalized_provider)
+                or not normalized_provider
+            ):
                 return True
 
         return False
@@ -366,9 +365,9 @@ class LLMChatManager:
     @staticmethod
     def _is_openai_reasoning_model(model_name: str) -> bool:
         lowered = model_name.lower()
-        if "gpt" in lowered:
-            return True
-        return lowered.startswith(("o1", "o3", "o4"))
+        # LiteLLM adapters commonly prefix provider names (e.g., "openai/gpt-5.1")
+        alias = lowered.split("/")[-1]
+        return alias.startswith(("o1", "o3", "o4", "gpt-5"))
 
     @staticmethod
     def _is_openai_provider(provider: str) -> bool:
@@ -384,8 +383,7 @@ class LLMChatManager:
     def _is_claude_like_model(model_name: str) -> bool:
         lowered = model_name.lower()
         return "claude" in lowered or any(
-            lowered.startswith(prefix)
-            for prefix in ("sonnet", "haiku", "opus")
+            lowered.startswith(prefix) for prefix in ("sonnet", "haiku", "opus")
         )
 
     @staticmethod
@@ -418,24 +416,22 @@ class LLMChatManager:
     async def _iterate_stream(
         self, stream_result: CustomStreamWrapper
     ) -> AsyncIterator[ModelResponseStream]:
-        if hasattr(stream_result, "__aiter__"):
-            async for chunk in stream_result:
-                if isinstance(chunk, ModelResponseStream):
+        async def _yield_raw_chunks() -> AsyncIterator[Any]:
+            if hasattr(stream_result, "__aiter__"):
+                async for chunk in stream_result:
                     yield chunk
-                else:
-                    logger.debug(
-                        "Skipping non-ModelResponseStream chunk from LLM stream: %s",
-                        type(chunk),
-                    )
-            return
-        for chunk in stream_result:
+            else:
+                for chunk in stream_result:
+                    yield chunk
+
+        async for chunk in _yield_raw_chunks():
             if isinstance(chunk, ModelResponseStream):
                 yield chunk
-            else:
-                logger.debug(
-                    "Skipping non-ModelResponseStream chunk from LLM stream: %s",
-                    type(chunk),
-                )
+                continue
+            logger.debug(
+                "Skipping non-ModelResponseStream chunk from LLM stream: %s",
+                type(chunk),
+            )
 
     async def _handle_stream_chunk(
         self,
@@ -530,9 +526,7 @@ class LLMChatManager:
                     assert_never(entry.kind)
         return deltas
 
-    def _iter_content_entries(
-        self, delta: Delta
-    ) -> Iterator[StreamContentEntry]:
+    def _iter_content_entries(self, delta: Delta) -> Iterator[StreamContentEntry]:
         entries: list[Any] = []
         if delta.content is not None:
             entries = (
@@ -564,9 +558,7 @@ class LLMChatManager:
             for buffered in buffered_entries:
                 yield buffered
 
-    def _iter_reasoning_entries(
-        self, delta: Delta
-    ) -> Iterator[StreamContentEntry]:
+    def _iter_reasoning_entries(self, delta: Delta) -> Iterator[StreamContentEntry]:
         thinking_blocks = self._extract_thinking_blocks(delta)
 
         yielded = False

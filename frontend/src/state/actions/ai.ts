@@ -149,7 +149,6 @@ export async function submitMessage(
 
   try {
     const res = await route_get_llm_response({
-      projectConfigId: getCurrProjectConfigId(),
       message: userMessage,
       deepThink,
       chatId,
