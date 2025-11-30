@@ -353,6 +353,7 @@ export type ZustandAIStore = {
   apiKeysLoadError: string | null;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
+  pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
@@ -369,6 +370,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         chatDetails: {},
+        pendingChatDetails: null,
         allChatMetadata: [],
         viewHistory: false,
         allLLMConfigs: null,

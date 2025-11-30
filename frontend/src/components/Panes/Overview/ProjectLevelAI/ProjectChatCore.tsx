@@ -18,7 +18,12 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { getDefaultChatDetails, getLLMChat } from "state/actions/ai";
+import {
+  clearPendingChatDetails,
+  getDefaultChatDetails,
+  getLLMChat,
+  initializePendingChatDetails,
+} from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { C } from "utils/c";
 import { ChatRoleEnum } from "utils/generatedTypes";
@@ -378,7 +383,7 @@ const MessageList = memo(function MessageList({
   );
   const consolidatedMessages = consolidateAssistantMessages(filteredMessages);
 
-  if (!chatId) {
+  if (typeof chatId === "undefined") {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
         <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
@@ -422,6 +427,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
+      if (chatId === null) {
+        return state.pendingChatDetails ?? getDefaultChatDetails();
+      }
       if (typeof chatId !== "string") {
         return getDefaultChatDetails();
       }
@@ -429,8 +437,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     shallow,
   );
-  const isPendingNewChat = chatId === null;
-  const effectiveWaitingForResponse = waitingForResponse || isPendingNewChat;
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -440,11 +446,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [chatId]);
 
   const handleNewChatStart = useCallback(() => {
+    initializePendingChatDetails();
     setChatId(null);
-  }, [setChatId]);
+  }, [initializePendingChatDetails, setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
+      clearPendingChatDetails();
       setChatId((currentChatId) => {
         if (currentChatId !== null) {
           return currentChatId;
@@ -455,21 +463,21 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         return newChatId;
       });
     },
-    [setChatId],
+    [clearPendingChatDetails, setChatId],
   );
 
   return (
     <>
       <MessageList
         messages={messages}
-        waitingForResponse={effectiveWaitingForResponse}
+        waitingForResponse={waitingForResponse}
         chatId={chatId}
         toolCallArguments={toolCallArguments}
       />
       <ChatInput
         deepThink={deepThink}
         placeholderText={placeholderText}
-        waitingForResponse={effectiveWaitingForResponse}
+        waitingForResponse={waitingForResponse}
         llmConfigId={llmConfigId}
         chatId={chatId}
         onNewChatStart={handleNewChatStart}

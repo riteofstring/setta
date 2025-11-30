@@ -77,6 +77,16 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
+export function initializePendingChatDetails() {
+  useAIStore.setState({
+    pendingChatDetails: getDefaultChatDetails(),
+  });
+}
+
+export function clearPendingChatDetails() {
+  useAIStore.setState({ pendingChatDetails: null });
+}
+
 export async function getLLMChat(chatId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
@@ -125,22 +135,31 @@ export async function submitMessage(
     role: ChatRoleEnum.user,
     content: [createMessageTextContent({ text: message })],
   };
+  const userMessageId = userMessage.id;
 
-  const res = await route_get_llm_response({
-    projectConfigId: getCurrProjectConfigId(),
-    message: userMessage,
-    deepThink,
-    chatId,
-    llmConfigId,
-  });
-  if (res200(res)) {
-    const returnedChatId = res.data ?? chatId ?? null;
-    if (returnedChatId) {
-      await getLLMChat(returnedChatId);
+  applyOptimisticUserMessage(chatId, userMessage);
+
+  try {
+    const res = await route_get_llm_response({
+      projectConfigId: getCurrProjectConfigId(),
+      message: userMessage,
+      deepThink,
+      chatId,
+      llmConfigId,
+    });
+    if (res200(res)) {
+      const returnedChatId = res.data ?? chatId ?? null;
+      if (returnedChatId) {
+        await getLLMChat(returnedChatId);
+      }
+      return returnedChatId;
     }
-    return returnedChatId;
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    return null;
+  } catch (err) {
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    throw err;
   }
-  return null;
 }
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
@@ -312,6 +331,56 @@ function updateChatDetails(
       },
     };
   });
+}
+
+function updatePendingChatDetails(
+  updater: (details: ChatDetails) => ChatDetails | null,
+) {
+  useAIStore.setState((state) => {
+    const baseDetails: ChatDetails =
+      state.pendingChatDetails ?? getDefaultChatDetails();
+    const nextDetails = updater(baseDetails);
+    if (!nextDetails) {
+      return {};
+    }
+    return {
+      pendingChatDetails: nextDetails,
+    };
+  });
+}
+
+function applyOptimisticUserMessage(
+  chatId: string | null,
+  userMessage: BaseChatMessageUnion,
+) {
+  const updater = (details: ChatDetails) => ({
+    ...details,
+    messages: [...details.messages, userMessage],
+    waitingForResponse: true,
+  });
+  if (chatId === null) {
+    updatePendingChatDetails(updater);
+    return;
+  }
+  updateChatDetails(chatId, updater);
+}
+
+function rollbackOptimisticUserMessage(
+  chatId: string | null,
+  userMessageId: string,
+) {
+  const updater = (details: ChatDetails) => ({
+    ...details,
+    messages: details.messages.filter(
+      (message) => message.id !== userMessageId,
+    ),
+    waitingForResponse: false,
+  });
+  if (chatId === null) {
+    updatePendingChatDetails(updater);
+    return;
+  }
+  updateChatDetails(chatId, updater);
 }
 
 function updateMessageById(
