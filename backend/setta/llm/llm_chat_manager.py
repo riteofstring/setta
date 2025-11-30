@@ -170,85 +170,104 @@ class LLMChatManager:
         self._tasks[chat.id] = task
 
     async def process_query(self, chat: Chat, deepThink: bool):
-        payload = self._build_llm_request_payload(chat, deepThink)
+        while True:
+            payload = self._build_llm_request_payload(chat, deepThink)
 
-        assistant_message = AssistantChatMessage(
-            content=[],
-        )
-        tool_call_state = ToolCallStreamState()
-        session = StreamingSession(assistant_message=assistant_message)
-        self._sessions[chat.id] = session
-
-        stop_event_sent = False
-        try:
-            await self.websocket_msg_handler.send_streaming_response(
-                chat.id,
-                MessageStartEvent(message=assistant_message),
+            assistant_message = AssistantChatMessage(
+                content=[],
             )
+            tool_call_state = ToolCallStreamState()
+            session = StreamingSession(assistant_message=assistant_message)
+            self._sessions[chat.id] = session
 
+            stop_event_sent = False
+            tool_results: list[ToolChatMessage] = []
+            saved_chat: Chat | None = None
             try:
-                stream_result = await litellm.acompletion(**payload, stream=True)
-            except Exception:
-                logger.exception(
-                    "LLM client failed to start streaming for chat %s", chat.id
+                await self.websocket_msg_handler.send_streaming_response(
+                    chat.id,
+                    MessageStartEvent(message=assistant_message),
                 )
-                raise
 
-            if not isinstance(stream_result, CustomStreamWrapper):
-                raise TypeError("LLM streaming must return a CustomStreamWrapper")
-            session.stream = stream_result
-
-            async for chunk in self._iterate_stream(stream_result):
                 try:
-                    await self._handle_stream_chunk(
-                        chat.id,
-                        assistant_message,
-                        chunk,
-                        tool_call_state,
-                    )
+                    stream_result = await litellm.acompletion(**payload, stream=True)
                 except Exception:
                     logger.exception(
-                        "LLM streaming chunk handling failed for chat %s", chat.id
+                        "LLM client failed to start streaming for chat %s", chat.id
                     )
+                    raise
 
-            await self.websocket_msg_handler.send_streaming_response(
-                chat.id,
-                MessageStopEvent(message_id=assistant_message.id),
-            )
-            stop_event_sent = True
-            self._finalize_tool_calls(assistant_message, tool_call_state)
-            tool_results = await self._run_tool_calls(chat.id, assistant_message)
-            new_messages: list[BaseChatMessageUnion] = [assistant_message]
-            if tool_results:
-                new_messages.extend(tool_results)
-                logger.debug(
-                    "Executed %s MCP tool calls for chat %s",
-                    len(tool_results),
-                    chat.id,
-                )
-            save_messages(self.dbe, chat.id, new_messages)
+                if not isinstance(stream_result, CustomStreamWrapper):
+                    raise TypeError("LLM streaming must return a CustomStreamWrapper")
+                session.stream = stream_result
 
-            await self.websocket_msg_handler.send_streaming_response(
-                chat.id,
-                MessageFinalizedEvent(message=assistant_message),
-            )
-        except asyncio.CancelledError:
-            if not stop_event_sent:
+                async for chunk in self._iterate_stream(stream_result):
+                    try:
+                        await self._handle_stream_chunk(
+                            chat.id,
+                            assistant_message,
+                            chunk,
+                            tool_call_state,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "LLM streaming chunk handling failed for chat %s", chat.id
+                        )
+
                 await self.websocket_msg_handler.send_streaming_response(
                     chat.id,
                     MessageStopEvent(message_id=assistant_message.id),
                 )
                 stop_event_sent = True
-            if self._should_persist_partial_message(assistant_message):
                 self._finalize_tool_calls(assistant_message, tool_call_state)
-                save_messages(self.dbe, chat.id, [assistant_message])
+                tool_results = await self._run_tool_calls(chat.id, assistant_message)
+                new_messages: list[BaseChatMessageUnion] = [assistant_message]
+                if tool_results:
+                    new_messages.extend(tool_results)
+                    logger.debug(
+                        "Executed %s MCP tool calls for chat %s",
+                        len(tool_results),
+                        chat.id,
+                    )
+                saved_chat = save_messages(self.dbe, chat.id, new_messages)
+
                 await self.websocket_msg_handler.send_streaming_response(
                     chat.id,
                     MessageFinalizedEvent(message=assistant_message),
                 )
-            raise
-        finally:
-            self._sessions.pop(chat.id, None)
+            except asyncio.CancelledError:
+                if not stop_event_sent:
+                    await self.websocket_msg_handler.send_streaming_response(
+                        chat.id,
+                        MessageStopEvent(message_id=assistant_message.id),
+                    )
+                    stop_event_sent = True
+                if self._should_persist_partial_message(assistant_message):
+                    self._finalize_tool_calls(assistant_message, tool_call_state)
+                    save_messages(self.dbe, chat.id, [assistant_message])
+                    await self.websocket_msg_handler.send_streaming_response(
+                        chat.id,
+                        MessageFinalizedEvent(message=assistant_message),
+                    )
+                raise
+            finally:
+                self._sessions.pop(chat.id, None)
+
+            if saved_chat:
+                chat = saved_chat
+
+            should_continue = bool(assistant_message.tool_calls) and bool(tool_results)
+            if not should_continue:
+                if (
+                    assistant_message.tool_calls
+                    and not tool_results
+                    and logger.isEnabledFor(logging.WARNING)
+                ):
+                    logger.warning(
+                        "Assistant requested tools but none executed for chat %s",
+                        chat.id,
+                    )
+                break
 
     async def request_stop_streaming(self, chat_id: str) -> None:
         task = self._tasks.get(chat_id)
@@ -550,10 +569,15 @@ class LLMChatManager:
 
     def _collect_fallback_entries(self, delta: Delta) -> list[StreamContentEntry]:
         entries: list[StreamContentEntry] = []
+        has_thinking_entries = False
         for block in self._iter_thinking_payloads(delta):
             normalized = self._normalize_entry(block, default_kind="thinking")
             if normalized and normalized.has_payload:
                 entries.append(normalized)
+                has_thinking_entries = True
+
+        if has_thinking_entries:
+            return entries
 
         reasoning_content = getattr(delta, "reasoning_content", None)
         if isinstance(reasoning_content, str) and reasoning_content:
