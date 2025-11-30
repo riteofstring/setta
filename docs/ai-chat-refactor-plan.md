@@ -23,6 +23,7 @@
 - The Anthropic chat manager was replaced with `LLMChatManager`, which builds request payloads, runs the streaming completion flow, hydrates streaming sessions, and supports stop requests via asyncio task cancellation.
 - Streaming envelopes (`backend/setta/types/chat_stream_events.py`) flow through `WMHFrontendSender` and are consumed by `frontend/src/state/actions/ai.ts`/`ProjectChatCore.tsx`, so the UI now renders text deltas, tool-call deltas, tool results, and finalized messages in real time.
 - Recent bugfixes: assistant messages without tool calls now serialize safely before invoking LiteLLM, and the frontend guards against stale `waitingForResponse` states so second messages no longer disappear when REST responses race with streaming events.
+- The `deepThink` toggle now feeds into LiteLLM’s reasoning metadata, automatically adding `reasoning_effort=high` for supported models and streaming the accompanying thinking deltas all the way through to the frontend UI.
 
 #### MCP & Tooling
 - The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LLM request as OpenAI-style tool definitions.
@@ -51,7 +52,6 @@
 ### Outstanding Work
 #### Backend / LLM Integration
 - Thread contextual information (chat id, `projectConfigId`, and any future section metadata) through MCP tool invocations so every tool can reason about the active project/chat without guessing. **Explicitly defer this until later in the refactor so we can focus on the other backend items first, even if tooling stays blind to context for now.**
-- Decide how `deepThink`, reasoning modes, or project-specific hints map onto LLM parameters and MCP inputs, then plumb those values through `_build_llm_request_payload`.
 - Harden config ingestion: reject duplicate IDs or incomplete entries in `/llm/config`, validate referenced API keys, and ensure `merge_chat_llm_configs` never persists `temporary` configs back to disk while still surfacing them to clients.
 
 #### MCP & File Editing

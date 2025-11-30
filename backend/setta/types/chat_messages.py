@@ -34,7 +34,13 @@ class MessageImageUrlContent(BaseModel):
     image_url: MessageImageUrl
 
 
-MessageContent = MessageTextContent | MessageImageUrlContent
+class MessageThinkingContent(BaseModel):
+    type: Literal["thinking"] = "thinking"
+    thinking: str = ""
+    signature: str | None = ""
+
+
+MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent
 
 
 class ToolCallFunction(BaseModel):

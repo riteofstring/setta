@@ -4,9 +4,10 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Iterator
+from typing import Any, AsyncIterator, Iterator, Literal, assert_never
 
 import litellm
+from litellm.utils import supports_reasoning as litellm_supports_reasoning
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import (
     ChatCompletionToolParam,
@@ -31,16 +32,19 @@ from setta.types.chat import Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
+    MessageThinkingContent,
     ToolCall,
     ToolCallFunction,
     ToolChatMessage,
 )
 from setta.types.chat_stream_events import (
+    MessageContentDelta,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
     MessageTextDelta,
+    MessageThinkingDelta,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -61,6 +65,14 @@ class StreamingSession:
     assistant_message: AssistantChatMessage
     stream: CustomStreamWrapper | None = None
     started_at: float = field(default_factory=time.time)
+
+
+@dataclass
+class StreamContentEntry:
+    kind: Literal["text", "thinking"]
+    text: str
+    index: int | None
+    signature: str | None = None
 
 
 class LLMChatManager:
@@ -164,7 +176,7 @@ class LLMChatManager:
         chat: Chat,
         deepThink: bool,  # noqa: N803 (preserve existing API for now)
     ):
-        payload = self._build_llm_request_payload(chat)
+        payload = self._build_llm_request_payload(chat, deepThink)
 
         assistant_message = AssistantChatMessage(
             content=[],
@@ -261,7 +273,11 @@ class LLMChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    def _build_llm_request_payload(self, chat: Chat) -> dict[str, Any]:
+    def _build_llm_request_payload(
+        self,
+        chat: Chat,
+        deep_think: bool,
+    ) -> dict[str, Any]:
         """
         Normalize a persisted chat into the kwargs expected by the LLM client.
 
@@ -283,6 +299,8 @@ class LLMChatManager:
         if tools:
             request["tools"] = tools
 
+        self._apply_request_overrides(request, deep_think)
+
         if not request["model"]:
             raise ValueError("LLM config must specify a model via config or override")
 
@@ -298,6 +316,38 @@ class LLMChatManager:
             }
             tools.append({"type": "function", "function": function_payload})
         return tools
+
+    def _apply_request_overrides(
+        self,
+        request: dict[str, Any],
+        deep_think: bool,
+    ) -> None:
+        if not deep_think:
+            return
+        if "reasoning_effort" in request:
+            return
+
+        model_name = request.get("model")
+        provider = request.get("custom_llm_provider")
+        if not model_name:
+            return
+        if not self._supports_reasoning_effort(model_name, provider):
+            return
+
+        request["reasoning_effort"] = "high"
+
+    @staticmethod
+    def _supports_reasoning_effort(
+        model_name: str,
+        provider: str | None,
+    ) -> bool:
+        try:
+            return litellm_supports_reasoning(model_name, provider)
+        except Exception:
+            logger.debug(
+                "Failed to resolve reasoning support via litellm metadata", exc_info=True
+            )
+            return False
 
     async def _iterate_stream(
         self, stream_result: CustomStreamWrapper
@@ -365,40 +415,98 @@ class LLMChatManager:
 
     def _build_text_deltas(
         self, delta: Delta, assistant_message: AssistantChatMessage
-    ) -> list[MessageTextDelta]:
+    ) -> list[MessageContentDelta]:
         content_entries = list(self._iter_content_entries(delta))
         if not content_entries:
             return []
 
-        deltas: list[MessageTextDelta] = []
-        for entry_type, text_value, provided_index in content_entries:
-            if (entry_type or "text") != "text":
-                continue
-            if not isinstance(text_value, str) or not text_value:
-                continue
-            index = self._resolve_content_index(provided_index, assistant_message)
-            block = self._ensure_text_content_block(assistant_message, index)
-            block.text += text_value
-            deltas.append(MessageTextDelta(index=index, text=text_value))
+        deltas: list[MessageContentDelta] = []
+        for entry in content_entries:
+            index = self._resolve_content_index(entry.index, assistant_message)
+            match entry.kind:
+                case "thinking":
+                    thinking_chunk = entry.text or ""
+                    signature = entry.signature
+                    if not thinking_chunk and signature is None:
+                        continue
+                    block = self._ensure_thinking_content_block(
+                        assistant_message, index
+                    )
+                    if thinking_chunk:
+                        block.thinking += thinking_chunk
+                    if signature is not None:
+                        block.signature = signature
+                    deltas.append(
+                        MessageThinkingDelta(
+                            index=index,
+                            thinking=thinking_chunk,
+                            signature=signature,
+                        )
+                    )
+                case "text":
+                    if not entry.text:
+                        continue
+                    block = self._ensure_text_content_block(assistant_message, index)
+                    block.text += entry.text
+                    deltas.append(MessageTextDelta(index=index, text=entry.text))
+                case _:
+                    assert_never(entry.kind)
         return deltas
 
     def _iter_content_entries(
         self, delta: Delta
-    ) -> Iterator[tuple[str | None, str | None, int | None]]:
+    ) -> Iterator[StreamContentEntry]:
         if delta.content is None:
             return
         entries = delta.content if isinstance(delta.content, list) else [delta.content]
         for entry in entries:
-            if isinstance(entry, str):
-                yield None, entry, None
-                continue
-            if isinstance(entry, dict):
-                yield entry.get("type"), entry.get("text"), entry.get("index")
-                continue
-            entry_type = getattr(entry, "type", None)
-            text_value = getattr(entry, "text", None)
-            index = getattr(entry, "index", None)
-            yield entry_type, text_value, index
+            normalized = self._normalize_content_entry(entry)
+            if normalized:
+                yield normalized
+
+    def _normalize_content_entry(self, entry: Any) -> StreamContentEntry | None:
+        if isinstance(entry, str):
+            text_value = entry
+            if not text_value:
+                return None
+            return StreamContentEntry(kind="text", text=text_value, index=None)
+
+        if isinstance(entry, dict):
+            entry_type = entry.get("type")
+            index = entry.get("index")
+            if entry_type == "thinking":
+                thinking_value = entry.get("thinking")
+                signature = entry.get("signature")
+                return StreamContentEntry(
+                    kind="thinking",
+                    text=thinking_value if isinstance(thinking_value, str) else "",
+                    index=index,
+                    signature=signature if isinstance(signature, str) else None,
+                )
+            if entry_type not in (None, "text"):
+                return None
+            text_value = entry.get("text")
+            if not isinstance(text_value, str) or not text_value:
+                return None
+            return StreamContentEntry(kind="text", text=text_value, index=index)
+
+        entry_type = getattr(entry, "type", None)
+        index = getattr(entry, "index", None)
+        if entry_type == "thinking":
+            thinking_value = getattr(entry, "thinking", None)
+            signature = getattr(entry, "signature", None)
+            return StreamContentEntry(
+                kind="thinking",
+                text=thinking_value if isinstance(thinking_value, str) else "",
+                index=index,
+                signature=signature if isinstance(signature, str) else None,
+            )
+        if entry_type not in (None, "text"):
+            return None
+        text_value = getattr(entry, "text", None)
+        if not isinstance(text_value, str) or not text_value:
+            return None
+        return StreamContentEntry(kind="text", text=text_value, index=index)
 
     async def _handle_tool_call_deltas(
         self,
@@ -587,5 +695,18 @@ class LLMChatManager:
         block = assistant_message.content[index]
         if not isinstance(block, MessageTextContent):
             block = MessageTextContent(type="text", text="")
+            assistant_message.content[index] = block
+        return block
+
+    def _ensure_thinking_content_block(
+        self,
+        assistant_message: AssistantChatMessage,
+        index: int,
+    ) -> MessageThinkingContent:
+        while len(assistant_message.content) <= index:
+            assistant_message.content.append(MessageThinkingContent())
+        block = assistant_message.content[index]
+        if not isinstance(block, MessageThinkingContent):
+            block = MessageThinkingContent()
             assistant_message.content[index] = block
         return block

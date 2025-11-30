@@ -1020,11 +1020,33 @@ export function createMessageImageUrlContent(
   return MessageImageUrlContentSchema.parse(options);
 }
 
+export const MessageThinkingContentSchema = z.object({
+  type: z.literal("thinking").default("thinking" as const),
+  thinking: z.string().default("" as const),
+  signature: z.union([z.string(), z.null()]).default("" as const),
+});
+
+export type MessageThinkingContent = z.infer<
+  typeof MessageThinkingContentSchema
+>;
+
+export function createMessageThinkingContent(
+  options: Partial<MessageThinkingContent> = {},
+): MessageThinkingContent {
+  return MessageThinkingContentSchema.parse(options);
+}
+
 export const SystemChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("system").default(ChatRoleEnum.system),
   content: z
-    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
     .default([]),
 });
 
@@ -1065,7 +1087,13 @@ export const AssistantChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("assistant").default(ChatRoleEnum.assistant),
   content: z
-    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
     .default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
@@ -1082,7 +1110,13 @@ export const UserChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.literal("user").default(ChatRoleEnum.user),
   content: z
-    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
     .default([]),
 });
 
@@ -1249,6 +1283,7 @@ export type JSONValue = z.infer<typeof JSONValueSchema>;
 export const MessageContentSchema = z.union([
   MessageTextContentSchema,
   MessageImageUrlContentSchema,
+  MessageThinkingContentSchema,
 ]);
 
 export type MessageContent = z.infer<typeof MessageContentSchema>;
@@ -1307,10 +1342,30 @@ export function createMessageTextDelta(
   return MessageTextDeltaSchema.parse(options);
 }
 
+export const MessageThinkingDeltaSchema = z.object({
+  type: z.literal("thinking_delta").default("thinking_delta" as const),
+  index: z.int(),
+  thinking: z.string(),
+  signature: z.union([z.string(), z.null()]).default(null),
+});
+
+export type MessageThinkingDelta = z.infer<typeof MessageThinkingDeltaSchema>;
+
+export function createMessageThinkingDelta(
+  options: Partial<MessageThinkingDelta> = {},
+): MessageThinkingDelta {
+  return MessageThinkingDeltaSchema.parse(options);
+}
+
 export const MessageDeltaEventSchema = z.object({
   type: z.literal("delta").default(StreamingEventTypeEnum.DELTA),
   message_id: z.string(),
-  content: z.union([z.array(MessageTextDeltaSchema), z.null()]).default(null),
+  content: z
+    .union([
+      z.array(z.union([MessageTextDeltaSchema, MessageThinkingDeltaSchema])),
+      z.null(),
+    ])
+    .default(null),
 });
 
 export type MessageDeltaEvent = z.infer<typeof MessageDeltaEventSchema>;
@@ -1396,6 +1451,13 @@ export const LLMStreamingResponseChunkSchema = z.union([
 export type LLMStreamingResponseChunk = z.infer<
   typeof LLMStreamingResponseChunkSchema
 >;
+
+export const MessageContentDeltaSchema = z.union([
+  MessageTextDeltaSchema,
+  MessageThinkingDeltaSchema,
+]);
+
+export type MessageContentDelta = z.infer<typeof MessageContentDeltaSchema>;
 
 export const AllImplFieldsSchema = z.literal([
   "activeLayerIdx",
@@ -7592,7 +7654,13 @@ export const ContentChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
   role: z.any(),
   content: z
-    .array(z.union([MessageTextContentSchema, MessageImageUrlContentSchema]))
+    .array(
+      z.union([
+        MessageTextContentSchema,
+        MessageImageUrlContentSchema,
+        MessageThinkingContentSchema,
+      ]),
+    )
     .default([]),
 });
 

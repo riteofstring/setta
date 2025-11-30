@@ -15,12 +15,14 @@ import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   createMessageTextContent,
+  createMessageThinkingContent,
   LLMStreamingResponse,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
   MessageStartEvent,
   MessageTextContent,
+  MessageThinkingContent,
   StreamingEventTypeEnum,
   ToolCall,
   ToolCallDeltaEvent,
@@ -214,9 +216,36 @@ function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
         let mutated = false;
         const newContent = [...message.content];
         for (const delta of chunk.content ?? []) {
-          const block = ensureTextContentBlock(newContent, delta.index);
-          block.text += delta.text;
-          mutated = true;
+          switch (delta.type) {
+            case "thinking_delta": {
+              const block = ensureThinkingContentBlock(newContent, delta.index);
+              const thinkingUpdate = delta.thinking ?? "";
+              const signatureUpdate = delta.signature;
+              let blockMutated = false;
+              if (thinkingUpdate) {
+                block.thinking += thinkingUpdate;
+                blockMutated = true;
+              }
+              if (signatureUpdate !== undefined) {
+                block.signature = signatureUpdate ?? "";
+                blockMutated = true;
+              }
+              if (blockMutated) {
+                mutated = true;
+              }
+              break;
+            }
+            case "text_delta": {
+              const block = ensureTextContentBlock(newContent, delta.index);
+              block.text += delta.text;
+              mutated = true;
+              break;
+            }
+            default: {
+              delta satisfies never;
+              break;
+            }
+          }
         }
         if (!mutated) {
           return null;
@@ -291,7 +320,9 @@ function handleMessageFinalized(chatId: string, chunk: MessageFinalizedEvent) {
 }
 
 function ensureTextContentBlock(
-  content: Array<MessageTextContent | MessageImageUrlContent>,
+  content: Array<
+    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
+  >,
   index: number,
 ): MessageTextContent {
   while (content.length <= index) {
@@ -304,6 +335,24 @@ function ensureTextContentBlock(
     return nextBlock;
   }
   return block;
+}
+
+function ensureThinkingContentBlock(
+  content: Array<
+    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
+  >,
+  index: number,
+): MessageThinkingContent {
+  while (content.length <= index) {
+    content.push(createMessageThinkingContent({ thinking: "" }));
+  }
+  const block = content[index];
+  if (!block || block.type !== "thinking") {
+    const nextBlock = createMessageThinkingContent({ thinking: "" });
+    content[index] = nextBlock;
+    return nextBlock;
+  }
+  return block as MessageThinkingContent;
 }
 
 function createToolCallPlaceholder(chunk: ToolCallDeltaEvent): ToolCall {

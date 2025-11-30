@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 
 from pydantic import ValidationError
-
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
 from setta.types.chat import ChatMetadata

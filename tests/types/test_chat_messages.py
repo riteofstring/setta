@@ -1,7 +1,12 @@
 import json
 import unittest
 
-from setta.types.chat_messages import AssistantChatMessage, MessageTextContent, ToolCall, ToolCallFunction
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    ToolCall,
+    ToolCallFunction,
+)
 
 
 class AssistantChatMessageTests(unittest.TestCase):
@@ -17,7 +22,9 @@ class AssistantChatMessageTests(unittest.TestCase):
         self.assertEqual(payload["content"], [{"type": "text", "text": "hi"}])
 
     def test_to_openai_format_serializes_tool_call_arguments(self) -> None:
-        tool_call = ToolCall(function=ToolCallFunction(name="some_tool", arguments={"a": 1}))
+        tool_call = ToolCall(
+            function=ToolCallFunction(name="some_tool", arguments={"a": 1})
+        )
         message = AssistantChatMessage(
             content=[MessageTextContent(type="text", text="result")],
             tool_calls=[tool_call],

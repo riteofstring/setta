@@ -24,7 +24,14 @@ class MessageTextDelta(BaseModel):
     text: str
 
 
-MessageContentDelta = MessageTextDelta
+class MessageThinkingDelta(BaseModel):
+    type: Literal["thinking_delta"] = "thinking_delta"
+    index: int
+    thinking: str
+    signature: str | None = None
+
+
+MessageContentDelta = MessageTextDelta | MessageThinkingDelta
 
 
 class MessageStartEvent(BaseModel):
