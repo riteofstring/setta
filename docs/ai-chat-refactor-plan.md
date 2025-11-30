@@ -37,6 +37,7 @@
 #### Frontend
 - Streaming reducers were rewritten in `frontend/src/state/actions/ai.ts` to handle the new event envelope, assemble assistant messages incrementally, and stream tool-call arguments/results into the store.
 - `ProjectChatCore` renders provider-agnostic chat bubbles, tool-call accordions, and a stop button wired to `/stopLLMChat`. Chat selection moved out of global state so panes encapsulate their current chat id and "deep think" toggle.
+- Chat creation now keeps the backend as the source of truth for IDs: the frontend submits `null` for brand-new chats, tracks `chatId` across three states (`undefined` pre-send, `null` while pending, string when confirmed), and ignores late responses if the user navigated elsewhere, eliminating the race where a completed request would override a different chat selection.
 - The model picker uses data from `allLLMConfigs` (once loaded), hides entries whose API keys are missing, and enforces per-message validation before dispatching `/getLLMResponse`.
 - `ProjectChat` and `ProjectLLMSettings` now share a hydration hook that fires `loadLLMConfig()`/`loadLLMApiKeys()` as soon as either pane mounts, so the gating flags flip without requiring a full-app bootstrap.
 - The frontend now listens for `LLMConfigUpdated` and `LLMApiKeysUpdated` websocket events so config/API-key edits propagate instantly without manual reloads.

@@ -97,12 +97,6 @@ export async function getLLMChat(chatId: string) {
   }
 }
 
-export async function createNewLLMChat() {
-  useAIStore.setState({
-    viewHistory: false,
-  });
-}
-
 export async function getAllLLMChatMetadata() {
   const res = await route_get_all_llm_chat_metadata();
   if (res200(res)) {
@@ -118,10 +112,12 @@ export async function deleteLLMChat(chatId: string) {
 export async function submitMessage(
   chatId: string | null,
   message: string,
-  deepThink,
+  deepThink: boolean,
   llmConfigId: string,
-) {
-  if (!message.trim()) return;
+): Promise<string | null> {
+  if (!message.trim()) {
+    return null;
+  }
 
   // Add user message immediately for responsive UI
   const userMessage = {
@@ -138,9 +134,13 @@ export async function submitMessage(
     llmConfigId,
   });
   if (res200(res)) {
-    const returnedChatId = res.data;
-    await getLLMChat(returnedChatId);
+    const returnedChatId = res.data ?? chatId ?? null;
+    if (returnedChatId) {
+      await getLLMChat(returnedChatId);
+    }
+    return returnedChatId;
   }
+  return null;
 }
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {

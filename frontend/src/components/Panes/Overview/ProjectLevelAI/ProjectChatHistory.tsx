@@ -8,8 +8,8 @@ export function ProjectChatHistory({
   chatId,
   setChatId,
 }: {
-  chatId: string | null;
-  setChatId: Dispatch<SetStateAction<string | null>>;
+  chatId: string | null | undefined;
+  setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
   const { allChatMetadata, waitingForResponse } = useAIStore(
     (x) => {

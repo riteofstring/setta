@@ -1,6 +1,14 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { memo, useEffect, useMemo, useRef } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -404,42 +412,68 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   deepThink,
   llmConfigId,
+  setChatId,
 }: {
-  chatId: string | null;
+  chatId: string | null | undefined;
   placeholderText: string;
   deepThink: boolean;
   llmConfigId: string | null;
+  setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
-      if (!chatId) {
+      if (typeof chatId !== "string") {
         return getDefaultChatDetails();
       }
       return state.chatDetails[chatId] ?? getDefaultChatDetails();
     },
     shallow,
   );
+  const isPendingNewChat = chatId === null;
+  const effectiveWaitingForResponse = waitingForResponse || isPendingNewChat;
 
   useEffect(() => {
-    if (chatId) {
-      getLLMChat(chatId);
+    if (typeof chatId !== "string") {
+      return;
     }
+    getLLMChat(chatId);
   }, [chatId]);
+
+  const handleNewChatStart = useCallback(() => {
+    setChatId(null);
+  }, [setChatId]);
+
+  const handleNewChatSettled = useCallback(
+    (newChatId: string | null, succeeded: boolean) => {
+      setChatId((currentChatId) => {
+        if (currentChatId !== null) {
+          return currentChatId;
+        }
+        if (!succeeded || !newChatId) {
+          return undefined;
+        }
+        return newChatId;
+      });
+    },
+    [setChatId],
+  );
 
   return (
     <>
       <MessageList
         messages={messages}
-        waitingForResponse={waitingForResponse}
+        waitingForResponse={effectiveWaitingForResponse}
         chatId={chatId}
         toolCallArguments={toolCallArguments}
       />
       <ChatInput
         deepThink={deepThink}
         placeholderText={placeholderText}
-        waitingForResponse={waitingForResponse}
+        waitingForResponse={effectiveWaitingForResponse}
         llmConfigId={llmConfigId}
         chatId={chatId}
+        onNewChatStart={handleNewChatStart}
+        onNewChatSettled={handleNewChatSettled}
       />
     </>
   );

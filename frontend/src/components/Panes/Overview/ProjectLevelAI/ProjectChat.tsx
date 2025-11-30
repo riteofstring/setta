@@ -5,7 +5,6 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { createNewLLMChat } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { useLocalValue } from "state/hooks/utils";
 import { AllLLMConfigs } from "utils/generatedTypes";
@@ -14,7 +13,7 @@ import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
 export function ProjectChat() {
-  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null | undefined>(undefined);
   const [deepThink, setDeepThink] = useState(false);
   useHydrateLLMState();
 
@@ -26,7 +25,8 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete,
     llmConfigId,
   } = useAIStore((x) => {
-    const llmConfig = chatId ? x.chatDetails[chatId]?.llmConfig : null;
+    const llmConfig =
+      typeof chatId === "string" ? x.chatDetails[chatId]?.llmConfig : null;
     const llmConfigId = llmConfig?.id ?? pickDefaultConfigId(x.allLLMConfigs);
 
     return {
@@ -93,7 +93,12 @@ export function ProjectChat() {
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               aria-label="New Chat"
-              onClick={createNewLLMChat}
+              onClick={() => {
+                setChatId(undefined);
+                useAIStore.setState({
+                  viewHistory: false,
+                });
+              }}
             >
               <MdAdd size={15} />
               <span className="@[17.5rem]:hidden @sm:block">New</span>
@@ -162,6 +167,7 @@ export function ProjectChat() {
             }
             deepThink={deepThink}
             llmConfigId={selectedLLMConfigId}
+            setChatId={setChatId}
           />
         )}
       </div>
