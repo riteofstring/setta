@@ -30,6 +30,7 @@
 - The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LLM request as OpenAI-style tool definitions.
 - Tool calls are streamed as deltas, executed via `MCPClient.call_tool`, persisted as `ToolChatMessage`s, and echoed back to the frontend through `ToolResultEvent`s so the UI can render argument progress and results without custom maps.
 - `backend/setta/mcp/tools/file_read.py` established the first deterministic helper (`read_file_range`) that uses workspace-aware paths, validation, and consistent JSON output.
+- `SettaFastMCP.list_registered_tools()` now exposes the running server's tool metadata, and the `search_mcp_tools` skeleton MCP helper consumes it so discovery logic no longer needs another registry layer.
 
 #### Config & Persistence
 - `backend/setta/types/llm_config.py` defines `LLMConfig`/`AllLLMConfigs`, including `temporary` entries. `merge_chat_llm_configs` injects stored chat configs so `/llm/config` always exposes the providers used by historic chats, and now deduplicates equivalent configs so every chat that used the same provider/model combo no longer spawns another dropdown entry.
@@ -62,7 +63,7 @@
 
 #### MCP Tool Discovery & Search Plan
 1. **Surface the existing tool metadata** – Keep leaning on the current `SETTA_MCP_TOOLS` decorator plus `SettaMCPServer` storage, and simply expose the already-collected (name, description, schema) data in a normalized OpenAI-style shape for both the SSE server and the LLM client so we avoid building an extra registry layer.
-2. **Ship the search tool** – Implement a new MCP tool (e.g., `tool_search`) that takes a query string, scores tool metadata, and returns the matching tool definitions; trim its user-visible output to a summary such as “Added N tool definitions.”
+2. **Ship the search tool** – Implement a new MCP tool (e.g., `tool_search`) that takes a query string, scores tool metadata **using a BM25 ranking instead of the initial token-weight heuristic**, and returns the matching tool definitions; trim its user-visible output to a summary such as “Added N tool definitions.”
 3. **Seed boot tools vs. discoverable tools** – Keep lightweight primitives (search, `read_file_range`, etc.) in the default tool list sent with the first request; store the rest as discoverable entries that only flow through once the search tool returns them.
 4. **Persist per-chat tool state** – Track which tool definitions each chat has unlocked, include only those definitions in `_build_llm_request_payload`, and hydrate the state when loading chats so reconnections do not lose context.
 5. **Handle search results** – When the search tool runs, parse its returned definitions, merge them into the chat’s tool state, dedupe by name, and persist the expanded state before the next LLM call.

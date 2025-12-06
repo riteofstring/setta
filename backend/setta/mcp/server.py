@@ -78,6 +78,9 @@ class SettaFastMCP(FastMCP):
         for fn in SETTA_MCP_TOOLS:
             self.add_tool(self.setta_uuid_transformer(fn))
 
+    def list_registered_tools(self):
+        return list(self._tool_manager._tools.values())
+
     def setta_uuid_transformer(self, func):
         setta_params: set[str] = set()
         for param_name in inspect.signature(func).parameters.keys():
