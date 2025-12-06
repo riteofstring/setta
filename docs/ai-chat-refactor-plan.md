@@ -61,7 +61,7 @@
 - Expand the MCP surface area beyond the initial file-read helper (e.g., project metadata, search utilities) so LLMs have the context they need before we rely on automated edits.
 
 #### MCP Tool Discovery & Search Plan
-1. **Catalog the tool metadata** – Extend the MCP registry to keep an index of every `SETTA_MCP_TOOLS` entry (name, description, schema) so both the SSE server and the LLM client can fetch normalized OpenAI-style tool definitions without recomputing docstrings.
+1. **Surface the existing tool metadata** – Keep leaning on the current `SETTA_MCP_TOOLS` decorator plus `SettaMCPServer` storage, and simply expose the already-collected (name, description, schema) data in a normalized OpenAI-style shape for both the SSE server and the LLM client so we avoid building an extra registry layer.
 2. **Ship the search tool** – Implement a new MCP tool (e.g., `tool_search`) that takes a query string, scores tool metadata, and returns the matching tool definitions; trim its user-visible output to a summary such as “Added N tool definitions.”
 3. **Seed boot tools vs. discoverable tools** – Keep lightweight primitives (search, `read_file_range`, etc.) in the default tool list sent with the first request; store the rest as discoverable entries that only flow through once the search tool returns them.
 4. **Persist per-chat tool state** – Track which tool definitions each chat has unlocked, include only those definitions in `_build_llm_request_payload`, and hydrate the state when loading chats so reconnections do not lose context.
