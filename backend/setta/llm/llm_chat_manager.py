@@ -339,6 +339,8 @@ class LLMChatManager:
 
     def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
         state = self._get_or_create_chat_tool_state(chat.id)
+        if not state.init_tools and self.mcp_client.init_tool_definitions:
+            state.init_tools = dict(self.mcp_client.init_tool_definitions)
         return state.build_payload()
 
     def _get_or_create_chat_tool_state(
