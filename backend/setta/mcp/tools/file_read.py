@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Any
 
-from setta.mcp.tool_setup import setta_tool
+from setta.mcp.tool_setup import setta_init_tool
 
 
-@setta_tool
+@setta_init_tool
 def read_file_range(
     *,
     path: str,

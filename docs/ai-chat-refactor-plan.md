@@ -27,7 +27,7 @@
 - The `deepThink` toggle now feeds internal heuristics for reasoning support: we bypass LiteLLM’s spotty metadata, recognize OpenAI/Anthropic/Google providers directly, and always emit the thinking blocks/`reasoning_content` stream so the UI shows every vendor’s reasoning traces without manual tweaks.
 
 #### MCP & Tooling
-- The MCP registry now flows through the `SETTA_MCP_TOOLS` decorator and `backend/setta/mcp/client.py`. `MCPClient.available_tools` is injected into each LLM request as OpenAI-style tool definitions.
+- The MCP registry now flows through dedicated decorators: `setta_init_tool` feeds the boot-time `SETTA_INIT_MCP_TOOLS` list while `setta_tool` feeds the discoverable `SETTA_MCP_TOOLS` registry, and `backend/setta/mcp/client.py` uses them so `MCPClient.available_tools` can inject the always-on set before discovery unlocks additional entries.
 - Tool calls are streamed as deltas, executed via `MCPClient.call_tool`, persisted as `ToolChatMessage`s, and echoed back to the frontend through `ToolResultEvent`s so the UI can render argument progress and results without custom maps.
 - `backend/setta/mcp/tools/file_read.py` established the first deterministic helper (`read_file_range`) that uses workspace-aware paths, validation, and consistent JSON output.
 - `SettaFastMCP.list_registered_tools()` now exposes the running server's tool metadata, and the existing `search_mcp_tools` MCP helper already consumes it (with a placeholder heuristic) so discovery logic no longer needs another registry layer.
@@ -63,8 +63,8 @@
 - Expand the MCP surface area beyond the initial file-read helper (e.g., project metadata, search utilities) so LLMs have the context they need before we rely on automated edits.
 
 #### MCP Tool Discovery & Search Plan
-1. **Surface the existing tool metadata** – Keep leaning on the current `SETTA_MCP_TOOLS` decorator plus `SettaMCPServer` storage, and simply expose the already-collected (name, description, schema) data in a normalized OpenAI-style shape for both the SSE server and the LLM client so we avoid building an extra registry layer.
-2. **Seed boot tools vs. discoverable tools** – Keep lightweight primitives (search, `read_file_range`, etc.) in the default tool list sent with the first request; store the rest as discoverable entries that only flow through once the search tool returns them.
+1. **Surface the existing tool metadata** – Lean on the new `SETTA_INIT_MCP_TOOLS`/`SETTA_MCP_TOOLS` decorators plus `SettaMCPServer` storage, and expose the already-collected (name, description, schema) data in a normalized OpenAI-style shape for both the SSE server and the LLM client so we avoid building an extra registry layer.
+2. **Seed boot tools vs. discoverable tools** – Lightweight primitives (search, `read_file_range`, etc.) now live in `SETTA_INIT_MCP_TOOLS` so they ship with the first LLM request, while the BM25 index and `search_mcp_tools` only traverse `SETTA_MCP_TOOLS` and new matches extend the discoverable list as chats unlock them.
 3. **Persist per-chat tool state** – Track which tool definitions each chat has unlocked, include only those definitions in `_build_llm_request_payload`, and hydrate the state when loading chats so reconnections do not lose context.
 4. **Handle search results** – When the search tool runs, parse its returned definitions, merge them into the chat’s tool state, dedupe by name, and persist the expanded state before the next LLM call.
 5. **Document and test** – Search scoring now has unit coverage via `tests/mcp/test_tool_search.py`. Still need tests for the chat-manager tool-state transitions and the summarized tool-result messaging, plus documentation of the discovery flow in this plan (and, later, the MCP README) so future tools register the metadata the search service consumes.

@@ -23,7 +23,7 @@ from mcp.types import ToolAnnotations
 from pydantic import TypeAdapter
 
 from setta.database.db_objs import DBE
-from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
     IDDoesNotExist,
     replace_ids_with_uuids,
@@ -85,6 +85,8 @@ class SettaFastMCP(FastMCP):
         asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
     def add_setta_tools(self):
+        for fn in SETTA_INIT_MCP_TOOLS:
+            self.add_tool(self.setta_uuid_transformer(fn))
         for fn in SETTA_MCP_TOOLS:
             self.add_tool(self.setta_uuid_transformer(fn))
 

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import bm25s
-from setta.mcp.tool_setup import setta_tool
+from setta.mcp.tool_setup import setta_init_tool
 
 if TYPE_CHECKING:
     from setta.server_state import SettaFastAPIState
@@ -13,7 +13,7 @@ class ToolSearchResult(TypedDict):
     score: float
 
 
-@setta_tool
+@setta_init_tool
 def search_mcp_tools(
     *,
     query: str,
