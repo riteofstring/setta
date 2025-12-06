@@ -60,6 +60,14 @@
 - Flesh out tool documentation and JSON schemas so the LLM has enough structure to ground tool-call arguments; `read_file_range` proves the plumbing but still needs richer metadata/examples.
 - Expand the MCP surface area beyond the initial file-read helper (e.g., project metadata, search utilities) so LLMs have the context they need before we rely on automated edits.
 
+#### MCP Tool Discovery & Search Plan
+1. **Catalog the tool metadata** – Extend the MCP registry to keep an index of every `SETTA_MCP_TOOLS` entry (name, description, schema) so both the SSE server and the LLM client can fetch normalized OpenAI-style tool definitions without recomputing docstrings.
+2. **Ship the search tool** – Implement a new MCP tool (e.g., `tool_search`) that takes a query string, scores tool metadata, and returns the matching tool definitions; trim its user-visible output to a summary such as “Added N tool definitions.”
+3. **Seed boot tools vs. discoverable tools** – Keep lightweight primitives (search, `read_file_range`, etc.) in the default tool list sent with the first request; store the rest as discoverable entries that only flow through once the search tool returns them.
+4. **Persist per-chat tool state** – Track which tool definitions each chat has unlocked, include only those definitions in `_build_llm_request_payload`, and hydrate the state when loading chats so reconnections do not lose context.
+5. **Handle search results** – When the search tool runs, parse its returned definitions, merge them into the chat’s tool state, dedupe by name, and persist the expanded state before the next LLM call.
+6. **Document and test** – Add coverage for the search scoring, chat-manager tool-state transitions, and the summarized tool-result messaging, plus document the discovery flow in this plan (and, later, the MCP README) so future tools register the metadata the search service consumes.
+
 #### Frontend & Config UX
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support. **Intentionally defer this work until the end of the refactor so we can focus on the chat pipeline first—even if that leaves the existing settings view in a broken state meanwhile.**
 - Surface `temporary` configs (those injected from chat history) inside the dropdown/settings, give them a badge such as “from chat history”, and provide an affordance to promote/edit them so users know whether a chat references a transient model.
