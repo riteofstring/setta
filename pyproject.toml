@@ -34,6 +34,7 @@ dependencies = [
     "pydantic==2.11.5",
     "lsprotocol==2023.0.1",
     "watchfiles==0.24.0",
+    "bm25s==0.2.14",
 ]
 
 [project.urls]

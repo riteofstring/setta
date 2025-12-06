@@ -3,9 +3,11 @@
 import asyncio
 import inspect
 import logging
+from dataclasses import dataclass
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
 
+import bm25s
 import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
@@ -37,6 +39,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ToolSearchIndex:
+    retriever: bm25s.BM25
+    tools: list["Tool"]
+
+
 class SettaFastMCP(FastMCP):
     def __init__(
         self,
@@ -54,6 +62,7 @@ class SettaFastMCP(FastMCP):
         self.state = state
         self.id_to_uuid, self.uuid_to_id = dbe.read_uuid_mapping()
         self.fn_param_docstrings = {}
+        self.tool_search_index: ToolSearchIndex | None = None
         msg_path = f"{mount_path}/messages/"
         sse_transport = SseServerTransport(msg_path)
 
@@ -71,6 +80,7 @@ class SettaFastMCP(FastMCP):
         app.mount(msg_path, app=sse_transport.handle_post_message)
 
         self.add_setta_tools()
+        self.tool_search_index = self._build_tool_search_index()
         content = SettaNotification(message="MCP Server Ready")
         asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
@@ -117,6 +127,16 @@ class SettaFastMCP(FastMCP):
             return result
 
         return wrapper
+
+    def _build_tool_search_index(self) -> ToolSearchIndex | None:
+        tools = self.list_registered_tools()
+        if not tools:
+            return None
+        documents = [_build_tool_document_text(tool) for tool in tools]
+        retriever = bm25s.BM25()
+        corpus_tokens = bm25s.tokenize(documents, stopwords="en")
+        retriever.index(corpus_tokens)
+        return ToolSearchIndex(retriever=retriever, tools=tools)
 
 
 class SettaTool(Tool):
@@ -241,3 +261,26 @@ def extract_tool_docstrings(func):
             param_docs[param.arg_name] = param.description
 
     return parsed.description, param_docs
+
+
+def _build_tool_document_text(tool: "Tool") -> str:
+    parameter_text = _build_parameter_text(tool.parameters)
+    parts = [tool.name, tool.description, parameter_text]
+    return " ".join(part for part in parts if part)
+
+
+def _build_parameter_text(parameters: dict[str, Any]) -> str:
+    if not parameters:
+        return ""
+    properties = parameters.get("properties")
+    if not isinstance(properties, dict):
+        return ""
+
+    segments: list[str] = []
+    for prop_name, prop_schema in properties.items():
+        segments.append(str(prop_name))
+        if isinstance(prop_schema, dict):
+            description = prop_schema.get("description")
+            if isinstance(description, str):
+                segments.append(description)
+    return " ".join(segments)
