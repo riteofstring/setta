@@ -1,9 +1,15 @@
 import asyncio
 from contextlib import AsyncExitStack
 
+from litellm.types.llms.openai import (
+    ChatCompletionToolParam,
+    ChatCompletionToolParamFunctionChunk,
+)
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.types import Tool
+
+from setta.mcp.tool_metadata import SettaToolType
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
@@ -13,7 +19,8 @@ class MCPClient:
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.server_url = server_url
-        self.available_tools: list[Tool] = []
+        self.init_tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -45,7 +52,7 @@ class MCPClient:
                 print(f"Connected to {url}...", flush=True)
                 # List available tools to verify connection
                 response = await self.session.list_tools()
-                self.available_tools = list(response.tools)
+                self._update_tool_cache(list(response.tools))
 
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
@@ -90,3 +97,26 @@ class MCPClient:
         # Set flags to indicate shutdown
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
+
+    def _update_tool_cache(self, tools: list[Tool]) -> None:
+        init_tools: dict[str, ChatCompletionToolParam] = {}
+        discoverable_tools: dict[str, ChatCompletionToolParam] = {}
+        for tool in tools:
+            tool_type = SettaToolType(tool.annotations.settaToolType)  # type: ignore[attr-defined]
+            definition = self._convert_tool_to_llm_definition(tool)
+            if tool_type == SettaToolType.init:
+                init_tools[tool.name] = definition
+            else:
+                discoverable_tools[tool.name] = definition
+
+        self.init_tool_definitions = init_tools
+        self.discoverable_tool_definitions = discoverable_tools
+
+    @staticmethod
+    def _convert_tool_to_llm_definition(tool: Tool) -> ChatCompletionToolParam:
+        function_payload: ChatCompletionToolParamFunctionChunk = {
+            "name": tool.name,
+            "description": tool.description or "",
+            "parameters": tool.inputSchema or {},
+        }
+        return {"type": "function", "function": function_payload}

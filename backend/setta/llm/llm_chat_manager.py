@@ -8,10 +8,7 @@ from typing import Any, AsyncIterator, Iterator, Literal
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.types.llms.openai import (
-    ChatCompletionToolParam,
-    ChatCompletionToolParamFunctionChunk,
-)
+from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 
 from setta.database.db_objs import DBE
@@ -80,6 +77,25 @@ class StreamContentEntry:
         return bool(self.text) or self.signature is not None
 
 
+@dataclass
+class ChatToolState:
+    init_tools: dict[str, ChatCompletionToolParam] = field(default_factory=dict)
+    unlocked_tools: dict[str, ChatCompletionToolParam] = field(default_factory=dict)
+
+    def unlock_tools(
+        self,
+        definitions: Mapping[str, ChatCompletionToolParam],
+    ) -> None:
+        for name, payload in definitions.items():
+            self.unlocked_tools[name] = payload
+
+    def build_payload(self) -> list[ChatCompletionToolParam]:
+        combined: dict[str, ChatCompletionToolParam] = {}
+        combined.update(self.init_tools)
+        combined.update(self.unlocked_tools)
+        return list(combined.values())
+
+
 
 class LLMChatManager:
     """Coordinates chat persistence, streaming responses, and tool execution."""
@@ -98,6 +114,7 @@ class LLMChatManager:
         self._raw_env_vars: APIKeys = {}
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
+        self._chat_tool_states: dict[str, ChatToolState] = {}
 
     def get_chat(self, chat_id: str) -> Chat | None:
         return load_chat(self.dbe, chat_id)
@@ -129,6 +146,7 @@ class LLMChatManager:
 
     def delete_chat(self, chat_id: str) -> None:
         delete_chat_record(self.dbe, chat_id)
+        self._chat_tool_states.pop(chat_id, None)
 
     def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
         metadata = self.get_all_chat_metadata()
@@ -308,7 +326,7 @@ class LLMChatManager:
                 request["api_key"] = api_key
 
         request["messages"] = messages
-        tools = self._build_tool_definitions()
+        tools = self._build_tool_definitions(chat)
         if tools:
             request["tools"] = tools
 
@@ -319,16 +337,21 @@ class LLMChatManager:
 
         return request
 
-    def _build_tool_definitions(self) -> list[ChatCompletionToolParam]:
-        tools: list[ChatCompletionToolParam] = []
-        for tool in self.mcp_client.available_tools:
-            function_payload: ChatCompletionToolParamFunctionChunk = {
-                "name": tool.name,
-                "description": tool.description or "",
-                "parameters": tool.inputSchema,
-            }
-            tools.append({"type": "function", "function": function_payload})
-        return tools
+    def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
+        state = self._get_or_create_chat_tool_state(chat.id)
+        return state.build_payload()
+
+    def _get_or_create_chat_tool_state(
+        self,
+        chat_id: str,
+    ) -> ChatToolState:
+        state = self._chat_tool_states.get(chat_id)
+        if state is None:
+            state = ChatToolState(
+                init_tools=dict(self.mcp_client.init_tool_definitions)
+            )
+            self._chat_tool_states[chat_id] = state
+        return state
 
     def _apply_request_overrides(
         self,

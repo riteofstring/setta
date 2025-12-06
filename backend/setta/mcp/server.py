@@ -12,6 +12,7 @@ import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
+from mcp.types import ToolAnnotations
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool, ToolManager
 from mcp.server.fastmcp.tools.base import _is_async_callable
@@ -19,10 +20,10 @@ from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from mcp.server.session import ServerSessionT
 from mcp.server.sse import SseServerTransport
 from mcp.shared.context import LifespanContextT
-from mcp.types import ToolAnnotations
 from pydantic import TypeAdapter
 
 from setta.database.db_objs import DBE
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
     IDDoesNotExist,
@@ -86,9 +87,18 @@ class SettaFastMCP(FastMCP):
 
     def add_setta_tools(self):
         for fn in SETTA_INIT_MCP_TOOLS:
-            self.add_tool(self.setta_uuid_transformer(fn))
+            self._register_setta_tool(fn, SettaToolType.init)
         for fn in SETTA_MCP_TOOLS:
-            self.add_tool(self.setta_uuid_transformer(fn))
+            self._register_setta_tool(fn, SettaToolType.discoverable)
+
+    def _register_setta_tool(
+        self, fn: Callable[..., Any], tool_type: SettaToolType
+    ) -> None:
+        annotations = SettaToolAnnotations(settaToolType=tool_type)
+        self.add_tool(
+            self.setta_uuid_transformer(fn),
+            annotations=annotations,
+        )
 
     def list_registered_tools(self):
         return list(self._tool_manager._tools.values())
