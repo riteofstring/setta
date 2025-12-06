@@ -1,0 +1,109 @@
+import unittest
+from dataclasses import dataclass
+from typing import Any
+
+import bm25s
+
+from setta.mcp.server import ToolSearchIndex, _build_tool_document_text
+from setta.mcp.tools.tool_search import search_mcp_tools
+
+
+@dataclass
+class StubTool:
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+
+class StubMCPServer:
+    def __init__(self, index: ToolSearchIndex | None):
+        self.tool_search_index = index
+
+
+class StubSettaState:
+    def __init__(self, index: ToolSearchIndex | None):
+        self.mcp_server = StubMCPServer(index)
+
+
+def build_search_index(tools: list[StubTool]) -> ToolSearchIndex:
+    retriever = bm25s.BM25()
+    documents = [_build_tool_document_text(tool) for tool in tools]
+    corpus_tokens = bm25s.tokenize(documents, stopwords="en")
+    retriever.index(corpus_tokens)
+    return ToolSearchIndex(retriever=retriever, tools=tools)
+
+
+class SearchMCPToolsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tools = [
+            StubTool(
+                name="read_file_range",
+                description="Read part of a workspace file between start and end lines.",
+                parameters={
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Workspace relative file path to read.",
+                        },
+                        "start_line": {
+                            "type": "integer",
+                            "description": "First line number to include.",
+                        },
+                        "end_line": {
+                            "type": "integer",
+                            "description": "Last line number to include.",
+                        },
+                    }
+                },
+            ),
+            StubTool(
+                name="list_notifications",
+                description="Return unread build notifications and execution warnings.",
+                parameters={
+                    "properties": {
+                        "include_read": {
+                            "type": "boolean",
+                            "description": "Include notifications that were already read.",
+                        }
+                    }
+                },
+            ),
+            StubTool(
+                name="search_project_sources",
+                description="Search project files for terms before editing them.",
+                parameters={
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search expression used for the project files.",
+                        }
+                    }
+                },
+            ),
+        ]
+        index = build_search_index(self.tools)
+        self.setta_state = StubSettaState(index)
+
+    def test_returns_ranked_results_for_query(self) -> None:
+        results = search_mcp_tools(
+            query="read specific file lines", limit=1, setta_state=self.setta_state
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["name"], "read_file_range")
+
+    def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
+        results = search_mcp_tools(query="search project", limit=0, setta_state=self.setta_state)
+
+        self.assertEqual(len(results), len(self.tools))
+
+    def test_raises_for_blank_query(self) -> None:
+        with self.assertRaises(ValueError):
+            search_mcp_tools(query="   ", setta_state=self.setta_state)
+
+    def test_returns_empty_when_index_missing(self) -> None:
+        empty_state = StubSettaState(index=None)
+
+        results = search_mcp_tools(query="read", setta_state=empty_state)
+
+        self.assertEqual(results, [])
