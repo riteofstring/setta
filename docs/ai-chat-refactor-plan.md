@@ -50,7 +50,7 @@
 - The frontend now listens for `LLMConfigUpdated` and `LLMApiKeysUpdated` websocket events so config/API-key edits propagate instantly without manual reloads.
 
 #### Testing
-- Added regression tests for assistant message serialization (covering tool-call argument JSON conversion and the tool-call-less path) and refreshed the chat storage tests to assert against real `LLMConfig` instances. Added targeted coverage for `merge_chat_llm_configs` so duplicate chat configs collapse to a single temporary entry. The full backend unittest suite now runs cleanly.
+- Added regression tests for assistant message serialization (covering tool-call argument JSON conversion and the tool-call-less path) and refreshed the chat storage tests to assert against real `LLMConfig` instances. Added targeted coverage for `merge_chat_llm_configs` so duplicate chat configs collapse to a single temporary entry. `tests/mcp/test_tool_search.py` now exercises the BM25-backed `search_mcp_tools` helper against realistic tool metadata so discovery regressions are caught locally. The full backend unittest suite now runs cleanly.
 
 ### Outstanding Work
 #### Backend / LLM Integration
@@ -67,7 +67,7 @@
 2. **Seed boot tools vs. discoverable tools** – Keep lightweight primitives (search, `read_file_range`, etc.) in the default tool list sent with the first request; store the rest as discoverable entries that only flow through once the search tool returns them.
 3. **Persist per-chat tool state** – Track which tool definitions each chat has unlocked, include only those definitions in `_build_llm_request_payload`, and hydrate the state when loading chats so reconnections do not lose context.
 4. **Handle search results** – When the search tool runs, parse its returned definitions, merge them into the chat’s tool state, dedupe by name, and persist the expanded state before the next LLM call.
-5. **Document and test** – Add coverage for the search scoring, chat-manager tool-state transitions, and the summarized tool-result messaging, plus document the discovery flow in this plan (and, later, the MCP README) so future tools register the metadata the search service consumes.
+5. **Document and test** – Search scoring now has unit coverage via `tests/mcp/test_tool_search.py`. Still need tests for the chat-manager tool-state transitions and the summarized tool-result messaging, plus documentation of the discovery flow in this plan (and, later, the MCP README) so future tools register the metadata the search service consumes.
 
 #### Frontend & Config UX
 - Replace the static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` usage in `ProjectLLMSettings.tsx` with data from `/llm/config` and `/llm/apiKeys`, including forms for provider/model/base URL/api-key env var management. Leveraging the backend schema will also unblock multi-provider support. **Intentionally defer this work until the end of the refactor so we can focus on the chat pipeline first—even if that leaves the existing settings view in a broken state meanwhile.**
@@ -76,7 +76,7 @@
 #### Observability & Testing
 - Add backend unit tests around `LLMChatManager` (payload construction, streaming chunk handling, tool-call parsing, cancellation, and MessageDelta emissions) plus failure-path coverage for MCP dispatch.
 - Cover the config helpers (`merge_chat_llm_configs`, `_strip_temporary_configs`, load/save flows) and the deterministic MCP tools (`read_file_range` today, write tools later).
-- Provide integration or manual smoke tests that exercise end-to-end streaming, MCP tool execution, config reloads, and stop requests so we can gate releases on something stronger than `tests/mcp/test_file_read_tool.py`.
+- Provide integration or manual smoke tests that exercise end-to-end streaming, MCP tool execution, config reloads, and stop requests so we can gate releases on something stronger than the current targeted MCP unit tests.
 
 ## File Editing Strategy
 - Defer additional write-capable MCP tools until the new LLM + config plumbing is stable, but keep the target shape in mind: read-range, insert-at-line, replace-range, and apply unified diff are the primitives we will expose.
