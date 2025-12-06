@@ -4,17 +4,19 @@ import logging
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Iterator, Literal
+from typing import Any, AsyncIterator, Iterator, Literal, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
+from mcp.types import CallToolResult, TextContent
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.mcp.client import MCPClient
+from setta.mcp.tools.tool_search import SEARCH_MCP_TOOLS_NAME
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
     create_new_chat,
@@ -85,16 +87,21 @@ class ChatToolState:
     def unlock_tools(
         self,
         definitions: Mapping[str, ChatCompletionToolParam],
-    ) -> None:
+    ) -> int:
+        """Merge newly discovered tools into the chat-local registry."""
+
+        added = 0
         for name, payload in definitions.items():
+            if name not in self.unlocked_tools:
+                added += 1
             self.unlocked_tools[name] = payload
+        return added
 
     def build_payload(self) -> list[ChatCompletionToolParam]:
         combined: dict[str, ChatCompletionToolParam] = {}
         combined.update(self.init_tools)
         combined.update(self.unlocked_tools)
         return list(combined.values())
-
 
 
 class LLMChatManager:
@@ -843,16 +850,28 @@ class LLMChatManager:
             raise
         completed_at = get_now_timestamp()
 
-        tool_chat_message = ToolChatMessage(
-            tool_call_id=tool_call.id,
-            tool_name=tool_name,
-            arguments=json.loads(json.dumps(arguments)),
-            content=call_result.content,
-            is_error=call_result.isError,
-            result=call_result.model_dump(),
-            started_at=started_at,
-            completed_at=completed_at,
-        )
+        sanitized_arguments = json.loads(json.dumps(arguments))
+        if tool_name == SEARCH_MCP_TOOLS_NAME and not call_result.isError:
+            tool_chat_message = self._build_search_tool_chat_message(
+                chat_id,
+                tool_name,
+                tool_call,
+                call_result,
+                sanitized_arguments,
+                started_at,
+                completed_at,
+            )
+        else:
+            tool_chat_message = ToolChatMessage(
+                tool_call_id=tool_call.id,
+                tool_name=tool_name,
+                arguments=sanitized_arguments,
+                content=call_result.content,
+                is_error=call_result.isError,
+                result=call_result.model_dump(),
+                started_at=started_at,
+                completed_at=completed_at,
+            )
         await self.websocket_msg_handler.send_streaming_response(
             chat_id,
             ToolResultEvent(
@@ -860,6 +879,102 @@ class LLMChatManager:
             ),
         )
         return tool_chat_message
+
+    def _build_search_tool_chat_message(
+        self,
+        chat_id: str,
+        tool_name: str,
+        tool_call: ToolCall,
+        call_result: CallToolResult,
+        arguments: dict[str, Any],
+        started_at,
+        completed_at,
+    ) -> ToolChatMessage:
+        search_results = self._parse_search_tool_results(call_result)
+        definitions = self._build_tool_definitions_from_search_results(search_results)
+        added_count = 0
+        if definitions:
+            state = self._get_or_create_chat_tool_state(chat_id)
+            added_count = state.unlock_tools(definitions)
+
+        summary_text = self._format_search_tool_summary(
+            added_count, len(search_results)
+        )
+        result_payload = call_result.model_dump()
+        result_payload["searchResults"] = search_results
+        result_payload["addedToolCount"] = added_count
+        result_payload["addedToolNames"] = list(definitions.keys())
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[chat %s] search tool added %s new tools: %s",
+                chat_id,
+                added_count,
+                list(definitions.keys()),
+            )
+
+        return ToolChatMessage(
+            tool_call_id=tool_call.id,
+            tool_name=tool_name,
+            arguments=arguments,
+            content=[TextContent(type="text", text=summary_text)],
+            is_error=call_result.isError,
+            result=result_payload,
+            started_at=started_at,
+            completed_at=completed_at,
+        )
+
+    def _parse_search_tool_results(self, call_result: CallToolResult):
+        if not call_result.content:
+            return []
+
+        entry = call_result.content[0]
+        text = getattr(entry, "text", "")
+        if not isinstance(text, str) or not text:
+            return []
+
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            logger.debug("Failed to parse search tool payload", exc_info=True)
+            return []
+
+        if not isinstance(payload, list):
+            return []
+
+        names: list[str] = []
+        for raw_entry in payload:
+            if not isinstance(raw_entry, str):
+                continue
+            normalized = raw_entry.strip()
+            if normalized:
+                names.append(normalized)
+        return names
+
+    def _build_tool_definitions_from_search_results(
+        self,
+        tool_names: list[str],
+    ) -> dict[str, ChatCompletionToolParam]:
+        definitions: dict[str, ChatCompletionToolParam] = {}
+        available = self.mcp_client.discoverable_tool_definitions
+        for name in tool_names:
+            definition = available.get(name)
+            if not definition:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Search tool returned unknown definition '%s'",
+                        name,
+                    )
+                continue
+            definitions[name] = definition
+        return definitions
+
+    @staticmethod
+    def _format_search_tool_summary(added_count: int, result_count: int) -> str:
+        if result_count == 0:
+            return "Search did not return any MCP tools."
+        noun = "tool" if added_count == 1 else "tools"
+        return f"Added {added_count} {noun} based on your search."
 
     def _parse_tool_call_arguments(
         self, arguments: str, tool_call_id: str

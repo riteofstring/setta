@@ -90,7 +90,7 @@ class SearchMCPToolsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["name"], "read_file_range")
+        self.assertEqual(results[0], "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_mcp_tools(query="search project", limit=0, setta_state=self.setta_state)
