@@ -21,6 +21,7 @@ class GetLLMResponseRequest(BaseModel):
     message: BaseChatMessageUnionWithDiscriminator
     llmConfigId: str
     deepThink: bool
+    projectConfigId: str
 
 
 class DeleteLLMChatRequest(BaseModel):
@@ -49,7 +50,12 @@ async def route_get_llm_response(
 ) -> str | None:
     # try:
     print(x, flush=True)
-    chat = state.chat_manager.get_or_create_chat(x.chatId, x.message, x.llmConfigId)
+    chat = state.chat_manager.get_or_create_chat(
+        x.chatId,
+        x.message,
+        x.llmConfigId,
+        x.projectConfigId,
+    )
 
     if chat:
         state.chat_manager.start_processing_query(

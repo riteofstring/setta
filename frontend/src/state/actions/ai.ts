@@ -148,11 +148,13 @@ export async function submitMessage(
   applyOptimisticUserMessage(chatId, userMessage);
 
   try {
+    const projectConfigId = getCurrProjectConfigId();
     const res = await route_get_llm_response({
       message: userMessage,
       deepThink,
       chatId,
       llmConfigId,
+      projectConfigId,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;

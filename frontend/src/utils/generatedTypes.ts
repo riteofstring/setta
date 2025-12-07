@@ -8474,6 +8474,7 @@ export const GetLLMResponseRequestSchema = z.object({
   ]),
   llmConfigId: z.string(),
   deepThink: z.boolean(),
+  projectConfigId: z.string(),
 });
 
 export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;

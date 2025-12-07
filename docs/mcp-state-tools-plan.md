@@ -3,7 +3,7 @@
 This document captures the concrete plan for exposing deterministic MCP tools that can mutate Setta project state and code files. The goal is to lean entirely on the existing project-manager infrastructure, provide the metadata LLMs need, and unlock the write primitives described in `docs/ai-chat-refactor-plan.md`. Breaking the app during the refactor is expected and acceptable.
 
 ## 1. Thread Chat Context Into MCP Dispatch
-- **Persist project context** – Extend `backend/setta/types/chat.py` and `project_state/chats/save.py` so each chat stores the active `projectConfigId` (later: section metadata). This gives future tool invocations the context called out as “missing” in the refactor doc.
+- ✅ **Persist project context** – Extend `backend/setta/types/chat.py` and `project_state/chats/save.py` so each chat stores the active `projectConfigId` (later: section metadata). This gives future tool invocations the context called out as “missing” in the refactor doc. Frontend submitters and `route_get_llm_response` now always include the config id.
 - **Propagate from frontend** – Update the AI routes (`backend/setta/routers/ai.py`) plus the frontend submitters (`frontend/src/state/actions/ai.ts`, `ProjectChatCore.tsx`) to send the config id with every `route_get_llm_response` call.
 - **Inject MCP parameters** – Change `LLMChatManager._dispatch_tool_call` to insert `C.MCP_CHAT_ID_ARG_NAME` and `C.MCP_PROJECT_CONFIG_ID_ARG_NAME` into the argument payload it passes to `MCPClient.call_tool`. Because `SettaFastMCP.setta_uuid_transformer` forwards whitelisted params (see `backend/setta/mcp/server.py`), any tool that declares `setta_chat_id`/`projectConfigId` will automatically receive them.
 
@@ -38,6 +38,3 @@ This document captures the concrete plan for exposing deterministic MCP tools th
 - **Docs** – After landing the scaffolding, update `docs/ai-chat-refactor-plan.md` (and this file) with the actual tool catalog plus usage examples so future contributors follow the same patterns.
 
 This plan keeps the refactor focused: first deliver the missing MCP context, then stand up a registry that reuses existing project-manager logic, add deterministic file-write primitives, and finally expose a broad surface of application-state mutations without duplicating code. Tests and documentation will anchor the new behavior once the refactor stabilizes.
-
-## Progress
-- **Step 1: Persist project context** – Completed. `Chat` and metadata now include `projectConfigId`, loader validation enforces its presence, and `LLMChatManager.create_or_get_chat` threads the id into `create_new_chat` so newly created conversations retain the active project configuration.
