@@ -1,11 +1,13 @@
 import types
 import unittest
 from types import SimpleNamespace
+from typing import cast
 
 from fastapi import HTTPException
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import ForceRefreshProjectRequest
 from setta.routers.project_manager import route_force_refresh_listener
+from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
@@ -26,9 +28,12 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     project_fixture.manager,
                     settings_fixture.manager,
                 )
-                state = SimpleNamespace(
-                    project_manager_switcher=switcher,
-                    wmh_python_script_sender=project_fixture.python_script_sender,
+                state = cast(
+                    SettaFastAPIState,
+                    SimpleNamespace(
+                        project_manager_switcher=switcher,
+                        wmh_python_script_sender=project_fixture.python_script_sender,
+                    ),
                 )
                 default_project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -70,8 +75,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual(1, len(captured_calls))
                 call = captured_calls[0]
-                project_state = call["projectState"]
-                self.assertIsNotNone(project_state)
+                project_state = cast(ProjectStateSingleConfig, call["projectState"])
                 self.assertEqual(
                     default_project_config_id,
                     project_state.projectConfig.id,
@@ -91,9 +95,12 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     project_fixture.manager,
                     settings_fixture.manager,
                 )
-                state = SimpleNamespace(
-                    project_manager_switcher=switcher,
-                    wmh_python_script_sender=project_fixture.python_script_sender,
+                state = cast(
+                    SettaFastAPIState,
+                    SimpleNamespace(
+                        project_manager_switcher=switcher,
+                        wmh_python_script_sender=project_fixture.python_script_sender,
+                    ),
                 )
 
                 request = ForceRefreshProjectRequest(

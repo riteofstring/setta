@@ -1,21 +1,8 @@
 import unittest
 
+from litellm.types.utils import Delta
+
 from backend.setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
-
-
-class _DummyDelta:
-    def __init__(
-        self,
-        *,
-        content=None,
-        reasoning_content=None,
-        thinking_blocks=None,
-        provider_specific_fields=None,
-    ) -> None:
-        self.content = content
-        self.reasoning_content = reasoning_content
-        self.thinking_blocks = thinking_blocks
-        self.provider_specific_fields = provider_specific_fields
 
 
 def _manager() -> LLMChatManager:
@@ -26,7 +13,7 @@ def _manager() -> LLMChatManager:
 class StreamEntryFallbackTests(unittest.TestCase):
     def test_primary_thinking_chunk_suppresses_fallback(self) -> None:
         manager = _manager()
-        delta = _DummyDelta(
+        delta = Delta(
             content=[{"type": "thinking", "thinking": "primary"}],
             reasoning_content="fallback",
         )
@@ -38,7 +25,7 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
     def test_empty_thinking_chunk_allows_reasoning_fallback(self) -> None:
         manager = _manager()
-        delta = _DummyDelta(
+        delta = Delta(
             content=[{"type": "thinking", "thinking": None}],
             reasoning_content="fallback",
         )
@@ -50,13 +37,10 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
     def test_provider_specific_thinking_blocks_are_used(self) -> None:
         manager = _manager()
-        provider_specific = type(
-            "ProviderFields", (), {"thinking_blocks": [{"thinking": "details"}]}
-        )
-        delta = _DummyDelta(
+        delta = Delta(
             content=None,
             reasoning_content=None,
-            provider_specific_fields=provider_specific(),
+            provider_specific_fields={"thinking_blocks": [{"thinking": "details"}]},
         )
 
         entries = manager._collect_stream_entries(delta)

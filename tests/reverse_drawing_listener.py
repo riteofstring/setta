@@ -1,10 +1,9 @@
 import base64
+import importlib
 import json
 import sys
 from io import BytesIO
 from pathlib import Path
-
-from PIL import Image, ImageOps
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT_DIR / "backend"
@@ -24,6 +23,12 @@ from setta.types.artifact import ImageArtifact
 logging.basicConfig(level=logging.DEBUG)
 
 
+def _load_pillow_modules():
+    image_module = importlib.import_module("PIL.Image")
+    image_ops_module = importlib.import_module("PIL.ImageOps")
+    return image_module, image_ops_module
+
+
 def _default_project_name() -> str:
     data = json.loads(Path("setta_files/project.json").read_text())
     project_id = data["defaultProjectConfigId"]
@@ -37,8 +42,9 @@ def _reverse_image_data(value: str) -> str:
         header, payload = value.split(",", 1)
         prefix = f"{header},"
     decoded = base64.b64decode(payload)
-    with Image.open(BytesIO(decoded)) as image:
-        mirrored = ImageOps.mirror(image)
+    image_module, image_ops_module = _load_pillow_modules()
+    with image_module.open(BytesIO(decoded)) as image:
+        mirrored = image_ops_module.mirror(image)
         buffer = BytesIO()
         mirrored.save(buffer, format=image.format or "PNG")
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")

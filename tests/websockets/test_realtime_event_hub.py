@@ -1,4 +1,5 @@
 import unittest
+from typing import cast
 
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -7,6 +8,7 @@ from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class _StubPythonScriptSender:
@@ -40,7 +42,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_emit_realtime_delta_increments_sequence(self) -> None:
         sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(sender)
+        hub = RealtimeEventHub(cast(WMHPythonScriptSender, sender))
 
         delta_a = ListenerRealtimeDelta(
             dependency=create_dep_key(sectionId=self.SECTION_A_ID),
@@ -72,7 +74,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_reset_sequence_starts_from_one(self) -> None:
         sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(sender)
+        hub = RealtimeEventHub(cast(WMHPythonScriptSender, sender))
 
         delta = ListenerRealtimeDelta(
             dependency=create_dep_key(sectionId=self.SECTION_A_ID),
@@ -94,7 +96,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_emit_realtime_delta_requires_dependency_ids(self) -> None:
         sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(sender)
+        hub = RealtimeEventHub(cast(WMHPythonScriptSender, sender))
 
         with self.assertRaises(ValueError):
             await hub.emit_realtime_delta(
@@ -118,7 +120,9 @@ class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
     async def test_force_refresh_resets_sequence_tracking(self) -> None:
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        sender = WMHPythonScriptSender(
+            cast(WebsocketManager, websocket_manager), listener_registry
+        )
         hub = RealtimeEventHub(sender)
 
         delta = ListenerRealtimeDelta(

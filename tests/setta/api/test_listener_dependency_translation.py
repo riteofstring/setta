@@ -1,7 +1,9 @@
 import unittest
+from typing import cast
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
@@ -121,7 +123,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         listener._runtime_state = ListenerRuntimeState(
             project_state=self.project_state,
             dependency_graph=self.dependency_graph,
-            code_generator=object(),
+            code_generator=cast(PythonCodeGenerator, object()),
             s_instance=object(),
         )
         return listener

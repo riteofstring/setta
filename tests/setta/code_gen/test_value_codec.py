@@ -1,8 +1,9 @@
 from collections.abc import Callable
 from types import SimpleNamespace
+from typing import cast
 from unittest import TestCase
 
-from setta.code_gen.dependency_graph import ParamNode, SectionNode
+from setta.code_gen.dependency_graph import DependencyGraph, ParamNode, SectionNode
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
@@ -21,11 +22,13 @@ class PythonValueCodecTest(TestCase):
     def _build_codec(
         self,
         mode: PythonValueMode,
-        alias: str | None = "_helpers",
+        alias: str = "_helpers",
         graph: dict | None = None,
         lookup: Callable[[BaseDependencyKeyUnion], str] | None = None,
     ) -> PythonValueCodec:
-        dep_graph = SimpleNamespace(graph={} if graph is None else graph)
+        dep_graph = cast(
+            DependencyGraph, SimpleNamespace(graph={} if graph is None else graph)
+        )
         var_lookup = lookup or (lambda _: "")
         return PythonValueCodec(
             dep_graph,

@@ -1,4 +1,5 @@
 import unittest
+from typing import cast
 
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -11,6 +12,7 @@ from setta.types.listener import (
 from setta.types.websocket import WebsocketMsgListenerRealtimeEvent
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class _StubWebsocketManager:
@@ -25,7 +27,9 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_send_realtime_update_filters_and_respects_modes(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        sender = WMHPythonScriptSender(
+            cast(WebsocketManager, websocket_manager), listener_registry
+        )
 
         listener_registry.upsert_registration(
             websocket_id="socket-1",
@@ -126,14 +130,16 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(2, len(websocket_manager.sent_messages))
-        for idx, (message, websocket_id) in enumerate(
+        for idx, (message_obj, websocket_id) in enumerate(
             websocket_manager.sent_messages, 1
         ):
-            self.assertIsInstance(message, WebsocketMsgListenerRealtimeEvent)
+            message = cast(WebsocketMsgListenerRealtimeEvent, message_obj)
             self.assertEqual("socket-1", websocket_id)
             self.assertEqual(idx, message.content.sequence)
 
-        first_message = websocket_manager.sent_messages[0][0]
+        first_message = cast(
+            WebsocketMsgListenerRealtimeEvent, websocket_manager.sent_messages[0][0]
+        )
         self.assertEqual(
             [
                 (ID("section-A"), ID("param-1"), "value-a"),
@@ -148,7 +154,9 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-        second_message = websocket_manager.sent_messages[1][0]
+        second_message = cast(
+            WebsocketMsgListenerRealtimeEvent, websocket_manager.sent_messages[1][0]
+        )
         self.assertEqual(
             [
                 (ID("section-Z"), ID("param-9"), "value-unmatched"),
@@ -166,7 +174,9 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_send_realtime_update_skips_when_no_callbacks_match(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        sender = WMHPythonScriptSender(
+            cast(WebsocketManager, websocket_manager), listener_registry
+        )
 
         listener_registry.upsert_registration(
             websocket_id="socket-1",

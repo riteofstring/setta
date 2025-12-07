@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, TypeVar, cast
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
@@ -29,6 +29,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsg,
 )
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
@@ -37,6 +38,8 @@ from setta.websockets.msg_handlers.python_script_receiver import (
     WMHPythonScriptReceiver,
 )
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+from setta.websockets.websocket_manager import WebsocketManager
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 
 if TYPE_CHECKING:
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
@@ -91,6 +94,39 @@ def _get_primary_section_dependency_info(project_state: ProjectStateSingleConfig
     graph = DependencyGraph(project_state)
     dependency_name = graph.graph[dep_key].full_path_name
     return dependency_name, dep_key
+
+
+def _build_receiver_fixture(
+    states: dict[ID, ProjectStateSingleConfig]
+) -> tuple[
+    WMHPythonScriptReceiver,
+    _StubWebsocketManager,
+    _StubPythonScriptSender,
+    _StubProjectManagerSwitcher,
+    ListenerRegistry,
+]:
+    websocket_manager = _StubWebsocketManager()
+    listener_registry = ListenerRegistry()
+    frontend_sender = WMHFrontendSender(cast(WebsocketManager, websocket_manager))
+    python_script_sender = _StubPythonScriptSender()
+    project_manager_switcher = _StubProjectManagerSwitcher(states)
+    receiver = WMHPythonScriptReceiver(
+        cast(WebsocketManager, websocket_manager),
+        listener_registry,
+        frontend_sender,
+        cast(WMHPythonScriptSender, python_script_sender),
+        cast(ProjectManagerSwitcher, project_manager_switcher),
+    )
+    return (
+        receiver,
+        websocket_manager,
+        python_script_sender,
+        project_manager_switcher,
+        listener_registry,
+    )
+
+
+MsgT = TypeVar("MsgT", bound=WebsocketMsg)
 
 
 class _StubPythonScriptSender:
@@ -201,22 +237,25 @@ class _StubWebsocketManager:
 
 
 class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
+    def _sent_message_as(
+        self,
+        manager: _StubWebsocketManager,
+        index: int,
+        msg_type: type[MsgT],
+    ) -> tuple[MsgT, str]:
+        message, websocket_id = manager.sent_messages[index]
+        self.assertIsInstance(message, msg_type)
+        return cast(MsgT, message), websocket_id
+
     async def test_listener_register_stores_registration_and_sends_ack(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
+            _,
+            _,
             listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[
                 create_dep_key(
@@ -243,9 +282,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("cb-1", registration.callbacks)
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        ack_message, websocket_id = websocket_manager.sent_messages[0]
+        ack_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerRegisterAck
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(ack_message, WebsocketMsgListenerRegisterAck)
         self.assertEqual(PROJECT_ID, ack_message.content.projectConfigId)
         self.assertEqual(1, len(ack_message.content.callbacks))
         self.assertIn("cb-1", ack_message.content.callbacks)
@@ -255,21 +295,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(listener_registry.get_registration("socket-1"))
 
     async def test_listener_init_sends_bootstrap_snapshot(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
         project_state = _build_project_state(PROJECT_INIT_ID)
-        python_script_sender = _StubPythonScriptSender()
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_INIT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
             python_script_sender,
-            project_manager_switcher,
-        )
+            _,
+            listener_registry,
+        ) = _build_receiver_fixture({PROJECT_INIT_ID: project_state})
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectName=project_state.projectConfig.name,
@@ -292,18 +325,13 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(("socket-init",), call["targetWebsocketIds"])
 
     async def test_listener_init_sends_error_when_project_missing(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
-        project_manager_switcher = _StubProjectManagerSwitcher({})
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
             python_script_sender,
-            project_manager_switcher,
-        )
+            _,
+            listener_registry,
+        ) = _build_receiver_fixture({})
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectConfigId="missing-project",
@@ -317,9 +345,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([], python_script_sender.force_refresh_calls)
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-missing", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("project_state_unavailable", error_message.content.error)
         self.assertEqual(
             {"projectConfigId": "missing-project"},
@@ -327,18 +356,13 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_listener_init_sends_error_when_project_name_missing(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
-        project_manager_switcher = _StubProjectManagerSwitcher({})
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
             python_script_sender,
-            project_manager_switcher,
-        )
+            _,
+            _,
+        ) = _build_receiver_fixture({})
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
                 projectName="Nonexistent Project",
@@ -352,9 +376,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([], python_script_sender.force_refresh_calls)
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-missing-name", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("project_state_unavailable", error_message.content.error)
         self.assertEqual(
             {"projectName": "Nonexistent Project"},
@@ -362,21 +387,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_listener_frontend_emit_forwards_to_frontend_without_ack(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
+            _,
+            _,
             listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -429,21 +447,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_listener_frontend_emit_rejects_unregistered_socket(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+            _,
+            _,
+            _,
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         dependency_name, _ = _get_primary_section_dependency_info(project_state)
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
@@ -458,9 +469,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-unknown", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("listener_not_registered", error_message.content.error)
         self.assertEqual(
             {"websocketId": "socket-unknown"},
@@ -469,22 +481,15 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_handles_missing_dependency_graph(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        del project_manager_switcher._manager.gen_code[PROJECT_ID]
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
-            python_script_sender,
+            _,
             project_manager_switcher,
-        )
+            listener_registry,
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
+        del project_manager_switcher._manager.gen_code[PROJECT_ID]
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -516,29 +521,23 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("project_state_unavailable", error_message.content.error)
         self.assertEqual({"projectConfigId": PROJECT_ID}, error_message.content.details)
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_project_config_mismatch(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
+            _,
+            _,
             listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -570,9 +569,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("project_config_mismatch", error_message.content.error)
         self.assertEqual(
             {
@@ -584,21 +584,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_unknown_dependency(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
+            _,
+            _,
             listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -629,9 +622,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual(
             "listener_emit_unknown_dependency", error_message.content.error
         )
@@ -642,21 +636,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_invalid_value(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
+            _,
+            _,
             listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -688,9 +675,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("listener_emit_invalid_value", error_message.content.error)
         self.assertEqual(
             {
@@ -702,21 +690,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_empty_payload(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
+            _,
+            _,
             listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -747,9 +728,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual("listener_emit_invalid_payload", error_message.content.error)
         self.assertEqual(
             {"message": "listener emits require dependencyValues or artifactUpdates"},
@@ -760,21 +742,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
     async def test_listener_frontend_emit_forwards_artifact_updates_to_manager(
         self,
     ):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
-            python_script_sender,
+            _,
             project_manager_switcher,
-        )
+            listener_registry,
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -825,23 +800,16 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
     async def test_listener_frontend_emit_reports_artifact_errors_from_manager(
         self,
     ):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
+        (
+            receiver,
+            websocket_manager,
+            _,
+            project_manager_switcher,
+            listener_registry,
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         project_manager_switcher._manager.artifact_error = ListenerArtifactUpdateError(
             "artifacts not ready"
-        )
-        receiver = WMHPythonScriptReceiver(
-            websocket_manager,
-            listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
         )
         callback = ListenerRegisterCallback(
             dependencies=[],
@@ -877,9 +845,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual(
             "listener_emit_artifact_update_failed",
             error_message.content.error,
@@ -891,21 +860,14 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_blank_artifact_paths(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
-        receiver = WMHPythonScriptReceiver(
+        (
+            receiver,
             websocket_manager,
-            listener_registry,
-            frontend_sender,
-            python_script_sender,
+            _,
             project_manager_switcher,
-        )
+            listener_registry,
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -938,9 +900,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual(
             "listener_emit_invalid_artifact_update",
             error_message.content.error,
@@ -955,24 +918,17 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_listener_frontend_emit_rejects_type_mismatches(self):
-        websocket_manager = _StubWebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        listener_registry = ListenerRegistry()
-        python_script_sender = _StubPythonScriptSender()
         project_state = _build_project_state(PROJECT_ID)
-        project_manager_switcher = _StubProjectManagerSwitcher(
-            {PROJECT_ID: project_state}
-        )
+        (
+            receiver,
+            websocket_manager,
+            _,
+            project_manager_switcher,
+            listener_registry,
+        ) = _build_receiver_fixture({PROJECT_ID: project_state})
         manager = project_manager_switcher._manager
         normalized_path = str(normalize_path("/tmp/image.png"))
         manager.artifacts.cached_types[normalized_path] = ArtifactType.ChartData
-        receiver = WMHPythonScriptReceiver(
-            websocket_manager,
-            listener_registry,
-            frontend_sender,
-            python_script_sender,
-            project_manager_switcher,
-        )
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -1007,9 +963,10 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        error_message, websocket_id = websocket_manager.sent_messages[0]
+        error_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerError
+        )
         self.assertEqual("socket-1", websocket_id)
-        self.assertIsInstance(error_message, WebsocketMsgListenerError)
         self.assertEqual(
             "listener_emit_unsupported_artifact_update",
             error_message.content.error,
@@ -1028,7 +985,9 @@ class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
     async def test_send_force_refresh_targets_bootstrapped_sockets(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        sender = WMHPythonScriptSender(
+            cast(WebsocketManager, websocket_manager), listener_registry
+        )
         listener_registry.record_bootstrap(
             websocket_id="socket-a",
             project_config_id=PROJECT_A_ID,
@@ -1042,16 +1001,18 @@ class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
         await sender.send_force_refresh(projectState=project_state_a)
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
-        message, websocket_id = websocket_manager.sent_messages[0]
+        message_obj, websocket_id = websocket_manager.sent_messages[0]
+        message = cast(WebsocketMsgListenerForceRefresh, message_obj)
         self.assertEqual("socket-a", websocket_id)
-        self.assertIsInstance(message, WebsocketMsgListenerForceRefresh)
         self.assertIs(project_state_a, message.content.projectState)
         self.assertEqual([], websocket_manager.broadcasts)
 
     async def test_send_force_refresh_skips_when_no_bootstrap(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        sender = WMHPythonScriptSender(
+            cast(WebsocketManager, websocket_manager), listener_registry
+        )
         project_state = _build_project_state(PROJECT_EMPTY_ID)
 
         await sender.send_force_refresh(projectState=project_state)

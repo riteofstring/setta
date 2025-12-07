@@ -3,12 +3,15 @@ from dataclasses import dataclass
 from typing import Any
 
 import bm25s
+from mcp.server.fastmcp.tools import Tool
+from mcp.server.fastmcp.utilities.func_metadata import func_metadata
+
 from setta.mcp.server import ToolSearchIndex, _build_tool_document_text
 from setta.mcp.tools.tool_search import search_mcp_tools
 
 
 @dataclass
-class StubTool:
+class ToolSpec:
     name: str
     description: str
     parameters: dict[str, Any]
@@ -24,7 +27,25 @@ class StubSettaState:
         self.mcp_server = StubMCPServer(index)
 
 
-def build_search_index(tools: list[StubTool]) -> ToolSearchIndex:
+def _build_tool(spec: ToolSpec) -> Tool:
+    def _noop(**_: Any) -> None:
+        return None
+
+    metadata = func_metadata(_noop)
+    return Tool(
+        fn=_noop,
+        name=spec.name,
+        description=spec.description,
+        parameters=spec.parameters,
+        fn_metadata=metadata,
+        is_async=False,
+        context_kwarg=None,
+        annotations=None,
+    )
+
+
+def build_search_index(tool_specs: list[ToolSpec]) -> ToolSearchIndex:
+    tools = [_build_tool(spec) for spec in tool_specs]
     retriever = bm25s.BM25()
     documents = [_build_tool_document_text(tool) for tool in tools]
     corpus_tokens = bm25s.tokenize(documents, stopwords="en")
@@ -34,8 +55,8 @@ def build_search_index(tools: list[StubTool]) -> ToolSearchIndex:
 
 class SearchMCPToolsTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.tools = [
-            StubTool(
+        self.tool_specs = [
+            ToolSpec(
                 name="read_file_range",
                 description="Read part of a workspace file between start and end lines.",
                 parameters={
@@ -55,7 +76,7 @@ class SearchMCPToolsTest(unittest.TestCase):
                     }
                 },
             ),
-            StubTool(
+            ToolSpec(
                 name="list_notifications",
                 description="Return unread build notifications and execution warnings.",
                 parameters={
@@ -67,7 +88,7 @@ class SearchMCPToolsTest(unittest.TestCase):
                     }
                 },
             ),
-            StubTool(
+            ToolSpec(
                 name="search_project_sources",
                 description="Search project files for terms before editing them.",
                 parameters={
@@ -80,7 +101,7 @@ class SearchMCPToolsTest(unittest.TestCase):
                 },
             ),
         ]
-        index = build_search_index(self.tools)
+        index = build_search_index(self.tool_specs)
         self.setta_state = StubSettaState(index)
 
     def test_returns_ranked_results_for_query(self) -> None:
@@ -96,7 +117,7 @@ class SearchMCPToolsTest(unittest.TestCase):
             query="search project", limit=0, setta_state=self.setta_state
         )
 
-        self.assertEqual(len(results), len(self.tools))
+        self.assertEqual(len(results), len(self.tool_specs))
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
