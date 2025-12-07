@@ -4322,7 +4322,7 @@ export function createWebsocketMsgAllConnections(
 }
 
 export const SettaNotificationSchema = z.object({
-  id: z.string().default(create_new_id),
+  id: IDSchema.default(create_new_id),
   projectConfigId: IDSchema.default(
     () => "NOTIFICATION_IS_FOR_ALL_PROJECTS" as const,
   ),
@@ -4589,10 +4589,8 @@ export function createSingletonSections(
 }
 
 export const ShownParamIdDetailsSchema = z.object({
-  requiredParamIdsToPaths: z
-    .record(z.string(), z.array(z.string()))
-    .default({}),
-  topLevelParamIds: z.array(z.string()).default([]),
+  requiredParamIdsToPaths: z.record(IDSchema, z.array(z.string())).default({}),
+  topLevelParamIds: z.array(IDSchema).default([]),
 });
 
 export type ShownParamIdDetails = z.infer<typeof ShownParamIdDetailsSchema>;
@@ -8622,7 +8620,7 @@ export const ChangeParamImplRequestSchema = z.object({
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   paramInfoId: IDSchema,
-  selectedId: z.string(),
+  selectedId: IDSchema,
 });
 
 export type ChangeParamImplRequest = z.infer<
@@ -8673,7 +8671,7 @@ export function createCodeAreaCompletionRequest(
 export const CreateChildSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  parentId: z.string(),
+  parentId: IDSchema,
   implType: z.enum(SectionTypeEnum),
   numChildren: z.int(),
   startIdx: z.union([z.int(), z.null()]),
@@ -8692,7 +8690,7 @@ export function createCreateChildSectionsRequest(
 export const CreateChildSectionsViaIncrementerRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  calledBy: z.string(),
+  calledBy: IDSchema,
   numChildren: z.int(),
   implType: z.enum(SectionTypeEnum),
 });
@@ -8777,7 +8775,7 @@ export function createDeclineRenameRefactorRequest(
 export const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  calledBy: z.string(),
+  calledBy: IDSchema,
   numChildren: z.int(),
 });
 
@@ -8795,7 +8793,7 @@ export const DeleteJSONSourceFileAndVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
   filepath: z.string(),
 });
 
@@ -8827,7 +8825,7 @@ export const DeleteSectionVariantOrAskRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
 });
 
 export type DeleteSectionVariantOrAskRequest = z.infer<
@@ -8843,7 +8841,7 @@ export function createDeleteSectionVariantOrAskRequest(
 export const DeleteSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  sectionIds: z.array(z.string()),
+  sectionIds: z.array(IDSchema),
 });
 
 export type DeleteSectionsRequest = z.infer<typeof DeleteSectionsRequestSchema>;
@@ -9173,7 +9171,7 @@ export const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
 });
 
 export type SetDefaultSectionVariantRequest = z.infer<
@@ -9305,7 +9303,7 @@ export function createSetSectionParamFilterRequest(
 export const SetSectionSizesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  sectionSizes: z.record(z.string(), SectionSizeSchema),
+  sectionSizes: z.record(IDSchema, SectionSizeSchema),
 });
 
 export type SetSectionSizesRequest = z.infer<
@@ -9321,7 +9319,7 @@ export function createSetSectionSizesRequest(
 export const SetSectionVariantNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
   name: z.string(),
 });
 
@@ -9339,7 +9337,7 @@ export const SetSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
 });
 
 export type SetSectionVariantRequest = z.infer<
@@ -9536,7 +9534,7 @@ export function createTogglePositionLockRequest(
 export const ToggleVariantFrozenRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
 });
 
 export type ToggleVariantFrozenRequest = z.infer<
@@ -9553,7 +9551,7 @@ export const ToggleVariantJSONSourceRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   sectionId: IDSchema,
-  variantId: z.string(),
+  variantId: IDSchema,
 });
 
 export type ToggleVariantJSONSourceRequest = z.infer<
@@ -9656,7 +9654,7 @@ export function createCreateProjectConfigRequest(
 }
 
 export const DeleteNotificationRequestSchema = z.object({
-  notificationId: z.string(),
+  notificationId: IDSchema,
 });
 
 export type DeleteNotificationRequest = z.infer<
@@ -9670,7 +9668,7 @@ export function createDeleteNotificationRequest(
 }
 
 export const DeleteProjectConfigsRequestSchema = z.object({
-  ids: z.array(z.string()),
+  ids: z.array(IDSchema),
 });
 
 export type DeleteProjectConfigsRequest = z.infer<
@@ -9753,7 +9751,7 @@ export function createSaveAsNewProjectConfigRequest(
 }
 
 export const SetAsDefaultProjectRequestSchema = z.object({
-  projectId: z.string(),
+  projectId: IDSchema,
 });
 
 export type SetAsDefaultProjectRequest = z.infer<
@@ -9834,7 +9832,7 @@ export function createSaveSettingsRequest(
 }
 
 export const DeleteTerminalsRequestSchema = z.object({
-  sectionIds: z.array(z.string()),
+  sectionIds: z.array(IDSchema),
 });
 
 export type DeleteTerminalsRequest = z.infer<

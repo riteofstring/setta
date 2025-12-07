@@ -17,7 +17,6 @@ from typing import (
 )
 from uuid import uuid4
 
-from setta.types.id import ID
 import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
@@ -37,6 +36,7 @@ from setta.types.generated.unions import (
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerForceRefreshContent,
