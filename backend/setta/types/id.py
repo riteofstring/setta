@@ -12,5 +12,5 @@ class ID(str):
         return core_schema.no_info_after_validator_function(cls, handler(str))
 
 
-IDToUUIDForLLM = dict[ID, str]
-UUIDToIDForLLM = dict[str, ID]
+TemporaryToCanonicalIDMap = dict[ID, ID]
+CanonicalToTemporaryIDMap = dict[ID, ID]

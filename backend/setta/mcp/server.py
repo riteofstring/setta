@@ -27,8 +27,8 @@ from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
     IDDoesNotExist,
-    replace_ids_with_uuids,
-    replace_uuids_with_ids,
+    convert_canonical_ids_to_temporary,
+    convert_temporary_ids_to_canonical,
 )
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
@@ -61,7 +61,10 @@ class SettaFastMCP(FastMCP):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
         self.state = state
-        self.id_to_uuid, self.uuid_to_id = dbe.read_uuid_mapping()
+        (
+            self.temporary_to_canonical,
+            self.canonical_to_temporary,
+        ) = dbe.read_temporary_id_map()
         self.fn_param_docstrings = {}
         self.tool_search_index: ToolSearchIndex | None = None
         msg_path = f"{mount_path}/messages/"
@@ -99,14 +102,14 @@ class SettaFastMCP(FastMCP):
             SettaToolAnnotations(settaToolType=tool_type).model_dump()
         )
         self.add_tool(
-            self.setta_uuid_transformer(fn),
+            self.setta_id_transformer(fn),
             annotations=annotations,
         )
 
     def list_registered_tools(self):
         return list(self._tool_manager._tools.values())
 
-    def setta_uuid_transformer(self, func):
+    def setta_id_transformer(self, func):
         setta_params: set[str] = set()
         for param_name in inspect.signature(func).parameters.keys():
             if param_name in C.SETTA_MCP_PARAM_NAMES:
@@ -124,7 +127,9 @@ class SettaFastMCP(FastMCP):
             if C.MCP_SETTA_STATE_ARG_NAME in setta_params:
                 kwargs[C.MCP_SETTA_STATE_ARG_NAME] = self.state
             try:
-                kwargs = replace_ids_with_uuids(kwargs, self.id_to_uuid)
+                kwargs = convert_temporary_ids_to_canonical(
+                    kwargs, self.temporary_to_canonical
+                )
             except IDDoesNotExist as e:
                 raise ToolError(str(e)) from e
             result = func(**kwargs)
@@ -133,10 +138,12 @@ class SettaFastMCP(FastMCP):
             return_type = func.__annotations__.get("return")
             if return_type:
                 result = TypeAdapter(return_type).validate_python(result)
-                result = replace_uuids_with_ids(
-                    result, self.uuid_to_id, self.id_to_uuid
+                result = convert_canonical_ids_to_temporary(
+                    result,
+                    self.canonical_to_temporary,
+                    self.temporary_to_canonical,
                 )
-            self.state.dbe.write_uuid_mapping(self.uuid_to_id)
+            self.state.dbe.write_temporary_id_map(self.canonical_to_temporary)
             return result
 
         return wrapper

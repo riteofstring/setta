@@ -6097,13 +6097,17 @@ export function createWebsocketMsgUnionWithDiscriminator(
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
+export const CanonicalToTemporaryIDMapSchema = z.record(IDSchema, IDSchema);
 
-export type IDToUUIDForLLM = z.infer<typeof IDToUUIDForLLMSchema>;
+export type CanonicalToTemporaryIDMap = z.infer<
+  typeof CanonicalToTemporaryIDMapSchema
+>;
 
-export const UUIDToIDForLLMSchema = z.record(z.string(), IDSchema);
+export const TemporaryToCanonicalIDMapSchema = z.record(IDSchema, IDSchema);
 
-export type UUIDToIDForLLM = z.infer<typeof UUIDToIDForLLMSchema>;
+export type TemporaryToCanonicalIDMap = z.infer<
+  typeof TemporaryToCanonicalIDMapSchema
+>;
 
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),

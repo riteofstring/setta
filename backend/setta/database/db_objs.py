@@ -7,7 +7,11 @@ from typing import Any
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
-from setta.types.id import ID, IDToUUIDForLLM, UUIDToIDForLLM
+from setta.types.id import (
+    ID,
+    CanonicalToTemporaryIDMap,
+    TemporaryToCanonicalIDMap,
+)
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.utils.utils import compute_md5_prefix, normalize_path
@@ -17,7 +21,7 @@ class DBE:
     def __init__(self, path: Path):
         self.path = normalize_path(path)
         self.project = self.path / "project.json"
-        self.uuid_mapping = self.path / "uuid_mapping.json"
+        self.temporary_id_map = self.path / "temporary_id_map.json"
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
@@ -112,13 +116,19 @@ class DBE:
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump())
 
-    def read_uuid_mapping(self):
-        uuid_to_id: UUIDToIDForLLM = self.read_json(self.uuid_mapping)
-        id_to_uuid: IDToUUIDForLLM = {v: k for k, v in uuid_to_id.items()}
-        return id_to_uuid, uuid_to_id
+    def read_temporary_id_map(self):
+        raw_map = self.read_json(self.temporary_id_map)
+        canonical_to_temporary: CanonicalToTemporaryIDMap = {
+            ID(k): ID(v) for k, v in raw_map.items()
+        }
+        temporary_to_canonical: TemporaryToCanonicalIDMap = {
+            ID(v): ID(k) for k, v in raw_map.items()
+        }
+        return temporary_to_canonical, canonical_to_temporary
 
-    def write_uuid_mapping(self, uuid_to_id: UUIDToIDForLLM):
-        self.write_json(self.uuid_mapping, uuid_to_id)
+    def write_temporary_id_map(self, canonical_to_temporary: CanonicalToTemporaryIDMap):
+        serializable_map = {str(k): str(v) for k, v in canonical_to_temporary.items()}
+        self.write_json(self.temporary_id_map, serializable_map)
 
     def read_notifications(self, projectConfigId: ID | None = None):
         data = self.read_jsonl(self.notifications)
