@@ -47,6 +47,7 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
+from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -251,7 +252,7 @@ class LLMChatManager:
                 )
                 stop_event_sent = True
                 self._finalize_tool_calls(assistant_message, tool_call_state)
-                tool_results = await self._run_tool_calls(chat.id, assistant_message)
+                tool_results = await self._run_tool_calls(chat, assistant_message)
                 new_messages: list[BaseChatMessageUnion] = [assistant_message]
                 if tool_results:
                     new_messages.extend(tool_results)
@@ -807,7 +808,7 @@ class LLMChatManager:
 
     async def _run_tool_calls(
         self,
-        chat_id: str,
+        chat: Chat,
         assistant_message: AssistantChatMessage,
     ) -> list[ToolChatMessage]:
         if not assistant_message.tool_calls:
@@ -815,7 +816,7 @@ class LLMChatManager:
 
         results: list[ToolChatMessage] = []
         for tool_call in assistant_message.tool_calls:
-            result = await self._dispatch_tool_call(chat_id, tool_call)
+            result = await self._dispatch_tool_call(chat, tool_call)
             results.append(result)
         return results
 
@@ -835,15 +836,18 @@ class LLMChatManager:
 
     async def _dispatch_tool_call(
         self,
-        chat_id: str,
+        chat: Chat,
         tool_call: ToolCall,
     ) -> ToolChatMessage:
+        chat_id = chat.id
         tool_name = tool_call.function.name.strip()
         if not tool_name:
             raise ValueError(
                 f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
             )
-        arguments = tool_call.function.arguments or {}
+        arguments = dict(tool_call.function.arguments or {})
+        arguments[C.MCP_CHAT_ID_ARG_NAME] = chat.id
+        arguments[C.MCP_PROJECT_CONFIG_ID_ARG_NAME] = chat.projectConfigId
         started_at = get_now_timestamp()
         try:
             call_result = await self.mcp_client.call_tool(tool_name, arguments)
