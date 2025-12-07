@@ -8,7 +8,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
-from setta.types.id import IDToUUIDForLLM
+from setta.types.id import ID, IDToUUIDForLLM
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
@@ -21,7 +21,7 @@ class GetLLMResponseRequest(BaseModel):
     message: BaseChatMessageUnionWithDiscriminator
     llmConfigId: str
     deepThink: bool
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class DeleteLLMChatRequest(BaseModel):
@@ -30,7 +30,7 @@ class DeleteLLMChatRequest(BaseModel):
 
 class GetLLMChatRequest(BaseModel):
     chatId: str
-    projectConfigId: str | None
+    projectConfigId: ID | None
 
 
 class GetLLMChatRequestResponse(BaseModel):

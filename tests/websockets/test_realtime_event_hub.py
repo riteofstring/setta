@@ -2,6 +2,7 @@ import unittest
 
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
+from setta.types.id import ID
 from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -19,7 +20,7 @@ class _StubPythonScriptSender:
     async def send_realtime_update(
         self,
         *,
-        projectConfigId: str,
+        projectConfigId: ID,
         deltas: list[ListenerRealtimeDelta],
         sequence: int,
     ) -> None:

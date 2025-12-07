@@ -271,7 +271,7 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
-    def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
+    def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: ID):
         callable = get_curr_section_callable_code_obj(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(

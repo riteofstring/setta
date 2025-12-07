@@ -49,8 +49,8 @@ SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPytho
 
 
 class SingletonSections(BaseModel, extra="forbid"):
-    GlobalVariables: str | None = None
-    GenPythonCode: str | None = None
+    GlobalVariables: ID | None = None
+    GenPythonCode: ID | None = None
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):

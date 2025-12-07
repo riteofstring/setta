@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from setta.routers.dependencies import AppStateFromRequest, AppStateFromWebsocket
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.terminals.run_code import run_code
+from setta.types.id import ID
 from setta.types.notifications import SettaNotification
 from setta.types.routes import Route
 
@@ -21,20 +22,20 @@ class DeleteTerminalsRequest(BaseModel):
 
 
 class KillSubprocessesRequest(BaseModel):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class RunCodeRequest(BaseModel):
-    projectConfigId: str
-    sectionId: str | None
+    projectConfigId: ID
+    sectionId: ID | None
     cliId: str | None = None
 
 
 @router.websocket(Route.TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
-    projectConfigId: str,
-    sectionId: str,
+    projectConfigId: ID,
+    sectionId: ID,
     id: str,
     state: AppStateFromWebsocket,
 ):

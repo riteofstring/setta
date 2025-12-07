@@ -47,6 +47,7 @@ from setta.types.helpers_lvl2 import (
     callable_has_been_selected_before,
     callable_is_already_selected,
 )
+from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -96,8 +97,8 @@ class ProjectGenPythonCode(PythonCode):
 
     def _build_param_completion_context(
         self,
-        sectionId: str,
-        paramInfoId: str | None,
+        sectionId: ID,
+        paramInfoId: ID | None,
         fullText: str,
         position: int,
     ) -> tuple[str, int, int] | None:
@@ -126,7 +127,7 @@ class ProjectGenPythonCode(PythonCode):
             )
 
     async def _insert_code_and_update_state(
-        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
+        self, sectionId: ID, paramInfoId: ID | None, fullText: str, position: int
     ) -> tuple[int, int] | None:
         dep_key = create_dep_key(sectionId, paramInfoId)
         start = self.code_generator.change_value(dep_key, fullText)
@@ -138,7 +139,7 @@ class ProjectGenPythonCode(PythonCode):
         return line, col
 
     async def text_field_completion(
-        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
+        self, sectionId: ID, paramInfoId: ID | None, fullText: str, position: int
     ):
         context = self._build_param_completion_context(
             sectionId, paramInfoId, fullText, position
@@ -149,16 +150,14 @@ class ProjectGenPythonCode(PythonCode):
         response = await self._request_completion_response(code, line, col)
         return process_completion_response(response, fullText)
 
-    async def clear_text_field_completion(
-        self, sectionId: str, paramInfoId: str | None
-    ):
+    async def clear_text_field_completion(self, sectionId: ID, paramInfoId: ID | None):
         return None
 
     async def set_callable(
         self,
         settings: SettingsState,
         project_state: ProjectStateSingleConfig,
-        sectionId: str,
+        sectionId: ID,
         callableName: str,
         refetchParams: bool,
     ):

@@ -2,15 +2,17 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
+from setta.types.id import ID
+
 
 class SettaGenCodeDiagnostic(BaseModel):
-    sectionId: str
-    paramInfoId: str | None
+    sectionId: ID
+    paramInfoId: ID | None
     message: str
 
 
 class SettaProjectConfigDiagnostics(BaseModel):
-    projectConfigId: str
+    projectConfigId: ID
     diagnostics: list[SettaGenCodeDiagnostic]
     isGenCode: bool
 

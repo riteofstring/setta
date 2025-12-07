@@ -10,6 +10,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseCodeObjImplArgsWithCallable,
     BaseSectionImplArgsWithCallable,
 )
+from setta.types.id import ID
 from setta.types.section_impls import BaseSectionImpl, BaseSectionWithParamsImpl
 
 if TYPE_CHECKING:
@@ -57,7 +58,7 @@ def get_curr_effective_section_impl_with_type_guard(
 
 
 def get_variant_effective_section_impl(
-    p: "ProjectStateCore", sectionId: str, variantId: str
+    p: "ProjectStateCore", sectionId: ID, variantId: str
 ):
     variant = p.sectionVariants[variantId]
     impl = p.sectionImpls[variant.impl]
@@ -89,7 +90,7 @@ def get_variant_base_and_effective_section_impl_with_type_guard(
 
 
 def get_curr_code_obj_variant(
-    p: "ProjectStateSingleConfig", sectionId: str, codeObjId: str
+    p: "ProjectStateSingleConfig", sectionId: ID, codeObjId: str
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
@@ -100,7 +101,7 @@ def get_curr_code_obj_variant(
 
 def get_curr_effective_code_obj_impl(
     p: "ProjectStateSingleConfig",
-    sectionId: str,
+    sectionId: ID,
     codeObjId: str,
 ):
     variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
@@ -111,7 +112,7 @@ def get_curr_effective_code_obj_impl(
 
 def get_curr_effective_code_obj_impl_with_type_guard(
     project_state: "ProjectStateSingleConfig",
-    sectionId: str,
+    sectionId: ID,
     codeObjId: str,
     impl_type: type[GenericBaseCodeObjImplType],
 ) -> GenericBaseCodeObjImplType:
@@ -152,7 +153,7 @@ def get_variant_base_and_effective_code_obj_impl_with_type_guard(
 
 
 def set_curr_effective_section_impl_value(
-    p: "ProjectStateSingleConfig", sectionId: str, args: BaseSectionImplArgsWithCallable
+    p: "ProjectStateSingleConfig", sectionId: ID, args: BaseSectionImplArgsWithCallable
 ):
     variant = get_curr_section_variant(p, sectionId)
     impl = p.sectionImpls[variant.impl]
@@ -162,8 +163,8 @@ def set_curr_effective_section_impl_value(
 
 def set_curr_effective_code_obj_impl_value(
     p: "ProjectStateSingleConfig",
-    sectionId: str,
-    codeObjId: str,
+    sectionId: ID,
+    codeObjId: ID,
     args: BaseCodeObjImplArgsWithCallable,
 ):
     variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
@@ -172,6 +173,6 @@ def set_curr_effective_code_obj_impl_value(
     set_effective_impl_value(impl, core, variant, args)
 
 
-def get_curr_section_base_impl(p: "ProjectStateSingleConfig", sectionId: str):
+def get_curr_section_base_impl(p: "ProjectStateSingleConfig", sectionId: ID):
     variant = get_curr_section_variant(p, sectionId)
     return p.sectionImpls[variant.impl]

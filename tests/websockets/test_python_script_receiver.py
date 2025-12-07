@@ -10,6 +10,7 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.helpers_lvl2 import ProjectNotFound
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerFrontendEmitKeyAndValue,
@@ -89,7 +90,7 @@ class _StubPythonScriptSender:
         self,
         *,
         projectState: ProjectStateSingleConfig | None = None,
-        projectConfigId: str | None = None,
+        projectConfigId: ID | None = None,
         targetWebsocketIds: Iterable[str] | None = None,
     ) -> None:
         self.force_refresh_calls.append(
@@ -147,7 +148,7 @@ class _StubProjectManager:
     async def apply_listener_emit_updates(
         self,
         *,
-        projectConfigId: str,
+        projectConfigId: ID,
         dependency_updates: list[ListenerFrontendEmitKeyAndValue],
         artifact_updates: list[BaseArtifactUnionWithDiscriminator],
     ) -> None:

@@ -7,7 +7,7 @@ from typing import Any
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
-from setta.types.id import IDToUUIDForLLM, UUIDToIDForLLM
+from setta.types.id import ID, IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.utils.utils import compute_md5_prefix, normalize_path
@@ -120,7 +120,7 @@ class DBE:
     def write_uuid_mapping(self, uuid_to_id: UUIDToIDForLLM):
         self.write_json(self.uuid_mapping, uuid_to_id)
 
-    def read_notifications(self, projectConfigId: str | None = None):
+    def read_notifications(self, projectConfigId: ID | None = None):
         data = self.read_jsonl(self.notifications)
         data = [SettaNotification.model_validate(item) for item in data]
         if projectConfigId:

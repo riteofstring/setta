@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import ForceRefreshProjectRequest
 from setta.routers.project_manager import route_force_refresh_listener
+from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
 from tests.utils.manager_fixture import (
@@ -42,7 +43,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     self,
                     *,
                     projectState: ProjectStateSingleConfig,
-                    projectConfigId: str | None = None,
+                    projectConfigId: ID | None = None,
                     targetWebsocketIds: tuple[str, ...] | list[str] | None = None,
                 ) -> None:
                     captured_calls.append(

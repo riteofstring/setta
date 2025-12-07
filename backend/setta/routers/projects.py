@@ -10,6 +10,7 @@ from setta.types.helpers_lvl2 import (
     ProjectNameTaken,
     ProjectNotFound,
 )
+from setta.types.id import ID
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
@@ -30,7 +31,7 @@ class DeleteProjectConfigsRequest(BaseModel):
 
 
 class SetProjectConfigNameRequest(BaseModel):
-    projectConfigId: str
+    projectConfigId: ID
     newName: str
 
 
@@ -47,7 +48,7 @@ class AddDefaultDataForJSONImportRequest(BaseModel):
 
 
 class GetNotificationsRequest(BaseModel):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class DeleteNotificationRequest(BaseModel):
@@ -55,7 +56,7 @@ class DeleteNotificationRequest(BaseModel):
 
 
 class ManualSaveRequest(BaseModel):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 @router.post(Route.LOAD_ALL_PROJECT_METADATA)

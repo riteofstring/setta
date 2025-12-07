@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, cast
 
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.types.id import ID
 
 from tests.utils.manager_fixture import (
     real_project_manager,
@@ -14,7 +15,7 @@ from tests.utils.manager_fixture import (
 
 @dataclass(slots=True)
 class _RenamePayload:
-    projectConfigId: str
+    projectConfigId: ID
     newName: str
     frontendOpId: str | None = None
 
