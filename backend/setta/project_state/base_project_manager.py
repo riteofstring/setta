@@ -31,6 +31,7 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.lsp.managers import LSPWriters
+from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
     CodeFileReloadPlan,
@@ -506,6 +507,7 @@ class BaseProjectManager(ABC):
         ].topLevelSections = x.topLevelSections
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(project_state, x.sectionSizes)

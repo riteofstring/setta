@@ -14,19 +14,12 @@ from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.project_manager import ProjectManager
-from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
-from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.msg_handlers.python_script_receiver import (
-    WMHPythonScriptReceiver,
-)
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
@@ -34,6 +27,15 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 class SettaFastAPIState:
     def __init__(self, app):
+        # Imported lazily to avoid circular dependency while SettaFastAPIState is being loaded.
+        from setta.project_state.project_manager import ProjectManager
+        from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+        from setta.project_state.settings_project_manager import SettingsProjectManager
+        from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
+        from setta.websockets.msg_handlers.python_script_receiver import (
+            WMHPythonScriptReceiver,
+        )
+
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)

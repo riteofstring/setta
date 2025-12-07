@@ -7,11 +7,11 @@ from pydantic_core import PydanticUndefined
 
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
+from setta.server_state import SettaFastAPIState
 from setta.utils.constants import C
 
 if TYPE_CHECKING:
     from setta.project_state.base_project_manager import BaseProjectManager
-    from setta.server_state import SettaFastAPIState
 
 
 def project_state_tool(
@@ -46,7 +46,7 @@ def _build_tool_callable(
     docstring: str | None,
 ):
     async def tool_callable(**raw_kwargs: Any):
-        setta_state: "SettaFastAPIState" = raw_kwargs.pop(C.MCP_SETTA_STATE_ARG_NAME)
+        setta_state: SettaFastAPIState = raw_kwargs.pop(C.MCP_SETTA_STATE_ARG_NAME)
         request = request_model(**raw_kwargs)
         manager = setta_state.project_manager_switcher.get(request.projectConfigId)
         manager_method = getattr(manager, manager_method_name)
@@ -101,7 +101,7 @@ def _build_signature(request_model: type[BaseModel]) -> inspect.Signature:
         inspect.Parameter(
             C.MCP_SETTA_STATE_ARG_NAME,
             kind=inspect.Parameter.KEYWORD_ONLY,
-            annotation="SettaFastAPIState",
+            annotation=SettaFastAPIState,
         )
     )
     return inspect.Signature(parameters=parameters)
