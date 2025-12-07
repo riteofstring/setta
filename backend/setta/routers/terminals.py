@@ -18,7 +18,7 @@ router = SettaAPIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
-    sectionIds: list[str]
+    sectionIds: list[ID]
 
 
 class KillSubprocessesRequest(BaseModel):

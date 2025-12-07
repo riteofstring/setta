@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 
 
-def _build_project_state(project_config_id: str) -> ProjectStateSingleConfig:
+def _build_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
     section_impl = TextBlockSectionImpl(
         id=f"{project_config_id}-section-impl",
         name="Section",
@@ -138,7 +138,7 @@ class _StubProjectManager:
         self.artifacts = _StubArtifacts()
 
     def get_single_config_state(
-        self, project_config_id: str
+        self, project_config_id: ID
     ) -> ProjectStateSingleConfig:
         try:
             return self._states[project_config_id]
@@ -162,7 +162,7 @@ class _StubProjectManagerSwitcher:
     def __init__(self, states: dict[str, ProjectStateSingleConfig]) -> None:
         self._manager = _StubProjectManager(states)
 
-    def get(self, project_config_id: str) -> _StubProjectManager:
+    def get(self, project_config_id: ID) -> _StubProjectManager:
         return self._manager
 
     def get_config_id_by_name(self, project_name: str) -> str:

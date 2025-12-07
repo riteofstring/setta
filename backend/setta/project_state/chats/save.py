@@ -7,6 +7,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
 )
+from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
@@ -39,7 +40,7 @@ def create_new_chat(
     dbe: "DBE",
     first_message: BaseChatMessageUnion,
     llm_config: LLMConfig,
-    project_config_id: str,
+    project_config_id: ID,
 ) -> Chat:
     name = create_new_chat_name(first_message)
     chat = Chat(

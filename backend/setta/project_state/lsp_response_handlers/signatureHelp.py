@@ -15,6 +15,7 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseParamCodeObjImplUnion,
 )
+from setta.types.id import ID
 
 
 @dataclass
@@ -81,7 +82,7 @@ def wrapper_parse_signature(
 ):
     params = get_proposed_params(signature, docstring)
     codeObjs: list[Core] = []
-    codeObjImplMap: dict[str, BaseParamCodeObjImplUnion] = {}
+    codeObjImplMap: dict[ID, BaseParamCodeObjImplUnion] = {}
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from setta.types.dependency_key import create_dep_key
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRegisterCallback,
@@ -14,7 +15,7 @@ from setta.websockets.listener_registry import ListenerRegistration
 def build_registration(
     *,
     websocket_id: str,
-    project_config_id: str,
+    project_config_id: ID,
     callbacks: dict[str, ListenerRegisterCallback],
 ) -> ListenerRegistration:
     return ListenerRegistration.build_from_callbacks(

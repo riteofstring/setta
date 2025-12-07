@@ -147,7 +147,7 @@ class CodeFiles:
 
     def _replace_bindings_for_config(
         self,
-        project_config_id: str,
+        project_config_id: ID,
         new_bindings: dict[Path, set[RegisteredCodeFileBinding]],
     ) -> bool:
         previous_bindings: dict[Path, set[RegisteredCodeFileBinding]] = {}
@@ -276,8 +276,8 @@ class CodeFiles:
         for project_config_id in removed_config_ids:
             self._replace_bindings_for_config(project_config_id, {})
 
-    def _collect_config_ids(self) -> set[str]:
-        config_ids: set[str] = set()
+    def _collect_config_ids(self):
+        config_ids: set[ID] = set()
         for bindings in self._bindings.values():
             for binding in bindings:
                 config_ids.add(binding.project_config_id)

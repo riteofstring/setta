@@ -13,6 +13,7 @@ from setta.project_state.project_manager_types import (
 from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
 from setta.types.helpers_lvl2 import get_curr_top_level_param_ids
+from setta.types.id import ID
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
@@ -36,7 +37,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         project_config_id = self.manager.project_state_backend.defaultProjectConfigId
         if not project_config_id:
             self.fail("Expected default project config id for rename test.")
-        self.project_config_id: str = project_config_id
+        self.project_config_id: ID = project_config_id
 
         self.project_state = await self.manager.load_project_config(
             self.project_config_id
@@ -111,7 +112,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         backend_settings = self.manager.settings_file.settings.backend
         previous_mode = backend_settings.renameRefactorMode
         backend_settings.renameRefactorMode = RenameRefactorMode.ALWAYS_ASK
-        section_id: str | None = None
+        section_id: ID | None = None
         param_id: str | None = None
         original_param_value: str | None = None
         try:

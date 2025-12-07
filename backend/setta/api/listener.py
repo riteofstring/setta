@@ -17,6 +17,7 @@ from typing import (
 )
 from uuid import uuid4
 
+from setta.types.id import ID
 import websockets
 from pydantic import ValidationError
 from websockets.exceptions import ConnectionClosedError
@@ -126,7 +127,7 @@ class SettaListener:
         reconnect_delay: float = 5.0,
     ) -> None:
         self._project_name = project_name
-        self._project_id: str | None = None
+        self._project_id: ID | None = None
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
@@ -149,7 +150,7 @@ class SettaListener:
     def _log_identifier(self) -> str:
         return self._project_id or f"name:{self._project_name}"
 
-    def _require_project_id(self) -> str:
+    def _require_project_id(self):
         project_id = self._project_id
         if project_id is None:
             raise RuntimeError(

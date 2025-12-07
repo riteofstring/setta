@@ -515,7 +515,7 @@ class BaseProjectManager(ABC):
     async def load_json_sources(
         self,
         json_sources: dict[Path, ProcessedJSONInfo],
-        section_variants_to_load: Iterable[tuple[str, str]],
+        section_variants_to_load: Iterable[tuple[ID, ID]],
     ):
         p = self.project_state_backend
         load_json_sources_into_data_structures(
@@ -1444,19 +1444,18 @@ class BaseProjectManager(ABC):
         callback_category = f"{self.__class__.__name__}_JSONSource"
 
         def should_defer_reload(
-            section_variants_to_load: set[tuple[str, str]],
+            section_variants_to_load: set[tuple[ID, ID]],
             *,
-            new_mapping: dict[Path, set[tuple[str, str]]],
-            previous_mapping: dict[Path, set[tuple[str, str]]],
+            new_mapping: dict[Path, set[tuple[ID, ID]]],
+            previous_mapping: dict[Path, set[tuple[ID, ID]]],
         ) -> bool:
             return self._should_defer_json_source_reload(
-                callback_category,
                 section_variants_to_load,
                 new_mapping,
                 previous_mapping,
             )
 
-        def on_deferred(section_variants_to_load: set[tuple[str, str]]) -> None:
+        def on_deferred(section_variants_to_load: set[tuple[ID, ID]]) -> None:
             self._record_deferred_json_source_loads(
                 callback_category, section_variants_to_load
             )
@@ -1576,15 +1575,14 @@ class BaseProjectManager(ABC):
 
     def _should_defer_json_source_reload(
         self,
-        callback_category: str,
-        section_variants_to_load: set[tuple[str, str]],
-        new_mapping: dict[Path, set[tuple[str, str]]],
-        previous_mapping: dict[Path, set[tuple[str, str]]],
+        section_variants_to_load: set[tuple[ID, ID]],
+        new_mapping: dict[Path, set[tuple[ID, ID]]],
+        previous_mapping: dict[Path, set[tuple[ID, ID]]],
     ) -> bool:
         if not section_variants_to_load or not self.autosave_debouncer.is_pending:
             return False
 
-        variant_to_path: dict[tuple[str, str], Path] = {}
+        variant_to_path: dict[tuple[ID, ID], Path] = {}
         for path, variant_ids in new_mapping.items():
             for variant in variant_ids:
                 variant_to_path[variant] = path
@@ -1601,7 +1599,7 @@ class BaseProjectManager(ABC):
     def _record_deferred_json_source_loads(
         self,
         callback_category: str,
-        section_variants_to_load: set[tuple[str, str]],
+        section_variants_to_load: set[tuple[ID, ID]],
     ) -> None:
         if not section_variants_to_load:
             return

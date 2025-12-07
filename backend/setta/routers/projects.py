@@ -27,7 +27,7 @@ class CreateProjectConfigRequest(BaseModel):
 
 
 class DeleteProjectConfigsRequest(BaseModel):
-    ids: list[str]
+    ids: list[ID]
 
 
 class SetProjectConfigNameRequest(BaseModel):
@@ -36,7 +36,7 @@ class SetProjectConfigNameRequest(BaseModel):
 
 
 class SetAsDefaultProjectRequest(BaseModel):
-    projectId: str
+    projectId: ID
 
 
 class FilterDataForJSONExportRequest(BaseModel):
@@ -52,7 +52,7 @@ class GetNotificationsRequest(BaseModel):
 
 
 class DeleteNotificationRequest(BaseModel):
-    notificationId: str
+    notificationId: ID
 
 
 class ManualSaveRequest(BaseModel):

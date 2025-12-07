@@ -131,7 +131,7 @@ class DBE:
         data = [n.model_dump() for n in notifications]
         self.write_jsonl(self.notifications, data)
 
-    def delete_notification(self, notification_id: str):
+    def delete_notification(self, notification_id: ID):
         data = self.read_notifications()
         filtered = [item for item in data if item.id != notification_id]
         self.write_notifications(filtered)

@@ -76,7 +76,7 @@ class ChangeParamImplRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
     sectionId: ID
     paramInfoId: ID
-    selectedId: str
+    selectedId: ID
 
 
 class UpdateParamImplConfigRequest(ProjectManagerRequestWithFrontendOp):
@@ -95,7 +95,7 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithFrontendOp):
 
 class CreateChildSectionsRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    parentId: str
+    parentId: ID
     implType: SectionType
     numChildren: int
     startIdx: int | None
@@ -103,19 +103,19 @@ class CreateChildSectionsRequest(ProjectManagerRequestWithFrontendOp):
 
 class CreateChildSectionsViaIncrementerRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    calledBy: str
+    calledBy: ID
     numChildren: int
     implType: SectionType
 
 
 class DeleteSectionsRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    sectionIds: list[str]
+    sectionIds: list[ID]
 
 
 class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    calledBy: str
+    calledBy: ID
     numChildren: int
 
 
@@ -160,19 +160,19 @@ class DeleteKwargRequest(ProjectManagerRequestWithFrontendOp):
 class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
     sectionId: ID
-    variantId: str
+    variantId: ID
 
 
 class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
     sectionId: ID
-    variantId: str
+    variantId: ID
 
 
 class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
     sectionId: ID
-    variantId: str
+    variantId: ID
     filepath: str
 
 
@@ -241,29 +241,29 @@ class SetSectionParamFilterRequest(ProjectManagerRequestWithFrontendOp):
 class SetSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
     sectionId: ID
-    variantId: str
+    variantId: ID
 
 
 class SetDefaultSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
     sectionId: ID
-    variantId: str
+    variantId: ID
 
 
 class ToggleVariantFrozenRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    variantId: str
+    variantId: ID
 
 
 class SetSectionVariantNameRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    variantId: str
+    variantId: ID
     name: str
 
 
 class SetSectionSizesRequest(ProjectManagerRequestWithFrontendOp):
     projectConfigId: ID
-    sectionSizes: dict[str, SectionSize]
+    sectionSizes: dict[ID, SectionSize]
 
 
 class SetActiveIdsRequest(ProjectManagerRequestWithFrontendOp):

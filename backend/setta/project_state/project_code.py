@@ -63,7 +63,7 @@ class ProjectGenPythonCode(PythonCode):
         binding: CodeFileBinding,
         lsp_writers,
         websocket_msg_handler,
-        project_config_id: str,
+        project_config_id: ID,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):

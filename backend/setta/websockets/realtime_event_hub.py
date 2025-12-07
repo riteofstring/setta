@@ -1,3 +1,4 @@
+from setta.types.id import ID
 from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -10,7 +11,7 @@ class RealtimeEventHub:
         self._sequence_by_project: dict[str, int] = {}
         python_script_sender.register_realtime_event_hub(self)
 
-    def reset_sequence(self, project_config_id: str) -> None:
+    def reset_sequence(self, project_config_id: ID) -> None:
         """Reset the realtime sequence counter for a project.
 
         Call this when a listener receives a full snapshot (bootstrap or force refresh)
@@ -21,7 +22,7 @@ class RealtimeEventHub:
     async def emit_realtime_delta(
         self,
         *,
-        project_config_id: str,
+        project_config_id: ID,
         deltas: list[ListenerRealtimeDelta],
     ) -> None:
         if not deltas:

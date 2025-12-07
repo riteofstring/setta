@@ -28,7 +28,7 @@ GenericBaseCodeObjImplType = TypeVar(
 
 def get_curr_section_variant(
     p: "ProjectStateSingleConfig",
-    section_id: str,
+    section_id: ID,
 ):
     variant_id = p.projectConfig.sectionVariantMap[section_id]
     return p.sectionVariants[variant_id]
@@ -36,7 +36,7 @@ def get_curr_section_variant(
 
 def get_curr_effective_section_impl(
     p: "ProjectStateSingleConfig",
-    section_id: str,
+    section_id: ID,
 ):
     variant = get_curr_section_variant(p, section_id)
     base_impl = p.sectionImpls[variant.impl]
@@ -46,7 +46,7 @@ def get_curr_effective_section_impl(
 
 def get_curr_effective_section_impl_with_type_guard(
     project_state: "ProjectStateSingleConfig",
-    section_id: str,
+    section_id: ID,
     impl_type: type[GenericBaseSectionImplType],
 ) -> GenericBaseSectionImplType:
     impl = get_curr_effective_section_impl(project_state, section_id)
@@ -58,7 +58,7 @@ def get_curr_effective_section_impl_with_type_guard(
 
 
 def get_variant_effective_section_impl(
-    p: "ProjectStateCore", sectionId: ID, variantId: str
+    p: "ProjectStateCore", sectionId: ID, variantId: ID
 ):
     variant = p.sectionVariants[variantId]
     impl = p.sectionImpls[variant.impl]
@@ -67,7 +67,7 @@ def get_variant_effective_section_impl(
 
 
 def get_variant_base_and_effective_section_impl(
-    p: "ProjectStateCore", core: Core, variant_id: str
+    p: "ProjectStateCore", core: Core, variant_id: ID
 ):
     variant = p.sectionVariants[variant_id]
     base_impl = p.sectionImpls[variant.impl]
@@ -78,7 +78,7 @@ def get_variant_base_and_effective_section_impl(
 def get_variant_base_and_effective_section_impl_with_type_guard(
     p: "ProjectStateCore",
     core: Core,
-    variant_id: str,
+    variant_id: ID,
     impl_type: type[GenericBaseSectionImplType],
 ) -> tuple[Variant, GenericBaseSectionImplType, GenericBaseSectionImplType]:
     variant, base_impl, impl = get_variant_base_and_effective_section_impl(
@@ -90,7 +90,7 @@ def get_variant_base_and_effective_section_impl_with_type_guard(
 
 
 def get_curr_code_obj_variant(
-    p: "ProjectStateSingleConfig", sectionId: ID, codeObjId: str
+    p: "ProjectStateSingleConfig", sectionId: ID, codeObjId: ID
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
@@ -102,7 +102,7 @@ def get_curr_code_obj_variant(
 def get_curr_effective_code_obj_impl(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
-    codeObjId: str,
+    codeObjId: ID,
 ):
     variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
     baseImpl = p.codeObjImpls[variant.impl]
@@ -113,7 +113,7 @@ def get_curr_effective_code_obj_impl(
 def get_curr_effective_code_obj_impl_with_type_guard(
     project_state: "ProjectStateSingleConfig",
     sectionId: ID,
-    codeObjId: str,
+    codeObjId: ID,
     impl_type: type[GenericBaseCodeObjImplType],
 ) -> GenericBaseCodeObjImplType:
     impl = get_curr_effective_code_obj_impl(project_state, sectionId, codeObjId)
@@ -124,13 +124,13 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     return impl
 
 
-def get_variant_base_code_obj_impl(p: "ProjectStateCore", variantId: str):
+def get_variant_base_code_obj_impl(p: "ProjectStateCore", variantId: ID):
     variant = p.codeObjVariants[variantId]
     return p.codeObjImpls[variant.impl]
 
 
 def get_variant_base_and_effective_code_obj_impl(
-    p: "ProjectStateCore", core: Core, variant_id: str
+    p: "ProjectStateCore", core: Core, variant_id: ID
 ):
     variant = p.codeObjVariants[variant_id]
     base_impl = p.codeObjImpls[variant.impl]
@@ -141,7 +141,7 @@ def get_variant_base_and_effective_code_obj_impl(
 def get_variant_base_and_effective_code_obj_impl_with_type_guard(
     p: "ProjectStateCore",
     core: Core,
-    variant_id: str,
+    variant_id: ID,
     impl_type: type[GenericBaseCodeObjImplType],
 ) -> tuple[Variant, GenericBaseCodeObjImplType, GenericBaseCodeObjImplType]:
     variant, base_impl, impl = get_variant_base_and_effective_code_obj_impl(

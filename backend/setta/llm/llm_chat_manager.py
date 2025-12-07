@@ -46,6 +46,7 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
+from setta.types.id import ID
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -139,7 +140,7 @@ class LLMChatManager:
         chat_id: str | None,
         message: BaseChatMessageUnion,
         llm_config_id: str,
-        project_config_id: str,
+        project_config_id: ID,
     ) -> Chat:
         if chat_id:
             chat = load_chat(self.dbe, chat_id)

@@ -121,7 +121,7 @@ class ProjectNameTaken(Exception):
     pass
 
 
-def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: str):
+def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: ID):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, CallableSectionImpl
     )
@@ -132,7 +132,7 @@ def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id
 
 def get_curr_section_children_ids(
     p: "ProjectStateSingleConfig",
-    section_id: str,
+    section_id: ID,
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, BaseParentSectionImpl
@@ -588,7 +588,7 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: ID):
 def create_new_code_obj_variant(
     p: "ProjectStateCore",
     codeObjId: ID,
-    codeObjVariantId: str | None,
+    codeObjVariantId: ID | None,
     codeObjImpl: BaseCodeObjImplUnion | None,
 ):
     currBaseImpl: BaseCodeObjImplUnion | None = codeObjImpl

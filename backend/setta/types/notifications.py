@@ -18,7 +18,7 @@ class SettaNotificationType(str, Enum):
 
 
 class SettaNotification(BaseModel):
-    id: str = Field(default_factory=create_new_id)
+    id: ID = Field(default_factory=create_new_id)
     projectConfigId: ID = Field(
         default_factory=lambda: ID(C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
     )
