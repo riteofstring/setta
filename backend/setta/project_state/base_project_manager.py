@@ -192,7 +192,7 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_config import ProjectConfig
+from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -206,7 +206,6 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.settings_state import RenameRefactorMode
-from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C

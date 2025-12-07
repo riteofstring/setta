@@ -11,7 +11,7 @@ from setta.types.generated.chart_settings_unions import (
 from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
-from setta.types.project_config import TopLevelSectionLayout, Viewport
+from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -25,7 +25,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RenameRefactorMode
-from setta.types.simplified_states import Position
 
 
 class ProjectManagerRequestWithFrontendOp(BaseModel):

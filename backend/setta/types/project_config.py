@@ -7,6 +7,11 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
+class Position(BaseModel):
+    x: float = 0
+    y: float = 0
+
+
 class ViewingEditingMode(str, Enum):
     DEV = "DEV"
     USER = "USER"
@@ -19,9 +24,7 @@ class Viewport(BaseModel, extra="forbid"):
     zoom: float = 1
 
 
-class TopLevelSectionLayout(BaseModel, extra="forbid"):
-    x: float = 0
-    y: float = 0
+class TopLevelSectionLayout(Position, extra="forbid"):
     zIndex: int = 0
     w: float | None = None
     h: float | None = None

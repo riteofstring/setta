@@ -11,7 +11,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import Position, ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
     ProjectStateBackend,
@@ -24,7 +24,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
 )
-from setta.types.simplified_states import Position
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 if TYPE_CHECKING:

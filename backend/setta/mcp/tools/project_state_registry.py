@@ -46,13 +46,9 @@ def _build_tool_callable(
     docstring: str | None,
 ):
     async def tool_callable(**raw_kwargs: Any):
-        setta_state: "SettaFastAPIState" = raw_kwargs.pop(
-            C.MCP_SETTA_STATE_ARG_NAME
-        )
+        setta_state: "SettaFastAPIState" = raw_kwargs.pop(C.MCP_SETTA_STATE_ARG_NAME)
         request = request_model(**raw_kwargs)
-        manager = setta_state.project_manager_switcher.get(
-            request.projectConfigId
-        )
+        manager = setta_state.project_manager_switcher.get(request.projectConfigId)
         manager_method = getattr(manager, manager_method_name)
         result = manager_method(request)
         if inspect.isawaitable(result):
@@ -72,7 +68,9 @@ def _extract_request_model(
     signature = inspect.signature(method)
     params = list(signature.parameters.values())
     if len(params) < 2:
-        msg = f"{method.__qualname__} must accept a request model as its second argument."
+        msg = (
+            f"{method.__qualname__} must accept a request model as its second argument."
+        )
         raise ValueError(msg)
     request_param = params[1]
     annotation = request_param.annotation

@@ -8280,49 +8280,6 @@ export function createBrowserAreaItem(
   return BrowserAreaItemSchema.parse(options);
 }
 
-export const SimplifiedCodeInfoSchema = z.object({
-  name: z.string(),
-  defaultVal: z.string().default("" as const),
-  description: z.string().default("" as const),
-});
-
-export type SimplifiedCodeInfo = z.infer<typeof SimplifiedCodeInfoSchema>;
-
-export function createSimplifiedCodeInfo(
-  options: Partial<SimplifiedCodeInfo> = {},
-): SimplifiedCodeInfo {
-  return SimplifiedCodeInfoSchema.parse(options);
-}
-
-export const SimplifiedSectionSchema = z.object({
-  name: z.string(),
-});
-
-export type SimplifiedSection = z.infer<typeof SimplifiedSectionSchema>;
-
-export function createSimplifiedSection(
-  options: Partial<SimplifiedSection> = {},
-): SimplifiedSection {
-  return SimplifiedSectionSchema.parse(options);
-}
-
-export const SimplifiedSectionCreationSchema = z.object({
-  name: z.string(),
-  position: PositionSchema.default(createPosition),
-  size: SectionSizeSchema.default(createSectionSize),
-  type: z.enum(SectionTypeEnum).default(SectionTypeEnum.Callable),
-});
-
-export type SimplifiedSectionCreation = z.infer<
-  typeof SimplifiedSectionCreationSchema
->;
-
-export function createSimplifiedSectionCreation(
-  options: Partial<SimplifiedSectionCreation> = {},
-): SimplifiedSectionCreation {
-  return SimplifiedSectionCreationSchema.parse(options);
-}
-
 export const FileWatcherCoreUpdateSchema = z.object({
   absPath: z.string(),
   relPath: z.string(),
