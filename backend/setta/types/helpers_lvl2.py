@@ -1256,7 +1256,7 @@ def group_sections(
     return True
 
 
-def ungroup_groups(p: "ProjectStateSingleConfig", groupIds: list[str]):
+def ungroup_groups(p: "ProjectStateSingleConfig", groupIds: list[ID]):
     for g in groupIds:
         ungroup_group(p, g)
 

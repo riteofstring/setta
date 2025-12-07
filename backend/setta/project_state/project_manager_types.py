@@ -11,6 +11,7 @@ from setta.types.generated.chart_settings_unions import (
 from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
+from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -32,68 +33,68 @@ class ProjectManagerRequestWithFrontendOp(BaseModel):
 
 
 class ClearTextFieldCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str | None
+    projectConfigId: ID
+    sectionId: ID
+    paramInfoId: ID | None
 
 
 class SetCallableRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     callableName: str
     refetchParams: bool
 
 
 class TextFieldCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str | None
+    projectConfigId: ID
+    sectionId: ID
+    paramInfoId: ID | None
     fullText: str
     position: int
 
 
 class CodeAreaCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     fullText: str
     position: int
 
 
 class GenCodePrefixCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     fullText: str
     position: int
 
 
 class GenCodeSuffixCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     fullText: str
     position: int
 
 
 class ChangeParamImplRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str
+    projectConfigId: ID
+    sectionId: ID
+    paramInfoId: ID
     selectedId: str
 
 
 class UpdateParamImplConfigRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str
+    projectConfigId: ID
+    sectionId: ID
+    paramInfoId: ID
     newConfig: dict
 
 
 class CreateTopLevelSectionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     implType: SectionType
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator
     position: Position
 
 
 class CreateChildSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     parentId: str
     implType: SectionType
     numChildren: int
@@ -101,122 +102,122 @@ class CreateChildSectionsRequest(ProjectManagerRequestWithFrontendOp):
 
 
 class CreateChildSectionsViaIncrementerRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     calledBy: str
     numChildren: int
     implType: SectionType
 
 
 class DeleteSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     sectionIds: list[str]
 
 
 class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     calledBy: str
     numChildren: int
 
 
 class CreateNewSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
 
 
 class UndoRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     steps: int
 
 
 class RedoRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     steps: int
 
 
 class GetLatestProjectStateRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    topLevelSections: dict[str, TopLevelSectionLayout]
+    projectConfigId: ID
+    topLevelSections: dict[ID, TopLevelSectionLayout]
 
 
 class AddKwargRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
 
 
 class DeleteKwargRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
 
 
 class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     variantId: str
 
 
 class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     variantId: str
 
 
 class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     variantId: str
     filepath: str
 
 
 class SetTextBlockTextRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     text: str
 
 
 class SetGenCodePrefixRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     genCodePrefix: str
 
 
 class SetGenCodeSuffixRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     genCodeSuffix: str
 
 
 class SetParamEnteredValueRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str
+    projectConfigId: ID
+    sectionId: ID
+    paramInfoId: ID
     value: str
 
 
 class SetCodeObjNameRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    codeObjId: str
+    projectConfigId: ID
+    codeObjId: ID
     name: str
 
 
 class TogglePositionLockRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
 
 
 class ToggleMinimizedRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
 
 
 class SetCodeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     code: str
 
 
@@ -226,184 +227,184 @@ class CodeFileBindingUpdate(BaseModel):
 
 
 class SetCodeFileBindingRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     binding: CodeFileBindingUpdate
 
 
 class SetSectionParamFilterRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     value: str
 
 
 class SetSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     variantId: str
 
 
 class SetDefaultSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     variantId: str
 
 
 class ToggleVariantFrozenRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     variantId: str
 
 
 class SetSectionVariantNameRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     variantId: str
     name: str
 
 
 class SetSectionSizesRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     sectionSizes: dict[str, SectionSize]
 
 
 class SetActiveIdsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    activeIds: list[str]
+    projectConfigId: ID
+    activeIds: list[ID]
 
 
 class SetViewportRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     viewport: Viewport | None
 
 
 class SetSectionNameRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     name: str
 
 
 class AcceptRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class DeclineRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class RenameRefactorBroadcastContent(BaseModel):
-    projectConfigId: str
+    projectConfigId: ID
     frontendOpId: str
     renameMode: RenameRefactorMode
     changedNodeValues: list[RenameReferenceChangedValue]
 
 
 class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     textDisplayMode: TextBlockDisplayMode
 
 
 class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     displayMode: SectionWithParamsDisplayMode
 
 
 class SetCallableHideParamsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     hideParams: bool
 
 
 class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     hideUnpinnedParams: bool
 
 
 class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     viewMode: BrowserAreaViewMode
 
 
 class SetBrowserHideColumnRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     hideColumn: bool
 
 
 class SetTextBlockFormatRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     format: TextBlockFormat
 
 
 class SetSocialUrlRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     url: str
 
 
 class GroupSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionIds: list[str]
+    projectConfigId: ID
+    sectionIds: list[ID]
 
 
 class UngroupGroupsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    groupIds: list[str]
+    projectConfigId: ID
+    groupIds: list[ID]
 
 
 class ToggleParamSelectedRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str
+    projectConfigId: ID
+    sectionId: ID
+    paramInfoId: ID
 
 
 class UnselectAllParamsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
 
 
 class PrepareSectionsForCopyRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionIds: list[str]
+    projectConfigId: ID
+    sectionIds: list[ID]
 
 
 class PasteSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     data: ProjectStateCoreWithSectionVariantMap
     position: Position
     asRef: bool
 
 
 class SetImageAreaImagePathRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     imagePath: str
 
 
 class SetChartAreaDataPathRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     dataPath: str
 
 
 class SetChartTypeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     chartType: ChartType
 
 
 class SetChartSettingsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     chartSettings: BaseChartSettingsUnionWithDiscriminator
     changedSettings: list[str]
 
 
 class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
-    sectionId: str
+    projectConfigId: ID
+    sectionId: ID
     layerIdx: int
     element: DrawAreaLayerItem
 
@@ -416,6 +417,6 @@ class ProjectStateSingleConfigWithCompletedOpIds:
 
 
 class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: str
+    projectConfigId: ID
     newConfigName: str
     withRefs: bool

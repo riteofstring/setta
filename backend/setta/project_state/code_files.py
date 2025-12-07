@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
+from setta.types.id import ID
+
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -15,15 +17,15 @@ from setta.types.section_impls import BaseCodeSectionImpl, CodeFileAccessMode
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.utils import compute_md5_hex, normalize_path
 
-GEN_CODE_SECTION_ID = "__setta_gen_code__"
-GEN_CODE_VARIANT_ID = "__setta_gen_code__"
+GEN_CODE_SECTION_ID = ID("__setta_gen_code__")
+GEN_CODE_VARIANT_ID = ID("__setta_gen_code__")
 
 
 @dataclass(frozen=True)
 class RegisteredCodeFileBinding:
-    section_id: str
-    variant_id: str
-    project_config_id: str
+    section_id: ID
+    variant_id: ID
+    project_config_id: ID
     access_mode: CodeFileAccessMode
 
 
@@ -32,7 +34,7 @@ class CodeFileReloadPlan:
     path: Path
     raw_content: str | None
     content_hash: str | None
-    bindings_by_config: dict[str, list[RegisteredCodeFileBinding]]
+    bindings_by_config: dict[ID, list[RegisteredCodeFileBinding]]
     core_update: FileWatcherCoreUpdate
 
 
@@ -444,10 +446,8 @@ class CodeFiles:
             return None
         return str(raw)
 
-    def _group_bindings_by_config(
-        self, bindings: set[RegisteredCodeFileBinding]
-    ) -> dict[str, list[RegisteredCodeFileBinding]]:
-        grouped: dict[str, list[RegisteredCodeFileBinding]] = {}
+    def _group_bindings_by_config(self, bindings: set[RegisteredCodeFileBinding]):
+        grouped: dict[ID, list[RegisteredCodeFileBinding]] = {}
         for binding in bindings:
             if binding.section_id == GEN_CODE_SECTION_ID:
                 continue

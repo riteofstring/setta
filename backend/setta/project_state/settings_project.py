@@ -17,6 +17,7 @@ from setta.types.generated.unions import (
     BaseSectionImplUnion,
 )
 from setta.types.helpers_lvl2 import is_color_hex
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -32,9 +33,9 @@ from setta.utils.utils import normalize_path
 def add_code_obj_details(
     codeObjName: str,
     codeObjImpl: BaseCodeObjImplUnion,
-    codeObjs: dict[str, Core],
-    codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjVariants: dict[str, Variant],
+    codeObjs: dict[ID, Core],
+    codeObjImpls: dict[ID, BaseCodeObjImplUnion],
+    codeObjVariants: dict[ID, Variant],
 ):
     codeObjVariant = Variant(
         impl=codeObjImpl.id,
@@ -54,13 +55,13 @@ def add_code_obj_details(
 
 def process_model_fields(
     model_class: type[BaseModel],
-    codeObjs: dict[str, Core],
-    codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjVariants: dict[str, Variant],
+    codeObjs: dict[ID, Core],
+    codeObjImpls: dict[ID, BaseCodeObjImplUnion],
+    codeObjVariants: dict[ID, Variant],
     presetCodeObjImplNames: dict[str, BaseCodeObjImplUnion],
 ):
-    child_ids: list[str] = []
-    codeObjVariantMap: dict[str, str] = {}
+    child_ids: list[ID] = []
+    codeObjVariantMap: dict[ID, ID] = {}
     for k, v in model_class.model_fields.items():
         codeObjName, codeObjImpl = None, None
         if isclass(v.annotation) and issubclass(v.annotation, BaseModel):
@@ -107,11 +108,11 @@ def process_model_fields(
 
 
 def create_settings_code_objs(section_names):
-    sectionToTopLevelId: dict[str, str] = {}
-    codeObjs: dict[str, Core] = {}
-    codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
-    codeObjVariants: dict[str, Variant] = {}
-    codeObjVariantMaps: dict[str, dict[str, str]] = {}
+    sectionToTopLevelId: dict[str, ID] = {}
+    codeObjs: dict[ID, Core] = {}
+    codeObjImpls: dict[ID, BaseCodeObjImplUnion] = {}
+    codeObjVariants: dict[ID, Variant] = {}
+    codeObjVariantMaps: dict[str, dict[ID, ID]] = {}
     presetCodeObjImplNames: dict[str, BaseCodeObjImplUnion] = {}
 
     for s in section_names:
@@ -155,10 +156,10 @@ def create_settings_project_state(settings_path: Path):
         codeObjVariantMaps,
     ) = create_settings_code_objs(section_names)
 
-    sections: dict[str, Core] = {}
-    sectionImpls: dict[str, BaseSectionImplUnion] = {}
-    sectionVariants: dict[str, Variant] = {}
-    sectionVariantMap: dict[str, str] = {}
+    sections: dict[ID, Core] = {}
+    sectionImpls: dict[ID, BaseSectionImplUnion] = {}
+    sectionVariants: dict[ID, Variant] = {}
+    sectionVariantMap: dict[ID, ID] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(
             size=SectionSize(width=550),

@@ -190,6 +190,7 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
+from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import Position, ProjectConfig
@@ -462,8 +463,8 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def create_run_command(
         self,
-        projectConfigId: str,
-        sectionId: str | None,
+        projectConfigId: ID,
+        sectionId: ID | None,
     ):
         async with self._project_state_lock.read_lock():
             target_folder = create_timestamped_folder(C.CODE_FOLDER)
@@ -485,7 +486,7 @@ class BaseProjectManager(ABC):
             return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
-    async def load_project_config(self, projectConfigId: str):
+    async def load_project_config(self, projectConfigId: ID):
         projectState = convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
@@ -604,7 +605,7 @@ class BaseProjectManager(ABC):
                 self.watch_code_files()
 
     @enqueue_method(require_serialization=False)
-    async def type_check(self, projectConfigId: str):
+    async def type_check(self, projectConfigId: ID):
         async with self._project_state_lock.read_lock():
             await self.gen_code[projectConfigId].type_check()
 
@@ -752,7 +753,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_param_values(
-        self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
+        self, projectConfigId: ID, sectionId: ID, paramIdsToValues: dict[ID, str]
     ):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
@@ -822,7 +823,7 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def create_temporary_terminal(self, projectConfigId: str, terminalId: str):
+    async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
@@ -881,7 +882,7 @@ class BaseProjectManager(ABC):
     def create_project_code(
         self,
         project_state: ProjectStateSingleConfig,
-        sectionId: str,
+        sectionId: ID,
         section_impl: CodeSectionImpl,
     ):
         if section_impl.codeFileBinding is None:
@@ -936,7 +937,7 @@ class BaseProjectManager(ABC):
     async def maybe_do_rename_refactor(
         self,
         project_state: ProjectStateSingleConfig,
-        projectConfigId: str,
+        projectConfigId: ID,
         new_dep_graph: DependencyGraph,
     ):
         if not self.gen_code:
@@ -1025,19 +1026,19 @@ class BaseProjectManager(ABC):
         return new_project_config.name
 
     @enqueue_method
-    async def delete_project_configs(self, project_config_ids: list[str]):
+    async def delete_project_configs(self, project_config_ids: list[ID]):
         for id in project_config_ids:
             del self.project_state_backend.projectConfigs[id]
         self.project_state_backend.validate_default_project_id()
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
-    async def set_as_default_project(self, projectConfigId: str):
+    async def set_as_default_project(self, projectConfigId: ID):
         self.project_state_backend.defaultProjectConfigId = projectConfigId
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
-    async def set_project_config_name(self, projectConfigId: str, newName: str):
+    async def set_project_config_name(self, projectConfigId: ID, newName: str):
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
 
     @enqueue_method
@@ -1185,7 +1186,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def apply_listener_emit_updates(
         self,
-        projectConfigId: str,
+        projectConfigId: ID,
         dependency_updates: list[ListenerFrontendEmitKeyAndValue],
         artifact_updates: list[BaseArtifactUnionWithDiscriminator],
     ) -> None:
@@ -1304,7 +1305,7 @@ class BaseProjectManager(ABC):
             return self.project_state_backend.projectConfigs[defaultId].name
         return None
 
-    def get_single_config_state(self, projectConfigId: str):
+    def get_single_config_state(self, projectConfigId: ID):
         return convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
@@ -1513,7 +1514,7 @@ class BaseProjectManager(ABC):
         states_to_broadcast: list[ProjectStateSingleConfig] = []
         async with self._project_state_lock.write_lock():
             base_backend = self.project_state_backend
-            updated_configs: dict[str, ProjectStateSingleConfig] = {}
+            updated_configs: dict[ID, ProjectStateSingleConfig] = {}
             for (
                 project_config_id,
                 config_bindings,
