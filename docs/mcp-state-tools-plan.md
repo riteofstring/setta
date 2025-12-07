@@ -8,12 +8,9 @@ This document captures the concrete plan for exposing deterministic MCP tools th
 - ✅ **Inject MCP parameters** – Change `LLMChatManager._dispatch_tool_call` to insert `C.MCP_CHAT_ID_ARG_NAME` and `C.MCP_PROJECT_CONFIG_ID_ARG_NAME` into the argument payload it passes to `MCPClient.call_tool`. Because `SettaFastMCP.setta_uuid_transformer` forwards whitelisted params (see `backend/setta/mcp/server.py`), any tool that declares `setta_chat_id`/`projectConfigId` will automatically receive them.
 
 ## 2. Build a Project-State MCP Tool Registry
-- **Registry helper** – Create `backend/setta/mcp/tools/project_state_registry.py` (or similar) that can register tools by pairing a Pydantic request model from `project_state/project_manager_types.py` with the corresponding coroutine on `BaseProjectManager` (`backend/setta/project_state/base_project_manager.py`). Use `SettaTool.from_function` metadata generation so descriptions and schemas remain centralized.
-- **Validation + invocation** – Each registry entry should:
-  1. Validate arguments through the request model (e.g., `SetSectionNameRequest`) rather than duplicating fields.
-  2. Fetch the correct project manager via `setta_state.project_manager_switcher.get(request.projectConfigId)` and call the existing method (e.g., `set_section_name`). This avoids any duplicated mutation logic.
-  3. Return the same structure the HTTP route would have emitted (when a return value exists) so the chat tool output mirrors today’s API responses.
-- **Organization** – Group registrations by domain (section editing, param edits, code updates, project metadata) under `backend/setta/mcp/tools/project_state/` to keep the files readable and allow us to toggle categories easily while the refactor is in flux.
+- ✅ **Decorator-driven helper** – `backend/setta/mcp/tools/project_state_registry.py` now exposes `@project_state_tool`, which inspects the manager coroutine’s request model and immediately registers a generated MCP wrapper via `setta_tool`/`setta_init_tool`. Tool metadata (docstrings, schemas) stays co-located with the original method.
+- ✅ **Validation + invocation** – Generated wrappers validate args through the existing Pydantic request models, fetch the correct manager via `setta_state.project_manager_switcher.get(request.projectConfigId)`, and call the original coroutine so HTTP + MCP behavior stays identical.
+- ✅ **Signature shaping** – The helper synthesizes a signature from the request model fields (plus the injected `setta_state`) so LLM-facing schemas mirror the REST routes without extra boilerplate. No manual registry tables remain—decorating a method is all that’s needed.
 
 ## 3. Implement Deterministic File-Edit Primitives
 - **Editing library** – Introduce helpers under `backend/setta/mcp/file_edits/` that wrap `DBE.get_file_lock`, `setta.database.backup.maybe_create_backup`, and path normalization (`setta.utils.utils.normalize_path`). Provide primitives such as `read_for_edit`, `replace_range`, `insert_at_line`, `apply_unified_diff`, and `write_full_file`.
