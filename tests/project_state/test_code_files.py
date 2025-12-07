@@ -16,6 +16,7 @@ from setta.project_state.code_files import (
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -32,9 +33,9 @@ def register_binding(
     manager: CodeFiles, path: Path, access_mode: CodeFileAccessMode
 ) -> RegisteredCodeFileBinding:
     binding = RegisteredCodeFileBinding(
-        section_id="section",
-        variant_id="variant",
-        project_config_id="config",
+        section_id=ID("section"),
+        variant_id=ID("variant"),
+        project_config_id=ID("config"),
         access_mode=access_mode,
     )
     manager.register_binding(path, binding)
@@ -63,25 +64,25 @@ class CodeFilesTests(unittest.TestCase):
         self._tmpdir.cleanup()
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, str, str, str]:
-        code_impl = CodeSectionImpl(id="code-impl")
+        code_impl = CodeSectionImpl(id=ID("code-impl"))
         code_impl.code = "print('sync test')"
         code_impl.codeFileBinding = CodeFileBinding(
             canonical_path=self.path,
             access_mode=CodeFileAccessMode.read_write,
         )
         variant = Variant(
-            id="variant-main",
+            id=ID("variant-main"),
             impl=code_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
         )
         section = Core(
-            id="section-main",
+            id=ID("section-main"),
             name="Main Section",
             variants=[variant.id],
             defaultVariant=variant.id,
         )
         project_config = ProjectConfig(
-            id="config",
+            id=ID("config"),
             name="Demo Project",
             sectionVariantMap={section.id: variant.id},
             topLevelSections={section.id: TopLevelSectionLayout()},

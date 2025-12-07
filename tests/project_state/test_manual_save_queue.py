@@ -53,7 +53,7 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
 
             default_config_id = manager.project_state_backend.defaultProjectConfigId
             self.assertIsNotNone(default_config_id)
-            default_config_id = str(default_config_id)
+            default_config_id = ID(default_config_id)
 
             original_name = manager.project_state_backend.projectConfigs[
                 default_config_id
@@ -104,7 +104,7 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
 
             default_config_id = manager.project_state_backend.defaultProjectConfigId
             self.assertIsNotNone(default_config_id)
-            default_config_id = str(default_config_id)
+            default_config_id = ID(default_config_id)
 
             original_name = manager.project_state_backend.projectConfigs[
                 default_config_id
