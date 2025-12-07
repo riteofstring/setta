@@ -115,7 +115,6 @@ class SettaFastMCP(FastMCP):
 
         @wraps(func)
         async def wrapper(**kwargs):
-            print(f"wrapper: {kwargs}\n\n\n", flush=True)
             # Filter out unwanted params
             kwargs = {
                 k: v
@@ -127,7 +126,7 @@ class SettaFastMCP(FastMCP):
             try:
                 kwargs = replace_ids_with_uuids(kwargs, self.id_to_uuid)
             except IDDoesNotExist as e:
-                return {"error": str(e)}
+                raise ToolError(str(e)) from e
             result = func(**kwargs)
             if is_async:
                 result = await result
@@ -231,6 +230,8 @@ class SettaTool(Tool):
                 arguments,
                 pass_directly,
             )
+        except ToolError:
+            raise
         except Exception as e:
             raise ToolError(f"Error executing tool {self.name}: {e}") from e
 

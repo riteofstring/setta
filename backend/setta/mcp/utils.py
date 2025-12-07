@@ -5,10 +5,6 @@ class IDDoesNotExist(Exception):
     pass
 
 
-class SettaMCPToolError(Exception):
-    pass
-
-
 def traverse_and_replace(data, replace_func):
     """
     Recursively traverse data structure and apply replace_func to all string values.
@@ -44,7 +40,7 @@ def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid: IDToUUIDForLLM):
         id_to_uuid: Dictionary mapping IDs to UUIDs
 
     Returns:
-        Tuple of (transformed data, updated uuid_to_id, updated id_to_uuid)
+        The transformed data structure with IDs substituted
     """
 
     def replace_uuid(value):

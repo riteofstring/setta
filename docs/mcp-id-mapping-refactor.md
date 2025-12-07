@@ -31,9 +31,9 @@ This note documents how the existing ID/UUID translation works inside the MCP st
    - Once the backend consistently emits `ID`s in project-state payloads, either re-implement the `updateUUIDMappingForLLM` store logic or drop the websocket message entirely in favor of tool-return payloads. This is optional during the refactor phase since broken UI behavior is acceptable.
 
 ## Action Items
-- [ ] Update project-state Pydantic models (and generated types) so every identifier uses the `ID` type.
-- [ ] Remove the leftover mapping helpers/doc noise that assume tuple returns or hidden errors.
-- [ ] Ensure `setta_uuid_transformer` raises MCP-native errors and only logs what we actually need.
+- [x] Update project-state Pydantic models (and generated types) so every identifier uses the `ID` type.
+- [x] Remove the leftover mapping helpers/doc noise that assume tuple returns or hidden errors.
+- [x] Ensure `setta_uuid_transformer` raises MCP-native errors and only logs what we actually need.
 - [ ] Decide whether the frontend still needs the websocket broadcast once the mapping is automatically handled server-side.
 
 With this change, identifiers that matter to MCP (sections, code objects, param references, watcher handles, etc.) will consistently run through the ID ↔ UUID mapper, so the LLM gets stable numeric IDs without us manually touching each schema or endpoint.
