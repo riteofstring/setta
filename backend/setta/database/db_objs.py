@@ -7,7 +7,7 @@ from typing import Any
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
-from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
+from setta.types.id import IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.utils.utils import compute_md5_prefix, normalize_path

@@ -4,14 +4,15 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.ai import APIKeys, IDToUUIDForLLM
 from setta.types.artifact_messages import UpdateArtifactMsgContent
+from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import (
     LLMStreamingResponse,
     LLMStreamingResponseChunk,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
+from setta.types.id import IDToUUIDForLLM
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (

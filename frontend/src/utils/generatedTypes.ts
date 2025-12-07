@@ -710,18 +710,6 @@ export type SaveConflictStrategy = ObjectValues<
   typeof SaveConflictStrategyEnum
 >;
 
-export const APIKeysSchema = z.record(z.string(), z.string());
-
-export type APIKeys = z.infer<typeof APIKeysSchema>;
-
-export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
-
-export type IDToUUIDForLLM = z.infer<typeof IDToUUIDForLLMSchema>;
-
-export const UUIDToIDForLLMSchema = z.record(z.string(), IDSchema);
-
-export type UUIDToIDForLLM = z.infer<typeof UUIDToIDForLLMSchema>;
-
 export const BrushStrokeSchema = z.object({
   strokeStyle: z.string(),
   lineWidth: z.number(),
@@ -978,6 +966,10 @@ export function createBaseArtifactUnionWithDiscriminator(
 ): BaseArtifactUnionWithDiscriminator {
   return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
 }
+
+export const APIKeysSchema = z.record(z.string(), z.string());
+
+export type APIKeys = z.infer<typeof APIKeysSchema>;
 
 export const MessageTextContentSchema = z.object({
   type: z.literal("text").default("text" as const),
@@ -6134,6 +6126,14 @@ export function createWebsocketMsgUnionWithDiscriminator(
 ): WebsocketMsgUnionWithDiscriminator {
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
+
+export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
+
+export type IDToUUIDForLLM = z.infer<typeof IDToUUIDForLLMSchema>;
+
+export const UUIDToIDForLLMSchema = z.record(z.string(), IDSchema);
+
+export type UUIDToIDForLLM = z.infer<typeof UUIDToIDForLLMSchema>;
 
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),

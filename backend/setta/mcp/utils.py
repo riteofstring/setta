@@ -1,4 +1,4 @@
-from setta.types.ai import ID, IDToUUIDForLLM
+from setta.types.id import ID, IDToUUIDForLLM
 
 
 class IDDoesNotExist(Exception):

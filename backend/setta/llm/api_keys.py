@@ -1,6 +1,6 @@
 """Shared helpers for reading and filtering LLM API keys."""
 
-from setta.types.ai import APIKeys
+from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
 
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from setta.llm.config import save_llm_config
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.ai import APIKeys
+from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route

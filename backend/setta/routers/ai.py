@@ -3,12 +3,12 @@ from pydantic import BaseModel
 
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
+from setta.types.id import IDToUUIDForLLM
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route

@@ -25,3 +25,6 @@ class ChatMetadata(BaseModel):
 
 class Chat(ChatMetadata):
     messages: list[BaseChatMessageUnion]
+
+
+APIKeys = dict[str, str]

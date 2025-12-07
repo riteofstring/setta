@@ -25,8 +25,7 @@ from setta.project_state.chats.save import (
 from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
-from setta.types.ai import APIKeys
-from setta.types.chat import Chat
+from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
