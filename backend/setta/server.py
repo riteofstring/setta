@@ -9,9 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import setta.mcp.tools.base_tools  # noqa: F401
-import setta.mcp.tools.file_read  # noqa: F401
-import setta.mcp.tools.tool_search  # noqa: F401
+import setta.mcp.tools  # noqa: F401
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,

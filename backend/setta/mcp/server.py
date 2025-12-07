@@ -149,7 +149,11 @@ class SettaFastMCP(FastMCP):
         return wrapper
 
     def _build_tool_search_index(self) -> ToolSearchIndex | None:
-        tools = self.list_registered_tools()
+        tools = [
+            tool
+            for tool in self.list_registered_tools()
+            if tool.annotations.settaToolType == SettaToolType.discoverable
+        ]
         if not tools:
             return None
         documents = [_build_tool_document_text(tool) for tool in tools]

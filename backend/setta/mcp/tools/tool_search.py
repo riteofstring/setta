@@ -1,3 +1,5 @@
+import json
+
 import bm25s
 
 from setta.mcp.tool_setup import setta_init_tool
@@ -13,7 +15,7 @@ def search_mcp_tools(
     query: str,
     limit: int = 2,
     setta_state: SettaFastAPIState,
-) -> list[str]:
+) -> str:
     """Return the MCP tool names that best match a natural-language query.
 
     Args:
@@ -47,4 +49,4 @@ def search_mcp_tools(
         tool = tools[doc_index]
         ranked_results.append(tool.name)
 
-    return ranked_results
+    return json.dumps(ranked_results)
