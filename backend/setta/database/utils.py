@@ -7,7 +7,7 @@ from setta.types.id import ID
 T = TypeVar("T")
 
 
-def create_new_id()->ID:
+def create_new_id() -> ID:
     return ID(uuid4())
 
 

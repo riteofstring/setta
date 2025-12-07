@@ -100,6 +100,7 @@ def create_impl_model_args_as_typed_dict(
 def get_imports_str():
     return """
 from typing import TypedDict, Literal, Any, NotRequired, overload, Callable
+from setta.types.id import ID
 from setta.types.core import Core
 from setta.types.artifact import LineChartSettings, ScatterChartSettings
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode

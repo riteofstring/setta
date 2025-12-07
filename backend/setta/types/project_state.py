@@ -1,4 +1,3 @@
-from setta.types.id import ID
 import yaml
 from pydantic import (
     BaseModel,
@@ -24,6 +23,7 @@ from setta.types.helpers_lvl2 import (
     get_top_level_param_ids,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
