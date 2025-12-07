@@ -94,7 +94,10 @@ class SettaFastMCP(FastMCP):
     def _register_setta_tool(
         self, fn: Callable[..., Any], tool_type: SettaToolType
     ) -> None:
-        annotations = SettaToolAnnotations(settaToolType=tool_type)
+        # Re-validate against the base class so Pydantic preserves custom fields
+        annotations = ToolAnnotations.model_validate(
+            SettaToolAnnotations(settaToolType=tool_type).model_dump()
+        )
         self.add_tool(
             self.setta_uuid_transformer(fn),
             annotations=annotations,
