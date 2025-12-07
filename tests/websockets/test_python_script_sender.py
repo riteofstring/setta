@@ -1,7 +1,10 @@
 import unittest
 from typing import TYPE_CHECKING, cast
 
-from setta.types.dependency_key import create_dep_key
+from setta.types.dependency_key import (
+    SectionParamDependencyKey,
+    create_dep_key,
+)
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import (
@@ -142,35 +145,35 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         first_message = cast(
             "WebsocketMsgListenerRealtimeEvent", websocket_manager.sent_messages[0][0]
         )
+        first_deltas = []
+        for delta in first_message.content.deltas:
+            dependency = delta.dependency
+            self.assertIsInstance(dependency, SectionParamDependencyKey)
+            first_deltas.append(
+                (dependency.sectionId, dependency.codeObjId, delta.value.payload)
+            )
         self.assertEqual(
             [
                 (ID("section-A"), ID("param-1"), "value-a"),
             ],
-            [
-                (
-                    delta.dependency.sectionId,
-                    delta.dependency.codeObjId,
-                    delta.value.payload,
-                )
-                for delta in first_message.content.deltas
-            ],
+            first_deltas,
         )
 
         second_message = cast(
             "WebsocketMsgListenerRealtimeEvent", websocket_manager.sent_messages[1][0]
         )
+        second_deltas = []
+        for delta in second_message.content.deltas:
+            dependency = delta.dependency
+            self.assertIsInstance(dependency, SectionParamDependencyKey)
+            second_deltas.append(
+                (dependency.sectionId, dependency.codeObjId, delta.value.payload)
+            )
         self.assertEqual(
             [
                 (ID("section-Z"), ID("param-9"), "value-unmatched"),
             ],
-            [
-                (
-                    delta.dependency.sectionId,
-                    delta.dependency.codeObjId,
-                    delta.value.payload,
-                )
-                for delta in second_message.content.deltas
-            ],
+            second_deltas,
         )
 
     async def test_send_realtime_update_skips_when_no_callbacks_match(self):

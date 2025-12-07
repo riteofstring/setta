@@ -89,6 +89,22 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             sectionVariants={section_variant.id: section_variant},
         )
 
+    def _set_snapshot_section_text(
+        self,
+        project_state: ProjectStateSingleConfig,
+        text: str,
+    ) -> None:
+        section_id = next(iter(project_state.sections))
+        impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        section_impl = project_state.sectionImpls[impl.id]
+        if not isinstance(section_impl, TextBlockSectionImpl):
+            raise AssertionError("Snapshot fixture expected TextBlockSectionImpl")
+        section_impl.text = text
+
     def _get_structured_dependency(
         self, spec: ListenerCallbackSpec
     ) -> BaseDependencyKeyUnion:
@@ -224,11 +240,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(listener._last_realtime_sequence, 1)
 
         refreshed_state = project_state.model_copy(deep=True)
-        section_id = next(iter(refreshed_state.sections))
-        impl = get_curr_effective_section_impl_with_type_guard(
-            refreshed_state, section_id, TextBlockSectionImpl
-        )
-        impl.text = "Updated"
+        self._set_snapshot_section_text(refreshed_state, "Updated")
 
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
@@ -297,11 +309,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         refreshed_state = project_state.model_copy(deep=True)
-        section_id = next(iter(refreshed_state.sections))
-        impl = get_curr_effective_section_impl_with_type_guard(
-            refreshed_state, section_id, TextBlockSectionImpl
-        )
-        impl.text = "Updated"
+        self._set_snapshot_section_text(refreshed_state, "Updated")
 
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)

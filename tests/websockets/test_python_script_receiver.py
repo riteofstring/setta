@@ -253,7 +253,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             receiver,
             websocket_manager,
             _,
-            _,
+            project_manager_switcher,
             listener_registry,
         ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
@@ -332,7 +332,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         ) = _build_receiver_fixture({})
         init_message = WebsocketMsgListenerInit(
             content=ListenerInitContent(
-                projectConfigId="missing-project",
+                projectConfigId=ID("missing-project"),
             )
         )
 
@@ -390,7 +390,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             receiver,
             websocket_manager,
             _,
-            _,
+            project_manager_switcher,
             listener_registry,
         ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
