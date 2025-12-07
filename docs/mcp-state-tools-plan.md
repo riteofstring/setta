@@ -4,7 +4,7 @@ This document captures the concrete plan for exposing deterministic MCP tools th
 
 ## 1. Thread Chat Context Into MCP Dispatch
 - ✅ **Persist project context** – Extend `backend/setta/types/chat.py` and `project_state/chats/save.py` so each chat stores the active `projectConfigId` (later: section metadata). This gives future tool invocations the context called out as “missing” in the refactor doc. Frontend submitters and `route_get_llm_response` now always include the config id.
-- **Propagate from frontend** – Update the AI routes (`backend/setta/routers/ai.py`) plus the frontend submitters (`frontend/src/state/actions/ai.ts`, `ProjectChatCore.tsx`) to send the config id with every `route_get_llm_response` call.
+- ✅ **Propagate from frontend** – Update the AI routes (`backend/setta/routers/ai.py`) plus the frontend submitters (`frontend/src/state/actions/ai.ts`, `ProjectChatCore.tsx`) to send the config id with every `route_get_llm_response` call.
 - **Inject MCP parameters** – Change `LLMChatManager._dispatch_tool_call` to insert `C.MCP_CHAT_ID_ARG_NAME` and `C.MCP_PROJECT_CONFIG_ID_ARG_NAME` into the argument payload it passes to `MCPClient.call_tool`. Because `SettaFastMCP.setta_uuid_transformer` forwards whitelisted params (see `backend/setta/mcp/server.py`), any tool that declares `setta_chat_id`/`projectConfigId` will automatically receive them.
 
 ## 2. Build a Project-State MCP Tool Registry
