@@ -1,14 +1,16 @@
 import unittest
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
+
+if TYPE_CHECKING:
+    from setta.code_gen.python.code_generator import PythonCodeGenerator
 
 
 def _build_project_state_with_duplicate_names():

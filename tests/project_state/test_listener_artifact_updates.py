@@ -1,8 +1,6 @@
 import unittest
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from setta.database.db_objs import DBE
-from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.listener_artifact_updates import (
     ListenerArtifactUpdateError,
@@ -18,7 +16,10 @@ from setta.types.artifact import (
     ImageArtifact,
 )
 from setta.utils.utils import normalize_path
-from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+if TYPE_CHECKING:
+    from setta.database.db_objs import DBE
+    from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
 class _StubFrontendSender:

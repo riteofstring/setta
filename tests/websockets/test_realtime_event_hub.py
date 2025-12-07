@@ -1,5 +1,5 @@
 import unittest
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -8,7 +8,8 @@ from setta.types.listener import ListenerRealtimeDelta
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
-from setta.websockets.websocket_manager import WebsocketManager
+if TYPE_CHECKING:
+    from setta.websockets.websocket_manager import WebsocketManager
 
 
 class _StubPythonScriptSender:

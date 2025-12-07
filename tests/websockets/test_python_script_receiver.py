@@ -38,11 +38,11 @@ from setta.websockets.msg_handlers.python_script_receiver import (
     WMHPythonScriptReceiver,
 )
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-from setta.websockets.websocket_manager import WebsocketManager
-from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 
 if TYPE_CHECKING:
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+    from setta.websockets.websocket_manager import WebsocketManager
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 
 
 PROJECT_ID = ID("proj-123")

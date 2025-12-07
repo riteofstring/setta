@@ -5,10 +5,8 @@ import json
 import logging
 import unittest
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, MagicMock
-
-from websockets import ClientConnection
 
 from setta.api.listener import (
     ListenerCallbackSpec,
@@ -16,7 +14,6 @@ from setta.api.listener import (
     SettaListener,
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
-from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -36,6 +33,11 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import WebsocketMsgListenerError
+
+if TYPE_CHECKING:
+    from websockets import ClientConnection
+
+    from setta.code_gen.python.code_generator import PythonCodeGenerator
 
 
 class _StubWebsocket:

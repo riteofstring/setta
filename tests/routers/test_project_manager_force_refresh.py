@@ -1,13 +1,12 @@
 import types
 import unittest
 from types import SimpleNamespace
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from fastapi import HTTPException
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import ForceRefreshProjectRequest
 from setta.routers.project_manager import route_force_refresh_listener
-from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
@@ -15,6 +14,9 @@ from tests.utils.manager_fixture import (
     real_project_manager,
     real_settings_manager,
 )
+
+if TYPE_CHECKING:
+    from setta.server_state import SettaFastAPIState
 
 
 class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):

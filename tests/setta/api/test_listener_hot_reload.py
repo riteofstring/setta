@@ -6,7 +6,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
@@ -16,7 +16,9 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from watchfiles import Change
-from websockets import ClientConnection
+
+if TYPE_CHECKING:
+    from websockets import ClientConnection
 
 
 class _StubWebsocket:

@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -11,7 +11,6 @@ from setta.project_state.chats.save import (
     delete_chat,
     save_messages,
 )
-from setta.types.chat import Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
     ChatRole,
@@ -22,6 +21,9 @@ from setta.types.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
+
+if TYPE_CHECKING:
+    from setta.types.chat import Chat
 
 DEFAULT_CONFIG_ID = "provider-one"
 DEFAULT_PROJECT_CONFIG_ID = ID("chat-tests-project")

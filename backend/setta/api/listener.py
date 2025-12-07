@@ -36,7 +36,6 @@ from setta.types.generated.unions import (
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerForceRefreshContent,
@@ -65,6 +64,7 @@ from .scheduling import ListenerCallbackScheduler
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
+    from setta.types.id import ID
     from .hot_reload import ListenerHotReloader
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ class SettaListener:
         reconnect_delay: float = 5.0,
     ) -> None:
         self._project_name = project_name
-        self._project_id: ID | None = None
+        self._project_id: "ID | None" = None
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port

@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import docstring_parser
 from lsprotocol import types as LSPTypes
@@ -12,10 +12,9 @@ from setta.types.code_obj_impls import (
 from setta.types.core import Core
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.unions import (
-    BaseParamCodeObjImplUnion,
-)
-from setta.types.id import ID
+if TYPE_CHECKING:
+    from setta.types.generated.unions import BaseParamCodeObjImplUnion
+    from setta.types.id import ID
 
 
 @dataclass
@@ -82,7 +81,7 @@ def wrapper_parse_signature(
 ):
     params = get_proposed_params(signature, docstring)
     codeObjs: list[Core] = []
-    codeObjImplMap: dict[ID, BaseParamCodeObjImplUnion] = {}
+    codeObjImplMap: dict["ID", "BaseParamCodeObjImplUnion"] = {}
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1
 
