@@ -5,6 +5,7 @@ from setta.types.code_obj_impls import BaseChildlessCodeObjImpl, BaseParentCodeO
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import BaseCodeObjImplUnion
+from setta.types.id import ID
 from setta.utils.utils import try_json
 
 
@@ -36,27 +37,27 @@ class TraversalOptions:  # setta-convert-pydantic-to-js: skip
 class HierarchyTraversalResult:  # setta-convert-pydantic-to-js: skip
     """Result of hierarchy traversal."""
 
-    collected_ids: list[str] = field(default_factory=list)
-    parent_map: dict[str, Optional[str]] = field(default_factory=dict)
-    children_map: dict[str, list[str]] = field(default_factory=dict)
-    id_to_id_path: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    id_to_name_path: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    name_path_to_id: dict[tuple[str, ...], str] = field(default_factory=dict)
-    name_path_to_descendant_ids: dict[tuple[str, ...], set[str]] = field(
+    collected_ids: list[ID] = field(default_factory=list)
+    parent_map: dict[ID, Optional[ID]] = field(default_factory=dict)
+    children_map: dict[ID, list[ID]] = field(default_factory=dict)
+    id_to_id_path: dict[ID, tuple[ID, ...]] = field(default_factory=dict)
+    id_to_name_path: dict[ID, tuple[str, ...]] = field(default_factory=dict)
+    name_path_to_id: dict[tuple[str, ...], ID] = field(default_factory=dict)
+    name_path_to_descendant_ids: dict[tuple[str, ...], set[ID]] = field(
         default_factory=dict
     )
-    all_visited_ids: set[str] = field(default_factory=set)
+    all_visited_ids: set[ID] = field(default_factory=set)
     nested_dict: dict = field(default_factory=dict)
     early_stopped: bool = False
 
 
 def traverse_hierarchy(
-    codeObjs: dict[str, Core],
-    codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjVariants: dict[str, Variant],
-    codeObjVariantMap: dict[str, str],
-    top_level_ids: list[str],
-    root_id: Optional[str] = None,
+    codeObjs: dict[ID, Core],
+    codeObjImpls: dict[ID, BaseCodeObjImplUnion],
+    codeObjVariants: dict[ID, Variant],
+    codeObjVariantMap: dict[ID, ID],
+    top_level_ids: list[ID],
+    root_id: Optional[ID] = None,
     options: Optional[TraversalOptions] = None,
 ) -> HierarchyTraversalResult:
     if options is None:
@@ -64,14 +65,14 @@ def traverse_hierarchy(
 
     result = HierarchyTraversalResult()
 
-    def get_impl(id: str) -> BaseCodeObjImplUnion:
+    def get_impl(id: ID) -> BaseCodeObjImplUnion:
         variant_id = codeObjVariantMap[id]
         variant = codeObjVariants[variant_id]
         return get_effective_impl(codeObjImpls[variant.impl], codeObjs[id], variant)
 
     # Build stack with optional filtering
     stack: list[
-        tuple[str, tuple[str, ...], tuple[str, ...]]
+        tuple[ID, tuple[ID, ...], tuple[str, ...]]
     ] = []  # (id, id_path, name_path)
 
     if root_id:

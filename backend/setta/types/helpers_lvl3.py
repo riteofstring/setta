@@ -11,6 +11,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
+from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
@@ -81,18 +82,18 @@ def merge_single_config_into_backend(
 
 
 def prepare_sections_for_copy(
-    p: ProjectStateCore, sections_to_process: set[str]
+    p: ProjectStateCore, sections_to_process: set[ID]
 ) -> ProjectStateCore:
     # Collectors for all the IDs we need
-    section_ids: set[str] = set()
-    section_impl_ids: set[str] = set()
-    section_variant_ids: set[str] = set()
-    code_obj_ids: set[str] = set()
-    code_obj_impl_ids: set[str] = set()
-    code_obj_variant_ids: set[str] = set()
+    section_ids: set[ID] = set()
+    section_impl_ids: set[ID] = set()
+    section_variant_ids: set[ID] = set()
+    code_obj_ids: set[ID] = set()
+    code_obj_impl_ids: set[ID] = set()
+    code_obj_variant_ids: set[ID] = set()
 
     sections_to_process = copy.deepcopy(sections_to_process)
-    code_objs_to_process: set[str] = set()
+    code_objs_to_process: set[ID] = set()
 
     # Process sections recursively
     while sections_to_process:
@@ -158,7 +159,7 @@ def prepare_sections_for_copy(
     )
 
 
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(
         p, set(project_config.topLevelSections.keys())
@@ -177,9 +178,9 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
 
 
 def remap_section_variant_map(
-    section_variant_map: dict[str, str],
-    section_id_map: dict[str, str] | None,
-    section_variant_id_map: dict[str, str] | None,
+    section_variant_map: dict[ID, ID],
+    section_id_map: dict[ID, ID] | None,
+    section_variant_id_map: dict[ID, ID] | None,
 ):
     if section_id_map:
         section_variant_map = rename_keys(section_variant_map, section_id_map)
@@ -194,8 +195,8 @@ def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
     do_create_new_id=False,
-    section_id_map: dict[str, str] | None = None,
-    section_variant_id_map: dict[str, str] | None = None,
+    section_id_map: dict[ID, ID] | None = None,
+    section_variant_id_map: dict[ID, ID] | None = None,
 ):
     new_values: ProjectConfigArgs = {}
     if new_config_name:
@@ -218,7 +219,7 @@ def copy_project_config(
     return project_config.model_copy(update=new_values, deep=True)
 
 
-def copy_variants(variants: dict[str, Variant], implIdMap: dict[str, str]):
+def copy_variants(variants: dict[ID, Variant], implIdMap: dict[ID, ID]):
     newVariants, variantIdMap = remap_ids(variants)
     for c in newVariants.values():
         c.id = variantIdMap[c.id]
@@ -228,7 +229,7 @@ def copy_variants(variants: dict[str, Variant], implIdMap: dict[str, str]):
     return newVariants, variantIdMap
 
 
-def copy_cores(cores: dict[str, Core], variantIdMap: dict[str, str]):
+def copy_cores(cores: dict[ID, Core], variantIdMap: dict[ID, ID]):
     newCores, coreIdMap = remap_ids(cores)
 
     for c in newCores.values():
@@ -240,9 +241,9 @@ def copy_cores(cores: dict[str, Core], variantIdMap: dict[str, str]):
     return newCores, coreIdMap
 
 
-def copy_impls(impls: dict[str, T]):
-    nonPresets: dict[str, T] = {}
-    presets: dict[str, T] = {}
+def copy_impls(impls: dict[ID, T]):
+    nonPresets: dict[ID, T] = {}
+    presets: dict[ID, T] = {}
     for k, v in impls.items():
         if v.isPreset:
             presets[k] = v
@@ -258,7 +259,7 @@ def copy_impls(impls: dict[str, T]):
 
 
 def update_code_obj_impl_details(
-    codeObjImpls: dict[str, BaseCodeObjImplUnion], codeObjIdMap: dict[str, str]
+    codeObjImpls: dict[ID, BaseCodeObjImplUnion], codeObjIdMap: dict[ID, ID]
 ):
     for c in codeObjImpls.values():
         if isinstance(c, BaseParentCodeObjImpl):
@@ -266,10 +267,10 @@ def update_code_obj_impl_details(
 
 
 def update_section_impl_details(
-    sectionImpls: dict[str, BaseSectionImplUnion],
-    sectionIdMap: dict[str, str],
-    codeObjIdMap: dict[str, str],
-    codeObjVariantIdMap: dict[str, str],
+    sectionImpls: dict[ID, BaseSectionImplUnion],
+    sectionIdMap: dict[ID, ID],
+    codeObjIdMap: dict[ID, ID],
+    codeObjVariantIdMap: dict[ID, ID],
 ):
     for c in sectionImpls.values():
         if isinstance(c, BaseParentSectionImpl):

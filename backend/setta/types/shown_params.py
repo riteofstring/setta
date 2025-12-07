@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
+from setta.types.id import ID
 from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
 )
@@ -58,10 +59,10 @@ def get_param_ids_to_show(
 
 
 def filter_for_ui_display(
-    param_ids: list[str],
-    id_to_id_path: dict[str, tuple[str, ...]],
-    children_map: dict[str, list[str]],
-    pinned_params: set[str],
+    param_ids: list[ID],
+    id_to_id_path: dict[ID, tuple[ID, ...]],
+    children_map: dict[ID, list[ID]],
+    pinned_params: set[ID],
 ) -> ShownParamIds:
     """
     Filter parameters for UI display where:

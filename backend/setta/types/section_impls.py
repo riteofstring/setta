@@ -19,6 +19,7 @@ from setta.types.code_obj_impls import ColorPickerChoice
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
+from setta.types.id import ID
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -104,7 +105,7 @@ class BrowserAreaItem(BaseModel, extra="forbid"):
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
     type: Any
-    id: str = Field(default_factory=create_new_id)
+    id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     isFrozen: bool = False
     visibility: Visibility = Field(default_factory=Visibility)
@@ -119,15 +120,15 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
-    codeObjVariantMap: dict[str, str] = Field(default_factory=dict)
+    codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
     hideUnpinnedParams: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
-    pinnedParams: list[str] = Field(default_factory=list)
+    pinnedParams: list[ID] = Field(default_factory=list)
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
-    selectedParams: list[str] = Field(default_factory=list)
-    ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
+    selectedParams: list[ID] = Field(default_factory=list)
+    ignoreTypeErrors: dict[ID, bool] = Field(default_factory=dict)
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 
@@ -157,11 +158,11 @@ class BaseCodeSectionImpl(BaseSectionImpl):
 
 
 class BaseParentSectionImpl(BaseSectionImpl):
-    children: list[str] = Field(default_factory=list)
+    children: list[ID] = Field(default_factory=list)
 
 
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):
-    topLevelParamId: str | None = None
+    topLevelParamId: ID | None = None
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
@@ -169,7 +170,7 @@ class BaseDictSectionImpl(BaseSectionWithParamsImpl):
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):
     type: Literal[SectionType.Callable] = SectionType.Callable
-    callable: str | None = None
+    callable: ID | None = None
     hideParams: bool = False
 
 

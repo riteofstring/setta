@@ -82,6 +82,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_code_obj_impl_value,
     set_curr_effective_section_impl_value,
 )
+from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout
 from setta.types.section_impls import (
     BaseDictSectionImpl,
@@ -141,8 +142,8 @@ def get_curr_section_children_ids(
 
 def get_curr_top_level_param_ids(
     p: "ProjectStateSingleConfig",
-    section_id: str,
-) -> list[str]:
+    section_id: ID,
+) -> list[ID]:
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, BaseSectionWithParamsImpl
     )
@@ -151,8 +152,8 @@ def get_curr_top_level_param_ids(
 
 def get_top_level_param_ids(
     p: "ProjectStateCore", section_impl: BaseSectionWithParamsImpl
-) -> list[str]:
-    parentCodeObjId: str | None = None
+) -> list[ID]:
+    parentCodeObjId: ID | None = None
     if isinstance(section_impl, CallableSectionImpl):
         parentCodeObjId = section_impl.callable
     elif isinstance(section_impl, BaseDictSectionImpl):
@@ -173,7 +174,7 @@ def get_top_level_param_ids(
     return code_obj_impl.children
 
 
-def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: str):
+def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: ID):
     section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = p.parentSectionMap[section_id]
     if not parent_id:
@@ -198,14 +199,14 @@ def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: str):
 
 
 def callable_is_already_selected(
-    p: "ProjectStateSingleConfig", sectionId: str, callableName: str
+    p: "ProjectStateSingleConfig", sectionId: ID, callableName: str
 ):
     selected_item = get_curr_section_callable_code_obj(p, sectionId)
     return selected_item and selected_item.name == callableName
 
 
 def callable_has_been_selected_before(
-    p: "ProjectStateSingleConfig", sectionId: str, callableName: str
+    p: "ProjectStateSingleConfig", sectionId: ID, callableName: str
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, CallableSectionImpl
@@ -218,7 +219,7 @@ def callable_has_been_selected_before(
 
 def add_code_obj(
     p: "ProjectStateSingleConfig",
-    section_ids: list[str],
+    section_ids: list[ID],
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
@@ -249,7 +250,7 @@ def add_code_obj(
 
 
 def update_variant_impl_props(
-    p: "ProjectStateSingleConfig", variant_ids: list[str], new_impl: BaseCodeObjImpl
+    p: "ProjectStateSingleConfig", variant_ids: list[ID], new_impl: BaseCodeObjImpl
 ):
     for variant_id in variant_ids:
         variant = p.codeObjVariants[variant_id]
@@ -261,10 +262,10 @@ def update_variant_impl_props(
 
 def add_children_of_callable(
     p: "ProjectStateSingleConfig",
-    section_id: str,
-    callable_id: str,
+    section_id: ID,
+    callable_id: ID,
     new_params: list[Core],
-    new_param_impl_map: dict[str, BaseParamCodeObjImplUnion],
+    new_param_impl_map: dict[ID, BaseParamCodeObjImplUnion],
 ):
     callable_code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
         p, section_id, callable_id, CodeCallableCodeObjImpl
@@ -295,8 +296,8 @@ def add_children_of_callable(
 
 def set_param_entered_value(
     p: "ProjectStateSingleConfig",
-    sectionId: str,
-    paramId: str,
+    sectionId: ID,
+    paramId: ID,
     value: str,
 ):
     set_curr_effective_code_obj_impl_value(
@@ -312,7 +313,7 @@ def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
 
 
 def set_project_config_name(
-    p: "ProjectStateBackend", projectConfigId: str, newName: str
+    p: "ProjectStateBackend", projectConfigId: ID, newName: str
 ):
     for k, v in p.projectConfigs.items():
         if k != projectConfigId and v.name == newName:
@@ -1223,9 +1224,9 @@ def move_section_to_parent_section(
 def group_sections(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
-    sectionIds: list[str],
+    sectionIds: list[ID],
 ):
-    currParentIds: set[str | None] = set()
+    currParentIds: set[ID | None] = set()
     for s in sectionIds:
         currParentIds.add(p.parentSectionMap[s])
     if len(currParentIds) != 1:
@@ -1260,7 +1261,7 @@ def ungroup_groups(p: "ProjectStateSingleConfig", groupIds: list[str]):
         ungroup_group(p, g)
 
 
-def ungroup_group(p: "ProjectStateSingleConfig", groupId: str):
+def ungroup_group(p: "ProjectStateSingleConfig", groupId: ID):
     impl = get_curr_effective_section_impl_with_type_guard(p, groupId, GroupSectionImpl)
 
     parentId = p.parentSectionMap[groupId]
