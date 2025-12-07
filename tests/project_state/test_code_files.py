@@ -126,9 +126,9 @@ class CodeFilesTests(unittest.TestCase):
     def test_register_binding_rejects_conflicts_for_other_sections(self) -> None:
         register_binding(self.manager, self.path, CodeFileAccessMode.read_only)
         conflicting = RegisteredCodeFileBinding(
-            section_id="other-section",
-            variant_id="variant",
-            project_config_id="config",
+            section_id=ID("other-section"),
+            variant_id=ID("variant"),
+            project_config_id=ID("config"),
             access_mode=CodeFileAccessMode.write_only,
         )
 
@@ -205,9 +205,9 @@ class CodeFilesTests(unittest.TestCase):
         # Pre-populate bindings with unrelated data to ensure the watcher refresh clears it.
         stale_path = normalize_path(self.path.parent / "stale.py")
         stale_binding = RegisteredCodeFileBinding(
-            section_id="old",
-            variant_id="old",
-            project_config_id="old-config",
+            section_id=ID("old"),
+            variant_id=ID("old"),
+            project_config_id=ID("old-config"),
             access_mode=CodeFileAccessMode.read_only,
         )
         self.manager._bindings[stale_path] = {stale_binding}
@@ -314,9 +314,9 @@ class CodeUpdateFileTests(unittest.TestCase):
             access_mode=access_mode,
         )
         registered = RegisteredCodeFileBinding(
-            section_id="section",
-            variant_id="variant",
-            project_config_id="config",
+            section_id=ID("section"),
+            variant_id=ID("variant"),
+            project_config_id=ID("config"),
             access_mode=access_mode,
         )
         self.code_files.register_binding(path, registered)

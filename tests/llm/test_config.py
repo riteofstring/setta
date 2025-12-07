@@ -7,15 +7,22 @@ from pydantic import ValidationError
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
 from setta.types.chat import ChatMetadata
+from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 
 
-def _build_chat_metadata(name: str, llm_config: LLMConfig) -> ChatMetadata:
+DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
+
+
+def _build_chat_metadata(
+    name: str, llm_config: LLMConfig, project_config_id: ID = DEFAULT_PROJECT_CONFIG_ID
+) -> ChatMetadata:
     return ChatMetadata(
         id=f"chat-{name}",
         name=name,
         lastUpdated=datetime.now(),
         llmConfig=llm_config,
+        projectConfigId=project_config_id,
     )
 
 

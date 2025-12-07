@@ -3,6 +3,7 @@ import unittest
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
@@ -10,61 +11,61 @@ from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
 
 def _build_project_state_with_duplicate_names():
     group_impl = GroupSectionImpl(
-        id="impl-group",
+        id=ID("impl-group"),
         name="Settings Group",
-        children=["section-child-1", "section-child-2"],
+        children=[ID("section-child-1"), ID("section-child-2")],
     )
     first_child_impl = TextBlockSectionImpl(
-        id="impl-child-1",
+        id=ID("impl-child-1"),
         name="Data Source",
         text="Hello",
     )
     second_child_impl = TextBlockSectionImpl(
-        id="impl-child-2",
+        id=ID("impl-child-2"),
         name="Data   Source",
         text="World",
     )
 
     group_variant = Variant(
-        id="variant-group",
+        id=ID("variant-group"),
         name="Settings Group",
         impl=group_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(group_impl),
     )
     first_child_variant = Variant(
-        id="variant-child-1",
+        id=ID("variant-child-1"),
         name="Data Source",
         impl=first_child_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(first_child_impl),
     )
     second_child_variant = Variant(
-        id="variant-child-2",
+        id=ID("variant-child-2"),
         name="Data   Source",
         impl=second_child_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(second_child_impl),
     )
 
     group_core = Core(
-        id="section-group",
+        id=ID("section-group"),
         name="Settings Group",
         variants=[group_variant.id],
         defaultVariant=group_variant.id,
     )
     first_child_core = Core(
-        id="section-child-1",
+        id=ID("section-child-1"),
         name="Data Source",
         variants=[first_child_variant.id],
         defaultVariant=first_child_variant.id,
     )
     second_child_core = Core(
-        id="section-child-2",
+        id=ID("section-child-2"),
         name="Data   Source",
         variants=[second_child_variant.id],
         defaultVariant=second_child_variant.id,
     )
 
     project_config = ProjectConfig(
-        id="project-listener",
+        id=ID("project-listener"),
         name="Listener Project",
         sectionVariantMap={
             group_core.id: group_variant.id,

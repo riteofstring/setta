@@ -20,9 +20,11 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
+from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 
 DEFAULT_CONFIG_ID = "provider-one"
+DEFAULT_PROJECT_CONFIG_ID = ID("chat-tests-project")
 
 
 def create_llm_config(
@@ -60,6 +62,7 @@ class ChatStorageTests(unittest.TestCase):
             self.dbe,
             first_message,
             create_llm_config(),
+            project_config_id=DEFAULT_PROJECT_CONFIG_ID,
         )
         loaded = load_chat(self.dbe, chat.id)
 
@@ -79,6 +82,7 @@ class ChatStorageTests(unittest.TestCase):
             self.dbe,
             first_message,
             create_llm_config(),
+            project_config_id=DEFAULT_PROJECT_CONFIG_ID,
         )
         initial_last_updated = chat.lastUpdated
 
@@ -101,11 +105,13 @@ class ChatStorageTests(unittest.TestCase):
             self.dbe,
             create_message("First"),
             create_llm_config("first-model"),
+            project_config_id=DEFAULT_PROJECT_CONFIG_ID,
         )
         chat_two = create_new_chat(
             self.dbe,
             create_message("Second"),
             create_llm_config("second-model", config_id="provider-two"),
+            project_config_id=ID("chat-tests-project-two"),
         )
 
         metadata = load_all_chat_metadata(self.dbe)

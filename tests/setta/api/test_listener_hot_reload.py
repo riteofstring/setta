@@ -10,6 +10,7 @@ from pathlib import Path
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
@@ -31,24 +32,24 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
-            id="section-impl",
+            id=ID("section-impl"),
             name="Welcome",
             text="Hello",
         )
         section_variant = Variant(
-            id="section-variant",
+            id=ID("section-variant"),
             name="Welcome Variant",
             impl=section_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
         )
         section_core = Core(
-            id="section-welcome",
+            id=ID("section-welcome"),
             name="Welcome",
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
         project_config = ProjectConfig(
-            id="project-1",
+            id=ID("project-1"),
             name="Demo Project",
             sectionVariantMap={section_core.id: section_variant.id},
             topLevelSections={section_core.id: TopLevelSectionLayout()},

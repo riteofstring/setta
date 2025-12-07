@@ -17,6 +17,7 @@ from setta.code_gen.dependency_graph import ParamNode
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.types.id import ID
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
@@ -41,27 +42,33 @@ class _StubWebsocket:
         self.sent.append(payload)
 
 
+PROJECT_TYPED_ID = ID("project-typed")
+SECTION_ONE_ID = ID("section-1")
+PARAM_SLIDER_ID = ID("param-slider")
+PARAM_SWITCH_ID = ID("param-switch")
+
+
 class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
-            id="section-impl",
+            id=ID("section-impl"),
             name="Welcome",
             text="Hello",
         )
         section_variant = Variant(
-            id="section-variant",
+            id=ID("section-variant"),
             name="Welcome Variant",
             impl=section_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
         )
         section_core = Core(
-            id="section-welcome",
+            id=ID("section-welcome"),
             name="Welcome",
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
         project_config = ProjectConfig(
-            id="project-1",
+            id=ID("project-1"),
             name="Demo Project",
             sectionVariantMap={section_core.id: section_variant.id},
             topLevelSections={section_core.id: TopLevelSectionLayout()},
@@ -116,7 +123,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         dependency_key = self._get_structured_dependency(realtime_spec)
 
         first_content = ListenerRealtimeEventContent(
-            projectConfigId="project-1",
+            projectConfigId=project_state.projectConfig.id,
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
@@ -130,7 +137,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
 
         second_content = ListenerRealtimeEventContent(
-            projectConfigId="project-1",
+            projectConfigId=project_state.projectConfig.id,
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
@@ -185,7 +192,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         dependency_key = self._get_structured_dependency(refresh_spec)
 
         realtime_event = ListenerRealtimeEventContent(
-            projectConfigId="project-1",
+            projectConfigId=project_state.projectConfig.id,
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
@@ -259,7 +266,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
-                projectConfigId="project-1",
+                projectConfigId=project_state.projectConfig.id,
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
@@ -328,7 +335,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
-                projectConfigId="project-1",
+                projectConfigId=project_state.projectConfig.id,
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
@@ -372,7 +379,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
 
         slider_node = ParamNode(
-            id="param-slider",
+            id=PARAM_SLIDER_ID,
             name="slider",
             full_path_name="section__slider",
             type=CodeObjType.SliderParam,
@@ -382,7 +389,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
         )
         switch_node = ParamNode(
-            id="param-switch",
+            id=PARAM_SWITCH_ID,
             name="switch",
             full_path_name="section__switch",
             type=CodeObjType.SwitchParam,
@@ -393,12 +400,12 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         slider_key = create_dep_key(
-            sectionId="section-1",
-            codeObjId="param-slider",
+            sectionId=SECTION_ONE_ID,
+            codeObjId=PARAM_SLIDER_ID,
         )
         switch_key = create_dep_key(
-            sectionId="section-1",
-            codeObjId="param-switch",
+            sectionId=SECTION_ONE_ID,
+            codeObjId=PARAM_SWITCH_ID,
         )
         graph = {
             slider_key: slider_node,
@@ -435,19 +442,19 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         listener._websocket = websocket
 
         event = ListenerRealtimeEventContent(
-            projectConfigId="project-typed",
+            projectConfigId=PROJECT_TYPED_ID,
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=create_dep_key(
-                        sectionId="section-1",
-                        codeObjId="param-slider",
+                        sectionId=SECTION_ONE_ID,
+                        codeObjId=PARAM_SLIDER_ID,
                     ),
                     value=LiteralDependencyValue("5"),
                 ),
                 ListenerRealtimeDelta(
                     dependency=create_dep_key(
-                        sectionId="section-1",
-                        codeObjId="param-switch",
+                        sectionId=SECTION_ONE_ID,
+                        codeObjId=PARAM_SWITCH_ID,
                     ),
                     value=LiteralDependencyValue("true"),
                 ),
@@ -523,24 +530,24 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
-            id="section-impl",
+            id=ID("section-impl"),
             name="Welcome",
             text="Hello",
         )
         section_variant = Variant(
-            id="section-variant",
+            id=ID("section-variant"),
             name="Variant",
             impl=section_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
         )
         section_core = Core(
-            id="section-welcome",
+            id=ID("section-welcome"),
             name="Welcome",
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
         project_config = ProjectConfig(
-            id="project-fail",
+            id=ID("project-fail"),
             name="Demo Project",
             sectionVariantMap={section_core.id: section_variant.id},
             topLevelSections={section_core.id: TopLevelSectionLayout()},

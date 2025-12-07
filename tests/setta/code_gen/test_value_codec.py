@@ -13,6 +13,7 @@ from setta.types.dependency_value import (
     LiteralDependencyValue,
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.id import ID
 from setta.types.section_impls import SectionType
 
 
@@ -55,11 +56,11 @@ class PythonValueCodecTest(TestCase):
         )
 
     def test_format_callable_section_handles_passing_styles(self) -> None:
-        args_key = create_dep_key(sectionId="section", codeObjId="args")
-        kw_key = create_dep_key(sectionId="section", codeObjId="color")
+        args_key = create_dep_key(sectionId=ID("section"), codeObjId=ID("args"))
+        kw_key = create_dep_key(sectionId=ID("section"), codeObjId=ID("color"))
         graph = {
             args_key: ParamNode(
-                id="param-args",
+                id=ID("param-args"),
                 name="args",
                 full_path_name="section.args",
                 type=CodeObjType.TextParam,
@@ -69,7 +70,7 @@ class PythonValueCodecTest(TestCase):
                 passing_style=ParameterPassingStyle.ARGS,
             ),
             kw_key: ParamNode(
-                id="param-color",
+                id=ID("param-color"),
                 name="color",
                 full_path_name="section.color",
                 type=CodeObjType.TextParam,
@@ -89,7 +90,7 @@ class PythonValueCodecTest(TestCase):
             lookup=lambda dep_key: lookup[dep_key],
         )
         section_node = SectionNode(
-            id="section",
+            id=ID("section"),
             name="Call",
             full_path_name="call",
             type=SectionType.Callable,
@@ -106,7 +107,7 @@ class PythonValueCodecTest(TestCase):
     def test_format_text_block_without_value_returns_none(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         section_node = SectionNode(
-            id="section",
+            id=ID("section"),
             name="Text",
             full_path_name="text",
             type=SectionType.TextBlock,
@@ -119,7 +120,7 @@ class PythonValueCodecTest(TestCase):
     def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
-            id="section",
+            id=ID("section"),
             name="Draw",
             full_path_name="draw",
             type=SectionType.Draw,

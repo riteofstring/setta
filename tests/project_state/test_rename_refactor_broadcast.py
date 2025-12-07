@@ -87,7 +87,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
 
     def _find_section_param_with_childless_impl(
         self, state: "ProjectStateSingleConfig"
-    ) -> tuple[str, str, str]:
+    ) -> tuple[ID, ID, str]:
         for section_id, section_core in state.sections.items():
             try:
                 param_ids = get_curr_top_level_param_ids(state, section_id)
@@ -112,8 +112,8 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         backend_settings = self.manager.settings_file.settings.backend
         previous_mode = backend_settings.renameRefactorMode
         backend_settings.renameRefactorMode = RenameRefactorMode.ALWAYS_ASK
-        section_id: ID | None = None
-        param_id: str | None = None
+        cleanup_section_id: ID | None = None
+        cleanup_param_id: ID | None = None
         original_param_value: str | None = None
         try:
             state_before = await self.manager.load_project_config(
@@ -122,6 +122,8 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             section_id, param_id, current_name = (
                 self._find_section_param_with_childless_impl(state_before)
             )
+            cleanup_section_id = section_id
+            cleanup_param_id = param_id
             impl_before = get_curr_effective_code_obj_impl_with_type_guard(
                 state_before,
                 section_id,
@@ -210,16 +212,16 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
         finally:
             backend_settings.renameRefactorMode = previous_mode
             if (
-                section_id is not None
-                and param_id is not None
+                cleanup_section_id is not None
+                and cleanup_param_id is not None
                 and original_param_value is not None
             ):
                 await self.manager.set_param_entered_value(
                     SetParamEnteredValueRequest(
                         frontendOpId="set-param-reset-always-ask",
                         projectConfigId=self.project_config_id,
-                        sectionId=section_id,
-                        paramInfoId=param_id,
+                        sectionId=cleanup_section_id,
+                        paramInfoId=cleanup_param_id,
                         value=original_param_value,
                     )
                 )

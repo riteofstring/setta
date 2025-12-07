@@ -33,8 +33,8 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                 default_project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
                 )
-                self.assertIsNotNone(default_project_config_id)
-                default_project_config_id = str(default_project_config_id)
+                if default_project_config_id is None:
+                    self.fail("Expected default project config id for force refresh test.")
                 await project_fixture.manager.finish_pending_operations()
 
                 captured_calls: list[dict[str, object | None]] = []
@@ -96,7 +96,9 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     wmh_python_script_sender=project_fixture.python_script_sender,
                 )
 
-                request = ForceRefreshProjectRequest(projectConfigId="missing-project")
+                request = ForceRefreshProjectRequest(
+                    projectConfigId=ID("missing-project")
+                )
                 with self.assertRaises(HTTPException) as ctx:
                     await route_force_refresh_listener(request, state)
                 self.assertEqual(404, ctx.exception.status_code)

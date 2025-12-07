@@ -3,6 +3,7 @@ import unittest
 from types import MethodType
 
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.types.id import ID
 
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -24,8 +25,8 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
         if not category_mapping:
             dummy_path = self.fixture.code_folder / "json_source.json"
             dummy_path.write_text("{}")
-            dummy_section_id = "json-source-section"
-            dummy_variant_id = "json-source-variant"
+            dummy_section_id = ID("json-source-section")
+            dummy_variant_id = ID("json-source-variant")
             category_mapping = {dummy_path: {(dummy_section_id, dummy_variant_id)}}
             self.manager.json_source._set_category_section_variants(
                 self.category, category_mapping
@@ -35,7 +36,7 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
         self.section_variants = set(variants)
         self.variant = next(iter(self.section_variants))
 
-        self.load_calls: list[tuple[dict, set[tuple[str, str]]]] = []
+        self.load_calls: list[tuple[dict, set[tuple[ID, ID]]]] = []
         self._original_load_json_sources = self.manager.load_json_sources
 
         async def spy_load_json_sources(
@@ -69,7 +70,6 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
         previous_mapping = {self.path: set(self.section_variants)}
 
         result = self.manager._should_defer_json_source_reload(
-            self.category,
             section_variants,
             new_mapping,
             previous_mapping,
@@ -84,7 +84,6 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
         previous_mapping = {self.path: set(self.section_variants)}
 
         result = self.manager._should_defer_json_source_reload(
-            self.category,
             section_variants,
             new_mapping,
             previous_mapping,
@@ -101,7 +100,6 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
         }
 
         result = self.manager._should_defer_json_source_reload(
-            self.category,
             section_variants,
             new_mapping,
             previous_mapping,
