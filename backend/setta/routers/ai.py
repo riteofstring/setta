@@ -8,7 +8,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
-from setta.types.id import ID, IDToUUIDForLLM
+from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
@@ -142,11 +142,3 @@ def merge_db_messages_with_current_stream(
             db_messages.append(message)
             # Add to existing_ids to track what we've added
             existing_ids.add(message.id)
-
-
-@router.post(Route.GET_UUID_MAPPING_FOR_LLM)
-async def route_get_uuid_mapping_for_llm(
-    state: AppStateFromRequest,
-) -> IDToUUIDForLLM:
-    id_to_uuid, _ = state.dbe.read_uuid_mapping()
-    return id_to_uuid

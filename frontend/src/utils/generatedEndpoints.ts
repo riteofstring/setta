@@ -237,12 +237,6 @@ export async function route_get_llm_chat(
   return await post("/getLLMChat", x);
 }
 
-export async function route_get_uuid_mapping_for_llm(): Promise<
-  ResponseDataAndStatus<Record<gt.ID, string>>
-> {
-  return await post("/getUUIDMappingForLLM");
-}
-
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequest,
 ): Promise<ResponseDataAndStatus<null>> {

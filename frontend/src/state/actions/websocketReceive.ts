@@ -134,8 +134,6 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
       // TODO
       return null;
-    case WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM:
-      return updateUUIDMappingForLLM(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:

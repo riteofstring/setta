@@ -25,14 +25,12 @@ from setta.types.websocket import (
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
-    WebsocketMsgUUIDMappingForLLM,
 )
 
 WebsocketMsgUnion = (
     WebsocketMsgAllConnections
     | WebsocketMsgNotification
     | WebsocketMsgLLMStreamingResponse
-    | WebsocketMsgUUIDMappingForLLM
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
@@ -65,7 +63,6 @@ WebsocketMsgTypeSet = set(
         "AllConnections",
         "Notification",
         "LLMStreamingResponse",
-        "UUIDMappingForLLM",
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
@@ -92,7 +89,6 @@ FrontendWebsocketMsgUnion = (
     WebsocketMsgAllConnections
     | WebsocketMsgNotification
     | WebsocketMsgLLMStreamingResponse
-    | WebsocketMsgUUIDMappingForLLM
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
@@ -118,7 +114,6 @@ FrontendWebsocketMsgTypeSet = set(
         "AllConnections",
         "Notification",
         "LLMStreamingResponse",
-        "UUIDMappingForLLM",
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",

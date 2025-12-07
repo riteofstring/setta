@@ -12,7 +12,6 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
-from setta.types.id import IDToUUIDForLLM
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
@@ -38,7 +37,6 @@ from setta.types.websocket import (
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
-    WebsocketMsgUUIDMappingForLLM,
 )
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
 
@@ -84,12 +82,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     chunk=chunk,
                 )
             ),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def send_uuid_mapping(self, id_to_uuid: IDToUUIDForLLM):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgUUIDMappingForLLM(content=id_to_uuid),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 

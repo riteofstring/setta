@@ -218,7 +218,6 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "Notification",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
-  "UUIDMappingForLLM",
   "UpdateArtifacts",
   "UpdateFrontendProjectState",
   "UpdateSettings",
@@ -254,7 +253,6 @@ export const WebsocketMsgTypeSet = new Set([
   "RealtimeUIChange",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
-  "UUIDMappingForLLM",
   "UpdateArtifacts",
   "UpdateFrontendProjectState",
   "UpdateSettings",
@@ -522,7 +520,6 @@ export const RouteEnum = {
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
-  GET_UUID_MAPPING_FOR_LLM: "/getUUIDMappingForLLM",
   RUN_CODE: "/runCode",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
@@ -671,7 +668,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   TerminalMetadata: "TerminalMetadata",
   Notification: "Notification",
   LLMStreamingResponse: "LLMStreamingResponse",
-  UUIDMappingForLLM: "UUIDMappingForLLM",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   UpdateSettings: "UpdateSettings",
@@ -4400,24 +4396,6 @@ export function createWebsocketMsgLLMStreamingResponse(
   return WebsocketMsgLLMStreamingResponseSchema.parse(options);
 }
 
-export const WebsocketMsgUUIDMappingForLLMSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.record(IDSchema, z.string()),
-  messageType: z
-    .literal("UUIDMappingForLLM")
-    .default(WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM),
-});
-
-export type WebsocketMsgUUIDMappingForLLM = z.infer<
-  typeof WebsocketMsgUUIDMappingForLLMSchema
->;
-
-export function createWebsocketMsgUUIDMappingForLLM(
-  options: Partial<WebsocketMsgUUIDMappingForLLM> = {},
-): WebsocketMsgUUIDMappingForLLM {
-  return WebsocketMsgUUIDMappingForLLMSchema.parse(options);
-}
-
 export const SettaGenCodeDiagnosticSchema = z.object({
   sectionId: IDSchema,
   paramInfoId: z.union([IDSchema, z.null()]),
@@ -5699,7 +5677,6 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
   WebsocketMsgLLMStreamingResponseSchema,
-  WebsocketMsgUUIDMappingForLLMSchema,
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
@@ -5721,7 +5698,6 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgAllConnectionsSchema,
     WebsocketMsgNotificationSchema,
     WebsocketMsgLLMStreamingResponseSchema,
-    WebsocketMsgUUIDMappingForLLMSchema,
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
@@ -6060,7 +6036,6 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
   WebsocketMsgLLMStreamingResponseSchema,
-  WebsocketMsgUUIDMappingForLLMSchema,
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
@@ -6090,7 +6065,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllConnectionsSchema,
     WebsocketMsgNotificationSchema,
     WebsocketMsgLLMStreamingResponseSchema,
-    WebsocketMsgUUIDMappingForLLMSchema,
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,

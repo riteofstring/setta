@@ -12,7 +12,6 @@ from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
-from setta.types.id import IDToUUIDForLLM
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerErrorContent,
@@ -38,7 +37,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     TerminalMetadata = "TerminalMetadata"
     Notification = "Notification"
     LLMStreamingResponse = "LLMStreamingResponse"
-    UUIDMappingForLLM = "UUIDMappingForLLM"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
     UpdateSettings = "UpdateSettings"
@@ -125,13 +123,6 @@ class WebsocketMsgLLMStreamingResponse(FrontendWebsocketMsg):
     content: LLMStreamingResponse
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMStreamingResponse] = (
         WebsocketMsgTypeForFrontend.LLMStreamingResponse
-    )
-
-
-class WebsocketMsgUUIDMappingForLLM(FrontendWebsocketMsg):
-    content: IDToUUIDForLLM
-    messageType: Literal[WebsocketMsgTypeForFrontend.UUIDMappingForLLM] = (
-        WebsocketMsgTypeForFrontend.UUIDMappingForLLM
     )
 
 

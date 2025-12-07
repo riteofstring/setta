@@ -137,7 +137,6 @@ class SettaFastMCP(FastMCP):
                     result, self.uuid_to_id, self.id_to_uuid
                 )
             self.state.dbe.write_uuid_mapping(self.uuid_to_id)
-            await self.state.wmh_frontend_sender.send_uuid_mapping(self.id_to_uuid)
             return result
 
         return wrapper
