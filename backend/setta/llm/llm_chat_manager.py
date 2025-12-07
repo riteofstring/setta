@@ -16,7 +16,6 @@ from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.mcp.client import MCPClient
-from setta.mcp.tools.tool_search import SEARCH_MCP_TOOLS_NAME
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
     create_new_chat,
@@ -861,7 +860,7 @@ class LLMChatManager:
         completed_at = get_now_timestamp()
 
         sanitized_arguments = json.loads(json.dumps(arguments))
-        if tool_name == SEARCH_MCP_TOOLS_NAME and not call_result.isError:
+        if tool_name == C.SEARCH_MCP_TOOLS_NAME and not call_result.isError:
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
                 tool_name,

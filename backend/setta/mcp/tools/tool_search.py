@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
-
 import bm25s
 
 from setta.mcp.tool_setup import setta_init_tool
+from setta.server_state import SettaFastAPIState
+from setta.utils.constants import C
 
-if TYPE_CHECKING:
-    from setta.server_state import SettaFastAPIState
-
-
-SEARCH_MCP_TOOLS_NAME = "search_mcp_tools"
+SEARCH_MCP_TOOLS_NAME = C.SEARCH_MCP_TOOLS_NAME
 
 
 @setta_init_tool
@@ -16,7 +12,7 @@ def search_mcp_tools(
     *,
     query: str,
     limit: int = 2,
-    setta_state: "SettaFastAPIState",
+    setta_state: SettaFastAPIState,
 ) -> list[str]:
     """Return the MCP tool names that best match a natural-language query.
 
