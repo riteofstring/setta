@@ -14,10 +14,17 @@ SEARCH_MCP_TOOLS_NAME = "search_mcp_tools"
 def search_mcp_tools(
     *,
     query: str,
-    limit: int = 5,
+    limit: int = 2,
     setta_state: "SettaFastAPIState",
 ) -> list[str]:
-    """Search registered MCP tools and return the best matches."""
+    """Return the MCP tool names that best match a natural-language query.
+
+    Args:
+        query: Text describing the capability you want to look up; empty input
+            is rejected after trimming whitespace.
+        limit: Maximum number of matching tool names to return; values <= 0
+            revert to the default size.
+    """
 
     normalized_query = query.strip()
     if normalized_query == "":
