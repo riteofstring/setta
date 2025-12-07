@@ -4,7 +4,7 @@ import logging
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Iterator, Literal, cast
+from typing import Any, AsyncIterator, Iterator, Literal
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -139,6 +139,7 @@ class LLMChatManager:
         chat_id: str | None,
         message: BaseChatMessageUnion,
         llm_config_id: str,
+        project_config_id: str,
     ) -> Chat:
         if chat_id:
             chat = load_chat(self.dbe, chat_id)
@@ -146,7 +147,12 @@ class LLMChatManager:
                 updated = save_messages(self.dbe, chat.id, [message])
                 return updated or chat
         llm_config = self.config.resolve_config(llm_config_id)
-        return create_new_chat(self.dbe, message, llm_config)
+        return create_new_chat(
+            self.dbe,
+            message,
+            llm_config,
+            project_config_id=project_config_id,
+        )
 
     def get_all_chat_metadata(self):
         return load_all_chat_metadata(self.dbe)

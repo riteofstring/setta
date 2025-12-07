@@ -39,12 +39,14 @@ def create_new_chat(
     dbe: "DBE",
     first_message: BaseChatMessageUnion,
     llm_config: LLMConfig,
+    project_config_id: str,
 ) -> Chat:
     name = create_new_chat_name(first_message)
     chat = Chat(
         name=name,
         messages=_copy_messages([first_message]),
         llmConfig=llm_config.model_copy(deep=True),
+        projectConfigId=project_config_id,
     )
     return _persist_chat(dbe, chat)
 

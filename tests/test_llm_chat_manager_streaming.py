@@ -50,7 +50,9 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
     def test_provider_specific_thinking_blocks_are_used(self) -> None:
         manager = _manager()
-        provider_specific = type("ProviderFields", (), {"thinking_blocks": [{"thinking": "details"}]})
+        provider_specific = type(
+            "ProviderFields", (), {"thinking_blocks": [{"thinking": "details"}]}
+        )
         delta = _DummyDelta(
             content=None,
             reasoning_content=None,

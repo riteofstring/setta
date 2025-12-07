@@ -7606,6 +7606,7 @@ export const ChatSchema = z.object({
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   llmConfig: LLMConfigSchema,
+  projectConfigId: z.string(),
   messages: z.array(
     z.union([
       SystemChatMessageSchema,
@@ -7627,6 +7628,7 @@ export const ChatMetadataSchema = z.object({
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   llmConfig: LLMConfigSchema,
+  projectConfigId: z.string(),
 });
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;

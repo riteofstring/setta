@@ -38,3 +38,6 @@ This document captures the concrete plan for exposing deterministic MCP tools th
 - **Docs** – After landing the scaffolding, update `docs/ai-chat-refactor-plan.md` (and this file) with the actual tool catalog plus usage examples so future contributors follow the same patterns.
 
 This plan keeps the refactor focused: first deliver the missing MCP context, then stand up a registry that reuses existing project-manager logic, add deterministic file-write primitives, and finally expose a broad surface of application-state mutations without duplicating code. Tests and documentation will anchor the new behavior once the refactor stabilizes.
+
+## Progress
+- **Step 1: Persist project context** – Completed. `Chat` and metadata now include `projectConfigId`, loader validation enforces its presence, and `LLMChatManager.create_or_get_chat` threads the id into `create_new_chat` so newly created conversations retain the active project configuration.

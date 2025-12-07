@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import bm25s
-
 from setta.mcp.server import ToolSearchIndex, _build_tool_document_text
 from setta.mcp.tools.tool_search import search_mcp_tools
 
@@ -93,7 +92,9 @@ class SearchMCPToolsTest(unittest.TestCase):
         self.assertEqual(results[0], "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
-        results = search_mcp_tools(query="search project", limit=0, setta_state=self.setta_state)
+        results = search_mcp_tools(
+            query="search project", limit=0, setta_state=self.setta_state
+        )
 
         self.assertEqual(len(results), len(self.tools))
 

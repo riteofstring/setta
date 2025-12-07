@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import bm25s
+
 from setta.mcp.tool_setup import setta_init_tool
 
 if TYPE_CHECKING:

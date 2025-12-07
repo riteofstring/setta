@@ -13,6 +13,7 @@ class ChatMetadata(BaseModel):
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     llmConfig: LLMConfig
+    projectConfigId: str
 
     @field_validator("lastUpdated", mode="before")
     @classmethod
