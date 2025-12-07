@@ -16,6 +16,7 @@ from setta.types.artifact import (
     ImageArtifact,
 )
 from setta.utils.utils import normalize_path
+
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher

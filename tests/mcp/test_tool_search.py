@@ -5,7 +5,6 @@ from typing import Any
 import bm25s
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
-
 from setta.mcp.server import ToolSearchIndex, _build_tool_document_text
 from setta.mcp.tools.tool_search import search_mcp_tools
 

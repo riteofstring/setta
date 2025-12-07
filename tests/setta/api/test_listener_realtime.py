@@ -17,11 +17,11 @@ from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.id import ID
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerErrorContent,
@@ -35,9 +35,8 @@ from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import WebsocketMsgListenerError
 
 if TYPE_CHECKING:
-    from websockets import ClientConnection
-
     from setta.code_gen.python.code_generator import PythonCodeGenerator
+    from websockets import ClientConnection
 
 
 class _StubWebsocket:
@@ -48,9 +47,7 @@ class _StubWebsocket:
         self.sent.append(payload)
 
 
-def _attach_stub_websocket(
-    listener: SettaListener, websocket: _StubWebsocket
-) -> None:
+def _attach_stub_websocket(listener: SettaListener, websocket: _StubWebsocket) -> None:
     listener._websocket = cast("ClientConnection", websocket)
 
 

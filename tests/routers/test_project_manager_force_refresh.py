@@ -41,7 +41,9 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
                 )
                 if default_project_config_id is None:
-                    self.fail("Expected default project config id for force refresh test.")
+                    self.fail(
+                        "Expected default project config id for force refresh test."
+                    )
                 await project_fixture.manager.finish_pending_operations()
 
                 captured_calls: list[dict[str, object | None]] = []

@@ -128,9 +128,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 self._write_listener_module(module_path, "v2")
                 await reloader.reload_now(reload_module=True)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(
-                    self._get_listener_invocations(listener), ["v1", "v2"]
-                )
+                self.assertEqual(self._get_listener_invocations(listener), ["v1", "v2"])
 
                 self._write_listener_module(module_path, "v3")
                 await reloader.reload_now(reload_module=True)
@@ -271,6 +269,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ValueError):
             listener.start(builder=builder)
+
     @staticmethod
     def _init_listener_invocations(listener: SettaListener) -> list[str]:
         invocations: list[str] = []

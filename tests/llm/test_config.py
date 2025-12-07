@@ -10,7 +10,6 @@ from setta.types.chat import ChatMetadata
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 
-
 DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
 
 

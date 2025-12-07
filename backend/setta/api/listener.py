@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     from websockets import ClientConnection
 
     from setta.types.id import ID
+
     from .hot_reload import ListenerHotReloader
 
 logger = logging.getLogger(__name__)

@@ -23,13 +23,13 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import (
+    WebsocketMsg,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
-    WebsocketMsg,
 )
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
@@ -40,9 +40,9 @@ from setta.websockets.msg_handlers.python_script_receiver import (
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 if TYPE_CHECKING:
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.websockets.websocket_manager import WebsocketManager
-    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 
 
 PROJECT_ID = ID("proj-123")
@@ -97,7 +97,7 @@ def _get_primary_section_dependency_info(project_state: ProjectStateSingleConfig
 
 
 def _build_receiver_fixture(
-    states: dict[ID, ProjectStateSingleConfig]
+    states: dict[ID, ProjectStateSingleConfig],
 ) -> tuple[
     WMHPythonScriptReceiver,
     _StubWebsocketManager,
@@ -107,9 +107,7 @@ def _build_receiver_fixture(
 ]:
     websocket_manager = _StubWebsocketManager()
     listener_registry = ListenerRegistry()
-    frontend_sender = WMHFrontendSender(
-        cast("WebsocketManager", websocket_manager)
-    )
+    frontend_sender = WMHFrontendSender(cast("WebsocketManager", websocket_manager))
     python_script_sender = _StubPythonScriptSender()
     project_manager_switcher = _StubProjectManagerSwitcher(states)
     receiver = WMHPythonScriptReceiver(
@@ -260,9 +258,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         ) = _build_receiver_fixture({PROJECT_ID: project_state})
         callback = ListenerRegisterCallback(
             dependencies=[
-                create_dep_key(
-                    sectionId=ID("Homepage__hero__title"), codeObjId=None
-                )
+                create_dep_key(sectionId=ID("Homepage__hero__title"), codeObjId=None)
             ],
             dependencyMode=ListenerDependencyMode.SPECIFIC,
         )
