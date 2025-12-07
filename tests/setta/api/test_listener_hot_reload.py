@@ -101,7 +101,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         listener = SettaListener(project_name=project_state.projectConfig.name)
         self._init_listener_invocations(listener)
         websocket = _StubWebsocket()
-        listener._websocket = cast(ClientConnection, websocket)
+        listener._websocket = cast("ClientConnection", websocket)
 
         module_name = "hot_reload_listener_module"
         register_ids: list[str] = []
@@ -277,4 +277,4 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
     @staticmethod
     def _get_listener_invocations(listener: SettaListener) -> list[str]:
-        return cast(list[str], getattr(listener, "_test_invocations"))
+        return cast("list[str]", getattr(listener, "_test_invocations"))

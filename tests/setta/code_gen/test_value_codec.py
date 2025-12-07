@@ -27,7 +27,7 @@ class PythonValueCodecTest(TestCase):
         lookup: Callable[[BaseDependencyKeyUnion], str] | None = None,
     ) -> PythonValueCodec:
         dep_graph = cast(
-            DependencyGraph, SimpleNamespace(graph={} if graph is None else graph)
+            "DependencyGraph", SimpleNamespace(graph={} if graph is None else graph)
         )
         var_lookup = lookup or (lambda _: "")
         return PythonValueCodec(

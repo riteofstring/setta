@@ -29,7 +29,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     settings_fixture.manager,
                 )
                 state = cast(
-                    SettaFastAPIState,
+                    "SettaFastAPIState",
                     SimpleNamespace(
                         project_manager_switcher=switcher,
                         wmh_python_script_sender=project_fixture.python_script_sender,
@@ -75,7 +75,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual(1, len(captured_calls))
                 call = captured_calls[0]
-                project_state = cast(ProjectStateSingleConfig, call["projectState"])
+                project_state = cast("ProjectStateSingleConfig", call["projectState"])
                 self.assertEqual(
                     default_project_config_id,
                     project_state.projectConfig.id,
@@ -96,7 +96,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     settings_fixture.manager,
                 )
                 state = cast(
-                    SettaFastAPIState,
+                    "SettaFastAPIState",
                     SimpleNamespace(
                         project_manager_switcher=switcher,
                         wmh_python_script_sender=project_fixture.python_script_sender,

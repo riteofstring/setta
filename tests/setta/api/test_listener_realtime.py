@@ -49,7 +49,7 @@ class _StubWebsocket:
 def _attach_stub_websocket(
     listener: SettaListener, websocket: _StubWebsocket
 ) -> None:
-    listener._websocket = cast(ClientConnection, websocket)
+    listener._websocket = cast("ClientConnection", websocket)
 
 
 PROJECT_TYPED_ID = ID("project-typed")
@@ -430,14 +430,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         state = SimpleNamespace(section__slider=1, section__switch=False)
 
-        dep_graph = cast(DependencyGraph, SimpleNamespace(graph=graph))
+        dep_graph = cast("DependencyGraph", SimpleNamespace(graph=graph))
         value_codec = PythonValueCodec(
             dep_graph,
             lambda key: f"s.{dep_graph.graph[key].full_path_name}",
         )
 
         code_generator = cast(
-            PythonCodeGenerator,
+            "PythonCodeGenerator",
             SimpleNamespace(
                 value_codec=value_codec,
                 get_value=lambda node: value_codec.format_param_expression(node)

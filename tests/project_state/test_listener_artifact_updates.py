@@ -46,9 +46,9 @@ class _StubDBE:
 
 
 def _build_artifacts() -> Artifacts:
-    websocket_handler = cast(WMHFrontendSender, _StubFrontendSender())
-    file_watcher = cast(SpecificFileWatcher, _StubSpecificFileWatcher())
-    dbe = cast(DBE, _StubDBE())
+    websocket_handler = cast("WMHFrontendSender", _StubFrontendSender())
+    file_watcher = cast("SpecificFileWatcher", _StubSpecificFileWatcher())
+    dbe = cast("DBE", _StubDBE())
     return Artifacts(websocket_handler, file_watcher, dbe)
 
 

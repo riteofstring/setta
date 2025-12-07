@@ -28,7 +28,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(
-            cast(WebsocketManager, websocket_manager), listener_registry
+            cast("WebsocketManager", websocket_manager), listener_registry
         )
 
         listener_registry.upsert_registration(
@@ -133,12 +133,12 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         for idx, (message_obj, websocket_id) in enumerate(
             websocket_manager.sent_messages, 1
         ):
-            message = cast(WebsocketMsgListenerRealtimeEvent, message_obj)
+            message = cast("WebsocketMsgListenerRealtimeEvent", message_obj)
             self.assertEqual("socket-1", websocket_id)
             self.assertEqual(idx, message.content.sequence)
 
         first_message = cast(
-            WebsocketMsgListenerRealtimeEvent, websocket_manager.sent_messages[0][0]
+            "WebsocketMsgListenerRealtimeEvent", websocket_manager.sent_messages[0][0]
         )
         self.assertEqual(
             [
@@ -155,7 +155,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         second_message = cast(
-            WebsocketMsgListenerRealtimeEvent, websocket_manager.sent_messages[1][0]
+            "WebsocketMsgListenerRealtimeEvent", websocket_manager.sent_messages[1][0]
         )
         self.assertEqual(
             [
@@ -175,7 +175,7 @@ class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(
-            cast(WebsocketManager, websocket_manager), listener_registry
+            cast("WebsocketManager", websocket_manager), listener_registry
         )
 
         listener_registry.upsert_registration(

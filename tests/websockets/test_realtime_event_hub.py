@@ -42,7 +42,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_emit_realtime_delta_increments_sequence(self) -> None:
         sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(cast(WMHPythonScriptSender, sender))
+        hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
 
         delta_a = ListenerRealtimeDelta(
             dependency=create_dep_key(sectionId=self.SECTION_A_ID),
@@ -74,7 +74,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_reset_sequence_starts_from_one(self) -> None:
         sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(cast(WMHPythonScriptSender, sender))
+        hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
 
         delta = ListenerRealtimeDelta(
             dependency=create_dep_key(sectionId=self.SECTION_A_ID),
@@ -96,7 +96,7 @@ class RealtimeEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_emit_realtime_delta_requires_dependency_ids(self) -> None:
         sender = _StubPythonScriptSender()
-        hub = RealtimeEventHub(cast(WMHPythonScriptSender, sender))
+        hub = RealtimeEventHub(cast("WMHPythonScriptSender", sender))
 
         with self.assertRaises(ValueError):
             await hub.emit_realtime_delta(
@@ -121,7 +121,7 @@ class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(
-            cast(WebsocketManager, websocket_manager), listener_registry
+            cast("WebsocketManager", websocket_manager), listener_registry
         )
         hub = RealtimeEventHub(sender)
 

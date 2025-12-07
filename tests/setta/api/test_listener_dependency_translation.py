@@ -123,7 +123,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         listener._runtime_state = ListenerRuntimeState(
             project_state=self.project_state,
             dependency_graph=self.dependency_graph,
-            code_generator=cast(PythonCodeGenerator, object()),
+            code_generator=cast("PythonCodeGenerator", object()),
             s_instance=object(),
         )
         return listener

@@ -107,15 +107,17 @@ def _build_receiver_fixture(
 ]:
     websocket_manager = _StubWebsocketManager()
     listener_registry = ListenerRegistry()
-    frontend_sender = WMHFrontendSender(cast(WebsocketManager, websocket_manager))
+    frontend_sender = WMHFrontendSender(
+        cast("WebsocketManager", websocket_manager)
+    )
     python_script_sender = _StubPythonScriptSender()
     project_manager_switcher = _StubProjectManagerSwitcher(states)
     receiver = WMHPythonScriptReceiver(
-        cast(WebsocketManager, websocket_manager),
+        cast("WebsocketManager", websocket_manager),
         listener_registry,
         frontend_sender,
-        cast(WMHPythonScriptSender, python_script_sender),
-        cast(ProjectManagerSwitcher, project_manager_switcher),
+        cast("WMHPythonScriptSender", python_script_sender),
+        cast("ProjectManagerSwitcher", project_manager_switcher),
     )
     return (
         receiver,
@@ -245,7 +247,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
     ) -> tuple[MsgT, str]:
         message, websocket_id = manager.sent_messages[index]
         self.assertIsInstance(message, msg_type)
-        return cast(MsgT, message), websocket_id
+        return cast("MsgT", message), websocket_id
 
     async def test_listener_register_stores_registration_and_sends_ack(self):
         project_state = _build_project_state(PROJECT_ID)
@@ -986,7 +988,7 @@ class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(
-            cast(WebsocketManager, websocket_manager), listener_registry
+            cast("WebsocketManager", websocket_manager), listener_registry
         )
         listener_registry.record_bootstrap(
             websocket_id="socket-a",
@@ -1002,7 +1004,7 @@ class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(1, len(websocket_manager.sent_messages))
         message_obj, websocket_id = websocket_manager.sent_messages[0]
-        message = cast(WebsocketMsgListenerForceRefresh, message_obj)
+        message = cast("WebsocketMsgListenerForceRefresh", message_obj)
         self.assertEqual("socket-a", websocket_id)
         self.assertIs(project_state_a, message.content.projectState)
         self.assertEqual([], websocket_manager.broadcasts)
@@ -1011,7 +1013,7 @@ class WMHPythonScriptSenderTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()
         sender = WMHPythonScriptSender(
-            cast(WebsocketManager, websocket_manager), listener_registry
+            cast("WebsocketManager", websocket_manager), listener_registry
         )
         project_state = _build_project_state(PROJECT_EMPTY_ID)
 
