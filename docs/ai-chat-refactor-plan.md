@@ -26,6 +26,7 @@
 
 #### MCP & Tooling
 - `backend/setta/mcp/tool_setup.py` now distinguishes always-on vs discoverable tools, `SettaFastMCP` registers them with UUID transforms, builds a bm25 `ToolSearchIndex`, and `MCPClient._update_tool_cache` caches matching `ChatCompletionToolParam`s so `LLMChatManager` can append init tools or newly unlocked ones to each request.
+- `backend/setta/mcp/tools/project_state_registry.py` exposes `@project_state_tool`, and `backend/setta/project_state/base_project_manager.py` now decorates `set_section_sizes` plus the init-only `get_latest_project_state` so we already exercise the deterministic MCP bridge with real project mutations.
 - `search_mcp_tools` indexes tool names/descriptions/parameter docs (see `tests/mcp/test_tool_search.py`), and `LLMChatManager._build_search_tool_chat_message` parses the JSON payload, updates the chat-local `ChatToolState`, and summarizes which tool definitions were added to the session.
 - Deterministic helpers now live under `backend/setta/mcp/tools/`, including the workspace-aware `read_file_range` (with direct coverage in `tests/mcp/test_file_read_tool.py`) plus legacy utilities such as `getInstalledPythonPackages` and `getTerminalOutput`. Tool-call deltas stream through `ToolCallDeltaEvent`, and executions route through `MCPClient.call_tool` before persisting `ToolChatMessage`s.
 - Tool-call arguments/results stored in chat history now re-use the canonical→temporary map before serialization, and the ID conversion helpers handle deeply nested Pydantic models (see `tests/mcp/test_id_conversion.py`) so both the LLM and UI only ever see the temporary integer identifiers.
@@ -48,7 +49,7 @@
 
 ### Outstanding Work
 #### Backend / LLM Integration
-- MCP tool calls still receive only the raw arguments provided by the LLM; we need to thread the active chat id, projectConfigId, and future section metadata through `_dispatch_tool_call`/`MCPClient.call_tool` so tools can reason about context without guessing. (Still intentionally lower priority until the other backend work lands.)
+- `_dispatch_tool_call` now injects the chat id and `projectConfigId` for every tool invocation, but we still need a structured way to attach richer context (selected section ids, code bindings, etc.) once the frontend surfaces that data so write-capable tools know exactly which project entities they should touch.
 - Config writes currently accept whatever `/llm/config` or `/llm/apiKeys` payloads provide. Duplicate ids are now prevented by validation, but we still need to validate the referenced API keys/URLs, surface actionable errors, and tighten the REST responses instead of silently truncating bad data.
 
 #### MCP & File Editing
