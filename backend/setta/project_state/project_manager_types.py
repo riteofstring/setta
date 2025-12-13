@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
+from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.generated.chart_settings_unions import (
@@ -93,6 +94,29 @@ class SetCallableRequest(ProjectManagerRequestWithSection):
     )
     refetchParams: bool = Field(
         description="True to refresh callable parameter definitions post-update.",
+    )
+
+
+class SetCallableChildCodeObj(BaseModel):
+    codeObjId: ID = Field(
+        description="Identifier of the parameter code object bound to the callable.",
+    )
+    name: str = Field(
+        description="Name of the parameter code object bound to the callable.",
+    )
+
+
+class SetCallableResponse(BaseModel):
+    callableId: ID | None = Field(
+        default=None,
+        description="The callable currently attached to the section after the update.",
+    )
+    childCodeObjs: list[SetCallableChildCodeObj] = Field(
+        default_factory=list,
+        description="Ordered parameter code objects associated with the callable.",
+    )
+    lspStatus: SignatureHelpStatus = Field(
+        description="Outcome of the signatureHelp request used to discover parameters.",
     )
 
 

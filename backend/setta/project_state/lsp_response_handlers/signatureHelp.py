@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Callable
 
 import docstring_parser
@@ -34,14 +35,20 @@ class ParamProposal:
     description: str | None
 
 
+class SignatureHelpStatus(str, Enum):
+    MATCHED = "matched"
+    NO_MATCH = "no_match"
+    SKIPPED = "skipped"
+
+
 def process_signature_help_response(
     settings: SettingsState,
     response: LSPTypes.TextDocumentSignatureHelpResponse,
 ):
-    content = None
-    if response.result:
-        content = parse_signature(settings, response.result.signatures[0])
-    return content
+    result = response.result
+    if not result or not result.signatures:
+        return None
+    return parse_signature(settings, result.signatures[0])
 
 
 def parse_signature(settings: SettingsState, signature: LSPTypes.SignatureInformation):

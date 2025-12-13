@@ -20,7 +20,12 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
     process_gen_code_diagnostics,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
+    SignatureHelpStatus,
     process_signature_help_response,
+)
+from setta.project_state.project_manager_types import (
+    SetCallableChildCodeObj,
+    SetCallableResponse,
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
@@ -38,6 +43,7 @@ from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
+    get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     set_curr_effective_section_impl_value,
 )
@@ -46,6 +52,7 @@ from setta.types.helpers_lvl2 import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
+    get_curr_section_callable_code_obj,
 )
 from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
@@ -160,17 +167,28 @@ class ProjectGenPythonCode(PythonCode):
         sectionId: ID,
         callableName: str,
         refetchParams: bool,
-    ):
+    ) -> SetCallableResponse:
+        current_callable = get_curr_section_callable_code_obj(project_state, sectionId)
+        current_callable_id = current_callable.id if current_callable else None
+
         if not refetchParams and callable_is_already_selected(
             project_state, sectionId, callableName
         ):
-            return
+            return self._build_set_callable_response(
+                project_state,
+                sectionId,
+                current_callable_id,
+                SignatureHelpStatus.SKIPPED,
+            )
 
         if callableName == "":
             set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
                 CallableSectionImplArgsWithCallable(callable=None),
+            )
+            return self._build_set_callable_response(
+                project_state, sectionId, None, SignatureHelpStatus.SKIPPED
             )
 
         prev_selected = callable_has_been_selected_before(
@@ -183,13 +201,20 @@ class ProjectGenPythonCode(PythonCode):
                 sectionId,
                 CallableSectionImplArgsWithCallable(callable=prev_selected),
             )
-            return
+            return self._build_set_callable_response(
+                project_state, sectionId, prev_selected, SignatureHelpStatus.SKIPPED
+            )
 
         line_col = await self._insert_code_and_update_state(
             sectionId, None, callableName, len(callableName)
         )
         if line_col is None:
-            return
+            return self._build_set_callable_response(
+                project_state,
+                sectionId,
+                current_callable_id,
+                SignatureHelpStatus.SKIPPED,
+            )
 
         line, col = line_col
         col += 1  # put cursor inside parentheses
@@ -203,6 +228,17 @@ class ProjectGenPythonCode(PythonCode):
             ),
             request_id,
         )
+
+        result = process_signature_help_response(settings, response)
+        if result is None:
+            return self._build_set_callable_response(
+                project_state,
+                sectionId,
+                current_callable_id,
+                SignatureHelpStatus.NO_MATCH,
+            )
+
+        documentation, codeObjs, codeObjImplMap = result
 
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(
@@ -227,11 +263,6 @@ class ProjectGenPythonCode(PythonCode):
         if not isinstance(callable_base_impl, CodeCallableCodeObjImpl):
             raise TypeError
 
-        result = process_signature_help_response(settings, response)
-        if result is None:
-            return
-
-        [documentation, codeObjs, codeObjImplMap] = result
         set_effective_impl_value(
             callable_base_impl,
             callable_code_obj,
@@ -254,6 +285,47 @@ class ProjectGenPythonCode(PythonCode):
                 },
             ),
         )
+        return self._build_set_callable_response(
+            project_state, sectionId, callable_code_obj.id, SignatureHelpStatus.MATCHED
+        )
+
+    def _build_set_callable_response(
+        self,
+        project_state: ProjectStateSingleConfig,
+        sectionId: ID,
+        callable_id: ID | None,
+        lsp_status: SignatureHelpStatus,
+    ) -> SetCallableResponse:
+        return SetCallableResponse(
+            callableId=callable_id,
+            childCodeObjs=self._collect_child_code_objs(
+                project_state, sectionId, callable_id
+            ),
+            lspStatus=lsp_status,
+        )
+
+    def _collect_child_code_objs(
+        self,
+        project_state: ProjectStateSingleConfig,
+        sectionId: ID,
+        callable_id: ID | None,
+    ) -> list[SetCallableChildCodeObj]:
+        if callable_id is None:
+            return []
+
+        callable_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            project_state,
+            sectionId,
+            callable_id,
+            CodeCallableCodeObjImpl,
+        )
+        return [
+            SetCallableChildCodeObj(
+                codeObjId=child_id,
+                name=project_state.codeObjs[child_id].name,
+            )
+            for child_id in callable_impl.children
+        ]
 
     async def gen_code_prefix_completion(self, fullText, position):
         generator = self._clone_generator()

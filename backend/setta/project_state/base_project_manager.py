@@ -86,6 +86,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
+    SetCallableResponse,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
@@ -631,12 +632,12 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     @project_state_tool()
-    async def set_callable(self, x: SetCallableRequest):
+    async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
 
-        await self.gen_code[x.projectConfigId].set_callable(
+        result = await self.gen_code[x.projectConfigId].set_callable(
             self.settings_file.settings,
             project_state,
             x.sectionId,
@@ -644,6 +645,7 @@ class BaseProjectManager(ABC):
             x.refetchParams,
         )
         await self.update_and_broadcast_project_state(project_state)
+        return result
 
     @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):

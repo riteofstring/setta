@@ -245,7 +245,7 @@ export async function route_clear_text_field_completion(
 
 export async function route_set_callable(
   x: gt.SetCallableRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.SetCallableResponse>> {
   return await post("/setCallable", x);
 }
 

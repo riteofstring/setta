@@ -162,7 +162,11 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
 
 class ListMCPToolsTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.tool_names = ["search_project_sources", "read_file_range", "list_notifications"]
+        self.tool_names = [
+            "search_project_sources",
+            "read_file_range",
+            "list_notifications",
+        ]
         specs = [
             ToolSpec(
                 name=name,

@@ -9041,6 +9041,43 @@ export function createSetCallableRequest(
   return SetCallableRequestSchema.parse(options);
 }
 
+export const SetCallableChildCodeObjSchema = z.object({
+  codeObjId: IDSchema,
+  name: z.string(),
+});
+
+export type SetCallableChildCodeObj = z.infer<
+  typeof SetCallableChildCodeObjSchema
+>;
+
+export function createSetCallableChildCodeObj(
+  options: Partial<SetCallableChildCodeObj> = {},
+): SetCallableChildCodeObj {
+  return SetCallableChildCodeObjSchema.parse(options);
+}
+
+export const SignatureHelpStatusEnum = {
+  MATCHED: "matched",
+  NO_MATCH: "no_match",
+  SKIPPED: "skipped",
+} as const;
+
+export type SignatureHelpStatus = ObjectValues<typeof SignatureHelpStatusEnum>;
+
+export const SetCallableResponseSchema = z.object({
+  callableId: z.union([IDSchema, z.null()]).default(null),
+  childCodeObjs: z.array(SetCallableChildCodeObjSchema).default([]),
+  lspStatus: z.enum(SignatureHelpStatusEnum),
+});
+
+export type SetCallableResponse = z.infer<typeof SetCallableResponseSchema>;
+
+export function createSetCallableResponse(
+  options: Partial<SetCallableResponse> = {},
+): SetCallableResponse {
+  return SetCallableResponseSchema.parse(options);
+}
+
 export const SetChartAreaDataPathRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
