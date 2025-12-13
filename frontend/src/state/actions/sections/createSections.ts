@@ -14,7 +14,7 @@ async function addSectionInEmptySpace(
   const res = await route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),
     implType: type,
-    implOverrides: {},
+    implOverrides: null,
     position: getEmptySpacePosition(),
   });
 

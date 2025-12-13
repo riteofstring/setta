@@ -138,7 +138,8 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     implType: SectionType = Field(
         description="Section implementation type to instantiate.",
     )
-    implOverrides: BaseSectionImplArgsUnionWithDiscriminator = Field(
+    implOverrides: BaseSectionImplArgsUnionWithDiscriminator | None = Field(
+        default=None,
         description="Implementation-specific overrides applied during creation.",
     )
     position: Position = Field(
