@@ -43,7 +43,7 @@ def search_mcp_tools(
     max_results = min(normalized_limit, len(tools))
     doc_ids, scores = retriever.retrieve(query_tokens, k=max_results)
     ranked_results: list[str] = []
-    for doc_index, score in zip(doc_ids[0], scores[0]):
+    for doc_index, _ in zip(doc_ids[0], scores[0]):
         if doc_index < 0 or doc_index >= len(tools):
             continue
         tool = tools[doc_index]

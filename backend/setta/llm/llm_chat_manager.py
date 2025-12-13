@@ -93,13 +93,13 @@ class ChatToolState:
     def unlock_tools(
         self,
         definitions: Mapping[str, ChatCompletionToolParam],
-    ) -> int:
+    ) -> list[str]:
         """Merge newly discovered tools into the chat-local registry."""
 
-        added = 0
+        added: list[str] = []
         for name, payload in definitions.items():
             if name not in self.unlocked_tools:
-                added += 1
+                added.append(name)
             self.unlocked_tools[name] = payload
         return added
 
@@ -965,25 +965,28 @@ class LLMChatManager:
     ) -> ToolChatMessage:
         search_results = self._parse_search_tool_results(call_result)
         definitions = self._build_tool_definitions_from_search_results(search_results)
-        added_count = 0
+        added_tool_names: list[str] = []
         if definitions:
             state = self._get_or_create_chat_tool_state(chat_id)
-            added_count = state.unlock_tools(definitions)
+            added_tool_names = state.unlock_tools(definitions)
+        added_count = len(added_tool_names)
 
-        summary_text = self._format_search_tool_summary(
-            added_count, len(search_results)
+        summary_text = (
+            "Search did not return any MCP tools."
+            if not search_results
+            else self._format_search_tool_summary(added_tool_names)
         )
         result_payload = call_result.model_dump()
         result_payload["searchResults"] = search_results
         result_payload["addedToolCount"] = added_count
-        result_payload["addedToolNames"] = list(definitions.keys())
+        result_payload["addedToolNames"] = added_tool_names
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "[chat %s] search tool added %s new tools: %s",
                 chat_id,
                 added_count,
-                list(definitions.keys()),
+                added_tool_names,
             )
 
         return ToolChatMessage(
@@ -997,13 +1000,13 @@ class LLMChatManager:
             completed_at=completed_at,
         )
 
-    def _parse_search_tool_results(self, call_result: CallToolResult):
-        if not call_result.content:
+    def _parse_search_tool_results(self, call_result: CallToolResult) -> list[str]:
+        entry = call_result.content[0] if call_result.content else None
+        if not isinstance(entry, TextContent):
             return []
 
-        entry = call_result.content[0]
-        text = getattr(entry, "text", "")
-        if not isinstance(text, str) or not text:
+        text = (entry.text or "").strip()
+        if not text:
             return []
 
         try:
@@ -1012,17 +1015,7 @@ class LLMChatManager:
             logger.debug("Failed to parse search tool payload", exc_info=True)
             return []
 
-        if not isinstance(payload, list):
-            return []
-
-        names: list[str] = []
-        for raw_entry in payload:
-            if not isinstance(raw_entry, str):
-                continue
-            normalized = raw_entry.strip()
-            if normalized:
-                names.append(normalized)
-        return names
+        return payload if isinstance(payload, list) else []
 
     def _build_tool_definitions_from_search_results(
         self,
@@ -1043,11 +1036,15 @@ class LLMChatManager:
         return definitions
 
     @staticmethod
-    def _format_search_tool_summary(added_count: int, result_count: int) -> str:
-        if result_count == 0:
-            return "Search did not return any MCP tools."
-        noun = "tool" if added_count == 1 else "tools"
-        return f"Added {added_count} {noun} based on your search."
+    def _format_search_tool_summary(
+        added_tool_names: list[str],
+    ) -> str:
+        if not added_tool_names:
+            return "All matching MCP tools were already available."
+        if len(added_tool_names) == 1:
+            return f"Added MCP tool: {added_tool_names[0]}"
+        tool_list = ", ".join(added_tool_names)
+        return f"Added MCP tools: {tool_list}"
 
     def _parse_tool_call_arguments(
         self, arguments: str, tool_call_id: str
