@@ -17,7 +17,7 @@ router = SettaAPIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    chatId: str | None
+    chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
     llmConfigId: str
     deepThink: bool
@@ -25,11 +25,11 @@ class GetLLMResponseRequest(BaseModel):
 
 
 class DeleteLLMChatRequest(BaseModel):
-    chatId: str
+    chatId: ID
 
 
 class GetLLMChatRequest(BaseModel):
-    chatId: str
+    chatId: ID
     projectConfigId: ID | None
 
 
@@ -40,7 +40,7 @@ class GetLLMChatRequestResponse(BaseModel):
 
 
 class StopLLMChatRequest(BaseModel):
-    chatId: str
+    chatId: ID
 
 
 @router.post(Route.GET_LLM_RESPONSE)

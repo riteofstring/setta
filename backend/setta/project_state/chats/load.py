@@ -4,11 +4,12 @@ from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
 from setta.types.chat import Chat, ChatMetadata
+from setta.types.id import ID
 
 logger = logging.getLogger(__name__)
 
 
-def load_chat(dbe: DBE, chat_id: str) -> Chat | None:
+def load_chat(dbe: DBE, chat_id: ID) -> Chat | None:
     data = dbe.read_chat(chat_id)
     if not data:
         return None

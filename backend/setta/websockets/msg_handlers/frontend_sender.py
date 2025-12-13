@@ -12,6 +12,7 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
+from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
@@ -72,7 +73,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
 
     async def send_streaming_response(
         self,
-        chatId: str,
+        chatId: ID,
         chunk: LLMStreamingResponseChunk,
     ):
         await self.websocket_manager.broadcast(

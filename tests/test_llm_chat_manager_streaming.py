@@ -1,13 +1,23 @@
 import unittest
 
 from litellm.types.utils import Delta
-
-from backend.setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
+from setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
+from setta.types.id import ID
+from setta.utils.constants import C
 
 
 def _manager() -> LLMChatManager:
     # Bypass __init__ so we do not need to hydrate configs or DB state
     return object.__new__(LLMChatManager)
+
+
+class _DummyDBE:
+    def __init__(self, canonical_to_temp: dict[ID, ID]):
+        self._canonical_to_temp = canonical_to_temp
+        self._temporary_to_canonical = {v: k for k, v in canonical_to_temp.items()}
+
+    def read_temporary_id_map(self):
+        return self._temporary_to_canonical, self._canonical_to_temp
 
 
 class StreamEntryFallbackTests(unittest.TestCase):
@@ -46,6 +56,26 @@ class StreamEntryFallbackTests(unittest.TestCase):
         entries = manager._collect_stream_entries(delta)
 
         self.assertEqual(entries, [StreamContentEntry("thinking", "details", None)])
+
+
+class ToolArgumentSanitizationTests(unittest.TestCase):
+    def test_setta_chat_id_is_converted_to_temporary_id(self) -> None:
+        canonical_to_temp = {
+            ID("chat-uuid"): ID("1"),
+            ID("project-uuid"): ID("2"),
+        }
+        manager = _manager()
+        manager.dbe = _DummyDBE(canonical_to_temp)
+
+        sanitized = manager._sanitize_tool_arguments(
+            {
+                C.MCP_CHAT_ID_ARG_NAME: ID("chat-uuid"),
+                C.MCP_PROJECT_CONFIG_ID_ARG_NAME: ID("project-uuid"),
+            }
+        )
+
+        self.assertEqual(sanitized[C.MCP_CHAT_ID_ARG_NAME], "1")
+        self.assertEqual(sanitized[C.MCP_PROJECT_CONFIG_ID_ARG_NAME], "2")
 
 
 if __name__ == "__main__":

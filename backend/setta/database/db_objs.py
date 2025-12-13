@@ -177,16 +177,16 @@ class DBE:
             content += "\n"
         self.write(self.dot_env, content)
 
-    def chat_path(self, chat_id: str) -> Path:
+    def chat_path(self, chat_id: ID) -> Path:
         return self.chats / f"{chat_id}.json"
 
-    def read_chat(self, chat_id: str) -> dict | None:
+    def read_chat(self, chat_id: ID) -> dict | None:
         path = self.chat_path(chat_id)
         if not path.exists():
             return None
         return self.read_json(path)
 
-    def write_chat(self, chat_id: str, data: Any):
+    def write_chat(self, chat_id: ID, data: Any):
         self.write_json(self.chat_path(chat_id), data)
 
     def list_chat_paths(self) -> list[Path]:
@@ -194,7 +194,7 @@ class DBE:
             return []
         return sorted(self.chats.glob("*.json"))
 
-    def delete_chat_file(self, chat_id: str):
+    def delete_chat_file(self, chat_id: ID):
         path = self.chat_path(chat_id)
         lock = self.get_file_lock(path)
         with lock:

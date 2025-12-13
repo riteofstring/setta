@@ -4,9 +4,7 @@ import unittest
 import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
-
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tools.tool_search import search_mcp_tools
@@ -52,9 +50,7 @@ class _StubFrontendSender:
 
 class _StubMCPClient:
     def __init__(self, mcp_server: SettaFastMCP):
-        self._tools = {
-            tool.name: tool for tool in mcp_server.list_registered_tools()
-        }
+        self._tools = {tool.name: tool for tool in mcp_server.list_registered_tools()}
         self.init_tool_definitions: dict[str, dict] = {}
         self.discoverable_tool_definitions: dict[str, dict] = {}
         self._populate_tool_definitions()
@@ -176,7 +172,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-            project_config_id = fixture.manager.project_state_backend.defaultProjectConfigId
+            project_config_id = (
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
             self.assertIsNotNone(project_config_id)
             user_message = UserChatMessage(
                 content=[MessageTextContent(text="help me size sections")]

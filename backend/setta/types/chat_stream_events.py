@@ -7,6 +7,7 @@ from setta.types.chat_messages import ToolChatMessage
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
 )
+from setta.types.id import ID
 
 
 class StreamingEventType(str, Enum):
@@ -82,5 +83,5 @@ LLMStreamingResponseChunk = (
 
 
 class LLMStreamingResponse(BaseModel):
-    chatId: str
+    chatId: ID
     chunk: LLMStreamingResponseChunk

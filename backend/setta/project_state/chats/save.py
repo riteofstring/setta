@@ -52,12 +52,12 @@ def create_new_chat(
     return _persist_chat(dbe, chat)
 
 
-def delete_chat(dbe: "DBE", chat_id: str) -> None:
+def delete_chat(dbe: "DBE", chat_id: ID) -> None:
     dbe.delete_chat_file(chat_id)
 
 
 def save_messages(
-    dbe: "DBE", chat_id: str, messages: list[BaseChatMessageUnion]
+    dbe: "DBE", chat_id: ID, messages: list[BaseChatMessageUnion]
 ) -> Chat | None:
     if len(messages) == 0:
         return load_chat(dbe, chat_id)

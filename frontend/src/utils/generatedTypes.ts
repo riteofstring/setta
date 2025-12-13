@@ -4359,7 +4359,7 @@ export function createWebsocketMsgNotification(
 }
 
 export const LLMStreamingResponseSchema = z.object({
-  chatId: z.string(),
+  chatId: IDSchema,
   chunk: z.union([
     MessageStartEventSchema,
     MessageDeltaEventSchema,
@@ -7574,7 +7574,7 @@ export function createBaseChartSettings(
 }
 
 export const ChatSchema = z.object({
-  id: z.string().default(create_new_id),
+  id: IDSchema.default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   llmConfig: LLMConfigSchema,
@@ -7596,7 +7596,7 @@ export function createChat(options: Partial<Chat> = {}): Chat {
 }
 
 export const ChatMetadataSchema = z.object({
-  id: z.string().default(create_new_id),
+  id: IDSchema.default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   llmConfig: LLMConfigSchema,
@@ -8346,7 +8346,7 @@ export function createWebsocketMsg(
 }
 
 export const DeleteLLMChatRequestSchema = z.object({
-  chatId: z.string(),
+  chatId: IDSchema,
 });
 
 export type DeleteLLMChatRequest = z.infer<typeof DeleteLLMChatRequestSchema>;
@@ -8358,7 +8358,7 @@ export function createDeleteLLMChatRequest(
 }
 
 export const GetLLMChatRequestSchema = z.object({
-  chatId: z.string(),
+  chatId: IDSchema,
   projectConfigId: z.union([IDSchema, z.null()]),
 });
 
@@ -8394,7 +8394,7 @@ export function createGetLLMChatRequestResponse(
 }
 
 export const GetLLMResponseRequestSchema = z.object({
-  chatId: z.union([z.string(), z.null()]),
+  chatId: z.union([IDSchema, z.null()]),
   message: z.union([
     SystemChatMessageSchema,
     AssistantChatMessageSchema,
@@ -8415,7 +8415,7 @@ export function createGetLLMResponseRequest(
 }
 
 export const StopLLMChatRequestSchema = z.object({
-  chatId: z.string(),
+  chatId: IDSchema,
 });
 
 export type StopLLMChatRequest = z.infer<typeof StopLLMChatRequestSchema>;

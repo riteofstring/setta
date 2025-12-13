@@ -125,7 +125,7 @@ class LLMChatManager:
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
 
-    def get_chat(self, chat_id: str) -> Chat | None:
+    def get_chat(self, chat_id: ID) -> Chat | None:
         return load_chat(self.dbe, chat_id)
 
     def update_config(self, config: AllLLMConfigs) -> None:
@@ -138,7 +138,7 @@ class LLMChatManager:
 
     def get_or_create_chat(
         self,
-        chat_id: str | None,
+        chat_id: ID | None,
         message: BaseChatMessageUnion,
         llm_config_id: str,
         project_config_id: ID,
@@ -159,7 +159,7 @@ class LLMChatManager:
     def get_all_chat_metadata(self):
         return load_all_chat_metadata(self.dbe)
 
-    def delete_chat(self, chat_id: str) -> None:
+    def delete_chat(self, chat_id: ID) -> None:
         delete_chat_record(self.dbe, chat_id)
         self._chat_tool_states.pop(chat_id, None)
 
@@ -189,7 +189,7 @@ class LLMChatManager:
             name=f"llm-chat-{chat.id}",
         )
 
-        def _cleanup(task: asyncio.Task[Any], chat_id: str) -> None:
+        def _cleanup(task: asyncio.Task[Any], chat_id: ID) -> None:
             self._tasks.pop(chat_id, None)
             if task.cancelled():
                 return
@@ -302,7 +302,7 @@ class LLMChatManager:
                     )
                 break
 
-    async def request_stop_streaming(self, chat_id: str) -> None:
+    async def request_stop_streaming(self, chat_id: ID) -> None:
         task = self._tasks.get(chat_id)
         if not task:
             logger.info("Stop requested for chat %s but no active task exists", chat_id)
@@ -310,10 +310,10 @@ class LLMChatManager:
         task.cancel()
         self._tasks.pop(chat_id, None)
 
-    def is_waiting_for_response(self, chat_id: str) -> bool:
+    def is_waiting_for_response(self, chat_id: ID) -> bool:
         return chat_id in self._sessions
 
-    def get_current_stream(self, chat_id: str) -> list[BaseChatMessageUnion]:
+    def get_current_stream(self, chat_id: ID) -> list[BaseChatMessageUnion]:
         session = self._sessions.get(chat_id)
         if not session:
             return []
@@ -360,7 +360,7 @@ class LLMChatManager:
 
     def _get_or_create_chat_tool_state(
         self,
-        chat_id: str,
+        chat_id: ID,
     ) -> ChatToolState:
         state = self._chat_tool_states.get(chat_id)
         if state is None:
@@ -502,7 +502,7 @@ class LLMChatManager:
 
     async def _handle_stream_chunk(
         self,
-        chat_id: str,
+        chat_id: ID,
         assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
@@ -527,7 +527,7 @@ class LLMChatManager:
 
     async def _handle_text_deltas(
         self,
-        chat_id: str,
+        chat_id: ID,
         assistant_message: AssistantChatMessage,
         delta: Delta,
     ) -> None:
@@ -726,7 +726,7 @@ class LLMChatManager:
 
     async def _handle_tool_call_deltas(
         self,
-        chat_id: str,
+        chat_id: ID,
         assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
@@ -891,9 +891,7 @@ class LLMChatManager:
         )
         return tool_chat_message
 
-    def _sanitize_tool_arguments(
-        self, arguments: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _sanitize_tool_arguments(self, arguments: dict[str, Any]) -> dict[str, Any]:
         _, canonical_to_temporary = self.dbe.read_temporary_id_map()
         cloned = copy.deepcopy(arguments)
         converted = convert_existing_canonical_ids_to_temporary(
@@ -904,7 +902,7 @@ class LLMChatManager:
 
     def _build_search_tool_chat_message(
         self,
-        chat_id: str,
+        chat_id: ID,
         tool_name: str,
         tool_call: ToolCall,
         call_result: CallToolResult,

@@ -20,7 +20,6 @@ from mcp.server.session import ServerSessionT
 from mcp.server.sse import SseServerTransport
 from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
-from pydantic import TypeAdapter
 
 from setta.database.db_objs import DBE
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType

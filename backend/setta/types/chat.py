@@ -10,7 +10,7 @@ from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
 class ChatMetadata(BaseModel):
-    id: str = Field(default_factory=create_new_id)
+    id: ID = Field(default_factory=create_new_id)
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     llmConfig: LLMConfig
