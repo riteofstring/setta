@@ -644,7 +644,6 @@ class BaseProjectManager(ABC):
             x.refetchParams,
         )
         await self.update_and_broadcast_project_state(project_state)
-        return project_state
 
     @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
