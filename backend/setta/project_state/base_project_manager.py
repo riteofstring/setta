@@ -756,40 +756,34 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
+        """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_variant(self, x: SetSectionVariantRequest):
+        """Switch a section to an explicit variant and propagate its state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_default_section_variant(self, x: SetDefaultSectionVariantRequest):
+        """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
-    @enqueue_method
-    async def set_param_values(
-        self, projectConfigId: ID, sectionId: ID, paramIdsToValues: dict[ID, str]
-    ):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(projectConfigId)
-        for paramInfoId, value in paramIdsToValues.items():
-            set_param_entered_value(
-                project_state,
-                sectionId,
-                paramInfoId,
-                value,
-            )
-        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def change_param_impl(self, x: ChangeParamImplRequest):
+        """Swap the selected implementation backing a section parameter."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
@@ -802,7 +796,9 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
+        """Insert a new top-level section using the provided implementation."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
@@ -816,7 +812,9 @@ class BaseProjectManager(ABC):
         return sectionId
 
     @enqueue_method
+    @project_state_tool()
     async def create_child_sections(self, x: CreateChildSectionsRequest):
+        """Create one or more child sections beneath a parent section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
@@ -830,9 +828,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def create_child_sections_via_incrementer(
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
+        """Expand incrementer-driven child sections for a repeated structure."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
@@ -858,44 +858,56 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def delete_sections(self, x: DeleteSectionsRequest):
+        """Remove the specified sections and broadcast the updated project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def delete_child_sections_via_decrementer(
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
+        """Shrink an incrementer-driven group by deleting trailing children."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
+        """Overwrite the configuration dict for a parameter implementation."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
+        """Duplicate the current section state into an additional variant."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def add_kwarg(self, x: AddKwargRequest):
+        """Append a blank keyword argument entry to the section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         add_kwarg(self.settings_file.settings, project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def delete_kwarg(self, x: DeleteKwargRequest):
+        """Remove the last keyword argument entry from the section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_kwarg(project_state, x.sectionId)

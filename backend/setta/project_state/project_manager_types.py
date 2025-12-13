@@ -83,47 +83,103 @@ class GenCodeSuffixCompletionRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class ChangeParamImplRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    paramInfoId: ID
-    selectedId: ID
+    """Switch a parameter to a different implementation option."""
+
+    sectionId: ID = Field(
+        description="Section containing the parameter to rewire.",
+    )
+    paramInfoId: ID = Field(
+        description="Identifier of the parameter that should change implementations.",
+    )
+    selectedId: ID = Field(
+        description="Implementation identifier selected by the caller.",
+    )
 
 
 class UpdateParamImplConfigRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    paramInfoId: ID
-    newConfig: dict
+    """Persist a new configuration object for a parameter implementation."""
+
+    sectionId: ID = Field(
+        description="Section containing the parameter whose config should change.",
+    )
+    paramInfoId: ID = Field(
+        description="Parameter to update within the section.",
+    )
+    newConfig: dict = Field(
+        description="Arbitrary dict serialized into the implementation config.",
+    )
 
 
 class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
-    implType: SectionType
-    implOverrides: BaseSectionImplArgsUnionWithDiscriminator
-    position: Position
+    """Create a new section anchored at the top level of the canvas."""
+
+    implType: SectionType = Field(
+        description="Section implementation type to instantiate.",
+    )
+    implOverrides: BaseSectionImplArgsUnionWithDiscriminator = Field(
+        description="Implementation-specific overrides applied during creation.",
+    )
+    position: Position = Field(
+        description="Canvas coordinates where the section should be placed.",
+    )
 
 
 class CreateChildSectionsRequest(ProjectManagerRequestWithProjectConfig):
-    parentId: ID
-    implType: SectionType
-    numChildren: int
-    startIdx: int | None
+    """Insert one or more child sections directly beneath a parent."""
+
+    parentId: ID = Field(
+        description="Parent section that will receive the newly created children.",
+    )
+    implType: SectionType = Field(
+        description="Implementation type shared by each created child.",
+    )
+    numChildren: int = Field(
+        description="Total children to create within the parent.",
+    )
+    startIdx: int | None = Field(
+        description="Optional insertion index determining where children are placed.",
+    )
 
 
 class CreateChildSectionsViaIncrementerRequest(ProjectManagerRequestWithProjectConfig):
-    calledBy: ID
-    numChildren: int
-    implType: SectionType
+    """Expand incrementer controls by creating additional repeated children."""
+
+    calledBy: ID = Field(
+        description="Identifier of the incrementer or section initiating the action.",
+    )
+    numChildren: int = Field(
+        description="Number of children the incrementer should add.",
+    )
+    implType: SectionType = Field(
+        description="Implementation type used for each new child.",
+    )
 
 
 class DeleteSectionsRequest(ProjectManagerRequestWithProjectConfig):
-    sectionIds: list[ID]
+    """Delete one or more sections from the project state."""
+
+    sectionIds: list[ID] = Field(
+        description="Identifiers of every section that should be removed.",
+    )
 
 
 class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequestWithProjectConfig):
-    calledBy: ID
-    numChildren: int
+    """Reduce an incrementer-controlled group by deleting existing children."""
+
+    calledBy: ID = Field(
+        description="Identifier of the decrementer or section requesting removal.",
+    )
+    numChildren: int = Field(
+        description="How many trailing children to remove.",
+    )
 
 
 class CreateNewSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+    """Clone the current section state into a new variant slot."""
+
+    sectionId: ID = Field(
+        description="Section whose active variant should be duplicated.",
+    )
 
 
 class UndoRequest(ProjectManagerRequestWithProjectConfig):
@@ -151,11 +207,19 @@ class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class AddKwargRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+    """Append a keyword argument entry to the callable section."""
+
+    sectionId: ID = Field(
+        description="Callable section that should gain a new kwarg.",
+    )
 
 
 class DeleteKwargRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+    """Remove the most recently added keyword argument from a section."""
+
+    sectionId: ID = Field(
+        description="Callable section whose kwarg list should shrink.",
+    )
 
 
 class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithProjectConfig):
@@ -258,18 +322,36 @@ class SetCodeFileBindingRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetSectionParamFilterRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    value: str
+    """Set the interactive filter string applied to a section's parameters."""
+
+    sectionId: ID = Field(
+        description="Section whose parameter list should be filtered.",
+    )
+    value: str = Field(
+        description="Raw text filter string; empty text clears any filter.",
+    )
 
 
 class SetSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    variantId: ID
+    """Swap a section to the specified variant."""
+
+    sectionId: ID = Field(
+        description="Section whose variant should change.",
+    )
+    variantId: ID = Field(
+        description="Identifier of the target variant to activate.",
+    )
 
 
 class SetDefaultSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    variantId: ID
+    """Redefine which variant becomes the default for a section."""
+
+    sectionId: ID = Field(
+        description="Section whose default variant should change.",
+    )
+    variantId: ID = Field(
+        description="Variant identifier that becomes the new default.",
+    )
 
 
 class ToggleVariantFrozenRequest(ProjectManagerRequestWithProjectConfig):
