@@ -26,6 +26,7 @@
     "**/.env",
     "**/site-packages",
     "**/.Python",
-    "setta_files/code"
+    "setta_files/code",
+    "tests"
   ]
 }
