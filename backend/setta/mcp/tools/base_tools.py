@@ -1,6 +1,8 @@
 import importlib.metadata
 
-from setta.mcp.tool_setup import setta_tool
+from pydantic import BaseModel, RootModel
+
+from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
 
@@ -25,3 +27,22 @@ def getTerminalOutput(setta_state: SettaFastAPIState, sectionId: ID):
         sectionId: The id of the terminal.
     """
     return setta_state.terminals.get_terminal_history(sectionId)
+
+
+@setta_init_tool
+def getProjectConfigNamesAndIds(setta_state: SettaFastAPIState):
+    """
+    Return metadata for every known project config so external agents can pick one.
+    """
+    _, metadata = setta_state.project_manager_switcher.main.get_all_project_metadata()
+    entries = [ProjectConfigNamesAndIdsEntry(name=m.name, id=m.id) for m in metadata]
+    return ProjectConfigNamesAndIdsList(root=entries)
+
+
+class ProjectConfigNamesAndIdsEntry(BaseModel):
+    name: str
+    id: ID
+
+
+class ProjectConfigNamesAndIdsList(RootModel[list[ProjectConfigNamesAndIdsEntry]]):
+    pass
