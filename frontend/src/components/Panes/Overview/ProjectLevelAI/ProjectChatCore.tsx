@@ -276,9 +276,11 @@ const ChatMessage = memo(
 
     if (message.role === ChatRoleEnum.assistant) {
       const toolCalls = message.tool_calls ?? [];
+      const showAssistantSpinner =
+        isStreaming && message.content.length === 0 && toolCalls.length === 0;
       return (
         <LLMChatBubble>
-          {message.content.length === 0 && isStreaming && (
+          {showAssistantSpinner && (
             <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
           )}
           {message.content.map((item, idx) => (
