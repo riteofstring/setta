@@ -40,17 +40,21 @@ class ProjectManagerRequestWithProjectConfig(ProjectManagerRequestWithFrontendOp
     )
 
 
-class ClearTextFieldCompletionRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class ProjectManagerRequestWithSection(ProjectManagerRequestWithProjectConfig):
+    """Base request payload for operations targeting a single section."""
+
+    sectionId: ID = Field(
+        description="Section targeted by the request.",
+    )
+
+
+class ClearTextFieldCompletionRequest(ProjectManagerRequestWithSection):
     paramInfoId: ID | None
 
 
-class SetCallableRequest(ProjectManagerRequestWithProjectConfig):
+class SetCallableRequest(ProjectManagerRequestWithSection):
     """Request payload for re-binding a callable section implementation."""
 
-    sectionId: ID = Field(
-        description="Section whose callable implementation should be replaced.",
-    )
     callableName: str = Field(
         description="Fully-qualified callable identifier to store on the section.",
     )
@@ -59,15 +63,13 @@ class SetCallableRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class TextFieldCompletionRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class TextFieldCompletionRequest(ProjectManagerRequestWithSection):
     paramInfoId: ID | None
     fullText: str
     position: int
 
 
-class CodeAreaCompletionRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class CodeAreaCompletionRequest(ProjectManagerRequestWithSection):
     fullText: str
     position: int
 
@@ -82,12 +84,9 @@ class GenCodeSuffixCompletionRequest(ProjectManagerRequestWithProjectConfig):
     position: int
 
 
-class ChangeParamImplRequest(ProjectManagerRequestWithProjectConfig):
+class ChangeParamImplRequest(ProjectManagerRequestWithSection):
     """Switch a parameter to a different implementation option."""
 
-    sectionId: ID = Field(
-        description="Section containing the parameter to rewire.",
-    )
     paramInfoId: ID = Field(
         description="Identifier of the parameter that should change implementations.",
     )
@@ -96,12 +95,9 @@ class ChangeParamImplRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class UpdateParamImplConfigRequest(ProjectManagerRequestWithProjectConfig):
+class UpdateParamImplConfigRequest(ProjectManagerRequestWithSection):
     """Persist a new configuration object for a parameter implementation."""
 
-    sectionId: ID = Field(
-        description="Section containing the parameter whose config should change.",
-    )
     paramInfoId: ID = Field(
         description="Parameter to update within the section.",
     )
@@ -174,13 +170,8 @@ class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequestWithProjectC
     )
 
 
-class CreateNewSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
+class CreateNewSectionVariantRequest(ProjectManagerRequestWithSection):
     """Clone the current section state into a new variant slot."""
-
-    sectionId: ID = Field(
-        description="Section whose active variant should be duplicated.",
-    )
-
 
 class UndoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
@@ -206,40 +197,26 @@ class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class AddKwargRequest(ProjectManagerRequestWithProjectConfig):
+class AddKwargRequest(ProjectManagerRequestWithSection):
     """Append a keyword argument entry to the callable section."""
 
-    sectionId: ID = Field(
-        description="Callable section that should gain a new kwarg.",
-    )
-
-
-class DeleteKwargRequest(ProjectManagerRequestWithProjectConfig):
+class DeleteKwargRequest(ProjectManagerRequestWithSection):
     """Remove the most recently added keyword argument from a section."""
 
-    sectionId: ID = Field(
-        description="Callable section whose kwarg list should shrink.",
-    )
-
-
-class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithSection):
     variantId: ID
 
 
-class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithSection):
     variantId: ID
 
 
-class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithSection):
     variantId: ID
     filepath: str
 
 
-class SetTextBlockTextRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetTextBlockTextRequest(ProjectManagerRequestWithSection):
     text: str
 
 
@@ -259,12 +236,9 @@ class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class SetParamEnteredValueRequest(ProjectManagerRequestWithProjectConfig):
+class SetParamEnteredValueRequest(ProjectManagerRequestWithSection):
     """Assign a new manual value to a parameter within a section."""
 
-    sectionId: ID = Field(
-        description="Section containing the parameter to override.",
-    )
     paramInfoId: ID = Field(
         description="Identifier of the parameter receiving the new value.",
     )
@@ -284,28 +258,15 @@ class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class TogglePositionLockRequest(ProjectManagerRequestWithProjectConfig):
+class TogglePositionLockRequest(ProjectManagerRequestWithSection):
     """Flip the layout lock flag for a section."""
 
-    sectionId: ID = Field(
-        description="Section whose layout lock flag should be toggled.",
-    )
-
-
-class ToggleMinimizedRequest(ProjectManagerRequestWithProjectConfig):
+class ToggleMinimizedRequest(ProjectManagerRequestWithSection):
     """Expand or collapse a section."""
 
-    sectionId: ID = Field(
-        description="Section to minimize or restore.",
-    )
-
-
-class SetCodeRequest(ProjectManagerRequestWithProjectConfig):
+class SetCodeRequest(ProjectManagerRequestWithSection):
     """Submit inline code edits for a section."""
 
-    sectionId: ID = Field(
-        description="Section whose inline code should be overwritten.",
-    )
     code: str = Field(
         description="Source text that replaces the section's existing code.",
     )
@@ -316,39 +277,29 @@ class CodeFileBindingUpdate(BaseModel):
     access_mode: CodeFileAccessMode
 
 
-class SetCodeFileBindingRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetCodeFileBindingRequest(ProjectManagerRequestWithSection):
     binding: CodeFileBindingUpdate
 
 
-class SetSectionParamFilterRequest(ProjectManagerRequestWithProjectConfig):
+class SetSectionParamFilterRequest(ProjectManagerRequestWithSection):
     """Set the interactive filter string applied to a section's parameters."""
 
-    sectionId: ID = Field(
-        description="Section whose parameter list should be filtered.",
-    )
     value: str = Field(
         description="Raw text filter string; empty text clears any filter.",
     )
 
 
-class SetSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
+class SetSectionVariantRequest(ProjectManagerRequestWithSection):
     """Swap a section to the specified variant."""
 
-    sectionId: ID = Field(
-        description="Section whose variant should change.",
-    )
     variantId: ID = Field(
         description="Identifier of the target variant to activate.",
     )
 
 
-class SetDefaultSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
+class SetDefaultSectionVariantRequest(ProjectManagerRequestWithSection):
     """Redefine which variant becomes the default for a section."""
 
-    sectionId: ID = Field(
-        description="Section whose default variant should change.",
-    )
     variantId: ID = Field(
         description="Variant identifier that becomes the new default.",
     )
@@ -379,8 +330,7 @@ class SetViewportRequest(ProjectManagerRequestWithProjectConfig):
     viewport: Viewport | None
 
 
-class SetSectionNameRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetSectionNameRequest(ProjectManagerRequestWithSection):
     name: str
 
 
@@ -399,43 +349,35 @@ class RenameRefactorBroadcastContent(BaseModel):
     changedNodeValues: list[RenameReferenceChangedValue]
 
 
-class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
 
 
-class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
     displayMode: SectionWithParamsDisplayMode
 
 
-class SetCallableHideParamsRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
     hideParams: bool
 
 
-class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
 
 
-class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithSection):
     viewMode: BrowserAreaViewMode
 
 
-class SetBrowserHideColumnRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetBrowserHideColumnRequest(ProjectManagerRequestWithSection):
     hideColumn: bool
 
 
-class SetTextBlockFormatRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
 
 
-class SetSocialUrlRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetSocialUrlRequest(ProjectManagerRequestWithSection):
     url: str
 
 
@@ -447,8 +389,7 @@ class UngroupGroupsRequest(ProjectManagerRequestWithProjectConfig):
     groupIds: list[ID]
 
 
-class ToggleParamSelectedRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class ToggleParamSelectedRequest(ProjectManagerRequestWithSection):
     paramInfoId: ID
 
 
@@ -466,29 +407,24 @@ class PasteSectionsRequest(ProjectManagerRequestWithProjectConfig):
     asRef: bool
 
 
-class SetImageAreaImagePathRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetImageAreaImagePathRequest(ProjectManagerRequestWithSection):
     imagePath: str
 
 
-class SetChartAreaDataPathRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetChartAreaDataPathRequest(ProjectManagerRequestWithSection):
     dataPath: str
 
 
-class SetChartTypeRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetChartTypeRequest(ProjectManagerRequestWithSection):
     chartType: ChartType
 
 
-class SetChartSettingsRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class SetChartSettingsRequest(ProjectManagerRequestWithSection):
     chartSettings: BaseChartSettingsUnionWithDiscriminator
     changedSettings: list[str]
 
 
-class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithSection):
     layerIdx: int
     element: DrawAreaLayerItem
 
