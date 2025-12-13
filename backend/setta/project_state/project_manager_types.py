@@ -32,195 +32,169 @@ class ProjectManagerRequestWithFrontendOp(BaseModel):
     frontendOpId: str | None = None
 
 
-class ClearTextFieldCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class ProjectManagerRequestWithProjectConfig(ProjectManagerRequestWithFrontendOp):
+    """Base request payload for operations scoped to a project configuration."""
+
+    projectConfigId: ID = Field(
+        description="Project configuration being queried or mutated.",
+    )
+
+
+class ClearTextFieldCompletionRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     paramInfoId: ID | None
 
 
-class SetCallableRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetCallableRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     callableName: str
     refetchParams: bool
 
 
-class TextFieldCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class TextFieldCompletionRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     paramInfoId: ID | None
     fullText: str
     position: int
 
 
-class CodeAreaCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class CodeAreaCompletionRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     fullText: str
     position: int
 
 
-class GenCodePrefixCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class GenCodePrefixCompletionRequest(ProjectManagerRequestWithProjectConfig):
     fullText: str
     position: int
 
 
-class GenCodeSuffixCompletionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class GenCodeSuffixCompletionRequest(ProjectManagerRequestWithProjectConfig):
     fullText: str
     position: int
 
 
-class ChangeParamImplRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class ChangeParamImplRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     paramInfoId: ID
     selectedId: ID
 
 
-class UpdateParamImplConfigRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class UpdateParamImplConfigRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     paramInfoId: ID
     newConfig: dict
 
 
-class CreateTopLevelSectionRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     implType: SectionType
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator
     position: Position
 
 
-class CreateChildSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class CreateChildSectionsRequest(ProjectManagerRequestWithProjectConfig):
     parentId: ID
     implType: SectionType
     numChildren: int
     startIdx: int | None
 
 
-class CreateChildSectionsViaIncrementerRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class CreateChildSectionsViaIncrementerRequest(ProjectManagerRequestWithProjectConfig):
     calledBy: ID
     numChildren: int
     implType: SectionType
 
 
-class DeleteSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class DeleteSectionsRequest(ProjectManagerRequestWithProjectConfig):
     sectionIds: list[ID]
 
 
-class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequestWithProjectConfig):
     calledBy: ID
     numChildren: int
 
 
-class CreateNewSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class CreateNewSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
 
 
-class UndoRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class UndoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
 
 
-class RedoRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class RedoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
 
 
-class GetLatestProjectStateRequest(ProjectManagerRequestWithFrontendOp):
+class GetLatestProjectStateRequest(ProjectManagerRequestWithProjectConfig):
     """Request a full snapshot of the specified project config's state."""
 
-    projectConfigId: ID = Field(
-        description="Project configuration whose state should be returned.",
-    )
+
+class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
+    pass
 
 
-class ForceRefreshProjectRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
-
-
-class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
     topLevelSections: dict[ID, TopLevelSectionLayout]
 
 
-class AddKwargRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class AddKwargRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
 
 
-class DeleteKwargRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class DeleteKwargRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
 
 
-class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class DeleteSectionVariantOrAskRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     variantId: ID
 
 
-class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class ToggleVariantJSONSourceRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     variantId: ID
 
 
-class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     variantId: ID
     filepath: str
 
 
-class SetTextBlockTextRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetTextBlockTextRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     text: str
 
 
-class SetGenCodePrefixRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
     genCodePrefix: str
 
 
-class SetGenCodeSuffixRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
     genCodeSuffix: str
 
 
-class SetParamEnteredValueRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetParamEnteredValueRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     paramInfoId: ID
     value: str
 
 
-class SetCodeObjNameRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     codeObjId: ID
     name: str
 
 
-class TogglePositionLockRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class TogglePositionLockRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
 
 
-class ToggleMinimizedRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class ToggleMinimizedRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
 
 
-class SetCodeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetCodeRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     code: str
 
@@ -230,74 +204,62 @@ class CodeFileBindingUpdate(BaseModel):
     access_mode: CodeFileAccessMode
 
 
-class SetCodeFileBindingRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetCodeFileBindingRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     binding: CodeFileBindingUpdate
 
 
-class SetSectionParamFilterRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSectionParamFilterRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     value: str
 
 
-class SetSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     variantId: ID
 
 
-class SetDefaultSectionVariantRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetDefaultSectionVariantRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     variantId: ID
 
 
-class ToggleVariantFrozenRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class ToggleVariantFrozenRequest(ProjectManagerRequestWithProjectConfig):
     variantId: ID
 
 
-class SetSectionVariantNameRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSectionVariantNameRequest(ProjectManagerRequestWithProjectConfig):
     variantId: ID
     name: str
 
 
-class SetSectionSizesRequest(ProjectManagerRequestWithFrontendOp):
+class SetSectionSizesRequest(ProjectManagerRequestWithProjectConfig):
     """Resize one or more sections within the specified project config."""
 
-    projectConfigId: ID = Field(
-        description="Project configuration whose sections should be resized.",
-    )
     sectionSizes: dict[ID, SectionSize] = Field(
         description="Mapping of section IDs to their desired width/height settings.",
     )
 
 
-class SetActiveIdsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetActiveIdsRequest(ProjectManagerRequestWithProjectConfig):
     activeIds: list[ID]
 
 
-class SetViewportRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetViewportRequest(ProjectManagerRequestWithProjectConfig):
     viewport: Viewport | None
 
 
-class SetSectionNameRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSectionNameRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     name: str
 
 
-class AcceptRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class AcceptRenameRefactorRequest(ProjectManagerRequestWithProjectConfig):
+    pass
 
 
-class DeclineRenameRefactorRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class DeclineRenameRefactorRequest(ProjectManagerRequestWithProjectConfig):
+    pass
 
 
 class RenameRefactorBroadcastContent(BaseModel):
@@ -307,113 +269,95 @@ class RenameRefactorBroadcastContent(BaseModel):
     changedNodeValues: list[RenameReferenceChangedValue]
 
 
-class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     textDisplayMode: TextBlockDisplayMode
 
 
-class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     displayMode: SectionWithParamsDisplayMode
 
 
-class SetCallableHideParamsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetCallableHideParamsRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     hideParams: bool
 
 
-class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     hideUnpinnedParams: bool
 
 
-class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     viewMode: BrowserAreaViewMode
 
 
-class SetBrowserHideColumnRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetBrowserHideColumnRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     hideColumn: bool
 
 
-class SetTextBlockFormatRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetTextBlockFormatRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     format: TextBlockFormat
 
 
-class SetSocialUrlRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetSocialUrlRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     url: str
 
 
-class GroupSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class GroupSectionsRequest(ProjectManagerRequestWithProjectConfig):
     sectionIds: list[ID]
 
 
-class UngroupGroupsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class UngroupGroupsRequest(ProjectManagerRequestWithProjectConfig):
     groupIds: list[ID]
 
 
-class ToggleParamSelectedRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class ToggleParamSelectedRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     paramInfoId: ID
 
 
-class UnselectAllParamsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class UnselectAllParamsRequest(ProjectManagerRequestWithProjectConfig):
+    pass
 
 
-class PrepareSectionsForCopyRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class PrepareSectionsForCopyRequest(ProjectManagerRequestWithProjectConfig):
     sectionIds: list[ID]
 
 
-class PasteSectionsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class PasteSectionsRequest(ProjectManagerRequestWithProjectConfig):
     data: ProjectStateCoreWithSectionVariantMap
     position: Position
     asRef: bool
 
 
-class SetImageAreaImagePathRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetImageAreaImagePathRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     imagePath: str
 
 
-class SetChartAreaDataPathRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetChartAreaDataPathRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     dataPath: str
 
 
-class SetChartTypeRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetChartTypeRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     chartType: ChartType
 
 
-class SetChartSettingsRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SetChartSettingsRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     chartSettings: BaseChartSettingsUnionWithDiscriminator
     changedSettings: list[str]
 
 
-class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class AppendDrawAreaLayerItemRequest(ProjectManagerRequestWithProjectConfig):
     sectionId: ID
     layerIdx: int
     element: DrawAreaLayerItem
@@ -426,7 +370,6 @@ class ProjectStateSingleConfigWithCompletedOpIds:
     pendingOpIds: list[str]
 
 
-class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+class SaveAsNewProjectConfigRequest(ProjectManagerRequestWithProjectConfig):
     newConfigName: str
     withRefs: bool
