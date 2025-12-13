@@ -796,7 +796,11 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool()
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
-        """Create a new top-level section using the provided implementation when users ask to create sections at the root layout."""
+        """Create a root-level section for the requested implementation.
+
+        Returns:
+            ID: Identifier for the newly created top-level section so follow-up edits can target it.
+        """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
