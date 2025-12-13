@@ -48,8 +48,16 @@ class SectionSizeMode(str, Enum):
 
 
 class SectionSize(BaseModel, extra="forbid"):
-    width: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
-    height: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    """Explicit width/height constraints that layout-aware tools can override."""
+
+    width: float | Literal[SectionSizeMode.auto] = Field(
+        default=SectionSizeMode.auto,
+        description="Section width in pixels or 'auto' to defer to layout heuristics.",
+    )
+    height: float | Literal[SectionSizeMode.auto] = Field(
+        default=SectionSizeMode.auto,
+        description="Section height in pixels or 'auto' when the layout controls it.",
+    )
 
 
 class CodeLanguage(str, Enum):

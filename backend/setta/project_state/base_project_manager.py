@@ -510,6 +510,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool()
     async def set_section_sizes(self, x: SetSectionSizesRequest):
+        """Resize the requested sections and broadcast the refreshed project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(project_state, x.sectionSizes)
         await self.update_and_broadcast_project_state(project_state)
@@ -1385,6 +1386,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
+        """Return the most recent project state snapshot for the requested config."""
         projectState = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
         )

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.types.artifact import ChartType, DrawAreaLayerItem
@@ -135,7 +135,11 @@ class RedoRequest(ProjectManagerRequestWithFrontendOp):
 
 
 class GetLatestProjectStateRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
+    """Request a full snapshot of the specified project config's state."""
+
+    projectConfigId: ID = Field(
+        description="Project configuration whose state should be returned.",
+    )
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithFrontendOp):
@@ -262,8 +266,14 @@ class SetSectionVariantNameRequest(ProjectManagerRequestWithFrontendOp):
 
 
 class SetSectionSizesRequest(ProjectManagerRequestWithFrontendOp):
-    projectConfigId: ID
-    sectionSizes: dict[ID, SectionSize]
+    """Resize one or more sections within the specified project config."""
+
+    projectConfigId: ID = Field(
+        description="Project configuration whose sections should be resized.",
+    )
+    sectionSizes: dict[ID, SectionSize] = Field(
+        description="Mapping of section IDs to their desired width/height settings.",
+    )
 
 
 class SetActiveIdsRequest(ProjectManagerRequestWithFrontendOp):
