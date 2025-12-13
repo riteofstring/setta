@@ -29,7 +29,11 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
-from setta.types.id import ID
+from setta.types.id import (
+    ID,
+    CanonicalToTemporaryIDMap,
+    TemporaryToCanonicalIDMap,
+)
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -119,8 +123,7 @@ class SettaFastMCP(FastMCP):
         @wraps(func)
         async def wrapper(**kwargs):
             before_size = len(self.canonical_to_temporary)
-            self._coerce_setta_params_to_id(kwargs)
-            kwargs = convert_canonical_ids_to_temporary(
+            self._convert_setta_context_ids(
                 kwargs,
                 self.canonical_to_temporary,
                 self.temporary_to_canonical,
@@ -156,14 +159,30 @@ class SettaFastMCP(FastMCP):
         return wrapper
 
     @staticmethod
-    def _coerce_setta_params_to_id(payload: dict[str, Any]) -> None:
-        for param_name in (
+    def _convert_setta_context_ids(
+        payload: dict[str, Any],
+        canonical_to_temporary: CanonicalToTemporaryIDMap,
+        temporary_to_canonical: TemporaryToCanonicalIDMap,
+    ) -> None:
+        scoped_payload = {}
+        for param in (
             C.MCP_CHAT_ID_ARG_NAME,
             C.MCP_PROJECT_CONFIG_ID_ARG_NAME,
         ):
-            value = payload.get(param_name)
+            if param not in payload:
+                continue
+            value = payload[param]
             if isinstance(value, str):
-                payload[param_name] = ID(value)
+                value = ID(value)
+            scoped_payload[param] = value
+        if not scoped_payload:
+            return
+        converted = convert_canonical_ids_to_temporary(
+            scoped_payload,
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+        payload.update(converted)
 
     def _build_tool_search_index(self) -> ToolSearchIndex | None:
         tools = [
