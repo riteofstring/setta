@@ -7,16 +7,31 @@ from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
 
 
+class ProjectConfigNamesAndIdsEntry(BaseModel):
+    name: str
+    id: ID
+
+
+class ProjectConfigNamesAndIdsList(RootModel[list[ProjectConfigNamesAndIdsEntry]]):
+    pass
+
+
+class InstalledPythonPackageList(RootModel[list[str]]):
+    pass
+
+
 @setta_tool
 def getInstalledPythonPackages():
     """
     Returns the available packages and their version numbers in the current python environment.
     """
-    installed_packages = importlib.metadata.distributions()
-    output = ""
-    for p in installed_packages:
-        output += f"{p.metadata['Name']}={p.version}\n"
-    return output
+    packages: list[str] = []
+    for distribution in importlib.metadata.distributions():
+        name = distribution.metadata["Name"]
+        version = distribution.version
+        packages.append(f"{name}={version}")
+    packages.sort(key=lambda entry: entry.lower())
+    return InstalledPythonPackageList(root=packages)
 
 
 @setta_tool
@@ -37,12 +52,3 @@ def getProjectConfigNamesAndIds(setta_state: SettaFastAPIState):
     _, metadata = setta_state.project_manager_switcher.main.get_all_project_metadata()
     entries = [ProjectConfigNamesAndIdsEntry(name=m.name, id=m.id) for m in metadata]
     return ProjectConfigNamesAndIdsList(root=entries)
-
-
-class ProjectConfigNamesAndIdsEntry(BaseModel):
-    name: str
-    id: ID
-
-
-class ProjectConfigNamesAndIdsList(RootModel[list[ProjectConfigNamesAndIdsEntry]]):
-    pass
