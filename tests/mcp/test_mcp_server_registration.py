@@ -198,3 +198,42 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             self.assertIn("set_section_sizes", tool_message.result["searchResults"])
             chat_state = chat_manager._get_or_create_chat_tool_state(chat.id)
             self.assertIn("set_section_sizes", chat_state.unlocked_tools)
+
+    async def test_registers_setta_chat_id_in_temp_map(self) -> None:
+        async with real_project_manager() as fixture:
+            app = FastAPI()
+            setta_state = _StubSettaState(fixture.dbe, fixture.manager)
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+
+            mcp_server = SettaFastMCP(
+                app,
+                setta_state,
+                "/mcp-test",
+                "Test MCP Server",
+                frontend_sender,
+                fixture.dbe,
+            )
+            setta_state.mcp_server = mcp_server
+
+            async def _dummy_tool(setta_chat_id: ID):
+                return {"chat_id": setta_chat_id}
+
+            wrapped_tool = mcp_server.setta_id_transformer(_dummy_tool)
+
+            chat_id = ID("test-chat-uuid")
+            self.assertNotIn(chat_id, mcp_server.canonical_to_temporary)
+
+            await wrapped_tool(setta_chat_id=chat_id)
+
+            temp_id = mcp_server.canonical_to_temporary.get(chat_id)
+            self.assertIsNotNone(temp_id)
+            self.assertEqual(
+                mcp_server.temporary_to_canonical.get(temp_id),
+                chat_id,
+            )
+
+            temporary_to_canonical, canonical_to_temporary = (
+                fixture.dbe.read_temporary_id_map()
+            )
+            self.assertEqual(canonical_to_temporary.get(chat_id), temp_id)
+            self.assertEqual(temporary_to_canonical.get(temp_id), chat_id)

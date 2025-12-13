@@ -117,6 +117,15 @@ class SettaFastMCP(FastMCP):
 
         @wraps(func)
         async def wrapper(**kwargs):
+            before_size = len(self.canonical_to_temporary)
+            kwargs = convert_canonical_ids_to_temporary(
+                kwargs,
+                self.canonical_to_temporary,
+                self.temporary_to_canonical,
+            )
+            if len(self.canonical_to_temporary) != before_size:
+                # Persist immediately so failures/cancellations still capture new mappings.
+                self.state.dbe.write_temporary_id_map(self.canonical_to_temporary)
             # Filter out unwanted params
             kwargs = {
                 k: v
