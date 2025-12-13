@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 CWD = Path.cwd()
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
+BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
 
 
 class classproperty:
@@ -27,6 +28,7 @@ class C:
     DEFAULT_PORT = 8000
     DEV_MODE_FRONTEND_PORT = 3000
     SETTINGS_PROJECT_NAME = "settings"
+    BACKEND_INIT_DELAY_SECONDS = BACKEND_INIT_DELAY_SECONDS
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST

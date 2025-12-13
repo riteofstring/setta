@@ -1,24 +1,18 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
 )
 from setta.types.dependency_value import LiteralDependencyValue
+from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
     set_param_entered_value,
     set_text_block_text,
 )
+from setta.types.id import ID
+from setta.types.listener import ListenerFrontendEmitKeyAndValue
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
-
-if TYPE_CHECKING:
-    from setta.types.generated.dependency_values import BaseDependencyValueUnion
-    from setta.types.id import ID
-    from setta.types.listener import ListenerFrontendEmitKeyAndValue
-    from setta.types.project_state import ProjectStateSingleConfig
 
 
 class ListenerDependencyUpdateError(ValueError):

@@ -15,6 +15,7 @@ class Route(str, Enum):
     SET_PROJECT_CONFIG_NAME = "/setProjectConfigName"
     SAVE_SETTINGS = "/saveSettings"
     LOAD_SETTINGS = "/loadSettings"
+    GET_BACKEND_INIT_STATUS = "/backendInitStatus"
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
     LOAD_SETTINGS_PROJECT = "/loadSettingsProject"
     TERMINAL = "/{projectConfigId}/{sectionId}/{id}"

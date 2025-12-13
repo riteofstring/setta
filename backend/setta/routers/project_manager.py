@@ -68,7 +68,7 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.routers.dependencies import AppStateFromRequest
+from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.notifications import SettaNotification

@@ -616,3 +616,9 @@ export async function route_set_chart_settings(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChartSettings", x);
 }
+
+export async function route_get_backend_init_status(): Promise<
+  ResponseDataAndStatus<null>
+> {
+  return await get("/backendInitStatus");
+}

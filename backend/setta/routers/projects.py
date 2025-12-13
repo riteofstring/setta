@@ -4,7 +4,7 @@ from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
-from setta.routers.dependencies import AppStateFromRequest
+from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import (
     ProjectNameTaken,

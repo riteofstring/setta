@@ -10,6 +10,7 @@ export class C {
     CHAT: ["chatHistory"],
   };
   static ARTIFACTS_FOLDER = "setta_files/artifacts";
+  static BACKEND_INIT_DELAY_SECONDS = 0.0;
   static CODE_FOLDER = "setta_files/code";
   static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";

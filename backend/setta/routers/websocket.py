@@ -3,7 +3,9 @@ import traceback
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from setta.routers.dependencies import AppStateFromWebsocket
+from setta.routers.dependencies import (
+    ReadyAppStateFromWebsocket as AppStateFromWebsocket,
+)
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType

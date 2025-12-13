@@ -25,6 +25,7 @@ from setta.routers import (
     projects_router,
     sections_router,
     settings_router,
+    status_router,
     terminals_router,
     websocket_router,
 )
@@ -61,10 +62,14 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        app.state.setta.specific_file_watcher.stop()
-        await app.state.setta.mcp_client.stop()
-        await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
-        stop_file_watcher(app.state.setta.lsp_writers)
+        if app.state.setta.specific_file_watcher:
+            app.state.setta.specific_file_watcher.stop()
+        if app.state.setta.mcp_client:
+            await app.state.setta.mcp_client.stop()
+        if app.state.setta.lsps and app.state.setta.lsp_readers:
+            await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
+        if app.state.setta.lsp_writers:
+            stop_file_watcher(app.state.setta.lsp_writers)
 
 
 app = FastAPI(
@@ -95,6 +100,7 @@ app.include_router(lsp_router, **kwargs)
 app.include_router(llm_router, **kwargs)
 app.include_router(ai_router, **kwargs)
 app.include_router(project_manager_router, **kwargs)
+app.include_router(status_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

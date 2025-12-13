@@ -4,7 +4,11 @@ import logging
 from fastapi import BackgroundTasks, WebSocket
 from pydantic import BaseModel
 
-from setta.routers.dependencies import AppStateFromRequest, AppStateFromWebsocket
+from setta.routers.dependencies import (
+    AppStateFromRequest,
+    AppStateFromWebsocket,
+    ReadyAppStateFromRequest,
+)
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
@@ -86,7 +90,9 @@ def route_kill_subprocesses(
 
 @router.post(Route.RUN_CODE)
 async def route_run_code(
-    x: RunCodeRequest, background_tasks: BackgroundTasks, state: AppStateFromRequest
+    x: RunCodeRequest,
+    background_tasks: BackgroundTasks,
+    state: ReadyAppStateFromRequest,
 ):
     terminal_id = await run_code(
         x.projectConfigId,

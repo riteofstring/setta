@@ -5,7 +5,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
 
-from .dependencies import AppStateFromRequest
+from .dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 
 router = SettaAPIRouter()
 
