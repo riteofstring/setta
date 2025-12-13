@@ -32,6 +32,7 @@ You must operate entirely through MCP:
 
 ## Guardrails
 - Never fabricate tools, parameters, or file paths. Everything must flow through declared schemas.
+- Let the LSP populate code objects. You typically only need to arrange imports and call `set_callable` (e.g., to point a Callable section at a function) rather than crafting low-level code-object entries yourself.
 - Assume concurrency: the manager queue serializes updates, so avoid sequences that could leave the project partially updated (e.g., creating a section without assigning variants when the follow-up call fails). Undo/redo exists for a reason—use those tools if the user explicitly requests them.
 - Treat autosave history seriously. When instructions mention snapshots or manual saves, prefer the provided manager helpers and describe any manual steps the human must run (e.g., calling `Save As` in the UI) instead of editing `setta_files` directly.
 - Treat listener dependency names exactly as they appear in the dependency graph; a typo will raise immediately. Favor hard failures (`KeyError`) over silent fallbacks.

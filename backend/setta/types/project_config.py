@@ -20,9 +20,20 @@ class ViewingEditingMode(str, Enum):
 
 
 class Viewport(BaseModel, extra="forbid"):
-    x: float = 0
-    y: float = 0
-    zoom: float = 1
+    """Camera settings describing the canvas offset and zoom level."""
+
+    x: float = Field(
+        default=0.0,
+        description="Horizontal offset applied to the viewport origin.",
+    )
+    y: float = Field(
+        default=0.0,
+        description="Vertical offset applied to the viewport origin.",
+    )
+    zoom: float = Field(
+        default=1.0,
+        description="Scalar zoom level; greater than 1 zooms in, less than 1 zooms out.",
+    )
 
 
 class TopLevelSectionLayout(Position, extra="forbid"):

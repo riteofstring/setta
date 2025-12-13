@@ -4501,9 +4501,9 @@ export function createWebsocketMsgReturnRenameRefactorResults(
 }
 
 export const ViewportSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zoom: z.number().default(1),
+  x: z.number().default(0.0),
+  y: z.number().default(0.0),
+  zoom: z.number().default(1.0),
 });
 
 export type Viewport = z.infer<typeof ViewportSchema>;
@@ -4568,7 +4568,7 @@ export function createSingletonSections(
 }
 
 export const ShownParamIdDetailsSchema = z.object({
-  requiredParamIdsToPaths: z.record(IDSchema, z.array(z.string())).default({}),
+  requiredParamIdsToPaths: z.record(IDSchema, z.array(IDSchema)).default({}),
   topLevelParamIds: z.array(IDSchema).default([]),
 });
 

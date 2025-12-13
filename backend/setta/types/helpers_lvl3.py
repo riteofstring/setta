@@ -1,5 +1,5 @@
 import copy
-from typing import TYPE_CHECKING, TypeVar, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from setta.database.utils import create_new_id, remap_ids, rename_keys
 from setta.project_state.project_state_summary_types import (
@@ -16,6 +16,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
+from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
@@ -192,7 +193,9 @@ def build_project_state_summary(
     project_config = project_state.projectConfig
     singleton_members = {
         value
-        for value in project_state.singletonSections.model_dump(exclude_none=True).values()
+        for value in project_state.singletonSections.model_dump(
+            exclude_none=True
+        ).values()
         if value
     }
     shown_param_visibility = {
@@ -290,7 +293,7 @@ def _build_section_param_summaries(
             ProjectStateSummaryParam(
                 paramId=param_id,
                 name=code_obj.name,
-                type=getattr(param_impl, "type", None),
+                type=param_impl.type,
                 passingStyle=getattr(
                     param_impl, "passingStyle", ParameterPassingStyle.DEFAULT
                 ),
@@ -302,7 +305,9 @@ def _build_section_param_summaries(
                     visible_top_level_ids,
                     pinned_param_ids,
                 ),
-                valuePreview=_truncate_value_preview(getattr(param_impl, "value", None)),
+                valuePreview=_truncate_value_preview(
+                    getattr(param_impl, "value", None)
+                ),
             )
         )
     return summaries
@@ -351,6 +356,7 @@ def _truncate_value_preview(value: Any, limit: int = 120) -> str | None:
     if len(value_str) <= limit:
         return value_str
     return f"{value_str[: limit - 3]}..."
+
 
 def remap_section_variant_map(
     section_variant_map: dict[ID, ID],
