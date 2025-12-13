@@ -76,7 +76,6 @@ def _build_config_signature(config: LLMConfig) -> str:
     """Create a stable fingerprint so we can deduplicate equivalent configs."""
     payload = config.model_dump(
         exclude={"id", "temporary"},
-        exclude_none=True,
     )
     return json.dumps(
         payload,
