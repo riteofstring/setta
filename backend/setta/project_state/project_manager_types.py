@@ -46,9 +46,17 @@ class ClearTextFieldCompletionRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetCallableRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    callableName: str
-    refetchParams: bool
+    """Request payload for re-binding a callable section implementation."""
+
+    sectionId: ID = Field(
+        description="Section whose callable implementation should be replaced.",
+    )
+    callableName: str = Field(
+        description="Fully-qualified callable identifier to store on the section.",
+    )
+    refetchParams: bool = Field(
+        description="True to refresh callable parameter definitions post-update.",
+    )
 
 
 class TextFieldCompletionRequest(ProjectManagerRequestWithProjectConfig):
@@ -135,7 +143,11 @@ class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
-    topLevelSections: dict[ID, TopLevelSectionLayout]
+    """Override layout metadata for every top-level section in a config."""
+
+    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(
+        description="Mapping of section IDs to their serialized layout data.",
+    )
 
 
 class AddKwargRequest(ProjectManagerRequestWithProjectConfig):
@@ -168,35 +180,71 @@ class SetTextBlockTextRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetGenCodePrefixRequest(ProjectManagerRequestWithProjectConfig):
-    genCodePrefix: str
+    """Update the text prepended to generated Python code."""
+
+    genCodePrefix: str = Field(
+        description="Arbitrary prefix inserted at the start of generated code files.",
+    )
 
 
 class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
-    genCodeSuffix: str
+    """Update the text appended to generated Python code."""
+
+    genCodeSuffix: str = Field(
+        description="Suffix appended to the end of generated code files.",
+    )
 
 
 class SetParamEnteredValueRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    paramInfoId: ID
-    value: str
+    """Assign a new manual value to a parameter within a section."""
+
+    sectionId: ID = Field(
+        description="Section containing the parameter to override.",
+    )
+    paramInfoId: ID = Field(
+        description="Identifier of the parameter receiving the new value.",
+    )
+    value: str = Field(
+        description="Raw text value to persist for the parameter.",
+    )
 
 
 class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
-    codeObjId: ID
-    name: str
+    """Rename a code object tracked within the project state."""
+
+    codeObjId: ID = Field(
+        description="Identifier of the code object that should be renamed.",
+    )
+    name: str = Field(
+        description="New human-readable name to store on the code object.",
+    )
 
 
 class TogglePositionLockRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+    """Flip the layout lock flag for a section."""
+
+    sectionId: ID = Field(
+        description="Section whose layout lock flag should be toggled.",
+    )
 
 
 class ToggleMinimizedRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
+    """Expand or collapse a section."""
+
+    sectionId: ID = Field(
+        description="Section to minimize or restore.",
+    )
 
 
 class SetCodeRequest(ProjectManagerRequestWithProjectConfig):
-    sectionId: ID
-    code: str
+    """Submit inline code edits for a section."""
+
+    sectionId: ID = Field(
+        description="Section whose inline code should be overwritten.",
+    )
+    code: str = Field(
+        description="Source text that replaces the section's existing code.",
+    )
 
 
 class CodeFileBindingUpdate(BaseModel):

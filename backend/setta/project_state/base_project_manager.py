@@ -502,7 +502,9 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
+    @project_state_tool()
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
+        """Persist the provided top-level section layout ordering for a project."""
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
@@ -628,7 +630,9 @@ class BaseProjectManager(ABC):
         await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
 
     @enqueue_method
+    @project_state_tool()
     async def set_callable(self, x: SetCallableRequest):
+        """Update a section's callable binding and refresh the surrounding project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
 
@@ -663,21 +667,27 @@ class BaseProjectManager(ABC):
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
+    @project_state_tool()
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
+        """Persist the prefix template used when generating runtime code."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.genCodePrefix = x.genCodePrefix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
+        """Persist the suffix template used when generating runtime code."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.genCodeSuffix = x.genCodeSuffix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
+        """Write a new manual value for the targeted section parameter."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_param_entered_value(
@@ -689,7 +699,9 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
+        """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
         await self.update_and_broadcast_project_state(project_state)
@@ -707,19 +719,25 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
+        """Flip whether a section's layout is locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_lock(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def toggle_minimized(self, x: ToggleMinimizedRequest):
+        """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_code(self, x: SetCodeRequest):
+        """Persist inline code edits for the requested section if edits are allowed."""
         project_state = self.get_single_config_state(x.projectConfigId)
         section_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
