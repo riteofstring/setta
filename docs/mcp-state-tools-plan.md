@@ -31,6 +31,7 @@ This document captures the concrete plan for exposing deterministic MCP tools th
   - Registry registration (schema parity with the Pydantic models, argument validation, invocation of the proper manager coroutine).
   - File-edit primitives (range validation, hash comparisons, structured error emission).
   - Tool-state persistence paths once chat tool lists can be serialized with the chat.
+- **ID mapping hygiene (done)** – Tool argument/results persisted with each chat now reuse the canonical→temporary map before serialization, and the conversion helpers handle nested Pydantic payloads so UUIDs stay hidden from the LLM/frontend (`tests/mcp/test_id_conversion.py`).
 - **Streaming feedback** – Ensure `LLMChatManager` surfaces concise error summaries when MCP calls fail so the frontend reducer (see `frontend/src/state/actions/ai.ts`) can display actionable tool-result bubbles.
 - **Docs** – After landing the scaffolding, update `docs/ai-chat-refactor-plan.md` (and this file) with the actual tool catalog plus usage examples so future contributors follow the same patterns.
 

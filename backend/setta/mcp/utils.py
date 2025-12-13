@@ -1,3 +1,5 @@
+from pydantic import BaseModel
+
 from setta.types.id import (
     ID,
     CanonicalToTemporaryIDMap,
@@ -20,6 +22,17 @@ def traverse_and_replace(data, replace_func):
     Returns:
         The transformed data structure
     """
+    if isinstance(data, BaseModel):
+        clone = data.model_copy(deep=True)
+        model_fields = type(clone).model_fields
+        for field_name in model_fields.keys():
+            value = getattr(clone, field_name)
+            setattr(
+                clone,
+                field_name,
+                traverse_and_replace(value, replace_func),
+            )
+        return clone
     if isinstance(data, dict):
         return {
             traverse_and_replace(k, replace_func): traverse_and_replace(v, replace_func)
@@ -76,3 +89,17 @@ def convert_temporary_ids_to_canonical(
         return value
 
     return traverse_and_replace(data, replace_temporary)
+
+
+def convert_existing_canonical_ids_to_temporary(
+    data,
+    canonical_to_temporary: CanonicalToTemporaryIDMap,
+):
+    """Replace only the canonical IDs that already exist in the map."""
+
+    def replace_existing(value):
+        if isinstance(value, ID):
+            return canonical_to_temporary.get(value, value)
+        return value
+
+    return traverse_and_replace(data, replace_existing)

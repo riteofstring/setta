@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import logging
 import time
@@ -16,6 +17,7 @@ from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.mcp.client import MCPClient
+from setta.mcp.utils import convert_existing_canonical_ids_to_temporary
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
     create_new_chat,
@@ -859,7 +861,7 @@ class LLMChatManager:
             raise
         completed_at = get_now_timestamp()
 
-        sanitized_arguments = json.loads(json.dumps(arguments))
+        sanitized_arguments = self._sanitize_tool_arguments(arguments)
         if tool_name == C.SEARCH_MCP_TOOLS_NAME and not call_result.isError:
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
@@ -888,6 +890,17 @@ class LLMChatManager:
             ),
         )
         return tool_chat_message
+
+    def _sanitize_tool_arguments(
+        self, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        _, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        cloned = copy.deepcopy(arguments)
+        converted = convert_existing_canonical_ids_to_temporary(
+            cloned,
+            canonical_to_temporary,
+        )
+        return json.loads(json.dumps(converted))
 
     def _build_search_tool_chat_message(
         self,

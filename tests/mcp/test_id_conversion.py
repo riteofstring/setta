@@ -1,8 +1,10 @@
 import unittest
 
+from pydantic import BaseModel
 from setta.mcp.utils import (
     IDDoesNotExist,
     convert_canonical_ids_to_temporary,
+    convert_existing_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
 from setta.types.id import ID
@@ -82,6 +84,42 @@ class IDConversionTest(unittest.TestCase):
             convert_temporary_ids_to_canonical(
                 {"id": ID("missing")}, self.temp_to_canonical
             )
+
+    def test_conversion_handles_pydantic_models(self) -> None:
+        class DummyModel(BaseModel):
+            id: ID
+            items: list[ID]
+
+        payload = DummyModel(id=ID("AAA"), items=[ID("BBB")])
+
+        converted = convert_canonical_ids_to_temporary(
+            payload, self.canonical_to_temp, self.temp_to_canonical
+        )
+
+        self.assertIsInstance(converted, DummyModel)
+        self.assertEqual(converted.id, ID("1"))
+        self.assertEqual(converted.items, [ID("2")])
+        # round-trip back to canonical IDs
+        canonical = convert_temporary_ids_to_canonical(
+            converted, self.temp_to_canonical
+        )
+        self.assertEqual(canonical.id, ID("AAA"))
+        self.assertEqual(canonical.items, [ID("BBB")])
+
+    def test_convert_existing_only_rewrites_known_ids(self) -> None:
+        self.canonical_to_temp[ID("known")] = ID("42")
+        payload = {
+            "known": ID("known"),
+            "unknown": ID("missing"),
+        }
+
+        converted = convert_existing_canonical_ids_to_temporary(
+            payload,
+            self.canonical_to_temp,
+        )
+
+        self.assertEqual(converted["known"], ID("42"))
+        self.assertEqual(converted["unknown"], ID("missing"))
 
 
 if __name__ == "__main__":
