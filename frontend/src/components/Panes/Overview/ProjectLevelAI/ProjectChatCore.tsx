@@ -207,7 +207,7 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
               <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Arguments
               </h3>
-              <pre className="m-0 cursor-auto font-mono text-xs text-setta-600 dark:text-setta-200">
+              <pre className="m-0 cursor-auto break-words whitespace-pre-wrap font-mono text-xs text-setta-600 dark:text-setta-200">
                 {formatToolArgs(args)}
               </pre>
             </div>
@@ -217,7 +217,7 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
               <h3 className="!mt-0 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Result
               </h3>
-              <pre className="m-0 cursor-auto font-mono text-xs text-setta-600 dark:text-setta-200">
+              <pre className="m-0 cursor-auto break-words whitespace-pre-wrap font-mono text-xs text-setta-600 dark:text-setta-200">
                 {resultDisplay}
               </pre>
             </div>
