@@ -31,6 +31,7 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.lsp.managers import LSPWriters
+from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
@@ -1382,6 +1383,7 @@ class BaseProjectManager(ABC):
             )
 
     @enqueue_method
+    @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
         projectState = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId

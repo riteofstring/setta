@@ -135,14 +135,11 @@ class SettaFastMCP(FastMCP):
             result = func(**kwargs)
             if is_async:
                 result = await result
-            return_type = func.__annotations__.get("return")
-            if return_type:
-                result = TypeAdapter(return_type).validate_python(result)
-                result = convert_canonical_ids_to_temporary(
-                    result,
-                    self.canonical_to_temporary,
-                    self.temporary_to_canonical,
-                )
+            result = convert_canonical_ids_to_temporary(
+                result,
+                self.canonical_to_temporary,
+                self.temporary_to_canonical,
+            )
             self.state.dbe.write_temporary_id_map(self.canonical_to_temporary)
             return result
 
