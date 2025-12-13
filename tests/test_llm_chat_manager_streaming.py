@@ -2,7 +2,10 @@ import unittest
 
 from litellm.types.utils import Delta
 from setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
+from setta.types.chat import Chat
+from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.id import ID
+from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.utils.constants import C
 
 
@@ -76,6 +79,46 @@ class ToolArgumentSanitizationTests(unittest.TestCase):
 
         self.assertEqual(sanitized[C.MCP_CHAT_ID_ARG_NAME], "1")
         self.assertEqual(sanitized[C.MCP_PROJECT_CONFIG_ID_ARG_NAME], "2")
+
+
+class SystemPromptInjectionTests(unittest.TestCase):
+    def test_payload_includes_system_prompt_before_chat_history(self) -> None:
+        manager = _manager()
+        manager.config = AllLLMConfigs(
+            configs={
+                "provider-one": LLMConfig(id="provider-one", model="gpt-4o"),
+            }
+        )
+        manager.api_keys = {}
+        manager._chat_tool_states = {}
+        manager.mcp_client = type("StubMCP", (), {"init_tool_definitions": {}})()
+        prompt = "System prompt stub"
+        manager.system_prompt = prompt
+
+        chat = Chat(
+            id=ID("chat-uuid"),
+            name="Test Chat",
+            projectConfigId=ID("project-uuid"),
+            llmConfig=manager.config.configs["provider-one"],
+            messages=[
+                UserChatMessage(
+                    content=[MessageTextContent(text="Hello from the user")]
+                )
+            ],
+        )
+
+        payload = manager._build_llm_request_payload(chat, deep_think=False)
+
+        self.assertEqual(payload["messages"][0]["role"], "system")
+        self.assertEqual(
+            payload["messages"][0]["content"][0]["text"],
+            prompt,
+        )
+        self.assertEqual(payload["messages"][1]["role"], "user")
+        self.assertEqual(
+            payload["messages"][1]["content"][0]["text"],
+            "Hello from the user",
+        )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, AsyncIterator, Iterator, Literal
 
 import litellm
@@ -31,6 +32,7 @@ from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
     MessageThinkingContent,
+    SystemChatMessage,
     ToolCall,
     ToolCallFunction,
     ToolChatMessage,
@@ -53,6 +55,7 @@ from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
+SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 
 
 @dataclass
@@ -124,6 +127,7 @@ class LLMChatManager:
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
+        self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
         return load_chat(self.dbe, chat_id)
@@ -330,7 +334,10 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
-        messages: list[dict[str, Any]] = []
+        system_message = SystemChatMessage(
+            content=[MessageTextContent(text=self.system_prompt)],
+        ).to_openai_format()
+        messages: list[dict[str, Any]] = [system_message]
         for message in chat.messages:
             payload = message.to_openai_format()
             messages.append(payload)
