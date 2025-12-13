@@ -7,7 +7,7 @@ import click
 import uvicorn
 
 from . import __version__
-from .utils.constants import C, IS_DEV_MODE
+from .utils.constants import IS_DEV_MODE, C
 from .websockets.connect import connect as _connect
 
 CLI_OPEN_BROWSER_DEFAULT = not bool(IS_DEV_MODE)

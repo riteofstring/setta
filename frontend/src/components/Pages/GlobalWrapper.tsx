@@ -6,7 +6,6 @@ import { useProjectLoading, useSettings } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
-  BackendInitStatusResponse,
   route_get_backend_init_status,
   router_get_default_project_config_name,
 } from "utils/generatedEndpoints";
@@ -19,10 +18,7 @@ export function GlobalWrapper({ children }) {
   const backendReady = initStatus?.isReady ?? false;
   if (!settingsLoaded || !backendReady) {
     return (
-      <LoadingScreen
-        initStatus={initStatus}
-        settingsLoaded={settingsLoaded}
-      />
+      <LoadingScreen initStatus={initStatus} settingsLoaded={settingsLoaded} />
     );
   }
   return children;
@@ -130,21 +126,15 @@ type LoadingScreenProps = {
 
 function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
   const events = initStatus?.events ?? [];
-  const lastEvent =
-    events.length > 0 ? events[events.length - 1] : undefined;
+  const lastEvent = events.length > 0 ? events[events.length - 1] : undefined;
   const backendMessage = lastEvent?.message ?? "Starting backend services";
   const errorMessage = initStatus?.error;
-  const history = useMemo(
-    () => events.slice(-3).reverse(),
-    [events],
-  );
+  const history = useMemo(() => events.slice(-3).reverse(), [events]);
 
   return (
     <section className="flex min-h-screen min-w-full flex-col items-center justify-center gap-4 bg-neutral-100 px-6 text-neutral-500">
       <div className="h-12 w-12 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
-      <div className="text-sm uppercase tracking-[0.3em]">
-        Preparing setta
-      </div>
+      <div className="text-sm uppercase tracking-[0.3em]">Preparing setta</div>
       <div className="space-y-1 text-center text-xs text-neutral-500">
         {!settingsLoaded && <p>Loading settings…</p>}
         <p>Backend: {backendMessage}</p>
@@ -155,9 +145,7 @@ function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
       {history.length > 0 && (
         <ul className="text-[11px] text-neutral-400">
           {history.map((event) => (
-            <li key={`${event.message}-${event.timestamp}`}>
-              {event.message}
-            </li>
+            <li key={`${event.message}-${event.timestamp}`}>{event.message}</li>
           ))}
         </ul>
       )}

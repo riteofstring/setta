@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import subprocess
-import sys
 import time
 import webbrowser
 from contextlib import asynccontextmanager
