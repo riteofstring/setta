@@ -6,16 +6,15 @@
 - When the method is invoked through the MCP init tool, the payload can span thousands of tokens even if an agent only needs project metadata, section IDs, or code binding hints. This makes the tool expensive and noisy for LLM workflows.
 
 ## Proposed API Changes
-- Extend `GetLatestProjectStateRequest` with an optional `summaryOnly: bool = False`.
-- When `summaryOnly` is `False` (default), the route/tool behaves exactly as today so the UI keeps consuming the full snapshot.
-- When `True`, `BaseProjectManager.get_latest_project_state` still materializes the canonical `ProjectStateSingleConfig` (so all validators run), but the response also includes a lightweight `ProjectStateSummary` object. MCP clients can ignore the heavy `projectState` blob and read only the summary fields. Longer term we can allow the backend to skip serializing the full state entirely if the caller only asks for a summary, but keeping both initially avoids breaking contract assumptions elsewhere.
+- Add a dedicated `GetLatestProjectStateSummaryRequest` plus a matching `get_latest_project_state_summary` MCP tool.
+- The existing `get_latest_project_state` keeps returning the full `ProjectStateSingleConfig` for the UI and websocket mirrors.
+- Agents that only need high-level context call the new summary tool instead of passing flags; it returns a `ProjectStateSummary` object only.
 
 ## Summary Payload Shape
 The summary is intentionally high-level. It should include:
 
 ### Project Metadata
-- `projectConfig` fields (id, name, viewport, autosave flags, `sectionVariantMap`, `topLevelSections`, `activeIds`, etc.).
-- Whether a project is the default and any rename-refactor/autosave settings that influence downstream behavior.
+- `projectConfig` fields (id, name, viewport, `sectionVariantMap`, `topLevelSections`, `activeIds`, etc.).
 
 ### Sections & Layout
 - For every section reachable from `projectConfig.topLevelSections`:
@@ -39,13 +38,12 @@ These components give an agent enough context to plan edits (IDs, layout, code l
 
 ## Implementation Notes
 - Add a helper like `build_project_state_summary(project_state: ProjectStateSingleConfig) -> ProjectStateSummary` near `convert_backend_to_single_config` so it can reuse existing traversal utilities.
-- Define `ProjectStateSummary` (and nested summary dataclasses) alongside `ProjectStateSingleConfigWithCompletedOpIds` so both REST and MCP schemas stay aligned.
-- `route_get_latest_project_state` continues returning `ProjectStateSingleConfigWithCompletedOpIds`, but the dataclass/pydantic model gains an optional `projectStateSummary` field populated when `summaryOnly=True`.
-- MCP tool consumers can opt into the summary immediately since the generated schema will now document the flag and extra response field.
-- Future optimization: if `summaryOnly` is true, allow the backend to skip serializing the full snapshot over the network (e.g., return `projectState=None`). For now, keeping both avoids surprises for any caller that still expects `projectState`.
+- Define `ProjectStateSummary` (and nested summary dataclasses) in a dedicated module so REST/MCP schemas can import them without bloating `ProjectStateSingleConfigWithCompletedOpIds`.
+- `route_get_latest_project_state` continues returning `ProjectStateSingleConfigWithCompletedOpIds`; the new tool simply calls `build_project_state_summary` after materializing the same single-config view.
+- MCP tool consumers opt into the summary by calling the new tool, avoiding transport bloat on the canonical snapshot path.
+- Future optimization: the summary tool could avoid serializing the entire single-config blob once we have confidence no other validators rely on the intermediate object.
 
 ## Why This Helps
 - Dramatically reduces the default MCP token footprint while still giving LLMs actionable project context.
 - Keeps REST/websocket payloads backward compatible.
 - Encourages richer summaries tailored to automation workflows without touching the authoritative state format broadcast to browsers and listeners.
-

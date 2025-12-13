@@ -1,9 +1,14 @@
 import copy
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, Any
 
 from setta.database.utils import create_new_id, remap_ids, rename_keys
+from setta.project_state.project_state_summary_types import (
+    ProjectStateSummary,
+    ProjectStateSummaryParam,
+    ProjectStateSummarySection,
+)
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.code_obj_impls import BaseParentCodeObjImpl
+from setta.types.code_obj_impls import BaseParentCodeObjImpl, ParameterPassingStyle
 from setta.types.core import Core, Variant
 from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
 from setta.types.helpers_lvl1 import (
@@ -24,7 +29,9 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
+    DrawSectionImpl,
 )
+from setta.types.shown_params import ShownParamIds
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 if TYPE_CHECKING:
@@ -176,6 +183,174 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
         projectConfig=project_config,
     )
 
+
+def build_project_state_summary(
+    project_state: ProjectStateSingleConfig,
+) -> ProjectStateSummary:
+    """Create a lightweight project summary for agent workflows."""
+
+    project_config = project_state.projectConfig
+    singleton_members = {
+        value
+        for value in project_state.singletonSections.model_dump(exclude_none=True).values()
+        if value
+    }
+    shown_param_visibility = {
+        variant_id: _collect_visible_top_level_param_ids(shown_ids)
+        for variant_id, shown_ids in project_state.shownParamIds.items()
+    }
+    parent_section_map = dict(project_state.parentSectionMap)
+    top_level_layouts = project_state.projectConfig.topLevelSections
+    sections: list[ProjectStateSummarySection] = []
+
+    for section_id, core in project_state.sections.items():
+        variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
+        if variant_id is None:
+            continue
+
+        variant = project_state.sectionVariants[variant_id]
+        impl = get_curr_effective_section_impl(project_state, section_id)
+
+        parameters: list[ProjectStateSummaryParam] = []
+        if isinstance(impl, BaseSectionWithParamsImpl):
+            parameters = _build_section_param_summaries(
+                project_state,
+                section_id,
+                impl,
+                shown_param_visibility.get(variant_id, set()),
+            )
+
+        child_section_ids: list[ID] = []
+        if isinstance(impl, BaseParentSectionImpl):
+            child_section_ids = list(impl.children)
+
+        section_summary = ProjectStateSummarySection(
+            sectionId=section_id,
+            coreName=core.name,
+            variantId=variant_id,
+            variantName=variant.name,
+            sectionType=impl.type,
+            parentSectionId=parent_section_map.get(section_id),
+            childSectionIds=child_section_ids,
+            isFrozen=variant.isFrozen,
+            isMinimized=bool(getattr(impl, "isMinimized", False)),
+            isSingletonMember=section_id in singleton_members,
+            hideParams=bool(getattr(impl, "hideParams", False)),
+            hideUnpinnedParams=bool(getattr(impl, "hideUnpinnedParams", False)),
+            visibility=getattr(impl, "visibility", None),
+            topLevelLayout=top_level_layouts.get(section_id),
+            layoutLocked=bool(getattr(impl, "positionAndSizeLocked", False)),
+            parameters=parameters,
+            codeFileBinding=getattr(impl, "codeFileBinding", None),
+            imagePath=getattr(impl, "imagePath", None),
+            chartDataPath=getattr(impl, "dataPath", None),
+            drawLayerAssetPaths=_collect_draw_layer_asset_paths(impl),
+        )
+        sections.append(section_summary)
+
+    return ProjectStateSummary(
+        projectConfig=project_config,
+        sections=sections,
+        singletonSections=project_state.singletonSections,
+        parentSectionMap=parent_section_map,
+        shownParamVariantIds=list(project_state.shownParamIds.keys()),
+        variantIdsWithYamlValues=list(project_state.yamlValues.keys()),
+        requiredDecodedImages=list(project_state.requiredDecodedImages),
+        genCodeBinding=project_state.genCodeBinding,
+    )
+
+
+def _build_section_param_summaries(
+    project_state: ProjectStateSingleConfig,
+    section_id: ID,
+    section_impl: BaseSectionWithParamsImpl,
+    visible_top_level_ids: set[ID],
+) -> list[ProjectStateSummaryParam]:
+    top_level_param_ids = get_top_level_param_ids(project_state, section_impl)
+    if not top_level_param_ids:
+        return []
+
+    pinned_param_ids = set(section_impl.pinnedParams)
+    selected_param_ids = set(section_impl.selectedParams)
+
+    summaries: list[ProjectStateSummaryParam] = []
+    for param_id in top_level_param_ids:
+        if param_id not in project_state.codeObjs:
+            continue
+
+        variant_id = section_impl.codeObjVariantMap.get(param_id)
+        if not variant_id:
+            continue
+
+        code_obj = project_state.codeObjs[param_id]
+        _, _, param_impl = get_variant_base_and_effective_code_obj_impl(
+            project_state, code_obj, variant_id
+        )
+        summaries.append(
+            ProjectStateSummaryParam(
+                paramId=param_id,
+                name=code_obj.name,
+                type=getattr(param_impl, "type", None),
+                passingStyle=getattr(
+                    param_impl, "passingStyle", ParameterPassingStyle.DEFAULT
+                ),
+                isPinned=param_id in pinned_param_ids,
+                isSelected=param_id in selected_param_ids,
+                isHidden=_param_is_hidden(
+                    param_id,
+                    section_impl,
+                    visible_top_level_ids,
+                    pinned_param_ids,
+                ),
+                valuePreview=_truncate_value_preview(getattr(param_impl, "value", None)),
+            )
+        )
+    return summaries
+
+
+def _collect_visible_top_level_param_ids(shown_ids: ShownParamIds) -> set[ID]:
+    visible: set[ID] = set()
+    visible.update(shown_ids.pinned.topLevelParamIds)
+    visible.update(shown_ids.unpinned.topLevelParamIds)
+    return visible
+
+
+def _param_is_hidden(
+    param_id: ID,
+    section_impl: BaseSectionWithParamsImpl,
+    visible_top_level_ids: set[ID],
+    pinned_param_ids: set[ID],
+) -> bool:
+    if getattr(section_impl, "hideParams", False):
+        return True
+    if section_impl.hideUnpinnedParams and param_id not in pinned_param_ids:
+        return True
+    if visible_top_level_ids and param_id not in visible_top_level_ids:
+        return True
+    return False
+
+
+def _collect_draw_layer_asset_paths(section_impl) -> list[str]:
+    if not isinstance(section_impl, DrawSectionImpl):
+        return []
+    seen: set[str] = set()
+    paths: list[str] = []
+    for layer in section_impl.layers:
+        for element in layer.elements:
+            path = element.dataPath
+            if path and path not in seen:
+                seen.add(path)
+                paths.append(path)
+    return paths
+
+
+def _truncate_value_preview(value: Any, limit: int = 120) -> str | None:
+    if value is None:
+        return None
+    value_str = value if isinstance(value, str) else str(value)
+    if len(value_str) <= limit:
+        return value_str
+    return f"{value_str[: limit - 3]}..."
 
 def remap_section_variant_map(
     section_variant_map: dict[ID, ID],

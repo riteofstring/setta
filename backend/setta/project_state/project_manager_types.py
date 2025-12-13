@@ -14,9 +14,7 @@ from setta.types.generated.unions import (
 )
 from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
-from setta.types.project_state import (
-    ProjectStateSingleConfig,
-)
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileAccessMode,
@@ -233,6 +231,10 @@ class RedoRequest(ProjectManagerRequestWithProjectConfig):
 
 class GetLatestProjectStateRequest(ProjectManagerRequestWithProjectConfig):
     """Request a full snapshot of the specified project config's state."""
+
+
+class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig):
+    """Request a lightweight summary snapshot of the specified project config."""
 
 
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):

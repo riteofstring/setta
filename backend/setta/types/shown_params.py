@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class ShownParamIdDetails(BaseModel, extra="forbid"):
-    requiredParamIdsToPaths: dict[ID, tuple[str, ...]] = Field(default_factory=dict)
+    requiredParamIdsToPaths: dict[ID, tuple[ID, ...]] = Field(default_factory=dict)
     topLevelParamIds: list[ID] = Field(default_factory=list)
 
 

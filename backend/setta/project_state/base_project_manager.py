@@ -75,6 +75,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -188,6 +189,7 @@ from setta.types.helpers_lvl2 import (
     update_param_impl_config,
 )
 from setta.types.helpers_lvl3 import (
+    build_project_state_summary,
     convert_backend_to_single_config,
     merge_single_config_into_backend,
     paste_sections,
@@ -1420,13 +1422,23 @@ class BaseProjectManager(ABC):
             )
 
     @enqueue_method
-    @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
         """Return the most recent project state snapshot for the requested config."""
         projectState = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
         )
         return projectState
+
+    @enqueue_method
+    @project_state_tool(tool_type=SettaToolType.init)
+    async def get_latest_project_state_summary(
+        self, x: GetLatestProjectStateSummaryRequest
+    ):
+        """Return a lightweight summary for the requested project config."""
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        return build_project_state_summary(project_state)
 
     @enqueue_method
     async def autosave(self):
