@@ -19,6 +19,7 @@ export class C {
   static LLM_TEXT = "text";
   static LLM_THINKING = "thinking";
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
+  static MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden";
   static MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";

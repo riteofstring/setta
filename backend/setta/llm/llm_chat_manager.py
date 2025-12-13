@@ -823,10 +823,13 @@ class LLMChatManager:
         buffer += entry.function.arguments
         tool_call_state.argument_buffers[index] = buffer
 
+        tool_name = tool_call.function.name.strip() or None
+
         return ToolCallDeltaEvent(
             message_id=assistant_message.id,
             tool_call_id=tool_call.id,
             arguments_delta=entry.function.arguments,
+            tool_name=tool_name,
         )
 
     def _ensure_tool_call_entry(

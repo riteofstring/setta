@@ -53,6 +53,7 @@ class ToolCallDeltaEvent(BaseModel):
     message_id: str
     tool_call_id: str
     arguments_delta: str
+    tool_name: str | None = None
 
 
 class ToolResultEvent(BaseModel):

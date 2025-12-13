@@ -277,8 +277,25 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
       chunk.message_id,
       (message) => {
         const toolCalls = [...(message.tool_calls ?? [])];
-        if (toolCalls.some((entry) => entry.id === chunk.tool_call_id)) {
-          return null;
+        const existingIndex = toolCalls.findIndex(
+          (entry) => entry.id === chunk.tool_call_id,
+        );
+        if (existingIndex !== -1) {
+          if (!chunk.tool_name) {
+            return null;
+          }
+          const existingCall = toolCalls[existingIndex];
+          if (existingCall.function.name === chunk.tool_name) {
+            return null;
+          }
+          toolCalls[existingIndex] = {
+            ...existingCall,
+            function: {
+              ...existingCall.function,
+              name: chunk.tool_name,
+            },
+          };
+          return { ...message, tool_calls: toolCalls };
         }
         toolCalls.push(createToolCallPlaceholder(chunk));
         return { ...message, tool_calls: toolCalls };
@@ -361,7 +378,7 @@ function createToolCallPlaceholder(chunk: ToolCallDeltaEvent): ToolCall {
     id: chunk.tool_call_id,
     type: "function",
     function: {
-      name: "",
+      name: chunk.tool_name ?? "",
       arguments: {},
     },
   };

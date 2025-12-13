@@ -1371,6 +1371,7 @@ export const ToolCallDeltaEventSchema = z.object({
   message_id: z.string(),
   tool_call_id: z.string(),
   arguments_delta: z.string(),
+  tool_name: z.union([z.string(), z.null()]).default(null),
 });
 
 export type ToolCallDeltaEvent = z.infer<typeof ToolCallDeltaEventSchema>;
