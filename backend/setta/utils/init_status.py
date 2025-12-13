@@ -10,6 +10,12 @@ class BackendInitEvent(BaseModel):
     timestamp: datetime = Field(default_factory=get_now_timestamp)
 
 
+class BackendInitStatusResponse(BaseModel):
+    events: list[BackendInitEvent]
+    isReady: bool
+    error: str | None
+
+
 class BackendInitializationStatus:
     def __init__(self) -> None:
         self._events: list[BackendInitEvent] = []
@@ -25,12 +31,9 @@ class BackendInitializationStatus:
     def mark_error(self, message: str) -> None:
         self._error = message
 
-    def snapshot(self) -> dict[str, object]:
-        return {
-            "events": [
-                {"message": event.message, "timestamp": event.timestamp}
-                for event in self._events
-            ],
-            "isReady": self._is_ready,
-            "error": self._error,
-        }
+    def snapshot(self) -> BackendInitStatusResponse:
+        return BackendInitStatusResponse(
+            events=list(self._events),
+            isReady=self._is_ready,
+            error=self._error,
+        )
