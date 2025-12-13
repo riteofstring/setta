@@ -26,6 +26,7 @@ from setta.types.section_impls import (
     TextBlockFormat,
 )
 from setta.types.settings_state import RenameRefactorMode
+from setta.utils.constants import C
 
 
 class ProjectManagerRequestWithFrontendOp(BaseModel):
@@ -141,6 +142,7 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator | None = Field(
         default=None,
         description="Implementation-specific overrides applied during creation.",
+        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
     )
     position: Position = Field(
         description="Canvas coordinates where the section should be placed.",

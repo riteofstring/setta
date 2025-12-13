@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from setta.mcp.tool_metadata import SettaToolType
@@ -83,6 +84,8 @@ def _extract_request_model(
 def _build_signature(request_model: type[BaseModel]) -> inspect.Signature:
     parameters: list[inspect.Parameter] = []
     for field_name, field in request_model.model_fields.items():
+        if _field_hidden_from_mcp(field):
+            continue
         default = inspect._empty
         if not field.is_required():
             if field.default is not PydanticUndefined:
@@ -105,3 +108,10 @@ def _build_signature(request_model: type[BaseModel]) -> inspect.Signature:
         )
     )
     return inspect.Signature(parameters=parameters)
+
+
+def _field_hidden_from_mcp(field: FieldInfo) -> bool:
+    extra = getattr(field, "json_schema_extra", None)
+    if isinstance(extra, dict):
+        return bool(extra.get(C.MCP_HIDDEN_FIELD_SCHEMA_KEY))
+    return False
