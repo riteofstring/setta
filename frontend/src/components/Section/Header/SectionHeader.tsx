@@ -1,7 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import _ from "lodash";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -113,9 +115,14 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const headingAsSectionName = useProjectState(
-    (x) => x.sections[sectionId].headingAsSectionName,
-  );
+  const headingAsSectionName = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.TextBlock,
+    );
+    return impl.headingAsSectionName;
+  }, _.isEqual);
 
   return (
     !headingAsSectionName && (
