@@ -20,7 +20,7 @@ Allow external LLM applications to call Setta's MCP tools without embedding Sett
 | **Security** | `/mcp` currently has no auth. If we care about scoping, the adapter can enforce a shared token or only bind to `localhost`. Longer term we could add auth to `handle_mcp_connection`. |
 
 ## Adapter Outline
-1. **Entry point** – Add `backend/setta/mcp/stdio_bridge.py` exporting `python -m setta.mcp.stdio_bridge --backend http://127.0.0.1:8000/mcp`.
+1. **Entry point** – `backend/setta/mcp/client.py` now exposes `python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp`, combining the stdio bridge with Setta's in-process MCP client.
 2. **Setup** – Inside `main`, concurrently:
    - Open the stdio transport via `mcp.server.stdio.stdio_server()`, which yields `(read_stream, write_stream)` connected to Codex/Claude.
    - Open the SSE transport via `mcp.client.sse.sse_client(url=args.backend)` and wrap it with `ClientSession`.
@@ -34,7 +34,7 @@ Once the adapter exists, Codex CLI could reference it in `codex_config.toml`:
 ```toml
 [mcp_servers.setta]
 command = "python"
-args = ["-m", "setta.mcp.stdio_bridge", "--backend", "http://127.0.0.1:8000/mcp"]
+args = ["-m", "setta.mcp.client", "--backend", "http://127.0.0.1:8000/mcp"]
 ```
 
 Claude Code uses the same schema (command + args). After launching Setta's backend (`pnpm start` or `pnpm startr`), run Codex/Claude in another terminal; they will discover tools like `read_file_range`, `search_and_unlock_mcp_tools`, and every `@project_state_tool`.
