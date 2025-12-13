@@ -9,7 +9,6 @@ import {
   route_get_backend_init_status,
   router_get_default_project_config_name,
 } from "utils/generatedEndpoints";
-import type { BackendInitStatusResponse } from "utils/generatedTypes";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -17,21 +16,12 @@ export function GlobalWrapper({ children }) {
   const settingsLoaded = useLoadSettings();
   const initStatus = useBackendInitStatus();
   const backendReady = initStatus?.isReady ?? false;
-  const shouldShowLoading = !settingsLoaded || !backendReady;
-
-  if (shouldShowLoading) {
+  if (!settingsLoaded || !backendReady) {
     return (
-      <div className="app-shell flex min-h-screen min-w-full flex-col items-center justify-center px-6">
-        <LoadingScreen initStatus={initStatus} settingsLoaded={settingsLoaded} />
-      </div>
+      <LoadingScreen initStatus={initStatus} settingsLoaded={settingsLoaded} />
     );
   }
-
-  return (
-    <div className="app-base min-h-screen min-w-full bg-setta-light dark:bg-setta-dark">
-      {children}
-    </div>
-  );
+  return children;
 }
 
 export function IndexRouteComponent() {
@@ -142,12 +132,10 @@ function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
   const history = useMemo(() => events.slice(-3).reverse(), [events]);
 
   return (
-    <section className="flex flex-col items-center justify-center gap-4 text-setta-600 dark:text-setta-100">
-      <div className="h-12 w-12 animate-spin rounded-full border-2 border-setta-500/70 border-t-transparent dark:border-setta-600 dark:border-t-transparent" />
-      <div className="text-sm uppercase tracking-[0.3em] text-setta-500 dark:text-setta-200">
-        Preparing setta
-      </div>
-      <div className="space-y-1 text-center text-xs text-setta-500 dark:text-setta-200">
+    <section className="flex min-h-screen min-w-full flex-col items-center justify-center gap-4 bg-neutral-100 px-6 text-neutral-500">
+      <div className="h-12 w-12 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+      <div className="text-sm uppercase tracking-[0.3em]">Preparing setta</div>
+      <div className="space-y-1 text-center text-xs text-neutral-500">
         {!settingsLoaded && <p>Loading settings…</p>}
         <p>Backend: {backendMessage}</p>
       </div>
@@ -155,7 +143,7 @@ function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
         <p className="text-xs text-red-500">Backend error: {errorMessage}</p>
       )}
       {history.length > 0 && (
-        <ul className="text-[11px] text-setta-400 dark:text-setta-500">
+        <ul className="text-[11px] text-neutral-400">
           {history.map((event) => (
             <li key={`${event.message}-${event.timestamp}`}>{event.message}</li>
           ))}
