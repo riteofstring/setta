@@ -1,4 +1,3 @@
-import json
 import unittest
 from dataclasses import dataclass
 from typing import Any
@@ -126,25 +125,21 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
         self.setta_state = StubSettaState(index)
 
     def test_returns_ranked_results_for_query(self) -> None:
-        results = json.loads(
-            search_and_unlock_mcp_tools(
-                query="read specific file lines",
-                limit=1,
-                setta_state=self.setta_state,
-            )
+        results = search_and_unlock_mcp_tools(
+            query="read specific file lines",
+            limit=1,
+            setta_state=self.setta_state,
         )
 
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0], "read_file_range")
+        self.assertEqual(len(results.root), 1)
+        self.assertEqual(results.root[0], "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
-        results = json.loads(
-            search_and_unlock_mcp_tools(
-                query="search project", limit=0, setta_state=self.setta_state
-            )
+        results = search_and_unlock_mcp_tools(
+            query="search project", limit=0, setta_state=self.setta_state
         )
 
-        self.assertEqual(len(results), len(self.tool_specs))
+        self.assertEqual(len(results.root), len(self.tool_specs))
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
@@ -153,11 +148,9 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
     def test_returns_empty_when_index_missing(self) -> None:
         empty_state = StubSettaState(index=None)
 
-        results = json.loads(
-            search_and_unlock_mcp_tools(query="read", setta_state=empty_state)
-        )
+        results = search_and_unlock_mcp_tools(query="read", setta_state=empty_state)
 
-        self.assertEqual(results, [])
+        self.assertEqual(results.root, [])
 
 
 class ListMCPToolsTest(unittest.TestCase):
@@ -180,14 +173,14 @@ class ListMCPToolsTest(unittest.TestCase):
         self.setta_state = StubSettaState(index=None, tools=list(reversed(tools)))
 
     def test_returns_sorted_registered_tool_names(self) -> None:
-        results = json.loads(list_mcp_tools(setta_state=self.setta_state))
+        results = list_mcp_tools(setta_state=self.setta_state).root
 
         self.assertEqual(results, sorted(self.tool_names))
 
     def test_returns_empty_list_when_no_tools_registered(self) -> None:
         empty_state = StubSettaState(index=None, tools=[])
 
-        self.assertEqual(json.loads(list_mcp_tools(setta_state=empty_state)), [])
+        self.assertEqual(list_mcp_tools(setta_state=empty_state).root, [])
 
 
 class BuildParameterTextTest(unittest.TestCase):

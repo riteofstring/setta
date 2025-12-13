@@ -81,7 +81,14 @@ class _StubMCPClient:
     async def call_tool(self, tool_name: str, arguments: dict):
         tool = self._tools[tool_name]
         result = await tool.run(arguments, context=None)
-        text_result = result if isinstance(result, str) else json.dumps(result)
+        if isinstance(result, str):
+            text_result = result
+        elif hasattr(result, "model_dump_json"):
+            text_result = result.model_dump_json()
+        elif hasattr(result, "model_dump"):
+            text_result = json.dumps(result.model_dump())
+        else:
+            text_result = json.dumps(result)
         return CallToolResult(
             content=[TextContent(type="text", text=text_result)],
             isError=False,
@@ -113,16 +120,14 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(len(registered_tool_names), 0)
             self.assertIn("read_file_range", registered_tool_names)
 
-            search_results = json.loads(
-                search_and_unlock_mcp_tools(
-                    query="section size settings",
-                    limit=2,
-                    setta_state=setta_state,
-                )
+            search_results = search_and_unlock_mcp_tools(
+                query="section size settings",
+                limit=2,
+                setta_state=setta_state,
             )
-            print("Search results:", search_results)
-            self.assertIn("set_section_sizes", search_results)
-            self.assertNotIn("search_and_unlock_mcp_tools", search_results)
+            print("Search results:", search_results.root)
+            self.assertIn("set_section_sizes", search_results.root)
+            self.assertNotIn("search_and_unlock_mcp_tools", search_results.root)
 
             search_tool = next(
                 tool
@@ -136,7 +141,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 },
                 context=None,
             )
-            parsed_results = json.loads(results_via_tool_run)
+            parsed_results = results_via_tool_run.root
             print("Search results via tool run:", parsed_results)
             self.assertIn("set_section_sizes", parsed_results)
             self.assertNotIn("search_and_unlock_mcp_tools", parsed_results)
@@ -157,17 +162,19 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             setta_state.mcp_server = mcp_server
 
-            for query in ("create section", "create sections"):
-                results = json.loads(
-                    search_and_unlock_mcp_tools(
-                        query=query,
-                        limit=2,
-                        setta_state=setta_state,
-                    )
+            search_scenarios = (
+                ("create section", 2),
+                ("create sections", 3),
+            )
+            for query, limit in search_scenarios:
+                results = search_and_unlock_mcp_tools(
+                    query=query,
+                    limit=limit,
+                    setta_state=setta_state,
                 )
                 self.assertIn(
                     "create_top_level_section",
-                    results,
+                    results.root,
                     msg=(
                         f"search results for '{query}' did not include "
                         "create_top_level_section"

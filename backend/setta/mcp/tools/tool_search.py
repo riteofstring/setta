@@ -1,6 +1,5 @@
-import json
-
 import bm25s
+from pydantic import RootModel
 
 from setta.mcp.tool_setup import setta_init_tool
 from setta.server_state import SettaFastAPIState
@@ -9,13 +8,17 @@ from setta.utils.constants import C
 SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
 
 
+class MCPToolNameList(RootModel[list[str]]):
+    pass
+
+
 @setta_init_tool
-def list_mcp_tools(*, setta_state: SettaFastAPIState) -> str:
+def list_mcp_tools(*, setta_state: SettaFastAPIState) -> MCPToolNameList:
     """Return every registered MCP tool name without schemas or descriptions."""
 
     tools = setta_state.mcp_server.list_registered_tools()
     names = sorted(tool.name for tool in tools)
-    return json.dumps(names)
+    return MCPToolNameList(root=names)
 
 
 @setta_init_tool
@@ -24,7 +27,7 @@ def search_and_unlock_mcp_tools(
     query: str,
     limit: int = 2,
     setta_state: SettaFastAPIState,
-) -> str:
+) -> MCPToolNameList:
     """Return the MCP tool names that best match a natural-language query.
 
     The chat manager automatically unlocks the returned tools so subsequent
@@ -43,7 +46,7 @@ def search_and_unlock_mcp_tools(
 
     index = setta_state.mcp_server.tool_search_index
     if index is None:
-        return json.dumps([])
+        return MCPToolNameList(root=[])
 
     tools = index.tools
     normalized_limit = limit if limit > 0 else 5
@@ -61,4 +64,4 @@ def search_and_unlock_mcp_tools(
         tool = tools[doc_index]
         ranked_results.append(tool.name)
 
-    return json.dumps(ranked_results)
+    return MCPToolNameList(root=ranked_results)
