@@ -6,17 +6,29 @@ from setta.mcp.tool_setup import setta_init_tool
 from setta.server_state import SettaFastAPIState
 from setta.utils.constants import C
 
-SEARCH_MCP_TOOLS_NAME = C.SEARCH_MCP_TOOLS_NAME
+SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
 
 
 @setta_init_tool
-def search_mcp_tools(
+def list_mcp_tools(*, setta_state: SettaFastAPIState) -> str:
+    """Return every registered MCP tool name without schemas or descriptions."""
+
+    tools = setta_state.mcp_server.list_registered_tools()
+    names = sorted(tool.name for tool in tools)
+    return json.dumps(names)
+
+
+@setta_init_tool
+def search_and_unlock_mcp_tools(
     *,
     query: str,
     limit: int = 2,
     setta_state: SettaFastAPIState,
 ) -> str:
     """Return the MCP tool names that best match a natural-language query.
+
+    The chat manager automatically unlocks the returned tools so subsequent
+    LLM requests can call them directly.
 
     Args:
         query: Text describing the capability you want to look up; empty input

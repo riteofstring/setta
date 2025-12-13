@@ -11,7 +11,7 @@ from setta.mcp.server import (
     _build_parameter_text,
     _build_tool_document_text,
 )
-from setta.mcp.tools.tool_search import search_mcp_tools
+from setta.mcp.tools.tool_search import list_mcp_tools, search_and_unlock_mcp_tools
 
 
 @dataclass
@@ -22,13 +22,30 @@ class ToolSpec:
 
 
 class StubMCPServer:
-    def __init__(self, index: ToolSearchIndex | None):
+    def __init__(
+        self,
+        index: ToolSearchIndex | None,
+        tools: list[Tool] | None = None,
+    ):
         self.tool_search_index = index
+        if tools is not None:
+            self._tools = list(tools)
+        elif index is not None:
+            self._tools = list(index.tools)
+        else:
+            self._tools = []
+
+    def list_registered_tools(self) -> list[Tool]:
+        return list(self._tools)
 
 
 class StubSettaState:
-    def __init__(self, index: ToolSearchIndex | None):
-        self.mcp_server = StubMCPServer(index)
+    def __init__(
+        self,
+        index: ToolSearchIndex | None,
+        tools: list[Tool] | None = None,
+    ):
+        self.mcp_server = StubMCPServer(index, tools)
 
 
 def _build_tool(spec: ToolSpec) -> Tool:
@@ -57,7 +74,7 @@ def build_search_index(tool_specs: list[ToolSpec]) -> ToolSearchIndex:
     return ToolSearchIndex(retriever=retriever, tools=tools)
 
 
-class SearchMCPToolsTest(unittest.TestCase):
+class SearchAndUnlockMCPToolsTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tool_specs = [
             ToolSpec(
@@ -110,7 +127,7 @@ class SearchMCPToolsTest(unittest.TestCase):
 
     def test_returns_ranked_results_for_query(self) -> None:
         results = json.loads(
-            search_mcp_tools(
+            search_and_unlock_mcp_tools(
                 query="read specific file lines",
                 limit=1,
                 setta_state=self.setta_state,
@@ -122,7 +139,7 @@ class SearchMCPToolsTest(unittest.TestCase):
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = json.loads(
-            search_mcp_tools(
+            search_and_unlock_mcp_tools(
                 query="search project", limit=0, setta_state=self.setta_state
             )
         )
@@ -131,14 +148,42 @@ class SearchMCPToolsTest(unittest.TestCase):
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
-            search_mcp_tools(query="   ", setta_state=self.setta_state)
+            search_and_unlock_mcp_tools(query="   ", setta_state=self.setta_state)
 
     def test_returns_empty_when_index_missing(self) -> None:
         empty_state = StubSettaState(index=None)
 
-        results = json.loads(search_mcp_tools(query="read", setta_state=empty_state))
+        results = json.loads(
+            search_and_unlock_mcp_tools(query="read", setta_state=empty_state)
+        )
 
         self.assertEqual(results, [])
+
+
+class ListMCPToolsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tool_names = ["search_project_sources", "read_file_range", "list_notifications"]
+        specs = [
+            ToolSpec(
+                name=name,
+                description=f"description for {name}",
+                parameters={"properties": {}},
+            )
+            for name in self.tool_names
+        ]
+        tools = [_build_tool(spec) for spec in specs]
+        # Intentionally reverse to confirm sorting happens inside list_mcp_tools.
+        self.setta_state = StubSettaState(index=None, tools=list(reversed(tools)))
+
+    def test_returns_sorted_registered_tool_names(self) -> None:
+        results = json.loads(list_mcp_tools(setta_state=self.setta_state))
+
+        self.assertEqual(results, sorted(self.tool_names))
+
+    def test_returns_empty_list_when_no_tools_registered(self) -> None:
+        empty_state = StubSettaState(index=None, tools=[])
+
+        self.assertEqual(json.loads(list_mcp_tools(setta_state=empty_state)), [])
 
 
 class BuildParameterTextTest(unittest.TestCase):

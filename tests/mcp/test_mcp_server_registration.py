@@ -9,7 +9,7 @@ from mcp.types import CallToolResult, TextContent
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_metadata import SettaToolType
-from setta.mcp.tools.tool_search import search_mcp_tools
+from setta.mcp.tools.tool_search import search_and_unlock_mcp_tools
 from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
@@ -114,7 +114,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             self.assertIn("read_file_range", registered_tool_names)
 
             search_results = json.loads(
-                search_mcp_tools(
+                search_and_unlock_mcp_tools(
                     query="section size settings",
                     limit=2,
                     setta_state=setta_state,
@@ -122,12 +122,12 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             print("Search results:", search_results)
             self.assertIn("set_section_sizes", search_results)
-            self.assertNotIn("search_mcp_tools", search_results)
+            self.assertNotIn("search_and_unlock_mcp_tools", search_results)
 
             search_tool = next(
                 tool
                 for tool in mcp_server.list_registered_tools()
-                if tool.name == C.SEARCH_MCP_TOOLS_NAME
+                if tool.name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
             )
             results_via_tool_run = await search_tool.run(
                 {
@@ -139,7 +139,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             parsed_results = json.loads(results_via_tool_run)
             print("Search results via tool run:", parsed_results)
             self.assertIn("set_section_sizes", parsed_results)
-            self.assertNotIn("search_mcp_tools", parsed_results)
+            self.assertNotIn("search_and_unlock_mcp_tools", parsed_results)
 
     async def test_search_finds_create_top_level_section(self) -> None:
         async with real_project_manager() as fixture:
@@ -159,7 +159,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
 
             for query in ("create section", "create sections"):
                 results = json.loads(
-                    search_mcp_tools(
+                    search_and_unlock_mcp_tools(
                         query=query,
                         limit=2,
                         setta_state=setta_state,
@@ -226,7 +226,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
 
             tool_call = ToolCall(
                 function=ToolCallFunction(
-                    name=C.SEARCH_MCP_TOOLS_NAME,
+                    name=C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
                     arguments={"query": "section size settings", "limit": 2},
                 )
             )

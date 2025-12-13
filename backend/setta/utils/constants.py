@@ -59,7 +59,7 @@ class C:
     MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
     MCP_SETTA_STATE_ARG_NAME = "setta_state"
     MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId"
-    SEARCH_MCP_TOOLS_NAME = "search_mcp_tools"
+    SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools"
     MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden"
     SETTA_MCP_PARAM_NAMES = [
         MCP_CHAT_ID_ARG_NAME,

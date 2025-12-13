@@ -918,7 +918,7 @@ class LLMChatManager:
         completed_at = get_now_timestamp()
 
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
-        if tool_name == C.SEARCH_MCP_TOOLS_NAME and not call_result.isError:
+        if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME and not call_result.isError:
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
                 tool_name,
