@@ -6,7 +6,11 @@ from typing import Any
 import bm25s
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
-from setta.mcp.server import ToolSearchIndex, _build_tool_document_text
+from setta.mcp.server import (
+    ToolSearchIndex,
+    _build_parameter_text,
+    _build_tool_document_text,
+)
 from setta.mcp.tools.tool_search import search_mcp_tools
 
 
@@ -28,7 +32,7 @@ class StubSettaState:
 
 
 def _build_tool(spec: ToolSpec) -> Tool:
-    def _noop(**_: Any) -> None:
+    def _noop(**kwargs: Any) -> None:
         return None
 
     metadata = func_metadata(_noop)
@@ -135,3 +139,62 @@ class SearchMCPToolsTest(unittest.TestCase):
         results = json.loads(search_mcp_tools(query="read", setta_state=empty_state))
 
         self.assertEqual(results, [])
+
+
+class BuildParameterTextTest(unittest.TestCase):
+    def test_includes_nested_definition_descriptions(self) -> None:
+        schema = {
+            "$defs": {
+                "SectionSize": {
+                    "type": "object",
+                    "description": "Dimensions applied to a given section.",
+                    "properties": {
+                        "width": {
+                            "description": "Horizontal dimension or auto.",
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "description": "Explicit pixel width.",
+                                },
+                                {"$ref": "#/$defs/AutoSize"},
+                            ],
+                        },
+                        "height": {
+                            "$ref": "#/$defs/DimensionValue",
+                        },
+                    },
+                },
+                "AutoSize": {
+                    "type": "string",
+                    "description": "Use auto layout sizing hints.",
+                },
+                "DimensionValue": {
+                    "description": "Vertical dimension or auto.",
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "description": "Explicit pixel height.",
+                        },
+                        {"const": "auto", "type": "string"},
+                    ],
+                },
+            },
+            "properties": {
+                "sectionSizes": {
+                    "type": "object",
+                    "description": "Map of section IDs to size definitions.",
+                    "additionalProperties": {
+                        "$ref": "#/$defs/SectionSize",
+                    },
+                },
+            },
+        }
+
+        text = _build_parameter_text(schema)
+
+        self.assertIn("sectionSizes", text)
+        self.assertIn("Map of section IDs to size definitions.", text)
+        self.assertIn("Horizontal dimension or auto.", text)
+        self.assertIn("Explicit pixel width.", text)
+        self.assertIn("Vertical dimension or auto.", text)
+        self.assertIn("Explicit pixel height.", text)

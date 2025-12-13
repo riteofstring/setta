@@ -31,7 +31,7 @@ def search_mcp_tools(
 
     index = setta_state.mcp_server.tool_search_index
     if index is None:
-        return []
+        return json.dumps([])
 
     tools = index.tools
     normalized_limit = limit if limit > 0 else 5

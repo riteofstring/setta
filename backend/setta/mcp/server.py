@@ -322,8 +322,82 @@ def _build_parameter_text(parameters: dict[str, Any]) -> str:
     segments: list[str] = []
     for prop_name, prop_schema in properties.items():
         segments.append(str(prop_name))
-        if isinstance(prop_schema, dict):
-            description = prop_schema.get("description")
-            if isinstance(description, str):
-                segments.append(description)
-    return " ".join(segments)
+        if not isinstance(prop_schema, dict):
+            continue
+        segments.extend(_collect_schema_text(prop_schema, parameters, set()))
+    return " ".join(segment for segment in segments if isinstance(segment, str))
+
+
+def _collect_schema_text(
+    schema: Any,
+    root_schema: dict[str, Any],
+    seen_refs: set[str],
+) -> list[str]:
+    segments: list[str] = []
+    if not isinstance(schema, dict):
+        return segments
+
+    description = schema.get("description")
+    if isinstance(description, str):
+        segments.append(description)
+
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        target = _resolve_json_pointer(root_schema, ref)
+        if isinstance(target, dict) and ref not in seen_refs:
+            seen_refs.add(ref)
+            try:
+                segments.extend(_collect_schema_text(target, root_schema, seen_refs))
+            finally:
+                seen_refs.remove(ref)
+
+    for keyword in ("anyOf", "allOf", "oneOf"):
+        options = schema.get(keyword)
+        if isinstance(options, list):
+            for option in options:
+                segments.extend(_collect_schema_text(option, root_schema, seen_refs))
+
+    items = schema.get("items")
+    if isinstance(items, dict):
+        segments.extend(_collect_schema_text(items, root_schema, seen_refs))
+    elif isinstance(items, list):
+        for entry in items:
+            segments.extend(_collect_schema_text(entry, root_schema, seen_refs))
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for sub_name, sub_schema in properties.items():
+            segments.append(str(sub_name))
+            segments.extend(_collect_schema_text(sub_schema, root_schema, seen_refs))
+
+    additional_properties = schema.get("additionalProperties")
+    if isinstance(additional_properties, dict):
+        segments.extend(
+            _collect_schema_text(additional_properties, root_schema, seen_refs)
+        )
+
+    return segments
+
+
+def _resolve_json_pointer(schema: dict[str, Any], pointer: str) -> Any:
+    if not isinstance(pointer, str) or not pointer.startswith("#/"):
+        return None
+    current: Any = schema
+    parts = pointer[2:].split("/")
+    for raw_part in parts:
+        part = raw_part.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, dict):
+            current = current.get(part)
+        elif isinstance(current, list):
+            try:
+                index = int(part)
+            except ValueError:
+                return None
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+        else:
+            return None
+        if current is None:
+            return None
+    return current
