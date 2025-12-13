@@ -376,8 +376,6 @@ class LLMChatManager:
             return
         if not messages:
             return
-        if not any(message.get("role") == "system" for message in messages):
-            return
 
         model = request.get("model")
         if not model:
@@ -402,13 +400,19 @@ class LLMChatManager:
             return
 
         request["cache_control_injection_points"] = [
-            {"location": "message", "role": "system"}
+            {"location": "message", "role": "system"},
+            {
+                "location": "message",
+                "index": -1,
+            },
         ]
+
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "[cache-prompting] enabling system-message cache injection for model=%s provider=%s",
+                "[cache-prompting] enabling cache injection for model=%s provider=%s points=%s",
                 model,
                 provider,
+                request["cache_control_injection_points"],
             )
 
     def _get_or_create_chat_tool_state(

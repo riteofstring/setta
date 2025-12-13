@@ -4,7 +4,12 @@ from unittest.mock import patch
 from litellm.types.utils import Delta
 from setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
 from setta.types.chat import Chat
-from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.chat_messages import (
+    AssistantChatMessage,
+    MessageTextContent,
+    ToolChatMessage,
+    UserChatMessage,
+)
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.utils.constants import C
@@ -142,7 +147,10 @@ class CachePromptingTests(unittest.TestCase):
 
         self.assertEqual(
             payload.get("cache_control_injection_points"),
-            [{"location": "message", "role": "system"}],
+            [
+                {"location": "message", "role": "system"},
+                {"location": "message", "index": -1},
+            ],
         )
 
     def test_cache_prompting_skipped_without_support(self) -> None:
@@ -172,6 +180,27 @@ class CachePromptingTests(unittest.TestCase):
             [{"location": "message", "role": "user"}],
         )
 
+    def test_cache_prompting_includes_all_prior_history(self) -> None:
+        manager, chat = _build_manager_and_chat()
+        chat.messages = [
+            UserChatMessage(content=[MessageTextContent(text="First question")]),
+            AssistantChatMessage(content=[MessageTextContent(text="First reply")]),
+            ToolChatMessage(tool_call_id="tool-call-id"),
+            UserChatMessage(content=[MessageTextContent(text="Second question")]),
+        ]
+
+        with patch(
+            "setta.llm.llm_chat_manager.supports_prompt_caching", return_value=True
+        ):
+            payload = manager._build_llm_request_payload(chat, deep_think=False)
+
+        self.assertEqual(
+            payload["cache_control_injection_points"],
+            [
+                {"location": "message", "role": "system"},
+                {"location": "message", "index": -1},
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()
