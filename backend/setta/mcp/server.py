@@ -242,14 +242,14 @@ class SettaTool(Tool):
         for arg_name, arg_metadata in parameters["properties"].items():
             if "description" in arg_metadata:
                 continue
-            description = param_descriptions.get(arg_name, None)
-            if description:
-                arg_metadata["description"] = description
+            param_description = param_descriptions.get(arg_name)
+            if param_description:
+                arg_metadata["description"] = param_description
 
         return cls(
             fn=fn,
             name=func_name,
-            description=description if description else "",
+            description=description or "",
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,
@@ -327,7 +327,10 @@ def extract_tool_docstrings(func):
 
 def _build_tool_document_text(tool: "Tool") -> str:
     parameter_text = _build_parameter_text(tool.parameters)
-    parts = [tool.name, tool.description, parameter_text]
+    parts = [tool.name]
+    if "_" in tool.name:
+        parts.append(tool.name.replace("_", " "))
+    parts.extend([tool.description, parameter_text])
     return " ".join(part for part in parts if part)
 
 

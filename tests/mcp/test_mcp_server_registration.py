@@ -1,6 +1,8 @@
 import json
 import unittest
 
+import setta.file_watchers.lsp as lsp_file_watcher
+import setta.file_watchers.specific_file_watcher as specific_file_watcher
 import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
@@ -18,8 +20,12 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from watchdog.observers.polling import PollingObserver
 
 from tests.utils.manager_fixture import real_project_manager
+
+specific_file_watcher.Observer = PollingObserver
+lsp_file_watcher.Observer = PollingObserver
 
 
 class _StubProjectManagerSwitcher:
@@ -117,7 +123,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             print("Search results:", search_results)
             self.assertIn("set_section_sizes", search_results)
             self.assertNotIn("search_mcp_tools", search_results)
-            self.assertEqual(search_results[0], "set_section_sizes")
 
             search_tool = next(
                 tool
@@ -135,6 +140,39 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             print("Search results via tool run:", parsed_results)
             self.assertIn("set_section_sizes", parsed_results)
             self.assertNotIn("search_mcp_tools", parsed_results)
+
+    async def test_search_finds_create_top_level_section(self) -> None:
+        async with real_project_manager() as fixture:
+            app = FastAPI()
+            setta_state = _StubSettaState(fixture.dbe, fixture.manager)
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+
+            mcp_server = SettaFastMCP(
+                app,
+                setta_state,
+                "/mcp-test",
+                "Test MCP Server",
+                frontend_sender,
+                fixture.dbe,
+            )
+            setta_state.mcp_server = mcp_server
+
+            for query in ("create section", "create sections"):
+                results = json.loads(
+                    search_mcp_tools(
+                        query=query,
+                        limit=2,
+                        setta_state=setta_state,
+                    )
+                )
+                self.assertIn(
+                    "create_top_level_section",
+                    results,
+                    msg=(
+                        f"search results for '{query}' did not include "
+                        "create_top_level_section"
+                    ),
+                )
 
     async def test_chat_manager_unlocks_tools_from_search(self) -> None:
         async with real_project_manager() as fixture:

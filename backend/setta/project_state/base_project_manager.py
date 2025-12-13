@@ -512,7 +512,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool()
     async def set_section_sizes(self, x: SetSectionSizesRequest):
-        """Resize the requested sections and broadcast the refreshed project state."""
+        """Update section size settings for the requested sections and broadcast the refreshed project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(project_state, x.sectionSizes)
         await self.update_and_broadcast_project_state(project_state)
@@ -796,7 +796,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool()
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
-        """Insert a new top-level section using the provided implementation."""
+        """Create a new top-level section using the provided implementation when users ask to create sections at the root layout."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(

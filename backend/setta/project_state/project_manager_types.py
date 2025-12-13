@@ -336,10 +336,12 @@ class SetSectionVariantNameRequest(ProjectManagerRequestWithVariant):
 
 
 class SetSectionSizesRequest(ProjectManagerRequestWithProjectConfig):
-    """Resize one or more sections within the specified project config."""
+    """Resize one or more sections and persist their section size settings."""
 
     sectionSizes: dict[ID, SectionSize] = Field(
-        description="Mapping of section IDs to their desired width/height settings.",
+        description=(
+            "Mapping of section IDs to their desired width/height size settings."
+        ),
     )
 
 
