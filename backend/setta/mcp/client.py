@@ -32,11 +32,6 @@ class BridgeConfig:
     verbose: bool
 
 
-@dataclass
-class BridgeState:
-    project_config_id: str | None = None
-
-
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="setta.mcp.client",
@@ -166,13 +161,11 @@ async def run_stdio_bridge(config: BridgeConfig) -> None:
             sse_client(url=config.backend_url)
         )
         logger.info("Connected to Setta backend at %s", config.backend_url)
-        state = BridgeState()
         async with asyncio.TaskGroup() as tg:
             tg.create_task(
                 _forward_stdio_to_backend(
                     stdio_read,
                     backend_write,
-                    state,
                 )
             )
             tg.create_task(
@@ -202,45 +195,15 @@ async def _forward_messages(
 async def _forward_stdio_to_backend(
     source: MemoryObjectReceiveStream[SessionMessage | Exception],
     destination: MemoryObjectSendStream[SessionMessage],
-    state: BridgeState,
 ) -> None:
     async with source:
         async for payload in source:
             if isinstance(payload, Exception):
                 logger.error("[stdio->backend] transport exception: %s", payload)
                 continue
-            _maybe_apply_project_config(payload, state)
             await destination.send(payload)
     await destination.aclose()
     logger.info("[stdio->backend] stream closed")
-
-
-def _maybe_apply_project_config(message: SessionMessage, state: BridgeState) -> None:
-    root = message.message.root
-    if not isinstance(root, types.JSONRPCRequest):
-        return
-    if root.method != "tools/call":
-        return
-    params = root.params or {}
-    arguments = params.get("arguments") or {}
-    existing = arguments.get(C.MCP_PROJECT_CONFIG_ID_ARG_NAME)
-    if existing:
-        if state.project_config_id != existing:
-            logger.info("Updating projectConfigId to %s", existing)
-            state.project_config_id = existing
-        params["arguments"] = arguments
-        root.params = params
-        return
-    if not state.project_config_id:
-        return
-    arguments[C.MCP_PROJECT_CONFIG_ID_ARG_NAME] = state.project_config_id
-    params["arguments"] = arguments
-    root.params = params
-    logger.debug(
-        "Injected projectConfigId=%s into tools/call %s",
-        state.project_config_id,
-        params.get("name"),
-    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

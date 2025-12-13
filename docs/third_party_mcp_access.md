@@ -16,7 +16,7 @@ Allow external LLM applications to call Setta's MCP tools without embedding Sett
 | --- | --- |
 | **Transport mismatch** | Codex/Claude spawn MCP servers that read/write JSON-RPC over stdio. Setta's server speaks MCP over HTTP/SSE. We need a thin stdio↔︎SSE adapter that runs alongside the backend. |
 | **Session lifecycle** | The adapter opens `mcp.client.sse.sse_client()` to `http://127.0.0.1:8000/mcp` (or whatever `C.BACKEND` is). It forwards initialization, `list_tools`, `call_tool`, streaming responses, and notifications verbatim between the stdio host and the SSE connection. |
-| **Project context** | Tools that need `projectConfigId` already expose it in their schemas, and init tools like `get_latest_project_state` return a usable id. The adapter can fetch the id at startup (or prompt the operator) and inject it before forwarding tool calls. |
+| **Project context** | Tools that need `projectConfigId` already expose it in their schemas, and init tools like `get_latest_project_state` return a usable id. Operators should capture that id (or prompt the user for one) and pass it explicitly with each tool invocation; the adapter simply forwards whatever context the stdio host provides. |
 | **Security** | `/mcp` currently has no auth. If we care about scoping, the adapter can enforce a shared token or only bind to `localhost`. Longer term we could add auth to `handle_mcp_connection`. |
 
 ## Adapter Outline
@@ -26,7 +26,7 @@ Allow external LLM applications to call Setta's MCP tools without embedding Sett
    - Open the SSE transport via `mcp.client.sse.sse_client(url=args.backend)` and wrap it with `ClientSession`.
 3. **Initialization handshake** – Wait for the first `initialize` request from stdio, forward it to the backend session (calling `ClientSession.initialize()`), and relay the response + `InitializedNotification` back to the stdio host.
 4. **Request proxying** – For every subsequent `JSONRPC` request from stdio (tool calls, list tools, etc.), call the same method on the backend session and stream the result back. Mirror streaming tool deltas/logging notifications by listening to the SSE client’s message handler.
-5. **Project context helper** – If the stdio host does not supply `projectConfigId`, fetch it via `get_latest_project_state` on bridge startup and merge it into every tool invocation so project-aware tools keep working.
+5. **Project context helper** – Document that hosts should call `get_latest_project_state` (or an equivalent tool) when the bridge starts and reuse the returned `projectConfigId` in subsequent tool invocations; no automatic injection occurs.
 
 ## Example Codex/Claude Configuration
 Once the adapter exists, Codex CLI could reference it in `codex_config.toml`:

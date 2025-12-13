@@ -59,12 +59,10 @@ class C:
     LLM_THINKING = "thinking"
 
     MCP_SETTA_STATE_ARG_NAME = "setta_state"
-    MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId"
     SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools"
     MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden"
     SETTA_MCP_PARAM_NAMES = [
         MCP_SETTA_STATE_ARG_NAME,
-        MCP_PROJECT_CONFIG_ID_ARG_NAME,
     ]
 
     @classproperty

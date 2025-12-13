@@ -49,7 +49,7 @@
 
 ### Outstanding Work
 #### Backend / LLM Integration
-- `_dispatch_tool_call` now injects the chat id and `projectConfigId` for every tool invocation, but we still need a structured way to attach richer context (selected section ids, code bindings, etc.) once the frontend surfaces that data so write-capable tools know exactly which project entities they should touch.
+- `_dispatch_tool_call` no longer injects `projectConfigId` automatically, so we still need a structured way to attach richer context (selected section ids, code bindings, chat metadata, etc.) once the frontend surfaces that data and tools can declare exactly which project entities they intend to touch.
 - Config writes currently accept whatever `/llm/config` or `/llm/apiKeys` payloads provide. Duplicate ids are now prevented by validation, but we still need to validate the referenced API keys/URLs, surface actionable errors, and tighten the REST responses instead of silently truncating bad data.
 
 #### MCP & File Editing
