@@ -223,7 +223,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             chat_id = ID("test-chat-uuid")
             self.assertNotIn(chat_id, mcp_server.canonical_to_temporary)
 
-            await wrapped_tool(setta_chat_id=chat_id)
+            await wrapped_tool(setta_chat_id=str(chat_id))
 
             temp_id = mcp_server.canonical_to_temporary.get(chat_id)
             self.assertIsNotNone(temp_id)
