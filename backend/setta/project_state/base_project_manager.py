@@ -779,7 +779,6 @@ class BaseProjectManager(ABC):
         set_default_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
-
     @enqueue_method
     @project_state_tool()
     async def change_param_impl(self, x: ChangeParamImplRequest):
