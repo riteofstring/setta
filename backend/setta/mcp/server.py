@@ -165,10 +165,7 @@ class SettaFastMCP(FastMCP):
         temporary_to_canonical: TemporaryToCanonicalIDMap,
     ) -> None:
         scoped_payload = {}
-        for param in (
-            C.MCP_CHAT_ID_ARG_NAME,
-            C.MCP_PROJECT_CONFIG_ID_ARG_NAME,
-        ):
+        for param in (C.MCP_PROJECT_CONFIG_ID_ARG_NAME,):
             if param not in payload:
                 continue
             value = payload[param]

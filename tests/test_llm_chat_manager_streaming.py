@@ -99,7 +99,7 @@ class StreamEntryFallbackTests(unittest.TestCase):
 
 
 class ToolArgumentSanitizationTests(unittest.TestCase):
-    def test_setta_chat_id_is_converted_to_temporary_id(self) -> None:
+    def test_project_config_id_is_converted_to_temporary_id(self) -> None:
         canonical_to_temp = {
             ID("chat-uuid"): ID("1"),
             ID("project-uuid"): ID("2"),
@@ -109,12 +109,10 @@ class ToolArgumentSanitizationTests(unittest.TestCase):
 
         sanitized = manager._sanitize_tool_arguments(
             {
-                C.MCP_CHAT_ID_ARG_NAME: ID("chat-uuid"),
                 C.MCP_PROJECT_CONFIG_ID_ARG_NAME: ID("project-uuid"),
             }
         )
 
-        self.assertEqual(sanitized[C.MCP_CHAT_ID_ARG_NAME], "1")
         self.assertEqual(sanitized[C.MCP_PROJECT_CONFIG_ID_ARG_NAME], "2")
 
 

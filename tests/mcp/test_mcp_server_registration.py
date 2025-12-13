@@ -237,7 +237,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             chat_state = chat_manager._get_or_create_chat_tool_state(chat.id)
             self.assertIn("set_section_sizes", chat_state.unlocked_tools)
 
-    async def test_registers_setta_chat_id_in_temp_map(self) -> None:
+    async def test_registers_project_config_id_in_temp_map(self) -> None:
         async with real_project_manager() as fixture:
             app = FastAPI()
             setta_state = _StubSettaState(fixture.dbe, fixture.manager)
@@ -253,25 +253,25 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             setta_state.mcp_server = mcp_server
 
-            async def _dummy_tool(setta_chat_id: ID):
-                return {"chat_id": setta_chat_id}
+            async def _dummy_tool(projectConfigId: ID):
+                return {"projectConfigId": projectConfigId}
 
             wrapped_tool = mcp_server.setta_id_transformer(_dummy_tool)
 
-            chat_id = ID("test-chat-uuid")
-            self.assertNotIn(chat_id, mcp_server.canonical_to_temporary)
+            project_id = ID("test-project-uuid")
+            self.assertNotIn(project_id, mcp_server.canonical_to_temporary)
 
-            await wrapped_tool(setta_chat_id=str(chat_id))
+            await wrapped_tool(projectConfigId=str(project_id))
 
-            temp_id = mcp_server.canonical_to_temporary.get(chat_id)
+            temp_id = mcp_server.canonical_to_temporary.get(project_id)
             self.assertIsNotNone(temp_id)
             self.assertEqual(
                 mcp_server.temporary_to_canonical.get(temp_id),
-                chat_id,
+                project_id,
             )
 
             temporary_to_canonical, canonical_to_temporary = (
                 fixture.dbe.read_temporary_id_map()
             )
-            self.assertEqual(canonical_to_temporary.get(chat_id), temp_id)
-            self.assertEqual(temporary_to_canonical.get(temp_id), chat_id)
+            self.assertEqual(canonical_to_temporary.get(project_id), temp_id)
+            self.assertEqual(temporary_to_canonical.get(temp_id), project_id)

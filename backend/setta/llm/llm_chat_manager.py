@@ -907,7 +907,6 @@ class LLMChatManager:
                 f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
             )
         arguments = dict(tool_call.function.arguments or {})
-        arguments[C.MCP_CHAT_ID_ARG_NAME] = chat.id
         arguments[C.MCP_PROJECT_CONFIG_ID_ARG_NAME] = chat.projectConfigId
         started_at = get_now_timestamp()
         try:
