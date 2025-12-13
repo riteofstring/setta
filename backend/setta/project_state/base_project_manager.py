@@ -1154,7 +1154,9 @@ class BaseProjectManager(ABC):
         ].viewport = x.viewport
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_name(self, x: SetSectionNameRequest):
+        """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
         await self.update_and_broadcast_project_state(project_state)

@@ -354,7 +354,11 @@ class SetViewportRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class SetSectionNameRequest(ProjectManagerRequestWithSection):
-    name: str
+    """Request payload for renaming a section without changing variants."""
+
+    name: str = Field(
+        description="New display name that should be stored on the section.",
+    )
 
 
 class AcceptRenameRefactorRequest(ProjectManagerRequestWithProjectConfig):
