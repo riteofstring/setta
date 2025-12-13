@@ -12,6 +12,7 @@ import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
+from litellm.utils import supports_prompt_caching
 from mcp.types import CallToolResult, TextContent
 
 from setta.database.db_objs import DBE
@@ -348,6 +349,7 @@ class LLMChatManager:
                 request["api_key"] = api_key
 
         request["messages"] = messages
+        self._maybe_apply_cache_prompting(request, messages)
         tools = self._build_tool_definitions(chat)
         if tools:
             request["tools"] = tools
@@ -364,6 +366,50 @@ class LLMChatManager:
         if not state.init_tools and self.mcp_client.init_tool_definitions:
             state.init_tools = dict(self.mcp_client.init_tool_definitions)
         return state.build_payload()
+
+    def _maybe_apply_cache_prompting(
+        self,
+        request: dict[str, Any],
+        messages: list[dict[str, Any]],
+    ) -> None:
+        if request.get("cache_control_injection_points"):
+            return
+        if not messages:
+            return
+        if not any(message.get("role") == "system" for message in messages):
+            return
+
+        model = request.get("model")
+        if not model:
+            return
+        provider = request.get("custom_llm_provider")
+
+        try:
+            supports_cache = supports_prompt_caching(
+                model=model,
+                custom_llm_provider=provider,
+            )
+        except Exception:
+            logger.debug(
+                "[cache-prompting] failed to resolve support for model=%s provider=%s",
+                model,
+                provider,
+                exc_info=True,
+            )
+            return
+
+        if not supports_cache:
+            return
+
+        request["cache_control_injection_points"] = [
+            {"location": "message", "role": "system"}
+        ]
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[cache-prompting] enabling system-message cache injection for model=%s provider=%s",
+                model,
+                provider,
+            )
 
     def _get_or_create_chat_tool_state(
         self,

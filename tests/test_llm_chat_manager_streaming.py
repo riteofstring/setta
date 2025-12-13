@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from litellm.types.utils import Delta
 from setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
@@ -21,6 +22,37 @@ class _DummyDBE:
 
     def read_temporary_id_map(self):
         return self._temporary_to_canonical, self._canonical_to_temp
+
+
+def _build_manager_and_chat(
+    *,
+    other_params: dict[str, object] | None = None,
+) -> tuple[LLMChatManager, Chat]:
+    manager = _manager()
+    manager.config = AllLLMConfigs(
+        configs={
+            "provider-one": LLMConfig(
+                id="provider-one",
+                model="gpt-4o",
+                other_params=other_params,
+            ),
+        }
+    )
+    manager.api_keys = {}
+    manager._chat_tool_states = {}
+    manager.mcp_client = type("StubMCP", (), {"init_tool_definitions": {}})()
+    manager.system_prompt = "System prompt stub"
+
+    chat = Chat(
+        id=ID("chat-uuid"),
+        name="Test Chat",
+        projectConfigId=ID("project-uuid"),
+        llmConfig=manager.config.configs["provider-one"],
+        messages=[
+            UserChatMessage(content=[MessageTextContent(text="Hello from the user")])
+        ],
+    )
+    return manager, chat
 
 
 class StreamEntryFallbackTests(unittest.TestCase):
@@ -83,29 +115,8 @@ class ToolArgumentSanitizationTests(unittest.TestCase):
 
 class SystemPromptInjectionTests(unittest.TestCase):
     def test_payload_includes_system_prompt_before_chat_history(self) -> None:
-        manager = _manager()
-        manager.config = AllLLMConfigs(
-            configs={
-                "provider-one": LLMConfig(id="provider-one", model="gpt-4o"),
-            }
-        )
-        manager.api_keys = {}
-        manager._chat_tool_states = {}
-        manager.mcp_client = type("StubMCP", (), {"init_tool_definitions": {}})()
-        prompt = "System prompt stub"
-        manager.system_prompt = prompt
-
-        chat = Chat(
-            id=ID("chat-uuid"),
-            name="Test Chat",
-            projectConfigId=ID("project-uuid"),
-            llmConfig=manager.config.configs["provider-one"],
-            messages=[
-                UserChatMessage(
-                    content=[MessageTextContent(text="Hello from the user")]
-                )
-            ],
-        )
+        manager, chat = _build_manager_and_chat()
+        prompt = manager.system_prompt
 
         payload = manager._build_llm_request_payload(chat, deep_think=False)
 
@@ -118,6 +129,47 @@ class SystemPromptInjectionTests(unittest.TestCase):
         self.assertEqual(
             payload["messages"][1]["content"][0]["text"],
             "Hello from the user",
+        )
+
+
+class CachePromptingTests(unittest.TestCase):
+    def test_cache_prompting_enabled_when_supported(self) -> None:
+        manager, chat = _build_manager_and_chat()
+        with patch(
+            "setta.llm.llm_chat_manager.supports_prompt_caching", return_value=True
+        ):
+            payload = manager._build_llm_request_payload(chat, deep_think=False)
+
+        self.assertEqual(
+            payload.get("cache_control_injection_points"),
+            [{"location": "message", "role": "system"}],
+        )
+
+    def test_cache_prompting_skipped_without_support(self) -> None:
+        manager, chat = _build_manager_and_chat()
+        with patch(
+            "setta.llm.llm_chat_manager.supports_prompt_caching", return_value=False
+        ):
+            payload = manager._build_llm_request_payload(chat, deep_think=False)
+
+        self.assertNotIn("cache_control_injection_points", payload)
+
+    def test_existing_cache_prompting_configuration_is_preserved(self) -> None:
+        manager, chat = _build_manager_and_chat(
+            other_params={
+                "cache_control_injection_points": [
+                    {"location": "message", "role": "user"}
+                ]
+            }
+        )
+        with patch(
+            "setta.llm.llm_chat_manager.supports_prompt_caching", return_value=True
+        ):
+            payload = manager._build_llm_request_payload(chat, deep_think=False)
+
+        self.assertEqual(
+            payload["cache_control_injection_points"],
+            [{"location": "message", "role": "user"}],
         )
 
 
