@@ -208,8 +208,6 @@ async def _log_and_broadcast_http_error(
     handled: bool,
 ) -> None:
     context = get_logging_context()
-    if context.get("backend_log_event_emitted") == "true":
-        return
     request_id = context.get("request_id")
     project_config_id = context.get("project_config_id")
     log_context = {

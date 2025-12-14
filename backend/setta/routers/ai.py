@@ -11,7 +11,6 @@ from setta.types.generated.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
 router = SettaProjectContextAPIRouter()
@@ -58,17 +57,6 @@ async def route_get_llm_response(
             x.projectConfigId,
         )
     except Exception as exc:
-        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
-            exc,
-            label="get-llm-response",
-            message="Failed to enqueue LLM request",
-            severity=SettaBackendLogEventSeverity.error,
-            project_config_id=x.projectConfigId,
-            context={
-                "llm_config_id": x.llmConfigId,
-                "chat_id": x.chatId,
-            },
-        )
         raise HTTPException(
             status_code=500, detail="Failed to enqueue LLM request"
         ) from exc

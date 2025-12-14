@@ -8,7 +8,6 @@ from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
 from setta.types.id import ID
 from setta.types.notifications import (
-    SettaBackendLogEventSeverity,
     SettaNotification,
     SettaNotificationType,
 )
@@ -81,17 +80,6 @@ async def route_load_project_config(
         return await project_manager.load_project_config(projectConfigId)
     except ProjectNotFound as exc:
         raise HTTPException(status_code=404, detail=repr(exc)) from exc
-    except Exception as exc:
-        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
-            exc,
-            label="load-project-config",
-            message="Failed to load project config",
-            severity=SettaBackendLogEventSeverity.error,
-            context={"project_config_name": x.projectConfigName},
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to load project config"
-        ) from exc
 
 
 @router.post(Route.SAVE_PROJECT)
@@ -111,13 +99,6 @@ async def route_save_project(
         )
         await state.wmh_frontend_sender.broadcast_notification(notification)
     except Exception as exc:
-        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
-            exc,
-            label="save-project",
-            message="Failed to save",
-            severity=SettaBackendLogEventSeverity.error,
-            project_config_id=x.projectConfigId,
-        )
         raise HTTPException(status_code=500, detail="Failed to save project") from exc
 
 

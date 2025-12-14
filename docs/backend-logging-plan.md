@@ -31,8 +31,9 @@ Logging Context (`setta_context`)
 - Context binding is explicit and layered so routing data is available:
   - HTTP:
     - Middleware (`backend/setta/middleware/logging_context.py`) binds pre-routing fields: `request_id`, `method`, `path`, `client`.
-    - The middleware also enriches context at `http.response.start` with post-routing fields (`endpoint`, inferred `project_config_id`) so request context is still available during response sending (including streaming/access logs).
-    - Dependency (`bind_request_logging_context`) binds post-routing fields (`endpoint`, inferred `project_config_id`) during route execution.
+    - The middleware also enriches context at `http.response.start` with post-routing fields (`endpoint`) so request context is still available during response sending (including streaming/access logs).
+    - Project scoping is opt-in: `ProjectIdContextRoute` binds `project_config_id` directly into the logging context when enabled (`backend/setta/logging/project_id_route.py`).
+    - Dependency (`bind_request_logging_context`) binds post-routing fields (`endpoint`) during route execution.
   - WebSockets:
     - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, `client`, inferred `project_config_id`, plus caller-provided `extra_values`.
     - The main websocket loop also adds the websocket-manager id as `connection_id` after `on_connect`.
@@ -49,7 +50,7 @@ Structured Failures + UI Surfacing
   - `run_safely(...)` (wrapper used by background tasks).
 - `backend/setta/websockets/msg_handlers/frontend_sender.py` provides:
   - `broadcast_backend_log_event(...)` (UI-only log line).
-  - `log_failure_and_broadcast_backend_log_event(...)` (log + UI event). It sets `backend_log_event_emitted=true` in the logging context so the global HTTP exception handler won’t emit a second UI event.
+  - `log_failure_and_broadcast_backend_log_event(...)` (log + UI event).
 - `backend/setta/server.py` exception handlers emit backend log events for:
   - FastAPI validation errors (422), `HTTPException`, and unhandled exceptions.
   - 422 validation errors are treated as unhandled (`handled=False`) because they typically indicate a contract mismatch.
@@ -72,7 +73,7 @@ Notes
 
 - Prefer passing small `extra_values={...}` into context builders rather than serializing payloads into the log context.
 - The logging context sanitizer is a safety net, not a license to attach huge objects everywhere. Use ids/counts/samples for large payloads.
-- If a route already calls `log_failure_and_broadcast_backend_log_event(...)`, it can still raise; `backend_log_event_emitted` prevents duplicate UI events from the global handler.
+- For HTTP routes, prefer raising an `HTTPException` (or letting the exception bubble) and let the global handler emit the UI backend-log-event (avoid route-level “log + broadcast” to prevent duplicate UI events).
 - Prefer `logger.*(...)` (or `click.echo(...)` for CLI output) over `print(...)` so output is consistent and structured.
 - For tracebacks: handled 4xx failures keep tracebacks enabled by default for debuggability.
 - Guardrails: Ruff enables `G` (logging format) and `ARG` (unused args) so logging/arg regressions get caught early.
