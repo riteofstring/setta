@@ -64,9 +64,7 @@ async def bind_request_logging_context(
 
     full_context = build_request_context(request)
     context_values = {
-        key: full_context[key]
-        for key in ("endpoint",)
-        if key in full_context
+        key: full_context[key] for key in ("endpoint",) if key in full_context
     }
     with logging_context(values=context_values):
         yield

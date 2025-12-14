@@ -43,7 +43,9 @@ class LoggingContextFormattingTests(unittest.TestCase):
         finally:
             reset_logging_context(token)
 
-        self.assertEqual(record.setta_context, 'value="a \\"quote\\" and a \\\\\\\\ slash"')
+        self.assertEqual(
+            record.setta_context, 'value="a \\"quote\\" and a \\\\\\\\ slash"'
+        )
 
     def test_leaves_safe_values_unquoted(self) -> None:
         token = push_logging_context(values={"request_id": "abc-123_DEF"})

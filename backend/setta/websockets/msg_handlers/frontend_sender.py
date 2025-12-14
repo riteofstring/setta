@@ -52,7 +52,6 @@ from setta.types.websocket import (
 )
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
 
-
 _UI_LOG_LEVEL_ENV = "SETTA_UI_LOG_LEVEL"
 _SEVERITY_TO_LOG_LEVEL = {
     SettaBackendLogEventSeverity.info: logging.INFO,

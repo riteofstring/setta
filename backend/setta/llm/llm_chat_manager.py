@@ -52,6 +52,7 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
+from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -191,7 +192,7 @@ class LLMChatManager:
             )
             existing.cancel()
         project_config_id = (
-            str(chat.project_config_id) if chat.project_config_id is not None else None
+            str(chat.projectConfigId) if chat.projectConfigId is not None else None
         )
         task = spawn_background_task(
             self.process_query(chat, deepThink),
@@ -240,17 +241,12 @@ class LLMChatManager:
                 session.stream = stream_result
 
                 async for chunk in self._iterate_stream(stream_result):
-                    try:
-                        await self._handle_stream_chunk(
-                            chat.id,
-                            assistant_message,
-                            chunk,
-                            tool_call_state,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "LLM streaming chunk handling failed for chat %s", chat.id
-                        )
+                    await self._handle_stream_chunk(
+                        chat.id,
+                        assistant_message,
+                        chunk,
+                        tool_call_state,
+                    )
 
                 await self.websocket_msg_handler.send_streaming_response(
                     chat.id,
@@ -288,6 +284,23 @@ class LLMChatManager:
                         MessageFinalizedEvent(message=assistant_message),
                     )
                 raise
+            except Exception as exc:
+                if not stop_event_sent:
+                    await self.websocket_msg_handler.send_streaming_response(
+                        chat.id,
+                        MessageStopEvent(message_id=assistant_message.id),
+                    )
+                    stop_event_sent = True
+                await self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
+                    exc,
+                    label="llm-chat-stream",
+                    message="LLM streaming failed; aborting response",
+                    severity=SettaBackendLogEventSeverity.error,
+                    project_config_id=chat.projectConfigId,
+                    logger=logger,
+                    context={"chat_id": str(chat.id)},
+                )
+                return
             finally:
                 self._sessions.pop(chat.id, None)
 

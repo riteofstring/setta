@@ -15,6 +15,7 @@ LoggingContextInput = object | None
 LoggingContextData = dict[str, str]
 LoggingContextToken = contextvars.Token["_LoggingContextSnapshot"]
 
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class _LoggingContextSnapshot:
     data: MappingProxyType[str, str]
@@ -49,8 +50,7 @@ def push_logging_context(
     values: dict[str, LoggingContextInput] | None = None,
     **kwargs: LoggingContextInput,
 ) -> LoggingContextToken:
-    """Merge new context values into the current context.
-    """
+    """Merge new context values into the current context."""
 
     merged_values: dict[str, LoggingContextInput] = {}
     if values:

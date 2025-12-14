@@ -45,8 +45,7 @@ class LoggingErrorsTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(
             any(
-                "Handled failure in boom-test" in message
-                for message in captured.output
+                "Handled failure in boom-test" in message for message in captured.output
             )
         )
 
@@ -87,8 +86,7 @@ class LoggingErrorsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         self.assertTrue(
             any(
-                "Unhandled failure in bg-test" in message
-                for message in captured.output
+                "Unhandled failure in bg-test" in message for message in captured.output
             )
         )
 

@@ -30,6 +30,7 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPWriters
 from setta.mcp.tool_metadata import SettaToolType
@@ -315,10 +316,18 @@ class BaseProjectManager(ABC):
                     "Setting result on future (cancelled=%s)", future.cancelled()
                 )
                 future.set_result(result)
-            except Exception as e:
+            except Exception as exc:
                 # Propagate any exceptions back to the caller
-                logger.exception("Error in handler %s", handler_name)
-                future.set_exception(e)
+                log_failure(
+                    exc,
+                    label="project-manager-queue-handler",
+                    logger=logger,
+                    context={
+                        "handler_name": handler_name,
+                        "project_manager": type(self).__name__,
+                    },
+                )
+                future.set_exception(exc)
             finally:
                 # Mark the task as done
                 logger.debug("Marking queue task as done")
