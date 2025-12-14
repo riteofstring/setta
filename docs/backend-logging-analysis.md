@@ -10,6 +10,7 @@ Refactor status (already done)
 - Fixed a websocket reliability bug: WebsocketManager.broadcast() now iterates a snapshot so send_message() can drop disconnected sockets without “dict changed size during iteration” (backend/setta/websockets/websocket_manager.py:82).
 - LSP reader no longer hides parse/processing failures behind debug logs; it now emits structured ERROR logs (with tracebacks) and continues the reader loop (backend/setta/lsp/reader.py).
 - LoggingContextFilter no longer does per-record work: the contextvar stores a snapshot with a preformatted `setta_context` string, and the filter just attaches the string (backend/setta/logging/context.py:92).
+- Pydantic redaction no longer does repeated type-hint introspection: sensitive-field sets are cached per Pydantic model class (backend/setta/logging/redaction.py).
 
 What’s working well
 
@@ -24,8 +25,7 @@ Key gaps / correctness risks
 Performance / noise
 
 - (Resolved) The per-record filter work is no longer expensive: formatting/sorting happens only when context changes (push), not on every log record; the filter attaches a precomputed `setta_context` string (backend/setta/logging/context.py:92).
-- Pydantic redaction does get_type_hints() every time a model is sanitized (backend/setta/logging/redaction.py:16), which is relatively expensive; caching sensitive-field sets per model class would materially
-reduce overhead if models are ever added to context frequently.
+- (Resolved) Pydantic redaction no longer does get_type_hints() on every sanitize; sensitive-field discovery is cached per model class (backend/setta/logging/redaction.py).
 - Access logs are always INFO when enabled, regardless of the configured root level (backend/setta/logging/config.py:28). That’s fine for dev, but can be noisy in “info-but-not-that-much” environments.
 
 Places where errors are likely being hidden

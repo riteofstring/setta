@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Mapping, Sequence
+from functools import lru_cache
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, SecretBytes, SecretStr
@@ -189,13 +190,15 @@ def _sanitize_pydantic_model(
     return result
 
 
-def _get_sensitive_fields(model_cls: type[BaseModel]) -> set[str]:
+@lru_cache(maxsize=512)
+def _get_sensitive_fields(model_cls: type[BaseModel]) -> frozenset[str]:
     hints = get_type_hints(model_cls, include_extras=True)
-    return {
+    sensitive_fields = {
         field_name
         for field_name, hint in hints.items()
         if _is_sensitive_annotation(hint)
     }
+    return frozenset(sensitive_fields)
 
 
 def _is_sensitive_annotation(annotation: Any) -> bool:
