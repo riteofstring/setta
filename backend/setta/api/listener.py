@@ -58,6 +58,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
 )
 from setta.utils.constants import C
+from setta.logging_config import configure_listener_logging
 
 from .scheduling import ListenerCallbackScheduler
 
@@ -146,6 +147,7 @@ class SettaListener:
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
+        self._logging_configured = False
 
     @property
     def _log_identifier(self) -> str:
@@ -171,6 +173,7 @@ class SettaListener:
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
+        self._ensure_logging()
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         while not self._stop_event.is_set():
@@ -204,6 +207,7 @@ class SettaListener:
         When `hot_reload` is True, the listener will wrap the provided builder in a
         `ListenerHotReloader` instance and reuse the existing hot reload workflow.
         """
+        self._ensure_logging()
         if hot_reload:
             if builder is None:
                 raise ValueError("hot_reload=True requires a callback builder")
@@ -246,6 +250,7 @@ class SettaListener:
 
     def start_with_hot_reload(self, reloader: "ListenerHotReloader") -> None:
         """Run the listener with automatic hot reload support."""
+        self._ensure_logging()
         if reloader.listener is not self:
             raise ValueError("ListenerHotReloader is bound to a different listener")
         if self._stop_event.is_set():
@@ -296,6 +301,12 @@ class SettaListener:
     def stop(self) -> None:
         """Signal the connection loop to exit."""
         self._stop_event.set()
+
+    def _ensure_logging(self) -> None:
+        if self._logging_configured:
+            return
+        configure_listener_logging()
+        self._logging_configured = True
 
     async def _connect_once(self) -> None:
         """Open the websocket once and process messages until it closes."""

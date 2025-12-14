@@ -28,10 +28,8 @@ Improvement Plan
 ----------------
 
 1. **Centralized logging bootstrap**
-   * ~~Create a module (e.g., `setta.logging_config`) that exports `configure_logging(default_level="INFO")`. This module sets up `dictConfig` with uniform formatters, handlers for stdout/file, and consistent wiring for uvicorn/fastapi loggers. Respect CLI flags, a `SETTA_LOG_LEVEL` environment variable, and allow programmatic overrides.~~
-   * ~~Update `backend/setta/start.py`, `backend/setta/backend_launcher.py`, CLI tests, and any external entry points to call this helper exactly once. Ensure importing the module has no side effects so library users can opt in.~~
-   * **Progress:** built `setta.logging_config` with `configure_logging` + `configure_listener_logging` so backends and listeners can share a dictConfig-driven bootstrap with env overrides and optional file handlers. Next, wire every entry point (`backend_launcher`, CLI, MCP client, listener start) to call these helpers so no legacy `logging.basicConfig` paths remain.
-   * Mirror the bootstrap inside `setta.api.listener`: expose a helper that listener scripts can call (or that `SettaListener.start*` can invoke by default) to establish the same formatter, levels, and env-var overrides, with options for stdout-only vs file logging so standalone scripts have sane defaults without custom plumbing.
+   * **Completed:** built `setta.logging_config` / `configure_listener_logging`, wired the CLI, backend launcher, MCP client, and `SettaListener` runtime (plus manual listener scripts) to these helpers, and removed every `logging.basicConfig` path so uvicorn no longer reconfigures logging.
+   * **Next:** with the bootstrap unified, focus on context propagation + structured error handling so the new log stream is actually useful (steps 2–4 below).
 2. **Context-aware log records**
    * Introduce a lightweight context manager or middleware that attaches `request_id`, `projectConfigId`, `websocket_id`, or similar metadata via `contextvars`/`logging.LoggerAdapter`. Add FastAPI middleware to populate context per request and wrap websocket routes plus project-state queue tasks to set relevant IDs. This keeps logs readable when multiple projects/clients operate concurrently.
 3. **Structured error handling utilities**

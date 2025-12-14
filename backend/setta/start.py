@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import click
 import uvicorn
 
 from . import __version__
+from .logging_config import configure_logging
 from .utils.constants import IS_DEV_MODE, C
 from .websockets.connect import connect as _connect
 
@@ -55,8 +57,8 @@ def export_db(readable, readable_with_variants):
     type=click.Choice(
         ["critical", "error", "warning", "info", "debug"], case_sensitive=False
     ),
-    default="critical",
-    help="Set the logging level",
+    default=None,
+    help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
 )
 @click.option(
     "--open-browser/--no-open-browser",
@@ -65,6 +67,8 @@ def export_db(readable, readable_with_variants):
 )
 @click.pass_context
 def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
+    resolved_log_level = configure_logging(level_override=log_level)
+    uvicorn_log_level = logging.getLevelName(resolved_log_level)
     if ctx.invoked_subcommand is None:
         print("Starting Setta", flush=True)
 
@@ -78,7 +82,8 @@ def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
             "server:app",
             host=host,
             port=port,
-            log_level=log_level,
+            log_level=uvicorn_log_level,
+            log_config=None,
             reload=reload,
             timeout_graceful_shutdown=1,
         )

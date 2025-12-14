@@ -15,12 +15,10 @@ if ROOT_PATH not in sys.path:
     sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, BACKEND_PATH)
 
-import logging
-
 from setta.api import SettaListener
 from setta.types.artifact import ImageArtifact
+from setta.logging_config import configure_listener_logging
 
-logging.basicConfig(level=logging.DEBUG)
 
 
 def _load_pillow_modules():
@@ -74,6 +72,7 @@ def _build_listener(project_name: str) -> SettaListener:
 
 
 def main() -> None:
+    configure_listener_logging(level_override="DEBUG")
     listener = _build_listener(_default_project_name())
     listener.start()
 
