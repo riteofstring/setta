@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from setta.types.dependency_key import create_dep_key
