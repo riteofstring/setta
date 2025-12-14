@@ -71,10 +71,10 @@ async def route_set_llm_api_keys(
     except Exception as exc:
         await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
-            payload,
             label="set-llm-api-keys",
             message="Error saving LLM API keys",
             severity=SettaBackendLogEventSeverity.error,
+            context={"api_keys_count": len(payload.apiKeys)},
         )
         raise HTTPException(
             status_code=500, detail="Failed to save LLM API keys"

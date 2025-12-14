@@ -35,7 +35,12 @@ def log_route_failure(
     message_template = _HANDLED_FAILURE_MESSAGE if handled else _DEFAULT_FAILURE_MESSAGE
 
     with logging_context(values=context, **context_values):
-        log.log(level, message_template, label, exc_info=exc)
+        log.log(
+            level,
+            message_template,
+            label,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
 
 
 async def run_safely(

@@ -111,6 +111,7 @@ class SettaFastAPIState:
             label="backend-initialization",
             request_id="boot",
             extra_values={"phase": "app-startup"},
+            re_raise=True,
             loop=loop,
         )
 
@@ -243,6 +244,7 @@ class SettaFastAPIState:
             raise
 
     async def wait_until_ready(self) -> None:
+        await self._initialization_task
         await self._ready_event.wait()
 
     async def _maybe_delay(self) -> None:

@@ -8,7 +8,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from setta.logging.context import logging_context
-from setta.logging.context_sources import build_request_context
+from setta.logging.context_sources import build_request_context, ensure_request_context
 
 
 class LoggingContextMiddleware(BaseHTTPMiddleware):
@@ -24,7 +24,14 @@ class LoggingContextMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         """Attach request-scoped metadata to the logging context."""
 
-        context_values = build_request_context(request)
+        context_values = {
+            "request_id": ensure_request_context(request),
+            "method": request.method.upper(),
+            "path": request.url.path,
+        }
+        client_host = request.client.host if request.client else None
+        if client_host:
+            context_values["client"] = client_host
         with logging_context(values=context_values):
             return await call_next(request)
 
@@ -34,5 +41,11 @@ async def bind_request_logging_context(
 ) -> AsyncIterator[None]:
     """FastAPI dependency that binds request metadata to the logging context."""
 
-    with logging_context(values=build_request_context(request)):
+    full_context = build_request_context(request)
+    context_values = {
+        key: full_context[key]
+        for key in ("endpoint", "project_id")
+        if key in full_context
+    }
+    with logging_context(values=context_values):
         yield

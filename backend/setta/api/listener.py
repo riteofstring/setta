@@ -28,6 +28,7 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
+from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
@@ -177,21 +178,25 @@ class SettaListener:
         self._ensure_logging()
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
-        while not self._stop_event.is_set():
-            try:
-                await self._connect_once()
-            except ConnectionRefusedError:
-                logger.warning(
-                    "Listener %s connection refused at %s",
-                    self._log_identifier,
-                    self.websocket_endpoint,
-                )
-            except ConnectionClosedError:
-                logger.debug("Listener %s websocket closed", self._log_identifier)
-            except Exception:
-                logger.exception("Unexpected error in listener connection loop")
-            if not self._stop_event.is_set():
-                await asyncio.sleep(self._reconnect_delay)
+        with logging_context(
+            listener_id=self._log_identifier,
+            listener_socket_id=self._socket_id,
+        ):
+            while not self._stop_event.is_set():
+                try:
+                    await self._connect_once()
+                except ConnectionRefusedError:
+                    logger.warning(
+                        "Listener %s connection refused at %s",
+                        self._log_identifier,
+                        self.websocket_endpoint,
+                    )
+                except ConnectionClosedError:
+                    logger.debug("Listener %s websocket closed", self._log_identifier)
+                except Exception:
+                    logger.exception("Unexpected error in listener connection loop")
+                if not self._stop_event.is_set():
+                    await asyncio.sleep(self._reconnect_delay)
 
     def start(
         self,
@@ -243,7 +248,11 @@ class SettaListener:
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
-            asyncio.run(self.run_forever())
+            with logging_context(
+                listener_id=self._log_identifier,
+                listener_socket_id=self._socket_id,
+            ):
+                asyncio.run(self.run_forever())
         except KeyboardInterrupt:
             logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
@@ -257,7 +266,11 @@ class SettaListener:
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
-            asyncio.run(self._run_with_hot_reload(reloader))
+            with logging_context(
+                listener_id=self._log_identifier,
+                listener_socket_id=self._socket_id,
+            ):
+                asyncio.run(self._run_with_hot_reload(reloader))
         except KeyboardInterrupt:
             logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
@@ -302,25 +315,29 @@ class SettaListener:
     async def _connect_once(self) -> None:
         """Open the websocket once and process messages until it closes."""
         endpoint = self.websocket_endpoint
-        logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
-        async with websockets.connect(endpoint) as websocket:
-            logger.info("Listener %s connected", self._log_identifier)
-            self._websocket = websocket
-            await self._send_bootstrap_init()
-            try:
-                async for payload in websocket:
-                    if self._stop_event.is_set():
-                        break
-                    message = self._parse_websocket_payload(payload)
-                    if message is None:
-                        continue
-                    await self._dispatch_websocket_message(message)
-            finally:
-                logger.info("Listener %s connection closed", self._log_identifier)
-                self._websocket = None
-                self._registration_pending = False
-                self._is_registered = False
-                self._expected_ack_callback_ids = set()
+        with logging_context(
+            listener_id=self._log_identifier,
+            listener_endpoint=endpoint,
+        ):
+            logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
+            async with websockets.connect(endpoint) as websocket:
+                logger.info("Listener %s connected", self._log_identifier)
+                self._websocket = websocket
+                await self._send_bootstrap_init()
+                try:
+                    async for payload in websocket:
+                        if self._stop_event.is_set():
+                            break
+                        message = self._parse_websocket_payload(payload)
+                        if message is None:
+                            continue
+                        await self._dispatch_websocket_message(message)
+                finally:
+                    logger.info("Listener %s connection closed", self._log_identifier)
+                    self._websocket = None
+                    self._registration_pending = False
+                    self._is_registered = False
+                    self._expected_ack_callback_ids = set()
 
     def _parse_websocket_payload(self, payload: str) -> Any | None:
         """Parse raw websocket payloads into typed messages."""

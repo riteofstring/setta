@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    print(f"Ready: {C.BACKEND}", flush=True)
+    logger.info("Ready: %s", C.BACKEND)
     browser_task: asyncio.Task[None] | None = None
     if C.OPEN_BROWSER_ON_START:
         C.OPEN_BROWSER_ON_START = False

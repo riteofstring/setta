@@ -70,7 +70,7 @@ def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
     if ctx.invoked_subcommand is None:
-        print("Starting Setta", flush=True)
+        logging.getLogger(__name__).info("Starting Setta")
 
         C.HOST = host
         C.PORT = port

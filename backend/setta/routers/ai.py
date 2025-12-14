@@ -58,11 +58,14 @@ async def route_get_llm_response(
     except Exception as exc:
         await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
-            x,
             label="get-llm-response",
             message="Failed to enqueue LLM request",
             severity=SettaBackendLogEventSeverity.error,
             project_config_id=x.projectConfigId,
+            context={
+                "llm_config_id": x.llmConfigId,
+                "chat_id": x.chatId,
+            },
         )
         raise HTTPException(
             status_code=500, detail="Failed to enqueue LLM request"
@@ -106,14 +109,6 @@ async def route_get_llm_chat(
 ) -> GetLLMChatRequestResponse:
     chat = state.chat_manager.get_chat(x.chatId)
     if not chat:
-        # it's possible for projectConfigId to be null
-        # if the llm chats are requested before a project is loaded to the frontend
-        if x.projectConfigId:
-            await state.wmh_frontend_sender.broadcast_backend_log_event(
-                "Chat not found!",
-                severity=SettaBackendLogEventSeverity.error,
-                project_config_id=x.projectConfigId,
-            )
         raise HTTPException(status_code=404, detail="Chat not found")
 
     waiting_for_response = state.chat_manager.is_waiting_for_response(x.chatId)

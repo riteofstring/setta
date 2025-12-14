@@ -83,10 +83,10 @@ async def route_load_project_config(
     except Exception as exc:
         await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
-            x,
             label="load-project-config",
             message="Failed to load project config",
             severity=SettaBackendLogEventSeverity.error,
+            context={"project_config_name": x.projectConfigName},
         )
         raise HTTPException(
             status_code=500, detail="Failed to load project config"
@@ -111,7 +111,6 @@ async def route_save_project(
     except Exception as exc:
         await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
-            x,
             label="save-project",
             message="Failed to save",
             severity=SettaBackendLogEventSeverity.error,
