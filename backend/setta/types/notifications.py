@@ -10,6 +10,9 @@ from setta.utils.timestamps import get_now_timestamp
 
 
 class SettaNotificationType(str, Enum):
+    error = "error"
+    warning = "warning"
+    info = "info"
     save = "save"
 
 
@@ -18,7 +21,7 @@ class SettaNotification(BaseModel):
     projectConfigId: ID = Field(
         default_factory=lambda: ID(C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
     )
-    type: SettaNotificationType
+    type: SettaNotificationType = SettaNotificationType.info
     message: str
     temporary: bool = True
     timestamp: datetime = Field(default_factory=get_now_timestamp)

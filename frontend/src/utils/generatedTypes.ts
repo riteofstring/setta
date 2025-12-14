@@ -193,7 +193,12 @@ const SettaBackendLogEventSeverityEnum = {
   info: "info",
 } as const;
 
-export const SettaNotificationTypeEnum = { save: "save" } as const;
+export const SettaNotificationTypeEnum = {
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
 
 export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
@@ -2560,7 +2565,9 @@ const SettaNotificationSchema = z.object({
   projectConfigId: IDSchema.default(
     () => "NOTIFICATION_IS_FOR_ALL_PROJECTS" as const,
   ),
-  type: z.enum(SettaNotificationTypeEnum),
+  type: z
+    .enum(SettaNotificationTypeEnum)
+    .default(SettaNotificationTypeEnum.info),
   message: z.string(),
   temporary: z.boolean().default(true),
   timestamp: z.iso.datetime().default(get_now_timestamp),
