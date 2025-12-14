@@ -1,14 +1,9 @@
-import asyncio
 import logging
 
 from fastapi import WebSocket
 from pydantic import BaseModel
 
-from setta.logging.context import get_logging_context
-from setta.logging.context_bindings import (
-    bind_websocket_logging_context,
-    wrap_background_coroutine,
-)
+from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
@@ -67,17 +62,7 @@ async def terminal_websocket_endpoint(
             did_connect = await state.terminals.connect(websocket, sectionId, id)
             if not did_connect:
                 return
-            websocket_id = get_logging_context().get("websocket_id")
-            write_task = asyncio.create_task(
-                wrap_background_coroutine(
-                    state.terminals.write_to_terminal(websocket, sectionId),
-                    label="terminal-write-loop",
-                    project_id=projectConfigId,
-                    websocket_id=websocket_id,
-                    extra_values=extra_values,
-                )
-            )
-            await write_task
+            await state.terminals.write_to_terminal(websocket, sectionId)
         except Exception as exc:
             await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
                 exc,

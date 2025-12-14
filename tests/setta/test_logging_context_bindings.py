@@ -6,10 +6,8 @@ from setta.logging.context import (
     get_logging_context,
     reset_logging_context,
 )
-from setta.logging.context_bindings import (
-    bind_websocket_logging_context,
-    wrap_background_coroutine,
-)
+from setta.logging.context_bindings import bind_websocket_logging_context
+from setta.logging.tasks import spawn_background_task
 from starlette.types import Scope
 from starlette.websockets import WebSocket
 
@@ -35,16 +33,16 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(context["project_id"], "alpha")
             self.assertEqual(context["path"], "/api/ws/frontend")
 
-    async def test_wrap_background_coroutine_sets_context(self) -> None:
+    async def test_spawn_background_task_sets_context(self) -> None:
         async def _coro() -> str:
             return get_logging_context()["task"]
 
-        wrapped = wrap_background_coroutine(
+        task = spawn_background_task(
             _coro(),
             label="manual-task",
             request_id="req-123",
         )
-        result = await wrapped
+        result = await task
         self.assertEqual(result, "manual-task")
 
 

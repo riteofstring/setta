@@ -26,7 +26,9 @@ Progress Update (Refactor Work)
     - Updated `log_route_failure(...)` to accept explicit `context={...}` only (backend/setta/logging/errors.py) and updated callers/tests accordingly.
 - Fixed missing bound metadata in LSP request helpers by binding request context in `LanguageServerWriter.send_and_wait(...)` (backend/setta/lsp/writer.py).
 - Cleaned up additional Ruff items called out in this doc (backend/setta/project_state/lsp_response_handlers/completion.py, backend/setta/project_state/project_code.py, backend/setta/project_state/settings_project_manager.py, backend/setta/routers/terminals.py, backend/setta/types/helpers_lvl3.py, backend/setta/utils/generate_new_filename.py).
-- Validation: `python -m compileall backend/setta -q` and `python -m unittest tests/setta/test_logging_*.py` (after `source activate.sh`).
+- Migrated the remaining `asyncio.create_task(wrap_background_coroutine(...))` call sites to `spawn_background_task(...)` and deleted `wrap_background_coroutine(...)` entirely (backend/setta/logging/context_bindings.py, backend/setta/logging/tasks.py, plus call sites in server startup, initialization, and project state queue processing).
+- Converted the LSP reader loop from string-only logging to structured failure logging by running it under `spawn_background_task(...)` and letting failures surface to `run_safely(...)` (backend/setta/lsp/reader.py).
+- Validation: `python -m compileall backend/setta -q` and `PYTHONPATH=backend python -m unittest tests/setta/test_logging_*.py` (after `source activate.sh`).
 
 What’s Already Well Thought Out
 
@@ -40,7 +42,7 @@ Where Error Handling Breaks Down (High Impact)
 - Unhandled background-task exceptions are easy to lose:
     - ✅ File watcher callbacks are now spawned via `spawn_background_task(...)` so exceptions are logged with context (backend/setta/file_watchers/specific_file_watcher.py).
     - ✅ JSON source reload tasks are now spawned via `spawn_background_task(...)` so exceptions are logged with context (backend/setta/project_state/jsonSource/jsonSource.py).
-    - ✅ Most “create_task + wrap_background_coroutine” call sites that were effectively fire-and-forget have been moved to `spawn_background_task(...)` (e.g. MCP/LSP startup).
+    - ✅ All former “create_task + wrap_background_coroutine” call sites have been moved to `spawn_background_task(...)`, and `wrap_background_coroutine(...)` has been deleted.
 - ✅ `spawn_background_task(...)` ensures the failure handler (`run_safely(...)`) executes inside the bound context, so contextvars metadata is preserved even when exceptions are swallowed.
 - ✅ Duplicate stack traces were likely in routes that called log_route_failure(...) and then raised an HTTPException; those routes now use `log_failure_and_broadcast_backend_log_event(...)` so the global
 exception handler sees `backend_log_event_emitted=true` and exits early (backend/setta/routers/ai.py, backend/setta/routers/projects.py).
@@ -58,10 +60,10 @@ Concrete Cleanup Candidates (Ruff-Found)
     - ✅ backend/setta/project_state/project_code.py (renamed unused args in stub + updated completion handler call)
     - ✅ backend/setta/project_state/settings_project_manager.py (renamed unused arg + avoided Iterable type)
     - ✅ backend/setta/routers/terminals.py (removed unused `terminal_id`)
-    - backend/setta/server.py:71 (FastAPI catch-all full_path unused; rename to _full_path to document intent)
+    - ✅ backend/setta/server.py:71 (FastAPI catch-all full_path unused; renamed to _full_path to document intent)
     - ✅ backend/setta/types/helpers_lvl3.py (removed unused `section_id` param)
     - ✅ backend/setta/utils/generate_new_filename.py (renamed unused `match` param)
-    - backend/setta/websockets/msg_handlers/frontend_receiver.py:45 (websocket_id unused; rename to _websocket_id)
+    - ✅ backend/setta/websockets/msg_handlers/frontend_receiver.py:45 (websocket_id unused; renamed to _websocket_id)
 
 Recommended Next Steps (Prioritized)
 

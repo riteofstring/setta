@@ -5,8 +5,8 @@ import logging
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 
-from setta.logging.context import LoggingContextInput
-from setta.logging.context_bindings import wrap_background_coroutine
+from setta.logging.context import LoggingContextInput, logging_context
+from setta.logging.context_sources import build_background_task_context
 from setta.logging.errors import run_safely
 
 T = TypeVar("T")
@@ -32,14 +32,7 @@ def spawn_background_task(
     preserved even when exceptions are swallowed.
     """
 
-    wrapped = wrap_background_coroutine(
-        run_safely(
-            coro,
-            label=label,
-            logger=logger,
-            context=context,
-            re_raise=re_raise,
-        ),
+    context_values = build_background_task_context(
         label=label,
         project_id=project_id,
         request_id=request_id,
@@ -47,7 +40,17 @@ def spawn_background_task(
         extra_values=extra_values,
     )
 
+    async def _runner() -> T | None:
+        with logging_context(values=context_values):
+            return await run_safely(
+                coro,
+                label=label,
+                logger=logger,
+                context=context,
+                re_raise=re_raise,
+            )
+
     task_name = name or label
     if loop is not None:
-        return loop.create_task(wrapped, name=task_name)
-    return asyncio.create_task(wrapped, name=task_name)
+        return loop.create_task(_runner(), name=task_name)
+    return asyncio.create_task(_runner(), name=task_name)

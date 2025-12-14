@@ -10,7 +10,6 @@ from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.logging.context_bindings import wrap_background_coroutine
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
@@ -107,13 +106,12 @@ class SettaFastAPIState:
         self._ready_event: asyncio.Event = asyncio.Event()
 
         loop = asyncio.get_running_loop()
-        self._initialization_task = loop.create_task(
-            wrap_background_coroutine(
-                self._initialize_async(app),
-                label="backend-initialization",
-                request_id="boot",
-                extra_values={"phase": "app-startup"},
-            )
+        self._initialization_task = spawn_background_task(
+            self._initialize_async(app),
+            label="backend-initialization",
+            request_id="boot",
+            extra_values={"phase": "app-startup"},
+            loop=loop,
         )
 
     async def _initialize_async(self, app):

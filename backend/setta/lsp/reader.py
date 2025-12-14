@@ -5,7 +5,6 @@ import logging
 from lsprotocol import converters as LSPConverters
 from lsprotocol import types as LSPTypes
 
-from setta.logging.context_bindings import wrap_background_coroutine
 from setta.logging.tasks import spawn_background_task
 
 from .server import LanguageServer, LanguageServerInteractor
@@ -25,12 +24,10 @@ class LanguageServerReader(LanguageServerInteractor):
     async def start(self):
         logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
-        self.reader_task = asyncio.create_task(
-            wrap_background_coroutine(
-                self.read_response(),
-                label=f"lsp-reader-{self.server.name}",
-                extra_values={"lsp_server": self.server.name},
-            )
+        self.reader_task = spawn_background_task(
+            self.read_response(),
+            label=f"lsp-reader-{self.server.name}",
+            extra_values={"lsp_server": self.server.name},
         )
         await self.started.wait()
 
@@ -48,12 +45,7 @@ class LanguageServerReader(LanguageServerInteractor):
     async def read_response(self):
         self.started.set()
         while not self.stop_event.is_set():
-            try:
-                await self.read_and_process_message()
-            except Exception as e:
-                logger.error(f"Error reading from language server: {e}")
-                # Optional: add a small delay to prevent tight loop if there's a persistent error
-                await asyncio.sleep(0.1)
+            await self.read_and_process_message()
 
     async def read_and_process_message(self):
         try:

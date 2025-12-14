@@ -36,6 +36,7 @@ Improvement Plan
 3. **Adopt `spawn_background_task` / `run_safely` across the remaining subsystems.**
    - Done: The global FastAPI exception handler logs and emits backend log events for all HTTP failures (4xx + 5xx, including validation errors).
    - Done: Websocket route loops (frontend/CLI/python-script) log and emit backend log events for uncaught exceptions; terminal websocket does the same.
+   - Done: Removed `wrap_background_coroutine(...)`; `spawn_background_task(...)` is now the only supported “spawn + bind context + log failures” helper.
    - Replace remaining ad-hoc `try/except Exception: logger.exception(...)` and raw `asyncio.create_task(...)` call sites with `spawn_background_task(...)` so failures are logged with a consistent `failure_label` and the correct context metadata.
    - When a failure should also reach the UI, rely on `WMHFrontendSender.log_failure_and_broadcast_backend_log_event(...)` instead of duplicating logging + websocket broadcasting.
 

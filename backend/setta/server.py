@@ -16,8 +16,8 @@ from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
 from setta.logging.context import get_logging_context
-from setta.logging.context_bindings import wrap_background_coroutine
 from setta.logging.errors import log_route_failure
+from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,
@@ -77,12 +77,10 @@ async def lifespan(app: FastAPI):
     browser_task: asyncio.Task[None] | None = None
     if C.OPEN_BROWSER_ON_START:
         C.OPEN_BROWSER_ON_START = False
-        browser_task = asyncio.create_task(
-            wrap_background_coroutine(
-                _open_browser_after_startup(C.BACKEND),
-                label="open-browser",
-                extra_values={"backend_url": C.BACKEND},
-            )
+        browser_task = spawn_background_task(
+            _open_browser_after_startup(C.BACKEND),
+            label="open-browser",
+            extra_values={"backend_url": C.BACKEND},
         )
     try:
         yield
