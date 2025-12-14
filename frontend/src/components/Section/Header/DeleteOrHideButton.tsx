@@ -1,4 +1,3 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
   getCurrEffectiveSectionImpl,
@@ -38,17 +37,35 @@ export function DeleteOrHideButton({
     // });
   };
 
+  const {
+    icon,
+    children,
+    twClasses,
+    size,
+    padding,
+    bg,
+    color,
+    rounded,
+    grid,
+    onClick: onClickOverride,
+    ...buttonProps
+  } = props;
+
   return (
-    <IconButton
-      icon={getIcon(viewingEditingMode, visibility)}
-      color="text-setta-600 hover:text-white"
-      bg="bg-transparent hover:bg-red-500"
-      size="min-w-4 h-4"
-      padding="p-0"
-      // twClasses={twClasses}
-      onClick={onClick}
-      {...props}
-    />
+    <button
+      className={`focus-visible:ring-2 ${
+        grid ? "grid place-items-center" : "inline-flex items-center"
+      } nodrag cursor-pointer flex justify-center ${
+        bg ?? "bg-transparent hover:bg-red-500"
+      } ${color ?? "text-setta-600 hover:text-white"} ${
+        rounded ?? "rounded-full"
+      } ${padding ?? "p-0"} ${size ?? "min-w-4 h-4"} ${twClasses ?? ""}`}
+      {...buttonProps}
+      onClick={onClickOverride ?? onClick}
+    >
+      {icon ?? getIcon(viewingEditingMode, visibility)}
+      {children}
+    </button>
   );
   // return <button onClick={onClick} className="gg-close" />;
 }
