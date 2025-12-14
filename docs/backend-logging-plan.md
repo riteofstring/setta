@@ -33,7 +33,8 @@ Improvement Plan
 2. **Context-aware log records**
    * **In progress:** created `backend/setta/logging_context.py` to manage contextvars, added `LoggingContextFilter` plus formatter changes so every handler renders a `setta_context` column, and added `tests/setta/test_logging_context.py` to lock down the behavior.
    * **In progress:** added `backend/setta/logging_context_sources.py` (with tests) to build canonical context blobs for HTTP requests, websocket connections, background tasks, and introduced `ProjectContextModel` so every request payload can expose `get_project_config_id_for_context()` for zero-overhead context binding.
-   * **Next:** Add FastAPI middleware to populate request + project IDs, wrap websocket handlers/background tasks with `logging_context(...)`, and start deleting legacy `logger = logging.getLogger(__name__)` definitions in favor of the new helper accessors.
+   * **Completed:** wired `LoggingContextMiddleware` + `bind_request_logging_context` (FastAPI dependency) so every HTTP request now pushes `request_id`, endpoint, path params, etc. into the context, and added `tests/setta/test_logging_context_middleware.py` to exercise the flow end-to-end.
+   * **Next:** extend the same context binding to websocket handlers/background tasks via decorators/helpers, then start deleting legacy `logger = logging.getLogger(__name__)` definitions in favor of the centralized helpers.
 3. **Structured error handling utilities**
    * Provide helper functions for routes/background tasks, such as `log_route_failure(exc, *, context)` and `run_safely(coro, label, notify_frontend=False)`, that emit `logger.error` with context, differentiate between handled/unhandled paths, and optionally propagate user-visible notifications.
    * Replace `print`/bare `except` blocks in routers (`projects.py`, `ai.py`, `terminals.py`), websocket loops, and terminal I/O with these helpers. Escalate unexpected failures to `warning`/`error` instead of `debug`.

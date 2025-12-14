@@ -8,13 +8,17 @@ from typing import Literal
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
+from setta.middleware import (
+    LoggingContextMiddleware,
+    bind_request_logging_context,
+)
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,
@@ -85,11 +89,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
+    dependencies=[Depends(bind_request_logging_context)],
     openapi_url=f"{Route.PREFIX.value}{Route.OPENAPI_DOCS.value}",
     docs_url=f"{Route.PREFIX.value}{Route.SWAGGER_DOCS.value}",
     redoc_url=f"{Route.PREFIX.value}{Route.REDOC_DOCS.value}",
 )
 
+app.add_middleware(LoggingContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
