@@ -130,7 +130,7 @@ class SettaListener:
         reconnect_delay: float = 5.0,
     ) -> None:
         self._project_name = project_name
-        self._project_id: "ID | None" = None
+        self._project_config_id: "ID | None" = None
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
@@ -152,10 +152,10 @@ class SettaListener:
 
     @property
     def _log_identifier(self) -> str:
-        return self._project_id or f"name:{self._project_name}"
+        return self._project_config_id or f"name:{self._project_name}"
 
     def _require_project_id(self):
-        project_config_id = self._project_id
+        project_config_id = self._project_config_id
         if project_config_id is None:
             raise RuntimeError(
                 "Listener project config id is not yet available; wait for bootstrap to complete"
@@ -378,9 +378,9 @@ class SettaListener:
     def _handle_register_ack(self, message: WebsocketMsgListenerRegisterAck) -> None:
         """Handle ListenerRegisterAck responses from the server."""
         received_project_id = message.content.projectConfigId
-        if self._project_id is None:
-            self._project_id = received_project_id
-        elif received_project_id != self._project_id:
+        if self._project_config_id is None:
+            self._project_config_id = received_project_id
+        elif received_project_id != self._project_config_id:
             logger.warning(
                 "Listener %s received register ack for unexpected project %s",
                 self._log_identifier,
@@ -598,7 +598,7 @@ class SettaListener:
     async def _send_bootstrap_init(self) -> None:
         """Send an initial bootstrap handshake to identify the target project."""
         content = ListenerInitContent(
-            projectConfigId=self._project_id,
+            projectConfigId=self._project_config_id,
             projectName=self._project_name,
         )
         message = WebsocketMsgListenerInit(content=content)
@@ -664,16 +664,16 @@ class SettaListener:
     ) -> None:
         self._last_realtime_sequence = None
         incoming_project_id = project_state.projectConfig.id
-        if self._project_id is None:
-            self._project_id = incoming_project_id
-        elif incoming_project_id != self._project_id:
+        if self._project_config_id is None:
+            self._project_config_id = incoming_project_id
+        elif incoming_project_id != self._project_config_id:
             logger.warning(
                 "Listener %s received %s snapshot for unexpected project %s",
                 self._log_identifier,
                 refresh_kind,
                 incoming_project_id,
             )
-            self._project_id = incoming_project_id
+            self._project_config_id = incoming_project_id
 
         try:
             runtime_state = self._build_runtime_state(project_state)
@@ -859,7 +859,7 @@ class SettaListener:
         self, content: ListenerRealtimeEventContent
     ) -> None:
         """Apply realtime deltas and invoke interested callbacks."""
-        project_config_id = self._project_id
+        project_config_id = self._project_config_id
         if (
             project_config_id is not None
             and content.projectConfigId != project_config_id
