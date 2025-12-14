@@ -28,7 +28,6 @@ frontend_sender.py:61).
 
 Dead Code / Cleanup Opportunities
 
-- Duplicate keys in _PROJECT_PARAM_KEYS (backend/setta/logging/context_sources.py:14).
 - build_request_context(..., project_config_id=...) exists but isn’t used anywhere (all call sites pass only request) (backend/setta/logging/context_sources.py:34).
 - The bind_websocket_logging_context helper is used, but the optional websocket_id=... argument is currently unused by call sites (they rely on ensure_websocket_context(...) to auto-generate a ws-... id) (backend/setta/logging/context_bindings.py:19).
 

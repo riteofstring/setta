@@ -2,7 +2,6 @@
 
 import uuid
 from collections.abc import Mapping
-from typing import Any
 
 from fastapi import Request, WebSocket
 
@@ -10,14 +9,6 @@ from setta.logging.context import LoggingContextInput
 
 _REQUEST_ID_STATE_KEY = "setta_request_id"
 _WEBSOCKET_ID_STATE_KEY = "setta_websocket_id"
-
-_PROJECT_PARAM_KEYS: tuple[str, ...] = (
-    "project_config_id",
-    "projectConfigId",
-    "project",
-    "project_config_id",
-    "projectConfigId",
-)
 
 LoggingContextMapping = Mapping[str, LoggingContextInput]
 
@@ -79,9 +70,7 @@ def build_websocket_context(
     """Return canonical logging metadata for a websocket connection."""
 
     resolved_websocket_id = ensure_websocket_context(websocket, websocket_id)
-    resolved_project_id = project_config_id or _infer_project_id_from_websocket(
-        websocket
-    )
+    resolved_project_id = project_config_id
     context: dict[str, LoggingContextInput] = {
         "websocket_id": resolved_websocket_id,
         "path": websocket.url.path,
@@ -129,38 +118,6 @@ def build_background_task_context(
         context["websocket_id"] = websocket_id
     _merge_extra_values(context, extra_values)
     return context
-
-
-def _infer_project_id_from_websocket(websocket: WebSocket) -> str | None:
-    candidate = _search_mapping(websocket.path_params, _PROJECT_PARAM_KEYS)
-    if candidate:
-        return candidate
-    query_params = websocket.query_params
-    if query_params:
-        candidate = _search_mapping(query_params, _PROJECT_PARAM_KEYS)
-        if candidate:
-            return candidate
-    return None
-
-
-def _search_mapping(mapping: Mapping[str, object], keys: tuple[str, ...]) -> str | None:
-    for key in keys:
-        if key not in mapping:
-            continue
-        value = mapping[key]
-        normalized = _normalize_value(value)
-        if normalized:
-            return normalized
-    return None
-
-
-def _normalize_value(value: Any) -> str | None:
-    if value is None:
-        return None
-    normalized = str(value).strip()
-    if not normalized:
-        return None
-    return normalized
 
 
 def _resolve_endpoint_name(request: Request) -> str | None:

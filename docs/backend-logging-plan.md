@@ -46,7 +46,8 @@ Where context comes from
   - If an endpoint is decorated with `@require_project_context(...)` (or the router is created with `require_project_context_by_default=True`), the route reads the request JSON body and pushes `project_config_id` into the logging context.
   - Missing/`null` project ids raise `KeyError` (hard failure by design).
 - WebSockets
-  - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, optional `client`, inferred `project_config_id`, plus caller-provided `extra_values` (`backend/setta/logging/context_bindings.py`).
+  - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, optional `client`, plus caller-provided `project_config_id` / `extra_values` (`backend/setta/logging/context_bindings.py`).
+  - There is no heuristic extraction of `project_config_id` from websocket URL params or query params; callers must pass it explicitly when they want it in logs/UI error events.
   - The main websocket loop adds the websocket-manager id as `connection_id` after `on_connect` (`backend/setta/routers/websocket.py`).
 - Background tasks
   - `spawn_background_task(...)` binds `task` plus optional `project_config_id` / `request_id` / `websocket_id` (`backend/setta/logging/tasks.py`).
