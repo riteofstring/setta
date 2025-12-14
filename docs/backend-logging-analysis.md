@@ -10,12 +10,6 @@ logging/context.py:88).
 
 Main Gaps / Risks
 
-- UI log events are used for very chatty “operational” updates (especially file watcher activity). Examples:
-    - Artifact watcher emits an event per file event (backend/setta/project_state/artifacts.py:161).
-    - JSON source watcher emits per update (backend/setta/project_state/jsonSource/jsonSource.py:185).
-    This can flood websocket traffic and push out genuinely important errors (frontend caps events). This should probably be configurable too (e.g., opt-in “operational noise” events, rate limiting, or mapping these to
-DEBUG-only UI events) rather than hard-coding them to be quieter. Severity thresholding helps, but it’s still easy to accidentally enable a firehose if the UI log level is set to INFO/DEBUG.
-- TODO: Add a helper for “log + broadcast” non-exception events (e.g. `log_and_broadcast_backend_log_event(...)`) so every `broadcast_backend_log_event(...)` also writes to backend logs; the frontend BackendLogEventArea should be a subset of backend logs.
 - handled semantics in background tasks are a bit inverted: today “handled” is effectively being used as “exception was swallowed”, not “expected/acceptable failure”. The default path is:
     - spawn_background_task(..., re_raise=False) (default) wraps run_safely(..., re_raise=re_raise) (backend/setta/logging/tasks.py:15).
     - run_safely logs failures with handled=not re_raise (backend/setta/logging/errors.py:46).
@@ -32,6 +26,9 @@ exception was never retrieved” (backend/setta/logging/errors.py:46).
 remain WARNING without the traceback; 422 is considered a server bug and remains ERROR + traceback (backend/setta/server.py:174).
 - Frontend “Backend Logs” broadcasting respects a severity threshold: events below SETTA_UI_LOG_LEVEL are dropped (defaulting to the effective root logger level, i.e. SETTA_LOG_LEVEL) (backend/setta/websockets/msg_handlers/
 frontend_sender.py:61).
+- Watcher noise no longer floods the UI: artifacts + jsonSource watcher activity is backend-only DEBUG logging (backend/setta/project_state/artifacts.py:165, backend/setta/project_state/jsonSource/jsonSource.py:189).
+- Added a helper for “log + broadcast” non-exception events: `log_and_broadcast_backend_log_event(...)`, and migrated call sites so the frontend BackendLogEventArea is a subset of backend logs (backend/setta/websockets/msg_handlers/frontend_sender.py:103).
+- UI log events are no longer used for “operational telemetry” (watchers/per-file updates); those are backend DEBUG logs now, and UI events are reserved for user-relevant status + warnings/errors.
 
 Dead Code / Cleanup Opportunities
 
@@ -42,4 +39,4 @@ Dead Code / Cleanup Opportunities
 Overall Assessment
 
 - The logging architecture is generally well thought out and performant for its intended use (precomputed context string + minimal per-record overhead).
-- The biggest remaining practical issue is high-volume UI log event spam from watchers (especially if SETTA_UI_LOG_LEVEL is set to INFO/DEBUG).
+- The biggest remaining practical issues are background task handled semantics and unescaped spaces in the context string.

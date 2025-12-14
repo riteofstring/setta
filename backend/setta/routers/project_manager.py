@@ -200,7 +200,7 @@ async def route_create_new_section_variant(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_new_section_variant(x)
-    await state.wmh_frontend_sender.broadcast_backend_log_event(
+    await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "New Variant Created",
         project_config_id=x.projectConfigId,
     )

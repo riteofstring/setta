@@ -3,7 +3,7 @@ import os
 from collections.abc import Mapping
 from typing import Literal
 
-from setta.logging.context import LoggingContextInput
+from setta.logging.context import LoggingContextInput, logging_context
 from setta.logging.errors import log_failure
 from setta.logging.levels import parse_log_level
 from setta.project_state.project_manager_types import (
@@ -100,6 +100,38 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
+    async def log_and_broadcast_backend_log_event(
+        self,
+        message: str,
+        *,
+        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info,
+        project_config_id: ID | None = None,
+        logger: logging.Logger | None = None,
+        context: Mapping[str, LoggingContextInput] | None = None,
+    ) -> None:
+        """Log a backend message and surface it to the UI."""
+
+        event_level = _SEVERITY_TO_LOG_LEVEL.get(severity, logging.INFO)
+        backend_logger = logger or logging.getLogger(__name__)
+
+        context_values: dict[str, LoggingContextInput] = {}
+        if project_config_id is not None:
+            context_values["project_config_id"] = str(project_config_id)
+        if context:
+            context_values.update(context)
+
+        if context_values:
+            with logging_context(values=context_values):
+                backend_logger.log(event_level, message)
+        else:
+            backend_logger.log(event_level, message)
+
+        await self.broadcast_backend_log_event(
+            message,
+            severity=severity,
+            project_config_id=project_config_id,
+        )
+
     async def log_failure_and_broadcast_backend_log_event(
         self,
         exc: BaseException,
@@ -120,10 +152,12 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             handled=handled,
             context=context,
         )
-        await self.broadcast_backend_log_event(
+        await self.log_and_broadcast_backend_log_event(
             message,
             severity=severity,
             project_config_id=project_config_id,
+            logger=logger,
+            context=context,
         )
 
     async def broadcast_artifacts_update(

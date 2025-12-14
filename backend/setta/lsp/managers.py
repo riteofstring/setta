@@ -40,7 +40,7 @@ class LSPReaders:
 
         def initialization_callback():
             spawn_background_task(
-                websocket_msg_handler.broadcast_backend_log_event(
+                websocket_msg_handler.log_and_broadcast_backend_log_event(
                     "Language Server Started"
                 ),
                 label="lsp-init-notification",

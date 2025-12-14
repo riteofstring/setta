@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +45,8 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateCore
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -182,8 +185,10 @@ class JSONSource:
 
             if len(sectionVariantsToLoad) > 0:
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
-                await self.websocket_msg_handler.broadcast_backend_log_event(
-                    f"{coreUpdate.relPath} {coreUpdate.eventType.value}"
+                logger.debug(
+                    "JSON source update: %s %s",
+                    coreUpdate.relPath,
+                    coreUpdate.eventType.value,
                 )
 
         return fn

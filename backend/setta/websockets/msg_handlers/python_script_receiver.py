@@ -100,7 +100,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             details=details,
             project_config_id=project_config_id,
         )
-        await self.frontend_sender.broadcast_backend_log_event(
+        await self.frontend_sender.log_and_broadcast_backend_log_event(
             message,
             severity=severity,
             project_config_id=project_config_id,

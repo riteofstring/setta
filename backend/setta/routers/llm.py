@@ -62,7 +62,7 @@ async def route_set_llm_api_keys(
         if mutated:
             state.dbe.write_dot_env(env_vars)
             state.dbe.reload_dot_env()
-        await state.wmh_frontend_sender.broadcast_backend_log_event(
+        await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
             "Saved LLM API keys",
             severity=SettaBackendLogEventSeverity.info,
         )

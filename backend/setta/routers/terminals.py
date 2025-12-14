@@ -98,7 +98,7 @@ async def route_kill_subprocesses(
         if num_killed > 0
         else "No subprocesses to kill"
     )
-    await state.wmh_frontend_sender.broadcast_backend_log_event(
+    await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         msg,
         project_config_id=x.projectConfigId,
     )
@@ -119,7 +119,7 @@ async def route_run_code(
         state.wmh_cli_sender,
     )
 
-    await state.wmh_frontend_sender.broadcast_backend_log_event(
+    await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "Started command",
         project_config_id=x.projectConfigId,
         severity=SettaBackendLogEventSeverity.info,

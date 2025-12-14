@@ -1126,13 +1126,13 @@ class BaseProjectManager(ABC):
             Path(x.filepath).unlink()
             success = True
         except FileNotFoundError:
-            await self.websocket_msg_handler.broadcast_backend_log_event(
+            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 f"File '{x.filepath}' not found",
                 severity=SettaBackendLogEventSeverity.error,
                 project_config_id=x.projectConfigId,
             )
         except OSError as exc:
-            await self.websocket_msg_handler.broadcast_backend_log_event(
+            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 f"Failed to delete file: {exc}",
                 severity=SettaBackendLogEventSeverity.error,
                 project_config_id=x.projectConfigId,
@@ -1140,7 +1140,7 @@ class BaseProjectManager(ABC):
         if success:
             delete_section_variant(project_state, x.sectionId, x.variantId)
             await self.update_and_broadcast_project_state(project_state)
-            await self.websocket_msg_handler.broadcast_backend_log_event(
+            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Variant and file deleted",
                 project_config_id=x.projectConfigId,
             )
@@ -1310,7 +1310,7 @@ class BaseProjectManager(ABC):
             self.settings_file.settings, project_state, x.sectionIds
         )
         if not success:
-            await self.websocket_msg_handler.broadcast_backend_log_event(
+            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Cannot group sections from different parents",
                 severity=SettaBackendLogEventSeverity.error,
                 project_config_id=x.projectConfigId,

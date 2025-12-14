@@ -52,7 +52,7 @@ class DotEnvWatcher:
             env_vars = self.dbe.read_dot_env()
         except Exception as exc:  # pragma: no cover - defensive log
             logger.exception("Failed to reload .env", exc_info=exc)
-            await self.websocket_msg_handler.broadcast_backend_log_event(
+            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Failed to reload API keys; keeping previous values",
                 severity=SettaBackendLogEventSeverity.error,
             )

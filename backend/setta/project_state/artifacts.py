@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -40,6 +41,8 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateBackend
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -158,8 +161,10 @@ class Artifacts:
                 await self.websocket_msg_handler.broadcast_artifacts_update(
                     artifacts=artifacts, updateType="update"
                 )
-            await self.websocket_msg_handler.broadcast_backend_log_event(
-                f"{normalized_path} {coreUpdate.eventType.value}"
+            logger.debug(
+                "Artifact update: %s %s",
+                normalized_path,
+                coreUpdate.eventType.value,
             )
             # TODO: do something with conflict_infos. Let's figure this out later.
 
@@ -504,7 +509,7 @@ class Artifacts:
                 message = f"Detected conflicting changes while saving {result.id}."
                 if result.backupPath:
                     message += f" Local version stored at {result.backupPath}."
-                await self.websocket_msg_handler.broadcast_backend_log_event(
+                await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                     message,
                     severity=SettaBackendLogEventSeverity.warning,
                 )
@@ -512,7 +517,7 @@ class Artifacts:
                 message = result.message or (
                     f"Skipped saving {result.id} due to detected external changes."
                 )
-                await self.websocket_msg_handler.broadcast_backend_log_event(
+                await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                     message,
                     severity=SettaBackendLogEventSeverity.warning,
                 )

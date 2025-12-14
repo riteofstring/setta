@@ -84,7 +84,7 @@ class SettaFastMCP(FastMCP):
         self.add_setta_tools()
         self.tool_search_index = self._build_tool_search_index()
         spawn_background_task(
-            websocket_msg_handler.broadcast_backend_log_event("MCP Server Ready"),
+            websocket_msg_handler.log_and_broadcast_backend_log_event("MCP Server Ready"),
             label="mcp-server-ready",
             extra_values={"mount_path": mount_path},
         )

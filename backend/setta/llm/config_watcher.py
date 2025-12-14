@@ -54,7 +54,7 @@ class LLMConfigWatcher:
             config = load_llm_config(self.dbe)
         except ValidationError as exc:
             logger.exception("Invalid LLM config", exc_info=exc)
-            await self.websocket_msg_handler.broadcast_backend_log_event(
+            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
                 "Failed to parse llm_config.json; keeping previous settings",
                 severity=SettaBackendLogEventSeverity.error,
             )
