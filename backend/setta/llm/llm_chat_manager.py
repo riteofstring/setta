@@ -18,7 +18,6 @@ from mcp.types import CallToolResult, TextContent
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
-from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
 from setta.mcp.utils import convert_existing_canonical_ids_to_temporary
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
@@ -52,7 +51,6 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -191,19 +189,20 @@ class LLMChatManager:
                 "Chat %s already has an active streaming task; cancelling it", chat.id
             )
             existing.cancel()
-        project_config_id = (
-            str(chat.projectConfigId) if chat.projectConfigId is not None else None
-        )
-        task = spawn_background_task(
+        task = asyncio.create_task(
             self.process_query(chat, deepThink),
-            label="llm-chat-stream",
-            project_config_id=project_config_id,
-            extra_values={"chat_id": str(chat.id)},
             name=f"llm-chat-{chat.id}",
         )
 
-        def _cleanup(_task: asyncio.Task[Any], chat_id: ID) -> None:
+        def _cleanup(task: asyncio.Task[Any], chat_id: ID) -> None:
             self._tasks.pop(chat_id, None)
+            if task.cancelled():
+                return
+            exc = task.exception()
+            if exc:
+                logger.exception(
+                    "Streaming task for chat %s failed", chat_id, exc_info=exc
+                )
 
         task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))
         self._tasks[chat.id] = task
@@ -241,12 +240,17 @@ class LLMChatManager:
                 session.stream = stream_result
 
                 async for chunk in self._iterate_stream(stream_result):
-                    await self._handle_stream_chunk(
-                        chat.id,
-                        assistant_message,
-                        chunk,
-                        tool_call_state,
-                    )
+                    try:
+                        await self._handle_stream_chunk(
+                            chat.id,
+                            assistant_message,
+                            chunk,
+                            tool_call_state,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "LLM streaming chunk handling failed for chat %s", chat.id
+                        )
 
                 await self.websocket_msg_handler.send_streaming_response(
                     chat.id,
@@ -284,23 +288,6 @@ class LLMChatManager:
                         MessageFinalizedEvent(message=assistant_message),
                     )
                 raise
-            except Exception as exc:
-                if not stop_event_sent:
-                    await self.websocket_msg_handler.send_streaming_response(
-                        chat.id,
-                        MessageStopEvent(message_id=assistant_message.id),
-                    )
-                    stop_event_sent = True
-                await self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
-                    exc,
-                    label="llm-chat-stream",
-                    message="LLM streaming failed; aborting response",
-                    severity=SettaBackendLogEventSeverity.error,
-                    project_config_id=chat.projectConfigId,
-                    logger=logger,
-                    context={"chat_id": str(chat.id)},
-                )
-                return
             finally:
                 self._sessions.pop(chat.id, None)
 

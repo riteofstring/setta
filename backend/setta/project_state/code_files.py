@@ -438,7 +438,10 @@ class CodeFiles:
         return _callback
 
     def _read_text_content(self, path: Path) -> str | None:
-        raw = self.dbe.read(path)
+        try:
+            raw = self.dbe.read(path)
+        except Exception:
+            return None
         if raw in (None, b"", ""):
             return None
         return str(raw)

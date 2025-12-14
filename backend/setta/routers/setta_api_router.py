@@ -2,7 +2,6 @@ from typing import Any, Callable
 
 from fastapi import APIRouter
 
-from setta.logging.project_id_route import ProjectIdContextRoute
 from setta.types.routes import Route
 
 
@@ -33,36 +32,3 @@ class SettaAPIRouter(APIRouter):
 
     def trace(self, path: Route, **kwargs: Any) -> Callable:  # type: ignore
         return super().trace(path.value, **kwargs)
-
-
-class SettaProjectContextAPIRouter(SettaAPIRouter):
-    def __init__(
-        self,
-        *,
-        require_project_context_by_default: bool = False,
-        project_context_body_key: str = "projectConfigId",
-        **kwargs: Any,
-    ) -> None:
-        self._setta_require_project_context_by_default = (
-            require_project_context_by_default
-        )
-        self._setta_project_context_body_key = project_context_body_key
-        super().__init__(route_class=ProjectIdContextRoute, **kwargs)
-
-    def add_api_route(
-        self, path: str, endpoint: Callable[..., Any], **kwargs: Any
-    ) -> None:  # type: ignore[override]
-        super().add_api_route(path, endpoint, **kwargs)
-        route = self.routes[-1]
-        if not isinstance(route, ProjectIdContextRoute):
-            return
-        setattr(
-            route,
-            "__setta_require_project_context_by_default__",
-            self._setta_require_project_context_by_default,
-        )
-        setattr(
-            route,
-            "__setta_project_context_body_key__",
-            self._setta_project_context_body_key,
-        )

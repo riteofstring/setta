@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.jsonSource.save import (
@@ -37,13 +37,13 @@ class SettingsProjectManager(BaseProjectManager):
         self.dbe.write_settings_project(p)
         self.artifacts.save()
 
-    async def save_as_new_project_config(self, _x: SaveAsNewProjectConfigRequest):
+    async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         raise ValueError
 
     async def load_json_sources(
         self,
         json_sources: dict[Path, Any],
-        section_variants_to_load: list[tuple[str, str]],
+        section_variants_to_load: Iterable[tuple[str, str]],
     ):
         await super().load_json_sources(json_sources, section_variants_to_load)
         await self.settings_file.load_and_broadcast_settings()

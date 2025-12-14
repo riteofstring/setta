@@ -72,14 +72,12 @@ function RightColumn({
     await createAndGoToProjectConfig();
   }
 
-  function onSelectProject(e: React.MouseEvent, projectConfigId: string) {
+  function onSelectProject(e: React.MouseEvent, projectId: string) {
     e.preventDefault(); // to prevent going into the project
-    if (selectedProjects.includes(projectConfigId)) {
-      setSelectedProjects(
-        selectedProjects.filter((x) => x !== projectConfigId),
-      );
+    if (selectedProjects.includes(projectId)) {
+      setSelectedProjects(selectedProjects.filter((x) => x !== projectId));
     } else {
-      setSelectedProjects([...selectedProjects, projectConfigId]);
+      setSelectedProjects([...selectedProjects, projectId]);
     }
   }
 
@@ -100,11 +98,11 @@ function RightColumn({
   }
 
   async function onClickMakeDefault() {
-    const projectConfigId = selectedProjects[0];
-    if (!projectConfigId) {
+    const projectId = selectedProjects[0];
+    if (!projectId) {
       return;
     }
-    await router_set_as_default_project({ projectConfigId });
+    await router_set_as_default_project({ projectId });
   }
 
   return (

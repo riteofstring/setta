@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -51,15 +51,11 @@ class DotEnvWatcher:
             self.dbe.reload_dot_env()
             env_vars = self.dbe.read_dot_env()
         except Exception as exc:  # pragma: no cover - defensive log
-            await (
-                self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
-                    exc,
-                    label="dotenv-reload",
+            logger.exception("Failed to reload .env", exc_info=exc)
+            await self.websocket_msg_handler.broadcast_notification(
+                SettaNotification(
                     message="Failed to reload API keys; keeping previous values",
-                    severity=SettaBackendLogEventSeverity.error,
-                    handled=True,
-                    logger=logger,
-                    context={"dot_env": str(self.dbe.dot_env)},
+                    type=SettaNotificationType.error,
                 )
             )
             return
