@@ -2,7 +2,7 @@ import logging
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from setta.logging.context import get_logging_context
+from setta.logging.context import get_logging_context, push_logging_context
 from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.routers.dependencies import (
     ReadyAppStateFromWebsocket as AppStateFromWebsocket,
@@ -33,7 +33,7 @@ async def websocket_route_loop(
         "connection_type": connectionType.value,
     }
     if id:
-        extra_context["connection_id"] = id
+        extra_context["client_connection_id"] = id
 
     async with bind_websocket_logging_context(
         websocket,
@@ -44,6 +44,8 @@ async def websocket_route_loop(
             fromWebsocketId = await websocket_manager.on_connect(
                 websocket, connectionType, id=id
             )
+            if fromWebsocketId:
+                push_logging_context(connection_id=fromWebsocketId)
             await websocket_msg_handler.on_connect(fromWebsocketId)
             while True:
                 try:
@@ -68,7 +70,7 @@ async def websocket_route_loop(
 
             context = {"websocket_connection_type": connectionType.value}
             if fromWebsocketId:
-                context["websocket_id"] = fromWebsocketId
+                context["connection_id"] = fromWebsocketId
             project_config_id = ID(project_id) if project_id else None
             await frontend_sender.log_failure_and_broadcast_backend_log_event(
                 exc,

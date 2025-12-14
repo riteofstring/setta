@@ -15,8 +15,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
 from setta.database.settings_file import SettingsFile
-from setta.logging.context_bindings import wrap_background_coroutine
-from setta.logging.errors import run_safely
+from setta.logging.tasks import spawn_background_task
 from setta.terminals.utils import linux_get_child_process_details
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -88,17 +87,11 @@ class Terminals:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
-            reader_coroutine = wrap_background_coroutine(
+            spawn_background_task(
                 self.start_reading_from_terminal(sectionId),
                 label="terminal-reader",
+                context=self._terminal_logging_context(sectionId),
                 **self._terminal_context_kwargs(sectionId),
-            )
-            asyncio.create_task(
-                run_safely(
-                    reader_coroutine,
-                    label="terminal-reader",
-                    context=self._terminal_logging_context(sectionId),
-                )
             )
             return True
         return False

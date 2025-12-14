@@ -28,7 +28,7 @@ from setta.code_gen.dependency_graph import (
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
-from setta.logging.context_bindings import wrap_background_coroutine
+from setta.logging.tasks import spawn_background_task
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -270,32 +270,16 @@ class SettaListener:
         watch_task: asyncio.Task[None] | None = None
         try:
             await reloader.reload_now(reload_module=False)
-            watch_task = asyncio.create_task(
-                wrap_background_coroutine(
-                    reloader.watch(),
-                    label="listener-hot-reload-watch",
-                    extra_values={"listener_id": self._log_identifier},
-                )
+            watch_task = spawn_background_task(
+                reloader.watch(),
+                label="listener-hot-reload-watch",
+                extra_values={"listener_id": self._log_identifier},
             )
-            watch_task.add_done_callback(self._log_watch_task_completion)
             await self.run_forever()
         finally:
             await reloader.stop()
             if watch_task is not None:
                 await self._finalize_watch_task(watch_task)
-
-    @staticmethod
-    def _log_watch_task_completion(task: asyncio.Task[None]) -> None:
-        if not task.done() or task.cancelled():
-            return
-        exception = task.exception()
-        if exception is None:
-            return
-        logger.error(
-            "Listener hot reload watcher exited with error: %s",
-            exception,
-            exc_info=(exception.__class__, exception, exception.__traceback__),
-        )
 
     @staticmethod
     async def _finalize_watch_task(task: asyncio.Task[None]) -> None:

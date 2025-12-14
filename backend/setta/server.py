@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
 
         # {full_path:path} is to catch all paths not explicitly covered here
         @app.get("/{full_path:path}", response_class=HTMLResponse)
-        async def read_root(full_path: str):
+        async def read_root(_full_path: str):
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
@@ -276,5 +276,7 @@ def _format_backend_log_event_message(
     exc_message = str(exc).replace("\n", " ").strip()
     exc_name = type(exc).__name__
     if exc_message:
-        return f"HTTP {status_code}{suffix}: {method} {path} - {exc_name}: {exc_message}"
+        return (
+            f"HTTP {status_code}{suffix}: {method} {path} - {exc_name}: {exc_message}"
+        )
     return f"HTTP {status_code}{suffix}: {method} {path} - {exc_name}"

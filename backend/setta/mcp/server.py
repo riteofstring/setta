@@ -1,6 +1,5 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
-import asyncio
 import inspect
 import logging
 from dataclasses import dataclass
@@ -22,7 +21,7 @@ from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
 
 from setta.database.db_objs import DBE
-from setta.logging.context_bindings import wrap_background_coroutine
+from setta.logging.tasks import spawn_background_task
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
@@ -84,12 +83,10 @@ class SettaFastMCP(FastMCP):
 
         self.add_setta_tools()
         self.tool_search_index = self._build_tool_search_index()
-        asyncio.create_task(
-            wrap_background_coroutine(
-                websocket_msg_handler.broadcast_backend_log_event("MCP Server Ready"),
-                label="mcp-server-ready",
-                extra_values={"mount_path": mount_path},
-            )
+        spawn_background_task(
+            websocket_msg_handler.broadcast_backend_log_event("MCP Server Ready"),
+            label="mcp-server-ready",
+            extra_values={"mount_path": mount_path},
         )
 
     def add_setta_tools(self):

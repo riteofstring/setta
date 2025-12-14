@@ -1469,9 +1469,13 @@ class BaseProjectManager(ABC):
             )
             await self.websocket_msg_handler.broadcast_notification(notification)
         except Exception as exc:
-            await self.websocket_msg_handler.broadcast_backend_log_event(
-                f"Failed to autosave: {exc}",
-                severity=SettaBackendLogEventSeverity.error,
+            await (
+                self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
+                    exc,
+                    label="autosave",
+                    message="Failed to autosave",
+                    severity=SettaBackendLogEventSeverity.error,
+                )
             )
 
     @abstractmethod

@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Callable
 
 from setta.logging.context import get_logging_context
-from setta.logging.context_bindings import wrap_background_coroutine
+from setta.logging.tasks import spawn_background_task
 
 
 class AsyncDebouncer:
@@ -18,12 +18,10 @@ class AsyncDebouncer:
 
     def trigger(self, *args, **kwargs):
         """Trigger the debounced function. Cancels any pending execution."""
-        asyncio.create_task(
-            wrap_background_coroutine(
-                self._schedule(*args, **kwargs),
-                label=self.label,
-                **self._resolve_context_kwargs(),
-            )
+        spawn_background_task(
+            self._schedule(*args, **kwargs),
+            label=f"{self.label}-schedule",
+            **self._resolve_context_kwargs(),
         )
 
     async def _schedule(self, *args, **kwargs):
@@ -36,12 +34,10 @@ class AsyncDebouncer:
                 pass
 
         # Schedule new execution
-        self._task = asyncio.create_task(
-            wrap_background_coroutine(
-                self._execute_after_delay(*args, **kwargs),
-                label=self.label,
-                **self._resolve_context_kwargs(),
-            )
+        self._task = spawn_background_task(
+            self._execute_after_delay(*args, **kwargs),
+            label=self.label,
+            **self._resolve_context_kwargs(),
         )
 
     async def _execute_after_delay(self, *args, **kwargs):

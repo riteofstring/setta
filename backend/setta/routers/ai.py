@@ -1,7 +1,6 @@
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from setta.logging.errors import log_route_failure
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.chat import ChatMetadata
@@ -57,7 +56,14 @@ async def route_get_llm_response(
             x.projectConfigId,
         )
     except Exception as exc:
-        log_route_failure(exc, x, label="get-llm-response")
+        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
+            exc,
+            x,
+            label="get-llm-response",
+            message="Failed to enqueue LLM request",
+            severity=SettaBackendLogEventSeverity.error,
+            project_config_id=x.projectConfigId,
+        )
         raise HTTPException(
             status_code=500, detail="Failed to enqueue LLM request"
         ) from exc

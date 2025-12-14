@@ -4,8 +4,6 @@ import logging
 import uuid
 from pathlib import Path
 
-from setta.logging.context_bindings import wrap_background_coroutine
-
 from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
@@ -140,16 +138,7 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_and_wait(self, fn_call, request_id):
         self.pending_requests[request_id] = asyncio.Future()
-        asyncio.create_task(
-            wrap_background_coroutine(
-                fn_call,
-                label="lsp-send-request",
-                extra_values={
-                    "lsp_request_id": request_id,
-                    "lsp_server": self.server.name,
-                },
-            )
-        )
+        await fn_call
         return await self.wait_for_response(request_id)
 
     # https://github.com/microsoft/language-server-protocol/issues/1676

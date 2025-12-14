@@ -6,6 +6,7 @@ from lsprotocol import converters as LSPConverters
 from lsprotocol import types as LSPTypes
 
 from setta.logging.context_bindings import wrap_background_coroutine
+from setta.logging.tasks import spawn_background_task
 
 from .server import LanguageServer, LanguageServerInteractor
 
@@ -138,18 +139,16 @@ class LanguageServerReader(LanguageServerInteractor):
             uri = response["params"]["uri"]
             callback = self.diagnostics_response_callbacks.get(uri)
             if callback:
-                asyncio.create_task(
-                    wrap_background_coroutine(
-                        callback(
-                            self.lsp_converter.structure(
-                                response,
-                                LSPTypes.TextDocumentPublishDiagnosticsNotification,
-                            )
-                        ),
-                        label="lsp-diagnostics-callback",
-                        extra_values={
-                            "lsp_server": self.server.name,
-                            "uri": uri,
-                        },
-                    )
+                spawn_background_task(
+                    callback(
+                        self.lsp_converter.structure(
+                            response,
+                            LSPTypes.TextDocumentPublishDiagnosticsNotification,
+                        )
+                    ),
+                    label="lsp-diagnostics-callback",
+                    extra_values={
+                        "lsp_server": self.server.name,
+                        "uri": uri,
+                    },
                 )

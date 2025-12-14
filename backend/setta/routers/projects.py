@@ -1,7 +1,6 @@
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from setta.logging.errors import log_route_failure
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -82,7 +81,13 @@ async def route_load_project_config(
     except ProjectNotFound as exc:
         raise HTTPException(status_code=404, detail=repr(exc)) from exc
     except Exception as exc:
-        log_route_failure(exc, x, label="load-project-config")
+        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
+            exc,
+            x,
+            label="load-project-config",
+            message="Failed to load project config",
+            severity=SettaBackendLogEventSeverity.error,
+        )
         raise HTTPException(
             status_code=500, detail="Failed to load project config"
         ) from exc

@@ -1,7 +1,6 @@
 import unittest
 
 from fastapi.routing import APIRoute, APIWebSocketRoute
-
 from setta.middleware import bind_request_logging_context
 from setta.server import app
 
