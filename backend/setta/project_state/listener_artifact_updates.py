@@ -1,15 +1,9 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
+from setta.project_state.artifacts import Artifacts
+from setta.types.generated.unions import (
+    BaseArtifactUnion,
+    BaseArtifactUnionWithDiscriminator,
+)
 from setta.utils.utils import normalize_path
-
-if TYPE_CHECKING:
-    from setta.project_state.artifacts import Artifacts
-    from setta.types.generated.unions import (
-        BaseArtifactUnion,
-        BaseArtifactUnionWithDiscriminator,
-    )
 
 
 class ListenerArtifactUpdateError(ValueError):

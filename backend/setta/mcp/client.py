@@ -1,150 +1,225 @@
+import argparse
 import asyncio
-import json
+import logging
 from contextlib import AsyncExitStack
+from dataclasses import dataclass
+from typing import Sequence
 
-from anthropic.types import ToolParam
+import mcp.types as types
+from anyio.streams.memory import (
+    MemoryObjectReceiveStream,
+    MemoryObjectSendStream,
+)
+from litellm.types.llms.openai import (
+    ChatCompletionToolParam,
+    ChatCompletionToolParamFunctionChunk,
+)
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from mcp.types import CallToolResult, TextContent
+from mcp.server.stdio import stdio_server
+from mcp.shared.message import SessionMessage
+from mcp.types import Tool
 
-from setta.mcp.str_replace_editor_tool_fns import (
-    handle_str_replace_editor_tool_create,
-    handle_str_replace_editor_tool_insert,
-    handle_str_replace_editor_tool_str_replace,
-    handle_str_replace_editor_tool_view,
-)
+from setta.mcp.tool_metadata import SettaToolType
 from setta.utils.constants import C
 
+logger = logging.getLogger(__name__)
 
-# adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
+
+@dataclass
+class BridgeConfig:
+    backend_url: str
+    verbose: bool
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="setta.mcp.client",
+        description="Connect to Setta's MCP endpoint or run the stdio bridge.",
+    )
+    parser.add_argument(
+        "--backend",
+        default=f"{C.BACKEND}/mcp",
+        help="Full URL to the Setta MCP endpoint (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging for the bridge.",
+    )
+    return parser
+
+
+def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    return BridgeConfig(
+        backend_url=args.backend,
+        verbose=args.verbose,
+    )
+
+
 class MCPClient:
+    """Unified interface for Setta MCP access."""
+
     def __init__(self, server_url: str):
-        # Initialize session and client objects
+        self.server_url = server_url
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
-        self.server_url = server_url
-        self.available_tools: list[ToolParam] = []
+        self.init_tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
 
-    async def connect_to_server(self, retry_delay=1):
-        """Connect to an MCP server over HTTP with retry logic
+    async def connect_to_server(self, retry_delay: int = 1) -> None:
+        """Connect to the MCP server over SSE and maintain tool caches."""
 
-        Args:
-            url: URL to the MCP server
-            retry_delay: Delay between retry attempts in seconds
-        """
-        print("Starting MCP client connection...", flush=True)
         url = self.server_url
+        logger.info("Starting MCP client connection to %s", url)
 
         while True:
             try:
-                print(f"Attempting to connect to {url}...", flush=True)
-
-                # Create and enter the SSE client context
+                logger.info("Attempting to connect to %s", url)
                 stdio_transport = await self.exit_stack.enter_async_context(
                     sse_client(url=url)
                 )
                 self.read, self.write = stdio_transport
-
-                # Create and enter the client session context
                 self.session = await self.exit_stack.enter_async_context(
                     ClientSession(self.read, self.write)
                 )
-
-                # Initialize the session
                 await self.session.initialize()
-                print(f"Connected to {url}...", flush=True)
-                # List available tools to verify connection
+                logger.info("Connected to %s", url)
                 response = await self.session.list_tools()
-                self.available_tools = [
-                    ToolParam(
-                        name=tool.name,
-                        description=tool.description if tool.description else "",
-                        input_schema=tool.inputSchema,
-                    )
-                    for tool in response.tools
-                ]
-
-                # Keep the connection alive (this will block until an exception occurs)
+                self._update_tool_cache(list(response.tools))
                 await self._keep_alive()
-
             except asyncio.TimeoutError:
-                print(
-                    f"Connection timed out, retrying in {retry_delay} seconds...",
-                    flush=True,
+                logger.warning(
+                    "Connection to %s timed out; retrying in %s seconds",
+                    url,
+                    retry_delay,
                 )
-            except Exception as e:
-                print(f"Connection error: {e}", flush=True)
-                print(f"Retrying in {retry_delay} seconds...", flush=True)
+            except Exception:
+                logger.exception(
+                    "Connection to %s failed; retrying in %s seconds",
+                    url,
+                    retry_delay,
+                )
 
-            # Close any open contexts before retrying
             await self.exit_stack.aclose()
-            self.exit_stack = (
-                AsyncExitStack()
-            )  # Create a new stack for the next attempt
-
-            # Wait before retrying
+            self.exit_stack = AsyncExitStack()
             await asyncio.sleep(retry_delay)
 
-    async def _keep_alive(self):
-        """Keep the connection alive"""
+    async def _keep_alive(self) -> None:
         if not self.session:
-            raise ValueError
+            raise ValueError("MCP session must be initialized before keep-alive")
 
         while True:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def call_tool(self, tool_name: str, tool_args: dict):
-        if tool_name == C.LLM_STR_REPLACE_EDITOR_TOOL:
-            return handle_str_replace_editor_tool(tool_args)
-
+    async def call_tool(self, tool_name: str, tool_args: dict) -> types.CallToolResult:
         if not self.session:
-            raise ValueError
+            raise ValueError("MCP session must be initialized before calling tools")
 
         return await self.session.call_tool(tool_name, tool_args)
 
-    async def stop(self):
-        # Then close the exit stack to release resources
+    async def stop(self) -> None:
         await self.exit_stack.aclose()
+        logger.info("MCP client resources cleaned up successfully")
 
-        # Set flags to indicate shutdown
-        self._shutdown = True
-        print("MCPClient resources cleaned up successfully")
+    def _update_tool_cache(self, tools: list[Tool]) -> None:
+        init_tools: dict[str, ChatCompletionToolParam] = {}
+        discoverable_tools: dict[str, ChatCompletionToolParam] = {}
+        for tool in tools:
+            tool_type = SettaToolType(tool.annotations.settaToolType)  # type: ignore[attr-defined]
+            definition = self._convert_tool_to_llm_definition(tool)
+            if tool_type == SettaToolType.init:
+                init_tools[tool.name] = definition
+            else:
+                discoverable_tools[tool.name] = definition
+
+        self.init_tool_definitions = init_tools
+        self.discoverable_tool_definitions = discoverable_tools
+
+    @staticmethod
+    def _convert_tool_to_llm_definition(tool: Tool) -> ChatCompletionToolParam:
+        function_payload: ChatCompletionToolParamFunctionChunk = {
+            "name": tool.name,
+            "description": tool.description or "",
+            "parameters": tool.inputSchema or {},
+        }
+        return {"type": "function", "function": function_payload}
+
+    async def run_stdio_bridge(self, verbose: bool = False) -> None:
+        config = BridgeConfig(backend_url=self.server_url, verbose=verbose)
+        await run_stdio_bridge(config)
 
 
-def handle_str_replace_editor_tool(tool_args: dict):
-    content = ""
-    isError = False
-    try:
-        command = tool_args["command"]
-        file_path = tool_args["path"]
-        if command == "view":
-            content = handle_str_replace_editor_tool_view(
-                file_path, tool_args.get("view_range")
+async def run_stdio_bridge(config: BridgeConfig) -> None:
+    logger.debug("Starting stdio bridge with config: %s", config)
+    async with AsyncExitStack() as stack:
+        stdio_read, stdio_write = await stack.enter_async_context(stdio_server())
+        backend_read, backend_write = await stack.enter_async_context(
+            sse_client(url=config.backend_url)
+        )
+        logger.info("Connected to Setta backend at %s", config.backend_url)
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(
+                _forward_stdio_to_backend(
+                    stdio_read,
+                    backend_write,
+                )
             )
-        elif command == "str_replace":
-            content = handle_str_replace_editor_tool_str_replace(
-                file_path, tool_args["old_str"], tool_args["new_str"]
+            tg.create_task(
+                _forward_messages(
+                    "backend->stdio",
+                    backend_read,
+                    stdio_write,
+                )
             )
-        elif command == "create":
-            content = handle_str_replace_editor_tool_create(
-                file_path, tool_args["file_text"]
-            )
-        elif command == "insert":
-            content = handle_str_replace_editor_tool_insert(
-                file_path, tool_args["insert_line"], tool_args["new_str"]
-            )
-        elif command == "undo_edit":
-            # TODO
-            content = "undo_edit is not yet implemented"
-            isError = True
-    except Exception as e:
-        content = str(e)
-        isError = True
 
-    if not isinstance(content, str):
-        content = json.dumps(content)
 
-    return CallToolResult(
-        content=[TextContent(type="text", text=content)], isError=isError
+async def _forward_messages(
+    label: str,
+    source: MemoryObjectReceiveStream[SessionMessage | Exception],
+    destination: MemoryObjectSendStream[SessionMessage],
+) -> None:
+    async with source:
+        async for payload in source:
+            if isinstance(payload, Exception):
+                logger.error("[%s] transport exception: %s", label, payload)
+                continue
+            await destination.send(payload)
+    await destination.aclose()
+    logger.info("[%s] stream closed", label)
+
+
+async def _forward_stdio_to_backend(
+    source: MemoryObjectReceiveStream[SessionMessage | Exception],
+    destination: MemoryObjectSendStream[SessionMessage],
+) -> None:
+    async with source:
+        async for payload in source:
+            if isinstance(payload, Exception):
+                logger.error("[stdio->backend] transport exception: %s", payload)
+                continue
+            await destination.send(payload)
+    await destination.aclose()
+    logger.info("[stdio->backend] stream closed")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    config = parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if config.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    client = MCPClient(config.backend_url)
+    try:
+        asyncio.run(client.run_stdio_bridge(verbose=config.verbose))
+    except KeyboardInterrupt:
+        logger.info("Bridge interrupted, shutting down")
+        return 130
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -21,7 +21,6 @@ import {
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
-import { ProjectLLMSettings } from "./ProjectLevelAI/ProjectLLMSettings";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
@@ -139,8 +138,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <NotificationsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    case OverviewTabNameEnum.ProjectAISettings:
-      return <ProjectLLMSettings />;
+    // case OverviewTabNameEnum.ProjectAISettings:
+    // return <ProjectLLMSettings />;
     default:
       return selectedTabName satisfies never;
   }

@@ -5,6 +5,7 @@ cd frontend && \
 python -m generation.generate_unions dependency_keys && \
 python -m generation.generate_unions dependency_values && \
 python -m generation.generate_unions chart_settings && \
+python -m generation.generate_unions chat_messages && \
 python -m generation.generate_shared_modifier && \
 python -m generation.generate_impl_field_literals && \
 python -m generation.generate_args_as_typed_dicts && \

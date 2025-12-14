@@ -32,6 +32,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
+    SetCallableResponse,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
@@ -67,7 +68,7 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.routers.dependencies import AppStateFromRequest
+from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.notifications import SettaNotification
@@ -87,8 +88,10 @@ async def route_clear_text_field_completion(
 
 
 @router.post(Route.SET_CALLABLE)
-async def route_set_callable(x: SetCallableRequest, state: AppStateFromRequest) -> None:
-    await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
+async def route_set_callable(
+    x: SetCallableRequest, state: AppStateFromRequest
+) -> SetCallableResponse:
+    return await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
 
 
 @router.post(Route.TEXT_FIELD_COMPLETION)

@@ -2,9 +2,9 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { useParams } from "react-router-dom";
 import { EditMenu } from "./EditMenu";
 import { FileMenu } from "./FileMenu";
+import { ListenerForceRefreshButton } from "./ListenerForceRefreshButton";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
-import { ListenerForceRefreshButton } from "./ListenerForceRefreshButton";
 import { WebsocketConnections } from "./WebsocketConnections";
 
 export function ProjectNav() {

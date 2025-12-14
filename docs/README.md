@@ -1,0 +1,8 @@
+# Docs Overview
+
+- `code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
+- `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
+- `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
+- `mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
+- `setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
+- `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.

@@ -195,7 +195,11 @@ def create_ts_fn_def(
     endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
 ):
     definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
-    endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
+    endpoint_path_without_prefix = endpoint_path
+    if endpoint_path_without_prefix.startswith(Route.PREFIX.value):
+        endpoint_path_without_prefix = endpoint_path_without_prefix[
+            len(Route.PREFIX.value) :
+        ]
     if method == "POST":
         assert len(args) <= 1
         arg = args[0] if len(args) == 1 else ""

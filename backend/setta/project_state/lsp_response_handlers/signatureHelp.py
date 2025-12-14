@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
-from typing import Callable
+from enum import Enum
+from typing import TYPE_CHECKING, Callable
 
 import docstring_parser
 from lsprotocol import types as LSPTypes
@@ -12,9 +13,10 @@ from setta.types.code_obj_impls import (
 from setta.types.core import Core
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.unions import (
-    BaseParamCodeObjImplUnion,
-)
+
+if TYPE_CHECKING:
+    from setta.types.generated.unions import BaseParamCodeObjImplUnion
+    from setta.types.id import ID
 
 
 @dataclass
@@ -33,14 +35,20 @@ class ParamProposal:
     description: str | None
 
 
+class SignatureHelpStatus(str, Enum):
+    MATCHED = "matched"
+    NO_MATCH = "no_match"
+    SKIPPED = "skipped"
+
+
 def process_signature_help_response(
     settings: SettingsState,
     response: LSPTypes.TextDocumentSignatureHelpResponse,
 ):
-    content = None
-    if response.result:
-        content = parse_signature(settings, response.result.signatures[0])
-    return content
+    result = response.result
+    if not result or not result.signatures:
+        return None
+    return parse_signature(settings, result.signatures[0])
 
 
 def parse_signature(settings: SettingsState, signature: LSPTypes.SignatureInformation):
@@ -81,7 +89,7 @@ def wrapper_parse_signature(
 ):
     params = get_proposed_params(signature, docstring)
     codeObjs: list[Core] = []
-    codeObjImplMap: dict[str, BaseParamCodeObjImplUnion] = {}
+    codeObjImplMap: dict["ID", "BaseParamCodeObjImplUnion"] = {}
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1
 

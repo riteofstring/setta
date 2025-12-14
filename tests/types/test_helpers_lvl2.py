@@ -11,10 +11,9 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     get_curr_top_level_param_ids,
 )
-from setta.types.project_config import ProjectConfig
+from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, SectionType
-from setta.types.simplified_states import Position
 
 
 class AddKwargTests(unittest.TestCase):

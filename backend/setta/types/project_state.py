@@ -23,6 +23,7 @@ from setta.types.helpers_lvl2 import (
     get_top_level_param_ids,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -48,29 +49,29 @@ SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPytho
 
 
 class SingletonSections(BaseModel, extra="forbid"):
-    GlobalVariables: str | None = None
-    GenPythonCode: str | None = None
+    GlobalVariables: ID | None = None
+    GenPythonCode: ID | None = None
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, Core] = Field(default_factory=dict)
-    sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
+    sections: dict[ID, Core] = Field(default_factory=dict)
+    sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    sectionVariants: dict[str, Variant] = Field(default_factory=dict)
-    codeObjs: dict[str, Core] = Field(default_factory=dict)
-    codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
+    sectionVariants: dict[ID, Variant] = Field(default_factory=dict)
+    codeObjs: dict[ID, Core] = Field(default_factory=dict)
+    codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    codeObjVariants: dict[str, Variant] = Field(default_factory=dict)
+    codeObjVariants: dict[ID, Variant] = Field(default_factory=dict)
 
 
 class ProjectStateBackend(
     ProjectStateCore,
     extra="forbid",
 ):
-    projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
-    defaultProjectConfigId: str | None = None
+    projectConfigs: dict[ID, ProjectConfig] = Field(default_factory=dict)
+    defaultProjectConfigId: ID | None = None
 
     @model_validator(mode="after")
     def _validate_default_project_id(self):
@@ -93,9 +94,9 @@ class ProjectStateBackend(
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
     singletonSections: SingletonSections = Field(default_factory=SingletonSections)
-    parentSectionMap: dict[str, str | None] = Field(default_factory=dict)
+    parentSectionMap: dict[ID, ID | None] = Field(default_factory=dict)
     yamlValues: dict[str, str] = Field(default_factory=dict)
-    shownParamIds: dict[str, ShownParamIds] = Field(default_factory=dict)
+    shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
 
@@ -197,7 +198,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
     def validate_shown_param_ids(self):
-        output: dict[str, ShownParamIds] = {}
+        output: dict[ID, ShownParamIds] = {}
         for s in self.sections.values():
             for v in s.variants:
                 _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)

@@ -31,6 +31,8 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.lsp.managers import LSPWriters
+from setta.mcp.tool_metadata import SettaToolType
+from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
     CodeFileReloadPlan,
@@ -73,6 +75,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
@@ -84,6 +87,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
+    SetCallableResponse,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
@@ -185,14 +189,16 @@ from setta.types.helpers_lvl2 import (
     update_param_impl_config,
 )
 from setta.types.helpers_lvl3 import (
+    build_project_state_summary,
     convert_backend_to_single_config,
     merge_single_config_into_backend,
     paste_sections,
     prepare_sections_for_copy,
 )
+from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_config import ProjectConfig
+from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -206,7 +212,6 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.settings_state import RenameRefactorMode
-from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -463,8 +468,8 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def create_run_command(
         self,
-        projectConfigId: str,
-        sectionId: str | None,
+        projectConfigId: ID,
+        sectionId: ID | None,
     ):
         async with self._project_state_lock.read_lock():
             target_folder = create_timestamped_folder(C.CODE_FOLDER)
@@ -486,7 +491,7 @@ class BaseProjectManager(ABC):
             return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
-    async def load_project_config(self, projectConfigId: str):
+    async def load_project_config(self, projectConfigId: ID):
         projectState = convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
@@ -500,13 +505,17 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
+    @project_state_tool()
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
+        """Persist the provided top-level section layout ordering for a project."""
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_sizes(self, x: SetSectionSizesRequest):
+        """Update section size settings for the requested sections and broadcast the refreshed project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_sizes(project_state, x.sectionSizes)
         await self.update_and_broadcast_project_state(project_state)
@@ -515,7 +524,7 @@ class BaseProjectManager(ABC):
     async def load_json_sources(
         self,
         json_sources: dict[Path, ProcessedJSONInfo],
-        section_variants_to_load: Iterable[tuple[str, str]],
+        section_variants_to_load: Iterable[tuple[ID, ID]],
     ):
         p = self.project_state_backend
         load_json_sources_into_data_structures(
@@ -605,7 +614,7 @@ class BaseProjectManager(ABC):
                 self.watch_code_files()
 
     @enqueue_method(require_serialization=False)
-    async def type_check(self, projectConfigId: str):
+    async def type_check(self, projectConfigId: ID):
         async with self._project_state_lock.read_lock():
             await self.gen_code[projectConfigId].type_check()
 
@@ -624,11 +633,13 @@ class BaseProjectManager(ABC):
         await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
 
     @enqueue_method
-    async def set_callable(self, x: SetCallableRequest):
+    @project_state_tool()
+    async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
+        """Update a section's callable binding and refresh the surrounding project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
 
-        await self.gen_code[x.projectConfigId].set_callable(
+        result = await self.gen_code[x.projectConfigId].set_callable(
             self.settings_file.settings,
             project_state,
             x.sectionId,
@@ -636,7 +647,7 @@ class BaseProjectManager(ABC):
             x.refetchParams,
         )
         await self.update_and_broadcast_project_state(project_state)
-        return project_state
+        return result
 
     @enqueue_method(require_serialization=False)
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
@@ -659,21 +670,27 @@ class BaseProjectManager(ABC):
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
+    @project_state_tool()
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
+        """Persist the prefix template used when generating runtime code."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.genCodePrefix = x.genCodePrefix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
+        """Persist the suffix template used when generating runtime code."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.genCodeSuffix = x.genCodeSuffix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
+        """Write a new manual value for the targeted section parameter."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_param_entered_value(
@@ -685,7 +702,9 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
+        """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
         await self.update_and_broadcast_project_state(project_state)
@@ -703,19 +722,25 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
+        """Flip whether a section's layout is locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_lock(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def toggle_minimized(self, x: ToggleMinimizedRequest):
+        """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_code(self, x: SetCodeRequest):
+        """Persist inline code edits for the requested section if edits are allowed."""
         project_state = self.get_single_config_state(x.projectConfigId)
         section_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
@@ -734,40 +759,33 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
+        """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_variant(self, x: SetSectionVariantRequest):
+        """Switch a section to an explicit variant and propagate its state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def set_default_section_variant(self, x: SetDefaultSectionVariantRequest):
+        """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_param_values(
-        self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
-    ):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(projectConfigId)
-        for paramInfoId, value in paramIdsToValues.items():
-            set_param_entered_value(
-                project_state,
-                sectionId,
-                paramInfoId,
-                value,
-            )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
+    @project_state_tool()
     async def change_param_impl(self, x: ChangeParamImplRequest):
+        """Swap the selected implementation backing a section parameter."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
@@ -780,7 +798,13 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
+        """Create a root-level section for the requested implementation.
+
+        Returns:
+            ID: Identifier for the newly created top-level section so follow-up edits can target it.
+        """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
@@ -794,7 +818,9 @@ class BaseProjectManager(ABC):
         return sectionId
 
     @enqueue_method
+    @project_state_tool()
     async def create_child_sections(self, x: CreateChildSectionsRequest):
+        """Create one or more child sections beneath a parent section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
@@ -808,9 +834,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def create_child_sections_via_incrementer(
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
+        """Expand incrementer-driven child sections for a repeated structure."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
@@ -823,7 +851,7 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def create_temporary_terminal(self, projectConfigId: str, terminalId: str):
+    async def create_temporary_terminal(self, projectConfigId: ID, terminalId: ID):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
@@ -836,44 +864,56 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def delete_sections(self, x: DeleteSectionsRequest):
+        """Remove the specified sections and broadcast the updated project."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def delete_child_sections_via_decrementer(
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
+        """Shrink an incrementer-driven group by deleting trailing children."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
+        """Overwrite the configuration dict for a parameter implementation."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
+        """Duplicate the current section state into an additional variant."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def add_kwarg(self, x: AddKwargRequest):
+        """Append a blank keyword argument entry to the section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         add_kwarg(self.settings_file.settings, project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
     async def delete_kwarg(self, x: DeleteKwargRequest):
+        """Remove the last keyword argument entry from the section."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_kwarg(project_state, x.sectionId)
@@ -882,7 +922,7 @@ class BaseProjectManager(ABC):
     def create_project_code(
         self,
         project_state: ProjectStateSingleConfig,
-        sectionId: str,
+        sectionId: ID,
         section_impl: CodeSectionImpl,
     ):
         if section_impl.codeFileBinding is None:
@@ -937,7 +977,7 @@ class BaseProjectManager(ABC):
     async def maybe_do_rename_refactor(
         self,
         project_state: ProjectStateSingleConfig,
-        projectConfigId: str,
+        projectConfigId: ID,
         new_dep_graph: DependencyGraph,
     ):
         if not self.gen_code:
@@ -1026,19 +1066,19 @@ class BaseProjectManager(ABC):
         return new_project_config.name
 
     @enqueue_method
-    async def delete_project_configs(self, project_config_ids: list[str]):
+    async def delete_project_configs(self, project_config_ids: list[ID]):
         for id in project_config_ids:
             del self.project_state_backend.projectConfigs[id]
         self.project_state_backend.validate_default_project_id()
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
-    async def set_as_default_project(self, projectConfigId: str):
+    async def set_as_default_project(self, projectConfigId: ID):
         self.project_state_backend.defaultProjectConfigId = projectConfigId
         await self.broadcast_all_project_metadata()
 
     @enqueue_method
-    async def set_project_config_name(self, projectConfigId: str, newName: str):
+    async def set_project_config_name(self, projectConfigId: ID, newName: str):
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
 
     @enqueue_method
@@ -1112,13 +1152,21 @@ class BaseProjectManager(ABC):
         ].activeIds = x.activeIds
 
     @enqueue_method
+    @project_state_tool()
     async def set_viewport(self, x: SetViewportRequest):
+        """Update the stored viewport offsets/zoom for a project configuration.
+
+        Passing `None` for the viewport instructs the UI to re-fit the project into
+        view instead of persisting explicit coordinates.
+        """
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].viewport = x.viewport
 
     @enqueue_method
+    @project_state_tool()
     async def set_section_name(self, x: SetSectionNameRequest):
+        """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
         await self.update_and_broadcast_project_state(project_state)
@@ -1186,7 +1234,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def apply_listener_emit_updates(
         self,
-        projectConfigId: str,
+        projectConfigId: ID,
         dependency_updates: list[ListenerFrontendEmitKeyAndValue],
         artifact_updates: list[BaseArtifactUnionWithDiscriminator],
     ) -> None:
@@ -1305,7 +1353,7 @@ class BaseProjectManager(ABC):
             return self.project_state_backend.projectConfigs[defaultId].name
         return None
 
-    def get_single_config_state(self, projectConfigId: str):
+    def get_single_config_state(self, projectConfigId: ID):
         return convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
         )
@@ -1381,10 +1429,22 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
+        """Return the most recent project state snapshot for the requested config."""
         projectState = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
         )
         return projectState
+
+    @enqueue_method
+    @project_state_tool(tool_type=SettaToolType.init)
+    async def get_latest_project_state_summary(
+        self, x: GetLatestProjectStateSummaryRequest
+    ):
+        """Return a lightweight summary for the requested project config."""
+        project_state = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )
+        return build_project_state_summary(project_state)
 
     @enqueue_method
     async def autosave(self):
@@ -1444,19 +1504,18 @@ class BaseProjectManager(ABC):
         callback_category = f"{self.__class__.__name__}_JSONSource"
 
         def should_defer_reload(
-            section_variants_to_load: set[tuple[str, str]],
+            section_variants_to_load: set[tuple[ID, ID]],
             *,
-            new_mapping: dict[Path, set[tuple[str, str]]],
-            previous_mapping: dict[Path, set[tuple[str, str]]],
+            new_mapping: dict[Path, set[tuple[ID, ID]]],
+            previous_mapping: dict[Path, set[tuple[ID, ID]]],
         ) -> bool:
             return self._should_defer_json_source_reload(
-                callback_category,
                 section_variants_to_load,
                 new_mapping,
                 previous_mapping,
             )
 
-        def on_deferred(section_variants_to_load: set[tuple[str, str]]) -> None:
+        def on_deferred(section_variants_to_load: set[tuple[ID, ID]]) -> None:
             self._record_deferred_json_source_loads(
                 callback_category, section_variants_to_load
             )
@@ -1514,7 +1573,7 @@ class BaseProjectManager(ABC):
         states_to_broadcast: list[ProjectStateSingleConfig] = []
         async with self._project_state_lock.write_lock():
             base_backend = self.project_state_backend
-            updated_configs: dict[str, ProjectStateSingleConfig] = {}
+            updated_configs: dict[ID, ProjectStateSingleConfig] = {}
             for (
                 project_config_id,
                 config_bindings,
@@ -1576,15 +1635,14 @@ class BaseProjectManager(ABC):
 
     def _should_defer_json_source_reload(
         self,
-        callback_category: str,
-        section_variants_to_load: set[tuple[str, str]],
-        new_mapping: dict[Path, set[tuple[str, str]]],
-        previous_mapping: dict[Path, set[tuple[str, str]]],
+        section_variants_to_load: set[tuple[ID, ID]],
+        new_mapping: dict[Path, set[tuple[ID, ID]]],
+        previous_mapping: dict[Path, set[tuple[ID, ID]]],
     ) -> bool:
         if not section_variants_to_load or not self.autosave_debouncer.is_pending:
             return False
 
-        variant_to_path: dict[tuple[str, str], Path] = {}
+        variant_to_path: dict[tuple[ID, ID], Path] = {}
         for path, variant_ids in new_mapping.items():
             for variant in variant_ids:
                 variant_to_path[variant] = path
@@ -1601,7 +1659,7 @@ class BaseProjectManager(ABC):
     def _record_deferred_json_source_loads(
         self,
         callback_category: str,
-        section_variants_to_load: set[tuple[str, str]],
+        section_variants_to_load: set[tuple[ID, ID]],
     ) -> None:
         if not section_variants_to_load:
             return
@@ -1614,30 +1672,3 @@ class BaseProjectManager(ABC):
         if not pending:
             return
         await self.load_json_sources(self.json_source.json_sources, pending)
-
-
-# function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
-#   return [state.apiKeysFilepath];
-# }
-
-#   useAIStore.subscribe(
-#     apiKeysFilepathSubscriptionFn,
-#     (filepaths) =>
-#       route_file_watch_list({
-#         filepaths,
-#         fileWatchGroupName: FileWatchGroupNameEnum.apiKeys,
-#       }),
-#     {
-#       equalityFn: _.isEqual,
-#       fireImmediately: true,
-#     },
-#   );
-
-
-# async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {
-#   const { fileContent } = updatedFileInfo;
-#   useAIStore.setState({
-#     apiKeys: fileContent,
-#     apiKeysInitialLoadComplete: true,
-#   });
-# }

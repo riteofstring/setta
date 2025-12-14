@@ -39,6 +39,7 @@ from setta.types.hierarchy_traversal import (
     TraversalOptions,
     traverse_hierarchy,
 )
+from setta.types.id import ID
 from setta.types.project_state import (
     ProjectStateCore,
 )
@@ -48,7 +49,7 @@ from setta.utils.utils import normalize_path
 
 @dataclass
 class ReplacementInfo:
-    existingCodeObjId: str
+    existingCodeObjId: ID
     matchedImpl: BaseCodeObjImplUnionWithDiscriminator
 
 
@@ -83,7 +84,7 @@ class SectionVariantToUpdate:
 def load_json_sources_into_data_structures(
     p: ProjectStateCore,
     json_sources: dict[Path, ProcessedJSONInfo],
-    section_variant_ids: Iterable[tuple[str, str]],
+    section_variant_ids: Iterable[tuple[ID, ID]],
 ):
     section_variant_set = set(section_variant_ids)
     # set of (filename, jsonSourceKeys)
@@ -97,9 +98,9 @@ def load_json_sources_into_data_structures(
 
     # maps from filepath, to jsonSourceKeys to ReplacementsAndUnmatchedDicts
     replacements_and_unmatched: FilenameToKeysToReplacementsAndUnmatchedDicts = {}
-    sectionVariantsToUpdate: dict[tuple[str, str], SectionVariantToUpdate] = {}
-    codeObjsToDelete: set[str] = set()
-    processedVariantIds: set[str] = set()
+    sectionVariantsToUpdate: dict[tuple[ID, ID], SectionVariantToUpdate] = {}
+    codeObjsToDelete: set[ID] = set()
+    processedVariantIds: set[ID] = set()
 
     for section in p.sections.values():
         for variant_id in section.variants:
@@ -169,9 +170,9 @@ def merge_into_existing(
     to_update: SectionVariantToUpdate,
     replacements: dict[str, ReplacementInfo],
     unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
-    codeObjsToDelete: set[str],
+    codeObjsToDelete: set[ID],
 ):
-    newCodeObjVariantMapEntries: dict[str, str] = {}
+    newCodeObjVariantMapEntries: dict[ID, ID] = {}
     for r in replacements.values():
         codeObjCore = p.codeObjs[r.existingCodeObjId]
         variantId = to_update.impl.codeObjVariantMap.get(r.existingCodeObjId)
@@ -264,10 +265,10 @@ def compute_existing_replacement_mapping(
         ),
     )
 
-    codeObjsToDelete: set[str] = set()
+    codeObjsToDelete: set[ID] = set()
     keyValueInfo = processedJson.keyValueInfo
 
-    idsToProcess: set[str] = set()
+    idsToProcess: set[ID] = set()
     if jsonSourceKeys in processedJson.hierarchy.name_path_to_id:
         idsToProcess = processedJson.hierarchy.name_path_to_descendant_ids.get(
             jsonSourceKeys, set()
@@ -322,6 +323,6 @@ def filter_out_replacements_from_unmatched(
         unmatchedCodeObj.pop(r, None)
 
 
-def delete_old_code_objs(p: ProjectStateCore, codeObjsToDelete: set[str]):
+def delete_old_code_objs(p: ProjectStateCore, codeObjsToDelete: set[ID]):
     for c in codeObjsToDelete:
         delete_code_obj(p, c)

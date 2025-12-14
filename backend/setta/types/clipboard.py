@@ -3,12 +3,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from setta.types.id import ID
 from setta.types.project_state import ProjectStateCore
 
 
 class ProjectStateCoreWithSectionVariantMap(BaseModel):
     core: ProjectStateCore
-    sectionVariantMap: dict[str, str] = Field(default_factory=dict)
+    sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
 
 
 class ClipboardDataType(str, Enum):

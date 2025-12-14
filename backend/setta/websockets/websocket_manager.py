@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import WebSocket
+from starlette.websockets import WebSocketState
 from websockets.exceptions import ConnectionClosedError
 
 from setta.types.websocket import (
@@ -60,8 +61,18 @@ class WebsocketManager:
         self.sockets[websocketId].currentAddress = currentAddress
 
     async def send_message(self, message: WebsocketMsg, toWebsocketId: str):
-        websocket = self.sockets[toWebsocketId].websocket
-        await websocket.send_text(message.model_dump_json())
+        socket_info = self.sockets.get(toWebsocketId)
+        if not socket_info:
+            return
+        websocket = socket_info.websocket
+        if websocket.application_state != WebSocketState.CONNECTED:
+            self.sockets.pop(toWebsocketId, None)
+            return
+        try:
+            await websocket.send_text(message.model_dump_json())
+        except (RuntimeError, ConnectionClosedError):
+            logger.debug("Websocket %s is closed; removing.", toWebsocketId)
+            self.sockets.pop(toWebsocketId, None)
 
     async def return_to_requester(self, message: WebsocketMsg, request_msg_id: str):
         await self.send_message(

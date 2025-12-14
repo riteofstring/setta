@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from setta.types.id import ID
+
 
 class DependencyKeyType(str, Enum):
     Section = "Section"
@@ -15,7 +17,7 @@ class BaseDependencyKey:
 
 @dataclass(frozen=True, slots=True)
 class SectionDependencyKey(BaseDependencyKey):
-    sectionId: str
+    sectionId: ID
     type: Literal[DependencyKeyType.Section] = field(
         default=DependencyKeyType.Section, init=False
     )
@@ -23,14 +25,14 @@ class SectionDependencyKey(BaseDependencyKey):
 
 @dataclass(frozen=True, slots=True)
 class SectionParamDependencyKey(BaseDependencyKey):
-    sectionId: str
-    codeObjId: str
+    sectionId: ID
+    codeObjId: ID
     type: Literal[DependencyKeyType.SectionParam] = field(
         default=DependencyKeyType.SectionParam, init=False
     )
 
 
-def create_dep_key(sectionId: str, codeObjId: str | None = None):
+def create_dep_key(sectionId: ID, codeObjId: ID | None = None):
     if codeObjId is None:
         return SectionDependencyKey(sectionId=sectionId)
     return SectionParamDependencyKey(sectionId=sectionId, codeObjId=codeObjId)

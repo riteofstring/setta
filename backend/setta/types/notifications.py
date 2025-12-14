@@ -4,6 +4,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_serializer
 
 from setta.database.utils import create_new_id
+from setta.types.id import ID
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
@@ -17,8 +18,10 @@ class SettaNotificationType(str, Enum):
 
 
 class SettaNotification(BaseModel):
-    id: str = Field(default_factory=create_new_id)
-    projectConfigId: str = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+    id: ID = Field(default_factory=create_new_id)
+    projectConfigId: ID = Field(
+        default_factory=lambda: ID(C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
+    )
     type: SettaNotificationType = SettaNotificationType.info
     message: str
     temporary: bool = True

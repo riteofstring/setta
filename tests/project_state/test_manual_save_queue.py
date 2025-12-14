@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, cast
 
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.types.id import ID
 
 from tests.utils.manager_fixture import (
     real_project_manager,
@@ -14,7 +15,7 @@ from tests.utils.manager_fixture import (
 
 @dataclass(slots=True)
 class _RenamePayload:
-    projectConfigId: str
+    projectConfigId: ID
     newName: str
     frontendOpId: str | None = None
 
@@ -52,7 +53,7 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
 
             default_config_id = manager.project_state_backend.defaultProjectConfigId
             self.assertIsNotNone(default_config_id)
-            default_config_id = str(default_config_id)
+            default_config_id = ID(default_config_id)
 
             original_name = manager.project_state_backend.projectConfigs[
                 default_config_id
@@ -103,7 +104,7 @@ class ManualSaveQueueDrainTests(unittest.IsolatedAsyncioTestCase):
 
             default_config_id = manager.project_state_backend.defaultProjectConfigId
             self.assertIsNotNone(default_config_id)
-            default_config_id = str(default_config_id)
+            default_config_id = ID(default_config_id)
 
             original_name = manager.project_state_backend.projectConfigs[
                 default_config_id

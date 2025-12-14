@@ -11,7 +11,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT_DIR / "backend"
@@ -24,18 +24,28 @@ if ROOT_PATH not in sys.path:
 sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
+from setta.api.listener import ListenerCallbackBuilder
+from setta.types.dependency_key import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _structured_dependency_map(
-    listener: SettaListener, callback: Any
+    listener: SettaListener, callback: Callable[..., Any]
 ) -> dict[str, str]:
     """Return structured dependency identifiers keyed by declared dependency."""
+
+    def _format_key(key: SectionDependencyKey | SectionParamDependencyKey) -> str:
+        code_obj = key.codeObjId if isinstance(key, SectionParamDependencyKey) else "*"
+        return f"{key.sectionId}:{code_obj}"
+
     for spec in listener._callbacks.values():
         if spec.function is callback and spec.structured_dependencies:
             return {
-                declared: f"{key.sectionId}:{key.codeObjId or '*'}"
+                declared: _format_key(key)
                 for declared, key in zip(
                     spec.declared_dependencies,
                     spec.structured_dependencies,
@@ -155,10 +165,10 @@ def main() -> None:
         logger.info("Listener stopped via keyboard interrupt.")
 
 
-def _resolve_builder(module_name: str, builder_name: str):
+def _resolve_builder(module_name: str, builder_name: str) -> ListenerCallbackBuilder:
     module = importlib.import_module(module_name)
     try:
-        builder = getattr(module, builder_name)
+        builder: ListenerCallbackBuilder = getattr(module, builder_name)
     except AttributeError as error:
         raise ValueError(
             f"Listener builder attribute {builder_name!r} missing in module {module_name!r}"

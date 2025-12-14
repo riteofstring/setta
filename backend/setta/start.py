@@ -7,8 +7,10 @@ import click
 import uvicorn
 
 from . import __version__
-from .utils.constants import C
+from .utils.constants import IS_DEV_MODE, C
 from .websockets.connect import connect as _connect
+
+CLI_OPEN_BROWSER_DEFAULT = not bool(IS_DEV_MODE)
 
 
 @click.command()
@@ -57,13 +59,19 @@ def export_db(readable, readable_with_variants):
     default="critical",
     help="Set the logging level",
 )
+@click.option(
+    "--open-browser/--no-open-browser",
+    default=CLI_OPEN_BROWSER_DEFAULT,
+    help="Open the default browser to http://<host>:<port> (disabled in dev mode)",
+)
 @click.pass_context
-def cli(ctx, reload, host: str, port: int, log_level):
+def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
     if ctx.invoked_subcommand is None:
         print("Starting Setta", flush=True)
 
         C.HOST = host
         C.PORT = port
+        C.OPEN_BROWSER_ON_START = open_browser
 
         sys.path.append(str(Path(__file__).resolve().parent))
 

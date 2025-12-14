@@ -32,7 +32,11 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
-import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
+import {
+  receiveLLMApiKeysUpdate,
+  receiveLLMConfigUpdate,
+  receiveLLMResponseChunk,
+} from "./ai";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -130,8 +134,6 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
       // TODO
       return null;
-    case WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM:
-      return updateUUIDMappingForLLM(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
@@ -142,6 +144,10 @@ function receiveMessage(message: string) {
       return updateArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
+    case WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated:
+      return receiveLLMConfigUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated:
+      return receiveLLMApiKeysUpdate(m.content);
     default:
       return m satisfies never;
   }

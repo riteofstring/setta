@@ -1,0 +1,39 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from setta.utils.timestamps import get_now_timestamp
+
+
+class BackendInitEvent(BaseModel):
+    message: str
+    timestamp: datetime = Field(default_factory=get_now_timestamp)
+
+
+class BackendInitStatusResponse(BaseModel):
+    events: list[BackendInitEvent]
+    isReady: bool
+    error: str | None
+
+
+class BackendInitializationStatus:
+    def __init__(self) -> None:
+        self._events: list[BackendInitEvent] = []
+        self._is_ready: bool = False
+        self._error: str | None = None
+
+    def record(self, message: str) -> None:
+        self._events.append(BackendInitEvent(message=message))
+
+    def mark_ready(self) -> None:
+        self._is_ready = True
+
+    def mark_error(self, message: str) -> None:
+        self._error = message
+
+    def snapshot(self) -> BackendInitStatusResponse:
+        return BackendInitStatusResponse(
+            events=list(self._events),
+            isReady=self._is_ready,
+            error=self._error,
+        )

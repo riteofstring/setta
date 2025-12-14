@@ -3,9 +3,11 @@
 import asyncio
 import inspect
 import logging
+from dataclasses import dataclass
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
 
+import bm25s
 import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
@@ -18,14 +20,14 @@ from mcp.server.session import ServerSessionT
 from mcp.server.sse import SseServerTransport
 from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
-from pydantic import TypeAdapter
 
 from setta.database.db_objs import DBE
-from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
+from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
     IDDoesNotExist,
-    replace_ids_with_uuids,
-    replace_uuids_with_ids,
+    convert_canonical_ids_to_temporary,
+    convert_temporary_ids_to_canonical,
 )
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
@@ -35,6 +37,12 @@ if TYPE_CHECKING:
     from setta.server_state import SettaFastAPIState
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ToolSearchIndex:
+    retriever: bm25s.BM25
+    tools: list["Tool"]
 
 
 class SettaFastMCP(FastMCP):
@@ -52,8 +60,12 @@ class SettaFastMCP(FastMCP):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
         self.state = state
-        self.id_to_uuid, self.uuid_to_id = dbe.read_uuid_mapping()
+        (
+            self.temporary_to_canonical,
+            self.canonical_to_temporary,
+        ) = dbe.read_temporary_id_map()
         self.fn_param_docstrings = {}
+        self.tool_search_index: ToolSearchIndex | None = None
         msg_path = f"{mount_path}/messages/"
         sse_transport = SseServerTransport(msg_path)
 
@@ -71,14 +83,32 @@ class SettaFastMCP(FastMCP):
         app.mount(msg_path, app=sse_transport.handle_post_message)
 
         self.add_setta_tools()
+        self.tool_search_index = self._build_tool_search_index()
         content = SettaNotification(message="MCP Server Ready")
         asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
     def add_setta_tools(self):
+        for fn in SETTA_INIT_MCP_TOOLS:
+            self._register_setta_tool(fn, SettaToolType.init)
         for fn in SETTA_MCP_TOOLS:
-            self.add_tool(self.setta_uuid_transformer(fn))
+            self._register_setta_tool(fn, SettaToolType.discoverable)
 
-    def setta_uuid_transformer(self, func):
+    def _register_setta_tool(
+        self, fn: Callable[..., Any], tool_type: SettaToolType
+    ) -> None:
+        # Re-validate against the base class so Pydantic preserves custom fields
+        annotations = ToolAnnotations.model_validate(
+            SettaToolAnnotations(settaToolType=tool_type).model_dump()
+        )
+        self.add_tool(
+            self.setta_id_transformer(fn),
+            annotations=annotations,
+        )
+
+    def list_registered_tools(self):
+        return list(self._tool_manager._tools.values())
+
+    def setta_id_transformer(self, func):
         setta_params: set[str] = set()
         for param_name in inspect.signature(func).parameters.keys():
             if param_name in C.SETTA_MCP_PARAM_NAMES:
@@ -87,7 +117,6 @@ class SettaFastMCP(FastMCP):
 
         @wraps(func)
         async def wrapper(**kwargs):
-            print(f"wrapper: {kwargs}\n\n\n", flush=True)
             # Filter out unwanted params
             kwargs = {
                 k: v
@@ -97,23 +126,37 @@ class SettaFastMCP(FastMCP):
             if C.MCP_SETTA_STATE_ARG_NAME in setta_params:
                 kwargs[C.MCP_SETTA_STATE_ARG_NAME] = self.state
             try:
-                kwargs = replace_ids_with_uuids(kwargs, self.id_to_uuid)
+                kwargs = convert_temporary_ids_to_canonical(
+                    kwargs, self.temporary_to_canonical
+                )
             except IDDoesNotExist as e:
-                return {"error": str(e)}
+                raise ToolError(str(e)) from e
             result = func(**kwargs)
             if is_async:
                 result = await result
-            return_type = func.__annotations__.get("return")
-            if return_type:
-                result = TypeAdapter(return_type).validate_python(result)
-                result = replace_uuids_with_ids(
-                    result, self.uuid_to_id, self.id_to_uuid
-                )
-            self.state.dbe.write_uuid_mapping(self.uuid_to_id)
-            await self.state.wmh_frontend_sender.send_uuid_mapping(self.id_to_uuid)
+            result = convert_canonical_ids_to_temporary(
+                result,
+                self.canonical_to_temporary,
+                self.temporary_to_canonical,
+            )
+            self.state.dbe.write_temporary_id_map(self.canonical_to_temporary)
             return result
 
         return wrapper
+
+    def _build_tool_search_index(self) -> ToolSearchIndex | None:
+        tools = [
+            tool
+            for tool in self.list_registered_tools()
+            if tool.annotations.settaToolType == SettaToolType.discoverable
+        ]
+        if not tools:
+            return None
+        documents = [_build_tool_document_text(tool) for tool in tools]
+        retriever = bm25s.BM25()
+        corpus_tokens = bm25s.tokenize(documents, stopwords="en")
+        retriever.index(corpus_tokens)
+        return ToolSearchIndex(retriever=retriever, tools=tools)
 
 
 class SettaTool(Tool):
@@ -159,14 +202,14 @@ class SettaTool(Tool):
         for arg_name, arg_metadata in parameters["properties"].items():
             if "description" in arg_metadata:
                 continue
-            description = param_descriptions.get(arg_name, None)
-            if description:
-                arg_metadata["description"] = description
+            param_description = param_descriptions.get(arg_name)
+            if param_description:
+                arg_metadata["description"] = param_description
 
         return cls(
             fn=fn,
             name=func_name,
-            description=description if description else "",
+            description=description or "",
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,
@@ -193,6 +236,8 @@ class SettaTool(Tool):
                 arguments,
                 pass_directly,
             )
+        except ToolError:
+            raise
         except Exception as e:
             raise ToolError(f"Error executing tool {self.name}: {e}") from e
 
@@ -238,3 +283,103 @@ def extract_tool_docstrings(func):
             param_docs[param.arg_name] = param.description
 
     return parsed.description, param_docs
+
+
+def _build_tool_document_text(tool: "Tool") -> str:
+    parameter_text = _build_parameter_text(tool.parameters)
+    parts = [tool.name]
+    if "_" in tool.name:
+        parts.append(tool.name.replace("_", " "))
+    parts.extend([tool.description, parameter_text])
+    return " ".join(part for part in parts if part)
+
+
+def _build_parameter_text(parameters: dict[str, Any]) -> str:
+    if not parameters:
+        return ""
+    properties = parameters.get("properties")
+    if not isinstance(properties, dict):
+        return ""
+
+    segments: list[str] = []
+    for prop_name, prop_schema in properties.items():
+        segments.append(str(prop_name))
+        if not isinstance(prop_schema, dict):
+            continue
+        segments.extend(_collect_schema_text(prop_schema, parameters, set()))
+    return " ".join(segment for segment in segments if isinstance(segment, str))
+
+
+def _collect_schema_text(
+    schema: Any,
+    root_schema: dict[str, Any],
+    seen_refs: set[str],
+) -> list[str]:
+    segments: list[str] = []
+    if not isinstance(schema, dict):
+        return segments
+
+    description = schema.get("description")
+    if isinstance(description, str):
+        segments.append(description)
+
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        target = _resolve_json_pointer(root_schema, ref)
+        if isinstance(target, dict) and ref not in seen_refs:
+            seen_refs.add(ref)
+            try:
+                segments.extend(_collect_schema_text(target, root_schema, seen_refs))
+            finally:
+                seen_refs.remove(ref)
+
+    for keyword in ("anyOf", "allOf", "oneOf"):
+        options = schema.get(keyword)
+        if isinstance(options, list):
+            for option in options:
+                segments.extend(_collect_schema_text(option, root_schema, seen_refs))
+
+    items = schema.get("items")
+    if isinstance(items, dict):
+        segments.extend(_collect_schema_text(items, root_schema, seen_refs))
+    elif isinstance(items, list):
+        for entry in items:
+            segments.extend(_collect_schema_text(entry, root_schema, seen_refs))
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for sub_name, sub_schema in properties.items():
+            segments.append(str(sub_name))
+            segments.extend(_collect_schema_text(sub_schema, root_schema, seen_refs))
+
+    additional_properties = schema.get("additionalProperties")
+    if isinstance(additional_properties, dict):
+        segments.extend(
+            _collect_schema_text(additional_properties, root_schema, seen_refs)
+        )
+
+    return segments
+
+
+def _resolve_json_pointer(schema: dict[str, Any], pointer: str) -> Any:
+    if not isinstance(pointer, str) or not pointer.startswith("#/"):
+        return None
+    current: Any = schema
+    parts = pointer[2:].split("/")
+    for raw_part in parts:
+        part = raw_part.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, dict):
+            current = current.get(part)
+        elif isinstance(current, list):
+            try:
+                index = int(part)
+            except ValueError:
+                return None
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+        else:
+            return None
+        if current is None:
+            return None
+    return current

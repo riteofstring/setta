@@ -14,6 +14,8 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgLLMApiKeysUpdated,
+    WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -23,14 +25,12 @@ from setta.types.websocket import (
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
-    WebsocketMsgUUIDMappingForLLM,
 )
 
 WebsocketMsgUnion = (
     WebsocketMsgAllConnections
     | WebsocketMsgNotification
     | WebsocketMsgLLMStreamingResponse
-    | WebsocketMsgUUIDMappingForLLM
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
@@ -39,6 +39,8 @@ WebsocketMsgUnion = (
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
     | WebsocketMsgListenerCoverageSnapshot
+    | WebsocketMsgLLMConfigUpdated
+    | WebsocketMsgLLMApiKeysUpdated
     | WebsocketMsgRealtimeUIChange
     | WebsocketMsgCurrentAddressUpdate
     | WebsocketMsgListenerRealtimeEvent
@@ -61,7 +63,6 @@ WebsocketMsgTypeSet = set(
         "AllConnections",
         "Notification",
         "LLMStreamingResponse",
-        "UUIDMappingForLLM",
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
@@ -70,6 +71,8 @@ WebsocketMsgTypeSet = set(
         "AllProjectMetadata",
         "UpdateArtifacts",
         "ListenerCoverageSnapshot",
+        "LLMConfigUpdated",
+        "LLMApiKeysUpdated",
         "RealtimeUIChange",
         "CurrentAddressUpdate",
         "ListenerRealtimeEvent",
@@ -86,7 +89,6 @@ FrontendWebsocketMsgUnion = (
     WebsocketMsgAllConnections
     | WebsocketMsgNotification
     | WebsocketMsgLLMStreamingResponse
-    | WebsocketMsgUUIDMappingForLLM
     | WebsocketMsgLSPDiagnostics
     | WebsocketMsgReturnRenameRefactorResults
     | WebsocketMsgUpdateFrontendProjectState
@@ -95,6 +97,8 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgAllProjectMetadata
     | WebsocketMsgUpdateArtifacts
     | WebsocketMsgListenerCoverageSnapshot
+    | WebsocketMsgLLMConfigUpdated
+    | WebsocketMsgLLMApiKeysUpdated
 )
 
 FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -110,7 +114,6 @@ FrontendWebsocketMsgTypeSet = set(
         "AllConnections",
         "Notification",
         "LLMStreamingResponse",
-        "UUIDMappingForLLM",
         "LSPDiagnostics",
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
@@ -119,6 +122,8 @@ FrontendWebsocketMsgTypeSet = set(
         "AllProjectMetadata",
         "UpdateArtifacts",
         "ListenerCoverageSnapshot",
+        "LLMConfigUpdated",
+        "LLMApiKeysUpdated",
     ]
 )
 

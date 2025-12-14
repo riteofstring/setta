@@ -97,6 +97,7 @@ roots:
 
 ## Related Resources
 
-- `docs/setta-listener-plan.md` tracks the broader listener roadmap and future work.
+- `docs/setta-realtime-behavior.md` covers the snapshot + realtime contract that hot
+  reload relies on.
 - `tests/manual_listener_hot_reload_callbacks.py` provides a simple builder example
   used by the manual smoke test.

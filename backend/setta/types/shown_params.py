@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
+from setta.types.id import ID
 from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
 )
@@ -14,8 +15,8 @@ if TYPE_CHECKING:
 
 
 class ShownParamIdDetails(BaseModel, extra="forbid"):
-    requiredParamIdsToPaths: dict[str, tuple[str, ...]] = Field(default_factory=dict)
-    topLevelParamIds: list[str] = Field(default_factory=list)
+    requiredParamIdsToPaths: dict[ID, tuple[ID, ...]] = Field(default_factory=dict)
+    topLevelParamIds: list[ID] = Field(default_factory=list)
 
 
 class ShownParamIds(BaseModel, extra="forbid"):
@@ -58,10 +59,10 @@ def get_param_ids_to_show(
 
 
 def filter_for_ui_display(
-    param_ids: list[str],
-    id_to_id_path: dict[str, tuple[str, ...]],
-    children_map: dict[str, list[str]],
-    pinned_params: set[str],
+    param_ids: list[ID],
+    id_to_id_path: dict[ID, tuple[ID, ...]],
+    children_map: dict[ID, list[ID]],
+    pinned_params: set[ID],
 ) -> ShownParamIds:
     """
     Filter parameters for UI display where:
@@ -72,8 +73,8 @@ def filter_for_ui_display(
     This preserves the complete tree structure in both views.
     """
     # Step 1: Determine which params belong in each area
-    params_for_pinned_area: set[str] = set()
-    params_for_unpinned_area: set[str] = set()
+    params_for_pinned_area: set[ID] = set()
+    params_for_unpinned_area: set[ID] = set()
 
     # For each pinned parameter: add it, its ancestors, and descendants
     for param_id in param_ids:
@@ -107,7 +108,7 @@ def filter_for_ui_display(
 
 
 def _add_descendants(
-    param_id: str, children_map: dict[str, list[str]], target_set: set[str]
+    param_id: ID, children_map: dict[ID, list[ID]], target_set: set[ID]
 ):
     """Recursively add all descendants of a parameter to the target set."""
     for child_id in children_map.get(param_id, []):
@@ -116,7 +117,7 @@ def _add_descendants(
 
 
 def _should_include_param(
-    param_id: str, candidates: set[str], children_map: dict[str, list[str]]
+    param_id: ID, candidates: set[ID], children_map: dict[ID, list[ID]]
 ) -> bool:
     """Check if a param should be included (is a leaf or has children in candidates)."""
     if param_id not in candidates:
@@ -135,10 +136,10 @@ def _should_include_param(
 
 
 def _build_area(
-    param_ids: list[str],
-    candidates: set[str],
-    id_to_id_path: dict[str, tuple[str, ...]],
-    children_map: dict[str, list[str]],
+    param_ids: list[ID],
+    candidates: set[ID],
+    id_to_id_path: dict[ID, tuple[ID, ...]],
+    children_map: dict[ID, list[ID]],
 ) -> ShownParamIdDetails:
     """Build a area including only params that are leaves or have children in the area."""
     result = ShownParamIdDetails()

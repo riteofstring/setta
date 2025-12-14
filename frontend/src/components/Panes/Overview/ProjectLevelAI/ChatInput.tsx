@@ -7,32 +7,70 @@ export const ChatInput = memo(function ChatInput({
   deepThink,
   placeholderText,
   waitingForResponse,
-  userSelectedLLM,
-  currentChatId,
+  llmConfigId,
+  chatId,
+  onNewChatStart,
+  onNewChatSettled,
+}: {
+  deepThink: boolean;
+  placeholderText: string | undefined;
+  waitingForResponse: boolean;
+  llmConfigId: string | null;
+  chatId: string | null | undefined;
+  onNewChatStart?: () => void;
+  onNewChatSettled?: (chatId: string | null, succeeded: boolean) => void;
 }) {
-  const disabled = !userSelectedLLM;
+  const disabled = !llmConfigId;
   // Keep input state local to this component
   const [inputValue, setInputValue] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (waitingForResponse) {
-      route_stop_llm_chat({ chatId: currentChatId });
+      if (typeof chatId === "string") {
+        await route_stop_llm_chat({ chatId });
+      }
       return;
     }
 
-    if (inputValue.trim() === "") return;
+    const trimmedInput = inputValue.trim();
+    if (trimmedInput === "") return;
+    if (!llmConfigId) return;
+
+    const isFirstMessage = chatId === undefined;
+    const messageToSend = inputValue;
+
+    if (isFirstMessage) {
+      onNewChatStart?.();
+    }
 
     // Only communicate with parent on submission
-    submitMessage(inputValue, deepThink);
     setInputValue("");
+
+    let succeeded = false;
+    let submittedChatId: string | null = null;
+    try {
+      submittedChatId = await submitMessage(
+        chatId ?? null,
+        messageToSend,
+        deepThink,
+        llmConfigId,
+      );
+      succeeded = Boolean(submittedChatId);
+    } catch (err) {
+      console.error("Failed to submit LLM chat message", err);
+    } finally {
+      if (isFirstMessage) {
+        onNewChatSettled?.(submittedChatId, succeeded);
+      }
+    }
   };
 
   const handleKeyDown = (e) => {
     // Only allow Enter key submission when NOT waiting for a response
     if (e.key === "Enter" && !e.shiftKey && !waitingForResponse) {
       e.preventDefault();
-      handleSubmit(e);
+      void handleSubmit(e);
     }
   };
 

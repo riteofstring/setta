@@ -25,6 +25,7 @@ from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
 )
+from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -159,21 +160,21 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
         self._tmpdir.cleanup()
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
-        code_impl = CodeSectionImpl(id="code-impl")
+        code_impl = CodeSectionImpl(id=ID("code-impl"))
         code_impl.code = "print('hello world')"
         variant = Variant(
-            id="variant-main",
+            id=ID("variant-main"),
             impl=code_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
         )
         section = Core(
-            id="section-main",
+            id=ID("section-main"),
             name="Main Section",
             variants=[variant.id],
             defaultVariant=variant.id,
         )
         project_config = ProjectConfig(
-            id="project-config",
+            id=ID("project-config"),
             name="Demo Project",
             sectionVariantMap={section.id: variant.id},
             topLevelSections={section.id: TopLevelSectionLayout()},
@@ -228,7 +229,7 @@ class CodeFileBindingRegistrationTests(unittest.IsolatedAsyncioTestCase):
             fileToRead=self.expected_code_path,
         )
 
-        bindings_by_config: dict[str, list[RegisteredCodeFileBinding]] = {}
+        bindings_by_config: dict[ID, list[RegisteredCodeFileBinding]] = {}
         for binding in bindings:
             bindings_by_config.setdefault(binding.project_config_id, []).append(binding)
 

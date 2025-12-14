@@ -33,6 +33,7 @@ from setta.types.hierarchy_traversal import (
     TraversalOptions,
     traverse_hierarchy,
 )
+from setta.types.id import ID
 from setta.types.notifications import SettaNotification
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.utils.utils import normalize_path
@@ -48,12 +49,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class JSONSourceKeyValueInfo:
-    codeObjs: dict[str, Core] = field(default_factory=dict)
-    codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = field(
+    codeObjs: dict[ID, Core] = field(default_factory=dict)
+    codeObjImpls: dict[ID, BaseCodeObjImplUnionWithDiscriminator] = field(
         default_factory=dict
     )
-    codeObjVariants: dict[str, Variant] = field(default_factory=dict)
-    codeObjVariantMap: dict[str, str] = field(default_factory=dict)
+    codeObjVariants: dict[ID, Variant] = field(default_factory=dict)
+    codeObjVariantMap: dict[ID, ID] = field(default_factory=dict)
 
 
 @dataclass
@@ -77,18 +78,18 @@ class JSONSource:
         self.json_sources: dict[Path, ProcessedJSONInfo] = {}
         # maps callback category -> file path -> set of (sectionId, variantId)
         self._category_to_section_variants: dict[
-            str, dict[Path, set[tuple[str, str]]]
+            str, dict[Path, set[tuple[ID, ID]]]
         ] = {}
 
     def _get_category_section_variants(
         self, callbackCategory: str
-    ) -> dict[Path, set[tuple[str, str]]]:
+    ) -> dict[Path, set[tuple[ID, ID]]]:
         return self._category_to_section_variants.get(callbackCategory, {})
 
     def _set_category_section_variants(
         self,
         callbackCategory: str,
-        mapping: dict[Path, set[tuple[str, str]]],
+        mapping: dict[Path, set[tuple[ID, ID]]],
     ) -> None:
         self._category_to_section_variants[callbackCategory] = mapping
 
@@ -96,20 +97,20 @@ class JSONSource:
         self,
         callbackCategory: str,
         load_json_sources_fn: Callable[
-            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
+            [dict[Path, ProcessedJSONInfo], set[tuple[ID, ID]]],
             Coroutine[Any, Any, None],
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
         *,
         should_defer_reload: Callable[..., bool] | None = None,
-        on_deferred: Callable[[set[tuple[str, str]]], None] | None = None,
+        on_deferred: Callable[[set[tuple[ID, ID]]], None] | None = None,
     ):
         filename_set, new_json_source_to_section_variant = (
             self.get_json_source_files_to_watch(project_state_backend_getter_fn())
         )
         previous_category_map = self._get_category_section_variants(callbackCategory)
 
-        section_variant_ids_to_load: set[tuple[str, str]] = set()
+        section_variant_ids_to_load: set[tuple[ID, ID]] = set()
         for filename, ids in new_json_source_to_section_variant.items():
             if filename in self.json_sources:
                 section_variant_ids_to_load.update(
@@ -152,7 +153,7 @@ class JSONSource:
     def get_json_source_file_watcher_callback(
         self,
         load_json_sources_fn: Callable[
-            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
+            [dict[Path, ProcessedJSONInfo], set[tuple[ID, ID]]],
             Coroutine[Any, Any, None],
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
@@ -180,7 +181,7 @@ class JSONSource:
 
     def get_json_source_files_to_watch(self, p: "ProjectStateCore"):
         filename_set: set[Path] = set()
-        new_json_source_to_variant_mapping: dict[Path, set[tuple[str, str]]] = (
+        new_json_source_to_variant_mapping: dict[Path, set[tuple[ID, ID]]] = (
             defaultdict(set)
         )
         for s in p.sections.values():
@@ -196,7 +197,7 @@ class JSONSource:
     def get_section_variants_for_json_source_update(
         self, p: "ProjectStateCore", coreUpdate: "FileWatcherCoreUpdate"
     ):
-        sectionVariantsToLoad: set[tuple[str, str]] = set()
+        sectionVariantsToLoad: set[tuple[ID, ID]] = set()
         processed = set()
         for section in p.sections.values():
             for variant_id in section.variants:
@@ -263,7 +264,7 @@ class JSONSource:
     def construct_json_source_key_value_info_helper(
         self, output: JSONSourceKeyValueInfo, obj: dict
     ):
-        children_keys: list[str] = []
+        children_keys: list[ID] = []
         for k, v in obj.items():
             codeObj, codeObjImpl, codeObjVariant = self.add_to_processed_json_object(
                 k, v, output

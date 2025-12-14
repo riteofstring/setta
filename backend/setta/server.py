@@ -1,7 +1,12 @@
+import asyncio
 import logging
+import time
+import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -19,11 +24,13 @@ from setta.routers import (
     artifact_router,
     code_info_router,
     listener_router,
+    llm_router,
     lsp_router,
     project_manager_router,
     projects_router,
     sections_router,
     settings_router,
+    status_router,
     terminals_router,
     websocket_router,
 )
@@ -57,13 +64,23 @@ async def lifespan(app: FastAPI):
             return content
 
     print(f"Ready: {C.BACKEND}", flush=True)
+    browser_task: asyncio.Task[None] | None = None
+    if C.OPEN_BROWSER_ON_START:
+        C.OPEN_BROWSER_ON_START = False
+        browser_task = asyncio.create_task(_open_browser_after_startup(C.BACKEND))
     try:
         yield
     finally:
-        app.state.setta.specific_file_watcher.stop()
-        await app.state.setta.mcp_client.stop()
-        await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
-        stop_file_watcher(app.state.setta.lsp_writers)
+        if browser_task is not None:
+            await browser_task
+        if app.state.setta.specific_file_watcher:
+            app.state.setta.specific_file_watcher.stop()
+        if app.state.setta.mcp_client:
+            await app.state.setta.mcp_client.stop()
+        if app.state.setta.lsps and app.state.setta.lsp_readers:
+            await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
+        if app.state.setta.lsp_writers:
+            stop_file_watcher(app.state.setta.lsp_writers)
 
 
 app = FastAPI(
@@ -91,8 +108,30 @@ app.include_router(settings_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(listener_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
+app.include_router(llm_router, **kwargs)
 app.include_router(ai_router, **kwargs)
 app.include_router(project_manager_router, **kwargs)
+app.include_router(status_router, **kwargs)
+
+
+async def _open_browser_after_startup(url: str) -> None:
+    await asyncio.to_thread(_wait_for_backend, url)
+    webbrowser.open(url, new=0)
+
+
+def _wait_for_backend(
+    url: str, timeout: float = 5.0, poll_interval: float = 0.05
+) -> None:
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            with urlopen(url, timeout=timeout):
+                return
+        except URLError:
+            if time.monotonic() >= deadline:
+                logger.warning("Timed out waiting for %s to become reachable.", url)
+                return
+            time.sleep(poll_interval)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

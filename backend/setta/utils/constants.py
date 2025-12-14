@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 CWD = Path.cwd()
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
+BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
 
 
 class classproperty:
@@ -27,6 +28,8 @@ class C:
     DEFAULT_PORT = 8000
     DEV_MODE_FRONTEND_PORT = 3000
     SETTINGS_PROJECT_NAME = "settings"
+    BACKEND_INIT_DELAY_SECONDS = BACKEND_INIT_DELAY_SECONDS
+    OPEN_BROWSER_ON_START: bool = False
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
@@ -52,38 +55,15 @@ class C:
 
     NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS"
 
-    # LLM API key names
-    LLM_API_KEY_NAMES = {"Anthropic": "ANTHROPIC_API_KEY", "OpenAI": "OPENAI_API_KEY"}
-
-    # LLM message types
-    LLM_MESSAGE_START = "message_start"
-    LLM_CONTENT_BLOCK_START = "content_block_start"
-    LLM_CONTENT_BLOCK_DELTA = "content_block_delta"
-    LLM_CONTENT_BLOCK_STOP = "content_block_stop"
-    LLM_FULL_MESSAGE_STOP = "full_message_stop"
-    LLM_STREAMING_INTO_CODE_BLOCK = "llm_streaming_into_code_block"
-    LLM_TEXT_DELTA = "text_delta"
-    LLM_THINKING_DELTA = "thinking_delta"
-    LLM_SIGNATURE_DELTA = "signature_delta"
-    LLM_INPUT_JSON_DELTA = "input_json_delta"
-
     # LLM roles and types
-    LLM_ASSISTANT_ROLE = "assistant"
-    LLM_USER_ROLE = "user"
     LLM_TEXT = "text"
     LLM_THINKING = "thinking"
-    LLM_TOOL_USE = "tool_use"
-    LLM_TOOL_RESULT = "tool_result"
-    LLM_STR_REPLACE_EDITOR_TOOL = "str_replace_editor"
-    SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR"
 
-    MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
     MCP_SETTA_STATE_ARG_NAME = "setta_state"
-    MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId"
+    SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools"
+    MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden"
     SETTA_MCP_PARAM_NAMES = [
-        MCP_CHAT_ID_ARG_NAME,
         MCP_SETTA_STATE_ARG_NAME,
-        MCP_PROJECT_CONFIG_ID_ARG_NAME,
     ]
 
     @classproperty

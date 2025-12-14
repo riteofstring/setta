@@ -14,6 +14,7 @@ from setta.types.code_obj_impls import (
     ParamNameType,
 )
 from setta.types.generated.shared_modifier import SharedModifier
+from setta.types.id import ID
 from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewingEditingMode,
@@ -35,10 +36,10 @@ from setta.types.section_impls import (
 
 
 class CoreArgs(TypedDict):
-    id: NotRequired[str]
+    id: NotRequired[ID]
     name: NotRequired[str]
-    variants: NotRequired[list[str]]
-    defaultVariant: NotRequired[str | None]
+    variants: NotRequired[list[ID]]
+    defaultVariant: NotRequired[ID | None]
     sharedModifier: NotRequired[SharedModifier]
     unsharedKeys: NotRequired[
         list[
@@ -115,22 +116,22 @@ class CoreArgs(TypedDict):
 
 
 class ProjectConfigArgs(TypedDict):
-    id: NotRequired[str]
+    id: NotRequired[ID]
     name: NotRequired[str]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
     viewingEditingMode: NotRequired[ViewingEditingMode]
     genCodePrefix: NotRequired[str]
     genCodeSuffix: NotRequired[str]
-    entryCodeBlockId: NotRequired[str | None]
-    topLevelSections: NotRequired[dict[str, TopLevelSectionLayout]]
-    sectionVariantMap: NotRequired[dict[str, str]]
-    activeIds: NotRequired[list[str]]
+    entryCodeBlockId: NotRequired[ID | None]
+    topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
+    sectionVariantMap: NotRequired[dict[ID, ID]]
+    activeIds: NotRequired[list[ID]]
 
 
 class BaseSectionImplArgs(TypedDict):
     type: NotRequired[Any]
-    id: NotRequired[str]
+    id: NotRequired[ID]
     name: NotRequired[str]
     isFrozen: NotRequired[bool]
     visibility: NotRequired[Visibility]
@@ -146,7 +147,7 @@ class BaseSectionImplArgs(TypedDict):
 
 class BaseSectionImplArgsWithCallable(TypedDict):
     type: NotRequired[Any | Callable[[Any], Any]]
-    id: NotRequired[str | Callable[[str], str]]
+    id: NotRequired[ID | Callable[[ID], ID]]
     name: NotRequired[str | Callable[[str], str]]
     isFrozen: NotRequired[bool | Callable[[bool], bool]]
     visibility: NotRequired[Visibility | Callable[[Visibility], Visibility]]
@@ -162,22 +163,22 @@ class BaseSectionImplArgsWithCallable(TypedDict):
 
 class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
-    codeObjVariantMap: NotRequired[dict[str, str]]
+    codeObjVariantMap: NotRequired[dict[ID, ID]]
     hideUnpinnedParams: NotRequired[bool]
     paramFilter: NotRequired[str]
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
-    pinnedParams: NotRequired[list[str]]
+    pinnedParams: NotRequired[list[ID]]
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
-    selectedParams: NotRequired[list[str]]
-    ignoreTypeErrors: NotRequired[dict[str, bool]]
+    selectedParams: NotRequired[list[ID]]
+    ignoreTypeErrors: NotRequired[dict[ID, bool]]
     displayMode: NotRequired[SectionWithParamsDisplayMode]
 
 
 class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     codeObjVariantMap: NotRequired[
-        dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
+        dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
     ]
     hideUnpinnedParams: NotRequired[bool | Callable[[bool], bool]]
     paramFilter: NotRequired[str | Callable[[str], str]]
@@ -185,7 +186,7 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     configLanguage: NotRequired[
         ConfigLanguage | Callable[[ConfigLanguage], ConfigLanguage]
     ]
-    pinnedParams: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    pinnedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     pinnedAreaHeight: NotRequired[
         float
         | Literal[SectionSizeMode.auto]
@@ -194,9 +195,9 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
             float | Literal[SectionSizeMode.auto],
         ]
     ]
-    selectedParams: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
-        dict[str, bool] | Callable[[dict[str, bool]], dict[str, bool]]
+        dict[ID, bool] | Callable[[dict[ID, bool]], dict[ID, bool]]
     ]
     displayMode: NotRequired[
         SectionWithParamsDisplayMode
@@ -232,17 +233,17 @@ class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class BaseParentSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
-    children: NotRequired[list[str]]
+    children: NotRequired[list[ID]]
 
 
 class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    children: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
 
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
     type: NotRequired[Any]
-    topLevelParamId: NotRequired[str | None]
+    topLevelParamId: NotRequired[ID | None]
     isJsonSource: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
@@ -250,7 +251,7 @@ class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
 
 class BaseDictSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    topLevelParamId: NotRequired[str | None | Callable[[str | None], str | None]]
+    topLevelParamId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     isJsonSource: NotRequired[bool | Callable[[bool], bool]]
     jsonSourceKeys: NotRequired[list[str] | Callable[[list[str]], list[str]]]
     jsonSourceMissing: NotRequired[bool | Callable[[bool], bool]]
@@ -258,7 +259,7 @@ class BaseDictSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCalla
 
 class CallableSectionImplArgs(BaseSectionWithParamsImplArgs):
     type: NotRequired[Literal[SectionType.Callable]]
-    callable: NotRequired[str | None]
+    callable: NotRequired[ID | None]
     hideParams: NotRequired[bool]
 
 
@@ -267,7 +268,7 @@ class CallableSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCalla
         Literal[SectionType.Callable]
         | Callable[[Literal[SectionType.Callable]], Literal[SectionType.Callable]]
     ]
-    callable: NotRequired[str | None | Callable[[str | None], str | None]]
+    callable: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     hideParams: NotRequired[bool | Callable[[bool], bool]]
 
 
@@ -517,7 +518,7 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class BaseCodeObjImplArgs(TypedDict):
     type: NotRequired[Any]
-    id: NotRequired[str]
+    id: NotRequired[ID]
     name: NotRequired[str]
     description: NotRequired[str]
     isPreset: NotRequired[bool]
@@ -525,7 +526,7 @@ class BaseCodeObjImplArgs(TypedDict):
 
 class BaseCodeObjImplArgsWithCallable(TypedDict):
     type: NotRequired[Any | Callable[[Any], Any]]
-    id: NotRequired[str | Callable[[str], str]]
+    id: NotRequired[ID | Callable[[ID], ID]]
     name: NotRequired[str | Callable[[str], str]]
     description: NotRequired[str | Callable[[str], str]]
     isPreset: NotRequired[bool | Callable[[bool], bool]]
@@ -561,12 +562,12 @@ class BaseChildlessCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCalla
 
 class BaseParentCodeObjImplArgs(BaseCodeObjImplArgs):
     type: NotRequired[Any]
-    children: NotRequired[list[str]]
+    children: NotRequired[list[ID]]
 
 
 class BaseParentCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    children: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
 
 
 class CodeCallableCodeObjImplArgs(BaseParentCodeObjImplArgs):
