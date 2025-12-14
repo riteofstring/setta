@@ -42,7 +42,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         if isinstance(m, WebsocketMsgRealtimeUIChange):
             await self._handle_realtime_ui_change(m.content)
 
-    async def on_connect(self, websocket_id: str):
+    async def on_connect(self, _websocket_id: str):
         await self.project_manager.broadcast_all_project_metadata()
 
     async def _handle_realtime_ui_change(self, content: RealtimeUIChangeContent):

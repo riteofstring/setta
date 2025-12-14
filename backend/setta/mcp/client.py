@@ -20,6 +20,7 @@ from mcp.server.stdio import stdio_server
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
+from setta.logging.config import configure_logging
 from setta.mcp.tool_metadata import SettaToolType
 from setta.utils.constants import C
 
@@ -208,10 +209,8 @@ async def _forward_stdio_to_backend(
 
 def main(argv: Sequence[str] | None = None) -> int:
     config = parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if config.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    level_override = "DEBUG" if config.verbose else None
+    configure_logging(level_override=level_override)
     client = MCPClient(config.backend_url)
     try:
         asyncio.run(client.run_stdio_bridge(verbose=config.verbose))
