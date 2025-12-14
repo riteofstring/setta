@@ -35,7 +35,6 @@ from setta.types.hierarchy_traversal import (
     traverse_hierarchy,
 )
 from setta.types.id import ID
-from setta.types.notifications import SettaNotification
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.utils.utils import normalize_path
 
@@ -186,10 +185,9 @@ class JSONSource:
 
             if len(sectionVariantsToLoad) > 0:
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
-                notification = SettaNotification(
-                    message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+                await self.websocket_msg_handler.broadcast_backend_log_event(
+                    f"{coreUpdate.relPath} {coreUpdate.eventType.value}"
                 )
-                await self.websocket_msg_handler.broadcast_notification(notification)
 
         return fn
 

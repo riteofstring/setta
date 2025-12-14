@@ -1,8 +1,6 @@
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 
-from setta.logging.context import get_logging_context
-from setta.logging.context_bindings import wrap_background_callable
 from setta.logging.errors import log_route_failure
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -13,7 +11,7 @@ from setta.types.generated.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -98,7 +96,6 @@ async def route_stop_llm_chat(
 @router.post(Route.GET_LLM_CHAT)
 async def route_get_llm_chat(
     x: GetLLMChatRequest,
-    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ) -> GetLLMChatRequestResponse:
     chat = state.chat_manager.get_chat(x.chatId)
@@ -106,19 +103,10 @@ async def route_get_llm_chat(
         # it's possible for projectConfigId to be null
         # if the llm chats are requested before a project is loaded to the frontend
         if x.projectConfigId:
-            notification = SettaNotification(
-                projectConfigId=x.projectConfigId,
-                message="Chat not found!",
-                type=SettaNotificationType.error,
-            )
-            background_tasks.add_task(
-                wrap_background_callable(
-                    state.wmh_frontend_sender.broadcast_notification,
-                    label="llm-chat-not-found",
-                    project_id=x.projectConfigId,
-                    request_id=_current_request_id(),
-                ),
-                notification,
+            await state.wmh_frontend_sender.broadcast_backend_log_event(
+                "Chat not found!",
+                severity=SettaBackendLogEventSeverity.error,
+                project_config_id=x.projectConfigId,
             )
         raise HTTPException(status_code=404, detail="Chat not found")
 
@@ -145,7 +133,3 @@ def merge_db_messages_with_current_stream(
             db_messages.append(message)
             # Add to existing_ids to track what we've added
             existing_ids.add(message.id)
-
-
-def _current_request_id() -> str | None:
-    return get_logging_context().get("request_id")

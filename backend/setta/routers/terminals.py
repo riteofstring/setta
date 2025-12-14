@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import BackgroundTasks, WebSocket
+from fastapi import WebSocket
 from pydantic import BaseModel
 
 from setta.routers.dependencies import (
@@ -13,13 +13,12 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.logging.context import get_logging_context
 from setta.logging.context_bindings import (
     bind_websocket_logging_context,
-    wrap_background_callable,
     wrap_background_coroutine,
 )
 from setta.logging.errors import run_safely
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
-from setta.types.notifications import SettaNotification
+from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
 
@@ -99,9 +98,8 @@ async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromR
 
 
 @router.post(Route.KILL_SUBPROCESSES)
-def route_kill_subprocesses(
+async def route_kill_subprocesses(
     x: KillSubprocessesRequest,
-    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     ids = state.terminals.get_existing_terminals(x.projectConfigId)
@@ -111,25 +109,15 @@ def route_kill_subprocesses(
         if num_killed > 0
         else "No subprocesses to kill"
     )
-    notification = SettaNotification(
-        projectConfigId=x.projectConfigId,
-        message=msg,
-    )
-    background_tasks.add_task(
-        wrap_background_callable(
-            state.terminals.websocket_msg_handler.broadcast_notification,
-            label="terminals-kill-notification",
-            project_id=x.projectConfigId,
-            request_id=_current_request_id(),
-        ),
-        notification,
+    await state.wmh_frontend_sender.broadcast_backend_log_event(
+        msg,
+        project_config_id=x.projectConfigId,
     )
 
 
 @router.post(Route.RUN_CODE)
 async def route_run_code(
     x: RunCodeRequest,
-    background_tasks: BackgroundTasks,
     state: ReadyAppStateFromRequest,
 ):
     terminal_id = await run_code(
@@ -141,20 +129,8 @@ async def route_run_code(
         state.wmh_cli_sender,
     )
 
-    notification = SettaNotification(
-        projectConfigId=x.projectConfigId,
-        message="Started",
+    await state.wmh_frontend_sender.broadcast_backend_log_event(
+        "Started command",
+        project_config_id=x.projectConfigId,
+        severity=SettaBackendLogEventSeverity.info,
     )
-    background_tasks.add_task(
-        wrap_background_callable(
-            state.wmh_frontend_sender.broadcast_notification,
-            label="run-code-notification",
-            project_id=x.projectConfigId,
-            request_id=_current_request_id(),
-        ),
-        notification,
-    )
-
-
-def _current_request_id() -> str | None:
-    return get_logging_context().get("request_id")

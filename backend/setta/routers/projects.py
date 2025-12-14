@@ -1,15 +1,13 @@
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 
-from setta.logging.context import get_logging_context
-from setta.logging.context_bindings import wrap_background_callable
 from setta.logging.errors import log_route_failure
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
 from setta.types.id import ID
-from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.notifications import SettaBackendLogEventSeverity, SettaNotification, SettaNotificationType
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
 
@@ -89,10 +87,8 @@ async def route_load_project_config(
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
     x: ManualSaveRequest,
-    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
-    notification: SettaNotification | None = None
     try:
         project_manager = state.project_manager_switcher.get(x.projectConfigId)
         await project_manager.finish_pending_operations()
@@ -100,13 +96,10 @@ async def route_save_project(
         notification = SettaNotification(
             projectConfigId=x.projectConfigId,
             message="Saved!",
+            type=SettaNotificationType.save,
         )
+        await state.wmh_frontend_sender.broadcast_notification(notification)
     except Exception as exc:
-        notification = SettaNotification(
-            projectConfigId=x.projectConfigId,
-            message="Failed to save",
-            type=SettaNotificationType.error,
-        )
         log_route_failure(
             exc,
             x,
@@ -114,20 +107,14 @@ async def route_save_project(
             handled=False,
             notify_frontend=True,
         )
+        await state.wmh_frontend_sender.broadcast_backend_log_event(
+            "Failed to save",
+            severity=SettaBackendLogEventSeverity.error,
+            project_config_id=x.projectConfigId,
+        )
         raise HTTPException(
             status_code=500, detail="Failed to save project"
         ) from exc
-    finally:
-        if notification:
-            background_tasks.add_task(
-                wrap_background_callable(
-                    state.wmh_frontend_sender.broadcast_notification,
-                    label="manual-save-notification",
-                    project_id=x.projectConfigId,
-                    request_id=_current_request_id(),
-                ),
-                notification,
-            )
 
 
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
@@ -198,7 +185,3 @@ def route_get_notifications(
 def route_delete_notification(x: DeleteNotificationRequest, state: AppStateFromRequest):
     success = state.dbe.delete_notification(x.notificationId)
     return {"success": success}
-
-
-def _current_request_id() -> str | None:
-    return get_logging_context().get("request_id")

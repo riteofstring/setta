@@ -30,7 +30,6 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
-from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -85,10 +84,9 @@ class SettaFastMCP(FastMCP):
 
         self.add_setta_tools()
         self.tool_search_index = self._build_tool_search_index()
-        content = SettaNotification(message="MCP Server Ready")
         asyncio.create_task(
             wrap_background_coroutine(
-                websocket_msg_handler.broadcast_notification(content),
+                websocket_msg_handler.broadcast_backend_log_event("MCP Server Ready"),
                 label="mcp-server-ready",
                 extra_values={"mount_path": mount_path},
             )

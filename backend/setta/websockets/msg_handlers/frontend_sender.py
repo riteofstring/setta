@@ -18,7 +18,11 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
-from setta.types.notifications import SettaNotification
+from setta.types.notifications import (
+    SettaBackendLogEvent,
+    SettaBackendLogEventSeverity,
+    SettaNotification,
+)
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
     AllProjectMetadata,
@@ -27,6 +31,7 @@ from setta.types.project_state import (
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
+    WebsocketMsgBackendLogEvent,
     WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMApiKeysUpdated,
     WebsocketMsgLLMConfigUpdated,
@@ -46,6 +51,23 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def broadcast_notification(self, notification: SettaNotification):
         await self.websocket_manager.broadcast(
             WebsocketMsgNotification(content=notification),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_backend_log_event(
+        self,
+        message: str,
+        *,
+        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info,
+        project_config_id: ID | None = None,
+    ) -> None:
+        event = SettaBackendLogEvent(
+            projectConfigId=project_config_id,
+            severity=severity,
+            message=message,
+        )
+        await self.websocket_manager.broadcast(
+            WebsocketMsgBackendLogEvent(content=event),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 

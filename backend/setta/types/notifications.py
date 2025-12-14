@@ -1,7 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any
-
 from pydantic import BaseModel, Field, field_serializer
 
 from setta.database.utils import create_new_id
@@ -42,10 +40,7 @@ class SettaBackendLogEvent(BaseModel):
     id: ID = Field(default_factory=create_new_id)
     projectConfigId: ID | None = None
     severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info
-    category: str
-    userMessage: str
-    debugId: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    message: str
     timestamp: datetime = Field(default_factory=get_now_timestamp)
 
     @field_serializer("timestamp")

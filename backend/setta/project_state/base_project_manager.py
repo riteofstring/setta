@@ -198,7 +198,11 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.notifications import (
+    SettaBackendLogEventSeverity,
+    SettaNotification,
+    SettaNotificationType,
+)
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -1120,29 +1124,28 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = False
-        notification = None
         try:
             Path(x.filepath).unlink()
             success = True
         except FileNotFoundError:
-            notification = SettaNotification(
-                message=f"File '{x.filepath}' not found",
-                type=SettaNotificationType.error,
+            await self.websocket_msg_handler.broadcast_backend_log_event(
+                f"File '{x.filepath}' not found",
+                severity=SettaBackendLogEventSeverity.error,
+                project_config_id=x.projectConfigId,
             )
-        except OSError as e:
-            notification = SettaNotification(
-                message=f"Failed to delete file: {str(e)}",
-                type=SettaNotificationType.error,
+        except OSError as exc:
+            await self.websocket_msg_handler.broadcast_backend_log_event(
+                f"Failed to delete file: {exc}",
+                severity=SettaBackendLogEventSeverity.error,
+                project_config_id=x.projectConfigId,
             )
         if success:
             delete_section_variant(project_state, x.sectionId, x.variantId)
             await self.update_and_broadcast_project_state(project_state)
-            notification = SettaNotification(
-                message="Variant and file deleted",
-                type=SettaNotificationType.info,
+            await self.websocket_msg_handler.broadcast_backend_log_event(
+                "Variant and file deleted",
+                project_config_id=x.projectConfigId,
             )
-        if notification:
-            await self.websocket_msg_handler.broadcast_notification(notification)
 
     @enqueue_method
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
@@ -1309,12 +1312,11 @@ class BaseProjectManager(ABC):
             self.settings_file.settings, project_state, x.sectionIds
         )
         if not success:
-            notification = SettaNotification(
-                projectConfigId=x.projectConfigId,
-                message="Cannot group sections from different parents",
-                type=SettaNotificationType.error,
+            await self.websocket_msg_handler.broadcast_backend_log_event(
+                "Cannot group sections from different parents",
+                severity=SettaBackendLogEventSeverity.error,
+                project_config_id=x.projectConfigId,
             )
-            await self.websocket_msg_handler.broadcast_notification(notification)
         else:
             await self.update_and_broadcast_project_state(project_state)
 
@@ -1465,12 +1467,12 @@ class BaseProjectManager(ABC):
             notification = SettaNotification(
                 message="Autosaved!", type=SettaNotificationType.save
             )
-        except:
-            notification = SettaNotification(
-                message="Failed to autosave",
-                type=SettaNotificationType.error,
+            await self.websocket_msg_handler.broadcast_notification(notification)
+        except Exception as exc:
+            await self.websocket_msg_handler.broadcast_backend_log_event(
+                f"Failed to autosave: {exc}",
+                severity=SettaBackendLogEventSeverity.error,
             )
-        await self.websocket_msg_handler.broadcast_notification(notification)
 
     @abstractmethod
     def save(self):
