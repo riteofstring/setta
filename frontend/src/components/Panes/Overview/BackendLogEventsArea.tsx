@@ -74,10 +74,7 @@ export function BackendLogEventsArea() {
             No matching backend log events
           </div>
         ) : (
-          <LogLines
-            events={filteredEvents}
-            projectNameById={projectNameById}
-          />
+          <LogLines events={filteredEvents} projectNameById={projectNameById} />
         )}
       </div>
     </div>
@@ -165,7 +162,10 @@ function filterEvents(
   const query = filter.query.trim().toLowerCase();
   const minSeverityValue = SEVERITY_ORDER[filter.minSeverity];
   return events.filter((event) => {
-    if (filter.projectConfigId && event.projectConfigId !== filter.projectConfigId) {
+    if (
+      filter.projectConfigId &&
+      event.projectConfigId !== filter.projectConfigId
+    ) {
       return false;
     }
     if (SEVERITY_ORDER[event.severity] < minSeverityValue) {

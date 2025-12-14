@@ -75,7 +75,9 @@ function RightColumn({
   function onSelectProject(e: React.MouseEvent, projectConfigId: string) {
     e.preventDefault(); // to prevent going into the project
     if (selectedProjects.includes(projectConfigId)) {
-      setSelectedProjects(selectedProjects.filter((x) => x !== projectConfigId));
+      setSelectedProjects(
+        selectedProjects.filter((x) => x !== projectConfigId),
+      );
     } else {
       setSelectedProjects([...selectedProjects, projectConfigId]);
     }
