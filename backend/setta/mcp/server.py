@@ -1,5 +1,6 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
+import asyncio
 import inspect
 import logging
 from dataclasses import dataclass
@@ -21,7 +22,6 @@ from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
 
 from setta.database.db_objs import DBE
-from setta.logging.tasks import spawn_background_task
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
@@ -29,6 +29,7 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
+from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -83,11 +84,8 @@ class SettaFastMCP(FastMCP):
 
         self.add_setta_tools()
         self.tool_search_index = self._build_tool_search_index()
-        spawn_background_task(
-            websocket_msg_handler.broadcast_backend_log_event("MCP Server Ready"),
-            label="mcp-server-ready",
-            extra_values={"mount_path": mount_path},
-        )
+        content = SettaNotification(message="MCP Server Ready")
+        asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
     def add_setta_tools(self):
         for fn in SETTA_INIT_MCP_TOOLS:
@@ -259,7 +257,7 @@ class SettaToolManager(ToolManager):
         existing = self._tools.get(tool.name)
         if existing:
             if self.warn_on_duplicate_tools:
-                logger.warning("Tool already exists: %s", tool.name)
+                logger.warning(f"Tool already exists: {tool.name}")
             return cast("SettaTool", existing)
         self._tools[tool.name] = tool
         return tool
@@ -275,7 +273,7 @@ def extract_tool_docstrings(func):
     try:
         parsed = docstring_parser.parse(docstring)
     except Exception as e:
-        logger.warning("Failed to parse docstring: %s", e, exc_info=True)
+        print(f"Failed to parse docstring: {e}")
         return None, {}
 
     # Extract parameter descriptions

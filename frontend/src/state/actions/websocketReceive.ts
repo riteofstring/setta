@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -149,8 +148,6 @@ function receiveMessage(message: string) {
       return receiveLLMConfigUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated:
       return receiveLLMApiKeysUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.BackendLogEvent:
-      return addBackendLogEvent(m.content);
     default:
       return m satisfies never;
   }

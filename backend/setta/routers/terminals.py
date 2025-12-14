@@ -1,24 +1,24 @@
+import asyncio
 import logging
 
-from fastapi import WebSocket
+from fastapi import BackgroundTasks, WebSocket
 from pydantic import BaseModel
 
-from setta.logging.context_bindings import bind_websocket_logging_context
-from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
     ReadyAppStateFromRequest,
 )
-from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.notifications import SettaNotification
 from setta.types.routes import Route
 
-terminals_http_router = SettaProjectContextAPIRouter()
-terminals_ws_router = SettaAPIRouter()
 logger = logging.getLogger(__name__)
+
+
+router = SettaAPIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
@@ -35,7 +35,7 @@ class RunCodeRequest(BaseModel):
     cliId: str | None = None
 
 
-@terminals_ws_router.websocket(Route.TERMINAL)
+@router.websocket(Route.TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
     projectConfigId: ID,
@@ -43,52 +43,32 @@ async def terminal_websocket_endpoint(
     id: str,
     state: AppStateFromWebsocket,
 ):
+    # First check if terminal exists
     state.terminals.new_terminal(projectConfigId, sectionId)
 
-    extra_values = {
-        "section_id": sectionId,
-        "client_id": id,
-    }
-
-    async with bind_websocket_logging_context(
-        websocket,
-        project_config_id=projectConfigId,
-        extra_values=extra_values,
-    ):
-        context = {
-            "terminal_project_id": str(projectConfigId),
-            "terminal_section_id": str(sectionId),
-            "terminal_client_id": id,
-        }
-        try:
-            did_connect = await state.terminals.connect(websocket, sectionId, id)
-            if not did_connect:
-                return
-            await state.terminals.write_to_terminal(websocket, sectionId)
-        except Exception as exc:
-            await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
-                exc,
-                label="terminal-websocket",
-                message=f"Terminal websocket error: {projectConfigId}/{sectionId} (client {id})",
-                severity=SettaBackendLogEventSeverity.error,
-                project_config_id=projectConfigId,
-                context=context,
-            )
-            raise
-        finally:
-            logger.debug("terminal_websocket_endpoint disconnect: %s", id)
-            state.terminals.disconnect(sectionId, id)
+    try:
+        await state.terminals.connect(websocket, sectionId, id)
+        write_task = asyncio.create_task(
+            state.terminals.write_to_terminal(websocket, sectionId)
+        )
+        await write_task
+    except:
+        pass
+    finally:
+        # Cleanup
+        logger.debug(f"terminal_websocket_endpoint disconnect: {id}")
+        state.terminals.disconnect(sectionId, id)
 
 
-@terminals_http_router.post(Route.DELETE_TERMINALS)
+@router.post(Route.DELETE_TERMINALS)
 async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromRequest):
     await state.terminals.delete_terminals(x.sectionIds)
 
 
-@terminals_http_router.post(Route.KILL_SUBPROCESSES)
-@require_project_context()
-async def route_kill_subprocesses(
+@router.post(Route.KILL_SUBPROCESSES)
+def route_kill_subprocesses(
     x: KillSubprocessesRequest,
+    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     ids = state.terminals.get_existing_terminals(x.projectConfigId)
@@ -98,19 +78,23 @@ async def route_kill_subprocesses(
         if num_killed > 0
         else "No subprocesses to kill"
     )
-    await state.wmh_frontend_sender.broadcast_backend_log_event(
-        msg,
-        project_config_id=x.projectConfigId,
+    notification = SettaNotification(
+        projectConfigId=x.projectConfigId,
+        message=msg,
+    )
+    background_tasks.add_task(
+        state.terminals.websocket_msg_handler.broadcast_notification,
+        notification,
     )
 
 
-@terminals_http_router.post(Route.RUN_CODE)
-@require_project_context()
+@router.post(Route.RUN_CODE)
 async def route_run_code(
     x: RunCodeRequest,
+    background_tasks: BackgroundTasks,
     state: ReadyAppStateFromRequest,
 ):
-    await run_code(
+    terminal_id = await run_code(
         x.projectConfigId,
         x.sectionId,
         x.cliId,
@@ -119,8 +103,11 @@ async def route_run_code(
         state.wmh_cli_sender,
     )
 
-    await state.wmh_frontend_sender.broadcast_backend_log_event(
-        "Started command",
-        project_config_id=x.projectConfigId,
-        severity=SettaBackendLogEventSeverity.info,
+    notification = SettaNotification(
+        projectConfigId=x.projectConfigId,
+        message="Started",
+    )
+    background_tasks.add_task(
+        state.wmh_frontend_sender.broadcast_notification,
+        notification,
     )

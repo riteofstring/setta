@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -54,9 +54,11 @@ class LLMConfigWatcher:
             config = load_llm_config(self.dbe)
         except ValidationError as exc:
             logger.exception("Invalid LLM config", exc_info=exc)
-            await self.websocket_msg_handler.broadcast_backend_log_event(
-                "Failed to parse llm_config.json; keeping previous settings",
-                severity=SettaBackendLogEventSeverity.error,
+            await self.websocket_msg_handler.broadcast_notification(
+                SettaNotification(
+                    message="Failed to parse llm_config.json; keeping previous settings",
+                    type=SettaNotificationType.error,
+                )
             )
             return
 

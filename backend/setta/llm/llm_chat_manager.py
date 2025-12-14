@@ -18,7 +18,6 @@ from mcp.types import CallToolResult, TextContent
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
-from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
 from setta.mcp.utils import convert_existing_canonical_ids_to_temporary
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
@@ -190,19 +189,20 @@ class LLMChatManager:
                 "Chat %s already has an active streaming task; cancelling it", chat.id
             )
             existing.cancel()
-        project_config_id = (
-            str(chat.project_config_id) if chat.project_config_id is not None else None
-        )
-        task = spawn_background_task(
+        task = asyncio.create_task(
             self.process_query(chat, deepThink),
-            label="llm-chat-stream",
-            project_config_id=project_config_id,
-            extra_values={"chat_id": str(chat.id)},
             name=f"llm-chat-{chat.id}",
         )
 
-        def _cleanup(_task: asyncio.Task[Any], chat_id: ID) -> None:
+        def _cleanup(task: asyncio.Task[Any], chat_id: ID) -> None:
             self._tasks.pop(chat_id, None)
+            if task.cancelled():
+                return
+            exc = task.exception()
+            if exc:
+                logger.exception(
+                    "Streaming task for chat %s failed", chat_id, exc_info=exc
+                )
 
         task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))
         self._tasks[chat.id] = task

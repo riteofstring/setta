@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import sys
 from ast import literal_eval
 from dataclasses import dataclass
 from typing import (
@@ -26,9 +27,6 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
-from setta.logging.config import configure_listener_logging
-from setta.logging.context import logging_context
-from setta.logging.tasks import spawn_background_task
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -148,19 +146,18 @@ class SettaListener:
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
-        self._logging_configured = False
 
     @property
     def _log_identifier(self) -> str:
         return self._project_id or f"name:{self._project_name}"
 
     def _require_project_id(self):
-        project_config_id = self._project_id
-        if project_config_id is None:
+        project_id = self._project_id
+        if project_id is None:
             raise RuntimeError(
                 "Listener project config id is not yet available; wait for bootstrap to complete"
             )
-        return project_config_id
+        return project_id
 
     @property
     def websocket_endpoint(self) -> str:
@@ -174,28 +171,23 @@ class SettaListener:
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
-        self._ensure_logging()
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
-        with logging_context(
-            listener_id=self._log_identifier,
-            listener_socket_id=self._socket_id,
-        ):
-            while not self._stop_event.is_set():
-                try:
-                    await self._connect_once()
-                except ConnectionRefusedError:
-                    logger.warning(
-                        "Listener %s connection refused at %s",
-                        self._log_identifier,
-                        self.websocket_endpoint,
-                    )
-                except ConnectionClosedError:
-                    logger.debug("Listener %s websocket closed", self._log_identifier)
-                except Exception:
-                    logger.exception("Unexpected error in listener connection loop")
-                if not self._stop_event.is_set():
-                    await asyncio.sleep(self._reconnect_delay)
+        while not self._stop_event.is_set():
+            try:
+                await self._connect_once()
+            except ConnectionRefusedError:
+                logger.warning(
+                    "Listener %s connection refused at %s",
+                    self._log_identifier,
+                    self.websocket_endpoint,
+                )
+            except ConnectionClosedError:
+                logger.debug("Listener %s websocket closed", self._log_identifier)
+            except Exception:
+                logger.exception("Unexpected error in listener connection loop")
+            if not self._stop_event.is_set():
+                await asyncio.sleep(self._reconnect_delay)
 
     def start(
         self,
@@ -212,7 +204,6 @@ class SettaListener:
         When `hot_reload` is True, the listener will wrap the provided builder in a
         `ListenerHotReloader` instance and reuse the existing hot reload workflow.
         """
-        self._ensure_logging()
         if hot_reload:
             if builder is None:
                 raise ValueError("hot_reload=True requires a callback builder")
@@ -247,11 +238,7 @@ class SettaListener:
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
-            with logging_context(
-                listener_id=self._log_identifier,
-                listener_socket_id=self._socket_id,
-            ):
-                asyncio.run(self.run_forever())
+            asyncio.run(self.run_forever())
         except KeyboardInterrupt:
             logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
@@ -259,17 +246,12 @@ class SettaListener:
 
     def start_with_hot_reload(self, reloader: "ListenerHotReloader") -> None:
         """Run the listener with automatic hot reload support."""
-        self._ensure_logging()
         if reloader.listener is not self:
             raise ValueError("ListenerHotReloader is bound to a different listener")
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
-            with logging_context(
-                listener_id=self._log_identifier,
-                listener_socket_id=self._socket_id,
-            ):
-                asyncio.run(self._run_with_hot_reload(reloader))
+            asyncio.run(self._run_with_hot_reload(reloader))
         except KeyboardInterrupt:
             logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
@@ -282,16 +264,26 @@ class SettaListener:
         watch_task: asyncio.Task[None] | None = None
         try:
             await reloader.reload_now(reload_module=False)
-            watch_task = spawn_background_task(
-                reloader.watch(),
-                label="listener-hot-reload-watch",
-                extra_values={"listener_id": self._log_identifier},
-            )
+            watch_task = asyncio.create_task(reloader.watch())
+            watch_task.add_done_callback(self._log_watch_task_completion)
             await self.run_forever()
         finally:
             await reloader.stop()
             if watch_task is not None:
                 await self._finalize_watch_task(watch_task)
+
+    @staticmethod
+    def _log_watch_task_completion(task: asyncio.Task[None]) -> None:
+        if not task.done() or task.cancelled():
+            return
+        exception = task.exception()
+        if exception is None:
+            return
+        logger.error(
+            "Listener hot reload watcher exited with error: %s",
+            exception,
+            exc_info=(exception.__class__, exception, exception.__traceback__),
+        )
 
     @staticmethod
     async def _finalize_watch_task(task: asyncio.Task[None]) -> None:
@@ -305,38 +297,28 @@ class SettaListener:
         """Signal the connection loop to exit."""
         self._stop_event.set()
 
-    def _ensure_logging(self) -> None:
-        if self._logging_configured:
-            return
-        configure_listener_logging()
-        self._logging_configured = True
-
     async def _connect_once(self) -> None:
         """Open the websocket once and process messages until it closes."""
         endpoint = self.websocket_endpoint
-        with logging_context(
-            listener_id=self._log_identifier,
-            listener_endpoint=endpoint,
-        ):
-            logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
-            async with websockets.connect(endpoint) as websocket:
-                logger.info("Listener %s connected", self._log_identifier)
-                self._websocket = websocket
-                await self._send_bootstrap_init()
-                try:
-                    async for payload in websocket:
-                        if self._stop_event.is_set():
-                            break
-                        message = self._parse_websocket_payload(payload)
-                        if message is None:
-                            continue
-                        await self._dispatch_websocket_message(message)
-                finally:
-                    logger.info("Listener %s connection closed", self._log_identifier)
-                    self._websocket = None
-                    self._registration_pending = False
-                    self._is_registered = False
-                    self._expected_ack_callback_ids = set()
+        logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
+        async with websockets.connect(endpoint) as websocket:
+            logger.info("Listener %s connected", self._log_identifier)
+            self._websocket = websocket
+            await self._send_bootstrap_init()
+            try:
+                async for payload in websocket:
+                    if self._stop_event.is_set():
+                        break
+                    message = self._parse_websocket_payload(payload)
+                    if message is None:
+                        continue
+                    await self._dispatch_websocket_message(message)
+            finally:
+                logger.info("Listener %s connection closed", self._log_identifier)
+                self._websocket = None
+                self._registration_pending = False
+                self._is_registered = False
+                self._expected_ack_callback_ids = set()
 
     def _parse_websocket_payload(self, payload: str) -> Any | None:
         """Parse raw websocket payloads into typed messages."""
@@ -450,7 +432,7 @@ class SettaListener:
         )
 
     def _handle_listener_error(self, message: WebsocketMsgListenerError) -> None:
-        """Surface listener errors."""
+        """Surface listener errors even when logging is not configured."""
         detail_suffix = ""
         if message.content.details is not None:
             detail_suffix = f" (details={message.content.details!r})"
@@ -458,7 +440,22 @@ class SettaListener:
             f"Listener {self._log_identifier} received error "
             f"{message.content.error}{detail_suffix}"
         )
-        logger.error(text)
+        current_logger = logger
+        has_real_handler = False
+        while current_logger is not None:
+            for handler in current_logger.handlers:
+                if not isinstance(handler, logging.NullHandler):
+                    has_real_handler = True
+                    break
+            if has_real_handler or not current_logger.propagate:
+                break
+            current_logger = current_logger.parent
+
+        if has_real_handler:
+            logger.error(text)
+        else:
+            sys.stderr.write(text + "\n")
+            sys.stderr.flush()
 
     def listen(
         self,
@@ -859,11 +856,8 @@ class SettaListener:
         self, content: ListenerRealtimeEventContent
     ) -> None:
         """Apply realtime deltas and invoke interested callbacks."""
-        project_config_id = self._project_id
-        if (
-            project_config_id is not None
-            and content.projectConfigId != project_config_id
-        ):
+        project_id = self._project_id
+        if project_id is not None and content.projectConfigId != project_id:
             logger.debug(
                 "Listener %s ignoring realtime event for project %s",
                 self._log_identifier,
@@ -1027,10 +1021,10 @@ class SettaListener:
             raise ValueError(
                 "emit_to_frontend requires at least one dependency value or artifact update"
             )
-        project_config_id = self._require_project_id()
+        project_id = self._require_project_id()
         message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
-                projectConfigId=project_config_id,
+                projectConfigId=project_id,
                 dependencyValues=serialized_values,
                 artifactUpdates=serialized_artifact_updates,
             )

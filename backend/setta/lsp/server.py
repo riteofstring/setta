@@ -27,7 +27,7 @@ class LanguageServer:
         self.name = name
 
     async def start(self):
-        logger.debug("Starting %s language server", self.name)
+        logger.debug(f"Starting {self.name} language server")
         self.init_properties()
         self.server = await asyncio.create_subprocess_shell(
             "basedpyright-langserver --stdio",
@@ -61,7 +61,7 @@ class LanguageServer:
         if not process:
             return
         try:
-            logger.debug("Stopping %s language server", self.name)
+            logger.debug(f"Stopping {self.name} language server")
             process.terminate()
         except ProcessLookupError:
             pass

@@ -1,20 +1,21 @@
-from fastapi import HTTPException
+import traceback
+
+from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.logging.project_id_route import require_project_context
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
-from setta.types.id import ID
-from setta.types.notifications import (
-    SettaNotification,
-    SettaNotificationType,
+from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.helpers_lvl2 import (
+    ProjectNameTaken,
+    ProjectNotFound,
 )
+from setta.types.id import ID
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
 
-router = SettaProjectContextAPIRouter()
+router = SettaAPIRouter()
 
 
 class ProjectLoadRequest(BaseModel):
@@ -35,7 +36,7 @@ class SetProjectConfigNameRequest(BaseModel):
 
 
 class SetAsDefaultProjectRequest(BaseModel):
-    projectConfigId: ID
+    projectId: ID
 
 
 class FilterDataForJSONExportRequest(BaseModel):
@@ -78,14 +79,21 @@ async def route_load_project_config(
         )
         project_manager = state.project_manager_switcher.get(projectConfigId)
         return await project_manager.load_project_config(projectConfigId)
-    except ProjectNotFound as exc:
-        raise HTTPException(status_code=404, detail=repr(exc)) from exc
+    except ProjectNotFound as e:
+        print(f"[DEBUG] Project not found: {e}", flush=True)
+        raise HTTPException(status_code=404, detail=repr(e))
+    except Exception as e:
+        print(f"[DEBUG] Unexpected error: {e}", flush=True)
+        print(f"Exception details:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        print("[DEBUG] route_load_project_config finished", flush=True)
 
 
 @router.post(Route.SAVE_PROJECT)
-@require_project_context()
 async def route_save_project(
     x: ManualSaveRequest,
+    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     try:
@@ -95,15 +103,22 @@ async def route_save_project(
         notification = SettaNotification(
             projectConfigId=x.projectConfigId,
             message="Saved!",
-            type=SettaNotificationType.save,
         )
-        await state.wmh_frontend_sender.broadcast_notification(notification)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="Failed to save project") from exc
+
+    except Exception:
+        notification = SettaNotification(
+            projectConfigId=x.projectConfigId,
+            message="Failed to save",
+            type=SettaNotificationType.error,
+        )
+
+    background_tasks.add_task(
+        state.wmh_frontend_sender.broadcast_notification,
+        notification,
+    )
 
 
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
-@require_project_context()
 async def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
@@ -135,7 +150,6 @@ async def route_delete_project_configs(
 
 
 @router.post(Route.SET_PROJECT_CONFIG_NAME)
-@require_project_context()
 async def route_set_project_config_name(
     x: SetProjectConfigNameRequest, state: AppStateFromRequest
 ):
@@ -153,17 +167,15 @@ def router_get_default_project_config_name(state: AppStateFromRequest) -> str | 
 
 
 @router.post(Route.SET_AS_DEFAULT_PROJECT)
-@require_project_context(body_key="projectConfigId")
 async def router_set_as_default_project(
     x: SetAsDefaultProjectRequest, state: AppStateFromRequest
 ):
     project_manager = state.project_manager_switcher.main
-    await project_manager.set_as_default_project(x.projectConfigId)
+    await project_manager.set_as_default_project(x.projectId)
     project_manager.perform_manual_save()
 
 
 @router.post(Route.GET_NOTIFICATIONS)
-@require_project_context()
 def route_get_notifications(
     x: GetNotificationsRequest, state: AppStateFromRequest
 ) -> list[SettaNotification]:

@@ -20,7 +20,6 @@ export const OverviewTabNameEnum = {
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
   Notifications: "Notifications",
-  BackendLogs: "BackendLogs",
   ProjectAIChat: "ProjectAIChat",
   ProjectAISettings: "ProjectAISettings",
 } as const;
@@ -32,7 +31,6 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",
-  [OverviewTabNameEnum.BackendLogs]: "Backend Logs",
   [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
   [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
 } as const satisfies Record<OverviewTabName, string>;

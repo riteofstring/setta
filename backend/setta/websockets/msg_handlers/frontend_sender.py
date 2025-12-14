@@ -1,11 +1,5 @@
-import logging
-import os
-from collections.abc import Mapping
 from typing import Literal
 
-from setta.logging.context import LoggingContextInput
-from setta.logging.errors import log_failure
-from setta.logging.levels import parse_log_level
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
@@ -24,11 +18,7 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
-from setta.types.notifications import (
-    SettaBackendLogEvent,
-    SettaBackendLogEventSeverity,
-    SettaNotification,
-)
+from setta.types.notifications import SettaNotification
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
     AllProjectMetadata,
@@ -37,7 +27,6 @@ from setta.types.project_state import (
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
-    WebsocketMsgBackendLogEvent,
     WebsocketMsgListenerCoverageSnapshot,
     WebsocketMsgLLMApiKeysUpdated,
     WebsocketMsgLLMConfigUpdated,
@@ -53,77 +42,11 @@ from setta.types.websocket import (
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
 
 
-_UI_LOG_LEVEL_ENV = "SETTA_UI_LOG_LEVEL"
-_SEVERITY_TO_LOG_LEVEL = {
-    SettaBackendLogEventSeverity.info: logging.INFO,
-    SettaBackendLogEventSeverity.warning: logging.WARNING,
-    SettaBackendLogEventSeverity.error: logging.ERROR,
-    SettaBackendLogEventSeverity.critical: logging.CRITICAL,
-}
-
-
 class WMHFrontendSender(BaseWebsocketMsgSender):
-    @staticmethod
-    def _resolve_ui_log_level() -> int:
-        env_value = os.environ.get(_UI_LOG_LEVEL_ENV)
-        if env_value is not None:
-            try:
-                return parse_log_level(env_value)
-            except ValueError:
-                pass
-        return logging.getLogger().getEffectiveLevel()
-
     async def broadcast_notification(self, notification: SettaNotification):
         await self.websocket_manager.broadcast(
             WebsocketMsgNotification(content=notification),
             connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_backend_log_event(
-        self,
-        message: str,
-        *,
-        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info,
-        project_config_id: ID | None = None,
-    ) -> None:
-        threshold = self._resolve_ui_log_level()
-        event_level = _SEVERITY_TO_LOG_LEVEL.get(severity, logging.INFO)
-        if event_level < threshold:
-            return
-        event = SettaBackendLogEvent(
-            projectConfigId=project_config_id,
-            severity=severity,
-            message=message,
-        )
-        await self.websocket_manager.broadcast(
-            WebsocketMsgBackendLogEvent(content=event),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def log_failure_and_broadcast_backend_log_event(
-        self,
-        exc: BaseException,
-        label: str,
-        message: str,
-        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.error,
-        project_config_id: ID | None = None,
-        handled: bool = False,
-        logger: logging.Logger | None = None,
-        context: Mapping[str, LoggingContextInput] | None = None,
-    ) -> None:
-        """Log a structured failure and surface it to the UI."""
-
-        log_failure(
-            exc,
-            label=label,
-            logger=logger,
-            handled=handled,
-            context=context,
-        )
-        await self.broadcast_backend_log_event(
-            message,
-            severity=severity,
-            project_config_id=project_config_id,
         )
 
     async def broadcast_artifacts_update(
