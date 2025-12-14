@@ -54,13 +54,15 @@ Improvement Plan
    * **Completed:** scrubbed the remaining `print` + bare `except` blocks inside the core routers (`projects.py`, `ai.py`, `llm.py`, `terminals.py`), websocket loops, and PTY readers/writers so every failure now flows through `log_route_failure` / `run_safely` with contextual metadata instead of silent debug logs.
    * **Completed:** added a FastAPI-wide `Exception` handler that logs via `log_route_failure`, preserves `HTTPException` semantics, and emits a single JSON error envelope for all other uncaught failures (alongside the existing validation handler).
 4. **Consistent backend → frontend error pipeline**
-   * Extend `SettaNotification` or introduce a `BackendErrorEvent` websocket payload to carry `severity`, `category`, `userMessage`, and an optional `debugId`. Build a helper (`report_user_visible_error(message, *, exc, project_id, metadata)`) that logs the exception and emits the structured event. Apply this to:
+   * **In progress:** introduced `SettaBackendLogEvent` (`backend/setta/types/notifications.py`) with `severity`, `category`, `userMessage`, `debugId`, and metadata so structured logs can flow independently of user-visible notifications. `SettaNotification` now only supports the `save` type and requires it to be specified explicitly. Most call sites—`backend/setta/project_state/base_project_manager.py`, autosave/artifact helpers, AI/LLM routers, JSON source watchers, etc.—still request `SettaNotificationType.error/warning/info`; these now raise validation errors and need to migrate to the new log-event surface (or be deleted entirely).
+   * The frontend still consumes the generated `SettaNotificationTypeEnum` with the legacy values and defaults. Until we add a websocket/feed for `SettaBackendLogEvent`, notifications renderers (`frontend/src/components/Panes/Overview/NotificationsArea.tsx`, Zustand notification actions, etc.) will fail to parse backend responses. Update the generator + UI store once the backend schema stabilizes.
+   * Build a helper (`report_user_visible_error(message, *, exc, project_id, metadata)`) that logs a `SettaBackendLogEvent`, emits it to the websocket (new `WebsocketMsgTypeForFrontend.BackendLogEvent`), and optionally promotes a curated `SettaNotification` when the user needs to see it. Apply this helper to:
      - Project load/save endpoints.
      - Terminal/run-code flows.
      - LLM chat operations and API key persistence.
      - Websocket listener registration/emit failures.
-   * Ensure the CLI mirrors critical notifications to stdout for users running outside the UI.
-   * Support listener-specific surfacing modes: wrap uncaught callback / hot-reload failures in a helper that both logs locally and optionally forwards a `listener_error` event back to the backend, so teams can choose between log-only listeners and listeners whose failures raise UI notifications (e.g., opt-in via `SettaListener(error_mode=\"forward\")` or CLI flag).
+   * Ensure the CLI mirrors high-severity `SettaBackendLogEvent` payloads to stdout/stderr for users running outside the UI.
+   * Support listener-specific surfacing modes: wrap uncaught callback / hot-reload failures in a helper that both logs locally and optionally forwards a `listener_error` event back to the backend, so teams can choose between log-only listeners and listeners whose failures raise UI notifications (e.g., opt-in via `SettaListener(error_mode="forward")` or CLI flag).
 5. **Documentation and enforcement**
    * Document the logging conventions (levels per scenario, how to attach context, when to notify the frontend) in the repo’s developer docs.
    * Add lint/tests to reject new `print` usage inside `backend/setta` and to enforce that critical loops use the structured helpers.

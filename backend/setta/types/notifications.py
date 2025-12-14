@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -10,10 +11,6 @@ from setta.utils.timestamps import get_now_timestamp
 
 
 class SettaNotificationType(str, Enum):
-    success = "success"
-    error = "error"
-    warning = "warning"
-    info = "info"
     save = "save"
 
 
@@ -22,12 +19,34 @@ class SettaNotification(BaseModel):
     projectConfigId: ID = Field(
         default_factory=lambda: ID(C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
     )
-    type: SettaNotificationType = SettaNotificationType.info
+    type: SettaNotificationType
     message: str
     temporary: bool = True
     timestamp: datetime = Field(default_factory=get_now_timestamp)
     metadata: dict = Field(default_factory=dict)
     read_status: bool = False
+
+    @field_serializer("timestamp")
+    def serialize_timestamp(self, timestamp: datetime):
+        return timestamp.isoformat()
+
+
+class SettaBackendLogEventSeverity(str, Enum):
+    critical = "critical"
+    error = "error"
+    warning = "warning"
+    info = "info"
+
+
+class SettaBackendLogEvent(BaseModel):
+    id: ID = Field(default_factory=create_new_id)
+    projectConfigId: ID | None = None
+    severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info
+    category: str
+    userMessage: str
+    debugId: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=get_now_timestamp)
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, timestamp: datetime):
