@@ -49,13 +49,15 @@ class ProjectIdContextRoute(APIRoute):
         )
         required = require_context or require_by_default
 
-        default_body_key = str(getattr(self, _PROJECT_CONTEXT_BODY_KEY_ATTR, "projectConfigId"))
+        default_body_key = str(
+            getattr(self, _PROJECT_CONTEXT_BODY_KEY_ATTR, "projectConfigId")
+        )
         body_key = str(
             getattr(self.endpoint, _PROJECT_CONTEXT_BODY_KEY_ATTR, default_body_key)
         )
 
         async def handler(request: Request) -> Any:
-            if required and "project_id" not in get_logging_context():
+            if required and "project_config_id" not in get_logging_context():
                 await _require_project_id_from_json_body(
                     request,
                     body_key=body_key,
@@ -81,4 +83,4 @@ async def _require_project_id_from_json_body(
     if value is None:
         raise KeyError(body_key)
 
-    push_logging_context(project_id=str(value))
+    push_logging_context(project_config_id=str(value))

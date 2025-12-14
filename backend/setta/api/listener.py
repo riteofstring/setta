@@ -155,12 +155,12 @@ class SettaListener:
         return self._project_id or f"name:{self._project_name}"
 
     def _require_project_id(self):
-        project_id = self._project_id
-        if project_id is None:
+        project_config_id = self._project_id
+        if project_config_id is None:
             raise RuntimeError(
                 "Listener project config id is not yet available; wait for bootstrap to complete"
             )
-        return project_id
+        return project_config_id
 
     @property
     def websocket_endpoint(self) -> str:
@@ -859,8 +859,11 @@ class SettaListener:
         self, content: ListenerRealtimeEventContent
     ) -> None:
         """Apply realtime deltas and invoke interested callbacks."""
-        project_id = self._project_id
-        if project_id is not None and content.projectConfigId != project_id:
+        project_config_id = self._project_id
+        if (
+            project_config_id is not None
+            and content.projectConfigId != project_config_id
+        ):
             logger.debug(
                 "Listener %s ignoring realtime event for project %s",
                 self._log_identifier,
@@ -1024,10 +1027,10 @@ class SettaListener:
             raise ValueError(
                 "emit_to_frontend requires at least one dependency value or artifact update"
             )
-        project_id = self._require_project_id()
+        project_config_id = self._require_project_id()
         message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
-                projectConfigId=project_id,
+                projectConfigId=project_config_id,
                 dependencyValues=serialized_values,
                 artifactUpdates=serialized_artifact_updates,
             )

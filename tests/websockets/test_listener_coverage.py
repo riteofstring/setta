@@ -26,7 +26,7 @@ def build_registration(
 class ListenerCoverageTrackerTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tracker = ListenerCoverageTracker()
-        self.project_id = ID("proj-123")
+        self.project_config_id = ID("proj-123")
 
     @staticmethod
     def _signature(dependency):
@@ -35,7 +35,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
     def test_returns_snapshot_for_new_dependencies(self):
         registration = build_registration(
             websocket_id="socket-1",
-            project_config_id=self.project_id,
+            project_config_id=self.project_config_id,
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
@@ -49,12 +49,12 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         )
 
         snapshot = self.tracker.update_for_project(
-            self.project_id,
+            self.project_config_id,
             [registration],
         )
 
         assert snapshot is not None
-        self.assertEqual(self.project_id, snapshot.projectConfigId)
+        self.assertEqual(self.project_config_id, snapshot.projectConfigId)
         self.assertFalse(snapshot.hasRealtimeWildcard)
         self.assertEqual(
             [("section-A", "param-1")],
@@ -64,7 +64,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
     def test_returns_none_when_dependencies_unchanged(self):
         registration = build_registration(
             websocket_id="socket-1",
-            project_config_id=self.project_id,
+            project_config_id=self.project_config_id,
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
@@ -77,12 +77,12 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             },
         )
         first_snapshot = self.tracker.update_for_project(
-            self.project_id, [registration]
+            self.project_config_id, [registration]
         )
         assert first_snapshot is not None
 
         second_snapshot = self.tracker.update_for_project(
-            self.project_id,
+            self.project_config_id,
             [registration],
         )
         self.assertIsNone(second_snapshot)
@@ -90,7 +90,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
     def test_emits_snapshot_when_dependencies_change(self):
         registration = build_registration(
             websocket_id="socket-1",
-            project_config_id=self.project_id,
+            project_config_id=self.project_config_id,
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
@@ -104,7 +104,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         )
         second_registration = build_registration(
             websocket_id="socket-2",
-            project_config_id=self.project_id,
+            project_config_id=self.project_config_id,
             callbacks={
                 "cb-2": ListenerRegisterCallback(
                     dependencies=[
@@ -116,13 +116,13 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         )
 
         first_snapshot = self.tracker.update_for_project(
-            self.project_id,
+            self.project_config_id,
             [registration],
         )
         assert first_snapshot is not None
 
         second_snapshot = self.tracker.update_for_project(
-            self.project_id,
+            self.project_config_id,
             [registration, second_registration],
         )
         assert second_snapshot is not None
@@ -140,7 +140,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
     def test_handles_wildcard_callbacks(self):
         wildcard_registration = build_registration(
             websocket_id="socket-1",
-            project_config_id=self.project_id,
+            project_config_id=self.project_config_id,
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[],
@@ -150,7 +150,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
         )
 
         snapshot = self.tracker.update_for_project(
-            self.project_id,
+            self.project_config_id,
             [wildcard_registration],
         )
 
@@ -161,7 +161,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
     def test_emits_reset_snapshot_when_no_registrations(self):
         registration = build_registration(
             websocket_id="socket-1",
-            project_config_id=self.project_id,
+            project_config_id=self.project_config_id,
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
@@ -174,12 +174,12 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             },
         )
         first_snapshot = self.tracker.update_for_project(
-            self.project_id,
+            self.project_config_id,
             [registration],
         )
         assert first_snapshot is not None
 
-        reset_snapshot = self.tracker.update_for_project(self.project_id, [])
+        reset_snapshot = self.tracker.update_for_project(self.project_config_id, [])
         assert reset_snapshot is not None
         self.assertEqual([], reset_snapshot.dependencies)
         self.assertFalse(reset_snapshot.hasRealtimeWildcard)

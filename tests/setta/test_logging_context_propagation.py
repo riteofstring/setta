@@ -28,7 +28,7 @@ class AsyncDebouncerLoggingTests(unittest.IsolatedAsyncioTestCase):
             done.set()
 
         debouncer = AsyncDebouncer(_job, wait=0.01, label="debounce-test")
-        token = push_logging_context(project_id="proj-ctx", request_id="req-ctx")
+        token = push_logging_context(project_config_id="proj-ctx", request_id="req-ctx")
         try:
             debouncer.trigger()
             await asyncio.wait_for(done.wait(), timeout=1)
@@ -36,7 +36,7 @@ class AsyncDebouncerLoggingTests(unittest.IsolatedAsyncioTestCase):
             reset_logging_context(token)
 
         self.assertEqual(contexts[0]["task"], "debounce-test")
-        self.assertEqual(contexts[0]["project_id"], "proj-ctx")
+        self.assertEqual(contexts[0]["project_config_id"], "proj-ctx")
         self.assertEqual(contexts[0]["request_id"], "req-ctx")
 
 

@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from pydantic import BaseModel
 
+from setta.logging.project_id_route import require_project_context
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
@@ -13,7 +14,6 @@ from setta.types.notifications import (
 )
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
-from setta.logging.project_id_route import require_project_context
 
 router = SettaProjectContextAPIRouter()
 
@@ -36,7 +36,7 @@ class SetProjectConfigNameRequest(BaseModel):
 
 
 class SetAsDefaultProjectRequest(BaseModel):
-    projectId: ID
+    projectConfigId: ID
 
 
 class FilterDataForJSONExportRequest(BaseModel):
@@ -172,12 +172,12 @@ def router_get_default_project_config_name(state: AppStateFromRequest) -> str | 
 
 
 @router.post(Route.SET_AS_DEFAULT_PROJECT)
-@require_project_context(body_key="projectId")
+@require_project_context(body_key="projectConfigId")
 async def router_set_as_default_project(
     x: SetAsDefaultProjectRequest, state: AppStateFromRequest
 ):
     project_manager = state.project_manager_switcher.main
-    await project_manager.set_as_default_project(x.projectId)
+    await project_manager.set_as_default_project(x.projectConfigId)
     project_manager.perform_manual_save()
 
 

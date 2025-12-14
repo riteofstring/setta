@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 
+from setta.logging.project_id_route import require_project_context
 from setta.lsp.managers import restart_lsps
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
-from setta.logging.project_id_route import require_project_context
 
 from .dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 

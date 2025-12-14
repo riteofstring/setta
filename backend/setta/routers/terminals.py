@@ -52,7 +52,7 @@ async def terminal_websocket_endpoint(
 
     async with bind_websocket_logging_context(
         websocket,
-        project_id=projectConfigId,
+        project_config_id=projectConfigId,
         extra_values=extra_values,
     ):
         context = {

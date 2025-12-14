@@ -190,13 +190,13 @@ class LLMChatManager:
                 "Chat %s already has an active streaming task; cancelling it", chat.id
             )
             existing.cancel()
-        project_id = (
+        project_config_id = (
             str(chat.project_config_id) if chat.project_config_id is not None else None
         )
         task = spawn_background_task(
             self.process_query(chat, deepThink),
             label="llm-chat-stream",
-            project_id=project_id,
+            project_config_id=project_config_id,
             extra_values={"chat_id": str(chat.id)},
             name=f"llm-chat-{chat.id}",
         )

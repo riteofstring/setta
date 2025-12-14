@@ -28,8 +28,8 @@ def _load_pillow_modules():
 
 def _default_project_name() -> str:
     data = json.loads(Path("setta_files/project.json").read_text())
-    project_id = data["defaultProjectConfigId"]
-    return data["projectConfigs"][project_id]["name"]
+    project_config_id = data["defaultProjectConfigId"]
+    return data["projectConfigs"][project_config_id]["name"]
 
 
 def _reverse_image_data(value: str) -> str:

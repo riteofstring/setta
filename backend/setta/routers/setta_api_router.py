@@ -2,8 +2,8 @@ from typing import Any, Callable
 
 from fastapi import APIRouter
 
-from setta.types.routes import Route
 from setta.logging.project_id_route import ProjectIdContextRoute
+from setta.types.routes import Route
 
 
 class SettaAPIRouter(APIRouter):
@@ -49,7 +49,9 @@ class SettaProjectContextAPIRouter(SettaAPIRouter):
         self._setta_project_context_body_key = project_context_body_key
         super().__init__(route_class=ProjectIdContextRoute, **kwargs)
 
-    def add_api_route(self, path: str, endpoint: Callable[..., Any], **kwargs: Any) -> None:  # type: ignore[override]
+    def add_api_route(
+        self, path: str, endpoint: Callable[..., Any], **kwargs: Any
+    ) -> None:  # type: ignore[override]
         super().add_api_route(path, endpoint, **kwargs)
         route = self.routes[-1]
         if not isinstance(route, ProjectIdContextRoute):

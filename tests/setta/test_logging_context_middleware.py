@@ -11,8 +11,8 @@ def _build_test_app() -> FastAPI:
     app = FastAPI(dependencies=[Depends(bind_request_logging_context)])
     app.add_middleware(LoggingContextMiddleware)
 
-    @app.get("/projects/{project_id}/status")
-    async def get_project_status(project_id: str, request: Request):
+    @app.get("/projects/{project_config_id}/status")
+    async def get_project_status(project_config_id: str, request: Request):
         return {
             "context": get_logging_context(),
             "state_request_id": ensure_request_context(request),
@@ -36,7 +36,7 @@ class LoggingContextMiddlewareTests(unittest.TestCase):
         context = payload["context"]
         self.assertEqual(context["path"], "/projects/sample/status")
         self.assertEqual(context["method"], "GET")
-        self.assertEqual(context["project_id"], "sample")
+        self.assertEqual(context["project_config_id"], "sample")
         self.assertEqual(context["endpoint"], "get_project_status")
         self.assertTrue(context["request_id"].startswith("req-"))
         self.assertEqual(payload["state_request_id"], context["request_id"])
@@ -49,5 +49,5 @@ class LoggingContextMiddlewareTests(unittest.TestCase):
         second_context = second["context"]
 
         self.assertNotEqual(first_context["request_id"], second_context["request_id"])
-        self.assertEqual(first_context["project_id"], "alpha")
-        self.assertEqual(second_context["project_id"], "beta")
+        self.assertEqual(first_context["project_config_id"], "alpha")
+        self.assertEqual(second_context["project_config_id"], "beta")

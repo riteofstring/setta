@@ -30,7 +30,7 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
         ):
             context = get_logging_context()
             self.assertEqual(context["websocket_id"], "ws-test")
-            self.assertEqual(context["project_id"], "alpha")
+            self.assertEqual(context["project_config_id"], "alpha")
             self.assertEqual(context["path"], "/api/ws/frontend")
 
     async def test_spawn_background_task_sets_context(self) -> None:

@@ -32,7 +32,7 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         push_logging_context(replace=True)
 
     def test_log_route_failure_attaches_context(self) -> None:
-        push_logging_context(project_id="alpha", request_id="req-9")
+        push_logging_context(project_config_id="alpha", request_id="req-9")
         exc = RuntimeError("boom")
         log_route_failure(
             exc,
@@ -44,13 +44,13 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         record = self.handler.records[0]
         self.assertEqual(record.levelno, logging.ERROR)
         self.assertEqual(record.request_id, "req-9")
-        self.assertEqual(record.project_id, "alpha")
+        self.assertEqual(record.project_config_id, "alpha")
         self.assertEqual(record.failure_label, "save-project")
         self.assertEqual(record.failure_handled, "false")
         self.assertEqual(record.task, "autosave")
         self.assertIn("failure_label=save-project", record.setta_context)
         self.assertIn("task=autosave", record.setta_context)
-        self.assertIn("project_id=alpha", record.setta_context)
+        self.assertIn("project_config_id=alpha", record.setta_context)
 
     def test_run_safely_logs_warning_on_handled_failure(self) -> None:
         async def _failing() -> None:

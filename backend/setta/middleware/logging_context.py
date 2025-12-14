@@ -45,7 +45,7 @@ class LoggingContextMiddleware:
                 full_context = build_request_context(request)
                 extra_context = {
                     key: full_context[key]
-                    for key in ("endpoint", "project_id")
+                    for key in ("endpoint", "project_config_id")
                     if key in full_context
                 }
                 if extra_context:
@@ -65,7 +65,7 @@ async def bind_request_logging_context(
     full_context = build_request_context(request)
     context_values = {
         key: full_context[key]
-        for key in ("endpoint", "project_id")
+        for key in ("endpoint", "project_config_id")
         if key in full_context
     }
     with logging_context(values=context_values):

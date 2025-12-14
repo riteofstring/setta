@@ -21,7 +21,7 @@ def spawn_background_task(
     re_raise: bool = False,
     loop: asyncio.AbstractEventLoop | None = None,
     name: str | None = None,
-    project_id: str | None = None,
+    project_config_id: str | None = None,
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: dict[str, LoggingContextInput] | None = None,
@@ -34,7 +34,7 @@ def spawn_background_task(
 
     context_values = build_background_task_context(
         label=label,
-        project_id=project_id,
+        project_config_id=project_config_id,
         request_id=request_id,
         websocket_id=websocket_id,
         extra_values=extra_values,

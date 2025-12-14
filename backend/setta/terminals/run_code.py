@@ -32,7 +32,7 @@ async def run_code(
         spawn_background_task(
             terminals.run_command_in_terminal(terminal_id, command),
             label="terminal-run-command",
-            project_id=str(projectConfigId),
+            project_config_id=str(projectConfigId),
             extra_values={
                 "terminal_id": str(terminal_id),
                 "section_id": str(sectionId) if sectionId else None,

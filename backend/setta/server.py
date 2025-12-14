@@ -211,14 +211,14 @@ async def _log_and_broadcast_http_error(
     if context.get("backend_log_event_emitted") == "true":
         return
     request_id = context.get("request_id")
-    project_id = context.get("project_id")
+    project_config_id = context.get("project_config_id")
     log_context = {
         "request_method": request.method,
         "request_path": request.url.path,
         "response_status_code": status_code,
     }
 
-    project_config_id = ID(project_id) if project_id else None
+    project_config_id = ID(project_config_id) if project_config_id else None
     severity = (
         SettaBackendLogEventSeverity.warning
         if handled

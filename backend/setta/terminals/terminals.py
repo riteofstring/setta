@@ -274,11 +274,13 @@ class Terminals:
 
     def _terminal_context_kwargs(self, section_id: str) -> dict[str, Any]:
         info = self.PTY_PIDS.get(section_id, {})
-        project_id = info.get("projectConfigId")
-        normalized_project_id = str(project_id) if project_id is not None else None
+        project_config_id = info.get("projectConfigId")
+        normalized_project_id = (
+            str(project_config_id) if project_config_id is not None else None
+        )
         extra_values = {"section_id": str(section_id)}
         kwargs: dict[str, Any] = {
-            "project_id": normalized_project_id,
+            "project_config_id": normalized_project_id,
             "extra_values": extra_values,
         }
         return kwargs
@@ -286,9 +288,9 @@ class Terminals:
     def _terminal_logging_context(self, section_id: str) -> dict[str, str]:
         info = self.PTY_PIDS.get(section_id, {})
         context = {"terminal_section_id": str(section_id)}
-        project_id = info.get("projectConfigId")
-        if project_id is not None:
-            context["terminal_project_id"] = str(project_id)
+        project_config_id = info.get("projectConfigId")
+        if project_config_id is not None:
+            context["terminal_project_id"] = str(project_config_id)
         return context
 
     async def monitor_child_processes(self):

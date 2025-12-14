@@ -12,8 +12,8 @@ _REQUEST_ID_STATE_KEY = "setta_request_id"
 _WEBSOCKET_ID_STATE_KEY = "setta_websocket_id"
 
 _PROJECT_PARAM_KEYS: tuple[str, ...] = (
-    "project_id",
-    "projectId",
+    "project_config_id",
+    "projectConfigId",
     "project",
     "project_config_id",
     "projectConfigId",
@@ -34,13 +34,13 @@ __all__ = [
 def build_request_context(
     request: Request,
     *,
-    project_id: str | None = None,
+    project_config_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
 ) -> dict[str, LoggingContextInput]:
     """Return canonical logging metadata for an HTTP request."""
 
     resolved_request_id = ensure_request_context(request)
-    resolved_project_id = project_id
+    resolved_project_id = project_config_id
     endpoint_name = _resolve_endpoint_name(request)
     context: dict[str, LoggingContextInput] = {
         "request_id": resolved_request_id,
@@ -50,7 +50,7 @@ def build_request_context(
     if endpoint_name:
         context["endpoint"] = endpoint_name
     if resolved_project_id:
-        context["project_id"] = resolved_project_id
+        context["project_config_id"] = resolved_project_id
     client_host = request.client.host if request.client else None
     if client_host:
         context["client"] = client_host
@@ -73,19 +73,21 @@ def build_websocket_context(
     websocket: WebSocket,
     *,
     websocket_id: str | None = None,
-    project_id: str | None = None,
+    project_config_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
 ) -> dict[str, LoggingContextInput]:
     """Return canonical logging metadata for a websocket connection."""
 
     resolved_websocket_id = ensure_websocket_context(websocket, websocket_id)
-    resolved_project_id = project_id or _infer_project_id_from_websocket(websocket)
+    resolved_project_id = project_config_id or _infer_project_id_from_websocket(
+        websocket
+    )
     context: dict[str, LoggingContextInput] = {
         "websocket_id": resolved_websocket_id,
         "path": websocket.url.path,
     }
     if resolved_project_id:
-        context["project_id"] = resolved_project_id
+        context["project_config_id"] = resolved_project_id
     client_host = websocket.client.host if websocket.client else None
     if client_host:
         context["client"] = client_host
@@ -109,7 +111,7 @@ def ensure_websocket_context(
 def build_background_task_context(
     *,
     label: str,
-    project_id: str | None = None,
+    project_config_id: str | None = None,
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
@@ -119,8 +121,8 @@ def build_background_task_context(
     context: dict[str, LoggingContextInput] = {
         "task": label,
     }
-    if project_id:
-        context["project_id"] = project_id
+    if project_config_id:
+        context["project_config_id"] = project_config_id
     if request_id:
         context["request_id"] = request_id
     if websocket_id:

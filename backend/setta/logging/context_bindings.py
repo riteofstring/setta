@@ -20,7 +20,7 @@ async def bind_websocket_logging_context(
     websocket: WebSocket,
     *,
     websocket_id: str | None = None,
-    project_id: str | None = None,
+    project_config_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
 ):
     """Async context manager that binds websocket metadata to the log context."""
@@ -28,7 +28,7 @@ async def bind_websocket_logging_context(
     context_values = build_websocket_context(
         websocket,
         websocket_id=websocket_id,
-        project_id=project_id,
+        project_config_id=project_config_id,
         extra_values=extra_values,
     )
     with logging_context(values=context_values):

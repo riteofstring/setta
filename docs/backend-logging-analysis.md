@@ -13,10 +13,10 @@ What’s working well
 
 Key gaps / correctness risks
 
-- (Addressed) project_id inference for HTTP used to only check path/query (backend/setta/logging/context_sources.py), so many POST routes with `projectConfigId` in JSON bodies were missing `project_id` logging
+- (Addressed) project_config_id inference for HTTP used to only check path/query (backend/setta/logging/context_sources.py), so many POST routes with `projectConfigId` in JSON bodies were missing `project_config_id` logging
   context. This weakened correlation for unhandled exceptions (global handler often had no project id to attach).
   - Refactor: strict, opt-in project id extraction from JSON bodies via a custom APIRoute wrapper (backend/setta/logging/project_id_route.py).
-  - Cleanup: removed HTTP project_id inference from path/query in build_request_context; project_id now only comes from explicit binding (e.g. route wrapper / endpoint push).
+  - Cleanup: removed HTTP project_config_id inference from path/query in build_request_context; project_config_id now only comes from explicit binding (e.g. route wrapper / endpoint push).
   - Usage patterns:
     - Router-level opt-in: SettaProjectContextAPIRouter(require_project_context_by_default=True) (backend/setta/routers/setta_api_router.py) for “project-scoped” router modules.
     - Endpoint-level opt-in: @require_project_context() / @require_project_context(body_key="...") for mixed routers.

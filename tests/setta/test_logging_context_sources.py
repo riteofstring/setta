@@ -18,10 +18,10 @@ class LoggingContextSourcesTests(unittest.TestCase):
         request = _make_request(
             method="post",
             path="/api/projects/alpha/load",
-            path_params={"project_id": "alpha"},
+            path_params={"project_config_id": "alpha"},
         )
         context = build_request_context(request)
-        self.assertEqual(context["project_id"], "alpha")
+        self.assertEqual(context["project_config_id"], "alpha")
         first_request_id = context["request_id"]
         second_request_id = build_request_context(request)["request_id"]
         self.assertEqual(first_request_id, second_request_id)
@@ -34,7 +34,7 @@ class LoggingContextSourcesTests(unittest.TestCase):
             query_string="projectConfigId=beta",
         )
         context = build_request_context(request)
-        self.assertEqual(context["project_id"], "beta")
+        self.assertEqual(context["project_config_id"], "beta")
         self.assertEqual(ensure_request_context(request), context["request_id"])
 
     def test_build_websocket_context_uses_path_params(self) -> None:
@@ -44,14 +44,14 @@ class LoggingContextSourcesTests(unittest.TestCase):
         )
         context = build_websocket_context(websocket)
         websocket_id = context["websocket_id"]
-        self.assertEqual(context["project_id"], "delta")
+        self.assertEqual(context["project_config_id"], "delta")
         self.assertTrue(websocket_id.startswith("ws-"))
         self.assertEqual(websocket_id, ensure_websocket_context(websocket))
 
     def test_build_background_task_context_merges_values(self) -> None:
         context = build_background_task_context(
             label="autosave",
-            project_id="alpha",
+            project_config_id="alpha",
             request_id="req-zeta",
             websocket_id="ws-2",
             extra_values={"section_id": "sec-9"},
@@ -60,7 +60,7 @@ class LoggingContextSourcesTests(unittest.TestCase):
             context,
             {
                 "task": "autosave",
-                "project_id": "alpha",
+                "project_config_id": "alpha",
                 "request_id": "req-zeta",
                 "websocket_id": "ws-2",
                 "section_id": "sec-9",

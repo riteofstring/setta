@@ -31,13 +31,13 @@ Logging Context (`setta_context`)
 - Context binding is explicit and layered so routing data is available:
   - HTTP:
     - Middleware (`backend/setta/middleware/logging_context.py`) binds pre-routing fields: `request_id`, `method`, `path`, `client`.
-    - The middleware also enriches context at `http.response.start` with post-routing fields (`endpoint`, inferred `project_id`) so request context is still available during response sending (including streaming/access logs).
-    - Dependency (`bind_request_logging_context`) binds post-routing fields (`endpoint`, inferred `project_id`) during route execution.
+    - The middleware also enriches context at `http.response.start` with post-routing fields (`endpoint`, inferred `project_config_id`) so request context is still available during response sending (including streaming/access logs).
+    - Dependency (`bind_request_logging_context`) binds post-routing fields (`endpoint`, inferred `project_config_id`) during route execution.
   - WebSockets:
-    - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, `client`, inferred `project_id`, plus caller-provided `extra_values`.
+    - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, `client`, inferred `project_config_id`, plus caller-provided `extra_values`.
     - The main websocket loop also adds the websocket-manager id as `connection_id` after `on_connect`.
   - Background tasks:
-    - `spawn_background_task(...)` binds `task` plus optional `project_id` / `request_id` / `websocket_id`.
+    - `spawn_background_task(...)` binds `task` plus optional `project_config_id` / `request_id` / `websocket_id`.
   - Listener process:
     - The listener runs under `listener_id`, `listener_socket_id`, and `listener_endpoint` contexts (`backend/setta/api/listener.py`).
 

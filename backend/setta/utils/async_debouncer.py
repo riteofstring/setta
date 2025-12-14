@@ -93,7 +93,7 @@ class AsyncDebouncer:
 
     def _resolve_context_kwargs(self) -> dict[str, Any]:
         context = get_logging_context()
-        keys = ("project_id", "request_id", "websocket_id")
+        keys = ("project_config_id", "request_id", "websocket_id")
         resolved: dict[str, Any] = {}
         for key in keys:
             value = context.get(key)

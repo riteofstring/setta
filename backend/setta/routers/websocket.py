@@ -61,7 +61,7 @@ async def websocket_route_loop(
         except Exception as exc:
             logging_context = get_logging_context()
             request_id = logging_context.get("request_id")
-            project_id = logging_context.get("project_id")
+            project_config_id = logging_context.get("project_config_id")
             suffix = f" (request {request_id})" if request_id else ""
             exc_message = str(exc).replace("\n", " ").strip()
             exc_name = type(exc).__name__
@@ -72,7 +72,7 @@ async def websocket_route_loop(
             context = {"websocket_connection_type": connectionType.value}
             if fromWebsocketId:
                 context["connection_id"] = fromWebsocketId
-            project_config_id = ID(project_id) if project_id else None
+            project_config_id = ID(project_config_id) if project_config_id else None
             await frontend_sender.log_failure_and_broadcast_backend_log_event(
                 exc,
                 label="websocket-route-loop",
