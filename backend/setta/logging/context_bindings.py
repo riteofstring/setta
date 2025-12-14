@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import Any, ParamSpec, TypeVar
 
 from fastapi import WebSocket
+from pydantic import BaseModel
 
 from setta.logging.context import logging_context
 from setta.logging.context_sources import (
@@ -53,6 +54,7 @@ def bind_background_task_logging_context(
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
+    context_models: tuple[BaseModel, ...] | None = None,
 ):
     """Context manager that attaches metadata for background task execution."""
 
@@ -62,6 +64,7 @@ def bind_background_task_logging_context(
         request_id=request_id,
         websocket_id=websocket_id,
         extra_values=extra_values,
+        context_models=context_models,
     )
     with logging_context(values=context_values):
         yield
@@ -75,6 +78,7 @@ def wrap_background_callable(
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
+    context_models: tuple[BaseModel, ...] | None = None,
 ) -> Callable[P, Awaitable[T]]:
     """Wrap a callable so it runs with the provided background logging context."""
 
@@ -84,6 +88,7 @@ def wrap_background_callable(
         request_id=request_id,
         websocket_id=websocket_id,
         extra_values=extra_values,
+        context_models=context_models,
     )
 
     async def _async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -104,6 +109,7 @@ def wrap_background_coroutine(
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
+    context_models: tuple[BaseModel, ...] | None = None,
 ) -> Coroutine[Any, Any, T]:
     """Attach logging context metadata to a coroutine scheduled in the background."""
 
@@ -113,6 +119,7 @@ def wrap_background_coroutine(
         request_id=request_id,
         websocket_id=websocket_id,
         extra_values=extra_values,
+        context_models=context_models,
     )
 
     async def _runner() -> T:

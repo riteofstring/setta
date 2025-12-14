@@ -8,9 +8,12 @@ from fastapi import Request, WebSocket
 from pydantic import BaseModel
 
 from setta.logging.context import LoggingContextInput
+from setta.logging.context_models import serialize_logging_models
 
 _REQUEST_ID_STATE_KEY = "setta_request_id"
 _WEBSOCKET_ID_STATE_KEY = "setta_websocket_id"
+_REQUEST_MODEL_CONTEXT_KEY = "setta_request_context_models"
+_WEBSOCKET_MODEL_CONTEXT_KEY = "setta_websocket_context_models"
 
 _PROJECT_PARAM_KEYS: tuple[str, ...] = (
     "project_id",
@@ -24,6 +27,8 @@ LoggingContextMapping = Mapping[str, LoggingContextInput]
 
 __all__ = [
     "LoggingContextMapping",
+    "attach_request_context_models",
+    "attach_websocket_context_models",
     "build_background_task_context",
     "build_request_context",
     "build_websocket_context",
@@ -66,8 +71,17 @@ def build_request_context(
     client_host = request.client.host if request.client else None
     if client_host:
         context["client"] = client_host
+    _merge_state_model_context(context, request.state, _REQUEST_MODEL_CONTEXT_KEY)
     _merge_extra_values(context, extra_values)
     return context
+
+
+def attach_request_context_models(
+    request: Request, *models: BaseModel
+) -> None:
+    """Record sanitized model fields so they merge into future request contexts."""
+
+    _store_state_model_context(request.state, _REQUEST_MODEL_CONTEXT_KEY, models)
 
 
 def ensure_request_context(request: Request) -> str:
@@ -101,8 +115,17 @@ def build_websocket_context(
     client_host = websocket.client.host if websocket.client else None
     if client_host:
         context["client"] = client_host
+    _merge_state_model_context(context, websocket.state, _WEBSOCKET_MODEL_CONTEXT_KEY)
     _merge_extra_values(context, extra_values)
     return context
+
+
+def attach_websocket_context_models(
+    websocket: WebSocket, *models: BaseModel
+) -> None:
+    """Record sanitized model fields so they merge into future websocket contexts."""
+
+    _store_state_model_context(websocket.state, _WEBSOCKET_MODEL_CONTEXT_KEY, models)
 
 
 def ensure_websocket_context(websocket: WebSocket, websocket_id: str | None = None) -> str:
@@ -123,6 +146,7 @@ def build_background_task_context(
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
+    context_models: tuple[BaseModel, ...] | None = None,
 ) -> dict[str, LoggingContextInput]:
     """Return context for background jobs or asyncio tasks."""
 
@@ -135,6 +159,8 @@ def build_background_task_context(
         context["request_id"] = request_id
     if websocket_id:
         context["websocket_id"] = websocket_id
+    if context_models:
+        context.update(serialize_logging_models(*context_models))
     _merge_extra_values(context, extra_values)
     return context
 
@@ -189,6 +215,30 @@ def _normalize_value(value: Any) -> str | None:
     if not normalized:
         return None
     return normalized
+
+
+def _store_state_model_context(
+    state_obj: Any, key: str, models: tuple[BaseModel, ...]
+) -> None:
+    if not models:
+        return
+    serialized = serialize_logging_models(*models)
+    if not serialized:
+        return
+    existing = getattr(state_obj, key, None)
+    if existing:
+        existing.update(serialized)
+        return
+    setattr(state_obj, key, dict(serialized))
+
+
+def _merge_state_model_context(
+    context: dict[str, LoggingContextInput], state_obj: Any, key: str
+) -> None:
+    stored = getattr(state_obj, key, None)
+    if not stored:
+        return
+    _merge_extra_values(context, stored)
 
 
 def _resolve_endpoint_name(request: Request) -> str | None:

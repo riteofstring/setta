@@ -6,7 +6,10 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TypeVar
 
+from pydantic import BaseModel
+
 from setta.logging.context import LoggingContextInput, logging_context
+from setta.logging.context_models import serialize_logging_models
 
 T = TypeVar("T")
 
@@ -18,7 +21,7 @@ _HANDLED_FAILURE_MESSAGE = "Handled failure in %s"
 
 def log_route_failure(
     exc: BaseException,
-    *,
+    *context_objects: BaseModel,
     label: str,
     logger: logging.Logger | None = None,
     handled: bool = False,
@@ -35,10 +38,15 @@ def log_route_failure(
     if notify_frontend:
         context_values["failure_notify_frontend"] = True
 
+    merged_context = _merge_contexts(
+        context,
+        serialize_logging_models(*context_objects),
+    )
+
     level = logging.WARNING if handled else logging.ERROR
     message_template = _HANDLED_FAILURE_MESSAGE if handled else _DEFAULT_FAILURE_MESSAGE
 
-    with logging_context(values=context, **context_values):
+    with logging_context(values=merged_context, **context_values):
         log.log(level, message_template, label, exc_info=exc)
 
 
@@ -85,3 +93,14 @@ def _resolve_coroutine(
         raise TypeError(message)
     message = "run_safely requires an awaitable or zero-arg callable"
     raise TypeError(message)
+
+
+def _merge_contexts(
+    explicit: Mapping[str, LoggingContextInput] | None,
+    model_context: Mapping[str, LoggingContextInput] | None,
+) -> Mapping[str, LoggingContextInput] | None:
+    if explicit and model_context:
+        merged = dict(explicit)
+        merged.update(model_context)
+        return merged
+    return explicit or (model_context if model_context else None)

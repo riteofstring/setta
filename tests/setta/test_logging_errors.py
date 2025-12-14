@@ -1,12 +1,16 @@
 import asyncio
 import logging
 import unittest
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 from setta.logging.context import (
     LoggingContextFilter,
     clear_logging_context,
     push_logging_context,
 )
+from setta.logging.context_models import SensitiveLoggingField
 from setta.logging.errors import log_route_failure, run_safely
 
 
@@ -54,6 +58,41 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         self.assertIn("failure_label=save-project", record.setta_context)
         self.assertIn("task=autosave", record.setta_context)
         self.assertIn("project_id=alpha", record.setta_context)
+
+    def test_log_route_failure_serializes_request_models(self) -> None:
+        class ExampleRequest(BaseModel):
+            projectId: str
+            sectionId: int
+            token: Annotated[str, SensitiveLoggingField()]
+            apiKey: str = Field(..., json_schema_extra={"setta_sensitive": True})
+
+        req = ExampleRequest(
+            projectId="proj-7",
+            sectionId=42,
+            token="secret-token",
+            apiKey="abc",
+        )
+        exc = RuntimeError("boom")
+        log_route_failure(exc, req, label="example", logger=self.logger)
+        record = self.handler.records[-1]
+        self.assertEqual(record.example_request_projectId, "proj-7")
+        self.assertEqual(record.example_request_sectionId, "42")
+        self.assertFalse(hasattr(record, "example_request_token"))
+        self.assertFalse(hasattr(record, "example_request_apiKey"))
+        self.assertIn("example_request_projectId=proj-7", record.setta_context)
+        self.assertNotIn("token", record.setta_context)
+
+    def test_log_route_failure_handles_multiple_models(self) -> None:
+        class ExampleRequest(BaseModel):
+            projectId: str
+
+        req_one = ExampleRequest(projectId="proj-7")
+        req_two = ExampleRequest(projectId="proj-8")
+        exc = ValueError("boom")
+        log_route_failure(exc, req_one, req_two, label="dup", logger=self.logger)
+        record = self.handler.records[-1]
+        self.assertEqual(record.example_request_projectId, "proj-7")
+        self.assertEqual(record.example_request_2_projectId, "proj-8")
 
     def test_run_safely_logs_warning_on_handled_failure(self) -> None:
         async def _failing() -> None:
