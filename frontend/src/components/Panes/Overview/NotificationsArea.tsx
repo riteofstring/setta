@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import {
   IoAlertCircleSharp,
-  IoCheckmarkCircle,
   IoClose,
   IoInformationCircle,
   IoWarning,
