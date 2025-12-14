@@ -1,6 +1,6 @@
 Overall
 
-- Logging is unusually cohesive and “system-designed”, not ad-hoc: centralized bootstrap (backend/setta/logging/config.py:28), request/websocket/task correlation via contextvars (backend/setta/logging/context.py:24 + backend/setta/middleware/logging_context.py:15), and a single structured failure helper (backend/setta/logging/errors.py:19).
+- Logging is unusually cohesive and “system-designed”, not ad-hoc: centralized bootstrap (backend/setta/logging/config.py:28), request/websocket/task correlation via contextvars (backend/setta/logging/context.py:24 + backend/setta/middleware/logging_context.py:15), and a single structured failure helper (backend/setta/logging/errors.py).
 - Error surfacing to the UI is thoughtfully integrated: global exception handlers broadcast “backend log events” for HTTP failures (backend/setta/server.py:158).
 
 Refactor status (already done)
@@ -18,7 +18,7 @@ What’s working well
 
 - Lazy logging style is consistent (no f-string logging), so “disabled” logs are cheap.
 - Request context lifecycle is correct for ASGI/streaming: the middleware keeps context active through response sending and enriches at http.response.start (backend/setta/middleware/logging_context.py:15).
-- The “handled vs unhandled” concept is consistently captured (failure_handled, failure_label) and used to pick level (WARNING vs ERROR) (backend/setta/logging/errors.py:19).
+- The “handled vs unhandled” concept is consistently captured (failure_handled, failure_label) and used to pick level (WARNING vs ERROR) (backend/setta/logging/errors.py).
 
 Key gaps / correctness risks
 
@@ -36,6 +36,5 @@ Places where errors are likely being hidden
 
 Unused / cleanup candidates (logic, not Ruff-unused)
 
-- LoggingContext.push_logging_context(replace=...) exists but isn’t used anywhere; same for log_route_failure(..., include_traceback=...) (currently no call sites). These are fine as “API headroom”, but if you
-want to trim surface area, they’re candidates.
+- (Resolved) Removed unused logging API surface area (push_logging_context(replace=...), log_route_failure(include_traceback=...)).
 - (Resolved) WebsocketManager.on_disconnect() no longer catches ConnectionClosedError; it now pop()s the socket and broadcasts only when a socket was actually removed.

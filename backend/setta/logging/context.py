@@ -45,14 +45,10 @@ def get_logging_context() -> LoggingContextData:
 
 def push_logging_context(
     *,
-    replace: bool = False,
     values: dict[str, LoggingContextInput] | None = None,
     **kwargs: LoggingContextInput,
 ) -> LoggingContextToken:
     """Merge new context values into the current context.
-
-    When `replace` is True, the provided values replace the current context
-    rather than merging into it.
     """
 
     merged_values: dict[str, LoggingContextInput] = {}
@@ -60,10 +56,7 @@ def push_logging_context(
         merged_values.update(values)
     if kwargs:
         merged_values.update(kwargs)
-    if replace:
-        new_values = _normalize_mapping(merged_values)
-    else:
-        new_values = _updated_context(merged_values)
+    new_values = _updated_context(merged_values)
     snapshot = _build_snapshot(new_values)
     return _LOGGING_CONTEXT_VAR.set(snapshot)
 
@@ -109,17 +102,6 @@ def _updated_context(
             continue
         base[key] = _normalize_value(value)
     return base
-
-
-def _normalize_mapping(
-    mapping: dict[str, LoggingContextInput],
-) -> LoggingContextData:
-    normalized: LoggingContextData = {}
-    for key, value in mapping.items():
-        if value is None:
-            continue
-        normalized[key] = _normalize_value(value)
-    return normalized
 
 
 def _normalize_value(value: LoggingContextInput) -> str:

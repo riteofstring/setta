@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from typing import Literal
 
 from setta.logging.context import LoggingContextInput
-from setta.logging.errors import log_route_failure
+from setta.logging.errors import log_failure
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
@@ -88,7 +88,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ) -> None:
         """Log a structured failure and surface it to the UI."""
 
-        log_route_failure(
+        log_failure(
             exc,
             label=label,
             logger=logger,

@@ -5,7 +5,7 @@ import logging
 from lsprotocol import converters as LSPConverters
 from lsprotocol import types as LSPTypes
 
-from setta.logging.errors import log_route_failure
+from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 
 from .server import LanguageServer, LanguageServerInteractor
@@ -51,7 +51,7 @@ class LanguageServerReader(LanguageServerInteractor):
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                log_route_failure(
+                log_failure(
                     exc,
                     label=f"lsp-reader-loop-{self.server.name}",
                     handled=False,
@@ -102,7 +102,7 @@ class LanguageServerReader(LanguageServerInteractor):
         try:
             parsed = json.loads(response.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            log_route_failure(
+            log_failure(
                 exc,
                 label=f"lsp-reader-parse-{self.server.name}",
                 handled=False,
@@ -122,7 +122,7 @@ class LanguageServerReader(LanguageServerInteractor):
             method = parsed.get("method")
             if method is not None:
                 context["lsp_method"] = method
-            log_route_failure(
+            log_failure(
                 exc,
                 label=f"lsp-reader-process-{self.server.name}",
                 handled=False,

@@ -16,12 +16,11 @@ _DEFAULT_FAILURE_MESSAGE = "Unhandled failure in %s"
 _HANDLED_FAILURE_MESSAGE = "Handled failure in %s"
 
 
-def log_route_failure(
+def log_failure(
     exc: BaseException,
     label: str,
     logger: logging.Logger | None = None,
     handled: bool = False,
-    include_traceback: bool | None = None,
     context: Mapping[str, LoggingContextInput] | None = None,
 ) -> None:
     """Log a structured failure with context metadata."""
@@ -35,17 +34,12 @@ def log_route_failure(
     level = logging.WARNING if handled else logging.ERROR
     message_template = _HANDLED_FAILURE_MESSAGE if handled else _DEFAULT_FAILURE_MESSAGE
 
-    if include_traceback is None:
-        include_traceback = True
-
     with logging_context(values=context, **context_values):
         log.log(
             level,
             message_template,
             label,
-            exc_info=(type(exc), exc, exc.__traceback__)
-            if include_traceback
-            else False,
+            exc_info=(type(exc), exc, exc.__traceback__),
         )
 
 
@@ -65,7 +59,7 @@ async def run_safely(
     except asyncio.CancelledError:
         raise
     except Exception as exc:  # noqa: PERF203 - explicit structured logging path
-        log_route_failure(
+        log_failure(
             exc,
             label=label,
             logger=logger,

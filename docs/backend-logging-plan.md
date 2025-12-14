@@ -46,7 +46,7 @@ Structured Failures + UI Surfacing
 ---------------------------------
 
 - `backend/setta/logging/errors.py` provides:
-  - `log_route_failure(...)` (adds `failure_label` + `failure_handled`; tracebacks are included by default, but can be disabled with `include_traceback=False`).
+  - `log_failure(...)` (adds `failure_label` + `failure_handled`; tracebacks are always included).
   - `run_safely(...)` (wrapper used by background tasks).
 - `backend/setta/websockets/msg_handlers/frontend_sender.py` provides:
   - `broadcast_backend_log_event(...)` (UI-only log line).
@@ -55,7 +55,7 @@ Structured Failures + UI Surfacing
   - FastAPI validation errors (422), `HTTPException`, and unhandled exceptions.
   - 422 validation errors are treated as unhandled (`handled=False`) because they typically indicate a contract mismatch.
   - `HTTPException(status < 500)` is treated as handled (`handled=True`), but still broadcasts to the UI (usually as a warning).
-  - If app state isn’t available, it falls back to `log_route_failure(...)`.
+- If app state isn’t available, it falls back to `log_failure(...)`.
 - Listener error visibility:
   - When the backend sends `WebsocketMsgListenerError` back to the listener, it also emits a frontend backend-log-event (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
 
@@ -75,5 +75,5 @@ Notes
 - The logging context sanitizer is a safety net, not a license to attach huge objects everywhere. Use ids/counts/samples for large payloads.
 - For HTTP routes, prefer raising an `HTTPException` (or letting the exception bubble) and let the global handler emit the UI backend-log-event (avoid route-level “log + broadcast” to prevent duplicate UI events).
 - Prefer `logger.*(...)` (or `click.echo(...)` for CLI output) over `print(...)` so output is consistent and structured.
-- For tracebacks: handled 4xx failures keep tracebacks enabled by default for debuggability.
+- For tracebacks: tracebacks are always included for logged failures.
 - Guardrails: Ruff enables `G` (logging format) and `ARG` (unused args) so logging/arg regressions get caught early.
