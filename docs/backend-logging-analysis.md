@@ -10,14 +10,11 @@ logging/context.py:88).
 
 Main Gaps / Risks
 
-- Handled HTTP errors (<500) always include tracebacks because log_failure always logs exc_info (backend/setta/logging/errors.py:19, backend/setta/server.py:174). This can get noisy/expensive for expected 4xx
-(404/400/422), and it also spams the frontend “Backend Logs” view since those are surfaced too (backend/setta/server.py:202). It likely should be configurable (e.g., “always include tracebacks” vs “only for 5xx/unhandled”,
-possibly gated by env/log level) so you can keep maximum debuggability when you want it without hard-coding verbosity.
 - UI log events are used for very chatty “operational” updates (especially file watcher activity). Examples:
     - Artifact watcher emits an event per file event (backend/setta/project_state/artifacts.py:161).
     - JSON source watcher emits per update (backend/setta/project_state/jsonSource/jsonSource.py:185).
     This can flood websocket traffic and push out genuinely important errors (frontend caps events). This should probably be configurable too (e.g., opt-in “operational noise” events, rate limiting, or mapping these to
-DEBUG-only UI events) rather than hard-coding them to be quieter.
+DEBUG-only UI events) rather than hard-coding them to be quieter. Severity thresholding helps, but it’s still easy to accidentally enable a firehose if the UI log level is set to INFO/DEBUG.
 - TODO: Add a helper for “log + broadcast” non-exception events (e.g. `log_and_broadcast_backend_log_event(...)`) so every `broadcast_backend_log_event(...)` also writes to backend logs; the frontend BackendLogEventArea should be a subset of backend logs.
 - handled semantics in background tasks are a bit inverted: today “handled” is effectively being used as “exception was swallowed”, not “expected/acceptable failure”. The default path is:
     - spawn_background_task(..., re_raise=False) (default) wraps run_safely(..., re_raise=re_raise) (backend/setta/logging/tasks.py:15).
@@ -31,6 +28,10 @@ Resolved
 
 - run_safely now logs synchronous exceptions thrown by a “coroutine factory” (i.e., an exception raised before returning an awaitable), so these failures get structured log_failure output instead of unstructured “Task
 exception was never retrieved” (backend/setta/logging/errors.py:46).
+- Handled failures no longer always include tracebacks: log_failure omits tracebacks for handled=True unless SETTA_LOG_LEVEL=DEBUG or SETTA_HANDLED_TRACEBACKS=1 (backend/setta/logging/errors.py:19). Routine handled 4xx
+remain WARNING without the traceback; 422 is considered a server bug and remains ERROR + traceback (backend/setta/server.py:174).
+- Frontend “Backend Logs” broadcasting respects a severity threshold: events below SETTA_UI_LOG_LEVEL are dropped (defaulting to the effective root logger level, i.e. SETTA_LOG_LEVEL) (backend/setta/websockets/msg_handlers/
+frontend_sender.py:61).
 
 Dead Code / Cleanup Opportunities
 
@@ -41,5 +42,4 @@ Dead Code / Cleanup Opportunities
 Overall Assessment
 
 - The logging architecture is generally well thought out and performant for its intended use (precomputed context string + minimal per-record overhead).
-- The biggest practical issues are (1) high-volume UI log event spam from watchers, and (2) always-traceback logging/broadcasting
-for routine 4xx errors.
+- The biggest remaining practical issue is high-volume UI log event spam from watchers (especially if SETTA_UI_LOG_LEVEL is set to INFO/DEBUG).

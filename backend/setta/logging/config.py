@@ -6,7 +6,8 @@ import os
 from pathlib import Path
 from typing import Any, Literal, MutableMapping
 
-LogLevelInput = str | int
+from setta.logging.levels import LogLevelInput, resolve_log_level
+
 DictConfigMapping = MutableMapping[str, Any]
 
 DEFAULT_LOG_FORMAT = (
@@ -43,7 +44,7 @@ def configure_logging(
     if _SETTA_LOGGING_CONFIGURED and not force:
         return _LAST_LEVEL
 
-    resolved_level = _resolve_log_level(
+    resolved_level = resolve_log_level(
         level_override=level_override,
         env_var=env_var,
         default_level=default_level,
@@ -158,38 +159,3 @@ def _stream_target(stream: Literal["stdout", "stderr"]) -> str:
     if stream == "stderr":
         return "ext://sys.stderr"
     return "ext://sys.stdout"
-
-
-def _resolve_log_level(
-    *,
-    level_override: LogLevelInput | None,
-    env_var: str,
-    default_level: LogLevelInput,
-) -> int:
-    candidates: tuple[LogLevelInput | None, ...]
-    env_value = os.environ.get(env_var) if env_var else None
-    candidates = (level_override, env_value, default_level)
-    for candidate in candidates:
-        if candidate is None:
-            continue
-        try:
-            return _parse_log_level(candidate)
-        except ValueError:
-            continue
-    raise ValueError("logging configuration could not determine a log level")
-
-
-def _parse_log_level(value: LogLevelInput) -> int:
-    if isinstance(value, int):
-        return value
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError("log level string is empty")
-
-    try:
-        return int(normalized)
-    except ValueError:
-        named_level = getattr(logging, normalized.upper(), None)
-        if isinstance(named_level, int):
-            return named_level
-    raise ValueError(f"invalid log level {value!r}")

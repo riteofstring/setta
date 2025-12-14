@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import unittest
 
 from setta.logging.context import (
@@ -67,6 +68,50 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         self.assertEqual(record.levelno, logging.WARNING)
         self.assertIn("failure_label=terminal-run", record.setta_context)
         self.assertIn("failure_handled=true", record.setta_context)
+
+    def test_log_failure_omits_traceback_for_handled_when_not_debug(self) -> None:
+        original = os.environ.pop("SETTA_HANDLED_TRACEBACKS", None)
+        try:
+            self.logger.setLevel(logging.INFO)
+            exc = ValueError("nope")
+            log_failure(
+                exc,
+                label="handled-http",
+                logger=self.logger,
+                handled=True,
+            )
+        finally:
+            if original is not None:
+                os.environ["SETTA_HANDLED_TRACEBACKS"] = original
+
+        self.assertEqual(len(self.handler.records), 1)
+        record = self.handler.records[0]
+        self.assertEqual(record.levelno, logging.WARNING)
+        self.assertIsNone(record.exc_info)
+        self.assertIn("ValueError: nope", record.getMessage())
+
+    def test_log_failure_can_force_traceback_for_handled_via_env(self) -> None:
+        original = os.environ.get("SETTA_HANDLED_TRACEBACKS")
+        os.environ["SETTA_HANDLED_TRACEBACKS"] = "1"
+        try:
+            self.logger.setLevel(logging.INFO)
+            exc = ValueError("nope")
+            log_failure(
+                exc,
+                label="handled-http",
+                logger=self.logger,
+                handled=True,
+            )
+        finally:
+            if original is None:
+                os.environ.pop("SETTA_HANDLED_TRACEBACKS", None)
+            else:
+                os.environ["SETTA_HANDLED_TRACEBACKS"] = original
+
+        self.assertEqual(len(self.handler.records), 1)
+        record = self.handler.records[0]
+        self.assertEqual(record.levelno, logging.WARNING)
+        self.assertIsNotNone(record.exc_info)
 
     def test_run_safely_reraises_and_logs_error(self) -> None:
         async def _failing() -> None:

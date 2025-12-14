@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 import logging
+import os
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TypeVar
 
@@ -14,6 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_FAILURE_MESSAGE = "Unhandled failure in %s"
 _HANDLED_FAILURE_MESSAGE = "Handled failure in %s"
+_HANDLED_TRACEBACK_ENV = "SETTA_HANDLED_TRACEBACKS"
 
 
 def log_failure(
@@ -22,6 +24,7 @@ def log_failure(
     logger: logging.Logger | None = None,
     handled: bool = False,
     context: Mapping[str, LoggingContextInput] | None = None,
+    include_traceback: bool | None = None,
 ) -> None:
     """Log a structured failure with context metadata."""
 
@@ -33,14 +36,32 @@ def log_failure(
 
     level = logging.WARNING if handled else logging.ERROR
     message_template = _HANDLED_FAILURE_MESSAGE if handled else _DEFAULT_FAILURE_MESSAGE
+    if include_traceback is None:
+        include_traceback = (not handled) or _include_handled_traceback(log)
+
+    message = message_template % label
 
     with logging_context(values=context, **context_values):
-        log.log(
-            level,
-            message_template,
-            label,
-            exc_info=(type(exc), exc, exc.__traceback__),
-        )
+        if include_traceback:
+            log.log(
+                level,
+                message,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+            return
+        summary = type(exc).__name__
+        exc_message = str(exc).replace("\n", " ").strip()
+        if exc_message:
+            summary = f"{summary}: {exc_message}"
+        log.log(level, "%s: %s", message, summary)
+
+
+def _include_handled_traceback(logger: logging.Logger) -> bool:
+    env_value = os.environ.get(_HANDLED_TRACEBACK_ENV)
+    if env_value is not None:
+        normalized = env_value.strip().lower()
+        return normalized in {"1", "true", "yes", "y", "on"}
+    return logger.isEnabledFor(logging.DEBUG)
 
 
 async def run_safely(

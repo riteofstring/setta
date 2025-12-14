@@ -174,12 +174,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
+        handled = (
+            exc.status_code < status.HTTP_500_INTERNAL_SERVER_ERROR
+            and exc.status_code != status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
         await _log_and_broadcast_http_error(
             request,
             exc,
             label="fastapi-http-exception",
             status_code=exc.status_code,
-            handled=exc.status_code < status.HTTP_500_INTERNAL_SERVER_ERROR,
+            handled=handled,
         )
         return await http_exception_handler(request, exc)
     await _log_and_broadcast_http_error(
