@@ -1,4 +1,4 @@
-export type RevisionState = {
+type RevisionState = {
   revisionById: Record<string, number>;
   localRevisionById: Record<string, Record<string, number>>;
 };

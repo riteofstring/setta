@@ -55,7 +55,7 @@ export type ReactFlowStore = {
   autoPanOnNodeDrag: boolean;
 };
 
-export type ReactFlowActions = {
+type ReactFlowActions = {
   setMinZoom: (minZoom: number) => void;
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
@@ -75,7 +75,7 @@ export type PanelPosition =
 
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
-export type SelectionRect = Rect & {
+type SelectionRect = Rect & {
   startX: number;
   startY: number;
 };

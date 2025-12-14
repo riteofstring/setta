@@ -235,7 +235,7 @@ async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
   });
 }
 
-export function useImgArtifactAreaSize(sectionId, image) {
+function useImgArtifactAreaSize(sectionId, image) {
   const [imgSize, setImgSize] = useState(null);
 
   const widthOrHeightIsAuto = useProjectState((x) => {

@@ -9,7 +9,7 @@ import type { Collision } from "../utilities/algorithms";
 import type { Actions } from "./actions";
 import type { DroppableContainersMap } from "./constructors";
 
-export interface DraggableElement {
+interface DraggableElement {
   node: DraggableNode;
   id: UniqueIdentifier;
   index: number;

@@ -6,7 +6,7 @@ function deleteTemporaryMiscState(id) {
   useTemporaryMiscState.setState((state) => _.omit(state, [id]), true);
 }
 
-export function setTemporaryMiscState(id, message) {
+function setTemporaryMiscState(id, message) {
   useTemporaryMiscState.setState({ [id]: message });
 }
 
@@ -28,7 +28,7 @@ function callFnAndWait({ id, condition, fn }) {
   });
 }
 
-export async function requestBase64FromCanvas(sectionId) {
+async function requestBase64FromCanvas(sectionId) {
   const fn = (actualId) => setTemporaryMiscState(actualId, true);
   const id = base64RequestId(sectionId);
   const condition = () => true;

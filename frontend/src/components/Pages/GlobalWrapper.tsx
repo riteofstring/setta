@@ -22,7 +22,10 @@ export function GlobalWrapper({ children }) {
   if (shouldShowLoading) {
     return (
       <div className="app-shell flex min-h-screen min-w-full flex-col items-center justify-center px-6">
-        <LoadingScreen initStatus={initStatus} settingsLoaded={settingsLoaded} />
+        <LoadingScreen
+          initStatus={initStatus}
+          settingsLoaded={settingsLoaded}
+        />
       </div>
     );
   }

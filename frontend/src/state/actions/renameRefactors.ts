@@ -32,7 +32,7 @@ export function handleRenameRefactorBroadcast(
   clearRenameBroadcast(content.frontendOpId);
 }
 
-export function saveRenameBroadcast(content: RenameRefactorBroadcastContent) {
+function saveRenameBroadcast(content: RenameRefactorBroadcastContent) {
   useRenameRefactors.setState((state) => {
     const nextQueue = state.queue.includes(content.frontendOpId)
       ? state.queue
@@ -55,7 +55,7 @@ export function saveRenameBroadcast(content: RenameRefactorBroadcastContent) {
   }
 }
 
-export function clearRenameBroadcast(frontendOpId: string) {
+function clearRenameBroadcast(frontendOpId: string) {
   useRenameRefactors.setState((state) => {
     const existsInState =
       state.byOpId[frontendOpId] ||
@@ -80,7 +80,7 @@ export function clearRenameBroadcast(frontendOpId: string) {
   });
 }
 
-export function resetRenameBroadcasts() {
+function resetRenameBroadcasts() {
   useRenameRefactors.getState().reset();
 }
 

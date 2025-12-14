@@ -13,9 +13,9 @@ const events: PointerEventHandlers = {
   end: { name: "pointerup" },
 };
 
-export interface PointerSensorOptions extends AbstractPointerSensorOptions {}
+interface PointerSensorOptions extends AbstractPointerSensorOptions {}
 
-export type PointerSensorProps = SensorProps<PointerSensorOptions>;
+type PointerSensorProps = SensorProps<PointerSensorOptions>;
 
 export class PointerSensor extends AbstractPointerSensor {
   constructor(props: PointerSensorProps) {

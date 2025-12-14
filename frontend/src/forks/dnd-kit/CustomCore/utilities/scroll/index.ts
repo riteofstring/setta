@@ -13,5 +13,4 @@ export {
   getScrollYOffset,
 } from "./getScrollOffsets";
 export { getScrollPosition } from "./getScrollPosition";
-export { isScrollable } from "./isScrollable";
 export { scrollIntoViewIfNeeded } from "./scrollIntoViewIfNeeded";

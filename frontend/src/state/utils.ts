@@ -8,11 +8,11 @@ export function withProjectState<T>(store: T): T {
   return store;
 }
 
-export const STATE_TYPES = {
+const STATE_TYPES = {
   PROJECT_STATE: "PROJECT_STATE",
 };
 
-export const stateDict = {
+const stateDict = {
   [STATE_TYPES.PROJECT_STATE]: [],
 };
 

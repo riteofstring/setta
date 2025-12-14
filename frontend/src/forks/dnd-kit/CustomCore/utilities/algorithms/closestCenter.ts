@@ -22,7 +22,7 @@ function centerOfRectangle(
  * Returns the closest rectangles from an array of rectangles to the center of a given
  * rectangle.
  */
-export const closestCenter: CollisionDetection = ({
+const closestCenter: CollisionDetection = ({
   collisionRect,
   droppableRects,
   droppableContainers,

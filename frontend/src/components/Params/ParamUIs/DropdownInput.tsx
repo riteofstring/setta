@@ -21,7 +21,7 @@ export function DropdownInputConfigForParam({
   return <DropdownInputConfig config={config} onChange={onChange} />;
 }
 
-export function DropdownInputConfig({ onChange, config }) {
+function DropdownInputConfig({ onChange, config }) {
   const choices = config.choices ?? [];
 
   const addChoice = () => {

@@ -4,7 +4,7 @@ import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { setSectionChildren } from "../sectionInfos";
 
-export function moveSections({
+function moveSections({
   sectionIds,
   oldParentIds,
   newParentIds,

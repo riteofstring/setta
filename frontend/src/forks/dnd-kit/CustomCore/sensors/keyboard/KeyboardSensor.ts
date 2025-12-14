@@ -28,14 +28,14 @@ import {
 } from "./defaults";
 import { KeyboardCode, KeyboardCodes, KeyboardCoordinateGetter } from "./types";
 
-export interface KeyboardSensorOptions extends SensorOptions {
+interface KeyboardSensorOptions extends SensorOptions {
   keyboardCodes?: KeyboardCodes;
   coordinateGetter?: KeyboardCoordinateGetter;
   scrollBehavior?: ScrollBehavior;
   onActivation?({ event }: { event: KeyboardEvent }): void;
 }
 
-export type KeyboardSensorProps = SensorProps<KeyboardSensorOptions>;
+type KeyboardSensorProps = SensorProps<KeyboardSensorOptions>;
 
 export class KeyboardSensor implements SensorInstance {
   public autoScrollEnabled = false;

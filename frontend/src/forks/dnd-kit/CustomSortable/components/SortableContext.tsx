@@ -11,7 +11,7 @@ import { rectSortingStrategy } from "../strategies";
 import type { Disabled, SortingStrategy } from "../types";
 import { getSortedRects, itemsEqual, normalizeDisabled } from "../utilities";
 
-export interface Props {
+interface Props {
   children: React.ReactNode;
   items: (UniqueIdentifier | { id: UniqueIdentifier })[];
   strategy?: SortingStrategy;

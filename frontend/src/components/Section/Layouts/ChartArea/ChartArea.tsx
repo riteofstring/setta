@@ -122,7 +122,7 @@ function getChartConfig(type: ChartType, setDatasetHidden) {
   }
 }
 
-export function updateChartWithNewData(
+function updateChartWithNewData(
   chart: Chart,
   data: ChartData,
   datasetHidden: Record<string, boolean>,

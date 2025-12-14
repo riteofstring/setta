@@ -1,6 +1,6 @@
 import type { Active, Over } from "../../store";
 
-export interface Arguments {
+interface Arguments {
   active: Active;
   over: Over | null;
 }

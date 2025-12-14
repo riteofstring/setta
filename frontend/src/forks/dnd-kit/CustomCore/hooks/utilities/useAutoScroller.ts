@@ -5,9 +5,9 @@ import type { ClientRect, Coordinates } from "../../types";
 import { Direction } from "../../types";
 import { getScrollDirectionAndSpeed } from "../../utilities";
 
-export type ScrollAncestorSortingFn = (ancestors: Element[]) => Element[];
+type ScrollAncestorSortingFn = (ancestors: Element[]) => Element[];
 
-export enum AutoScrollActivator {
+enum AutoScrollActivator {
   Pointer,
   DraggableRect,
 }
@@ -40,9 +40,9 @@ interface Arguments extends Options {
   delta: Coordinates;
 }
 
-export type CanScroll = (element: Element) => boolean;
+type CanScroll = (element: Element) => boolean;
 
-export enum TraversalOrder {
+enum TraversalOrder {
   TreeOrder,
   ReversedTreeOrder,
 }

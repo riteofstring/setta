@@ -17,11 +17,11 @@ enum MouseButton {
   RightClick = 2,
 }
 
-export interface MouseSensorOptions extends AbstractPointerSensorOptions {}
+interface MouseSensorOptions extends AbstractPointerSensorOptions {}
 
-export type MouseSensorProps = SensorProps<MouseSensorOptions>;
+type MouseSensorProps = SensorProps<MouseSensorOptions>;
 
-export class MouseSensor extends AbstractPointerSensor {
+class MouseSensor extends AbstractPointerSensor {
   constructor(props: MouseSensorProps) {
     super(props, events, getOwnerDocument(props.event.target));
   }

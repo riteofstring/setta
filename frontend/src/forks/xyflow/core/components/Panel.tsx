@@ -3,7 +3,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { type HTMLAttributes, type ReactNode } from "react";
 import type { PanelPosition, ReactFlowState } from "../types";
 
-export type PanelProps = HTMLAttributes<HTMLDivElement> & {
+type PanelProps = HTMLAttributes<HTMLDivElement> & {
   position: PanelPosition;
   children: ReactNode;
 };

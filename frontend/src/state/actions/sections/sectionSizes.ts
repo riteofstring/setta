@@ -57,7 +57,7 @@ function setAllOtherWidths(
   return updatedSectionSizes;
 }
 
-export function setAllChildrenWidths({ sectionId, exclude, width, state }) {
+function setAllChildrenWidths({ sectionId, exclude, width, state }) {
   const sectionIds = getSectionDescendants(sectionId, state);
   const updatedSectionSizes: Record<string, SectionSize> = {};
   for (const s of sectionIds) {

@@ -88,7 +88,7 @@ import {
 } from "./hooks";
 import type { MeasuringConfiguration } from "./types";
 
-export interface Props {
+interface Props {
   id?: string;
   accessibility?: {
     announcements?: Announcements;
@@ -110,11 +110,9 @@ export interface Props {
   onDragCancel?(event: DragCancelEvent): void;
 }
 
-export interface CancelDropArguments extends DragEndEvent {}
+interface CancelDropArguments extends DragEndEvent {}
 
-export type CancelDrop = (
-  args: CancelDropArguments,
-) => boolean | Promise<boolean>;
+type CancelDrop = (args: CancelDropArguments) => boolean | Promise<boolean>;
 
 interface DndEvent extends Event {
   dndKit?: {

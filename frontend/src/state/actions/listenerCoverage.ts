@@ -66,9 +66,7 @@ export function dependencyKeyCovered(
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
 
-export function serializeCoverageKey(
-  dependency: BaseDependencyKeyUnion,
-): string {
+function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
   return serializeListenerDependencyKey(dependency);
 }
 

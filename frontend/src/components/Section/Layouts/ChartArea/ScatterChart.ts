@@ -172,7 +172,7 @@ export function updateScatterChartWithNewData(
   return { datasets };
 }
 
-export const crosshairPlugin: Plugin<"scatter"> = {
+const crosshairPlugin: Plugin<"scatter"> = {
   id: "crosshairPlugin",
   afterInit: (chart) => {
     chart.crosshairPlugin = {

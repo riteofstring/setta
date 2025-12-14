@@ -8,7 +8,7 @@ import type {
   PublicContextDescriptor,
 } from "./types";
 
-export const defaultPublicContext: PublicContextDescriptor = {
+const defaultPublicContext: PublicContextDescriptor = {
   activatorEvent: null,
   active: null,
   activeNode: null,

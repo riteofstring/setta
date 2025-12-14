@@ -8,7 +8,7 @@ export type Animation = (
   node: HTMLElement,
 ) => Promise<void> | void;
 
-export interface Props {
+interface Props {
   animation: Animation;
   children: React.ReactElement | null;
 }

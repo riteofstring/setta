@@ -15,7 +15,7 @@ import {
 import type { DropAnimation } from "./hooks";
 import { useDropAnimation, useKey } from "./hooks";
 
-export interface Props
+interface Props
   extends Pick<
     PositionedOverlayProps,
     "adjustScale" | "children" | "className" | "style" | "transition"

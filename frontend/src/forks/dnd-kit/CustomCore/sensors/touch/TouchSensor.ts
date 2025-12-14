@@ -13,11 +13,11 @@ const events: PointerEventHandlers = {
   end: { name: "touchend" },
 };
 
-export interface TouchSensorOptions extends PointerSensorOptions {}
+interface TouchSensorOptions extends PointerSensorOptions {}
 
-export type TouchSensorProps = SensorProps<TouchSensorOptions>;
+type TouchSensorProps = SensorProps<TouchSensorOptions>;
 
-export class TouchSensor extends AbstractPointerSensor {
+class TouchSensor extends AbstractPointerSensor {
   constructor(props: PointerSensorProps) {
     super(props, events);
   }

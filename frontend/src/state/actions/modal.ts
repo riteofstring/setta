@@ -11,7 +11,7 @@ export function closeModal() {
   useModal.getState().reset();
 }
 
-export function openModal(modalInfo: ModalInfoType) {
+function openModal(modalInfo: ModalInfoType) {
   useModal.setState({ open: true, modalInfo });
 }
 

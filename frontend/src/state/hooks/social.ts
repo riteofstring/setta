@@ -9,7 +9,7 @@ export function getIsTwitterSection(sectionId, state) {
   );
 }
 
-export function getIsYouTubeSection(sectionId, state) {
+function getIsYouTubeSection(sectionId, state) {
   const impl = getCurrEffectiveSectionImpl(state, sectionId);
   return (
     impl.type === SectionTypeEnum.Social &&

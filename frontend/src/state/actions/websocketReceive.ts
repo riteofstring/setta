@@ -153,7 +153,7 @@ function receiveMessage(message: string) {
   }
 }
 
-export function sendCurrentAddress(currentAddress: string) {
+function sendCurrentAddress(currentAddress: string) {
   sendMessage(
     createWebsocketMsgCurrentAddressUpdate({ content: currentAddress }),
   );
@@ -216,7 +216,7 @@ export function sendRealtimeSectionBase64(
   emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
 
-export function sendMessage(message: WebsocketMsg) {
+function sendMessage(message: WebsocketMsg) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }

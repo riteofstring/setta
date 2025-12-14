@@ -1,7 +1,6 @@
 export type {
   Coordinates,
   DistanceMeasurement,
-  ScrollCoordinates,
   Translate,
 } from "./coordinates";
 export { Direction } from "./direction";

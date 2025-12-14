@@ -52,7 +52,7 @@ export function SliderInputConfigForParam({
   return <SliderInputConfig onChange={onChange} config={config} />;
 }
 
-export function SliderInputConfig({
+function SliderInputConfig({
   onChange,
   config,
 }: {

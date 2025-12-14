@@ -3,7 +3,7 @@ import { ProjectSearchModeEnum } from "utils/constants";
 
 export const ProjectPageSearchBarDivId = "ProjectPageSearchBar";
 
-export function clickOrFocusOnSearchBar(mode: "click" | "focus") {
+function clickOrFocusOnSearchBar(mode: "click" | "focus") {
   // wait for re-render, otherwise the search bar re-renders after focusing on it
   requestAnimationFrame(() => {
     const element = document.getElementById(ProjectPageSearchBarDivId);

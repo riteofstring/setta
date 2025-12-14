@@ -127,7 +127,7 @@ function Body({
   );
 }
 
-export function Footer({
+function Footer({
   onClose,
   onClick,
   buttonText,

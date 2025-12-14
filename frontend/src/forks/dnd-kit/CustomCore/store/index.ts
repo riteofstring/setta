@@ -8,8 +8,6 @@ export { getInitialState, reducer } from "./reducer";
 export type {
   Active,
   Data,
-  DataRef,
-  DraggableElement,
   DraggableNode,
   DraggableNodes,
   DroppableContainer,
@@ -18,5 +16,4 @@ export type {
   Over,
   PublicContextDescriptor,
   RectMap,
-  State,
 } from "./types";

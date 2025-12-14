@@ -20,7 +20,7 @@ export const zoomOut = _.throttle((options) => {
   d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1 / 1.2);
 }, 50);
 
-export function zoomTo(zoomLevel, options) {
+function zoomTo(zoomLevel, options) {
   const { d3Zoom, d3Selection } = useReactFlow.getState();
   d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
 }
@@ -34,7 +34,7 @@ export function getZoom() {
   return useReactFlow.getState().transform[2];
 }
 
-export function setViewport(transform, options) {
+function setViewport(transform, options) {
   const {
     d3Zoom,
     d3Selection,
@@ -68,7 +68,7 @@ export function setCenter(x: number, y: number, options) {
   d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
 }
 
-export function fitBounds(bounds, options) {
+function fitBounds(bounds, options) {
   const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
   const { minZoom, maxZoom } = useSettings.getState().gui;
   const { x, y, zoom } = getViewportForBounds(
@@ -108,7 +108,7 @@ export function screenToFlowPosition(position: Position, ignoreGrid = false) {
   );
 }
 
-export function flowToScreenPosition(position: Position) {
+function flowToScreenPosition(position: Position) {
   const { transform, domNode } = useReactFlow.getState();
 
   if (!domNode) {

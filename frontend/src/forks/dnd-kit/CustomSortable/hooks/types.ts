@@ -18,7 +18,7 @@ export type AnimateLayoutChanges = (args: {
   wasDragging: boolean;
 }) => boolean;
 
-export interface NewIndexGetterArguments {
+interface NewIndexGetterArguments {
   id: UniqueIdentifier;
   items: UniqueIdentifier[];
   activeIndex: number;

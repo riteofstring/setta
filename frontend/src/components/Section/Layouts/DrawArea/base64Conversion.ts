@@ -1,6 +1,6 @@
 import { LayerCanvasesType } from "./types";
 
-export function dataURLToBase64(dataURL) {
+function dataURLToBase64(dataURL) {
   return dataURL.split(";base64,")[1];
 }
 
@@ -49,7 +49,7 @@ export function serializeLayerStackToBase64(
   return canvasToBase64(tempCanvas);
 }
 
-export function base64StrToImgSrc(base64Str: string) {
+function base64StrToImgSrc(base64Str: string) {
   return base64Str.startsWith("data:image/")
     ? base64Str
     : `data:image/png;base64,${base64Str}`;

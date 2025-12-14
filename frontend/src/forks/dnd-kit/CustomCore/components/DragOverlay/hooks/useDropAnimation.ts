@@ -30,18 +30,16 @@ interface SharedParameters {
   measuringConfiguration: DeepRequired<MeasuringConfiguration>;
 }
 
-export interface KeyframeResolverParameters extends SharedParameters {
+interface KeyframeResolverParameters extends SharedParameters {
   transform: {
     initial: Transform;
     final: Transform;
   };
 }
 
-export type KeyframeResolver = (
-  parameters: KeyframeResolverParameters,
-) => Keyframe[];
+type KeyframeResolver = (parameters: KeyframeResolverParameters) => Keyframe[];
 
-export interface DropAnimationOptions {
+interface DropAnimationOptions {
   keyframes?: KeyframeResolver;
   duration?: number;
   easing?: string;
@@ -57,19 +55,19 @@ interface Arguments {
   config?: DropAnimation | null;
 }
 
-export interface DropAnimationFunctionArguments extends SharedParameters {
+interface DropAnimationFunctionArguments extends SharedParameters {
   transform: Transform;
 }
 
-export type DropAnimationFunction = (
+type DropAnimationFunction = (
   args: DropAnimationFunctionArguments,
 ) => Promise<void> | void;
 
 type CleanupFunction = () => void;
 
-export interface DropAnimationSideEffectsParameters extends SharedParameters {}
+interface DropAnimationSideEffectsParameters extends SharedParameters {}
 
-export type DropAnimationSideEffects = (
+type DropAnimationSideEffects = (
   parameters: DropAnimationSideEffectsParameters,
 ) => CleanupFunction | void;
 
@@ -90,7 +88,7 @@ interface DefaultDropAnimationSideEffectsOptions {
   };
 }
 
-export const defaultDropAnimationSideEffects =
+const defaultDropAnimationSideEffects =
   (options: DefaultDropAnimationSideEffectsOptions): DropAnimationSideEffects =>
   ({ active, dragOverlay }) => {
     const originalStyles: Record<string, string> = {};
@@ -147,19 +145,18 @@ const defaultKeyframeResolver: KeyframeResolver = ({
   },
 ];
 
-export const defaultDropAnimationConfiguration: Required<DropAnimationOptions> =
-  {
-    duration: 250,
-    easing: "ease",
-    keyframes: defaultKeyframeResolver,
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: {
-        active: {
-          opacity: "0",
-        },
+const defaultDropAnimationConfiguration: Required<DropAnimationOptions> = {
+  duration: 250,
+  easing: "ease",
+  keyframes: defaultKeyframeResolver,
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: {
+      active: {
+        opacity: "0",
       },
-    }),
-  };
+    },
+  }),
+};
 
 export function useDropAnimation({
   config,

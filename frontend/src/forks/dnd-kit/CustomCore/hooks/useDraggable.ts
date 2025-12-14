@@ -24,7 +24,7 @@ export interface UseDraggableArguments {
   };
 }
 
-export interface DraggableAttributes {
+interface DraggableAttributes {
   role: string;
   tabIndex: number;
   "aria-disabled": boolean;
@@ -33,7 +33,7 @@ export interface DraggableAttributes {
   "aria-describedby": string;
 }
 
-export type DraggableSyntheticListeners = SyntheticListenerMap | undefined;
+type DraggableSyntheticListeners = SyntheticListenerMap | undefined;
 
 const NullContext = createContext<any>(null);
 

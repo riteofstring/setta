@@ -219,7 +219,7 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-export const useArtifacts = withProjectState(
+const useArtifacts = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
   ),
@@ -323,7 +323,7 @@ export const useMisc = withProjectState(
 );
 
 // maps from variantId to yaml metadata
-export const useOriginalYamlObj = withProjectState(
+const useOriginalYamlObj = withProjectState(
   createWithEqualityFn(withResetFn(() => {})),
 );
 
@@ -347,7 +347,7 @@ export type ChatDetails = {
   llmConfig: LLMConfig | null;
 };
 
-export type ZustandAIStore = {
+type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;

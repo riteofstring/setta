@@ -51,7 +51,7 @@ export function ColorPickerInputConfigForParam({
   return <ColorPickerInputConfig config={config} onChange={onChange} />;
 }
 
-export function ColorPickerInputConfig({
+function ColorPickerInputConfig({
   onChange,
   config,
 }: {

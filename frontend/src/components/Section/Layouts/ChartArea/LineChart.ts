@@ -135,7 +135,7 @@ export function updateLineChartWithNewData(
   return { datasets };
 }
 
-export const verticalLinePlugin: Plugin<"line"> = {
+const verticalLinePlugin: Plugin<"line"> = {
   id: "verticalLinePlugin",
   afterInit: (chart: Chart) => {
     chart.verticalLinePlugin = {

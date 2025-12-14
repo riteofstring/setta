@@ -101,10 +101,7 @@ export type SliderConfigForFrontend = Pick<
   "min" | "max" | "step"
 >;
 
-export type DropdownConfigForFrontend = Pick<
-  DropdownParamCodeObjImpl,
-  "choices"
->;
+type DropdownConfigForFrontend = Pick<DropdownParamCodeObjImpl, "choices">;
 
 export type ColorPickerConfigForFrontend = Pick<
   ColorPickerParamCodeObjImpl,

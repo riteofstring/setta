@@ -24,7 +24,7 @@ export interface DndMonitorEvent {
     | DragCancelEvent;
 }
 
-export type UnregisterListener = () => void;
+type UnregisterListener = () => void;
 
 export type RegisterListener = (
   listener: DndMonitorListener,

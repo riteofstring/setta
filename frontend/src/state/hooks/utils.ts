@@ -65,7 +65,7 @@ export function useWindowSize() {
   return windowSize;
 }
 
-export function useFileExists(delay) {
+function useFileExists(delay) {
   const [fileExists, setFileExists] = useState(false);
 
   const debouncedCheckIfFileExists = useCallback(

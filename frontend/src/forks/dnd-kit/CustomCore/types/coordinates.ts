@@ -10,7 +10,7 @@ export type DistanceMeasurement =
 
 export type Translate = Coordinates;
 
-export interface ScrollCoordinates {
+interface ScrollCoordinates {
   initial: Coordinates;
   current: Coordinates;
   delta: Coordinates;

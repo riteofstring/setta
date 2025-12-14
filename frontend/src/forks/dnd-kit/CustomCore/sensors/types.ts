@@ -16,7 +16,7 @@ import type {
 } from "../types";
 import type { Collision } from "../utilities/algorithms";
 
-export enum Response {
+enum Response {
   Start = "start",
   Move = "move",
   End = "end",
@@ -64,7 +64,7 @@ export type SensorActivatorFunction<T> = (
   },
 ) => boolean | undefined;
 
-export type Activator<T> = {
+type Activator<T> = {
   eventName: SyntheticEventName;
   handler: SensorActivatorFunction<T>;
 };
@@ -79,14 +79,14 @@ export interface Sensor<T extends object> {
   setup?(): Teardown | undefined;
 }
 
-export type Sensors = Sensor<any>[];
+type Sensors = Sensor<any>[];
 
 export type SensorDescriptor<T extends object> = {
   sensor: Sensor<T>;
   options: T;
 };
 
-export type SensorHandler = (
+type SensorHandler = (
   event: React.SyntheticEvent,
   active: UniqueIdentifier,
 ) => boolean | void;

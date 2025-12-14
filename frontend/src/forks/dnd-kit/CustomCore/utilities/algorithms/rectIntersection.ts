@@ -6,10 +6,7 @@ import type { CollisionDescriptor, CollisionDetection } from "./types";
 /**
  * Returns the intersecting rectangle area between two rectangles
  */
-export function getIntersectionRatio(
-  entry: ClientRect,
-  target: ClientRect,
-): number {
+function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {
   const top = Math.max(target.top, entry.top);
   const left = Math.max(target.left, entry.left);
   const right = Math.min(target.left + target.width, entry.left + entry.width);

@@ -1,8 +1,4 @@
-export {
-  AutoScrollActivator,
-  TraversalOrder,
-  useAutoScroller,
-} from "./useAutoScroller";
+export { useAutoScroller } from "./useAutoScroller";
 export type { Options as AutoScrollOptions } from "./useAutoScroller";
 export { useCachedNode } from "./useCachedNode";
 export { useCombineActivators } from "./useCombineActivators";
@@ -20,7 +16,6 @@ export { useRectDelta } from "./useRectDelta";
 export { useRects } from "./useRects";
 export { useResizeObserver } from "./useResizeObserver";
 export { useScrollableAncestors } from "./useScrollableAncestors";
-export { useScrollIntoViewIfNeeded } from "./useScrollIntoViewIfNeeded";
 export { useScrollOffsets } from "./useScrollOffsets";
 export { useScrollOffsetsDelta } from "./useScrollOffsetsDelta";
 export { useSensorSetup } from "./useSensorSetup";

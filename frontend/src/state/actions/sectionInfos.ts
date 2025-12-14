@@ -44,7 +44,7 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
-export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
+function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
   Object.assign(effective, { ...core.sharedModifier, ...variant.modifier });
   return effective;
@@ -202,7 +202,7 @@ export function getCurrEffectiveCodeObjImplOfType<T extends CodeObjType>(
   return impl as Extract<BaseCodeObjImplUnion, { type: T }>;
 }
 
-export function getEffectiveImplFromVariantMap(
+function getEffectiveImplFromVariantMap(
   id: string,
   impls: ZustandProjectState["codeObjImpls"],
   cores: ZustandProjectState["codeObjs"],
@@ -222,7 +222,7 @@ export function getEffectiveImplFromVariantMap(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
+function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   impl: ImplArgsBundleMap[K]["impl"],
   core: Core,
   variant: Variant,
@@ -277,7 +277,7 @@ export function getSectionCore(p: ZustandProjectState, sectionId: string) {
   return section;
 }
 
-export function getSectionImpl(p: ZustandProjectState, implId: string) {
+function getSectionImpl(p: ZustandProjectState, implId: string) {
   const impl = p.sectionImpls[implId];
   if (!impl) {
     throw new Error();
@@ -309,7 +309,7 @@ export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   return impl;
 }
 
-export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
+function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.codeObjVariants[variantId];
   if (!variant) {
     throw new Error();
@@ -426,7 +426,7 @@ export function processProjectStateUpdateFromBackend(
   maybeOpenNextRenamePrompt();
 }
 
-export function updateProjectState({
+function updateProjectState({
   sections,
   variants,
   uiTypes,
@@ -515,7 +515,7 @@ export function resetAllSectionsToDefaultVersions() {
   );
 }
 
-export function getCodeChildrenAndParentCodeInfoId(
+function getCodeChildrenAndParentCodeInfoId(
   sectionId,
   state,
   variantId = null,
@@ -568,7 +568,7 @@ export function getSectionVisibilityKey(
   }
 }
 
-export function getSectionVisibilityKeyForDisplay(
+function getSectionVisibilityKeyForDisplay(
   viewingEditingMode: ViewingEditingMode,
 ) {
   switch (viewingEditingMode) {
@@ -611,7 +611,7 @@ export function deleteAllActiveSections() {
   });
 }
 
-export function createTopLevelSectionLayoutDict(
+function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
 ) {
@@ -648,7 +648,7 @@ export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
 }
 
-export function getCurrProjectConfigViewport() {
+function getCurrProjectConfigViewport() {
   return useReactFlow.getState().fitViewOnInit ? null : getViewport();
 }
 
@@ -677,7 +677,7 @@ export async function ungroupActiveGroups() {
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
-export function addPendingOp(apply: (x: ZustandProjectState) => void) {
+function addPendingOp(apply: (x: ZustandProjectState) => void) {
   const opId = createNewId();
   usePendingOperations.setState((state) => ({
     pending: [...state.pending, { apply, opId, acknowledged: false }],

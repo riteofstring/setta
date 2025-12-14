@@ -36,7 +36,7 @@ export interface PointerEventHandlers {
   end: EventDescriptor;
 }
 
-export type PointerActivationConstraint =
+type PointerActivationConstraint =
   | DelayConstraint
   | DistanceConstraint
   | (DelayConstraint & DistanceConstraint);
@@ -61,8 +61,7 @@ export interface AbstractPointerSensorOptions extends SensorOptions {
   onActivation?({ event }: { event: Event }): void;
 }
 
-export type AbstractPointerSensorProps =
-  SensorProps<AbstractPointerSensorOptions>;
+type AbstractPointerSensorProps = SensorProps<AbstractPointerSensorOptions>;
 
 export class AbstractPointerSensor implements SensorInstance {
   public autoScrollEnabled = true;

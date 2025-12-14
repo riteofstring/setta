@@ -191,7 +191,7 @@ export function getPaneRect(s, overviewWidth) {
   };
 }
 
-export function isSectionFullyVisible(id) {
+function isSectionFullyVisible(id) {
   const paneRect = getPaneRect(
     useReactFlow.getState(),
     useLocalStorage.getState().overviewTrueWidth,

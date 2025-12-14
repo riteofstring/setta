@@ -161,7 +161,7 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
   chartDataUpdate.commit();
 }
 
-export function getNamePathTypeKey(artifact: {
+function getNamePathTypeKey(artifact: {
   name?: string;
   path?: string;
   type: string | ArtifactType;

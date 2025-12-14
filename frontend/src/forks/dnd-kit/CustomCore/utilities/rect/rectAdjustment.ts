@@ -1,6 +1,6 @@
 import type { ClientRect, Coordinates } from "../../types";
 
-export function createRectAdjustmentFn(modifier: number) {
+function createRectAdjustmentFn(modifier: number) {
   return function adjustClientRect(
     rect: ClientRect,
     ...adjustments: Coordinates[]

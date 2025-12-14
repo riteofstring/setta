@@ -7,9 +7,9 @@ interface Measuring {
   measure: MeasuringFunction;
 }
 
-export interface DraggableMeasuring extends Measuring {}
+interface DraggableMeasuring extends Measuring {}
 
-export interface DragOverlayMeasuring extends Measuring {}
+interface DragOverlayMeasuring extends Measuring {}
 
 export interface MeasuringConfiguration {
   draggable?: Partial<DraggableMeasuring>;

@@ -65,7 +65,7 @@ export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
   height: y2 - y,
 });
 
-export const nodeToRect = (node: Node): Rect => ({
+const nodeToRect = (node: Node): Rect => ({
   ...(node.position || { x: 0, y: 0 }),
   width: node.width || 0,
   height: node.height || 0,
@@ -108,7 +108,7 @@ export function isInputDOMNode(
   return isInput || !!target?.closest(".nokey");
 }
 
-export const isMouseEvent = (
+const isMouseEvent = (
   event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
 ): event is MouseEvent | ReactMouseEvent => "clientX" in event;
 

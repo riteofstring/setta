@@ -22,7 +22,7 @@ import { calcAutoPan, getEventPosition } from "../utils";
 import useGetPointerPosition from "./useGetPointerPosition";
 import { getDragItems, hasSelector } from "./utils";
 
-export type UseDragData = { dx: number; dy: number };
+type UseDragData = { dx: number; dy: number };
 
 type UseDragParams = {
   nodeRef: RefObject<Element>;

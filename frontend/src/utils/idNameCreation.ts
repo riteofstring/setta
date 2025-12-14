@@ -10,7 +10,7 @@ export function createNewId() {
   return uuidv4();
 }
 
-export function createArtifactId(extension = ".json") {
+function createArtifactId(extension = ".json") {
   return `${C.ARTIFACTS_FOLDER}/${createNewId()}${extension}`;
 }
 

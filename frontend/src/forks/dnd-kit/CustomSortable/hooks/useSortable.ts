@@ -26,7 +26,7 @@ import type {
 } from "./types";
 import { useDerivedTransform } from "./utilities";
 
-export interface Arguments
+interface Arguments
   extends Omit<UseDraggableArguments, "disabled">,
     Pick<UseDroppableArguments, "resizeObserverConfig"> {
   animateLayoutChanges?: AnimateLayoutChanges;
