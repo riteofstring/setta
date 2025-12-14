@@ -170,7 +170,7 @@ def prepare_sections_for_copy(
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(
-        p, set(project_config.topLevelSections.keys())
+        p, set(project_config.sectionVariantMap.keys())
     )
 
     # Build the sliced state
