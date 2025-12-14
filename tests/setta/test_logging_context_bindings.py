@@ -2,8 +2,8 @@ import unittest
 from typing import Any
 
 from setta.logging.context import (
-    clear_logging_context,
     get_logging_context,
+    push_logging_context,
     reset_logging_context,
 )
 from setta.logging.context_bindings import bind_websocket_logging_context
@@ -14,7 +14,7 @@ from starlette.websockets import WebSocket
 
 class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self._token = clear_logging_context()
+        self._token = push_logging_context(replace=True)
 
     def tearDown(self) -> None:
         reset_logging_context(self._token)

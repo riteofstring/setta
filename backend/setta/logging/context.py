@@ -20,11 +20,9 @@ __all__ = [
     "LoggingContextInput",
     "LoggingContextPrimitive",
     "LoggingContextToken",
-    "clear_logging_context",
     "get_logging_context",
     "logging_context",
     "push_logging_context",
-    "replace_logging_context",
     "reset_logging_context",
 ]
 
@@ -40,33 +38,26 @@ def get_logging_context() -> LoggingContextData:
 
 def push_logging_context(
     *,
+    replace: bool = False,
     values: Mapping[str, LoggingContextInput] | None = None,
     **kwargs: LoggingContextInput,
 ) -> LoggingContextToken:
-    """Merge new context values into the current context."""
+    """Merge new context values into the current context.
+
+    When `replace` is True, the provided values replace the current context
+    rather than merging into it.
+    """
 
     merged_values: dict[str, LoggingContextInput] = {}
     if values:
         merged_values.update(values)
     if kwargs:
         merged_values.update(kwargs)
-    new_context = _updated_context(merged_values)
+    if replace:
+        new_context = _normalize_mapping(merged_values)
+    else:
+        new_context = _updated_context(merged_values)
     return _LOGGING_CONTEXT_VAR.set(new_context)
-
-
-def replace_logging_context(
-    values: Mapping[str, LoggingContextInput],
-) -> LoggingContextToken:
-    """Replace the current context with the provided mapping."""
-
-    normalized = _normalize_mapping(values)
-    return _LOGGING_CONTEXT_VAR.set(normalized)
-
-
-def clear_logging_context() -> LoggingContextToken:
-    """Clear the current logging context."""
-
-    return _LOGGING_CONTEXT_VAR.set({})
 
 
 def reset_logging_context(token: LoggingContextToken) -> None:

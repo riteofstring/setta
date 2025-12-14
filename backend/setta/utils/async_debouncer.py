@@ -13,13 +13,16 @@ class AsyncDebouncer:
         self.func = func
         self.wait = wait
         self.label = label
+        self._schedule_task: asyncio.Task | None = None
         self._task: asyncio.Task | None = None
         self._is_executing: bool = False
 
     def trigger(self, *args, **kwargs):
         """Trigger the debounced function. Cancels any pending execution."""
-        spawn_background_task(
-            self._schedule(*args, **kwargs),
+        if self._schedule_task and not self._schedule_task.done():
+            self._schedule_task.cancel()
+        self._schedule_task = spawn_background_task(
+            lambda: self._schedule(*args, **kwargs),
             label=f"{self.label}-schedule",
             **self._resolve_context_kwargs(),
         )
@@ -35,7 +38,7 @@ class AsyncDebouncer:
 
         # Schedule new execution
         self._task = spawn_background_task(
-            self._execute_after_delay(*args, **kwargs),
+            lambda: self._execute_after_delay(*args, **kwargs),
             label=self.label,
             **self._resolve_context_kwargs(),
         )
@@ -55,15 +58,24 @@ class AsyncDebouncer:
 
     def cancel(self):
         """Cancel any pending execution."""
+        if self._schedule_task and not self._schedule_task.done():
+            self._schedule_task.cancel()
+        self._schedule_task = None
         if self._task and not self._task.done():
             self._task.cancel()
+        self._task = None
 
     def cancel_pending(self) -> bool:
         """Cancel only if execution has not started yet."""
+        if self._schedule_task and not self._schedule_task.done():
+            self._schedule_task.cancel()
+            self._schedule_task = None
+            return True
         if self._task and not self._task.done():
             if self._is_executing:
                 return False
             self._task.cancel()
+            self._task = None
             return True
         return False
 
@@ -75,6 +87,8 @@ class AsyncDebouncer:
     @property
     def is_pending(self) -> bool:
         """Check if there's a pending execution."""
+        if self._schedule_task and not self._schedule_task.done():
+            return True
         return self._task is not None and not self._task.done()
 
     def _resolve_context_kwargs(self) -> dict[str, Any]:

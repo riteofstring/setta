@@ -13,7 +13,10 @@ longer “current” in `sys.exc_info()`).
 - Closed the listener “visibility gap”: whenever the backend sends `WebsocketMsgListenerError` back to the listener, it now also emits a frontend backend-log-event so the UI can’t miss listener failures.
 - Added listener logging context binding (`listener_id`, etc.) so listener-side logs are no longer missing Setta context (`setta_context=-`) for the main connection loop.
 - Made initialization failures propagate to callers waiting on readiness (so startup failures are not silently swallowed).
-- Replaced remaining `print(...)` calls with structured logging.
+- Replaced `print(...)` calls in core runtime paths with structured logging (remaining `print(...)` calls still exist in a few non-core paths like codegen and MCP docstring parsing).
+- Removed unused logging-context helpers (`clear_logging_context(...)` / `replace_logging_context(...)`) and simplified tests to use `push_logging_context(replace=True)`.
+- Fixed the `RuntimeWarning: coroutine ... was never awaited` from `AsyncDebouncer` by ensuring background tasks are spawned from coroutine factories (and `AsyncDebouncer` cancels/cleans up its scheduler task).
+- Added retention limits and basic filtering UI for frontend backend-log-events (cap events + filter by project/severity/search).
 
 What’s Well Thought Out
 
@@ -35,14 +38,10 @@ Bugs / Gaps
 
 Cleanup Candidates (Unused / Inconsistent)
 
-- Logging-context helper “dead code”: `clear_logging_context(...)` / `replace_logging_context(...)` are still referenced by tests; if we want to delete them, delete/replace the tests too (no need to keep unused
-APIs around).
+- (Resolved) Logging-context helper “dead code”: `clear_logging_context(...)` / `replace_logging_context(...)` removed; tests updated accordingly.
 - Startup task handling: `_initialization_task` is no longer unused; readiness now awaits it so initialization failures propagate.
-- `print(...)` bypasses structured logging: resolved (migrated to logging calls).
+- `print(...)` bypasses structured logging: partially resolved (still present in a few places, e.g. `backend/setta/code_gen/python/code_generator.py` and `backend/setta/mcp/server.py`).
 
 Remaining Work
 
-- Decide whether to keep or delete `clear_logging_context(...)` / `replace_logging_context(...)` (and update tests accordingly). If kept, clarify intended usage; if deleted, remove call sites/tests and simplify
-the public surface area.
-- Address the `RuntimeWarning: coroutine ... was never awaited` from `AsyncDebouncer` (seen in unit test output). This isn’t a logging bug, but it’s a real signal that background scheduling isn’t being cleaned
-up deterministically in tests.
+- Optional: remove remaining `print(...)` calls (non-core paths) if you want *all* output to flow through structured logging.

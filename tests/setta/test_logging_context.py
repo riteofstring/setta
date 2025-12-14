@@ -3,7 +3,6 @@ import unittest
 
 from setta.logging.context import (
     LoggingContextFilter,
-    clear_logging_context,
     get_logging_context,
     logging_context,
     push_logging_context,
@@ -12,10 +11,10 @@ from setta.logging.context import (
 
 class LoggingContextTests(unittest.TestCase):
     def setUp(self) -> None:
-        clear_logging_context()
+        push_logging_context(replace=True)
 
     def tearDown(self) -> None:
-        clear_logging_context()
+        push_logging_context(replace=True)
 
     def test_push_logging_context_merges_and_clears(self) -> None:
         push_logging_context(request_id=4, project_id="alpha")

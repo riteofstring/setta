@@ -220,14 +220,30 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
+export type BackendLogSeverity = SettaBackendLogEvent["severity"];
+
+export type BackendLogEventsFilter = {
+  projectConfigId: string | null;
+  minSeverity: BackendLogSeverity;
+  query: string;
+};
+
+export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
+  projectConfigId: null,
+  minSeverity: "info",
+  query: "",
+};
+
 type BackendLogEventsState = {
   events: Array<SettaBackendLogEvent>;
+  filter: BackendLogEventsFilter;
 };
 
 export const useBackendLogEvents = withProjectState(
   createWithEqualityFn(
     withResetFn<BackendLogEventsState>(() => ({
       events: [],
+      filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
     })),
   ),
 );

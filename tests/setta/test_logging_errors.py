@@ -4,7 +4,6 @@ import unittest
 
 from setta.logging.context import (
     LoggingContextFilter,
-    clear_logging_context,
     push_logging_context,
 )
 from setta.logging.errors import log_route_failure, run_safely
@@ -21,7 +20,7 @@ class _RecordingHandler(logging.Handler):
 
 class LoggingErrorHelpersTests(unittest.TestCase):
     def setUp(self) -> None:
-        clear_logging_context()
+        push_logging_context(replace=True)
         self.logger = logging.getLogger("tests.logging.errors")
         self.logger.setLevel(logging.DEBUG)
         self.handler = _RecordingHandler()
@@ -30,7 +29,7 @@ class LoggingErrorHelpersTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.logger.removeHandler(self.handler)
-        clear_logging_context()
+        push_logging_context(replace=True)
 
     def test_log_route_failure_attaches_context(self) -> None:
         push_logging_context(project_id="alpha", request_id="req-9")

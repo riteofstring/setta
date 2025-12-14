@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from setta.logging.context import LoggingContextInput, logging_context
@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 
 def spawn_background_task(
-    coro: Coroutine[Any, Any, T],
+    coroutine_or_factory: Awaitable[T] | Callable[[], Awaitable[T]],
     *,
     label: str,
     logger: logging.Logger | None = None,
@@ -43,7 +43,7 @@ def spawn_background_task(
     async def _runner() -> T | None:
         with logging_context(values=context_values):
             return await run_safely(
-                coro,
+                coroutine_or_factory,
                 label=label,
                 logger=logger,
                 context=context,
