@@ -101,13 +101,26 @@ class Terminals:
             await websocket.accept()
         except RuntimeError:
             return False
-        self.sockets[id] = {"ws": websocket, "sentReadyMsg": False}
+        # Keep a stable reference for this connection's registration.
+        # Other tasks (e.g. PTY output broadcasts) can call disconnect() while we're
+        # awaiting below, which may remove/replace self.sockets[id]. Re-indexing
+        # self.sockets[id] after an await can therefore raise KeyError or (worse)
+        # operate on a different connection that reused the same id.
+        socket_info = {"ws": websocket, "sentReadyMsg": False}
+        self.sockets[id] = socket_info
         self.section_to_socket_ids[sectionId].add(id)
         try:
             await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
-            if not self.sockets[id]["sentReadyMsg"]:
+            # If this id has been disconnected/unregistered (or replaced), abort
+            # this connect attempt. Even if websocket.send_text() might still
+            # succeed, we should not proceed if broadcasts will no longer target
+            # this connection.
+            if self.sockets.get(id) is not socket_info:
+                self.disconnect(sectionId, id)
+                return False
+            if not socket_info["sentReadyMsg"]:
                 await websocket.send_text(C.SETTA_TERMINAL_READY)
-                self.sockets[id]["sentReadyMsg"] = True
+                socket_info["sentReadyMsg"] = True
             await websocket.send_text(self.get_terminal_history(sectionId))
         except (WebSocketDisconnect, ConnectionClosedOK, RuntimeError):
             self.disconnect(sectionId, id)
