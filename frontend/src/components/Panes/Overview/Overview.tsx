@@ -9,7 +9,7 @@ import {
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
-import { useLocalStorage } from "state/definitions";
+import { useBackendLogEvents, useLocalStorage } from "state/definitions";
 import {
   OverviewTabName,
   OverviewTabNameEnum,
@@ -35,6 +35,9 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
+  const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
+    (state) => state.unreadHighSeverityCount > 0,
+  );
   const commonProps = {
     vis,
     selectedTabName,
@@ -80,7 +83,14 @@ export function Overview() {
           tabName={OverviewTabNameEnum.BackendLogs}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Backend Logs" })}
-          icon={<MdBugReport size={20} />}
+          icon={
+            <div className="relative">
+              <MdBugReport size={20} />
+              {hasUnreadHighSeverityBackendLogs && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
+              )}
+            </div>
+          }
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ProjectAIChat}

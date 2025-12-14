@@ -237,6 +237,7 @@ export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
 type BackendLogEventsState = {
   events: Array<SettaBackendLogEvent>;
   filter: BackendLogEventsFilter;
+  unreadHighSeverityCount: number;
 };
 
 export const useBackendLogEvents = withProjectState(
@@ -244,6 +245,7 @@ export const useBackendLogEvents = withProjectState(
     withResetFn<BackendLogEventsState>(() => ({
       events: [],
       filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
+      unreadHighSeverityCount: 0,
     })),
   ),
 );

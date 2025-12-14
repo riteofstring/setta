@@ -1,8 +1,9 @@
 import _ from "lodash";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IoTrashOutline } from "react-icons/io5";
 import {
   clearBackendLogEvents,
+  markBackendLogEventsHighSeverityAsRead,
   resetBackendLogEventsFilter,
   setBackendLogEventsFilter,
 } from "state/actions/backendLogEvents";
@@ -27,6 +28,11 @@ export function BackendLogEventsArea() {
     (state) => ({ events: state.events, filter: state.filter }),
     _.isEqual,
   );
+
+  useEffect(() => {
+    markBackendLogEventsHighSeverityAsRead();
+  }, []);
+
   const projectMetadata = useAllProjectMetadata(
     (state) => state.projectMetadata,
     _.isEqual,
