@@ -16,7 +16,6 @@ from setta.logging.context_bindings import (
     wrap_background_callable,
     wrap_background_coroutine,
 )
-from setta.logging.errors import log_route_failure
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
 from setta.types.notifications import SettaNotification
@@ -73,19 +72,8 @@ async def terminal_websocket_endpoint(
                 )
             )
             await write_task
-        except Exception as exc:  # noqa: PERF203 - websocket loop
-            context = {
-                "project_config_id": projectConfigId,
-                "section_id": sectionId,
-                "terminal_client_id": id,
-            }
-            log_route_failure(
-                exc,
-                label="terminals.websocket-endpoint",
-                handled=True,
-                context=context,
-                websocket=websocket,
-            )
+        except Exception:
+            pass
         finally:
             logging.debug("terminal_websocket_endpoint disconnect: %s", id)
             state.terminals.disconnect(sectionId, id)

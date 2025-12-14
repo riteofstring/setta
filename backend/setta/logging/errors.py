@@ -4,13 +4,9 @@ import asyncio
 import inspect
 import logging
 from collections.abc import Awaitable, Callable, Mapping
-from typing import TYPE_CHECKING, TypeVar
+from typing import TypeVar
 
 from setta.logging.context import LoggingContextInput, logging_context
-from setta.logging.context_sources import build_request_context, build_websocket_context
-
-if TYPE_CHECKING:
-    from fastapi import Request, WebSocket
 
 T = TypeVar("T")
 
@@ -28,8 +24,6 @@ def log_route_failure(
     handled: bool = False,
     notify_frontend: bool = False,
     context: Mapping[str, LoggingContextInput] | None = None,
-    request: "Request" | None = None,
-    websocket: "WebSocket" | None = None,
 ) -> None:
     """Log a structured failure with context metadata."""
 
@@ -44,13 +38,7 @@ def log_route_failure(
     level = logging.WARNING if handled else logging.ERROR
     message_template = _HANDLED_FAILURE_MESSAGE if handled else _DEFAULT_FAILURE_MESSAGE
 
-    merged_context = _merged_failure_context(
-        request=request,
-        websocket=websocket,
-        context=context,
-    )
-
-    with logging_context(values=merged_context, **context_values):
+    with logging_context(values=context, **context_values):
         log.log(level, message_template, label, exc_info=exc)
 
 
@@ -62,8 +50,6 @@ async def run_safely(
     context: Mapping[str, LoggingContextInput] | None = None,
     notify_frontend: bool = False,
     re_raise: bool = False,
-    request: "Request" | None = None,
-    websocket: "WebSocket" | None = None,
 ) -> T | None:
     """Execute a coroutine and log failures with consistent metadata."""
 
@@ -80,8 +66,6 @@ async def run_safely(
             handled=not re_raise,
             notify_frontend=notify_frontend,
             context=context,
-            request=request,
-            websocket=websocket,
         )
         if re_raise:
             raise
@@ -101,19 +85,3 @@ def _resolve_coroutine(
         raise TypeError(message)
     message = "run_safely requires an awaitable or zero-arg callable"
     raise TypeError(message)
-
-
-def _merged_failure_context(
-    *,
-    request: "Request" | None,
-    websocket: "WebSocket" | None,
-    context: Mapping[str, LoggingContextInput] | None,
-) -> Mapping[str, LoggingContextInput] | None:
-    merged: dict[str, LoggingContextInput] = {}
-    if request is not None:
-        merged.update(build_request_context(request))
-    if websocket is not None:
-        merged.update(build_websocket_context(websocket))
-    if context:
-        merged.update(context)
-    return merged or None
