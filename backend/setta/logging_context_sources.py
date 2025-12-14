@@ -20,20 +20,6 @@ _PROJECT_PARAM_KEYS: tuple[str, ...] = (
     "projectConfigId",
 )
 
-_PAYLOAD_FIELD_KEYS: tuple[str, ...] = (
-    "projectConfigId",
-    "project_id",
-    "projectId",
-    "project",
-)
-
-_PAYLOAD_NESTED_ATTRS: tuple[str, ...] = (
-    "content",
-    "payload",
-    "data",
-    "request",
-)
-
 LoggingContextMapping = Mapping[str, LoggingContextInput]
 
 __all__ = [
@@ -43,8 +29,18 @@ __all__ = [
     "build_websocket_context",
     "ensure_request_context",
     "ensure_websocket_context",
-    "infer_project_id_from_payload",
+    "get_project_id_from_payload",
+    "ProjectContextModel",
 ]
+
+
+class ProjectContextModel(BaseModel):
+    """Base request model that exposes project scope metadata."""
+
+    def get_project_config_id_for_context(self) -> str | None:
+        """Return the projectConfigId used for logging context."""
+
+        return None
 
 
 def build_request_context(
@@ -143,10 +139,12 @@ def build_background_task_context(
     return context
 
 
-def infer_project_id_from_payload(payload: Any) -> str | None:
-    """Attempt to locate a project identifier inside a payload object."""
+def get_project_id_from_payload(payload: Any) -> str | None:
+    """Lookup the project identifier for a validated payload."""
 
-    return _extract_project_id(payload, seen=set())
+    if not isinstance(payload, ProjectContextModel):
+        return None
+    return _normalize_value(payload.get_project_config_id_for_context())
 
 
 def _infer_project_id_from_request(request: Request) -> str | None:
@@ -181,46 +179,6 @@ def _search_mapping(
         normalized = _normalize_value(value)
         if normalized:
             return normalized
-    return None
-
-
-def _extract_project_id(payload: Any, *, seen: set[int]) -> str | None:
-    if payload is None:
-        return None
-
-    payload_id = id(payload)
-    if payload_id in seen:
-        return None
-    seen.add(payload_id)
-
-    for key in _PAYLOAD_FIELD_KEYS:
-        if hasattr(payload, key):
-            normalized = _normalize_value(getattr(payload, key))
-            if normalized:
-                return normalized
-
-    if isinstance(payload, Mapping):
-        candidate = _search_mapping(payload, _PAYLOAD_FIELD_KEYS)
-        if candidate:
-            return candidate
-        for attr in _PAYLOAD_NESTED_ATTRS:
-            if attr in payload:
-                candidate = _extract_project_id(payload[attr], seen=seen)
-                if candidate:
-                    return candidate
-
-    if isinstance(payload, BaseModel):
-        return _extract_project_id(
-            payload.model_dump(exclude_none=True), seen=seen
-        )
-
-    for attr in _PAYLOAD_NESTED_ATTRS:
-        if hasattr(payload, attr):
-            nested = getattr(payload, attr)
-            candidate = _extract_project_id(nested, seen=seen)
-            if candidate:
-                return candidate
-
     return None
 
 

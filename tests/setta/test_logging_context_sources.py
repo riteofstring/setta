@@ -1,27 +1,33 @@
 import unittest
 from typing import Any
 
-from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.types import Scope
 from starlette.websockets import WebSocket
 
 from setta.logging_context_sources import (
+    ProjectContextModel,
     build_background_task_context,
     build_request_context,
     build_websocket_context,
     ensure_request_context,
     ensure_websocket_context,
-    infer_project_id_from_payload,
+    get_project_id_from_payload,
 )
 
 
-class SamplePayload(BaseModel):
+class SamplePayload(ProjectContextModel):
     projectConfigId: str
 
+    def get_project_config_id_for_context(self) -> str | None:
+        return self.projectConfigId
 
-class NestedPayload(BaseModel):
+
+class NestedPayload(ProjectContextModel):
     content: SamplePayload
+
+    def get_project_config_id_for_context(self) -> str | None:
+        return self.content.projectConfigId
 
 
 class LoggingContextSourcesTests(unittest.TestCase):
@@ -78,21 +84,13 @@ class LoggingContextSourcesTests(unittest.TestCase):
             },
         )
 
-    def test_infer_project_id_from_pydantic_payload(self) -> None:
+    def test_get_project_id_from_payload(self) -> None:
         payload = SamplePayload(projectConfigId="gamma")
-        self.assertEqual(infer_project_id_from_payload(payload), "gamma")
+        self.assertEqual(get_project_id_from_payload(payload), "gamma")
 
-    def test_infer_project_id_from_nested_payload(self) -> None:
+    def test_get_project_id_from_nested_payload(self) -> None:
         payload = NestedPayload(content=SamplePayload(projectConfigId="theta"))
-        self.assertEqual(infer_project_id_from_payload(payload), "theta")
-
-    def test_infer_project_id_from_dict_payload(self) -> None:
-        payload = {
-            "content": {
-                "projectConfigId": "omega",
-            }
-        }
-        self.assertEqual(infer_project_id_from_payload(payload), "omega")
+        self.assertEqual(get_project_id_from_payload(payload), "theta")
 
 
 def _make_request(
