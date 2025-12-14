@@ -29,15 +29,15 @@ Current State
 4. **Notifications vs backend log events.**
    - Notifications (`SettaNotification`) are currently used only for deliberate UX cues (manual save + autosave).
    - Everything else that should be visible in the UI should be a backend log event (`SettaBackendLogEvent`: `id`, optional `projectConfigId`, `severity`, `message`, `timestamp`).
-   - Frontend handling: websocket receives `WebsocketMsgBackendLogEvent`, stores it in `useBackendLogEvents`, and renders it in `BackendLogEventsArea` (Overview → Backend Logs).
+   - Frontend handling: websocket receives `WebsocketMsgBackendLogEvent`, stores it in `useBackendLogEvents`, and renders it in `BackendLogEventsArea` (Overview → Backend Logs). The frontend store enforces basic retention and supports filtering/searching.
 
-5. **Listener visibility gap.**
-   - `SettaListener` configures logging via `configure_listener_logging(...)`, but most listener log lines do not carry Setta logging context (you’ll often see `setta_context` as `-`).
-   - The backend responds to listener issues with `WebsocketMsgListenerError`, but the python-script receiver does not currently broadcast a backend log event for those errors, so the UI can miss listener failures.
+5. **Listener visibility.**
+   - Listener connection loops run under an explicit listener logging context (`listener_id`, `listener_socket_id`, `listener_endpoint`), so listener logs are no longer missing `setta_context` by default.
+   - When the backend sends `WebsocketMsgListenerError` to the listener, it also emits a frontend backend-log-event so the UI can’t miss listener failures.
 
 Open Work
 ---------
 
-1. Add retention limits + filtering for frontend backend-log-events state.
+1. Replace remaining `print(...)` calls with structured logging (or remove them) so all output flows through the logging system.
 2. Keep logging context explicit (prefer passing small `extra_values={...}` over serializing payloads).
-3. Consider surfacing listener errors to the UI by emitting backend log events alongside `WebsocketMsgListenerError` responses.
+3. Ensure any remaining listener entrypoints run inside a bound listener logging context (avoid `setta_context=-` outside the main connection loop).
