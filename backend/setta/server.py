@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
+from setta.logging.context import get_logging_context
 from setta.logging.context_bindings import wrap_background_coroutine
 from setta.logging.errors import log_route_failure
 from setta.lsp.managers import (
@@ -42,6 +43,7 @@ from setta.routers import (
     websocket_router,
 )
 from setta.server_state import SettaFastAPIState
+from setta.types.id import ID
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.utils import get_absolute_path
@@ -167,14 +169,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
+        if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+            await _log_and_broadcast_internal_error(
+                request,
+                exc,
+                label="fastapi-http-exception",
+            )
         return await http_exception_handler(request, exc)
-    log_route_failure(
+    await _log_and_broadcast_internal_error(
+        request,
         exc,
         label="fastapi-unhandled-exception",
-        context={
-            "request_method": request.method,
-            "request_path": request.url.path,
-        },
     )
     content = {
         "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -184,3 +189,61 @@ async def general_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         content=content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
     )
+
+
+async def _log_and_broadcast_internal_error(
+    request: Request,
+    exc: BaseException,
+    *,
+    label: str,
+) -> None:
+    context = get_logging_context()
+    request_id = context.get("request_id")
+    project_id = context.get("project_id")
+    message = _format_backend_log_event_message(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        exc=exc,
+    )
+
+    project_config_id = ID(project_id) if project_id else None
+    state: SettaFastAPIState | None = getattr(request.app.state, "setta", None)
+    if state:
+        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
+            exc,
+            label=label,
+            message=message,
+            project_config_id=project_config_id,
+            context={
+                "request_method": request.method,
+                "request_path": request.url.path,
+            },
+        )
+        return
+
+    log_route_failure(
+        exc,
+        label=label,
+        context={
+            "request_method": request.method,
+            "request_path": request.url.path,
+        },
+    )
+
+
+def _format_backend_log_event_message(
+    *,
+    request_id: str | None,
+    method: str,
+    path: str,
+    exc: BaseException,
+) -> str:
+    suffix = ""
+    if request_id:
+        suffix = f" (request {request_id})"
+    exc_message = str(exc).replace("\n", " ").strip()
+    exc_name = type(exc).__name__
+    if exc_message:
+        return f"Internal server error{suffix}: {method} {path} - {exc_name}: {exc_message}"
+    return f"Internal server error{suffix}: {method} {path} - {exc_name}"
