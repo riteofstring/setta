@@ -39,7 +39,15 @@ Improvement Plan
      - `AsyncDebouncer` now requires a `label` and automatically forwards the current `project_id`/`request_id`/`websocket_id`.
      - `BaseProjectManager` binds both its queue processor and autosave debouncer so every project operation produces traceable `task=<manager>-queue` / `<manager>-autosave` logs.
      - Terminal reader + run-code flows (`terminals/terminals.py`, `terminals/run_code.py`) now wrap their `asyncio.create_task` calls to capture `projectConfigId`, `sectionId`, and terminal IDs without bespoke loggers.
-   * **Next:** continue applying the helpers across the remaining entry points from `docs/websocket-background-context-entrypoints.md` (server boot tasks, JSONSource watchers, LLM/LSP/MCP runners, listener hot-reload, CLI reconnect loops, etc.) until all background work inherits the canonical logging context and we can rip out legacy `logging.getLogger(__name__)` usage entirely.
+ * **In progress:** the helpers now wrap every bootstrapping task and long-running subsystem called out in `docs/websocket-background-context-entrypoints.md`, including backend initialization, JSON source watchers, LLM chat streams, LSP readers/writers, MCP server readiness, listener hot-reload watchers, and CLI reconnect loops.
+   - `backend/setta/server_state.py` binds `_initialize_async` plus the `MCPClient.connect_to_server()` and `start_lsps(...)` tasks with `request_id="boot"` so boot logs always carry a stable identifier.
+   - `backend/setta/server.py` wraps `_open_browser_after_startup` in `wrap_background_coroutine` (`label="open-browser"`) to eliminate the bespoke module logger.
+   - `backend/setta/project_state/jsonSource/jsonSource.py` annotates every reload task with `callbackCategory` + section/variant pairs.
+   - `backend/setta/utils/async_debouncer.py` rebases both `trigger()` and `_schedule()` on the wrapper, ensuring deferred autosave jobs keep the originating request/project/websocket metadata.
+   - `backend/setta/llm/llm_chat_manager.py` wraps streaming tasks so logs include `chat_id` + `project_id`.
+   - `backend/setta/lsp/managers.py`, `lsp/writer.py`, and `lsp/reader.py` wrap the initialization toast, send-and-wait requests, reader loop, and diagnostics callbacks; new tests assert their context output (see below).
+   - `backend/setta/mcp/server.py`, `backend/setta/api/listener.py`, and `backend/setta/websockets/connect.py` now emit `task=` metadata for server readiness, listener hot-reload watchers, and CLI subprocess runners.
+ * **Completed:** added `tests/setta/test_logging_context_propagation.py` exercising AsyncDebouncer, LSP send/receive hooks, and the CLI websocket consumer to ensure the logging context survives through these background entry points.
 3. **Structured error handling utilities**
    * Provide helper functions for routes/background tasks, such as `log_route_failure(exc, *, context)` and `run_safely(coro, label, notify_frontend=False)`, that emit `logger.error` with context, differentiate between handled/unhandled paths, and optionally propagate user-visible notifications.
    * Replace `print`/bare `except` blocks in routers (`projects.py`, `ai.py`, `terminals.py`), websocket loops, and terminal I/O with these helpers. Escalate unexpected failures to `warning`/`error` instead of `debug`.

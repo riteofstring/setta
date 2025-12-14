@@ -36,7 +36,13 @@ class AsyncDebouncer:
                 pass
 
         # Schedule new execution
-        self._task = asyncio.create_task(self._execute_after_delay(*args, **kwargs))
+        self._task = asyncio.create_task(
+            wrap_background_coroutine(
+                self._execute_after_delay(*args, **kwargs),
+                label=self.label,
+                **self._resolve_context_kwargs(),
+            )
+        )
 
     async def _execute_after_delay(self, *args, **kwargs):
         current_task = asyncio.current_task()

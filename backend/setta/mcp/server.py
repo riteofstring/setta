@@ -22,6 +22,7 @@ from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
 
 from setta.database.db_objs import DBE
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
@@ -85,7 +86,13 @@ class SettaFastMCP(FastMCP):
         self.add_setta_tools()
         self.tool_search_index = self._build_tool_search_index()
         content = SettaNotification(message="MCP Server Ready")
-        asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
+        asyncio.create_task(
+            wrap_background_coroutine(
+                websocket_msg_handler.broadcast_notification(content),
+                label="mcp-server-ready",
+                extra_values={"mount_path": mount_path},
+            )
+        )
 
     def add_setta_tools(self):
         for fn in SETTA_INIT_MCP_TOOLS:

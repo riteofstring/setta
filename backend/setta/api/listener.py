@@ -59,6 +59,7 @@ from setta.types.websocket import (
 )
 from setta.utils.constants import C
 from setta.logging.config import configure_listener_logging
+from setta.logging.context_bindings import wrap_background_coroutine
 
 from .scheduling import ListenerCallbackScheduler
 
@@ -269,7 +270,13 @@ class SettaListener:
         watch_task: asyncio.Task[None] | None = None
         try:
             await reloader.reload_now(reload_module=False)
-            watch_task = asyncio.create_task(reloader.watch())
+            watch_task = asyncio.create_task(
+                wrap_background_coroutine(
+                    reloader.watch(),
+                    label="listener-hot-reload-watch",
+                    extra_values={"listener_id": self._log_identifier},
+                )
+            )
             watch_task.add_done_callback(self._log_watch_task_completion)
             await self.run_forever()
         finally:

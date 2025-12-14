@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.types.code_obj_impls import (
     CodeObjType,
     NestedParamCodeObjImpl,
@@ -130,8 +131,21 @@ class JSONSource:
                 if on_deferred:
                     on_deferred(section_variants_snapshot)
             else:
+                section_variant_labels = sorted(
+                    f"{section_id}:{variant_id}"
+                    for section_id, variant_id in section_variants_snapshot
+                )
                 asyncio.create_task(
-                    load_json_sources_fn(self.json_sources, section_variants_snapshot)
+                    wrap_background_coroutine(
+                        load_json_sources_fn(
+                            self.json_sources, section_variants_snapshot
+                        ),
+                        label="json-source-load",
+                        extra_values={
+                            "callback_category": callbackCategory,
+                            "section_variants": section_variant_labels,
+                        },
+                    )
                 )
 
         normalized_mapping = {

@@ -18,6 +18,7 @@ from mcp.types import CallToolResult, TextContent
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.mcp.client import MCPClient
 from setta.mcp.utils import convert_existing_canonical_ids_to_temporary
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
@@ -189,8 +190,16 @@ class LLMChatManager:
                 "Chat %s already has an active streaming task; cancelling it", chat.id
             )
             existing.cancel()
+        project_id = (
+            str(chat.project_config_id) if chat.project_config_id is not None else None
+        )
         task = asyncio.create_task(
-            self.process_query(chat, deepThink),
+            wrap_background_coroutine(
+                self.process_query(chat, deepThink),
+                label="llm-chat-stream",
+                project_id=project_id,
+                extra_values={"chat_id": str(chat.id)},
+            ),
             name=f"llm-chat-{chat.id}",
         )
 

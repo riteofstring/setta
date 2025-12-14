@@ -19,6 +19,7 @@ from setta.middleware import (
     LoggingContextMiddleware,
     bind_request_logging_context,
 )
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,
@@ -71,7 +72,13 @@ async def lifespan(app: FastAPI):
     browser_task: asyncio.Task[None] | None = None
     if C.OPEN_BROWSER_ON_START:
         C.OPEN_BROWSER_ON_START = False
-        browser_task = asyncio.create_task(_open_browser_after_startup(C.BACKEND))
+        browser_task = asyncio.create_task(
+            wrap_background_coroutine(
+                _open_browser_after_startup(C.BACKEND),
+                label="open-browser",
+                extra_values={"backend_url": C.BACKEND},
+            )
+        )
     try:
         yield
     finally:
