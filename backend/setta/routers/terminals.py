@@ -9,7 +9,6 @@ from setta.logging.context_bindings import (
     bind_websocket_logging_context,
     wrap_background_coroutine,
 )
-from setta.logging.errors import run_safely
 from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
@@ -65,30 +64,30 @@ async def terminal_websocket_endpoint(
             "terminal_client_id": id,
         }
         try:
-            did_connect = await run_safely(
-                state.terminals.connect(websocket, sectionId, id),
-                label="terminal-connect",
-                context=context,
-                re_raise=True,
-            )
+            did_connect = await state.terminals.connect(websocket, sectionId, id)
             if not did_connect:
                 return
             websocket_id = get_logging_context().get("websocket_id")
             write_task = asyncio.create_task(
-                run_safely(
-                    wrap_background_coroutine(
-                        state.terminals.write_to_terminal(websocket, sectionId),
-                        label="terminal-write-loop",
-                        project_id=projectConfigId,
-                        websocket_id=websocket_id,
-                        extra_values=extra_values,
-                    ),
+                wrap_background_coroutine(
+                    state.terminals.write_to_terminal(websocket, sectionId),
                     label="terminal-write-loop",
-                    context=context,
-                    re_raise=True,
+                    project_id=projectConfigId,
+                    websocket_id=websocket_id,
+                    extra_values=extra_values,
                 )
             )
             await write_task
+        except Exception as exc:
+            await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
+                exc,
+                label="terminal-websocket",
+                message=f"Terminal websocket error: {projectConfigId}/{sectionId} (client {id})",
+                severity=SettaBackendLogEventSeverity.error,
+                project_config_id=projectConfigId,
+                context=context,
+            )
+            raise
         finally:
             logging.debug("terminal_websocket_endpoint disconnect: %s", id)
             state.terminals.disconnect(sectionId, id)

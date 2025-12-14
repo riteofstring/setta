@@ -44,6 +44,7 @@ from setta.routers import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
+from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.utils import get_absolute_path
@@ -158,8 +159,14 @@ def _wait_for_backend(
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    await _log_and_broadcast_http_error(
+        request,
+        exc,
+        label="fastapi-validation-error",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        handled=True,
+    )
     exc_str = f"{exc}".replace("\n", " ").replace("   ", " ")
-    logger.error(f"{request}: {exc_str}")
     content = {"status_code": 10422, "message": exc_str, "data": None}
     return JSONResponse(
         content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -169,17 +176,20 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
-        if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
-            await _log_and_broadcast_internal_error(
-                request,
-                exc,
-                label="fastapi-http-exception",
-            )
+        await _log_and_broadcast_http_error(
+            request,
+            exc,
+            label="fastapi-http-exception",
+            status_code=exc.status_code,
+            handled=exc.status_code < status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
         return await http_exception_handler(request, exc)
-    await _log_and_broadcast_internal_error(
+    await _log_and_broadcast_http_error(
         request,
         exc,
         label="fastapi-unhandled-exception",
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        handled=False,
     )
     content = {
         "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -191,33 +201,46 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-async def _log_and_broadcast_internal_error(
+async def _log_and_broadcast_http_error(
     request: Request,
     exc: BaseException,
     *,
     label: str,
+    status_code: int,
+    handled: bool,
 ) -> None:
     context = get_logging_context()
+    if context.get("backend_log_event_emitted") == "true":
+        return
     request_id = context.get("request_id")
     project_id = context.get("project_id")
     message = _format_backend_log_event_message(
         request_id=request_id,
         method=request.method,
         path=request.url.path,
+        status_code=status_code,
         exc=exc,
     )
 
     project_config_id = ID(project_id) if project_id else None
+    severity = (
+        SettaBackendLogEventSeverity.error
+        if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR
+        else SettaBackendLogEventSeverity.warning
+    )
     state: SettaFastAPIState | None = getattr(request.app.state, "setta", None)
     if state:
         await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
             label=label,
             message=message,
+            severity=severity,
             project_config_id=project_config_id,
+            handled=handled,
             context={
                 "request_method": request.method,
                 "request_path": request.url.path,
+                "response_status_code": status_code,
             },
         )
         return
@@ -225,9 +248,11 @@ async def _log_and_broadcast_internal_error(
     log_route_failure(
         exc,
         label=label,
+        handled=handled,
         context={
             "request_method": request.method,
             "request_path": request.url.path,
+            "response_status_code": status_code,
         },
     )
 
@@ -237,13 +262,19 @@ def _format_backend_log_event_message(
     request_id: str | None,
     method: str,
     path: str,
+    status_code: int,
     exc: BaseException,
 ) -> str:
     suffix = ""
     if request_id:
         suffix = f" (request {request_id})"
+    if isinstance(exc, HTTPException):
+        detail = str(exc.detail).replace("\n", " ").strip() if exc.detail else ""
+        if detail:
+            return f"HTTP {status_code}{suffix}: {method} {path} - {detail}"
+        return f"HTTP {status_code}{suffix}: {method} {path} - HTTPException"
     exc_message = str(exc).replace("\n", " ").strip()
     exc_name = type(exc).__name__
     if exc_message:
-        return f"Internal server error{suffix}: {method} {path} - {exc_name}: {exc_message}"
-    return f"Internal server error{suffix}: {method} {path} - {exc_name}"
+        return f"HTTP {status_code}{suffix}: {method} {path} - {exc_name}: {exc_message}"
+    return f"HTTP {status_code}{suffix}: {method} {path} - {exc_name}"

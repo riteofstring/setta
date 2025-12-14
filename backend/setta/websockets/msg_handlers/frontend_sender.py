@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from setta.logging.context import LoggingContextInput
+from setta.logging.context import LoggingContextInput, push_logging_context
 from setta.logging.errors import log_route_failure
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
@@ -91,6 +91,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ) -> None:
         """Log a structured failure and surface it to the UI."""
 
+        push_logging_context(backend_log_event_emitted=True)
         log_route_failure(
             exc,
             *context_models,
