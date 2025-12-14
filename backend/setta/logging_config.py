@@ -9,8 +9,12 @@ from typing import Any, Literal, MutableMapping
 LogLevelInput = str | int
 DictConfigMapping = MutableMapping[str, Any]
 
-DEFAULT_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-ACCESS_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(message)s"
+DEFAULT_LOG_FORMAT = (
+    "%(asctime)s | %(levelname)-8s | %(name)s | %(setta_context)s | %(message)s"
+)
+ACCESS_LOG_FORMAT = (
+    "%(asctime)s | %(levelname)-8s | %(setta_context)s | %(message)s"
+)
 
 _ENV_DEFAULT = "SETTA_LOG_LEVEL"
 _LISTENER_ENV_DEFAULT = "SETTA_LISTENER_LOG_LEVEL"
@@ -54,11 +58,13 @@ def configure_logging(
             "class": "logging.StreamHandler",
             "stream": stream_target,
             "formatter": "default",
+            "filters": ["setta_context"],
         },
         "uvicorn_access": {
             "class": "logging.StreamHandler",
             "stream": stream_target,
             "formatter": "access",
+            "filters": ["setta_context"],
         },
     }
 
@@ -70,6 +76,7 @@ def configure_logging(
             "filename": str(log_path),
             "encoding": "utf-8",
             "formatter": "default",
+            "filters": ["setta_context"],
         }
         handler_names.append("file")
 
@@ -108,6 +115,11 @@ def configure_logging(
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": formatter_config,
+        "filters": {
+            "setta_context": {
+                "()": "setta.logging_context.LoggingContextFilter",
+            },
+        },
         "handlers": handlers,
         "root": {
             "level": resolved_level,
