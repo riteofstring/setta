@@ -48,7 +48,8 @@ class LanguageServerWriter(LanguageServerInteractor):
             return
         stdin.write(header + request)
         await stdin.drain()
-        logger.debug("Sent %s (params=%s)", method, _summarize_params(params))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Sent %s (params=%s)", method, _summarize_params(params))
 
     async def start(self):
         params = {
