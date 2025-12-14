@@ -5,6 +5,7 @@ import logging
 from lsprotocol import converters as LSPConverters
 from lsprotocol import types as LSPTypes
 
+from setta.logging.errors import log_route_failure
 from setta.logging.tasks import spawn_background_task
 
 from .server import LanguageServer, LanguageServerInteractor
@@ -45,7 +46,17 @@ class LanguageServerReader(LanguageServerInteractor):
     async def read_response(self):
         self.started.set()
         while not self.stop_event.is_set():
-            await self.read_and_process_message()
+            try:
+                await self.read_and_process_message()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log_route_failure(
+                    exc,
+                    label=f"lsp-reader-loop-{self.server.name}",
+                    handled=False,
+                )
+                await asyncio.sleep(0.05)
 
     async def read_and_process_message(self):
         try:
@@ -89,13 +100,34 @@ class LanguageServerReader(LanguageServerInteractor):
             return
 
         try:
-            response = json.loads(response.decode("utf-8"))
-            self.process_response(response)
-        except json.JSONDecodeError as e:
-            logger.debug("Error decoding JSON response: %s", e)
+            parsed = json.loads(response.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            log_route_failure(
+                exc,
+                label=f"lsp-reader-parse-{self.server.name}",
+                handled=False,
+                context={
+                    "content_length": content_length,
+                },
+            )
             return
-        except Exception as e:
-            logger.debug("Error processing response: %s", e)
+
+        try:
+            self.process_response(parsed)
+        except Exception as exc:
+            context: dict[str, object] = {"content_length": content_length}
+            msg_id = parsed.get("id")
+            if msg_id is not None:
+                context["lsp_msg_id"] = msg_id
+            method = parsed.get("method")
+            if method is not None:
+                context["lsp_method"] = method
+            log_route_failure(
+                exc,
+                label=f"lsp-reader-process-{self.server.name}",
+                handled=False,
+                context=context,
+            )
             return
 
     def process_response(self, response):
