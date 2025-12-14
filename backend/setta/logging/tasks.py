@@ -19,6 +19,7 @@ def spawn_background_task(
     logger: logging.Logger | None = None,
     context: dict[str, LoggingContextInput] | None = None,
     re_raise: bool = False,
+    handled: bool = False,
     loop: asyncio.AbstractEventLoop | None = None,
     name: str | None = None,
     project_config_id: str | None = None,
@@ -30,6 +31,9 @@ def spawn_background_task(
 
     The failure handler runs *inside* the bound context, so contextvars metadata is
     preserved even when exceptions are swallowed.
+
+    `re_raise` controls propagation. `handled` controls whether a failure is
+    semantically expected/acceptable (WARNING) vs unhandled (ERROR).
     """
 
     context_values = build_background_task_context(
@@ -48,6 +52,7 @@ def spawn_background_task(
                 logger=logger,
                 context=context,
                 re_raise=re_raise,
+                handled=handled,
             )
 
     task_name = name or label

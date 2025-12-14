@@ -71,8 +71,13 @@ async def run_safely(
     logger: logging.Logger | None = None,
     context: Mapping[str, LoggingContextInput] | None = None,
     re_raise: bool = False,
+    handled: bool = False,
 ) -> T | None:
-    """Execute a coroutine and log failures with consistent metadata."""
+    """Execute a coroutine and log failures with consistent metadata.
+
+    `re_raise` controls propagation (whether exceptions are re-raised).
+    `handled` controls semantics/severity (expected/acceptable vs unhandled failure).
+    """
 
     try:
         coroutine = _resolve_coroutine(coroutine_or_factory)
@@ -83,7 +88,7 @@ async def run_safely(
             exc,
             label=label,
             logger=logger,
-            handled=not re_raise,
+            handled=handled,
             context=context,
         )
         if re_raise:
@@ -98,7 +103,7 @@ async def run_safely(
             exc,
             label=label,
             logger=logger,
-            handled=not re_raise,
+            handled=handled,
             context=context,
         )
         if re_raise:

@@ -10,16 +10,12 @@ logging/context.py:88).
 
 Main Gaps / Risks
 
-- handled semantics in background tasks are a bit inverted: today “handled” is effectively being used as “exception was swallowed”, not “expected/acceptable failure”. The default path is:
-    - spawn_background_task(..., re_raise=False) (default) wraps run_safely(..., re_raise=re_raise) (backend/setta/logging/tasks.py:15).
-    - run_safely logs failures with handled=not re_raise (backend/setta/logging/errors.py:46).
-    - so the default is: background task exception → handled=True → WARNING + failure_handled=true in setta_context, and the exception is swallowed (returns None).
-    This can under-signal serious failures: background tasks crashing is often not “handled” in the semantic sense, it’s just “not re-raised to avoid killing the loop”. Consider splitting “swallow vs re-raise” from “handled vs unhandled” (or defaulting background task failures to unhandled/ERROR unless explicitly marked handled).
 - Context string formatting doesn’t escape spaces, so values like paths can make key=value parsing ambiguous (backend/setta/logging/context.py:133). If you rely on grep/filtering by setta_context, this is a
 footgun.
 
 Resolved
 
+- Background task failures now decouple propagation from severity: `re_raise` controls whether exceptions propagate, and `handled` must be explicitly opted into to downgrade expected failures to WARNING (backend/setta/logging/tasks.py:1, backend/setta/logging/errors.py:1).
 - run_safely now logs synchronous exceptions thrown by a “coroutine factory” (i.e., an exception raised before returning an awaitable), so these failures get structured log_failure output instead of unstructured “Task
 exception was never retrieved” (backend/setta/logging/errors.py:46).
 - Handled failures no longer always include tracebacks: log_failure omits tracebacks for handled=True unless SETTA_LOG_LEVEL=DEBUG or SETTA_HANDLED_TRACEBACKS=1 (backend/setta/logging/errors.py:19). Routine handled 4xx

@@ -59,6 +59,7 @@ class LoggingErrorHelpersTests(unittest.TestCase):
                 _failing(),
                 label="terminal-run",
                 logger=self.logger,
+                handled=True,
             )
             self.assertIsNone(result)
 
@@ -141,6 +142,7 @@ class LoggingErrorHelpersTests(unittest.TestCase):
                 _factory,
                 label="sync-factory",
                 logger=self.logger,
+                handled=True,
             )
             self.assertIsNone(result)
 
