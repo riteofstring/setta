@@ -25,13 +25,11 @@ __all__ = [
 def build_request_context(
     request: Request,
     *,
-    project_config_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
 ) -> dict[str, LoggingContextInput]:
     """Return canonical logging metadata for an HTTP request."""
 
     resolved_request_id = ensure_request_context(request)
-    resolved_project_id = project_config_id
     endpoint_name = _resolve_endpoint_name(request)
     context: dict[str, LoggingContextInput] = {
         "request_id": resolved_request_id,
@@ -40,8 +38,6 @@ def build_request_context(
     }
     if endpoint_name:
         context["endpoint"] = endpoint_name
-    if resolved_project_id:
-        context["project_config_id"] = resolved_project_id
     client_host = request.client.host if request.client else None
     if client_host:
         context["client"] = client_host
@@ -63,13 +59,12 @@ def ensure_request_context(request: Request) -> str:
 def build_websocket_context(
     websocket: WebSocket,
     *,
-    websocket_id: str | None = None,
     project_config_id: str | None = None,
     extra_values: LoggingContextMapping | None = None,
 ) -> dict[str, LoggingContextInput]:
     """Return canonical logging metadata for a websocket connection."""
 
-    resolved_websocket_id = ensure_websocket_context(websocket, websocket_id)
+    resolved_websocket_id = ensure_websocket_context(websocket)
     resolved_project_id = project_config_id
     context: dict[str, LoggingContextInput] = {
         "websocket_id": resolved_websocket_id,
@@ -84,15 +79,13 @@ def build_websocket_context(
     return context
 
 
-def ensure_websocket_context(
-    websocket: WebSocket, websocket_id: str | None = None
-) -> str:
+def ensure_websocket_context(websocket: WebSocket) -> str:
     """Return a websocket id, storing it on the websocket state if needed."""
 
     stored_id = getattr(websocket.state, _WEBSOCKET_ID_STATE_KEY, None)
     if stored_id:
         return str(stored_id)
-    resolved_id = websocket_id or _generate_token("ws")
+    resolved_id = _generate_token("ws")
     setattr(websocket.state, _WEBSOCKET_ID_STATE_KEY, resolved_id)
     return resolved_id
 

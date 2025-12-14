@@ -28,8 +28,8 @@ frontend_sender.py:61).
 
 Dead Code / Cleanup Opportunities
 
-- build_request_context(..., project_config_id=...) exists but isn’t used anywhere (all call sites pass only request) (backend/setta/logging/context_sources.py:34).
-- The bind_websocket_logging_context helper is used, but the optional websocket_id=... argument is currently unused by call sites (they rely on ensure_websocket_context(...) to auto-generate a ws-... id) (backend/setta/logging/context_bindings.py:19).
+- Removed the unused `project_config_id` argument from `build_request_context(...)` (backend/setta/logging/context_sources.py:25).
+- Removed the unused `websocket_id` plumbing from websocket context binding (backend/setta/logging/context_bindings.py:19, backend/setta/logging/context_sources.py:59).
 
 Overall Assessment
 
