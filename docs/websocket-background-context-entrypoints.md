@@ -21,4 +21,22 @@
 - `backend/setta/api/listener.py:260-297` (listener runtime) creates the hot-reload watcher task, and `backend/setta/websockets/connect.py:32-58` recreates CLI websocket consumers and subprocess runners; when we wire logging helpers here we can expose the listener/CLI IDs.
 - `backend/setta/lsp/reader.py:110-156` and `backend/setta/terminals/terminals.py:221-246` also spin read loops that tear down on exceptions; both currently swallow errors with debug logs only.
 
-With the entry points mapped, the next step is to build the websocket/background-task binding helpers and start applying them to the locations above so every spawned task inherits `request_id`/`projectConfigId`/`websocket_id` automatically. Let me know when to proceed with that step.
+Binding Helpers
+---------------
+
+We will lean on the new utilities under `backend/setta/logging/context_bindings.py` to standardize how each entry point binds context before executing its real work:
+
+1. `bind_websocket_logging_context(websocket, *, websocket_id, project_id, extra_values)` wraps the lifetime of a websocket connection, pulling canonical metadata from the socket and merging per-router identifiers (connection type, CLI/listener ids, etc.).
+2. `wrap_background_callable(func, *, label, project_id, request_id, websocket_id, extra_values)` decorates sync/async callables before adding them to FastAPI `BackgroundTasks` or any callback-based scheduler so the task runs inside the appropriate context.
+3. `wrap_background_coroutine(coro, *, label, project_id, request_id, websocket_id, extra_values)` produces a coroutine whose awaited body executes with the bound context, letting us wrap `asyncio.create_task` invocations, queue processors, AsyncDebouncer triggers, etc.
+4. `bind_background_task_logging_context(**metadata)` is a low-level context manager for long-lived loops that already own their scheduling (e.g., reader/writer loops that `await` forever but still need to stamp each iteration with the project/task label).
+
+Application plan per entry point:
+
+- `backend/setta/routers/websocket.py` – wrap `websocket_route_loop` (and the CLI/listener routers) in `async with bind_websocket_logging_context(..., extra_values={"connection_type": connection_type.value, "connection_id": id})` so every message handler inherits the connection metadata automatically.
+- `backend/setta/routers/terminals.py` – wrap `terminal_websocket_endpoint` the same way but pass `extra_values={"section_id": sectionId, "client_id": id}` and feed the same values into the spawned read/write tasks via `wrap_background_coroutine`.
+- FastAPI `BackgroundTasks` sites (`projects.py`, `ai.py`, `terminals.py`) – each `background_tasks.add_task` call should be switched to `background_tasks.add_task(wrap_background_callable(..., label="save-notification", project_id=projectConfigId, request_id=current_request_id))` so notifications inherit the originating request/project metadata.
+- Async task spawners (`server_state.py`, `server.py`, terminal loops, JSON source watchers, LLM chat manager, LSP reader/writer, MCP server ready hook, AsyncDebouncer, listener hot-reload, CLI websocket reconnect) – whenever we call `asyncio.create_task`/`loop.create_task`, wrap the coroutine with `wrap_background_coroutine(..., label="<descriptive-task>", project_id=..., websocket_id=...)` so those loops stay connected to the originating request/websocket/project.
+- Generic loops that cannot easily be wrapped at construction (e.g., `_process_queue` in `base_project_manager`, terminal reader/writer loops) should call `with bind_background_task_logging_context(...):` before entering their `while True` to keep the context alive during each iteration.
+
+Once these helpers are threaded through the entry points above, every websocket handshake and task spawn will stamp `request_id`/`project_id`/`websocket_id` exactly once, eliminating the per-module `logging.getLogger(__name__)` juggling and paving the way for ripping them out in the next refactor step.

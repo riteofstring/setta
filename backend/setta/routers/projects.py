@@ -3,6 +3,8 @@ import traceback
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
+from setta.logging.context import get_logging_context
+from setta.logging.context_bindings import wrap_background_callable
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -113,7 +115,12 @@ async def route_save_project(
         )
 
     background_tasks.add_task(
-        state.wmh_frontend_sender.broadcast_notification,
+        wrap_background_callable(
+            state.wmh_frontend_sender.broadcast_notification,
+            label="manual-save-notification",
+            project_id=x.projectConfigId,
+            request_id=_current_request_id(),
+        ),
         notification,
     )
 
@@ -186,3 +193,7 @@ def route_get_notifications(
 def route_delete_notification(x: DeleteNotificationRequest, state: AppStateFromRequest):
     success = state.dbe.delete_notification(x.notificationId)
     return {"success": success}
+
+
+def _current_request_id() -> str | None:
+    return get_logging_context().get("request_id")

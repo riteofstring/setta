@@ -10,12 +10,16 @@ from setta.routers.dependencies import (
     ReadyAppStateFromRequest,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.logging.context import get_logging_context
+from setta.logging.context_bindings import (
+    bind_websocket_logging_context,
+    wrap_background_callable,
+    wrap_background_coroutine,
+)
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
 from setta.types.notifications import SettaNotification
 from setta.types.routes import Route
-
-logger = logging.getLogger(__name__)
 
 
 router = SettaAPIRouter()
@@ -43,21 +47,36 @@ async def terminal_websocket_endpoint(
     id: str,
     state: AppStateFromWebsocket,
 ):
-    # First check if terminal exists
     state.terminals.new_terminal(projectConfigId, sectionId)
 
-    try:
-        await state.terminals.connect(websocket, sectionId, id)
-        write_task = asyncio.create_task(
-            state.terminals.write_to_terminal(websocket, sectionId)
-        )
-        await write_task
-    except:
-        pass
-    finally:
-        # Cleanup
-        logger.debug(f"terminal_websocket_endpoint disconnect: {id}")
-        state.terminals.disconnect(sectionId, id)
+    extra_values = {
+        "section_id": sectionId,
+        "client_id": id,
+    }
+
+    async with bind_websocket_logging_context(
+        websocket,
+        project_id=projectConfigId,
+        extra_values=extra_values,
+    ):
+        try:
+            await state.terminals.connect(websocket, sectionId, id)
+            websocket_id = get_logging_context().get("websocket_id")
+            write_task = asyncio.create_task(
+                wrap_background_coroutine(
+                    state.terminals.write_to_terminal(websocket, sectionId),
+                    label="terminal-write-loop",
+                    project_id=projectConfigId,
+                    websocket_id=websocket_id,
+                    extra_values=extra_values,
+                )
+            )
+            await write_task
+        except Exception:
+            pass
+        finally:
+            logging.debug("terminal_websocket_endpoint disconnect: %s", id)
+            state.terminals.disconnect(sectionId, id)
 
 
 @router.post(Route.DELETE_TERMINALS)
@@ -83,7 +102,12 @@ def route_kill_subprocesses(
         message=msg,
     )
     background_tasks.add_task(
-        state.terminals.websocket_msg_handler.broadcast_notification,
+        wrap_background_callable(
+            state.terminals.websocket_msg_handler.broadcast_notification,
+            label="terminals-kill-notification",
+            project_id=x.projectConfigId,
+            request_id=_current_request_id(),
+        ),
         notification,
     )
 
@@ -108,6 +132,15 @@ async def route_run_code(
         message="Started",
     )
     background_tasks.add_task(
-        state.wmh_frontend_sender.broadcast_notification,
+        wrap_background_callable(
+            state.wmh_frontend_sender.broadcast_notification,
+            label="run-code-notification",
+            project_id=x.projectConfigId,
+            request_id=_current_request_id(),
+        ),
         notification,
     )
+
+
+def _current_request_id() -> str | None:
+    return get_logging_context().get("request_id")

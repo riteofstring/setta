@@ -1,6 +1,8 @@
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
+from setta.logging.context import get_logging_context
+from setta.logging.context_bindings import wrap_background_callable
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.chat import ChatMetadata
@@ -114,7 +116,12 @@ async def route_get_llm_chat(
                 type=SettaNotificationType.error,
             )
             background_tasks.add_task(
-                state.wmh_frontend_sender.broadcast_notification,
+                wrap_background_callable(
+                    state.wmh_frontend_sender.broadcast_notification,
+                    label="llm-chat-not-found",
+                    project_id=x.projectConfigId,
+                    request_id=_current_request_id(),
+                ),
                 notification,
             )
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -142,3 +149,7 @@ def merge_db_messages_with_current_stream(
             db_messages.append(message)
             # Add to existing_ids to track what we've added
             existing_ids.add(message.id)
+
+
+def _current_request_id() -> str | None:
+    return get_logging_context().get("request_id")

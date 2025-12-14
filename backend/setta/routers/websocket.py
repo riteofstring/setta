@@ -7,14 +7,13 @@ from setta.routers.dependencies import (
     ReadyAppStateFromWebsocket as AppStateFromWebsocket,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
 from setta.websockets.websocket_manager import WebsocketManager
-
-logger = logging.getLogger(__name__)
 
 router = SettaAPIRouter()
 
@@ -26,28 +25,41 @@ async def websocket_route_loop(
     connectionType: WebsocketConnectionType,
     id: str | None = None,
 ):
-    fromWebsocketId = None
-    try:
-        fromWebsocketId = await websocket_manager.on_connect(
-            websocket, connectionType, id=id
-        )
-        await websocket_msg_handler.on_connect(fromWebsocketId)
-        while True:
-            try:
-                json_str = await websocket.receive_text()
-                websocket_manager.process_json_str(json_str, fromWebsocketId)
-                await websocket_msg_handler.process_json_str(json_str, fromWebsocketId)
-            except WebSocketDisconnect:
-                logger.debug("WebSocketDisconnect!")
-                break
-            except Exception as e:
-                logger.debug(f"Exception details:\n{traceback.format_exc()}")
-                logger.debug(e)
-                logger.debug("caught the exception!")
-    finally:
-        if fromWebsocketId:
-            await websocket_manager.on_disconnect(fromWebsocketId)
-            await websocket_msg_handler.on_disconnect(fromWebsocketId)
+    extra_context: dict[str, str] = {
+        "connection_type": connectionType.value,
+    }
+    if id:
+        extra_context["connection_id"] = id
+
+    async with bind_websocket_logging_context(
+        websocket,
+        extra_values=extra_context,
+    ):
+        fromWebsocketId = None
+        try:
+            fromWebsocketId = await websocket_manager.on_connect(
+                websocket, connectionType, id=id
+            )
+            await websocket_msg_handler.on_connect(fromWebsocketId)
+            while True:
+                try:
+                    json_str = await websocket.receive_text()
+                    websocket_manager.process_json_str(json_str, fromWebsocketId)
+                    await websocket_msg_handler.process_json_str(
+                        json_str, fromWebsocketId
+                    )
+                except WebSocketDisconnect:
+                    logging.debug("WebSocketDisconnect!")
+                    break
+                except Exception:
+                    logging.debug(
+                        "websocket_route_loop caught exception:\n%s",
+                        traceback.format_exc(),
+                    )
+        finally:
+            if fromWebsocketId:
+                await websocket_manager.on_disconnect(fromWebsocketId)
+                await websocket_msg_handler.on_disconnect(fromWebsocketId)
 
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
