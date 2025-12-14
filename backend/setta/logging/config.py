@@ -104,7 +104,7 @@ def configure_logging(
     }
     if include_access_logger:
         loggers_config["uvicorn.access"] = {
-            "level": "INFO",
+            "level": _level_name(resolved_level),
             "handlers": ["uvicorn_access"],
             "propagate": False,
         }

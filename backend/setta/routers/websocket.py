@@ -51,7 +51,6 @@ async def websocket_route_loop(
             while True:
                 try:
                     json_str = await websocket.receive_text()
-                    websocket_manager.process_json_str(json_str, fromWebsocketId)
                     await websocket_msg_handler.process_json_str(
                         json_str, fromWebsocketId
                     )

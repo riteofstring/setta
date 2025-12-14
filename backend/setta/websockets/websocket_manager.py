@@ -21,8 +21,6 @@ class WebsocketManager:
     def __init__(self):
         self.sockets: dict[str, WebsocketConnectionInfoWithSocket] = {}
         self.main_id = "main"
-        self.message_id_to_sender_id = {}
-        self.pending_requests = {}
 
     async def on_connect(
         self,
@@ -50,11 +48,6 @@ class WebsocketManager:
             return
         await self.broadcast_connections()
 
-    def process_json_str(self, json_str: str, fromWebsocketId: str):
-        message = WebsocketMsg.model_validate_json(json_str)
-        if message.id:
-            self.message_id_to_sender_id[message.id] = fromWebsocketId
-
     def update_current_address(self, currentAddress: str, websocketId: str):
         self.sockets[websocketId].currentAddress = currentAddress
 
@@ -71,12 +64,6 @@ class WebsocketManager:
         except (RuntimeError, ConnectionClosedError):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self.sockets.pop(toWebsocketId, None)
-
-    async def return_to_requester(self, message: WebsocketMsg, request_msg_id: str):
-        await self.send_message(
-            message,
-            self.message_id_to_sender_id[request_msg_id],
-        )
 
     async def broadcast(
         self,

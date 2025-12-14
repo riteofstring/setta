@@ -7,10 +7,12 @@ Refactor status (already done)
 
 - HTTP backend-log-event emission is centralized in the global exception handlers; routes should raise and let the global handler emit the UI event (removed request-scoped backend_log_event_emitted dedupe).
 - Project-scoped request context is now explicit/opt-in for HTTP bodies via ProjectIdContextRoute / @require_project_context() (backend/setta/logging/project_id_route.py).
-- Fixed a websocket reliability bug: WebsocketManager.broadcast() now iterates a snapshot so send_message() can drop disconnected sockets without “dict changed size during iteration” (backend/setta/websockets/websocket_manager.py:82).
+- Fixed a websocket reliability bug: WebsocketManager.broadcast() now iterates a snapshot so send_message() can drop disconnected sockets without “dict changed size during iteration” (backend/setta/websockets/websocket_manager.py:68).
 - LSP reader no longer hides parse/processing failures behind debug logs; it now emits structured ERROR logs (with tracebacks) and continues the reader loop (backend/setta/lsp/reader.py).
 - LoggingContextFilter no longer does per-record work: the contextvar stores a snapshot with a preformatted `setta_context` string, and the filter just attaches the string (backend/setta/logging/context.py:92).
 - Pydantic redaction no longer does repeated type-hint introspection: sensitive-field sets are cached per Pydantic model class (backend/setta/logging/redaction.py).
+- Access logs no longer force INFO: uvicorn.access now follows the configured log level (backend/setta/logging/config.py:105).
+- Removed unused websocket “request routing” plumbing (pending_requests/message_id_to_sender_id/process_json_str/return_to_requester) (backend/setta/websockets/websocket_manager.py).
 
 What’s working well
 
@@ -20,13 +22,13 @@ What’s working well
 
 Key gaps / correctness risks
 
-- (Resolved) WebsocketManager.broadcast() previously iterated self.sockets.items() while send_message() could pop() sockets; that could raise “dict changed size during iteration” under disconnect pressure (backend/setta/websockets/websocket_manager.py:82).
+- (Resolved) WebsocketManager.broadcast() previously iterated self.sockets.items() while send_message() could pop() sockets; that could raise “dict changed size during iteration” under disconnect pressure (backend/setta/websockets/websocket_manager.py:68).
 
 Performance / noise
 
 - (Resolved) The per-record filter work is no longer expensive: formatting/sorting happens only when context changes (push), not on every log record; the filter attaches a precomputed `setta_context` string (backend/setta/logging/context.py:92).
 - (Resolved) Pydantic redaction no longer does get_type_hints() on every sanitize; sensitive-field discovery is cached per model class (backend/setta/logging/redaction.py).
-- Access logs are always INFO when enabled, regardless of the configured root level (backend/setta/logging/config.py:28). That’s fine for dev, but can be noisy in “info-but-not-that-much” environments.
+- (Resolved) Access logs no longer force INFO; they follow the configured log level (backend/setta/logging/config.py:105).
 
 Places where errors are likely being hidden
 
@@ -34,7 +36,6 @@ Places where errors are likely being hidden
 
 Unused / cleanup candidates (logic, not Ruff-unused)
 
-- WebsocketManager.pending_requests appears unused in this class (backend/setta/websockets/websocket_manager.py:25).
 - LoggingContext.push_logging_context(replace=...) exists but isn’t used anywhere; same for log_route_failure(..., include_traceback=...) (currently no call sites). These are fine as “API headroom”, but if you
 want to trim surface area, they’re candidates.
 - (Resolved) WebsocketManager.on_disconnect() no longer catches ConnectionClosedError; it now pop()s the socket and broadcasts only when a socket was actually removed.
