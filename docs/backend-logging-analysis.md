@@ -7,6 +7,7 @@ Refactor status (already done)
 
 - HTTP backend-log-event emission is centralized in the global exception handlers; routes should raise and let the global handler emit the UI event (removed request-scoped backend_log_event_emitted dedupe).
 - Project-scoped request context is now explicit/opt-in for HTTP bodies via ProjectIdContextRoute / @require_project_context() (backend/setta/logging/project_id_route.py).
+- Fixed a websocket reliability bug: WebsocketManager.broadcast() now iterates a snapshot so send_message() can drop disconnected sockets without “dict changed size during iteration” (backend/setta/websockets/websocket_manager.py:82).
 
 What’s working well
 
@@ -16,7 +17,7 @@ What’s working well
 
 Key gaps / correctness risks
 
-- WebsocketManager.broadcast() iterates self.sockets.items() while send_message() can pop() sockets; that can raise “dict changed size during iteration” under disconnect pressure (backend/setta/websockets/websocket_manager.py:82). This is both an error-handling and reliability issue.
+- (Resolved) WebsocketManager.broadcast() previously iterated self.sockets.items() while send_message() could pop() sockets; that could raise “dict changed size during iteration” under disconnect pressure (backend/setta/websockets/websocket_manager.py:82).
 
 Performance / noise
 
@@ -35,4 +36,4 @@ Unused / cleanup candidates (logic, not Ruff-unused)
 - WebsocketManager.pending_requests appears unused in this class (backend/setta/websockets/websocket_manager.py:25).
 - LoggingContext.push_logging_context(replace=...) exists but isn’t used anywhere; same for log_route_failure(..., include_traceback=...) (currently no call sites). These are fine as “API headroom”, but if you
 want to trim surface area, they’re candidates.
-- WebsocketManager.on_disconnect() catches ConnectionClosedError, but the likely exception there is KeyError (and sends already handle closed sockets). This looks like legacy baggage.
+- (Resolved) WebsocketManager.on_disconnect() no longer catches ConnectionClosedError; it now pop()s the socket and broadcasts only when a socket was actually removed.

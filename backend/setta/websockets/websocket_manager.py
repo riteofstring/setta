@@ -45,11 +45,10 @@ class WebsocketManager:
         return id
 
     async def on_disconnect(self, id: str):
-        try:
-            del self.sockets[id]
-            await self.broadcast_connections()
-        except ConnectionClosedError:
-            pass
+        removed = self.sockets.pop(id, None)
+        if removed is None:
+            return
+        await self.broadcast_connections()
 
     def process_json_str(self, json_str: str, fromWebsocketId: str):
         message = WebsocketMsg.model_validate_json(json_str)
@@ -85,7 +84,8 @@ class WebsocketManager:
         connectionType: WebsocketConnectionType | None = None,
         currentAddress: str | None = None,
     ):
-        for k, v in self.sockets.items():
+        sockets_snapshot = list(self.sockets.items())
+        for k, v in sockets_snapshot:
             if (
                 (not connectionType and not currentAddress)
                 or (connectionType and v.connectionType == connectionType)
