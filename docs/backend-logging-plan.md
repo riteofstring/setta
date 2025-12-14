@@ -24,7 +24,7 @@ Improvement Plan
 ----------------
 
 1. **Unblock notifications and log-event delivery.**
-   * Decide how `SettaNotification` should behave going forward. Either restore the historical enum (so existing code works) or finish migrating core code to `SettaBackendLogEvent` and delete the unused notification variants entirely.
+   * Keep both `SettaNotification` (now intentionally limited to special UX cues like `save`) and `SettaBackendLogEvent`. Do not reintroduce the historical enum values; migrate every other user-facing message to log events so notifications stay narrowly scoped.
    * Build the missing transport: add `WebsocketMsgTypeForFrontend.BackendLogEvent`, surface those events from `wmh_frontend_sender`, and mirror high-severity entries to the CLI so non-UI users still see them.
    * Once the transport exists, convert autosave/manual-save flows, artifact conflict warnings, terminal management, LLM key updates, JSON-source watchers, etc. to the new helper (e.g., `report_user_visible_error`) and remove the direct Enum references. Regenerate the TS client (`pnpm generate`) and update the Zustand stores/components in `frontend/` accordingly.
 2. **Leverage the context-model helpers.**
