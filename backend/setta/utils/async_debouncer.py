@@ -1,20 +1,30 @@
 import asyncio
-from typing import Callable
+from typing import Any, Callable
+
+from setta.logging.context import get_logging_context
+from setta.logging.context_bindings import wrap_background_coroutine
 
 
 class AsyncDebouncer:
     """Debounces an async function - delays execution until the function
     hasn't been called for `wait` seconds."""
 
-    def __init__(self, func: Callable, wait: float = 2.0):
+    def __init__(self, func: Callable, wait: float = 2.0, *, label: str):
         self.func = func
         self.wait = wait
+        self.label = label
         self._task: asyncio.Task | None = None
         self._is_executing: bool = False
 
     def trigger(self, *args, **kwargs):
         """Trigger the debounced function. Cancels any pending execution."""
-        asyncio.create_task(self._schedule(*args, **kwargs))
+        asyncio.create_task(
+            wrap_background_coroutine(
+                self._schedule(*args, **kwargs),
+                label=self.label,
+                **self._resolve_context_kwargs(),
+            )
+        )
 
     async def _schedule(self, *args, **kwargs):
         # Cancel existing task if pending
@@ -64,3 +74,13 @@ class AsyncDebouncer:
     def is_pending(self) -> bool:
         """Check if there's a pending execution."""
         return self._task is not None and not self._task.done()
+
+    def _resolve_context_kwargs(self) -> dict[str, Any]:
+        context = get_logging_context()
+        keys = ("project_id", "request_id", "websocket_id")
+        resolved: dict[str, Any] = {}
+        for key in keys:
+            value = context.get(key)
+            if value:
+                resolved[key] = value
+        return resolved

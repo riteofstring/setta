@@ -1,6 +1,6 @@
 **Websocket Entry Points**
-- `backend/setta/routers/websocket.py:22-91` exposes `websocket_route_loop` plus the frontend/CLI/python-script routers; each call already knows the `WebsocketConnectionType` and optional `id` so we can bind a logging context once per connection instead of letting each handler pull `logging.getLogger`.
-- `backend/setta/routers/terminals.py:38-61` defines `terminal_websocket_endpoint` with explicit `projectConfigId`, `sectionId`, and client `id` path params; those identifiers should seed the websocket logging context (and propagate into the read/write tasks that get spawned from here).
+- ✅ `backend/setta/routers/websocket.py:22-91` now wraps every connection with `bind_websocket_logging_context` so handlers inherit `connection_type`/`connection_id`.
+- ✅ `backend/setta/routers/terminals.py:38-61` binds the websocket context plus forwards `projectConfigId`/`sectionId`/`client_id` into the spawned read/write tasks. Remaining terminal background loops live under the "Async Task Runners" section below.
 
 **FastAPI BackgroundTasks Hooks**
 - `backend/setta/routers/projects.py:93-118` (`route_save_project`) kicks off `state.wmh_frontend_sender.broadcast_notification` via FastAPI `BackgroundTasks`; the notification already includes `projectConfigId`.
@@ -10,9 +10,9 @@
 **Async Task Runners / Long-Lived Loops**
 - `backend/setta/server_state.py:107-224` starts an `_initialization_task`, then spawns async tasks for MCP client connections and LSP startup; each of those should inherit a “boot” context so logs from `connect_to_server` or `start_lsps` are attributable to the boot phase.
 - `backend/setta/server.py:67-118` launches `_open_browser_after_startup` via `asyncio.create_task` under the lifespan context; if it errors we currently only see generic warnings.
-- `backend/setta/project_state/base_project_manager.py:255-343` launches `_process_queue` per project manager and manages `frontend_op_id` context; this queue plus helpers like `enqueue_method` are the main background executor for project operations.
+- ✅ `backend/setta/project_state/base_project_manager.py:255-343` now wraps `_process_queue` and `AsyncDebouncer` with `wrap_background_coroutine`, so queue/autosave logs include the manager name and project metadata.
 - `backend/setta/project_state/jsonSource/jsonSource.py:95-171` creates loader tasks whenever watched JSON sources change; the callbacks receive `sectionId`/`variantId` pairs that we can bind to the background-task context.
-- `backend/setta/terminals/terminals.py:43-264` spawns terminal read/write loops (`start_reading_from_terminal`, `write_to_terminal`) and additional tasks via `asyncio.create_task`; every call has access to `projectConfigId`, `sectionId`, and websocket `id` for context binding. `backend/setta/terminals/run_code.py:15-40` similarly fires off `run_command_in_terminal`.
+- ✅ `backend/setta/terminals/terminals.py:43-264` wraps reader loops and run-code tasks via `wrap_background_coroutine`, tagging `projectConfigId`, `sectionId`, and terminal IDs instead of using module loggers. `backend/setta/terminals/run_code.py:15-40` mirrors the same context metadata.
 - `backend/setta/routers/terminals.py:49-54` also spawns a write loop per terminal websocket, so we’ll need the wrapper/decorator at this boundary too.
 - `backend/setta/llm/llm_chat_manager.py:169-215` launches `process_query` tasks (one per chat) and attaches cleanup callbacks; `chat.id` + `chat.project_config_id` are the identifiers to seed logging with.
 - `backend/setta/lsp/reader.py:13-134` starts a `reader_task` per language server and schedules diagnostics callbacks via `asyncio.create_task`; `backend/setta/lsp/writer.py:133-147` queues `fn_call` futures, and `backend/setta/lsp/managers.py:33-52` schedules toast notifications when the LSP initializes.

@@ -9,12 +9,14 @@ import time
 import traceback
 from asyncio import CancelledError
 from collections import defaultdict, deque
+from typing import Any
 
 import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
 from setta.database.settings_file import SettingsFile
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.terminals.utils import linux_get_child_process_details
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -86,7 +88,13 @@ class Terminals:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
-            asyncio.create_task(self.start_reading_from_terminal(sectionId))
+            asyncio.create_task(
+                wrap_background_coroutine(
+                    self.start_reading_from_terminal(sectionId),
+                    label="terminal-reader",
+                    **self._terminal_context_kwargs(sectionId),
+                )
+            )
             return True
         return False
 
@@ -254,9 +262,21 @@ class Terminals:
                 continue
 
     async def start_reading_from_terminal(self, terminalId):
-        read_task = asyncio.create_task(self.read_from_terminal(terminalId))
-        await read_task
-        await self.delete_terminal(terminalId)
+        try:
+            await self.read_from_terminal(terminalId)
+        finally:
+            await self.delete_terminal(terminalId)
+
+    def _terminal_context_kwargs(self, section_id: str) -> dict[str, Any]:
+        info = self.PTY_PIDS.get(section_id, {})
+        project_id = info.get("projectConfigId")
+        normalized_project_id = str(project_id) if project_id is not None else None
+        extra_values = {"section_id": str(section_id)}
+        kwargs: dict[str, Any] = {
+            "project_id": normalized_project_id,
+            "extra_values": extra_values,
+        }
+        return kwargs
 
     async def monitor_child_processes(self):
         """Periodically check and broadcast child process details for all terminals"""

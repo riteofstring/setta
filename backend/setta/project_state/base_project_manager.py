@@ -30,6 +30,7 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.lsp.managers import LSPWriters
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tools.project_state_registry import project_state_tool
@@ -265,9 +266,19 @@ class BaseProjectManager(ABC):
         )
         logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
-        self.queue_task = asyncio.create_task(self._process_queue())
+        self.queue_task = asyncio.create_task(
+            wrap_background_coroutine(
+                self._process_queue(),
+                label=f"{type(self).__name__}-queue",
+                extra_values={"project_manager": type(self).__name__},
+            )
+        )
         logger.debug("Queue task created with id %s", id(self.queue_task))
-        self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
+        self.autosave_debouncer = AsyncDebouncer(
+            self.autosave,
+            wait=2.0,
+            label=f"{type(self).__name__}-autosave",
+        )
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.pending_rename_results: dict[
