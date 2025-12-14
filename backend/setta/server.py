@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
 from setta.logging.context import get_logging_context
+from setta.logging.context_sources import ensure_request_context
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import (
@@ -212,7 +213,7 @@ async def _log_and_broadcast_http_error(
     handled: bool,
 ) -> None:
     context = get_logging_context()
-    request_id = context["request_id"]
+    request_id = context.get("request_id") or ensure_request_context(request)
     project_config_id = context.get("project_config_id")
     log_context = {
         "request_method": request.method,
