@@ -155,9 +155,11 @@ class ProjectGenPythonCode(PythonCode):
             return []
         code, line, col = context
         response = await self._request_completion_response(code, line, col)
-        return process_completion_response(response, fullText)
+        return process_completion_response(response)
 
-    async def clear_text_field_completion(self, sectionId: ID, paramInfoId: ID | None):
+    async def clear_text_field_completion(
+        self, _sectionId: ID, _paramInfoId: ID | None
+    ):
         return None
 
     async def set_callable(

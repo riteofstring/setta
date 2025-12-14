@@ -1,3 +1,4 @@
+import { Button } from "components/Utils/atoms/buttons/Button";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useState } from "react";
 import { RiRefreshLine } from "react-icons/ri";
@@ -22,16 +23,16 @@ export function ListenerForceRefreshButton() {
     "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-200 dark:hover:bg-setta-800";
 
   return (
-    <button
+    <Button
       onClick={handleClick}
       disabled={isRefreshing}
-      className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer ${classes}`}
+      twClasses={classes}
       {...getFloatingBoxHandlers({
         content: "Send the latest project snapshot to Python listeners.",
       })}
     >
       <RiRefreshLine className="text-sm" />
       {isRefreshing ? "Refreshing..." : "Listener Force Refresh"}
-    </button>
+    </Button>
   );
 }

@@ -1,5 +1,9 @@
 [lint]
-extend-select = ["TCH"] # for TYPE_CHECKING imports
+extend-select = [
+    "ARG", # unused function arguments
+    "G",   # logging format
+    "TCH", # TYPE_CHECKING import blocks
+]
 
 ignore = [
     "E266",  # too many leading '#' for block comment

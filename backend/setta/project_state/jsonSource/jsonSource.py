@@ -1,4 +1,3 @@
-import asyncio
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -6,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
+from setta.logging.tasks import spawn_background_task
 from setta.types.code_obj_impls import (
     CodeObjType,
     NestedParamCodeObjImpl,
@@ -34,7 +34,6 @@ from setta.types.hierarchy_traversal import (
     traverse_hierarchy,
 )
 from setta.types.id import ID
-from setta.types.notifications import SettaNotification
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.utils.utils import normalize_path
 
@@ -130,8 +129,19 @@ class JSONSource:
                 if on_deferred:
                     on_deferred(section_variants_snapshot)
             else:
-                asyncio.create_task(
-                    load_json_sources_fn(self.json_sources, section_variants_snapshot)
+                section_variant_labels = sorted(
+                    f"{section_id}:{variant_id}"
+                    for section_id, variant_id in section_variants_snapshot
+                )
+                section_variants_sample = section_variant_labels[:25]
+                spawn_background_task(
+                    load_json_sources_fn(self.json_sources, section_variants_snapshot),
+                    label="json-source-load",
+                    extra_values={
+                        "callback_category": callbackCategory,
+                        "section_variants_count": len(section_variant_labels),
+                        "section_variants_sample": section_variants_sample,
+                    },
                 )
 
         normalized_mapping = {
@@ -172,10 +182,9 @@ class JSONSource:
 
             if len(sectionVariantsToLoad) > 0:
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
-                notification = SettaNotification(
-                    message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+                await self.websocket_msg_handler.broadcast_backend_log_event(
+                    f"{coreUpdate.relPath} {coreUpdate.eventType.value}"
                 )
-                await self.websocket_msg_handler.broadcast_notification(notification)
 
         return fn
 

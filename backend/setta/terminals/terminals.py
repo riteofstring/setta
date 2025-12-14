@@ -6,15 +6,16 @@ import platform
 import select
 import shlex
 import time
-import traceback
 from asyncio import CancelledError
 from collections import defaultdict, deque
+from typing import Any
 
 import psutil
-from fastapi import WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
 from setta.database.settings_file import SettingsFile
+from setta.logging.tasks import spawn_background_task
 from setta.terminals.utils import linux_get_child_process_details
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -81,27 +82,40 @@ class Terminals:
             ):
                 pty_info["terminalPromptIsReady"].set()
 
-            logger.debug(f"created new pty_process {sectionId}")
+            logger.debug("created new pty_process %s", sectionId)
             if not pty_info["terminalPromptIsReady"].is_set():
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
-            asyncio.create_task(self.start_reading_from_terminal(sectionId))
+            spawn_background_task(
+                self.start_reading_from_terminal(sectionId),
+                label="terminal-reader",
+                context=self._terminal_logging_context(sectionId),
+                **self._terminal_context_kwargs(sectionId),
+            )
             return True
         return False
 
-    async def connect(self, websocket, sectionId, id):
-        await websocket.accept()
+    async def connect(self, websocket: WebSocket, sectionId: str, id: str) -> bool:
+        try:
+            await websocket.accept()
+        except RuntimeError:
+            return False
         self.sockets[id] = {"ws": websocket, "sentReadyMsg": False}
         self.section_to_socket_ids[sectionId].add(id)
-        await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
-        if not self.sockets[id]["sentReadyMsg"]:
-            await websocket.send_text(C.SETTA_TERMINAL_READY)
-            self.sockets[id]["sentReadyMsg"] = True
-        await websocket.send_text(self.get_terminal_history(sectionId))
+        try:
+            await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
+            if not self.sockets[id]["sentReadyMsg"]:
+                await websocket.send_text(C.SETTA_TERMINAL_READY)
+                self.sockets[id]["sentReadyMsg"] = True
+            await websocket.send_text(self.get_terminal_history(sectionId))
+        except (WebSocketDisconnect, ConnectionClosedOK, RuntimeError):
+            self.disconnect(sectionId, id)
+            return False
+        return True
 
-    def disconnect(self, sectionId, id):
-        logger.debug(f"disconnecting {id}")
+    def disconnect(self, sectionId: str, id: str) -> None:
+        logger.debug("disconnecting %s", id)
         try:
             del self.sockets[id]
         except KeyError:
@@ -109,7 +123,7 @@ class Terminals:
         self.section_to_socket_ids[sectionId].discard(id)
 
     async def delete_terminal(self, sectionId):
-        logger.debug(f"delete terminal {sectionId}")
+        logger.debug("delete terminal %s", sectionId)
         if sectionId in self.PTY_PIDS:
             try:
                 await asyncio.to_thread(
@@ -171,10 +185,6 @@ class Terminals:
             except OSError as e:
                 if e.errno == errno.EIO:  # Input/output error
                     break
-            except Exception as e:
-                logger.debug(f"Exception details:\n{traceback.format_exc()}")
-                logger.debug(e)
-                logger.debug("read_from_terminal caught the exception!")
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, sectionId):
@@ -203,10 +213,6 @@ class Terminals:
             except OSError as e:
                 if e.errno == errno.EIO:  # Input/output error
                     break
-            except Exception as e:
-                logger.debug(f"Exception details:\n{traceback.format_exc()}")
-                logger.debug(e)
-                logger.debug("write_to_terminal caught the exception!")
 
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
@@ -243,48 +249,73 @@ class Terminals:
                 num_killed += 1
         return num_killed
 
-    async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
-        for wsId in self.section_to_socket_ids[sectionId]:
-            ws = self.sockets[wsId]["ws"]
+    async def send_output_to_sectionId(
+        self, sectionId: str, output: str, setSentReadyMsg: bool = False
+    ) -> None:
+        for wsId in list(self.section_to_socket_ids[sectionId]):
+            socket_info = self.sockets.get(wsId)
+            if socket_info is None:
+                self.section_to_socket_ids[sectionId].discard(wsId)
+                continue
+            ws = socket_info["ws"]
             try:
                 await ws.send_text(output)
-                if setSentReadyMsg:
-                    self.sockets[wsId]["sentReadyMsg"] = True
-            except:
+            except (WebSocketDisconnect, ConnectionClosedOK, RuntimeError):
+                self.disconnect(sectionId, wsId)
                 continue
+            if setSentReadyMsg:
+                socket_info["sentReadyMsg"] = True
 
     async def start_reading_from_terminal(self, terminalId):
-        read_task = asyncio.create_task(self.read_from_terminal(terminalId))
-        await read_task
-        await self.delete_terminal(terminalId)
+        try:
+            await self.read_from_terminal(terminalId)
+        finally:
+            await self.delete_terminal(terminalId)
+
+    def _terminal_context_kwargs(self, section_id: str) -> dict[str, Any]:
+        info = self.PTY_PIDS.get(section_id, {})
+        project_config_id = info.get("projectConfigId")
+        normalized_project_id = (
+            str(project_config_id) if project_config_id is not None else None
+        )
+        extra_values = {"section_id": str(section_id)}
+        kwargs: dict[str, Any] = {
+            "project_config_id": normalized_project_id,
+            "extra_values": extra_values,
+        }
+        return kwargs
+
+    def _terminal_logging_context(self, section_id: str) -> dict[str, str]:
+        info = self.PTY_PIDS.get(section_id, {})
+        context = {"terminal_section_id": str(section_id)}
+        project_config_id = info.get("projectConfigId")
+        if project_config_id is not None:
+            context["terminal_project_id"] = str(project_config_id)
+        return context
 
     async def monitor_child_processes(self):
         """Periodically check and broadcast child process details for all terminals"""
         CHECK_INTERVAL = 2.0  # seconds between checks
         while True:
             terminal_metadata = []
-            try:
-                for section_id in list(self.PTY_PIDS.keys()):
-                    # Only check terminals that have connected clients
-                    try:
-                        info = self.PTY_PIDS[section_id]
+            for section_id in list(self.PTY_PIDS.keys()):
+                # Only check terminals that have connected clients
+                try:
+                    info = self.PTY_PIDS[section_id]
 
-                        # Get child process details
-                        children = linux_get_child_process_details(info["pid"])
-                        terminal_metadata.append(
-                            {
-                                "sectionId": section_id,
-                                "projectConfigId": info["projectConfigId"],
-                                "processes": children,
-                            }
-                        )
+                    # Get child process details
+                    children = linux_get_child_process_details(info["pid"])
+                    terminal_metadata.append(
+                        {
+                            "sectionId": section_id,
+                            "projectConfigId": info["projectConfigId"],
+                            "processes": children,
+                        }
+                    )
 
-                    except (KeyError, psutil.NoSuchProcess):
-                        # Terminal might have been deleted during iteration
-                        continue
-            except Exception as e:
-                logger.error(f"Error monitoring child processes: {e}")
-                logger.debug(f"Exception details:\n{traceback.format_exc()}")
+                except (KeyError, psutil.NoSuchProcess):
+                    # Terminal might have been deleted during iteration
+                    continue
 
             await self.websocket_msg_handler.broadcast_terminal_metadata(
                 terminal_metadata

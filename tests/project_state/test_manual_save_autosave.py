@@ -16,7 +16,9 @@ class ManualSaveDebounceTests(unittest.IsolatedAsyncioTestCase):
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.autosave_debouncer = AsyncDebouncer(
-            self.manager.autosave, wait=0.05
+            self.manager.autosave,
+            wait=0.05,
+            label="test-autosave",
         )
 
     async def asyncTearDown(self):

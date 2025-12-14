@@ -170,7 +170,7 @@ def prepare_sections_for_copy(
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(
-        p, set(project_config.topLevelSections.keys())
+        p, set(project_config.sectionVariantMap.keys())
     )
 
     # Build the sliced state
@@ -218,7 +218,6 @@ def build_project_state_summary(
         if isinstance(impl, BaseSectionWithParamsImpl):
             parameters = _build_section_param_summaries(
                 project_state,
-                section_id,
                 impl,
                 shown_param_visibility.get(variant_id, set()),
             )
@@ -265,7 +264,6 @@ def build_project_state_summary(
 
 def _build_section_param_summaries(
     project_state: ProjectStateSingleConfig,
-    section_id: ID,
     section_impl: BaseSectionWithParamsImpl,
     visible_top_level_ids: set[ID],
 ) -> list[ProjectStateSummaryParam]:

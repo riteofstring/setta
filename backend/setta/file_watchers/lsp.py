@@ -6,6 +6,8 @@ from pathlib import Path
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from setta.logging.tasks import spawn_background_task
+
 
 class LSPFileWatcher:
     def __init__(self, notify_callback):
@@ -89,7 +91,12 @@ class LSPEventHandler(FileSystemEventHandler):
     def _send_changes(self, changes):
         if asyncio.iscoroutinefunction(self.callback):
             self.loop.call_soon_threadsafe(
-                lambda: self.loop.create_task(self.callback(changes))
+                lambda: spawn_background_task(
+                    self.callback(changes),
+                    loop=self.loop,
+                    label="lsp-file-watcher",
+                    extra_values={"change_count": len(changes)},
+                )
             )
         else:
             self.callback(changes)
