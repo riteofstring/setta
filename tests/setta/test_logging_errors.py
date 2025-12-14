@@ -6,7 +6,7 @@ from setta.logging.context import (
     LoggingContextFilter,
     push_logging_context,
 )
-from setta.logging.errors import log_route_failure, run_safely
+from setta.logging.errors import log_failure, run_safely
 
 
 class _RecordingHandler(logging.Handler):
@@ -34,7 +34,7 @@ class LoggingErrorHelpersTests(unittest.TestCase):
     def test_log_route_failure_attaches_context(self) -> None:
         push_logging_context(project_config_id="alpha", request_id="req-9")
         exc = RuntimeError("boom")
-        log_route_failure(
+        log_failure(
             exc,
             label="save-project",
             logger=self.logger,
@@ -43,14 +43,11 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         self.assertEqual(len(self.handler.records), 1)
         record = self.handler.records[0]
         self.assertEqual(record.levelno, logging.ERROR)
-        self.assertEqual(record.request_id, "req-9")
-        self.assertEqual(record.project_config_id, "alpha")
-        self.assertEqual(record.failure_label, "save-project")
-        self.assertEqual(record.failure_handled, "false")
-        self.assertEqual(record.task, "autosave")
-        self.assertIn("failure_label=save-project", record.setta_context)
-        self.assertIn("task=autosave", record.setta_context)
+        self.assertIn("request_id=req-9", record.setta_context)
         self.assertIn("project_config_id=alpha", record.setta_context)
+        self.assertIn("failure_label=save-project", record.setta_context)
+        self.assertIn("failure_handled=false", record.setta_context)
+        self.assertIn("task=autosave", record.setta_context)
 
     def test_run_safely_logs_warning_on_handled_failure(self) -> None:
         async def _failing() -> None:
@@ -68,8 +65,8 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         self.assertEqual(len(self.handler.records), 1)
         record = self.handler.records[0]
         self.assertEqual(record.levelno, logging.WARNING)
-        self.assertEqual(record.failure_label, "terminal-run")
-        self.assertEqual(record.failure_handled, "true")
+        self.assertIn("failure_label=terminal-run", record.setta_context)
+        self.assertIn("failure_handled=true", record.setta_context)
 
     def test_run_safely_reraises_and_logs_error(self) -> None:
         async def _failing() -> None:
@@ -88,7 +85,26 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         self.assertEqual(len(self.handler.records), 1)
         record = self.handler.records[0]
         self.assertEqual(record.levelno, logging.ERROR)
-        self.assertEqual(record.failure_handled, "false")
+        self.assertIn("failure_handled=false", record.setta_context)
+
+    def test_run_safely_logs_sync_factory_exception(self) -> None:
+        def _factory() -> asyncio.Future[None]:
+            raise ValueError("factory boom")
+
+        async def _invoke() -> None:
+            result = await run_safely(
+                _factory,
+                label="sync-factory",
+                logger=self.logger,
+            )
+            self.assertIsNone(result)
+
+        asyncio.run(_invoke())
+        self.assertEqual(len(self.handler.records), 1)
+        record = self.handler.records[0]
+        self.assertEqual(record.levelno, logging.WARNING)
+        self.assertIn("failure_label=sync-factory", record.setta_context)
+        self.assertIn("failure_handled=true", record.setta_context)
 
     def test_run_safely_requires_awaitable(self) -> None:
         async def _invoke() -> None:

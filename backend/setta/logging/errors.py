@@ -53,7 +53,21 @@ async def run_safely(
 ) -> T | None:
     """Execute a coroutine and log failures with consistent metadata."""
 
-    coroutine = _resolve_coroutine(coroutine_or_factory)
+    try:
+        coroutine = _resolve_coroutine(coroutine_or_factory)
+    except TypeError:
+        raise
+    except Exception as exc:  # noqa: PERF203 - explicit structured logging path
+        log_failure(
+            exc,
+            label=label,
+            logger=logger,
+            handled=not re_raise,
+            context=context,
+        )
+        if re_raise:
+            raise
+        return None
     try:
         return await coroutine
     except asyncio.CancelledError:

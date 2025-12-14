@@ -10,8 +10,6 @@ logging/context.py:88).
 
 Main Gaps / Risks
 
-- run_safely won’t log synchronous exceptions thrown by a “coroutine factory” because _resolve_coroutine(...) runs outside the try (backend/setta/logging/errors.py:46). If a factory raises before returning an
-awaitable, you’ll get an unstructured “Task exception was never retrieved” instead of your structured log_failure.
 - Handled HTTP errors (<500) always include tracebacks because log_failure always logs exc_info (backend/setta/logging/errors.py:19, backend/setta/server.py:174). This can get noisy/expensive for expected 4xx
 (404/400/422), and it also spams the frontend “Backend Logs” view since those are surfaced too (backend/setta/server.py:202). It likely should be configurable (e.g., “always include tracebacks” vs “only for 5xx/unhandled”,
 possibly gated by env/log level) so you can keep maximum debuggability when you want it without hard-coding verbosity.
@@ -29,6 +27,11 @@ DEBUG-only UI events) rather than hard-coding them to be quieter.
 - Context string formatting doesn’t escape spaces, so values like paths can make key=value parsing ambiguous (backend/setta/logging/context.py:133). If you rely on grep/filtering by setta_context, this is a
 footgun.
 
+Resolved
+
+- run_safely now logs synchronous exceptions thrown by a “coroutine factory” (i.e., an exception raised before returning an awaitable), so these failures get structured log_failure output instead of unstructured “Task
+exception was never retrieved” (backend/setta/logging/errors.py:46).
+
 Dead Code / Cleanup Opportunities
 
 - Duplicate keys in _PROJECT_PARAM_KEYS (backend/setta/logging/context_sources.py:14).
@@ -38,5 +41,5 @@ Dead Code / Cleanup Opportunities
 Overall Assessment
 
 - The logging architecture is generally well thought out and performant for its intended use (precomputed context string + minimal per-record overhead).
-- The biggest practical issues are (1) missing structured logging for factory construction failures in run_safely, (2) high-volume UI log event spam from watchers, and (3) always-traceback logging/broadcasting
+- The biggest practical issues are (1) high-volume UI log event spam from watchers, and (2) always-traceback logging/broadcasting
 for routine 4xx errors.
