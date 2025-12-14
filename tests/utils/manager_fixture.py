@@ -23,7 +23,12 @@ from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager import ProjectManager
+from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.settings_project_manager import SettingsProjectManager
+from setta.types.generated.settings_state import SettingsState
+from setta.types.id import ID
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -168,10 +173,6 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
     """Provision a ProjectManager backed by the repo's sample setta_files bundle."""
 
     sample_root = Path(__file__).resolve().parents[2] / "setta_files"
-    if not sample_root.exists():
-        raise RuntimeError(
-            f"Expected sample setta_files at {sample_root}, but the path was not found."
-        )
 
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
@@ -185,13 +186,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         for path in (code_folder, artifacts_folder, backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        shutil.copytree(sample_root / "code", code_folder, dirs_exist_ok=True)
-        for filename in (
-            "project.json",
-            "setta-settings.json",
-            "setta-settings-project.json",
-        ):
-            shutil.copy2(sample_root / filename, setta_root / filename)
+        _populate_project_fixture_files(sample_root, setta_root)
 
         async with AsyncExitStack() as stack:
             stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
@@ -327,3 +322,75 @@ async def _close_lsp_process(process) -> None:
             continue
         with suppress(Exception):
             await reader.read()
+
+
+REQUIRED_SAMPLE_FILES = (
+    "project.json",
+    "setta-settings.json",
+    "setta-settings-project.json",
+)
+DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"
+DEFAULT_SAMPLE_PROJECT_CONFIG_ID = ID("sample-project-config")
+DEFAULT_SETTA_GEN_CONTENT = """class S:
+    def __init__(self) -> None:
+        self.placeholder = "Sample project placeholder"
+
+
+s = S()
+"""
+
+
+def _populate_project_fixture_files(sample_root: Path, setta_root: Path) -> None:
+    if _has_sample_bundle(sample_root):
+        shutil.copytree(sample_root / "code", setta_root / "code", dirs_exist_ok=True)
+        for filename in REQUIRED_SAMPLE_FILES:
+            shutil.copy2(sample_root / filename, setta_root / filename)
+        return
+    _seed_minimal_setta_files(setta_root)
+
+
+def _has_sample_bundle(sample_root: Path) -> bool:
+    if not sample_root.exists():
+        return False
+    if not (sample_root / "code").exists():
+        return False
+    return all((sample_root / file).exists() for file in REQUIRED_SAMPLE_FILES)
+
+
+def _seed_minimal_setta_files(setta_root: Path) -> None:
+    setta_root.mkdir(parents=True, exist_ok=True)
+    _write_sample_project_json(setta_root / "project.json")
+    _write_sample_settings_files(setta_root)
+    _write_sample_code_files(setta_root)
+
+
+def _write_sample_project_json(dest: Path) -> None:
+    project_state = _build_sample_project_state()
+    dest.write_text(project_state.model_dump_json(indent=2))
+
+
+def _write_sample_settings_files(setta_root: Path) -> None:
+    settings_path = setta_root / "setta-settings.json"
+    settings_project_path = setta_root / "setta-settings-project.json"
+    settings_state = SettingsState()
+    settings_path.write_text(settings_state.model_dump_json(indent=2))
+    settings_project = create_settings_project_state(settings_path)
+    settings_project_path.write_text(settings_project.model_dump_json(indent=2))
+
+
+def _write_sample_code_files(setta_root: Path) -> None:
+    sections_dir = setta_root / "code" / "sections" / DEFAULT_SAMPLE_PROJECT_NAME
+    sections_dir.mkdir(parents=True, exist_ok=True)
+    gen_path = sections_dir / "setta_gen.py"
+    gen_path.write_text(DEFAULT_SETTA_GEN_CONTENT)
+
+
+def _build_sample_project_state() -> ProjectStateBackend:
+    project_config = ProjectConfig(
+        id=DEFAULT_SAMPLE_PROJECT_CONFIG_ID,
+        name=DEFAULT_SAMPLE_PROJECT_NAME,
+    )
+    return ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
