@@ -1,6 +1,6 @@
 Overall
 
-- Logging is unusually cohesive and “system-designed”, not ad-hoc: centralized bootstrap (backend/setta/logging/config.py:28), request/websocket/task correlation via contextvars (backend/setta/logging/context.py:86 + backend/setta/middleware/logging_context.py:15), and a single structured failure helper (backend/setta/logging/errors.py:19).
+- Logging is unusually cohesive and “system-designed”, not ad-hoc: centralized bootstrap (backend/setta/logging/config.py:28), request/websocket/task correlation via contextvars (backend/setta/logging/context.py:24 + backend/setta/middleware/logging_context.py:15), and a single structured failure helper (backend/setta/logging/errors.py:19).
 - Error surfacing to the UI is thoughtfully integrated: global exception handlers broadcast “backend log events” for HTTP failures (backend/setta/server.py:158).
 
 Refactor status (already done)
@@ -9,6 +9,7 @@ Refactor status (already done)
 - Project-scoped request context is now explicit/opt-in for HTTP bodies via ProjectIdContextRoute / @require_project_context() (backend/setta/logging/project_id_route.py).
 - Fixed a websocket reliability bug: WebsocketManager.broadcast() now iterates a snapshot so send_message() can drop disconnected sockets without “dict changed size during iteration” (backend/setta/websockets/websocket_manager.py:82).
 - LSP reader no longer hides parse/processing failures behind debug logs; it now emits structured ERROR logs (with tracebacks) and continues the reader loop (backend/setta/lsp/reader.py).
+- LoggingContextFilter no longer does per-record work: the contextvar stores a snapshot with a preformatted `setta_context` string, and the filter just attaches the string (backend/setta/logging/context.py:92).
 
 What’s working well
 
@@ -22,8 +23,7 @@ Key gaps / correctness risks
 
 Performance / noise
 
-- The per-record filter work is heavier than it needs to be: LoggingContextFilter calls get_logging_context() (copies dict) and sorts keys every log record (backend/setta/logging/context.py:86). With access logs
-enabled, that’s at least once per request, plus any app logs.
+- (Resolved) The per-record filter work is no longer expensive: formatting/sorting happens only when context changes (push), not on every log record; the filter attaches a precomputed `setta_context` string (backend/setta/logging/context.py:92).
 - Pydantic redaction does get_type_hints() every time a model is sanitized (backend/setta/logging/redaction.py:16), which is relatively expensive; caching sensitive-field sets per model class would materially
 reduce overhead if models are ever added to context frequently.
 - Access logs are always INFO when enabled, regardless of the configured root level (backend/setta/logging/config.py:28). That’s fine for dev, but can be noisy in “info-but-not-that-much” environments.
