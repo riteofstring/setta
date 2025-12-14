@@ -36,7 +36,6 @@ class LoggingContextMiddlewareTests(unittest.TestCase):
         context = payload["context"]
         self.assertEqual(context["path"], "/projects/sample/status")
         self.assertEqual(context["method"], "GET")
-        self.assertEqual(context["project_config_id"], "sample")
         self.assertEqual(context["endpoint"], "get_project_status")
         self.assertTrue(context["request_id"].startswith("req-"))
         self.assertEqual(payload["state_request_id"], context["request_id"])
@@ -49,5 +48,5 @@ class LoggingContextMiddlewareTests(unittest.TestCase):
         second_context = second["context"]
 
         self.assertNotEqual(first_context["request_id"], second_context["request_id"])
-        self.assertEqual(first_context["project_config_id"], "alpha")
-        self.assertEqual(second_context["project_config_id"], "beta")
+        self.assertEqual(first_context["path"], "/projects/alpha/status")
+        self.assertEqual(second_context["path"], "/projects/beta/status")

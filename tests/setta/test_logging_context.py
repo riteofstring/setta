@@ -51,8 +51,6 @@ class LoggingContextTests(unittest.TestCase):
         )
         logging_filter = LoggingContextFilter()
         self.assertTrue(logging_filter.filter(record))
-        self.assertEqual(record.request_id, "abc")
-        self.assertEqual(record.project_config_id, "xyz")
         self.assertEqual(record.setta_context, "project_config_id=xyz request_id=abc")
 
 

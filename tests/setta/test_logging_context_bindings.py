@@ -7,6 +7,7 @@ from setta.logging.context import (
     reset_logging_context,
 )
 from setta.logging.context_bindings import bind_websocket_logging_context
+from setta.logging.context_sources import ensure_websocket_context
 from setta.logging.tasks import spawn_background_task
 from starlette.types import Scope
 from starlette.websockets import WebSocket
@@ -22,14 +23,14 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
     async def test_bind_websocket_logging_context_infers_metadata(self) -> None:
         websocket = _make_websocket(
             path="/api/ws/frontend",
-            path_params={"projectConfigId": "alpha"},
         )
+        expected_websocket_id = ensure_websocket_context(websocket)
         async with bind_websocket_logging_context(
             websocket,
-            websocket_id="ws-test",
+            project_config_id="alpha",
         ):
             context = get_logging_context()
-            self.assertEqual(context["websocket_id"], "ws-test")
+            self.assertEqual(context["websocket_id"], expected_websocket_id)
             self.assertEqual(context["project_config_id"], "alpha")
             self.assertEqual(context["path"], "/api/ws/frontend")
 

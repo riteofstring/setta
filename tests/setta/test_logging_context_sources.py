@@ -14,35 +14,44 @@ from starlette.websockets import WebSocket
 
 
 class LoggingContextSourcesTests(unittest.TestCase):
-    def test_build_request_context_infers_project_and_request_id(self) -> None:
+    def test_build_request_context_sets_request_metadata(self) -> None:
+        def get_project_status() -> None:
+            return None
+
         request = _make_request(
             method="post",
             path="/api/projects/alpha/load",
-            path_params={"project_config_id": "alpha"},
+            endpoint=get_project_status,
         )
         context = build_request_context(request)
-        self.assertEqual(context["project_config_id"], "alpha")
+        self.assertEqual(context["method"], "POST")
+        self.assertEqual(context["path"], "/api/projects/alpha/load")
+        self.assertEqual(context["endpoint"], "get_project_status")
         first_request_id = context["request_id"]
         second_request_id = build_request_context(request)["request_id"]
         self.assertEqual(first_request_id, second_request_id)
         self.assertTrue(first_request_id.startswith("req-"))
 
-    def test_build_request_context_uses_query_params_as_fallback(self) -> None:
+    def test_build_request_context_merges_extra_values(self) -> None:
         request = _make_request(
             method="get",
             path="/api/projects",
             query_string="projectConfigId=beta",
         )
-        context = build_request_context(request)
-        self.assertEqual(context["project_config_id"], "beta")
+        context = build_request_context(
+            request,
+            extra_values={"section_id": "sec-9"},
+        )
+        self.assertEqual(context["method"], "GET")
+        self.assertEqual(context["path"], "/api/projects")
+        self.assertEqual(context["section_id"], "sec-9")
         self.assertEqual(ensure_request_context(request), context["request_id"])
 
-    def test_build_websocket_context_uses_path_params(self) -> None:
+    def test_build_websocket_context_accepts_project_id(self) -> None:
         websocket = _make_websocket(
             path="/api/ws",
-            path_params={"projectConfigId": "delta"},
         )
-        context = build_websocket_context(websocket)
+        context = build_websocket_context(websocket, project_config_id="delta")
         websocket_id = context["websocket_id"]
         self.assertEqual(context["project_config_id"], "delta")
         self.assertTrue(websocket_id.startswith("ws-"))
@@ -75,6 +84,7 @@ def _make_request(
     headers: list[tuple[bytes, bytes]] | None = None,
     query_string: str | None = None,
     path_params: dict[str, Any] | None = None,
+    endpoint: Any | None = None,
 ) -> Request:
     scope: Scope = {
         "type": "http",
@@ -91,6 +101,8 @@ def _make_request(
         "app": object(),
         "state": {},
     }
+    if endpoint is not None:
+        scope["endpoint"] = endpoint
 
     async def empty_receive() -> dict[str, Any]:
         return {"type": "http.request", "body": b"", "more_body": False}
