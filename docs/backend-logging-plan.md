@@ -23,8 +23,9 @@ Improvement Plan
 ----------------
 
 1. **Centralized logging bootstrap**
-   * Create a module (e.g., `setta.logging_config`) that exports `configure_logging(default_level="INFO")`. This module sets up `dictConfig` with uniform formatters, handlers for stdout/file, and consistent wiring for uvicorn/fastapi loggers. Respect CLI flags, a `SETTA_LOG_LEVEL` environment variable, and allow programmatic overrides.
-   * Update `backend/setta/start.py`, `backend/setta/backend_launcher.py`, CLI tests, and any external entry points to call this helper exactly once. Ensure importing the module has no side effects so library users can opt in.
+   * ~~Create a module (e.g., `setta.logging_config`) that exports `configure_logging(default_level="INFO")`. This module sets up `dictConfig` with uniform formatters, handlers for stdout/file, and consistent wiring for uvicorn/fastapi loggers. Respect CLI flags, a `SETTA_LOG_LEVEL` environment variable, and allow programmatic overrides.~~
+   * ~~Update `backend/setta/start.py`, `backend/setta/backend_launcher.py`, CLI tests, and any external entry points to call this helper exactly once. Ensure importing the module has no side effects so library users can opt in.~~
+   * **Progress:** stripped all legacy `logging.basicConfig` calls from `backend/setta/start.py`, `backend/setta/backend_launcher.py`, and `backend/setta/mcp/client.py` so the new bootstrap can drop in without fighting legacy behavior. Next, introduce `setta.logging_config.configure_logging` and hook these entry points up to it.
 2. **Context-aware log records**
    * Introduce a lightweight context manager or middleware that attaches `request_id`, `projectConfigId`, `websocket_id`, or similar metadata via `contextvars`/`logging.LoggerAdapter`. Add FastAPI middleware to populate context per request and wrap websocket routes plus project-state queue tasks to set relevant IDs. This keeps logs readable when multiple projects/clients operate concurrently.
 3. **Structured error handling utilities**

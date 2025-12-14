@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import sys
 from pathlib import Path
 
@@ -74,11 +73,6 @@ def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
         C.OPEN_BROWSER_ON_START = open_browser
 
         sys.path.append(str(Path(__file__).resolve().parent))
-
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-        )
 
         config = uvicorn.Config(
             "server:app",

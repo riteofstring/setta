@@ -1,4 +1,3 @@
-import logging
 import os
 import threading
 import time
@@ -103,8 +102,6 @@ def start_backend(
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    _configure_logging(log_level)
-
     config = uvicorn.Config(
         "setta.server:app",
         host=resolved_host,
@@ -136,18 +133,6 @@ def start_backend(
         webbrowser.open(target_url)
 
     return handle
-
-
-def _configure_logging(log_level: str) -> None:
-    level = getattr(logging, log_level.upper(), logging.CRITICAL)
-    root_logger = logging.getLogger()
-    if root_logger.handlers:
-        root_logger.setLevel(level)
-        return
-    logging.basicConfig(
-        level=level,
-        format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-    )
 
 
 def _resolve_frontend_url(
