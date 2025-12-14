@@ -1,7 +1,7 @@
 High-Level Take
 
 - The backend logging architecture is now aligned with docs/backend-logging-plan.md: central dictConfig, contextvars-based `setta_context`, and a consistent “log + broadcast to UI” path.
-- The original gaps in this document (hot-path f-string logging, oversized context values, request context lifetime, and swallowed exceptions) have been addressed. The remaining work is mostly guardrails (lint rules) and policy tuning.
+- The original gaps in this document (hot-path f-string logging, oversized context values, request context lifetime, and swallowed exceptions) have been addressed. Remaining work is mostly ongoing discipline around context sizing and log noise.
 
 What’s Well-Designed (matches the doc)
 
@@ -39,6 +39,6 @@ Concrete Cleanup Targets I Found
 
 Recommendations (highest impact first)
 
-- Decide a long-term policy for handled 4xx tracebacks: keep them always-on for debugability (current), or default them off for noise (via `include_traceback=False`), possibly gated by log level.
+- Policy: keep handled 4xx tracebacks enabled for debuggability (current default behavior).
 - Keep pushing large payloads out of context (even though sanitization exists): use ids/counts/samples.
-- Enable Ruff `G` (logging format) and `ARG` (unused args) in normal `format_code.sh`/CI so these don’t regress.
+- Guardrail: Ruff `G` (logging format) and `ARG` (unused args) are enabled so these don’t regress.

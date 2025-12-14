@@ -26,7 +26,7 @@ def connect(websocket_id, host, port):
 
 @click.command()
 def version():
-    print(f"setta version {__version__}")
+    click.echo(f"setta version {__version__}")
 
 
 @click.command()

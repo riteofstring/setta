@@ -275,7 +275,7 @@ def extract_tool_docstrings(func):
     try:
         parsed = docstring_parser.parse(docstring)
     except Exception as e:
-        print(f"Failed to parse docstring: {e}")
+        logger.warning("Failed to parse docstring: %s", e, exc_info=True)
         return None, {}
 
     # Extract parameter descriptions

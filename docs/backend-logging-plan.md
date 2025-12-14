@@ -73,3 +73,6 @@ Notes
 - Prefer passing small `extra_values={...}` into context builders rather than serializing payloads into the log context.
 - The logging context sanitizer is a safety net, not a license to attach huge objects everywhere. Use ids/counts/samples for large payloads.
 - If a route already calls `log_failure_and_broadcast_backend_log_event(...)`, it can still raise; `backend_log_event_emitted` prevents duplicate UI events from the global handler.
+- Prefer `logger.*(...)` (or `click.echo(...)` for CLI output) over `print(...)` so output is consistent and structured.
+- For tracebacks: handled 4xx failures keep tracebacks enabled by default for debuggability.
+- Guardrails: Ruff enables `G` (logging format) and `ARG` (unused args) so logging/arg regressions get caught early.
