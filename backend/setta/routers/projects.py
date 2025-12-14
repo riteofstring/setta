@@ -1,10 +1,9 @@
-import traceback
-
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
 from setta.logging.context import get_logging_context
 from setta.logging.context_bindings import wrap_background_callable
+from setta.logging.errors import log_route_failure
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -73,23 +72,34 @@ def route_load_all_project_metadata(state: AppStateFromRequest) -> AllProjectMet
 
 @router.post(Route.LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
-    x: ProjectLoadRequest, state: AppStateFromRequest
+    x: ProjectLoadRequest, state: AppStateFromRequest, request: Request
 ) -> ProjectStateSingleConfig:
+    label = "projects.load-config"
+    context: dict[str, str] = {"project_config_name": x.projectConfigName}
     try:
         projectConfigId = state.project_manager_switcher.get_config_id_by_name(
             x.projectConfigName
         )
+        context["project_config_id"] = projectConfigId
         project_manager = state.project_manager_switcher.get(projectConfigId)
         return await project_manager.load_project_config(projectConfigId)
-    except ProjectNotFound as e:
-        print(f"[DEBUG] Project not found: {e}", flush=True)
-        raise HTTPException(status_code=404, detail=repr(e))
-    except Exception as e:
-        print(f"[DEBUG] Unexpected error: {e}", flush=True)
-        print(f"Exception details:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        print("[DEBUG] route_load_project_config finished", flush=True)
+    except ProjectNotFound as exc:
+        log_route_failure(
+            exc,
+            label=label,
+            handled=True,
+            context=context,
+            request=request,
+        )
+        raise HTTPException(status_code=404, detail=repr(exc)) from exc
+    except Exception as exc:
+        log_route_failure(
+            exc,
+            label=label,
+            context=context,
+            request=request,
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post(Route.SAVE_PROJECT)
@@ -97,7 +107,9 @@ async def route_save_project(
     x: ManualSaveRequest,
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
+    request: Request,
 ):
+    context = {"project_config_id": x.projectConfigId}
     try:
         project_manager = state.project_manager_switcher.get(x.projectConfigId)
         await project_manager.finish_pending_operations()
@@ -107,7 +119,15 @@ async def route_save_project(
             message="Saved!",
         )
 
-    except Exception:
+    except Exception as exc:  # noqa: PERF203 - structured logging
+        log_route_failure(
+            exc,
+            label="projects.manual-save",
+            handled=True,
+            notify_frontend=True,
+            context=context,
+            request=request,
+        )
         notification = SettaNotification(
             projectConfigId=x.projectConfigId,
             message="Failed to save",
@@ -158,14 +178,24 @@ async def route_delete_project_configs(
 
 @router.post(Route.SET_PROJECT_CONFIG_NAME)
 async def route_set_project_config_name(
-    x: SetProjectConfigNameRequest, state: AppStateFromRequest
+    x: SetProjectConfigNameRequest, state: AppStateFromRequest, request: Request
 ):
     try:
         project_manager = state.project_manager_switcher.main
         await project_manager.set_project_config_name(x.projectConfigId, x.newName)
         project_manager.perform_manual_save()
-    except ProjectNameTaken as e:
-        raise HTTPException(status_code=422, detail=repr(e))
+    except ProjectNameTaken as exc:
+        log_route_failure(
+            exc,
+            label="projects.set-config-name",
+            handled=True,
+            context={
+                "project_config_id": x.projectConfigId,
+                "project_config_name": x.newName,
+            },
+            request=request,
+        )
+        raise HTTPException(status_code=422, detail=repr(exc)) from exc
 
 
 @router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)
