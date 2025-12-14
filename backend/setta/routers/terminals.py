@@ -4,18 +4,19 @@ from fastapi import WebSocket
 from pydantic import BaseModel
 
 from setta.logging.context_bindings import bind_websocket_logging_context
+from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
     ReadyAppStateFromRequest,
 )
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
-terminals_http_router = SettaAPIRouter()
+terminals_http_router = SettaProjectContextAPIRouter()
 terminals_ws_router = SettaAPIRouter()
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromR
 
 
 @terminals_http_router.post(Route.KILL_SUBPROCESSES)
+@require_project_context()
 async def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     state: AppStateFromRequest,
@@ -103,6 +105,7 @@ async def route_kill_subprocesses(
 
 
 @terminals_http_router.post(Route.RUN_CODE)
+@require_project_context()
 async def route_run_code(
     x: RunCodeRequest,
     state: ReadyAppStateFromRequest,

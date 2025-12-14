@@ -1,13 +1,14 @@
 from pydantic import BaseModel
 
 from setta.lsp.managers import restart_lsps
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.id import ID
 from setta.types.routes import Route
+from setta.logging.project_id_route import require_project_context
 
 from .dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 
-router = SettaAPIRouter()
+router = SettaProjectContextAPIRouter()
 
 
 class TypeCheckRequest(BaseModel):
@@ -20,6 +21,7 @@ async def route_restart_language_server(state: AppStateFromRequest):
 
 
 @router.post(Route.TYPE_CHECK)
+@require_project_context()
 async def route_type_check(x: TypeCheckRequest, state: AppStateFromRequest):
     return await state.project_manager_switcher.get(x.projectConfigId).type_check(
         x.projectConfigId

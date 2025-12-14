@@ -40,7 +40,7 @@ def build_request_context(
     """Return canonical logging metadata for an HTTP request."""
 
     resolved_request_id = ensure_request_context(request)
-    resolved_project_id = project_id or _infer_project_id_from_request(request)
+    resolved_project_id = project_id
     endpoint_name = _resolve_endpoint_name(request)
     context: dict[str, LoggingContextInput] = {
         "request_id": resolved_request_id,
@@ -127,16 +127,6 @@ def build_background_task_context(
         context["websocket_id"] = websocket_id
     _merge_extra_values(context, extra_values)
     return context
-
-
-def _infer_project_id_from_request(request: Request) -> str | None:
-    candidate = _search_mapping(request.path_params, _PROJECT_PARAM_KEYS)
-    if candidate:
-        return candidate
-    candidate = _search_mapping(request.query_params, _PROJECT_PARAM_KEYS)
-    if candidate:
-        return candidate
-    return None
 
 
 def _infer_project_id_from_websocket(websocket: WebSocket) -> str | None:

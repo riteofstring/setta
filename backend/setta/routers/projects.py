@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
 from setta.types.id import ID
 from setta.types.notifications import (
@@ -13,8 +13,9 @@ from setta.types.notifications import (
 )
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
+from setta.logging.project_id_route import require_project_context
 
-router = SettaAPIRouter()
+router = SettaProjectContextAPIRouter()
 
 
 class ProjectLoadRequest(BaseModel):
@@ -94,6 +95,7 @@ async def route_load_project_config(
 
 
 @router.post(Route.SAVE_PROJECT)
+@require_project_context()
 async def route_save_project(
     x: ManualSaveRequest,
     state: AppStateFromRequest,
@@ -120,6 +122,7 @@ async def route_save_project(
 
 
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
+@require_project_context()
 async def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
@@ -151,6 +154,7 @@ async def route_delete_project_configs(
 
 
 @router.post(Route.SET_PROJECT_CONFIG_NAME)
+@require_project_context()
 async def route_set_project_config_name(
     x: SetProjectConfigNameRequest, state: AppStateFromRequest
 ):
@@ -168,6 +172,7 @@ def router_get_default_project_config_name(state: AppStateFromRequest) -> str | 
 
 
 @router.post(Route.SET_AS_DEFAULT_PROJECT)
+@require_project_context(body_key="projectId")
 async def router_set_as_default_project(
     x: SetAsDefaultProjectRequest, state: AppStateFromRequest
 ):
@@ -177,6 +182,7 @@ async def router_set_as_default_project(
 
 
 @router.post(Route.GET_NOTIFICATIONS)
+@require_project_context()
 def route_get_notifications(
     x: GetNotificationsRequest, state: AppStateFromRequest
 ) -> list[SettaNotification]:

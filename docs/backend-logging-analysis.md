@@ -13,8 +13,15 @@ What’s working well
 
 Key gaps / correctness risks
 
-- project_id inference for HTTP only checks path/query, not JSON bodies (backend/setta/logging/context_sources.py:21), so many POST routes likely won’t get project_id context unless they explicitly bind it. That
-weakens correlation for unhandled exceptions (the global handler often won’t have a project id to attach).
+- (Addressed) project_id inference for HTTP used to only check path/query (backend/setta/logging/context_sources.py), so many POST routes with `projectConfigId` in JSON bodies were missing `project_id` logging
+  context. This weakened correlation for unhandled exceptions (global handler often had no project id to attach).
+  - Refactor: strict, opt-in project id extraction from JSON bodies via a custom APIRoute wrapper (backend/setta/logging/project_id_route.py).
+  - Cleanup: removed HTTP project_id inference from path/query in build_request_context; project_id now only comes from explicit binding (e.g. route wrapper / endpoint push).
+  - Usage patterns:
+    - Router-level opt-in: SettaProjectContextAPIRouter(require_project_context_by_default=True) (backend/setta/routers/setta_api_router.py) for “project-scoped” router modules.
+    - Endpoint-level opt-in: @require_project_context() / @require_project_context(body_key="...") for mixed routers.
+  - Predictability: no “guessing” keys; when enabled it requires the configured body key and fails fast (KeyError / JSON decode errors).
+  - Efficiency: uses request.json() caching so JSON is parsed once even though FastAPI also validates into Pydantic models.
 - backend_log_event_emitted is “sticky” (set via push_logging_context without reset). It prevents duplicates, but it can also suppress later global error broadcasts within the same request/task if multiple
 failures occur.
 - WebsocketManager.broadcast() iterates self.sockets.items() while send_message() can pop() sockets; that can raise “dict changed size during iteration” under disconnect pressure (backend/setta/websockets/

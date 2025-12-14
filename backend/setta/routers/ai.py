@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from setta.routers.dependencies import AppStateFromRequest
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
@@ -12,8 +12,9 @@ from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
+from setta.logging.project_id_route import require_project_context
 
-router = SettaAPIRouter()
+router = SettaProjectContextAPIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
@@ -44,6 +45,7 @@ class StopLLMChatRequest(BaseModel):
 
 
 @router.post(Route.GET_LLM_RESPONSE)
+@require_project_context()
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     state: AppStateFromRequest,
