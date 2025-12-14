@@ -92,19 +92,19 @@ def configure_logging(
     root_handlers = list(handler_names)
     loggers_config: dict[str, dict[str, Any]] = {
         "uvicorn": {
-            "level": _level_name(resolved_level),
+            "level": resolved_level,
             "handlers": list(root_handlers),
             "propagate": False,
         },
         "uvicorn.error": {
-            "level": _level_name(resolved_level),
+            "level": resolved_level,
             "handlers": list(root_handlers),
             "propagate": False,
         },
     }
     if include_access_logger:
         loggers_config["uvicorn.access"] = {
-            "level": _level_name(resolved_level),
+            "level": resolved_level,
             "handlers": ["uvicorn_access"],
             "propagate": False,
         }
@@ -193,7 +193,3 @@ def _parse_log_level(value: LogLevelInput) -> int:
         if isinstance(named_level, int):
             return named_level
     raise ValueError(f"invalid log level {value!r}")
-
-
-def _level_name(level: int) -> str:
-    return logging.getLevelName(level)
