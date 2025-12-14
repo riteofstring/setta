@@ -8,6 +8,7 @@ Refactor status (already done)
 - HTTP backend-log-event emission is centralized in the global exception handlers; routes should raise and let the global handler emit the UI event (removed request-scoped backend_log_event_emitted dedupe).
 - Project-scoped request context is now explicit/opt-in for HTTP bodies via ProjectIdContextRoute / @require_project_context() (backend/setta/logging/project_id_route.py).
 - Fixed a websocket reliability bug: WebsocketManager.broadcast() now iterates a snapshot so send_message() can drop disconnected sockets without “dict changed size during iteration” (backend/setta/websockets/websocket_manager.py:82).
+- LSP reader no longer hides parse/processing failures behind debug logs; it now emits structured ERROR logs (with tracebacks) and continues the reader loop (backend/setta/lsp/reader.py).
 
 What’s working well
 
@@ -29,7 +30,7 @@ reduce overhead if models are ever added to context frequently.
 
 Places where errors are likely being hidden
 
-- Some components swallow broad exceptions with only debug logging and continue, which can make failures invisible unless you’re already in DEBUG (e.g. LSP reader: backend/setta/lsp/reader.py:1).
+- (Resolved) LSP reader errors are no longer “debug-only”: parse/processing failures now produce structured ERROR logs (backend/setta/lsp/reader.py).
 
 Unused / cleanup candidates (logic, not Ruff-unused)
 
