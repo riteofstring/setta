@@ -3,13 +3,12 @@ import logging
 from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
-from setta.types.chat import Chat, ChatMetadata
-from setta.types.id import ID
+from setta.types.chat_messages import Chat, ChatMetadata
 
 logger = logging.getLogger(__name__)
 
 
-def load_chat(dbe: DBE, chat_id: ID) -> Chat | None:
+def load_chat(dbe: DBE, chat_id: str) -> Chat | None:
     data = dbe.read_chat(chat_id)
     if not data:
         return None
@@ -26,7 +25,7 @@ def load_all_chat_metadata(dbe: DBE) -> list[ChatMetadata]:
         data = dbe.read_json(path)
         if not data:
             continue
-        required_keys = {"id", "name", "lastUpdated", "llmConfig", "projectConfigId"}
+        required_keys = {"id", "name", "lastUpdated"}
         if not required_keys.issubset(data.keys()):
             logger.debug(
                 "Skipping chat metadata from %s because required fields are missing",
@@ -40,8 +39,6 @@ def load_all_chat_metadata(dbe: DBE) -> list[ChatMetadata]:
                         "id": data["id"],
                         "name": data["name"],
                         "lastUpdated": data["lastUpdated"],
-                        "llmConfig": data["llmConfig"],
-                        "projectConfigId": data["projectConfigId"],
                     }
                 )
             )

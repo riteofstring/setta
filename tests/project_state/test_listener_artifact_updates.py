@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import unittest
-from typing import TYPE_CHECKING, cast
 
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.listener_artifact_updates import (
@@ -16,11 +17,6 @@ from setta.types.artifact import (
     ImageArtifact,
 )
 from setta.utils.utils import normalize_path
-
-if TYPE_CHECKING:
-    from setta.database.db_objs import DBE
-    from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
 class _StubFrontendSender:
@@ -48,10 +44,7 @@ class _StubDBE:
 
 
 def _build_artifacts() -> Artifacts:
-    websocket_handler = cast("WMHFrontendSender", _StubFrontendSender())
-    file_watcher = cast("SpecificFileWatcher", _StubSpecificFileWatcher())
-    dbe = cast("DBE", _StubDBE())
-    return Artifacts(websocket_handler, file_watcher, dbe)
+    return Artifacts(_StubFrontendSender(), _StubSpecificFileWatcher(), _StubDBE())
 
 
 class ApplyListenerArtifactUpdatesTest(unittest.TestCase):

@@ -1,13 +1,11 @@
-from pydantic import BaseModel
-
-from setta.types.id import (
-    ID,
-    CanonicalToTemporaryIDMap,
-    TemporaryToCanonicalIDMap,
-)
+from setta.types.ai import ID, IDToUUIDForLLM
 
 
 class IDDoesNotExist(Exception):
+    pass
+
+
+class SettaMCPToolError(Exception):
     pass
 
 
@@ -22,17 +20,6 @@ def traverse_and_replace(data, replace_func):
     Returns:
         The transformed data structure
     """
-    if isinstance(data, BaseModel):
-        clone = data.model_copy(deep=True)
-        model_fields = type(clone).model_fields
-        for field_name in model_fields.keys():
-            value = getattr(clone, field_name)
-            setattr(
-                clone,
-                field_name,
-                traverse_and_replace(value, replace_func),
-            )
-        return clone
     if isinstance(data, dict):
         return {
             traverse_and_replace(k, replace_func): traverse_and_replace(v, replace_func)
@@ -46,60 +33,65 @@ def traverse_and_replace(data, replace_func):
         return data
 
 
-def convert_canonical_ids_to_temporary(
-    data,
-    canonical_to_temporary: CanonicalToTemporaryIDMap,
-    temporary_to_canonical: TemporaryToCanonicalIDMap,
-):
-    """Replace canonical IDs with their temporary counterparts for LLM payloads."""
+def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid: IDToUUIDForLLM):
+    """
+    Replace all UUIDs in data with their corresponding IDs.
+    If a UUID doesn't have an ID, create a new one and update the mapping.
 
-    def replace_canonical(value):
+    Args:
+        data: Input data (can be simple type, dict, or list)
+        uuid_to_id: Dictionary mapping UUIDs to IDs
+        id_to_uuid: Dictionary mapping IDs to UUIDs
+
+    Returns:
+        Tuple of (transformed data, updated uuid_to_id, updated id_to_uuid)
+    """
+
+    def replace_uuid(value):
         if not isinstance(value, ID):
             return value
 
-        if value in canonical_to_temporary:
-            return canonical_to_temporary[value]
+        if value in uuid_to_id:
+            return uuid_to_id[value]
+        else:
+            # Create a new ID by incrementing the highest existing ID
+            new_id = 0
+            for id in id_to_uuid.keys():
+                new_id = max(new_id, int(id))
+            new_id += 1
+            new_id = str(new_id)
 
-        new_id = 0
-        for existing_id in temporary_to_canonical.keys():
-            new_id = max(new_id, int(existing_id))
-        new_temp_id = ID(str(new_id + 1))
+            # Update mappings
+            uuid_to_id[value] = new_id
+            id_to_uuid[ID(new_id)] = value
 
-        canonical_to_temporary[value] = new_temp_id
-        temporary_to_canonical[new_temp_id] = value
+            return new_id
 
-        return new_temp_id
-
-    return traverse_and_replace(data, replace_canonical)
+    return traverse_and_replace(data, replace_uuid)
 
 
-def convert_temporary_ids_to_canonical(
-    data, temporary_to_canonical: TemporaryToCanonicalIDMap
-):
-    """Swap temporary IDs back to canonical IDs when processing LLM output."""
+def replace_ids_with_uuids(data, id_to_uuid: IDToUUIDForLLM):
+    """
+    Replace all IDs in data with their corresponding UUIDs.
+    If an ID doesn't have a UUID, leave it unchanged.
 
-    def replace_temporary(value):
+    Args:
+        data: Input data (can be simple type, dict, or list)
+        id_to_uuid: Dictionary mapping IDs to UUIDs
+
+    Returns:
+        Transformed data
+    """
+
+    def replace_id(value):
         if isinstance(value, ID):
-            if value in temporary_to_canonical:
-                return temporary_to_canonical[value]
-            raise IDDoesNotExist(
-                f"{value} is not a valid id. The available ids are {str(temporary_to_canonical.keys())}"
-            )
+            if value in id_to_uuid:
+                return id_to_uuid[value]
+            else:
+                raise IDDoesNotExist(
+                    f"{value} is not a valid id. The available ids are {str(id_to_uuid.keys())}"
+                )
 
-        return value
+        return value  # No mapping found or not an ID, leave unchanged
 
-    return traverse_and_replace(data, replace_temporary)
-
-
-def convert_existing_canonical_ids_to_temporary(
-    data,
-    canonical_to_temporary: CanonicalToTemporaryIDMap,
-):
-    """Replace only the canonical IDs that already exist in the map."""
-
-    def replace_existing(value):
-        if isinstance(value, ID):
-            return canonical_to_temporary.get(value, value)
-        return value
-
-    return traverse_and_replace(data, replace_existing)
+    return traverse_and_replace(data, replace_id)

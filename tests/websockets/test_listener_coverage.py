@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 
 from setta.types.dependency_key import create_dep_key
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRegisterCallback,
@@ -15,7 +14,7 @@ from setta.websockets.listener_registry import ListenerRegistration
 def build_registration(
     *,
     websocket_id: str,
-    project_config_id: ID,
+    project_config_id: str,
     callbacks: dict[str, ListenerRegisterCallback],
 ) -> ListenerRegistration:
     return ListenerRegistration.build_from_callbacks(
@@ -28,7 +27,7 @@ def build_registration(
 class ListenerCoverageTrackerTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tracker = ListenerCoverageTracker()
-        self.project_id = ID("proj-123")
+        self.project_id = "proj-123"
 
     @staticmethod
     def _signature(dependency):
@@ -41,9 +40,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
-                            sectionId=ID("section-A"), codeObjId=ID("param-1")
-                        )
+                        create_dep_key(sectionId="section-A", codeObjId="param-1")
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -70,9 +67,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
-                            sectionId=ID("section-A"), codeObjId=ID("param-1")
-                        )
+                        create_dep_key(sectionId="section-A", codeObjId="param-1")
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -96,9 +91,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
-                            sectionId=ID("section-A"), codeObjId=ID("param-1")
-                        )
+                        create_dep_key(sectionId="section-A", codeObjId="param-1")
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -110,7 +103,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-2": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(sectionId=ID("section-B"), codeObjId=None)
+                        create_dep_key(sectionId="section-B", codeObjId=None)
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )
@@ -167,9 +160,7 @@ class ListenerCoverageTrackerTest(unittest.TestCase):
             callbacks={
                 "cb-1": ListenerRegisterCallback(
                     dependencies=[
-                        create_dep_key(
-                            sectionId=ID("section-A"), codeObjId=ID("param-1")
-                        )
+                        create_dep_key(sectionId="section-A", codeObjId="param-1")
                     ],
                     dependencyMode=ListenerDependencyMode.SPECIFIC,
                 )

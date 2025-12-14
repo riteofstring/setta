@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerDependencyMode,
@@ -28,7 +27,7 @@ class ListenerCoverageTracker:
 
     def _build_signature_and_snapshot(
         self,
-        project_config_id: ID,
+        project_config_id: str,
         registrations: Iterable[ListenerRegistration],
     ) -> tuple[_CoverageSignature, ListenerCoverageSnapshot]:
         dependency_keys: set[BaseDependencyKeyUnion] = set()
@@ -60,7 +59,7 @@ class ListenerCoverageTracker:
 
     def update_for_project(
         self,
-        project_config_id: ID,
+        project_config_id: str,
         registrations: Iterable[ListenerRegistration],
     ) -> ListenerCoverageSnapshot | None:
         signature, snapshot = self._build_signature_and_snapshot(
@@ -80,7 +79,7 @@ class ListenerCoverageTracker:
 
     def get_snapshot_for_project(
         self,
-        project_config_id: ID,
+        project_config_id: str,
         registrations: Iterable[ListenerRegistration],
     ) -> ListenerCoverageSnapshot:
         signature, snapshot = self._build_signature_and_snapshot(

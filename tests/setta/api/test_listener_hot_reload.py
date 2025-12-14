@@ -6,19 +6,14 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from watchfiles import Change
-
-if TYPE_CHECKING:
-    from websockets import ClientConnection
 
 
 class _StubWebsocket:
@@ -36,24 +31,24 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
+            id="section-impl",
             name="Welcome",
             text="Hello",
         )
         section_variant = Variant(
-            id=ID("section-variant"),
+            id="section-variant",
             name="Welcome Variant",
             impl=section_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
         )
         section_core = Core(
-            id=ID("section-welcome"),
+            id="section-welcome",
             name="Welcome",
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
         project_config = ProjectConfig(
-            id=ID("project-1"),
+            id="project-1",
             name="Demo Project",
             sectionVariantMap={section_core.id: section_variant.id},
             topLevelSections={section_core.id: TopLevelSectionLayout()},
@@ -101,9 +96,9 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
     async def test_reloader_cycles_update_callback_registration(self) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(project_name=project_state.projectConfig.name)
-        self._init_listener_invocations(listener)
+        listener._test_invocations = []  # type: ignore[attr-defined]
         websocket = _StubWebsocket()
-        listener._websocket = cast("ClientConnection", websocket)
+        listener._websocket = websocket
 
         module_name = "hot_reload_listener_module"
         register_ids: list[str] = []
@@ -123,19 +118,17 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
                 await listener._refresh_from_snapshot(project_state)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(self._get_listener_invocations(listener), ["v1"])
+                self.assertEqual(listener._test_invocations, ["v1"])
 
                 self._write_listener_module(module_path, "v2")
                 await reloader.reload_now(reload_module=True)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(self._get_listener_invocations(listener), ["v1", "v2"])
+                self.assertEqual(listener._test_invocations, ["v1", "v2"])
 
                 self._write_listener_module(module_path, "v3")
                 await reloader.reload_now(reload_module=True)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
-                self.assertEqual(
-                    self._get_listener_invocations(listener), ["v1", "v2", "v3"]
-                )
+                self.assertEqual(listener._test_invocations, ["v1", "v2", "v3"])
             finally:
                 sys.modules.pop(module_name, None)
                 if tmp_dir in sys.path:
@@ -233,7 +226,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         listener = SettaListener(project_name="Demo Project")
 
         def builder(target: SettaListener) -> None:
-            _ = target  # keep signature explicit; builder not executed during test
+            target  # keep signature explicit; builder not executed during test
 
         captured: dict[str, ListenerHotReloader] = {}
 
@@ -265,17 +258,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         listener = SettaListener(project_name="Demo Project")
 
         def builder(target: SettaListener) -> None:
-            _ = target
+            target
 
         with self.assertRaises(ValueError):
             listener.start(builder=builder)
-
-    @staticmethod
-    def _init_listener_invocations(listener: SettaListener) -> list[str]:
-        invocations: list[str] = []
-        setattr(listener, "_test_invocations", invocations)
-        return invocations
-
-    @staticmethod
-    def _get_listener_invocations(listener: SettaListener) -> list[str]:
-        return cast("list[str]", getattr(listener, "_test_invocations"))

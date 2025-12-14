@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRegisterCallback,
@@ -12,7 +11,7 @@ from setta.types.listener import (
 @dataclass
 class ListenerRegistration:
     websocket_id: str
-    project_config_id: ID
+    project_config_id: str
     callbacks: dict[str, ListenerRegisterCallback] = field(default_factory=dict)
     dependency_index: dict[BaseDependencyKeyUnion, set[str]] = field(
         default_factory=dict
@@ -24,7 +23,7 @@ class ListenerRegistration:
         cls,
         *,
         websocket_id: str,
-        project_config_id: ID,
+        project_config_id: str,
         callbacks: dict[str, ListenerRegisterCallback],
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
@@ -59,7 +58,7 @@ class ListenerRegistry:
         self,
         *,
         websocket_id: str,
-        project_config_id: ID,
+        project_config_id: str,
     ) -> None:
         self._project_config_by_socket[websocket_id] = project_config_id
 
@@ -70,7 +69,7 @@ class ListenerRegistry:
         self,
         *,
         websocket_id: str,
-        project_config_id: ID,
+        project_config_id: str,
         callbacks: dict[str, ListenerRegisterCallback],
     ) -> ListenerRegistration:
         registration = ListenerRegistration.build_from_callbacks(
@@ -89,13 +88,13 @@ class ListenerRegistry:
         return self._registrations.get(websocket_id)
 
     def iter_registrations_for_project(
-        self, project_config_id: ID
+        self, project_config_id: str
     ) -> Iterable[ListenerRegistration]:
         for registration in self._registrations.values():
             if registration.project_config_id == project_config_id:
                 yield registration
 
-    def iter_socket_ids_for_project(self, project_config_id: ID) -> Iterable[str]:
+    def iter_socket_ids_for_project(self, project_config_id: str) -> Iterable[str]:
         for websocket_id, stored_project_id in self._project_config_by_socket.items():
             if stored_project_id == project_config_id:
                 yield websocket_id
@@ -103,7 +102,7 @@ class ListenerRegistry:
     def iter_callbacks_matching_dependencies(
         self,
         *,
-        project_config_id: ID,
+        project_config_id: str,
         dependency_keys: Iterable[BaseDependencyKeyUnion],
     ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
         dependency_filter = set(dependency_keys)

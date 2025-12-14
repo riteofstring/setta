@@ -33,7 +33,6 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
-from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
@@ -171,23 +170,23 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
         text_impl = TextBlockSectionImpl(
-            id=ID("text-impl"),
+            id="text-impl",
             name="Headline",
             text="Initial headline",
         )
         variant = Variant(
-            id=ID("text-variant"),
+            id="text-variant",
             impl=text_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(text_impl),
         )
         section = Core(
-            id=ID("text-section"),
+            id="text-section",
             name="Hero",
             variants=[variant.id],
             defaultVariant=variant.id,
         )
         project_config = ProjectConfig(
-            id=ID("listener-project"),
+            id="listener-project",
             name="Listener Project",
             sectionVariantMap={section.id: variant.id},
             topLevelSections={section.id: TopLevelSectionLayout()},
@@ -258,7 +257,7 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
         dependency_updates = [
             ListenerFrontendEmitKeyAndValue(
                 dependencyKey=SectionDependencyKey(
-                    sectionId=ID("listener-missing-section")
+                    sectionId="listener-missing-section"
                 ),
                 value=LiteralDependencyValue("payload"),
             )
@@ -293,7 +292,7 @@ class ApplyListenerEmitUpdatesTests(unittest.IsolatedAsyncioTestCase):
     async def test_artifact_updates_trigger_artifact_broadcast(self):
         artifact_updates = [
             ImageArtifact(
-                id=ID("listener/new-image.png"),
+                id="listener/new-image.png",
                 value="data:image/png;base64,AAA",
             )
         ]

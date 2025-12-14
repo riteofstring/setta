@@ -1,7 +1,6 @@
 import logging
 from typing import TYPE_CHECKING, Iterable
 
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerRealtimeDelta,
@@ -37,7 +36,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
     async def send_realtime_update(
         self,
         *,
-        projectConfigId: ID,
+        projectConfigId: str,
         deltas: list[ListenerRealtimeDelta],
         sequence: int,
     ):
@@ -81,7 +80,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         *,
         projectState: ProjectStateSingleConfig | None = None,
-        projectConfigId: ID | None = None,
+        projectConfigId: str | None = None,
         targetWebsocketIds: Iterable[str] | None = None,
     ):
         project_config_id = projectConfigId

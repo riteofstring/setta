@@ -33,7 +33,6 @@ from setta.types.helpers_lvl2 import (
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
 )
-from setta.types.id import ID
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -92,7 +91,7 @@ class RenameReferenceChangedValue:
 @dataclass(frozen=True)
 class SectionExportContext:
     project_state: ProjectStateSingleConfig
-    section_id: ID
+    section_id: str
     section_name: str
     section_impl: BaseSectionImpl
     full_path_name: str
@@ -135,7 +134,7 @@ class DependencyGraph:
     def export_sections(
         self,
         p: ProjectStateSingleConfig,
-        ids: list[ID],
+        ids: list[str],
         isTopLevel=False,
         parent_node=None,
     ):
@@ -150,7 +149,7 @@ class DependencyGraph:
     def export_section(
         self,
         p: ProjectStateSingleConfig,
-        id: ID,
+        id: str,
         isTopLevel=False,
         parent_node: Node | None = None,
         idx: int | None = None,
@@ -202,7 +201,7 @@ class DependencyGraph:
         section_impl = ctx.section_impl
         if not isinstance(section_impl, BaseParentSectionImpl):
             return
-        children: list[ID] = []
+        children: list[str] = []
         for child_id in section_impl.children:
             child_impl = get_curr_effective_section_impl(ctx.project_state, child_id)
             if child_impl.type in self.section_exporters:
@@ -271,7 +270,7 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
-    def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: ID):
+    def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
         callable = get_curr_section_callable_code_obj(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(
@@ -283,7 +282,7 @@ class DependencyGraph:
     def export_section_params(
         self,
         p: ProjectStateSingleConfig,
-        sectionId: ID,
+        sectionId: str,
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
@@ -299,8 +298,8 @@ class DependencyGraph:
     def export_params(
         self,
         p: ProjectStateSingleConfig,
-        sectionId: ID,
-        paramIds: list[ID],
+        sectionId: str,
+        paramIds: list[str],
         parent_node: Node | None = None,
         isTopLevel=False,
     ):

@@ -4,13 +4,12 @@ from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
-from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import (
     ProjectNameTaken,
     ProjectNotFound,
 )
-from setta.types.id import ID
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
@@ -27,16 +26,16 @@ class CreateProjectConfigRequest(BaseModel):
 
 
 class DeleteProjectConfigsRequest(BaseModel):
-    ids: list[ID]
+    ids: list[str]
 
 
 class SetProjectConfigNameRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     newName: str
 
 
 class SetAsDefaultProjectRequest(BaseModel):
-    projectId: ID
+    projectId: str
 
 
 class FilterDataForJSONExportRequest(BaseModel):
@@ -48,15 +47,15 @@ class AddDefaultDataForJSONImportRequest(BaseModel):
 
 
 class GetNotificationsRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
 
 
 class DeleteNotificationRequest(BaseModel):
-    notificationId: ID
+    notificationId: str
 
 
 class ManualSaveRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
 
 
 @router.post(Route.LOAD_ALL_PROJECT_METADATA)

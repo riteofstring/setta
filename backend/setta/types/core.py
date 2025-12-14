@@ -4,16 +4,15 @@ from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import BaseCodeObjImpl
 from setta.types.generated.impl_field_literals import AllImplFields
 from setta.types.generated.shared_modifier import SharedModifier
-from setta.types.id import ID
 from setta.types.section_impls import BaseSectionImpl, SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
 class Core(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
+    id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    variants: list[ID] = Field(default_factory=list)
-    defaultVariant: ID | None = None
+    variants: list[str] = Field(default_factory=list)
+    defaultVariant: str | None = None
     sharedModifier: SharedModifier = Field(default_factory=SharedModifier)
     unsharedKeys: list[AllImplFields] = Field(
         default_factory=lambda: [
@@ -27,10 +26,10 @@ class Core(BaseModel, extra="forbid"):
 
 
 class Variant(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
+    id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    impl: ID
-    nonPresetImpls: list[ID]
+    impl: str
+    nonPresetImpls: list[str]
     modifier: SharedModifier = Field(default_factory=SharedModifier)
     isFrozen: bool = False
 

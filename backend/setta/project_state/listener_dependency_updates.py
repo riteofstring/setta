@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -9,7 +11,6 @@ from setta.types.helpers_lvl2 import (
     set_param_entered_value,
     set_text_block_text,
 )
-from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
@@ -82,7 +83,7 @@ def _apply_section_param_update(
 def _apply_section_update(
     *,
     project_state: ProjectStateSingleConfig,
-    section_id: ID,
+    section_id: str,
     value: BaseDependencyValueUnion,
 ) -> None:
     try:

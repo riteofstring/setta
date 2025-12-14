@@ -6,8 +6,8 @@ import {
 import { res200 } from "utils/endpointUtils";
 import { route_get_listener_coverage } from "utils/generatedEndpoints";
 import {
-  BaseDependencyKeyUnion,
   DependencyKeyTypeEnum,
+  BaseDependencyKeyUnion,
   ListenerCoverageSnapshot,
 } from "utils/generatedTypes";
 
@@ -66,9 +66,7 @@ export function dependencyKeyCovered(
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
 
-export function serializeCoverageKey(
-  dependency: BaseDependencyKeyUnion,
-): string {
+export function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
   return serializeListenerDependencyKey(dependency);
 }
 

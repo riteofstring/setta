@@ -1,9 +1,6 @@
 from pydantic import BaseModel
 
-from setta.routers.dependencies import (
-    AppStateFromRequest,
-    ReadyAppStateFromRequest,
-)
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.generated.settings_state import SettingsState
 from setta.types.routes import Route
@@ -16,7 +13,7 @@ class SaveSettingsRequest(BaseModel):
 
 
 @router.post(Route.SAVE_SETTINGS)
-async def route_save_settings(x: SaveSettingsRequest, state: ReadyAppStateFromRequest):
+async def route_save_settings(x: SaveSettingsRequest, state: AppStateFromRequest):
     previous_autosave = state.settings_file.settings.backend.autosave
     await state.settings_file.save_settings(x.settings)
     if previous_autosave and not state.settings_file.settings.backend.autosave:

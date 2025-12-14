@@ -1,75 +1,70 @@
 import unittest
-from typing import TYPE_CHECKING, cast
 
 from setta.api.listener import ListenerRuntimeState, SettaListener
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import GroupSectionImpl, TextBlockSectionImpl
 
-if TYPE_CHECKING:
-    from setta.code_gen.python.code_generator import PythonCodeGenerator
-
 
 def _build_project_state_with_duplicate_names():
     group_impl = GroupSectionImpl(
-        id=ID("impl-group"),
+        id="impl-group",
         name="Settings Group",
-        children=[ID("section-child-1"), ID("section-child-2")],
+        children=["section-child-1", "section-child-2"],
     )
     first_child_impl = TextBlockSectionImpl(
-        id=ID("impl-child-1"),
+        id="impl-child-1",
         name="Data Source",
         text="Hello",
     )
     second_child_impl = TextBlockSectionImpl(
-        id=ID("impl-child-2"),
+        id="impl-child-2",
         name="Data   Source",
         text="World",
     )
 
     group_variant = Variant(
-        id=ID("variant-group"),
+        id="variant-group",
         name="Settings Group",
         impl=group_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(group_impl),
     )
     first_child_variant = Variant(
-        id=ID("variant-child-1"),
+        id="variant-child-1",
         name="Data Source",
         impl=first_child_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(first_child_impl),
     )
     second_child_variant = Variant(
-        id=ID("variant-child-2"),
+        id="variant-child-2",
         name="Data   Source",
         impl=second_child_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(second_child_impl),
     )
 
     group_core = Core(
-        id=ID("section-group"),
+        id="section-group",
         name="Settings Group",
         variants=[group_variant.id],
         defaultVariant=group_variant.id,
     )
     first_child_core = Core(
-        id=ID("section-child-1"),
+        id="section-child-1",
         name="Data Source",
         variants=[first_child_variant.id],
         defaultVariant=first_child_variant.id,
     )
     second_child_core = Core(
-        id=ID("section-child-2"),
+        id="section-child-2",
         name="Data   Source",
         variants=[second_child_variant.id],
         defaultVariant=second_child_variant.id,
     )
 
     project_config = ProjectConfig(
-        id=ID("project-listener"),
+        id="project-listener",
         name="Listener Project",
         sectionVariantMap={
             group_core.id: group_variant.id,
@@ -125,7 +120,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         listener._runtime_state = ListenerRuntimeState(
             project_state=self.project_state,
             dependency_graph=self.dependency_graph,
-            code_generator=cast("PythonCodeGenerator", object()),
+            code_generator=object(),
             s_instance=object(),
         )
         return listener

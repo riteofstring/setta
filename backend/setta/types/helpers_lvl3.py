@@ -1,14 +1,9 @@
 import copy
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from setta.database.utils import create_new_id, remap_ids, rename_keys
-from setta.project_state.project_state_summary_types import (
-    ProjectStateSummary,
-    ProjectStateSummaryParam,
-    ProjectStateSummarySection,
-)
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.code_obj_impls import BaseParentCodeObjImpl, ParameterPassingStyle
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
 from setta.types.helpers_lvl1 import (
@@ -16,9 +11,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.helpers_lvl2 import get_top_level_param_ids
-from setta.types.id import ID
-from setta.types.project_config import Position, ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
     ProjectStateBackend,
@@ -30,9 +23,8 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
-    DrawSectionImpl,
 )
-from setta.types.shown_params import ShownParamIds
+from setta.types.simplified_states import Position
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 if TYPE_CHECKING:
@@ -90,18 +82,18 @@ def merge_single_config_into_backend(
 
 
 def prepare_sections_for_copy(
-    p: ProjectStateCore, sections_to_process: set[ID]
+    p: ProjectStateCore, sections_to_process: set[str]
 ) -> ProjectStateCore:
     # Collectors for all the IDs we need
-    section_ids: set[ID] = set()
-    section_impl_ids: set[ID] = set()
-    section_variant_ids: set[ID] = set()
-    code_obj_ids: set[ID] = set()
-    code_obj_impl_ids: set[ID] = set()
-    code_obj_variant_ids: set[ID] = set()
+    section_ids: set[str] = set()
+    section_impl_ids: set[str] = set()
+    section_variant_ids: set[str] = set()
+    code_obj_ids: set[str] = set()
+    code_obj_impl_ids: set[str] = set()
+    code_obj_variant_ids: set[str] = set()
 
     sections_to_process = copy.deepcopy(sections_to_process)
-    code_objs_to_process: set[ID] = set()
+    code_objs_to_process: set[str] = set()
 
     # Process sections recursively
     while sections_to_process:
@@ -167,7 +159,7 @@ def prepare_sections_for_copy(
     )
 
 
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID):
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(
         p, set(project_config.topLevelSections.keys())
@@ -185,183 +177,10 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
     )
 
 
-def build_project_state_summary(
-    project_state: ProjectStateSingleConfig,
-) -> ProjectStateSummary:
-    """Create a lightweight project summary for agent workflows."""
-
-    project_config = project_state.projectConfig
-    singleton_members = {
-        value
-        for value in project_state.singletonSections.model_dump(
-            exclude_none=True
-        ).values()
-        if value
-    }
-    shown_param_visibility = {
-        variant_id: _collect_visible_top_level_param_ids(shown_ids)
-        for variant_id, shown_ids in project_state.shownParamIds.items()
-    }
-    parent_section_map = dict(project_state.parentSectionMap)
-    top_level_layouts = project_state.projectConfig.topLevelSections
-    sections: list[ProjectStateSummarySection] = []
-
-    for section_id, core in project_state.sections.items():
-        variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
-        if variant_id is None:
-            continue
-
-        variant = project_state.sectionVariants[variant_id]
-        impl = get_curr_effective_section_impl(project_state, section_id)
-
-        parameters: list[ProjectStateSummaryParam] = []
-        if isinstance(impl, BaseSectionWithParamsImpl):
-            parameters = _build_section_param_summaries(
-                project_state,
-                section_id,
-                impl,
-                shown_param_visibility.get(variant_id, set()),
-            )
-
-        child_section_ids: list[ID] = []
-        if isinstance(impl, BaseParentSectionImpl):
-            child_section_ids = list(impl.children)
-
-        section_summary = ProjectStateSummarySection(
-            sectionId=section_id,
-            coreName=core.name,
-            variantId=variant_id,
-            variantName=variant.name,
-            sectionType=impl.type,
-            parentSectionId=parent_section_map.get(section_id),
-            childSectionIds=child_section_ids,
-            isFrozen=variant.isFrozen,
-            isMinimized=bool(getattr(impl, "isMinimized", False)),
-            isSingletonMember=section_id in singleton_members,
-            hideParams=bool(getattr(impl, "hideParams", False)),
-            hideUnpinnedParams=bool(getattr(impl, "hideUnpinnedParams", False)),
-            visibility=getattr(impl, "visibility", None),
-            topLevelLayout=top_level_layouts.get(section_id),
-            layoutLocked=bool(getattr(impl, "positionAndSizeLocked", False)),
-            parameters=parameters,
-            codeFileBinding=getattr(impl, "codeFileBinding", None),
-            imagePath=getattr(impl, "imagePath", None),
-            chartDataPath=getattr(impl, "dataPath", None),
-            drawLayerAssetPaths=_collect_draw_layer_asset_paths(impl),
-        )
-        sections.append(section_summary)
-
-    return ProjectStateSummary(
-        projectConfig=project_config,
-        sections=sections,
-        singletonSections=project_state.singletonSections,
-        parentSectionMap=parent_section_map,
-        shownParamVariantIds=list(project_state.shownParamIds.keys()),
-        variantIdsWithYamlValues=list(project_state.yamlValues.keys()),
-        requiredDecodedImages=list(project_state.requiredDecodedImages),
-        genCodeBinding=project_state.genCodeBinding,
-    )
-
-
-def _build_section_param_summaries(
-    project_state: ProjectStateSingleConfig,
-    section_id: ID,
-    section_impl: BaseSectionWithParamsImpl,
-    visible_top_level_ids: set[ID],
-) -> list[ProjectStateSummaryParam]:
-    top_level_param_ids = get_top_level_param_ids(project_state, section_impl)
-    if not top_level_param_ids:
-        return []
-
-    pinned_param_ids = set(section_impl.pinnedParams)
-    selected_param_ids = set(section_impl.selectedParams)
-
-    summaries: list[ProjectStateSummaryParam] = []
-    for param_id in top_level_param_ids:
-        if param_id not in project_state.codeObjs:
-            continue
-
-        variant_id = section_impl.codeObjVariantMap.get(param_id)
-        if not variant_id:
-            continue
-
-        code_obj = project_state.codeObjs[param_id]
-        _, _, param_impl = get_variant_base_and_effective_code_obj_impl(
-            project_state, code_obj, variant_id
-        )
-        summaries.append(
-            ProjectStateSummaryParam(
-                paramId=param_id,
-                name=code_obj.name,
-                type=param_impl.type,
-                passingStyle=getattr(
-                    param_impl, "passingStyle", ParameterPassingStyle.DEFAULT
-                ),
-                isPinned=param_id in pinned_param_ids,
-                isSelected=param_id in selected_param_ids,
-                isHidden=_param_is_hidden(
-                    param_id,
-                    section_impl,
-                    visible_top_level_ids,
-                    pinned_param_ids,
-                ),
-                valuePreview=_truncate_value_preview(
-                    getattr(param_impl, "value", None)
-                ),
-            )
-        )
-    return summaries
-
-
-def _collect_visible_top_level_param_ids(shown_ids: ShownParamIds) -> set[ID]:
-    visible: set[ID] = set()
-    visible.update(shown_ids.pinned.topLevelParamIds)
-    visible.update(shown_ids.unpinned.topLevelParamIds)
-    return visible
-
-
-def _param_is_hidden(
-    param_id: ID,
-    section_impl: BaseSectionWithParamsImpl,
-    visible_top_level_ids: set[ID],
-    pinned_param_ids: set[ID],
-) -> bool:
-    if getattr(section_impl, "hideParams", False):
-        return True
-    if section_impl.hideUnpinnedParams and param_id not in pinned_param_ids:
-        return True
-    if visible_top_level_ids and param_id not in visible_top_level_ids:
-        return True
-    return False
-
-
-def _collect_draw_layer_asset_paths(section_impl) -> list[str]:
-    if not isinstance(section_impl, DrawSectionImpl):
-        return []
-    seen: set[str] = set()
-    paths: list[str] = []
-    for layer in section_impl.layers:
-        for element in layer.elements:
-            path = element.dataPath
-            if path and path not in seen:
-                seen.add(path)
-                paths.append(path)
-    return paths
-
-
-def _truncate_value_preview(value: Any, limit: int = 120) -> str | None:
-    if value is None:
-        return None
-    value_str = value if isinstance(value, str) else str(value)
-    if len(value_str) <= limit:
-        return value_str
-    return f"{value_str[: limit - 3]}..."
-
-
 def remap_section_variant_map(
-    section_variant_map: dict[ID, ID],
-    section_id_map: dict[ID, ID] | None,
-    section_variant_id_map: dict[ID, ID] | None,
+    section_variant_map: dict[str, str],
+    section_id_map: dict[str, str] | None,
+    section_variant_id_map: dict[str, str] | None,
 ):
     if section_id_map:
         section_variant_map = rename_keys(section_variant_map, section_id_map)
@@ -376,8 +195,8 @@ def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
     do_create_new_id=False,
-    section_id_map: dict[ID, ID] | None = None,
-    section_variant_id_map: dict[ID, ID] | None = None,
+    section_id_map: dict[str, str] | None = None,
+    section_variant_id_map: dict[str, str] | None = None,
 ):
     new_values: ProjectConfigArgs = {}
     if new_config_name:
@@ -400,7 +219,7 @@ def copy_project_config(
     return project_config.model_copy(update=new_values, deep=True)
 
 
-def copy_variants(variants: dict[ID, Variant], implIdMap: dict[ID, ID]):
+def copy_variants(variants: dict[str, Variant], implIdMap: dict[str, str]):
     newVariants, variantIdMap = remap_ids(variants)
     for c in newVariants.values():
         c.id = variantIdMap[c.id]
@@ -410,7 +229,7 @@ def copy_variants(variants: dict[ID, Variant], implIdMap: dict[ID, ID]):
     return newVariants, variantIdMap
 
 
-def copy_cores(cores: dict[ID, Core], variantIdMap: dict[ID, ID]):
+def copy_cores(cores: dict[str, Core], variantIdMap: dict[str, str]):
     newCores, coreIdMap = remap_ids(cores)
 
     for c in newCores.values():
@@ -422,9 +241,9 @@ def copy_cores(cores: dict[ID, Core], variantIdMap: dict[ID, ID]):
     return newCores, coreIdMap
 
 
-def copy_impls(impls: dict[ID, T]):
-    nonPresets: dict[ID, T] = {}
-    presets: dict[ID, T] = {}
+def copy_impls(impls: dict[str, T]):
+    nonPresets: dict[str, T] = {}
+    presets: dict[str, T] = {}
     for k, v in impls.items():
         if v.isPreset:
             presets[k] = v
@@ -440,7 +259,7 @@ def copy_impls(impls: dict[ID, T]):
 
 
 def update_code_obj_impl_details(
-    codeObjImpls: dict[ID, BaseCodeObjImplUnion], codeObjIdMap: dict[ID, ID]
+    codeObjImpls: dict[str, BaseCodeObjImplUnion], codeObjIdMap: dict[str, str]
 ):
     for c in codeObjImpls.values():
         if isinstance(c, BaseParentCodeObjImpl):
@@ -448,10 +267,10 @@ def update_code_obj_impl_details(
 
 
 def update_section_impl_details(
-    sectionImpls: dict[ID, BaseSectionImplUnion],
-    sectionIdMap: dict[ID, ID],
-    codeObjIdMap: dict[ID, ID],
-    codeObjVariantIdMap: dict[ID, ID],
+    sectionImpls: dict[str, BaseSectionImplUnion],
+    sectionIdMap: dict[str, str],
+    codeObjIdMap: dict[str, str],
+    codeObjVariantIdMap: dict[str, str],
 ):
     for c in sectionImpls.values():
         if isinstance(c, BaseParentSectionImpl):

@@ -1,17 +1,11 @@
 import json
 import tempfile
-from io import StringIO
 from pathlib import Path
 from typing import Any
 
-from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
 
-from setta.types.id import (
-    ID,
-    CanonicalToTemporaryIDMap,
-    TemporaryToCanonicalIDMap,
-)
+from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.utils.utils import compute_md5_prefix, normalize_path
@@ -21,14 +15,11 @@ class DBE:
     def __init__(self, path: Path):
         self.path = normalize_path(path)
         self.project = self.path / "project.json"
-        self.temporary_id_map = self.path / "temporary_id_map.json"
+        self.uuid_mapping = self.path / "uuid_mapping.json"
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
         self.chats = self.path / "chats"
-        self.llm_config = self.path / "llm_config.json"
-        self.llm_config_example = self.path / "llm_config.example.json"
-        self.dot_env = self.path / ".env"
         self.path.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
@@ -117,21 +108,15 @@ class DBE:
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump())
 
-    def read_temporary_id_map(self):
-        raw_map = self.read_json(self.temporary_id_map)
-        canonical_to_temporary: CanonicalToTemporaryIDMap = {
-            ID(k): ID(v) for k, v in raw_map.items()
-        }
-        temporary_to_canonical: TemporaryToCanonicalIDMap = {
-            ID(v): ID(k) for k, v in raw_map.items()
-        }
-        return temporary_to_canonical, canonical_to_temporary
+    def read_uuid_mapping(self):
+        uuid_to_id: UUIDToIDForLLM = self.read_json(self.uuid_mapping)
+        id_to_uuid: IDToUUIDForLLM = {v: k for k, v in uuid_to_id.items()}
+        return id_to_uuid, uuid_to_id
 
-    def write_temporary_id_map(self, canonical_to_temporary: CanonicalToTemporaryIDMap):
-        serializable_map = {str(k): str(v) for k, v in canonical_to_temporary.items()}
-        self.write_json(self.temporary_id_map, serializable_map)
+    def write_uuid_mapping(self, uuid_to_id: UUIDToIDForLLM):
+        self.write_json(self.uuid_mapping, uuid_to_id)
 
-    def read_notifications(self, projectConfigId: ID | None = None):
+    def read_notifications(self, projectConfigId: str | None = None):
         data = self.read_jsonl(self.notifications)
         data = [SettaNotification.model_validate(item) for item in data]
         if projectConfigId:
@@ -142,7 +127,7 @@ class DBE:
         data = [n.model_dump() for n in notifications]
         self.write_jsonl(self.notifications, data)
 
-    def delete_notification(self, notification_id: ID):
+    def delete_notification(self, notification_id: str):
         data = self.read_notifications()
         filtered = [item for item in data if item.id != notification_id]
         self.write_notifications(filtered)
@@ -155,45 +140,16 @@ class DBE:
     def write_settings_project(self, settings_project: ProjectStateSingleConfig):
         self.write_json(self.settings_project, settings_project.model_dump())
 
-    def read_llm_config(self) -> dict[str, Any]:
-        return self.read_json(self.llm_config)
-
-    def write_llm_config(self, payload: Any) -> None:
-        self.write_json(self.llm_config, payload)
-
-    def read_llm_config_example(self) -> dict[str, Any]:
-        return self.read_json(self.llm_config_example)
-
-    def write_llm_config_example(self, payload: Any) -> None:
-        self.write_json(self.llm_config_example, payload)
-
-    def read_dot_env(self) -> dict[str, str]:
-        raw = self.read(self.dot_env)
-        if raw is None:
-            return {}
-        env_vars = dotenv_values(stream=StringIO(raw))
-        return {key: value for key, value in env_vars.items() if value is not None}
-
-    def reload_dot_env(self) -> None:
-        load_dotenv(dotenv_path=self.dot_env, override=True)
-
-    def write_dot_env(self, env_vars: dict[str, str]) -> None:
-        lines = [f"{key}={value}" for key, value in env_vars.items()]
-        content = "\n".join(lines)
-        if content:
-            content += "\n"
-        self.write(self.dot_env, content)
-
-    def chat_path(self, chat_id: ID) -> Path:
+    def chat_path(self, chat_id: str) -> Path:
         return self.chats / f"{chat_id}.json"
 
-    def read_chat(self, chat_id: ID) -> dict | None:
+    def read_chat(self, chat_id: str) -> dict | None:
         path = self.chat_path(chat_id)
         if not path.exists():
             return None
         return self.read_json(path)
 
-    def write_chat(self, chat_id: ID, data: Any):
+    def write_chat(self, chat_id: str, data: Any):
         self.write_json(self.chat_path(chat_id), data)
 
     def list_chat_paths(self) -> list[Path]:
@@ -201,7 +157,7 @@ class DBE:
             return []
         return sorted(self.chats.glob("*.json"))
 
-    def delete_chat_file(self, chat_id: ID):
+    def delete_chat_file(self, chat_id: str):
         path = self.chat_path(chat_id)
         lock = self.get_file_lock(path)
         with lock:

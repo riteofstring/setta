@@ -3,13 +3,12 @@ import asyncio
 from setta.database.utils import create_new_id
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.terminals.terminals import Terminals
-from setta.types.id import ID
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 
 
 async def run_code(
-    projectConfigId: ID,
-    sectionId: ID | None,
+    projectConfigId: str,
+    sectionId: str | None,
     cliId: str | None,
     project_manager: BaseProjectManager,
     terminals: Terminals,

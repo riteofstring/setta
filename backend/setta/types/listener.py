@@ -10,7 +10,6 @@ from setta.types.generated.dependency_values import (
     BaseDependencyValueUnionWithDiscriminator,
 )
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
-from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
 
@@ -21,7 +20,7 @@ class ListenerDependencyMode(str, Enum):
 
 
 class ListenerInitContent(BaseModel):
-    projectConfigId: ID | None = None
+    projectConfigId: str | None = None
     projectName: str | None = None
 
     @model_validator(mode="after")
@@ -34,7 +33,7 @@ class ListenerInitContent(BaseModel):
 
 
 class ListenerRealtimeEventContent(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     deltas: list["ListenerRealtimeDelta"]
     sequence: int
 
@@ -54,7 +53,7 @@ class ListenerFrontendEmitKeyAndValue(BaseModel):
 
 
 class ListenerFrontendEmitRawContent(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     dependencyValues: dict[str, Any] = Field(default_factory=dict)
     artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
         default_factory=list
@@ -62,17 +61,17 @@ class ListenerFrontendEmitRawContent(BaseModel):
 
 
 class ListenerCoverageRequest(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
 
 
 class ListenerCoverageSnapshot(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     dependencies: list[BaseDependencyKeyUnionWithDiscriminator]
     hasRealtimeWildcard: bool
 
 
 class RealtimeUIChangeContent(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
     value: BaseDependencyValueUnionWithDiscriminator
 
@@ -92,7 +91,7 @@ class ListenerRegisterCallback(BaseModel):
 
 
 class ListenerRegisterContent(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     callbacks: dict[str, ListenerRegisterCallback]
 
 
@@ -102,5 +101,5 @@ class ListenerRegisterAckStatus(BaseModel):
 
 
 class ListenerRegisterAckContent(BaseModel):
-    projectConfigId: ID
+    projectConfigId: str
     callbacks: dict[str, ListenerRegisterAckStatus]

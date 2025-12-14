@@ -3,6 +3,8 @@ from typing import Any
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 
+APIKeys = dict[str, str]
+
 
 class ID(str):
     @classmethod
@@ -12,5 +14,5 @@ class ID(str):
         return core_schema.no_info_after_validator_function(cls, handler(str))
 
 
-TemporaryToCanonicalIDMap = dict[ID, ID]
-CanonicalToTemporaryIDMap = dict[ID, ID]
+IDToUUIDForLLM = dict[ID, str]
+UUIDToIDForLLM = dict[str, ID]

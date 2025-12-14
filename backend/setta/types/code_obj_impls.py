@@ -4,7 +4,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
-from setta.types.id import ID
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -40,7 +39,7 @@ class ColorPickerChoice(BaseModel):
 
 class BaseCodeObjImpl(BaseModel):
     type: Any
-    id: ID = Field(default_factory=create_new_id)
+    id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     description: str = ""
     isPreset: bool = False
@@ -58,7 +57,7 @@ class BaseChildlessCodeObjImpl(BaseParamCodeObjImpl):
 
 
 class BaseParentCodeObjImpl(BaseCodeObjImpl):
-    children: list[ID] = Field(default_factory=list)
+    children: list[str] = Field(default_factory=list)
 
 
 class CodeCallableCodeObjImpl(BaseParentCodeObjImpl):

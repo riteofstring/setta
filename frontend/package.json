@@ -128,6 +128,7 @@
     "ts-prune": "0.10.3",
     "typescript": "5.8.3",
     "jsdoc-api": "9.3.4",
+    "glob": "11.0.1",
     "react-scan": "0.4.3"
   }
 }

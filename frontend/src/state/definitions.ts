@@ -11,20 +11,18 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
-  AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
-  BaseChatMessageUnion,
-  BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
+  BaseDependencyKeyUnion,
   DrawAreaLayerItemTransformMapping,
+  IDToUUIDForLLM,
   ImageMapping,
   ListenerCoverageSnapshot,
-  LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaNotification,
@@ -340,24 +338,15 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-export type ChatDetails = {
-  messages: Array<BaseChatMessageUnion>;
-  toolCallArguments: Record<string, string>;
-  waitingForResponse: boolean;
-  llmConfig: LLMConfig | null;
-};
-
 export type ZustandAIStore = {
   apiKeys: APIKeys;
+  apiKeysFilepath: string;
   apiKeysInitialLoadComplete: boolean;
-  apiKeysLoadError: string | null;
   allChatMetadata: Array<ChatMetadata>;
-  chatDetails: Record<string, ChatDetails>;
-  pendingChatDetails: ChatDetails | null;
+  currentChatId: string | null;
   viewHistory: boolean;
-  allLLMConfigs: AllLLMConfigs | null;
-  allLLMConfigsInitialLoadComplete: boolean;
-  allLLMConfigsLoadError: string | null;
+  userSelectedLLM: string;
+  idToUUIDForLLM: IDToUUIDForLLM;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -367,19 +356,21 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       () => ({
         // State
         apiKeys: {},
+        apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
-        apiKeysLoadError: null,
-        chatDetails: {},
-        pendingChatDetails: null,
+        chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
         allChatMetadata: [],
+        currentChatId: null, // id of currently viewed chat
         viewHistory: false,
-        allLLMConfigs: null,
-        allLLMConfigsInitialLoadComplete: false,
-        allLLMConfigsLoadError: null,
+        userSelectedLLM: "",
+        idToUUIDForLLM: {},
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
+          apiKeysFilepath: state.apiKeysFilepath,
+          currentChatId: state.currentChatId,
+          userSelectedLLM: state.userSelectedLLM,
           viewHistory: state.viewHistory,
         }),
       },

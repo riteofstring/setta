@@ -15,7 +15,6 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
-from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeFileBinding,
@@ -39,15 +38,15 @@ class SharedModifier(TypedDict):
     brushOpacity: NotRequired[float]
     brushShape: NotRequired[DrawAreaBrushShape]
     brushSize: NotRequired[int]
-    callable: NotRequired[ID | None]
+    callable: NotRequired[str | None]
     canvasMode: NotRequired[DrawAreaMode]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
-    children: NotRequired[list[ID]]
+    children: NotRequired[list[str]]
     choices: NotRequired[list[str]]
     code: NotRequired[str]
     codeFileBinding: NotRequired[CodeFileBinding | None]
     codeLanguage: NotRequired[CodeLanguage]
-    codeObjVariantMap: NotRequired[dict[ID, ID]]
+    codeObjVariantMap: NotRequired[dict[str, str]]
     colorChoices: NotRequired[list[ColorPickerChoice]]
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
@@ -65,8 +64,8 @@ class SharedModifier(TypedDict):
     hideColumn: NotRequired[bool]
     hideParams: NotRequired[bool]
     hideUnpinnedParams: NotRequired[bool]
-    id: NotRequired[ID]
-    ignoreTypeErrors: NotRequired[dict[ID, bool]]
+    id: NotRequired[str]
+    ignoreTypeErrors: NotRequired[dict[str, bool]]
     imagePath: NotRequired[str]
     isFrozen: NotRequired[bool]
     isHorizontalOrientation: NotRequired[bool]
@@ -83,15 +82,15 @@ class SharedModifier(TypedDict):
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]
     pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]
-    pinnedParams: NotRequired[list[ID]]
+    pinnedParams: NotRequired[list[str]]
     positionAndSizeLocked: NotRequired[bool]
     renderedValue: NotRequired[str | None]
-    selectedParams: NotRequired[list[ID]]
+    selectedParams: NotRequired[list[str]]
     size: NotRequired[SectionSize]
     step: NotRequired[int]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
-    topLevelParamId: NotRequired[ID | None]
+    topLevelParamId: NotRequired[str | None]
     url: NotRequired[str]
     value: NotRequired[str]
     viewMode: NotRequired[BrowserAreaViewMode]

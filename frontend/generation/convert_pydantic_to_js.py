@@ -45,8 +45,6 @@ TYPE_ALIAS_EXCLUSIONS = [
     "Callable",
     "AppStateFromRequest",
     "AppStateFromWebsocket",
-    "ReadyAppStateFromRequest",
-    "ReadyAppStateFromWebsocket",
     "Type",
 ]
 

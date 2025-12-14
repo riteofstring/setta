@@ -5,7 +5,7 @@ import json
 import logging
 import unittest
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from setta.api.listener import (
@@ -13,15 +13,13 @@ from setta.api.listener import (
     ListenerRuntimeState,
     SettaListener,
 )
-from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
+from setta.code_gen.dependency_graph import ParamNode
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerErrorContent,
@@ -34,10 +32,6 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.websocket import WebsocketMsgListenerError
 
-if TYPE_CHECKING:
-    from setta.code_gen.python.code_generator import PythonCodeGenerator
-    from websockets import ClientConnection
-
 
 class _StubWebsocket:
     def __init__(self) -> None:
@@ -47,37 +41,27 @@ class _StubWebsocket:
         self.sent.append(payload)
 
 
-def _attach_stub_websocket(listener: SettaListener, websocket: _StubWebsocket) -> None:
-    listener._websocket = cast("ClientConnection", websocket)
-
-
-PROJECT_TYPED_ID = ID("project-typed")
-SECTION_ONE_ID = ID("section-1")
-PARAM_SLIDER_ID = ID("param-slider")
-PARAM_SWITCH_ID = ID("param-switch")
-
-
 class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
+            id="section-impl",
             name="Welcome",
             text="Hello",
         )
         section_variant = Variant(
-            id=ID("section-variant"),
+            id="section-variant",
             name="Welcome Variant",
             impl=section_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
         )
         section_core = Core(
-            id=ID("section-welcome"),
+            id="section-welcome",
             name="Welcome",
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
         project_config = ProjectConfig(
-            id=ID("project-1"),
+            id="project-1",
             name="Demo Project",
             sectionVariantMap={section_core.id: section_variant.id},
             topLevelSections={section_core.id: TopLevelSectionLayout()},
@@ -88,22 +72,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             sectionImpls={section_impl.id: section_impl},
             sectionVariants={section_variant.id: section_variant},
         )
-
-    def _set_snapshot_section_text(
-        self,
-        project_state: ProjectStateSingleConfig,
-        text: str,
-    ) -> None:
-        section_id = next(iter(project_state.sections))
-        impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            TextBlockSectionImpl,
-        )
-        section_impl = project_state.sectionImpls[impl.id]
-        if not isinstance(section_impl, TextBlockSectionImpl):
-            raise AssertionError("Snapshot fixture expected TextBlockSectionImpl")
-        section_impl.text = text
 
     def _get_structured_dependency(
         self, spec: ListenerCallbackSpec
@@ -132,7 +100,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             refresh_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
+        listener._websocket = websocket
 
         await listener._refresh_from_snapshot(project_state)
 
@@ -148,7 +116,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         dependency_key = self._get_structured_dependency(realtime_spec)
 
         first_content = ListenerRealtimeEventContent(
-            projectConfigId=project_state.projectConfig.id,
+            projectConfigId="project-1",
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
@@ -162,7 +130,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
 
         second_content = ListenerRealtimeEventContent(
-            projectConfigId=project_state.projectConfig.id,
+            projectConfigId="project-1",
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
@@ -204,7 +172,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             standard_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
+        listener._websocket = websocket
 
         await listener._refresh_from_snapshot(project_state)
 
@@ -217,7 +185,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         dependency_key = self._get_structured_dependency(refresh_spec)
 
         realtime_event = ListenerRealtimeEventContent(
-            projectConfigId=project_state.projectConfig.id,
+            projectConfigId="project-1",
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
@@ -240,7 +208,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(listener._last_realtime_sequence, 1)
 
         refreshed_state = project_state.model_copy(deep=True)
-        self._set_snapshot_section_text(refreshed_state, "Updated")
+        section_impl_id = next(iter(refreshed_state.sectionImpls))
+        refreshed_state.sectionImpls[section_impl_id].text = "Updated"
 
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
@@ -274,7 +243,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             realtime_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
+        listener._websocket = websocket
 
         await listener._refresh_from_snapshot(project_state)
 
@@ -290,7 +259,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
+                projectConfigId="project-1",
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
@@ -309,7 +278,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         refreshed_state = project_state.model_copy(deep=True)
-        self._set_snapshot_section_text(refreshed_state, "Updated")
+        section_impl_id = next(iter(refreshed_state.sectionImpls))
+        refreshed_state.sectionImpls[section_impl_id].text = "Updated"
 
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
@@ -339,7 +309,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             specific_calls.append(dict(ctx.changed))
 
         websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
+        listener._websocket = websocket
 
         await listener._refresh_from_snapshot(project_state)
 
@@ -358,7 +328,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
-                projectConfigId=project_state.projectConfig.id,
+                projectConfigId="project-1",
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
@@ -402,7 +372,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             )
 
         slider_node = ParamNode(
-            id=PARAM_SLIDER_ID,
+            id="param-slider",
             name="slider",
             full_path_name="section__slider",
             type=CodeObjType.SliderParam,
@@ -412,7 +382,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             passing_style=ParameterPassingStyle.DEFAULT,
         )
         switch_node = ParamNode(
-            id=PARAM_SWITCH_ID,
+            id="param-switch",
             name="switch",
             full_path_name="section__switch",
             type=CodeObjType.SwitchParam,
@@ -423,12 +393,12 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         slider_key = create_dep_key(
-            sectionId=SECTION_ONE_ID,
-            codeObjId=PARAM_SLIDER_ID,
+            sectionId="section-1",
+            codeObjId="param-slider",
         )
         switch_key = create_dep_key(
-            sectionId=SECTION_ONE_ID,
-            codeObjId=PARAM_SWITCH_ID,
+            sectionId="section-1",
+            codeObjId="param-switch",
         )
         graph = {
             slider_key: slider_node,
@@ -437,20 +407,17 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         state = SimpleNamespace(section__slider=1, section__switch=False)
 
-        dep_graph = cast("DependencyGraph", SimpleNamespace(graph=graph))
+        dep_graph = SimpleNamespace(graph=graph)
         value_codec = PythonValueCodec(
             dep_graph,
             lambda key: f"s.{dep_graph.graph[key].full_path_name}",
         )
 
-        code_generator = cast(
-            "PythonCodeGenerator",
-            SimpleNamespace(
-                value_codec=value_codec,
-                get_value=lambda node: value_codec.format_param_expression(node)
-                if isinstance(node, ParamNode)
-                else None,
-            ),
+        code_generator = SimpleNamespace(
+            value_codec=value_codec,
+            get_value=lambda node: value_codec.format_param_expression(node)
+            if isinstance(node, ParamNode)
+            else None,
         )
 
         listener._runtime_state = ListenerRuntimeState(
@@ -465,22 +432,22 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         }
 
         websocket = _StubWebsocket()
-        _attach_stub_websocket(listener, websocket)
+        listener._websocket = websocket
 
         event = ListenerRealtimeEventContent(
-            projectConfigId=PROJECT_TYPED_ID,
+            projectConfigId="project-typed",
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=create_dep_key(
-                        sectionId=SECTION_ONE_ID,
-                        codeObjId=PARAM_SLIDER_ID,
+                        sectionId="section-1",
+                        codeObjId="param-slider",
                     ),
                     value=LiteralDependencyValue("5"),
                 ),
                 ListenerRealtimeDelta(
                     dependency=create_dep_key(
-                        sectionId=SECTION_ONE_ID,
-                        codeObjId=PARAM_SWITCH_ID,
+                        sectionId="section-1",
+                        codeObjId="param-switch",
                     ),
                     value=LiteralDependencyValue("true"),
                 ),
@@ -556,24 +523,24 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
     def _build_project_state(self) -> ProjectStateSingleConfig:
         section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
+            id="section-impl",
             name="Welcome",
             text="Hello",
         )
         section_variant = Variant(
-            id=ID("section-variant"),
+            id="section-variant",
             name="Variant",
             impl=section_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
         )
         section_core = Core(
-            id=ID("section-welcome"),
+            id="section-welcome",
             name="Welcome",
             variants=[section_variant.id],
             defaultVariant=section_variant.id,
         )
         project_config = ProjectConfig(
-            id=ID("project-fail"),
+            id="project-fail",
             name="Demo Project",
             sectionVariantMap={section_core.id: section_variant.id},
             topLevelSections={section_core.id: TopLevelSectionLayout()},

@@ -21,7 +21,6 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgUnion,
 )
 from setta.types.helpers_lvl2 import ProjectNotFound
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerErrorContent,
     ListenerRegisterAckContent,
@@ -440,7 +439,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             await self.websocket_manager.send_message(error_message, websocket_id)
 
-    async def _sync_listener_coverage(self, project_config_id: ID) -> None:
+    async def _sync_listener_coverage(self, project_config_id: str) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(
             project_config_id,
             self.listener_registry.iter_registrations_for_project(project_config_id),

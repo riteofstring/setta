@@ -18,7 +18,6 @@ from setta.project_state.project_manager_types import SetCodeRequest
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
-from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -156,23 +155,23 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
         self._tmpdir.cleanup()
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
-        code_impl = CodeSectionImpl(id=ID("code-impl"))
+        code_impl = CodeSectionImpl(id="code-impl")
         self.initial_code = "print('hello world')"
         code_impl.code = self.initial_code
 
         variant = Variant(
-            id=ID("variant-main"),
+            id="variant-main",
             impl=code_impl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
         )
         section = Core(
-            id=ID("section-main"),
+            id="section-main",
             name="Main Section",
             variants=[variant.id],
             defaultVariant=variant.id,
         )
         project_config = ProjectConfig(
-            id=ID("project-config"),
+            id="project-config",
             name="Demo Project",
             sectionVariantMap={section.id: variant.id},
             topLevelSections={section.id: TopLevelSectionLayout()},

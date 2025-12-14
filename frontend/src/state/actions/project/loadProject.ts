@@ -19,8 +19,8 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
-import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
+import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });

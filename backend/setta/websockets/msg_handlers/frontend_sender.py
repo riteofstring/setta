@@ -4,17 +4,12 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
+from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact_messages import UpdateArtifactMsgContent
-from setta.types.chat import APIKeys
-from setta.types.chat_stream_events import (
-    LLMStreamingResponse,
-    LLMStreamingResponseChunk,
-)
+from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import BaseArtifactUnion
-from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
-from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -28,8 +23,6 @@ from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgListenerCoverageSnapshot,
-    WebsocketMsgLLMApiKeysUpdated,
-    WebsocketMsgLLMConfigUpdated,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -38,6 +31,7 @@ from setta.types.websocket import (
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
+    WebsocketMsgUUIDMappingForLLM,
 )
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
 
@@ -73,16 +67,24 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
 
     async def send_streaming_response(
         self,
-        chatId: ID,
+        chatId: str,
+        assistant_message_id: str | None,
         chunk: LLMStreamingResponseChunk,
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgLLMStreamingResponse(
                 content=LLMStreamingResponse(
                     chatId=chatId,
+                    assistantMessageId=assistant_message_id,
                     chunk=chunk,
                 )
             ),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def send_uuid_mapping(self, id_to_uuid: IDToUUIDForLLM):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgUUIDMappingForLLM(content=id_to_uuid),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
@@ -139,17 +141,5 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgListenerCoverageSnapshot(content=snapshot),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_llm_config_update(self, config: AllLLMConfigs):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgLLMConfigUpdated(content=config),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_llm_api_keys_update(self, payload: APIKeys):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgLLMApiKeysUpdated(content=payload),
             connectionType=WebsocketConnectionType.FRONTEND,
         )

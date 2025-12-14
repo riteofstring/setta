@@ -1,104 +1,55 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import _ from "lodash";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
+import { createNewLLMChat, getUUIDMappingForLLM } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import { useLocalValue } from "state/hooks/utils";
-import { AllLLMConfigs } from "utils/generatedTypes";
+import { C } from "utils/c";
+import { MODEL_GROUPS } from "utils/constants";
+import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
-import { useHydrateLLMState } from "./useHydrateLLMState";
 
 export function ProjectChat() {
-  const [chatId, setChatId] = useState<string | null | undefined>(undefined);
+  const { apiKeys, apiKeysInitialLoadComplete, viewHistory, userSelectedLLM } =
+    useAIStore(
+      (x) => ({
+        apiKeys: x.apiKeys,
+        apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+        viewHistory: x.viewHistory,
+        userSelectedLLM: x.userSelectedLLM,
+      }),
+      shallow,
+    );
+
+  useEffect(() => {
+    getUUIDMappingForLLM();
+  }, []);
+
   const [deepThink, setDeepThink] = useState(false);
-  useHydrateLLMState();
 
-  const {
-    apiKeys,
-    apiKeysInitialLoadComplete,
-    viewHistory,
-    allLLMConfigs,
-    llmConfigInitialLoadComplete,
-    llmConfigId,
-  } = useAIStore((x) => {
-    const llmConfig =
-      typeof chatId === "string" ? x.chatDetails[chatId]?.llmConfig : null;
-    const llmConfigId = llmConfig?.id ?? pickDefaultConfigId(x.allLLMConfigs);
-
-    return {
-      apiKeys: x.apiKeys,
-      apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-      viewHistory: x.viewHistory,
-      allLLMConfigs: x.allLLMConfigs,
-      llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
-      llmConfigId,
-    };
-  }, _.isEqual);
-
-  const [selectedLLMConfigId, setSelectedLLMConfigId] =
-    useLocalValue(llmConfigId);
-
-  const availableConfigGroups = useMemo(() => {
-    if (!allLLMConfigs) {
-      return [];
-    }
-    const groups = new Map<
-      string,
-      { group: string; items: Array<{ id: string; name: string }> }
-    >();
-    for (const [configId, config] of Object.entries(allLLMConfigs.configs)) {
-      if (config.api_key_env && !(config.api_key_env in apiKeys)) {
-        continue;
-      }
-      const groupName = config.provider || "LLM Configs";
-      const descriptorParts: Array<string> = [];
-      if (config.provider) {
-        descriptorParts.push(config.provider);
-      }
-      if (config.base_url) {
-        descriptorParts.push(config.base_url);
-      }
-      const descriptor =
-        descriptorParts.length > 0 ? ` (${descriptorParts.join(" · ")})` : "";
-      const name = `${config.model}${descriptor}`;
-      if (!groups.has(groupName)) {
-        groups.set(groupName, { group: groupName, items: [] });
-      }
-      groups.get(groupName).items.push({ id: configId, name });
-    }
-    return Array.from(groups.values())
-      .map((entry) => ({
-        group: entry.group,
-        items: entry.items.sort((a, b) => a.name.localeCompare(b.name)),
-      }))
-      .sort((a, b) => a.group.localeCompare(b.group));
-  }, [apiKeys, allLLMConfigs]);
-
-  const availableConfigCount = availableConfigGroups.reduce(
-    (sum, group) => sum + group.items.length,
-    0,
+  // Memoize filtered model groups
+  const filteredModelGroups = useMemo(
+    () =>
+      MODEL_GROUPS.filter(
+        (group) => C.LLM_API_KEY_NAMES[group.group] in apiKeys,
+      ),
+    [apiKeys],
   );
-  const noConfigsAvailable = availableConfigCount === 0;
+
+  const noModelsAvailable = filteredModelGroups.length === 0;
 
   return (
-    apiKeysInitialLoadComplete &&
-    llmConfigInitialLoadComplete && (
+    apiKeysInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
         <nav className="-mt-1.5 flex min-h-[50px] flex-col gap-2 border-b border-setta-100 pb-8 pt-2 @[17.5rem]:flex-row @[17.5rem]:items-center @[17.5rem]:pb-2 dark:border-setta-800">
           <div className="flex gap-2">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               aria-label="New Chat"
-              onClick={() => {
-                setChatId(undefined);
-                useAIStore.setState({
-                  viewHistory: false,
-                });
-              }}
+              onClick={createNewLLMChat}
             >
               <MdAdd size={15} />
               <span className="@[17.5rem]:hidden @sm:block">New</span>
@@ -136,17 +87,19 @@ export function ProjectChat() {
               </button>
 
               <IdNameCombobox
-                allItems={availableConfigGroups}
-                value={selectedLLMConfigId}
+                allItems={filteredModelGroups}
+                value={userSelectedLLM}
                 small={false}
-                onSelectedItemChange={setSelectedLLMConfigId}
+                onSelectedItemChange={(model) =>
+                  useAIStore.setState({ userSelectedLLM: model })
+                }
                 placeholder={
-                  noConfigsAvailable
-                    ? "Add an LLM config or API key"
+                  noModelsAvailable
+                    ? "Add API key in chat settings"
                     : "Select an LLM"
                 }
                 // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                bg={`${!userSelectedLLM ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
@@ -154,34 +107,21 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
+          <ProjectChatHistory />
         ) : (
           <ProjectChatCore
-            chatId={chatId}
             placeholderText={
-              noConfigsAvailable
+              noModelsAvailable
                 ? "Add API key!"
-                : !selectedLLMConfigId
+                : !userSelectedLLM
                   ? "Select an LLM"
                   : "Type a message..."
             }
             deepThink={deepThink}
-            llmConfigId={selectedLLMConfigId}
-            setChatId={setChatId}
+            userSelectedLLM={userSelectedLLM}
           />
         )}
       </div>
     )
   );
-}
-
-function pickDefaultConfigId(config: AllLLMConfigs | null) {
-  if (!config) {
-    return null;
-  }
-  if (config.default_config_id && config.configs[config.default_config_id]) {
-    return config.default_config_id;
-  }
-  const [firstId] = Object.keys(config.configs);
-  return firstId ?? null;
 }

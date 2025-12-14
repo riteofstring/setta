@@ -1,4 +1,4 @@
-import { get, post, ResponseDataAndStatus } from "./endpointUtils";
+import { post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
 export async function route_load_all_project_metadata(): Promise<
@@ -183,34 +183,16 @@ export async function route_type_check(
   return await post("/typeCheck", x);
 }
 
-export async function route_get_llm_config(): Promise<
-  ResponseDataAndStatus<gt.AllLLMConfigs>
-> {
-  return await get("/llm/config");
-}
-
-export async function route_set_llm_config(
-  config: gt.AllLLMConfigs,
-): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
-  return await post("/llm/config", config);
-}
-
-export async function route_get_llm_api_keys(): Promise<
-  ResponseDataAndStatus<Record<string, string>>
-> {
-  return await get("/llm/apiKeys");
-}
-
-export async function route_set_llm_api_keys(
-  payload: gt.UpdateAPIKeysRequest,
-): Promise<ResponseDataAndStatus<Record<string, string>>> {
-  return await post("/llm/apiKeys", payload);
-}
-
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequest,
 ): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/getLLMResponse", x);
+}
+
+export async function route_set_llm_api_keys(
+  x: gt.SetLLMApiKeysRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setLLMApiKeys", x);
 }
 
 export async function route_get_all_llm_chat_metadata(): Promise<
@@ -237,6 +219,12 @@ export async function route_get_llm_chat(
   return await post("/getLLMChat", x);
 }
 
+export async function route_get_uuid_mapping_for_llm(): Promise<
+  ResponseDataAndStatus<Record<gt.ID, string>>
+> {
+  return await post("/getUUIDMappingForLLM");
+}
+
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -245,7 +233,7 @@ export async function route_clear_text_field_completion(
 
 export async function route_set_callable(
   x: gt.SetCallableRequest,
-): Promise<ResponseDataAndStatus<gt.SetCallableResponse>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCallable", x);
 }
 
@@ -615,10 +603,4 @@ export async function route_set_chart_settings(
   x: gt.SetChartSettingsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChartSettings", x);
-}
-
-export async function route_get_backend_init_status(): Promise<
-  ResponseDataAndStatus<gt.BackendInitStatusResponse>
-> {
-  return await get("/backendInitStatus");
 }

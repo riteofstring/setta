@@ -29,12 +29,11 @@ dependencies = [
     "watchdog==6.0.0",
     "python-dotenv==1.1.0",
     "mcp==1.9.3",
-    "litellm==1.80.5",
+    "anthropic==0.52.2",
     "ruff==0.12.12",
     "pydantic==2.11.5",
     "lsprotocol==2023.0.1",
     "watchfiles==0.24.0",
-    "bm25s==0.2.14",
 ]
 
 [project.urls]
@@ -48,9 +47,6 @@ setta = "setta.start:cli"
 dev = [
     "build==1.0.3",
     "pip-audit==2.9.0",
-]
-gemini = [
-    "google-cloud-aiplatform==1.128.0",
 ]
 
 [tool.hatch.version]
@@ -69,4 +65,11 @@ include = [
 [tool.hatch.build]
 artifacts = [
     "backend/setta/static/frontend/**",
+]
+
+# UV-specific configuration
+[dependency-groups]
+dev = [
+    "build==1.0.3",
+    "pip-audit==2.9.0",
 ]

@@ -1,8 +1,7 @@
 import random
-from typing import Iterable
 
 
-def generate_memorable_available_string(taken_strings: Iterable[str]):
+def generate_memorable_available_string(taken_strings):
     name = None
     while (not name) or name in taken_strings:
         name = generate_memorable_string()

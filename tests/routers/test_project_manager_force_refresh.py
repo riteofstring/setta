@@ -1,22 +1,17 @@
 import types
 import unittest
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
 
 from fastapi import HTTPException
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import ForceRefreshProjectRequest
 from setta.routers.project_manager import route_force_refresh_listener
-from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
 from tests.utils.manager_fixture import (
     real_project_manager,
     real_settings_manager,
 )
-
-if TYPE_CHECKING:
-    from setta.server_state import SettaFastAPIState
 
 
 class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
@@ -30,20 +25,15 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     project_fixture.manager,
                     settings_fixture.manager,
                 )
-                state = cast(
-                    "SettaFastAPIState",
-                    SimpleNamespace(
-                        project_manager_switcher=switcher,
-                        wmh_python_script_sender=project_fixture.python_script_sender,
-                    ),
+                state = SimpleNamespace(
+                    project_manager_switcher=switcher,
+                    wmh_python_script_sender=project_fixture.python_script_sender,
                 )
                 default_project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
                 )
-                if default_project_config_id is None:
-                    self.fail(
-                        "Expected default project config id for force refresh test."
-                    )
+                self.assertIsNotNone(default_project_config_id)
+                default_project_config_id = str(default_project_config_id)
                 await project_fixture.manager.finish_pending_operations()
 
                 captured_calls: list[dict[str, object | None]] = []
@@ -52,7 +42,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     self,
                     *,
                     projectState: ProjectStateSingleConfig,
-                    projectConfigId: ID | None = None,
+                    projectConfigId: str | None = None,
                     targetWebsocketIds: tuple[str, ...] | list[str] | None = None,
                 ) -> None:
                     captured_calls.append(
@@ -79,7 +69,8 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual(1, len(captured_calls))
                 call = captured_calls[0]
-                project_state = cast("ProjectStateSingleConfig", call["projectState"])
+                project_state = call["projectState"]
+                self.assertIsNotNone(project_state)
                 self.assertEqual(
                     default_project_config_id,
                     project_state.projectConfig.id,
@@ -99,17 +90,12 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     project_fixture.manager,
                     settings_fixture.manager,
                 )
-                state = cast(
-                    "SettaFastAPIState",
-                    SimpleNamespace(
-                        project_manager_switcher=switcher,
-                        wmh_python_script_sender=project_fixture.python_script_sender,
-                    ),
+                state = SimpleNamespace(
+                    project_manager_switcher=switcher,
+                    wmh_python_script_sender=project_fixture.python_script_sender,
                 )
 
-                request = ForceRefreshProjectRequest(
-                    projectConfigId=ID("missing-project")
-                )
+                request = ForceRefreshProjectRequest(projectConfigId="missing-project")
                 with self.assertRaises(HTTPException) as ctx:
                     await route_force_refresh_listener(request, state)
                 self.assertEqual(404, ctx.exception.status_code)
