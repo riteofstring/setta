@@ -13,7 +13,7 @@ def load_llm_config(dbe: DBE) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
     if not raw:
         config = AllLLMConfigs()
-        dbe.write_llm_config(config.model_dump(exclude_unset=True))
+        save_llm_config(config, dbe)
         return config
     return AllLLMConfigs.model_validate(raw)
 
@@ -21,6 +21,8 @@ def load_llm_config(dbe: DBE) -> AllLLMConfigs:
 def save_llm_config(
     config: AllLLMConfigs,
     dbe: DBE,
+    *,
+    is_example: bool = False,
 ) -> None:
     """Persist the LLM configuration, writing canonical JSON."""
     sanitized = _strip_temporary_configs(config)
@@ -30,7 +32,10 @@ def save_llm_config(
         for entry in configs.values():
             if isinstance(entry, dict) and "id" in entry:
                 entry.pop("id")
-    dbe.write_llm_config(payload)
+    if is_example:
+        dbe.write_llm_config_example(payload)
+    else:
+        dbe.write_llm_config(payload)
 
 
 def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:

@@ -8,6 +8,7 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
+from setta.llm.example_config import seed_llm_config_example_file
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
@@ -63,6 +64,7 @@ class SettaFastAPIState:
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
+        seed_llm_config_example_file(self.dbe)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)

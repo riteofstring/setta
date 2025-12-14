@@ -6,6 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
+from setta.llm.example_config import seed_llm_config_example_file
 from setta.types.chat import ChatMetadata
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
@@ -147,6 +148,64 @@ class LLMConfigPersistenceTests(unittest.TestCase):
 
             loaded = load_llm_config(dbe)
             self.assertEqual(loaded.configs["primary"].id, "primary")
+
+    def test_save_llm_config_can_write_example_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            config = AllLLMConfigs(
+                configs={
+                    "secondary": LLMConfig(
+                        id="secondary",
+                        model="gpt-4o",
+                        provider="openai",
+                    )
+                }
+            )
+
+            save_llm_config(config, dbe, is_example=True)
+
+            # Default llm_config.json should remain empty until explicitly saved.
+            self.assertEqual(dbe.read_llm_config(), {})
+            payload = dbe.read_llm_config_example()
+            self.assertIn("secondary", payload["configs"])
+
+
+class LLMConfigExampleSeedingTests(unittest.TestCase):
+    def test_seed_llm_config_example_file_writes_default_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+
+            seed_llm_config_example_file(dbe)
+
+            payload = dbe.read_llm_config_example()
+            configs = payload.get("configs", {})
+            self.assertIn("claude-sonnet", configs)
+            self.assertNotIn("id", configs["claude-sonnet"])
+
+    def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            dbe.write_llm_config_example(
+                {
+                    "configs": {
+                        "existing": {
+                            "model": "custom-model",
+                        }
+                    }
+                }
+            )
+
+            seed_llm_config_example_file(dbe)
+
+            payload = dbe.read_llm_config_example()
+            self.assertEqual(
+                payload["configs"],
+                {
+                    "existing": {
+                        "model": "custom-model",
+                    }
+                },
+            )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -33,6 +33,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 ## LLM configuration (`setta_files/llm_config.json`)
 - All provider definitions live in `setta_files/llm_config.json`. The `DBE` helper reads and writes the file, while `LLMConfigWatcher` sits on top of `SpecificFileWatcher` so it can push websocket updates whenever someone edits the JSON by hand.
 - The schema comes from `setta.types.llm_config.AllLLMConfigs`: each entry defines `model`, `provider`, optional `base_url`, arbitrary `other_params`, and the `api_key_env` Setta should look up inside `.env`.
+- A pre-populated `setta_files/llm_config.example.json` ships with representative Anthropic, OpenAI-compatible, and custom router configs. Copy it to `llm_config.json` (or copy individual entries) and then replace the API keys/env var names with ones available in your `.env`.
 - Saving configs through the REST route (`route_set_llm_config`) strips transient fields before writing to disk, while manual edits benefit from validation because the watcher simply calls `load_llm_config` and only broadcasts when parsing succeeds.
 - Because both `llm_config.json` and `.env` sit in `setta_files/`, they are versioned locally per workspace. API keys never leave disk; `DotEnvWatcher` reloads them and `LLMChatManager._sync_api_keys` merges them into each chat request when needed.
 

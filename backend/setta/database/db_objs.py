@@ -27,6 +27,7 @@ class DBE:
         self.settings_project = self.path / "setta-settings-project.json"
         self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
+        self.llm_config_example = self.path / "llm_config.example.json"
         self.dot_env = self.path / ".env"
         self.path.mkdir(parents=True, exist_ok=True)
 
@@ -159,6 +160,12 @@ class DBE:
 
     def write_llm_config(self, payload: Any) -> None:
         self.write_json(self.llm_config, payload)
+
+    def read_llm_config_example(self) -> dict[str, Any]:
+        return self.read_json(self.llm_config_example)
+
+    def write_llm_config_example(self, payload: Any) -> None:
+        self.write_json(self.llm_config_example, payload)
 
     def read_dot_env(self) -> dict[str, str]:
         raw = self.read(self.dot_env)
