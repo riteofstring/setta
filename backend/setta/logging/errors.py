@@ -25,7 +25,6 @@ def log_route_failure(
     label: str,
     logger: logging.Logger | None = None,
     handled: bool = False,
-    notify_frontend: bool = False,
     context: Mapping[str, LoggingContextInput] | None = None,
 ) -> None:
     """Log a structured failure with context metadata."""
@@ -35,8 +34,6 @@ def log_route_failure(
         "failure_label": label,
         "failure_handled": handled,
     }
-    if notify_frontend:
-        context_values["failure_notify_frontend"] = True
 
     merged_context = _merge_contexts(
         context,
@@ -56,7 +53,6 @@ async def run_safely(
     label: str,
     logger: logging.Logger | None = None,
     context: Mapping[str, LoggingContextInput] | None = None,
-    notify_frontend: bool = False,
     re_raise: bool = False,
 ) -> T | None:
     """Execute a coroutine and log failures with consistent metadata."""
@@ -72,7 +68,6 @@ async def run_safely(
             label=label,
             logger=logger,
             handled=not re_raise,
-            notify_frontend=notify_frontend,
             context=context,
         )
         if re_raise:

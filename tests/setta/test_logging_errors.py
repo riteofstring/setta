@@ -43,7 +43,6 @@ class LoggingErrorHelpersTests(unittest.TestCase):
             exc,
             label="save-project",
             logger=self.logger,
-            notify_frontend=True,
             context={"task": "autosave"},
         )
         self.assertEqual(len(self.handler.records), 1)
@@ -52,7 +51,6 @@ class LoggingErrorHelpersTests(unittest.TestCase):
         self.assertEqual(record.request_id, "req-9")
         self.assertEqual(record.project_id, "alpha")
         self.assertEqual(record.failure_label, "save-project")
-        self.assertEqual(record.failure_notify_frontend, "true")
         self.assertEqual(record.failure_handled, "false")
         self.assertEqual(record.task, "autosave")
         self.assertIn("failure_label=save-project", record.setta_context)

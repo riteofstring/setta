@@ -1,9 +1,15 @@
+import logging
+from collections.abc import Mapping
 from typing import Literal
+
+from pydantic import BaseModel
 
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
+from setta.logging.context import LoggingContextInput
+from setta.logging.errors import log_route_failure
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import (
@@ -69,6 +75,34 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         await self.websocket_manager.broadcast(
             WebsocketMsgBackendLogEvent(content=event),
             connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def log_failure_and_broadcast_backend_log_event(
+        self,
+        exc: BaseException,
+        *context_models: BaseModel,
+        label: str,
+        message: str,
+        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.error,
+        project_config_id: ID | None = None,
+        handled: bool = False,
+        logger: logging.Logger | None = None,
+        context: Mapping[str, LoggingContextInput] | None = None,
+    ) -> None:
+        """Log a structured failure and surface it to the UI."""
+
+        log_route_failure(
+            exc,
+            *context_models,
+            label=label,
+            logger=logger,
+            handled=handled,
+            context=context,
+        )
+        await self.broadcast_backend_log_event(
+            message,
+            severity=severity,
+            project_config_id=project_config_id,
         )
 
     async def broadcast_artifacts_update(

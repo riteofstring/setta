@@ -100,15 +100,11 @@ async def route_save_project(
         )
         await state.wmh_frontend_sender.broadcast_notification(notification)
     except Exception as exc:
-        log_route_failure(
+        await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
             exc,
             x,
             label="save-project",
-            handled=False,
-            notify_frontend=True,
-        )
-        await state.wmh_frontend_sender.broadcast_backend_log_event(
-            "Failed to save",
+            message="Failed to save",
             severity=SettaBackendLogEventSeverity.error,
             project_config_id=x.projectConfigId,
         )
