@@ -46,13 +46,9 @@ def get_logging_context() -> LoggingContextData:
 def push_logging_context(
     *,
     values: dict[str, LoggingContextInput] | None = None,
-    replace: bool = False,
     **kwargs: LoggingContextInput,
 ) -> LoggingContextToken:
     """Merge new context values into the current context.
-
-    When ``replace=True``, the previous snapshot is discarded and only the provided
-    values are kept.
     """
 
     merged_values: dict[str, LoggingContextInput] = {}
@@ -60,7 +56,7 @@ def push_logging_context(
         merged_values.update(values)
     if kwargs:
         merged_values.update(kwargs)
-    new_values = _updated_context(merged_values, replace=replace)
+    new_values = _updated_context(merged_values)
     snapshot = _build_snapshot(new_values)
     return _LOGGING_CONTEXT_VAR.set(snapshot)
 
@@ -75,12 +71,11 @@ def reset_logging_context(token: LoggingContextToken) -> None:
 def logging_context(
     *,
     values: dict[str, LoggingContextInput] | None = None,
-    replace: bool = False,
     **kwargs: LoggingContextInput,
 ) -> Iterator[None]:
     """Context manager that temporarily updates the logging context."""
 
-    token = push_logging_context(values=values, replace=replace, **kwargs)
+    token = push_logging_context(values=values, **kwargs)
     try:
         yield
     finally:
@@ -97,14 +92,8 @@ class LoggingContextFilter(logging.Filter):
 
 def _updated_context(
     updates: dict[str, LoggingContextInput],
-    *,
-    replace: bool = False,
 ) -> LoggingContextData:
-    base: LoggingContextData
-    if replace:
-        base = {}
-    else:
-        base = dict(_LOGGING_CONTEXT_VAR.get().data)
+    base = dict(_LOGGING_CONTEXT_VAR.get().data)
     if not updates:
         return base
     for key, value in updates.items():

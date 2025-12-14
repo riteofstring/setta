@@ -70,7 +70,6 @@ async def run_safely(
     label: str,
     logger: logging.Logger | None = None,
     context: Mapping[str, LoggingContextInput] | None = None,
-    handled: bool = False,
     re_raise: bool = False,
 ) -> T | None:
     """Execute a coroutine and log failures with consistent metadata."""

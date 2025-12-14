@@ -49,3 +49,5 @@ class LoggingContextMiddlewareTests(unittest.TestCase):
         second_context = second["context"]
 
         self.assertNotEqual(first_context["request_id"], second_context["request_id"])
+        self.assertEqual(first_context["project_config_id"], "alpha")
+        self.assertEqual(second_context["project_config_id"], "beta")

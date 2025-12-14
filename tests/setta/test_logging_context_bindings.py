@@ -19,14 +19,14 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
     def tearDown(self) -> None:
         reset_logging_context(self._token)
 
-    async def test_bind_websocket_logging_context_binds_metadata(self) -> None:
+    async def test_bind_websocket_logging_context_infers_metadata(self) -> None:
         websocket = _make_websocket(
             path="/api/ws/frontend",
+            path_params={"projectConfigId": "alpha"},
         )
         async with bind_websocket_logging_context(
             websocket,
             websocket_id="ws-test",
-            project_config_id="alpha",
         ):
             context = get_logging_context()
             self.assertEqual(context["websocket_id"], "ws-test")

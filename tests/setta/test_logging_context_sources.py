@@ -14,36 +14,28 @@ from starlette.websockets import WebSocket
 
 
 class LoggingContextSourcesTests(unittest.TestCase):
-    def test_build_request_context_generates_request_id(self) -> None:
+    def test_build_request_context_infers_project_and_request_id(self) -> None:
         request = _make_request(
             method="post",
             path="/api/projects/alpha/load",
             path_params={"project_config_id": "alpha"},
         )
         context = build_request_context(request)
+        self.assertEqual(context["project_config_id"], "alpha")
         first_request_id = context["request_id"]
         second_request_id = build_request_context(request)["request_id"]
         self.assertEqual(first_request_id, second_request_id)
         self.assertTrue(first_request_id.startswith("req-"))
 
-    def test_build_request_context_does_not_infer_project_config_id(self) -> None:
+    def test_build_request_context_uses_query_params_as_fallback(self) -> None:
         request = _make_request(
             method="get",
             path="/api/projects",
             query_string="projectConfigId=beta",
-            path_params={"project_config_id": "alpha"},
         )
         context = build_request_context(request)
-        self.assertNotIn("project_config_id", context)
-        self.assertEqual(ensure_request_context(request), context["request_id"])
-
-    def test_build_request_context_accepts_explicit_project_config_id(self) -> None:
-        request = _make_request(
-            method="get",
-            path="/api/projects",
-        )
-        context = build_request_context(request, project_config_id="beta")
         self.assertEqual(context["project_config_id"], "beta")
+        self.assertEqual(ensure_request_context(request), context["request_id"])
 
     def test_build_websocket_context_uses_path_params(self) -> None:
         websocket = _make_websocket(
@@ -52,14 +44,9 @@ class LoggingContextSourcesTests(unittest.TestCase):
         )
         context = build_websocket_context(websocket)
         websocket_id = context["websocket_id"]
-        self.assertNotIn("project_config_id", context)
+        self.assertEqual(context["project_config_id"], "delta")
         self.assertTrue(websocket_id.startswith("ws-"))
         self.assertEqual(websocket_id, ensure_websocket_context(websocket))
-
-    def test_build_websocket_context_accepts_explicit_project_config_id(self) -> None:
-        websocket = _make_websocket(path="/api/ws")
-        context = build_websocket_context(websocket, project_config_id="delta")
-        self.assertEqual(context["project_config_id"], "delta")
 
     def test_build_background_task_context_merges_values(self) -> None:
         context = build_background_task_context(
