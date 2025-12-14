@@ -28,6 +28,7 @@ Logging context (`setta_context`)
 
 - Context is stored in a `contextvars` snapshot and attached to log records by `setta.logging.context.LoggingContextFilter` (`backend/setta/logging/context.py`).
 - `push_logging_context(...)` / `logging_context(...)` merge keys into the current snapshot; values are normalized to strings.
+- `setta_context` renders in a logfmt-style `key=value` format; values are quoted/escaped as needed (e.g. spaces in paths).
 - Values may be arbitrary Python objects; normalization uses `backend/setta/logging/redaction.py`:
   - Pydantic fields annotated with `Annotated[..., Sensitive()]` are redacted.
   - Long strings are truncated; large collections are summarized.

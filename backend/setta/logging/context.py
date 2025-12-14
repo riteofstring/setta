@@ -3,6 +3,7 @@
 import contextvars
 import dataclasses
 import logging
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from types import MappingProxyType
@@ -131,5 +132,19 @@ def _build_snapshot(values: LoggingContextData) -> _LoggingContextSnapshot:
 
 
 def _format_context_string(values: LoggingContextData) -> str:
-    pairs = [f"{key}={value}" for key, value in sorted(values.items())]
+    pairs = [
+        f"{key}={_format_logfmt_value(value)}" for key, value in sorted(values.items())
+    ]
     return " ".join(pairs)
+
+
+_LOGFMT_SAFE_VALUE_RE = re.compile(r"^[A-Za-z0-9_./:@+-]+$")
+
+
+def _format_logfmt_value(value: str) -> str:
+    if value == "":
+        return '""'
+    if _LOGFMT_SAFE_VALUE_RE.fullmatch(value):
+        return value
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'

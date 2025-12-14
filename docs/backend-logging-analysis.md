@@ -10,11 +10,11 @@ logging/context.py:88).
 
 Main Gaps / Risks
 
-- Context string formatting doesn’t escape spaces, so values like paths can make key=value parsing ambiguous (backend/setta/logging/context.py:133). If you rely on grep/filtering by setta_context, this is a
-footgun.
+- (None currently noted.)
 
 Resolved
 
+- Context string formatting now uses logfmt-style quoting/escaping, so values with spaces (e.g. paths) don’t break key=value parsing (backend/setta/logging/context.py:133).
 - Background task failures now decouple propagation from severity: `re_raise` controls whether exceptions propagate, and `handled` must be explicitly opted into to downgrade expected failures to WARNING (backend/setta/logging/tasks.py:1, backend/setta/logging/errors.py:1).
 - run_safely now logs synchronous exceptions thrown by a “coroutine factory” (i.e., an exception raised before returning an awaitable), so these failures get structured log_failure output instead of unstructured “Task
 exception was never retrieved” (backend/setta/logging/errors.py:46).
@@ -35,4 +35,4 @@ Dead Code / Cleanup Opportunities
 Overall Assessment
 
 - The logging architecture is generally well thought out and performant for its intended use (precomputed context string + minimal per-record overhead).
-- The biggest remaining practical issues are background task handled semantics and unescaped spaces in the context string.
+- The biggest remaining practical issues are background task handled semantics and keeping context payloads small enough to stay readable.

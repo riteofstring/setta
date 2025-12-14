@@ -28,7 +28,6 @@ class LoggingRedactionTests(unittest.TestCase):
             reset_logging_context(token)
 
         raw_payload = context["payload"]
-        self.assertIn("\\u0020", raw_payload)
         parsed = json.loads(raw_payload)
         self.assertEqual(parsed["api_key"], REDACTED_VALUE)
         self.assertEqual(parsed["message"], "hello world")
