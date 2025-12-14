@@ -27,6 +27,8 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.value_mode import PythonValueMode
+from setta.logging.config import configure_listener_logging
+from setta.logging.context_bindings import wrap_background_coroutine
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -58,8 +60,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
 )
 from setta.utils.constants import C
-from setta.logging.config import configure_listener_logging
-from setta.logging.context_bindings import wrap_background_coroutine
 
 from .scheduling import ListenerCallbackScheduler
 

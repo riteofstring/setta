@@ -12,9 +12,7 @@ DictConfigMapping = MutableMapping[str, Any]
 DEFAULT_LOG_FORMAT = (
     "%(asctime)s | %(levelname)-8s | %(name)s | %(setta_context)s | %(message)s"
 )
-ACCESS_LOG_FORMAT = (
-    "%(asctime)s | %(levelname)-8s | %(setta_context)s | %(message)s"
-)
+ACCESS_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(setta_context)s | %(message)s"
 
 _ENV_DEFAULT = "SETTA_LOG_LEVEL"
 _LISTENER_ENV_DEFAULT = "SETTA_LISTENER_LOG_LEVEL"

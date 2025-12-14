@@ -27,6 +27,7 @@ import {
   LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
+  SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -217,6 +218,18 @@ export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
     notifications: [],
   })),
+);
+
+type BackendLogEventsState = {
+  events: Array<SettaBackendLogEvent>;
+};
+
+export const useBackendLogEvents = withProjectState(
+  createWithEqualityFn(
+    withResetFn<BackendLogEventsState>(() => ({
+      events: [],
+    })),
+  ),
 );
 
 const useArtifacts = withProjectState(

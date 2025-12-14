@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+
 from pydantic import BaseModel, Field, field_serializer
 
 from setta.database.utils import create_new_id

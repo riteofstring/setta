@@ -9,22 +9,22 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
-from setta.middleware import (
-    LoggingContextMiddleware,
-    bind_request_logging_context,
-)
 from setta.logging.context_bindings import wrap_background_coroutine
 from setta.logging.errors import log_route_failure
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,
+)
+from setta.middleware import (
+    LoggingContextMiddleware,
+    bind_request_logging_context,
 )
 from setta.routers import (
     ai_router,

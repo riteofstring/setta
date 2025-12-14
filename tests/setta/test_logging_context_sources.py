@@ -2,11 +2,7 @@ import unittest
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
-
-from starlette.requests import Request
-from starlette.types import Scope
-from starlette.websockets import WebSocket
-
+from setta.logging.context_models import SensitiveLoggingField
 from setta.logging.context_sources import (
     ProjectContextModel,
     attach_request_context_models,
@@ -18,7 +14,9 @@ from setta.logging.context_sources import (
     ensure_websocket_context,
     get_project_id_from_payload,
 )
-from setta.logging.context_models import SensitiveLoggingField
+from starlette.requests import Request
+from starlette.types import Scope
+from starlette.websockets import WebSocket
 
 
 class SamplePayload(ProjectContextModel):
@@ -203,7 +201,12 @@ def _make_websocket(
     }
 
     async def empty_receive() -> dict[str, Any]:
-        return {"type": "websocket.receive", "bytes": b"", "text": "", "more_body": False}
+        return {
+            "type": "websocket.receive",
+            "bytes": b"",
+            "text": "",
+            "more_body": False,
+        }
 
     async def empty_send(message: dict[str, Any]) -> None:
         return None

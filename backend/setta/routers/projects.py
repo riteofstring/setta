@@ -7,7 +7,11 @@ from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromR
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
 from setta.types.id import ID
-from setta.types.notifications import SettaBackendLogEventSeverity, SettaNotification, SettaNotificationType
+from setta.types.notifications import (
+    SettaBackendLogEventSeverity,
+    SettaNotification,
+    SettaNotificationType,
+)
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
 
@@ -108,9 +112,7 @@ async def route_save_project(
             severity=SettaBackendLogEventSeverity.error,
             project_config_id=x.projectConfigId,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to save project"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Failed to save project") from exc
 
 
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)

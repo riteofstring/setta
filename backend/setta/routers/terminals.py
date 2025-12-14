@@ -4,23 +4,22 @@ import logging
 from fastapi import WebSocket
 from pydantic import BaseModel
 
-from setta.routers.dependencies import (
-    AppStateFromRequest,
-    AppStateFromWebsocket,
-    ReadyAppStateFromRequest,
-)
-from setta.routers.setta_api_router import SettaAPIRouter
 from setta.logging.context import get_logging_context
 from setta.logging.context_bindings import (
     bind_websocket_logging_context,
     wrap_background_coroutine,
 )
 from setta.logging.errors import run_safely
+from setta.routers.dependencies import (
+    AppStateFromRequest,
+    AppStateFromWebsocket,
+    ReadyAppStateFromRequest,
+)
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
-
 
 router = SettaAPIRouter()
 

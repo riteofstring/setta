@@ -2,12 +2,12 @@ import logging
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from setta.logging.context_bindings import bind_websocket_logging_context
+from setta.logging.errors import log_route_failure
 from setta.routers.dependencies import (
     ReadyAppStateFromWebsocket as AppStateFromWebsocket,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.logging.context_bindings import bind_websocket_logging_context
-from setta.logging.errors import log_route_failure
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.msg_handlers.base import (

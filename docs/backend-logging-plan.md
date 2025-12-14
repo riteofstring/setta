@@ -23,11 +23,13 @@ Current State
 Improvement Plan
 ----------------
 
-1. **Unblock notifications and log-event delivery.**
+1. **Unblock notifications and log-event delivery (while keeping notifications).**
    * ✅ Transport exists: `WebsocketMsgTypeForFrontend.BackendLogEvent` now mirrors all structured log events through `WMHFrontendSender.broadcast_backend_log_event`, and `SettaBackendLogEvent` has been simplified to `{projectConfigId, severity, message}` so callers can emit readable strings without extra metadata plumbing.
    * ✅ Server code now limits `SettaNotification` to the `save` UX cue and routes prior notification usages (autosave/manual save errors, artifact watchers, JSON-source reloads, LLM config/dotenv failures, terminal actions, etc.) through the new log-event broadcaster.
    * ✅ `WMHFrontendSender.log_failure_and_broadcast_backend_log_event` wraps `log_route_failure` + `broadcast_backend_log_event`, replacing the `notify_frontend` hint on `log_route_failure` so callers only opt into a single helper when they need both backend logging and UI surfacing.
-   * ⏭ Still outstanding: regenerate the TS client (`pnpm generate`), handle `BackendLogEvent` messages in `frontend/src/state/actions/websocketReceive.ts`, and build UI surfacing for these log events so users actually see them. Once the frontend listens to the new stream, rip out the stale notification enum/state.
+   * ✅ Notifications remain a first-class surface for deliberate UX cues (e.g., manual saves, destructive confirmations). Keep the notification store/components alive; only migrate the ad-hoc error/info spam to backend log events.
+   * ✅ The frontend now handles `BackendLogEvent` messages, storing them via `useBackendLogEvents` so downstream UI can render the live stream.
+   * ⏭ Still outstanding: build UI surfacing for these log events so users actually see them. Once the frontend renders the new stream, rip out the stale notification enum/state **except** for the save-related flows noted above.
 2. **Leverage the context-model helpers.**
    * Make request DTOs that carry `projectConfigId` inherit from `ProjectContextModel` or call `attach_request_context_models` / `attach_websocket_context_models` inside router dependencies. This lets `log_route_failure` and background tasks render project/section metadata without bespoke plumbing.
    * Audit payload serializers to mark sensitive fields with `SensitiveLoggingField` now that the serializer exists.

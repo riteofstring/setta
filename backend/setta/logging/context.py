@@ -1,9 +1,9 @@
 """Context propagation helpers for Setta log records."""
 
-from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
 import contextvars
 import logging
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 
 LoggingContextPrimitive = str | int | float | bool
 LoggingContextInput = LoggingContextPrimitive | None

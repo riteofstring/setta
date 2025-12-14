@@ -76,9 +76,7 @@ def build_request_context(
     return context
 
 
-def attach_request_context_models(
-    request: Request, *models: BaseModel
-) -> None:
+def attach_request_context_models(request: Request, *models: BaseModel) -> None:
     """Record sanitized model fields so they merge into future request contexts."""
 
     _store_state_model_context(request.state, _REQUEST_MODEL_CONTEXT_KEY, models)
@@ -120,15 +118,15 @@ def build_websocket_context(
     return context
 
 
-def attach_websocket_context_models(
-    websocket: WebSocket, *models: BaseModel
-) -> None:
+def attach_websocket_context_models(websocket: WebSocket, *models: BaseModel) -> None:
     """Record sanitized model fields so they merge into future websocket contexts."""
 
     _store_state_model_context(websocket.state, _WEBSOCKET_MODEL_CONTEXT_KEY, models)
 
 
-def ensure_websocket_context(websocket: WebSocket, websocket_id: str | None = None) -> str:
+def ensure_websocket_context(
+    websocket: WebSocket, websocket_id: str | None = None
+) -> str:
     """Return a websocket id, storing it on the websocket state if needed."""
 
     stored_id = getattr(websocket.state, _WEBSOCKET_ID_STATE_KEY, None)
@@ -195,9 +193,7 @@ def _infer_project_id_from_websocket(websocket: WebSocket) -> str | None:
     return None
 
 
-def _search_mapping(
-    mapping: Mapping[str, object], keys: tuple[str, ...]
-) -> str | None:
+def _search_mapping(mapping: Mapping[str, object], keys: tuple[str, ...]) -> str | None:
     for key in keys:
         if key not in mapping:
             continue

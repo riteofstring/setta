@@ -4,7 +4,6 @@ import unittest
 from typing import Annotated
 
 from pydantic import BaseModel, Field
-
 from setta.logging.context import (
     LoggingContextFilter,
     clear_logging_context,

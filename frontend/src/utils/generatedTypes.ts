@@ -186,13 +186,14 @@ export const ViewingEditingModeEnum = {
 
 export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
-export const SettaNotificationTypeEnum = {
-  success: "success",
+const SettaBackendLogEventSeverityEnum = {
+  critical: "critical",
   error: "error",
   warning: "warning",
   info: "info",
-  save: "save",
 } as const;
+
+export const SettaNotificationTypeEnum = { save: "save" } as const;
 
 export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
@@ -371,6 +372,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LSPDiagnostics: "LSPDiagnostics",
   TerminalMetadata: "TerminalMetadata",
   Notification: "Notification",
+  BackendLogEvent: "BackendLogEvent",
   LLMStreamingResponse: "LLMStreamingResponse",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
@@ -2558,9 +2560,7 @@ const SettaNotificationSchema = z.object({
   projectConfigId: IDSchema.default(
     () => "NOTIFICATION_IS_FOR_ALL_PROJECTS" as const,
   ),
-  type: z
-    .enum(SettaNotificationTypeEnum)
-    .default(SettaNotificationTypeEnum.info),
+  type: z.enum(SettaNotificationTypeEnum),
   message: z.string(),
   temporary: z.boolean().default(true),
   timestamp: z.iso.datetime().default(get_now_timestamp),
@@ -2582,6 +2582,26 @@ const WebsocketMsgNotificationSchema = z.object({
   messageType: z
     .literal("Notification")
     .default(WebsocketMsgTypeForFrontendEnum.Notification),
+});
+
+const SettaBackendLogEventSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+  severity: z
+    .enum(SettaBackendLogEventSeverityEnum)
+    .default(SettaBackendLogEventSeverityEnum.info),
+  message: z.string(),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+});
+
+export type SettaBackendLogEvent = z.infer<typeof SettaBackendLogEventSchema>;
+
+const WebsocketMsgBackendLogEventSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: SettaBackendLogEventSchema,
+  messageType: z
+    .literal("BackendLogEvent")
+    .default(WebsocketMsgTypeForFrontendEnum.BackendLogEvent),
 });
 
 const LLMStreamingResponseSchema = z.object({
@@ -3694,6 +3714,7 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
 const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
+  WebsocketMsgBackendLogEventSchema,
   WebsocketMsgLLMStreamingResponseSchema,
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,

@@ -16,9 +16,8 @@ if ROOT_PATH not in sys.path:
 sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
-from setta.types.artifact import ImageArtifact
 from setta.logging.config import configure_listener_logging
-
+from setta.types.artifact import ImageArtifact
 
 
 def _load_pillow_modules():

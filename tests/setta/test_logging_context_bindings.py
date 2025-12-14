@@ -1,9 +1,5 @@
-import asyncio
 import unittest
 from typing import Any
-
-from starlette.types import Scope
-from starlette.websockets import WebSocket
 
 from setta.logging.context import (
     clear_logging_context,
@@ -16,6 +12,8 @@ from setta.logging.context_bindings import (
     wrap_background_callable,
     wrap_background_coroutine,
 )
+from starlette.types import Scope
+from starlette.websockets import WebSocket
 
 
 class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
@@ -85,7 +83,9 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_bind_background_task_logging_context_context_manager(self) -> None:
         async def _bounded_call() -> dict[str, str]:
-            with bind_background_task_logging_context(label="cm-task", websocket_id="ws-77"):
+            with bind_background_task_logging_context(
+                label="cm-task", websocket_id="ws-77"
+            ):
                 return get_logging_context()
 
         context = await _bounded_call()
@@ -116,7 +116,12 @@ def _make_websocket(
     }
 
     async def empty_receive() -> dict[str, Any]:
-        return {"type": "websocket.receive", "bytes": b"", "text": "", "more_body": False}
+        return {
+            "type": "websocket.receive",
+            "bytes": b"",
+            "text": "",
+            "more_body": False,
+        }
 
     async def empty_send(message: dict[str, Any]) -> None:
         return None
