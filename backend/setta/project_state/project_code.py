@@ -334,7 +334,7 @@ class ProjectGenPythonCode(PythonCode):
         generator.set_gen_code_prefix(fullText)
         line, col = position_to_line_col(generator.code, position)
         response = await self._request_completion_response(generator.code, line, col)
-        return process_completion_response(response, fullText)
+        return process_completion_response(response)
 
     async def gen_code_suffix_completion(self, fullText, position):
         generator = self._clone_generator()
@@ -342,7 +342,7 @@ class ProjectGenPythonCode(PythonCode):
         absolute_position = position + insertion_offset
         line, col = position_to_line_col(generator.code, absolute_position)
         response = await self._request_completion_response(generator.code, line, col)
-        return process_completion_response(response, fullText)
+        return process_completion_response(response)
 
     async def type_check(self):
         await self.send_document_open_request(self.code)
@@ -432,7 +432,7 @@ class ProjectPythonCode(PythonCode):
                 ),
                 request_id,
             )
-        return process_completion_response(response, fullText)
+        return process_completion_response(response)
 
     async def type_check(self):
         await self.send_document_open_request(self.code)
