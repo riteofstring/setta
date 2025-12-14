@@ -49,7 +49,7 @@ Improvement Plan
    - `backend/setta/mcp/server.py`, `backend/setta/api/listener.py`, and `backend/setta/websockets/connect.py` now emit `task=` metadata for server readiness, listener hot-reload watchers, and CLI subprocess runners.
  * **Completed:** added `tests/setta/test_logging_context_propagation.py` exercising AsyncDebouncer, LSP send/receive hooks, and the CLI websocket consumer to ensure the logging context survives through these background entry points.
 3. **Structured error handling utilities**
-   * Provide helper functions for routes/background tasks, such as `log_route_failure(exc, *, context)` and `run_safely(coro, label, notify_frontend=False)`, that emit `logger.error` with context, differentiate between handled/unhandled paths, and optionally propagate user-visible notifications.
+   * **Completed:** added `backend/setta/logging/errors.py` with `log_route_failure` / `run_safely` plus `tests/setta/test_logging_errors.py` so we can log handled vs unhandled failures with metadata and ensure bad inputs raise loudly.
    * Replace `print`/bare `except` blocks in routers (`projects.py`, `ai.py`, `terminals.py`), websocket loops, and terminal I/O with these helpers. Escalate unexpected failures to `warning`/`error` instead of `debug`.
    * Add a small FastAPI exception handler/middleware for general `Exception` to log and convert errors into consistent JSON responses (matching the validation handler pattern).
 4. **Consistent backend → frontend error pipeline**
