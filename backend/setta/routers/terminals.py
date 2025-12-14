@@ -21,7 +21,8 @@ from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
-router = SettaAPIRouter()
+terminals_http_router = SettaAPIRouter()
+terminals_ws_router = SettaAPIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
@@ -38,7 +39,7 @@ class RunCodeRequest(BaseModel):
     cliId: str | None = None
 
 
-@router.websocket(Route.TERMINAL)
+@terminals_ws_router.websocket(Route.TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
     projectConfigId: ID,
@@ -64,12 +65,14 @@ async def terminal_websocket_endpoint(
             "terminal_client_id": id,
         }
         try:
-            await run_safely(
+            did_connect = await run_safely(
                 state.terminals.connect(websocket, sectionId, id),
                 label="terminal-connect",
                 context=context,
                 re_raise=True,
             )
+            if not did_connect:
+                return
             websocket_id = get_logging_context().get("websocket_id")
             write_task = asyncio.create_task(
                 run_safely(
@@ -91,12 +94,12 @@ async def terminal_websocket_endpoint(
             state.terminals.disconnect(sectionId, id)
 
 
-@router.post(Route.DELETE_TERMINALS)
+@terminals_http_router.post(Route.DELETE_TERMINALS)
 async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromRequest):
     await state.terminals.delete_terminals(x.sectionIds)
 
 
-@router.post(Route.KILL_SUBPROCESSES)
+@terminals_http_router.post(Route.KILL_SUBPROCESSES)
 async def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     state: AppStateFromRequest,
@@ -114,7 +117,7 @@ async def route_kill_subprocesses(
     )
 
 
-@router.post(Route.RUN_CODE)
+@terminals_http_router.post(Route.RUN_CODE)
 async def route_run_code(
     x: RunCodeRequest,
     state: ReadyAppStateFromRequest,

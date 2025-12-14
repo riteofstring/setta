@@ -4,7 +4,6 @@ import time
 import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Literal
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -38,7 +37,8 @@ from setta.routers import (
     sections_router,
     settings_router,
     status_router,
-    terminals_router,
+    terminals_http_router,
+    terminals_ws_router,
     websocket_router,
 )
 from setta.server_state import SettaFastAPIState
@@ -98,7 +98,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    dependencies=[Depends(bind_request_logging_context)],
     openapi_url=f"{Route.PREFIX.value}{Route.OPENAPI_DOCS.value}",
     docs_url=f"{Route.PREFIX.value}{Route.SWAGGER_DOCS.value}",
     redoc_url=f"{Route.PREFIX.value}{Route.REDOC_DOCS.value}",
@@ -112,21 +111,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+http_router_kwargs = {
+    "prefix": Route.PREFIX.value,
+    "dependencies": [Depends(bind_request_logging_context)],
+}
+websocket_router_kwargs = {"prefix": Route.PREFIX.value}
 
-kwargs: dict[Literal["prefix"], str] = {"prefix": Route.PREFIX.value}
-app.include_router(projects_router, **kwargs)
-app.include_router(sections_router, **kwargs)
-app.include_router(terminals_router, **kwargs)
-app.include_router(websocket_router, **kwargs)
-app.include_router(code_info_router, **kwargs)
-app.include_router(settings_router, **kwargs)
-app.include_router(artifact_router, **kwargs)
-app.include_router(listener_router, **kwargs)
-app.include_router(lsp_router, **kwargs)
-app.include_router(llm_router, **kwargs)
-app.include_router(ai_router, **kwargs)
-app.include_router(project_manager_router, **kwargs)
-app.include_router(status_router, **kwargs)
+app.include_router(projects_router, **http_router_kwargs)
+app.include_router(sections_router, **http_router_kwargs)
+app.include_router(terminals_http_router, **http_router_kwargs)
+app.include_router(websocket_router, **websocket_router_kwargs)
+app.include_router(terminals_ws_router, **websocket_router_kwargs)
+app.include_router(code_info_router, **http_router_kwargs)
+app.include_router(settings_router, **http_router_kwargs)
+app.include_router(artifact_router, **http_router_kwargs)
+app.include_router(listener_router, **http_router_kwargs)
+app.include_router(lsp_router, **http_router_kwargs)
+app.include_router(llm_router, **http_router_kwargs)
+app.include_router(ai_router, **http_router_kwargs)
+app.include_router(project_manager_router, **http_router_kwargs)
+app.include_router(status_router, **http_router_kwargs)
 
 
 async def _open_browser_after_startup(url: str) -> None:

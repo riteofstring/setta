@@ -11,7 +11,7 @@ from collections import defaultdict, deque
 from typing import Any
 
 import psutil
-from fastapi import WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
 from setta.database.settings_file import SettingsFile
@@ -103,17 +103,25 @@ class Terminals:
             return True
         return False
 
-    async def connect(self, websocket, sectionId, id):
-        await websocket.accept()
+    async def connect(self, websocket: WebSocket, sectionId: str, id: str) -> bool:
+        try:
+            await websocket.accept()
+        except RuntimeError:
+            return False
         self.sockets[id] = {"ws": websocket, "sentReadyMsg": False}
         self.section_to_socket_ids[sectionId].add(id)
-        await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
-        if not self.sockets[id]["sentReadyMsg"]:
-            await websocket.send_text(C.SETTA_TERMINAL_READY)
-            self.sockets[id]["sentReadyMsg"] = True
-        await websocket.send_text(self.get_terminal_history(sectionId))
+        try:
+            await self.PTY_PIDS[sectionId]["terminalPromptIsReady"].wait()
+            if not self.sockets[id]["sentReadyMsg"]:
+                await websocket.send_text(C.SETTA_TERMINAL_READY)
+                self.sockets[id]["sentReadyMsg"] = True
+            await websocket.send_text(self.get_terminal_history(sectionId))
+        except (WebSocketDisconnect, ConnectionClosedOK, RuntimeError):
+            self.disconnect(sectionId, id)
+            return False
+        return True
 
-    def disconnect(self, sectionId, id):
+    def disconnect(self, sectionId: str, id: str) -> None:
         logger.debug(f"disconnecting {id}")
         try:
             del self.sockets[id]
@@ -248,12 +256,22 @@ class Terminals:
                 num_killed += 1
         return num_killed
 
-    async def send_output_to_sectionId(self, sectionId, output, setSentReadyMsg=False):
-        for wsId in self.section_to_socket_ids[sectionId]:
-            ws = self.sockets[wsId]["ws"]
-            await ws.send_text(output)
+    async def send_output_to_sectionId(
+        self, sectionId: str, output: str, setSentReadyMsg: bool = False
+    ) -> None:
+        for wsId in list(self.section_to_socket_ids[sectionId]):
+            socket_info = self.sockets.get(wsId)
+            if socket_info is None:
+                self.section_to_socket_ids[sectionId].discard(wsId)
+                continue
+            ws = socket_info["ws"]
+            try:
+                await ws.send_text(output)
+            except (WebSocketDisconnect, ConnectionClosedOK, RuntimeError):
+                self.disconnect(sectionId, wsId)
+                continue
             if setSentReadyMsg:
-                self.sockets[wsId]["sentReadyMsg"] = True
+                socket_info["sentReadyMsg"] = True
 
     async def start_reading_from_terminal(self, terminalId):
         try:
