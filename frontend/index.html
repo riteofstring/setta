@@ -12,6 +12,24 @@
     <meta name="theme-color" content="#00b5d8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="setta" />
+    <script>
+      (function () {
+        try {
+          const stored = localStorage.getItem("setta_data");
+          if (!stored) {
+            return;
+          }
+          const parsed = JSON.parse(stored);
+          if (parsed?.state?.darkMode) {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="/index.css" />
 
     <title>setta.dev</title>
@@ -20,7 +38,7 @@
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <main
       id="root"
-      class="flex h-screen w-screen flex-col items-center bg-setta-light font-sans dark:bg-setta-dark"
+      class="app-shell flex h-screen w-screen flex-col items-center font-sans"
     ></main>
 
     <script type="module" src="/src/index.jsx"></script>

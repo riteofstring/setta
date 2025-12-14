@@ -618,7 +618,7 @@ export async function route_set_chart_settings(
 }
 
 export async function route_get_backend_init_status(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<gt.BackendInitStatusResponse>
 > {
   return await get("/backendInitStatus");
 }

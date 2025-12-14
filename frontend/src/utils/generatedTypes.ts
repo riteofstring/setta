@@ -9853,6 +9853,35 @@ export function createSaveSettingsRequest(
   return SaveSettingsRequestSchema.parse(options);
 }
 
+export const BackendInitEventSchema = z.object({
+  message: z.string(),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+});
+
+export type BackendInitEvent = z.infer<typeof BackendInitEventSchema>;
+
+export function createBackendInitEvent(
+  options: Partial<BackendInitEvent> = {},
+): BackendInitEvent {
+  return BackendInitEventSchema.parse(options);
+}
+
+export const BackendInitStatusResponseSchema = z.object({
+  events: z.array(BackendInitEventSchema),
+  isReady: z.boolean(),
+  error: z.union([z.string(), z.null()]),
+});
+
+export type BackendInitStatusResponse = z.infer<
+  typeof BackendInitStatusResponseSchema
+>;
+
+export function createBackendInitStatusResponse(
+  options: Partial<BackendInitStatusResponse> = {},
+): BackendInitStatusResponse {
+  return BackendInitStatusResponseSchema.parse(options);
+}
+
 export const DeleteTerminalsRequestSchema = z.object({
   sectionIds: z.array(IDSchema),
 });
