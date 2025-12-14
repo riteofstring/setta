@@ -21,16 +21,14 @@
 #### Backend + Streaming
 - Chat persistence now stores OpenAI-style message types plus resolved config snapshots via `backend/setta/types/chat_messages.py` and `backend/setta/project_state/chats/save.py`, so each transcript carries the provider/model/base-url/api-key metadata that produced it.
 - `backend/setta/llm/llm_chat_manager.py` owns the streaming lifecycle: `_build_llm_request_payload` normalizes stored messages, `process_query` drives `litellm.acompletion`, `_handle_text_deltas`/`_handle_tool_call_deltas` merge streaming chunks, task cancellation flows through `request_stop_streaming`, and `route_get_llm_chat` merges persisted history with `get_current_stream()` before responding.
-- `_maybe_apply_cache_prompting` consults `litellm.supports_prompt_caching` and automatically injects cache-control markers (system + last message) whenever the configured model/provider supports it, keeping payload overrides intact and letting LiteLLM reuse cached prompts across streaming replays (see `tests/test_llm_chat_manager_streaming.py`).
 - Transport is standardized through `backend/setta/types/chat_stream_events.py` and `WMHFrontendSender.send_streaming_response`; `frontend/src/state/actions/ai.ts` together with `ProjectChatCore.tsx` rebuild assistant bubbles, tool-call accordions, and stop-button state from `MessageStart`, `MessageDelta`, `ToolCallDelta`, `ToolResult`, `MessageStop`, and `MessageFinalized` events.
 - Reasoning support lives in `_collect_stream_entries`/`_iter_thinking_payloads`, which fold provider-specific `thinking_blocks` or `reasoning_content` into deterministic thinking deltas, `_should_persist_partial_message` so cancellations still save meaningful drafts, and `_apply_request_overrides`, which only enables the `deepThink` high-reasoning flag for supported OpenAI/Anthropic/Google families.
 
 #### MCP & Tooling
 - `backend/setta/mcp/tool_setup.py` now distinguishes always-on vs discoverable tools, `SettaFastMCP` registers them with UUID transforms, builds a bm25 `ToolSearchIndex`, and `MCPClient._update_tool_cache` caches matching `ChatCompletionToolParam`s so `LLMChatManager` can append init tools or newly unlocked ones to each request.
-- `backend/setta/mcp/tools/project_state_registry.py` exposes `@project_state_tool`, and `backend/setta/project_state/base_project_manager.py` now exports a broad swath of real mutations: layout + callable helpers (`set_top_level_section_layout`, `set_section_sizes`, `set_callable`, `set_gen_code_prefix`, `set_gen_code_suffix`), parameter/code edits (`set_param_entered_value`, `set_code_obj_name`, `set_code`, `set_section_param_filter`), section/variant CRUD + toggles (`set_section_variant`, `set_default_section_variant`, `change_param_impl`, `create_top_level_section`, `create_child_sections`, `create_child_sections_via_incrementer`, `delete_sections`, `delete_child_sections_via_decrementer`, `create_new_section_variant`, `add_kwarg`, `delete_kwarg`, `toggle_position_lock`, `toggle_minimized`, `set_viewport`, `set_section_name`), plus the init-only `get_latest_project_state_summary`. Each decorator reuses the existing Pydantic request models so MCP schemas stay in lockstep with the FastAPI surface.
+- `backend/setta/mcp/tools/project_state_registry.py` exposes `@project_state_tool`, and `backend/setta/project_state/base_project_manager.py` now decorates `set_section_sizes` plus the init-only `get_latest_project_state` so we already exercise the deterministic MCP bridge with real project mutations.
 - `search_and_unlock_mcp_tools` indexes tool names/descriptions/parameter docs (see `tests/mcp/test_tool_search.py`), `list_mcp_tools` enumerates every registered tool name for quick discovery, and `LLMChatManager._build_search_tool_chat_message` parses the JSON payload, updates the chat-local `ChatToolState`, and summarizes which tool definitions were added to the session.
 - Deterministic helpers now live under `backend/setta/mcp/tools/`, including the workspace-aware `read_file_range` (with direct coverage in `tests/mcp/test_file_read_tool.py`) plus legacy utilities such as `getInstalledPythonPackages` and `getTerminalOutput`. Tool-call deltas stream through `ToolCallDeltaEvent`, and executions route through `MCPClient.call_tool` before persisting `ToolChatMessage`s.
-- Tool definitions now carry real prose: `backend/setta/mcp/server.py` pulls docstrings into schemas via `extract_tool_docstrings`, and the request models in `backend/setta/project_state/project_manager_types.py` (plus helper types like `SectionSize`) annotate each field with `Field(..., description=...)`, so `_build_parameter_text` and the BM25 index have nested argument descriptions to rank against.
 - Tool-call arguments/results stored in chat history now re-use the canonical→temporary map before serialization, and the ID conversion helpers handle deeply nested Pydantic models (see `tests/mcp/test_id_conversion.py`) so both the LLM and UI only ever see the temporary integer identifiers.
 
 #### Config & Persistence
@@ -47,7 +45,7 @@
 #### Testing
 - Chat serialization and storage are covered by `tests/types/test_chat_messages.py` and `tests/project_state/chats/test_chats.py`, ensuring assistant payloads convert tool-call arguments to JSON and chat persistence deduplicates message ids.
 - Config logic is validated in `tests/llm/test_config.py`, which exercises `merge_chat_llm_configs`, AllLLMConfigs validation, and sanitized writes via `save_llm_config`/`load_llm_config`.
-- MCP helpers have direct coverage in `tests/mcp/test_file_read_tool.py` and `tests/mcp/test_tool_search.py`, `tests/mcp/test_mcp_server_registration.py` proves FastMCP registration/search unlocks + chat-manager tool-state updates, and `tests/test_llm_chat_manager_streaming.py` verifies the thinking-delta fallback logic used when providers omit indexes.
+- MCP helpers have direct coverage in `tests/mcp/test_file_read_tool.py` and `tests/mcp/test_tool_search.py`, and `tests/test_llm_chat_manager_streaming.py` verifies the thinking-delta fallback logic used when providers omit indexes.
 
 ### Outstanding Work
 #### Backend / LLM Integration
@@ -56,7 +54,7 @@
 
 #### MCP & File Editing
 - Only read/search-style tools exist today. We still need deterministic write primitives (insert-at-line, replace-range, apply unified diff/patch, append, etc.) that acquire DBE locks/backups, validate offsets, and return structured errors.
-- Tool doc metadata now flows end-to-end, but we still need richer usage examples (sample payloads, failure cases, cross-links to the matching REST docs) so the LLM can reason about side effects instead of relying solely on the short inline descriptions.
+- Tool docstrings and schemas exist but remain thin; we should flesh out descriptions/examples so the LLM can ground arguments without hallucinating.
 - Expand the MCP surface area beyond file-read/package/terminal helpers (e.g., project metadata and search utilities) so LLMs have the context they need before we rely on automated edits.
 
 #### MCP Tool Discovery & Search Plan
@@ -64,7 +62,7 @@
 2. **Seed boot tools vs. discoverable tools (complete)** – `SettaFastMCP` labels init vs discoverable tools, `MCPClient` caches both lists, and `LLMChatManager` includes only the init set until search unlocks more.
 3. **Persist per-chat tool state (partially complete)** – Runtime `ChatToolState` objects now remember unlocked definitions for the lifetime of the process, but we still need to serialize those lists with each chat and hydrate them when the server restarts so search results survive reconnects.
 4. **Persist unlocked search results (todo)** – Save the chat-local tool list (including newly discovered entries) so reloading a chat or restarting the server keeps the same discoverable tool set without re-running search.
-5. **Document and test (in progress)** – Ranking plus unlock flows now have coverage via `tests/mcp/test_tool_search.py` and `tests/mcp/test_mcp_server_registration.py`, but we still need assertions around the summarized search-tool results (`addedToolNames`, message content) and contributor docs (plan + MCP README) so future tools provide the metadata the search service consumes.
+5. **Document and test (todo)** – Search scoring has coverage, but we still need tests for the chat-manager tool-state transitions, the summarized tool-result messaging, and docs (plan + MCP README) so future tools provide the metadata the search service consumes.
 
 #### Frontend & Config UX
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings.tsx` still relies on static `MODEL_GROUPS`/`C.LLM_API_KEY_NAMES` and only edits API keys. We need real forms powered by `/llm/config` + `/llm/apiKeys` so users can add/edit providers, models, base URLs, env vars, and other params. (Still intentionally deferred until the chat pipeline stabilizes.)

@@ -22,14 +22,15 @@ This document captures the concrete plan for exposing deterministic MCP tools th
 - **Tool registration** – Register these primitives as MCP tools (likely discoverable) in a new `file_write.py` module that depends solely on the helper library, keeping lock/backup logic uniform.
 
 ## 4. Expose Project-State Mutations as Tools
-- ✅ **Exercise the registry with live managers** – `BaseProjectManager` now decorates real operations across layout (`set_top_level_section_layout`, `set_section_sizes`, `set_viewport`), callable/code edits (`set_callable`, `set_gen_code_prefix`, `set_gen_code_suffix`, `set_param_entered_value`, `set_code_obj_name`, `set_code`, `set_section_param_filter`), section + variant CRUD/toggles (`set_section_variant`, `set_default_section_variant`, `change_param_impl`, `create_top_level_section`, `create_child_sections`, `create_child_sections_via_incrementer`, `delete_sections`, `delete_child_sections_via_decrementer`, `create_new_section_variant`, `add_kwarg`, `delete_kwarg`, `toggle_position_lock`, `toggle_minimized`, `set_section_name`), and exposes the init-only `get_latest_project_state_summary`. The decorators are exercised end-to-end via the MCP server so the bridge mirrors FastAPI behavior.
-- **Prioritize core edits** – Remaining high-impact APIs (e.g., `set_code_file_binding`, clipboard flows, rename-refactor approvals, `group_sections`/`ungroup_groups`, JSON-source helpers) still need wrappers so every mutating endpoint is reachable through MCP without duplicating logic.
+- ✅ **Exercise the registry with live managers** – `BaseProjectManager.set_section_sizes` is already decorated with `@project_state_tool()` and registered as a discoverable tool, while the init-only `get_latest_project_state` uses `@project_state_tool(tool_type=SettaToolType.init)` so the full bridge (decorator → FastMCP annotations → `LLMChatManager`) is proven with real project mutations.
+- **Prioritize core edits** – Once the registry scaffolding exists, register the high-impact mutations first: `set_code`, `set_code_file_binding`, `create_top_level_section`, `delete_sections`, `set_section_name`, `set_param_entered_value`, `change_param_impl`, and gen-code helpers. Each registration simply connects a tool name to the existing request model and manager coroutine.
 - **Reuse helpers** – For flows that already rely on helper functions (clipboard operations, rename refactors, etc.), add adapters that reuse the logic in `setta/types/helpers_lvl2.py` and `helpers_lvl3.py` instead of copying it into MCP land.
 - **Init vs discoverable** – Decide per tool whether it should always be available (`@setta_init_tool`) or only appear after search (`@setta_tool`). Register through `SettaFastMCP.add_setta_tools()` so the `SettaToolType` annotations remain correct.
 
 ## 5. Validation, Telemetry, and Tests
-- **Unit coverage** – `tests/mcp/test_mcp_server_registration.py` now proves registry registration/search integration and the chat-manager unlock path. We still need:
-  - File-edit primitive coverage (range validation, hash comparisons, structured error emission).
+- **Unit coverage** – Expand `tests/mcp/` to cover:
+  - Registry registration (schema parity with the Pydantic models, argument validation, invocation of the proper manager coroutine).
+  - File-edit primitives (range validation, hash comparisons, structured error emission).
   - Tool-state persistence paths once chat tool lists can be serialized with the chat.
 - **ID mapping hygiene (done)** – Tool argument/results persisted with each chat now reuse the canonical→temporary map before serialization, and the conversion helpers handle nested Pydantic payloads so UUIDs stay hidden from the LLM/frontend (`tests/mcp/test_id_conversion.py`).
 - **Streaming feedback** – Ensure `LLMChatManager` surfaces concise error summaries when MCP calls fail so the frontend reducer (see `frontend/src/state/actions/ai.ts`) can display actionable tool-result bubbles.
