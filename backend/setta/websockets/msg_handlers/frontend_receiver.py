@@ -1,5 +1,6 @@
 import logging
 
+from setta.logging.context import push_logging_context, reset_logging_context
 from setta.project_state.project_manager import ProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
@@ -40,7 +41,9 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             return
 
         if isinstance(m, WebsocketMsgRealtimeUIChange):
+            token = push_logging_context(project_config_id=m.content.projectConfigId)
             await self._handle_realtime_ui_change(m.content)
+            reset_logging_context(token)
 
     async def on_connect(self, _websocket_id: str):
         await self.project_manager.broadcast_all_project_metadata()

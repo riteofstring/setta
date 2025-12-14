@@ -18,6 +18,7 @@ def spawn_background_task(
     label: str,
     logger: logging.Logger | None = None,
     context: dict[str, LoggingContextInput] | None = None,
+    handled: bool = False,
     re_raise: bool = False,
     loop: asyncio.AbstractEventLoop | None = None,
     name: str | None = None,
@@ -47,6 +48,7 @@ def spawn_background_task(
                 label=label,
                 logger=logger,
                 context=context,
+                handled=handled,
                 re_raise=re_raise,
             )
 

@@ -1,5 +1,6 @@
 import logging
 
+from setta.logging.context import push_logging_context, reset_logging_context
 from setta.listeners.listener_frontend_emit_resolver import (
     InvalidListenerArtifactUpdateError,
     InvalidListenerDependencyValueError,
@@ -118,15 +119,26 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         )
 
         if isinstance(message, WebsocketMsgListenerInit):
-            await self._handle_listener_init(message, fromWebsocketId)
+            project_config_id = await self._resolve_listener_project_config_id(
+                message, fromWebsocketId
+            )
+            if project_config_id is None:
+                return
+            token = push_logging_context(project_config_id=project_config_id)
+            await self._handle_listener_init(message, fromWebsocketId, project_config_id)
+            reset_logging_context(token)
         elif isinstance(message, WebsocketMsgListenerRegister):
+            token = push_logging_context(project_config_id=message.content.projectConfigId)
             await self._handle_listener_register(message, fromWebsocketId)
+            reset_logging_context(token)
         elif isinstance(message, WebsocketMsgListenerFrontendEmit):
+            token = push_logging_context(project_config_id=message.content.projectConfigId)
             await self._handle_listener_frontend_emit(message, fromWebsocketId)
+            reset_logging_context(token)
 
-    async def _handle_listener_init(
+    async def _resolve_listener_project_config_id(
         self, message: WebsocketMsgListenerInit, websocket_id: str
-    ) -> None:
+    ) -> ID | None:
         project_config_id = message.content.projectConfigId
         project_name = message.content.projectName
 
@@ -141,7 +153,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     error="project_state_unavailable",
                     details={"websocketId": websocket_id},
                 )
-                return
+                return None
             try:
                 project_config_id = self.project_manager_switcher.get_config_id_by_name(
                     project_name
@@ -157,7 +169,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     error="project_state_unavailable",
                     details={"projectName": project_name},
                 )
-                return
+                return None
         elif project_name is not None:
             try:
                 resolved_id = self.project_manager_switcher.get_config_id_by_name(
@@ -183,6 +195,14 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                         resolved_id,
                     )
 
+        return project_config_id
+
+    async def _handle_listener_init(
+        self,
+        message: WebsocketMsgListenerInit,
+        websocket_id: str,
+        project_config_id: ID,
+    ) -> None:
         self.listener_registry.record_bootstrap(
             websocket_id=websocket_id, project_config_id=project_config_id
         )

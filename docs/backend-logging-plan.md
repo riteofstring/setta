@@ -45,10 +45,12 @@ Where context comes from
   - If an endpoint is decorated with `@require_project_context(...)` (or the router is created with `require_project_context_by_default=True`), the route reads the request JSON body and pushes `project_config_id` into the logging context.
   - Missing/`null` project ids raise `KeyError` (hard failure by design).
 - WebSockets
-  - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, optional `client`, inferred `project_config_id`, plus caller-provided `extra_values` (`backend/setta/logging/context_bindings.py`).
+  - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, optional `client`, optional explicit `project_config_id`, plus caller-provided `extra_values` (`backend/setta/logging/context_bindings.py`).
   - The main websocket loop adds the websocket-manager id as `connection_id` after `on_connect` (`backend/setta/routers/websocket.py`).
+  - Project scoping is explicit: project-specific websocket endpoints pass `project_config_id` at route entry (e.g. terminal websocket), otherwise message handlers push `project_config_id` from the message body for the duration of handling.
 - Background tasks
   - `spawn_background_task(...)` binds `task` plus optional `project_config_id` / `request_id` / `websocket_id` (`backend/setta/logging/tasks.py`).
+  - Failure semantics: `handled` is explicit and independent from `re_raise`; background tasks default to `handled=False` (unhandled/ERROR) even when exceptions are swallowed.
 - Listener client
   - The listener uses `logging_context(...)` with `listener_id`, `listener_socket_id`, and `listener_endpoint` while connecting (`backend/setta/api/listener.py`).
 
