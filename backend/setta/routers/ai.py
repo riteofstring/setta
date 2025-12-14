@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from setta.logging.context import get_logging_context
 from setta.logging.context_bindings import wrap_background_callable
+from setta.logging.errors import log_route_failure
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.chat import ChatMetadata
@@ -50,14 +51,18 @@ async def route_get_llm_response(
     x: GetLLMResponseRequest,
     state: AppStateFromRequest,
 ) -> str | None:
-    # try:
-    print(x, flush=True)
-    chat = state.chat_manager.get_or_create_chat(
-        x.chatId,
-        x.message,
-        x.llmConfigId,
-        x.projectConfigId,
-    )
+    try:
+        chat = state.chat_manager.get_or_create_chat(
+            x.chatId,
+            x.message,
+            x.llmConfigId,
+            x.projectConfigId,
+        )
+    except Exception as exc:
+        log_route_failure(exc, x, label="get-llm-response")
+        raise HTTPException(
+            status_code=500, detail="Failed to enqueue LLM request"
+        ) from exc
 
     if chat:
         state.chat_manager.start_processing_query(
@@ -65,15 +70,6 @@ async def route_get_llm_response(
             x.deepThink,
         )
         return chat.id
-
-    # except Exception as e:
-    #     print(f"Error in route_get_llm_response: {str(e)}")
-    #     # Return a more specific error message
-    #     error_message = f"Error calling LLM: {str(e)}"
-    #     return {
-    #         "error": error_message,
-    #         "status": "error",
-    #     }
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)

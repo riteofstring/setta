@@ -166,20 +166,6 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             await self.websocket_manager.send_message(error_message, websocket_id)
             return
-        except Exception:
-            logger.exception(
-                "unexpected error while preparing bootstrap snapshot for listener websocket %s (project %s)",
-                websocket_id,
-                project_config_id,
-            )
-            error_message = WebsocketMsgListenerError(
-                content=ListenerErrorContent(
-                    error="project_state_unavailable",
-                    details={"projectConfigId": project_config_id},
-                )
-            )
-            await self.websocket_manager.send_message(error_message, websocket_id)
-            return
 
         await self.python_script_sender.send_force_refresh(
             projectState=project_state,
@@ -423,15 +409,6 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self.websocket_manager.send_message(error_message, websocket_id)
         except ListenerDependencyUpdateError as exc:
             logger.warning("listener emit failed to apply: %s", exc)
-            error_message = WebsocketMsgListenerError(
-                content=ListenerErrorContent(
-                    error="listener_emit_failed",
-                    details={"message": str(exc)},
-                )
-            )
-            await self.websocket_manager.send_message(error_message, websocket_id)
-        except Exception as exc:
-            logger.exception("listener emit failed during backend application")
             error_message = WebsocketMsgListenerError(
                 content=ListenerErrorContent(
                     error="listener_emit_failed",

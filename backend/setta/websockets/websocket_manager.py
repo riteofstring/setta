@@ -57,7 +57,6 @@ class WebsocketManager:
             self.message_id_to_sender_id[message.id] = fromWebsocketId
 
     def update_current_address(self, currentAddress: str, websocketId: str):
-        print("\n\n\nupdate_current_address", currentAddress, websocketId)
         self.sockets[websocketId].currentAddress = currentAddress
 
     async def send_message(self, message: WebsocketMsg, toWebsocketId: str):

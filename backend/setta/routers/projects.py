@@ -1,17 +1,13 @@
-import traceback
-
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from setta.logging.context import get_logging_context
 from setta.logging.context_bindings import wrap_background_callable
+from setta.logging.errors import log_route_failure
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.helpers_lvl2 import (
-    ProjectNameTaken,
-    ProjectNotFound,
-)
+from setta.types.helpers_lvl2 import ProjectNameTaken, ProjectNotFound
 from setta.types.id import ID
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
@@ -81,15 +77,13 @@ async def route_load_project_config(
         )
         project_manager = state.project_manager_switcher.get(projectConfigId)
         return await project_manager.load_project_config(projectConfigId)
-    except ProjectNotFound as e:
-        print(f"[DEBUG] Project not found: {e}", flush=True)
-        raise HTTPException(status_code=404, detail=repr(e))
-    except Exception as e:
-        print(f"[DEBUG] Unexpected error: {e}", flush=True)
-        print(f"Exception details:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        print("[DEBUG] route_load_project_config finished", flush=True)
+    except ProjectNotFound as exc:
+        raise HTTPException(status_code=404, detail=repr(exc)) from exc
+    except Exception as exc:
+        log_route_failure(exc, x, label="load-project-config")
+        raise HTTPException(
+            status_code=500, detail="Failed to load project config"
+        ) from exc
 
 
 @router.post(Route.SAVE_PROJECT)
@@ -98,6 +92,7 @@ async def route_save_project(
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
+    notification: SettaNotification | None = None
     try:
         project_manager = state.project_manager_switcher.get(x.projectConfigId)
         await project_manager.finish_pending_operations()
@@ -106,23 +101,33 @@ async def route_save_project(
             projectConfigId=x.projectConfigId,
             message="Saved!",
         )
-
-    except Exception:
+    except Exception as exc:
         notification = SettaNotification(
             projectConfigId=x.projectConfigId,
             message="Failed to save",
             type=SettaNotificationType.error,
         )
-
-    background_tasks.add_task(
-        wrap_background_callable(
-            state.wmh_frontend_sender.broadcast_notification,
-            label="manual-save-notification",
-            project_id=x.projectConfigId,
-            request_id=_current_request_id(),
-        ),
-        notification,
-    )
+        log_route_failure(
+            exc,
+            x,
+            label="save-project",
+            handled=False,
+            notify_frontend=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to save project"
+        ) from exc
+    finally:
+        if notification:
+            background_tasks.add_task(
+                wrap_background_callable(
+                    state.wmh_frontend_sender.broadcast_notification,
+                    label="manual-save-notification",
+                    project_id=x.projectConfigId,
+                    request_id=_current_request_id(),
+                ),
+                notification,
+            )
 
 
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)

@@ -8,8 +8,9 @@ from typing import Literal
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +21,7 @@ from setta.middleware import (
     bind_request_logging_context,
 )
 from setta.logging.context_bindings import wrap_background_coroutine
+from setta.logging.errors import log_route_failure
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,
@@ -155,4 +157,26 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     content = {"status_code": 10422, "message": exc_str, "data": None}
     return JSONResponse(
         content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return await http_exception_handler(request, exc)
+    log_route_failure(
+        exc,
+        label="fastapi-unhandled-exception",
+        context={
+            "request_method": request.method,
+            "request_path": request.url.path,
+        },
+    )
+    content = {
+        "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+        "message": "Internal Server Error",
+        "data": None,
+    }
+    return JSONResponse(
+        content=content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
     )

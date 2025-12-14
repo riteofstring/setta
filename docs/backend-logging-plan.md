@@ -51,8 +51,8 @@ Improvement Plan
 3. **Structured error handling utilities**
    * **Completed:** added `backend/setta/logging/errors.py` with `log_route_failure` / `run_safely` plus `tests/setta/test_logging_errors.py` so we can log handled vs unhandled failures with metadata and ensure bad inputs raise loudly.
    * **Completed:** taught `log_route_failure` to accept request models directly, introduced `setta.logging.context_models` for consistent serialization + sensitive-field masking, and added request/websocket/background context helpers so general logging benefits from the same sanitized metadata (see `tests/setta/test_logging_context_sources.py`).
-   * Replace `print`/bare `except` blocks in routers (`projects.py`, `ai.py`, `terminals.py`), websocket loops, and terminal I/O with these helpers. Escalate unexpected failures to `warning`/`error` instead of `debug`.
-   * Add a small FastAPI exception handler/middleware for general `Exception` to log and convert errors into consistent JSON responses (matching the validation handler pattern).
+   * **Completed:** scrubbed the remaining `print` + bare `except` blocks inside the core routers (`projects.py`, `ai.py`, `llm.py`, `terminals.py`), websocket loops, and PTY readers/writers so every failure now flows through `log_route_failure` / `run_safely` with contextual metadata instead of silent debug logs.
+   * **Completed:** added a FastAPI-wide `Exception` handler that logs via `log_route_failure`, preserves `HTTPException` semantics, and emits a single JSON error envelope for all other uncaught failures (alongside the existing validation handler).
 4. **Consistent backend → frontend error pipeline**
    * Extend `SettaNotification` or introduce a `BackendErrorEvent` websocket payload to carry `severity`, `category`, `userMessage`, and an optional `debugId`. Build a helper (`report_user_visible_error(message, *, exc, project_id, metadata)`) that logs the exception and emits the structured event. Apply this to:
      - Project load/save endpoints.

@@ -1,5 +1,4 @@
 import logging
-import traceback
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -8,6 +7,7 @@ from setta.routers.dependencies import (
 )
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.logging.context_bindings import bind_websocket_logging_context
+from setta.logging.errors import log_route_failure
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.msg_handlers.base import (
@@ -51,11 +51,16 @@ async def websocket_route_loop(
                 except WebSocketDisconnect:
                     logging.debug("WebSocketDisconnect!")
                     break
-                except Exception:
-                    logging.debug(
-                        "websocket_route_loop caught exception:\n%s",
-                        traceback.format_exc(),
-                    )
+        except Exception as exc:
+            context = {"websocket_connection_type": connectionType.value}
+            if fromWebsocketId:
+                context["websocket_id"] = fromWebsocketId
+            log_route_failure(
+                exc,
+                label="websocket-route-loop",
+                context=context,
+            )
+            raise
         finally:
             if fromWebsocketId:
                 await websocket_manager.on_disconnect(fromWebsocketId)

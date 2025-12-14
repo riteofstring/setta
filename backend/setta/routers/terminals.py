@@ -16,6 +16,7 @@ from setta.logging.context_bindings import (
     wrap_background_callable,
     wrap_background_coroutine,
 )
+from setta.logging.errors import run_safely
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
 from setta.types.notifications import SettaNotification
@@ -59,21 +60,34 @@ async def terminal_websocket_endpoint(
         project_id=projectConfigId,
         extra_values=extra_values,
     ):
+        context = {
+            "terminal_project_id": str(projectConfigId),
+            "terminal_section_id": str(sectionId),
+            "terminal_client_id": id,
+        }
         try:
-            await state.terminals.connect(websocket, sectionId, id)
+            await run_safely(
+                state.terminals.connect(websocket, sectionId, id),
+                label="terminal-connect",
+                context=context,
+                re_raise=True,
+            )
             websocket_id = get_logging_context().get("websocket_id")
             write_task = asyncio.create_task(
-                wrap_background_coroutine(
-                    state.terminals.write_to_terminal(websocket, sectionId),
+                run_safely(
+                    wrap_background_coroutine(
+                        state.terminals.write_to_terminal(websocket, sectionId),
+                        label="terminal-write-loop",
+                        project_id=projectConfigId,
+                        websocket_id=websocket_id,
+                        extra_values=extra_values,
+                    ),
                     label="terminal-write-loop",
-                    project_id=projectConfigId,
-                    websocket_id=websocket_id,
-                    extra_values=extra_values,
+                    context=context,
+                    re_raise=True,
                 )
             )
             await write_task
-        except Exception:
-            pass
         finally:
             logging.debug("terminal_websocket_endpoint disconnect: %s", id)
             state.terminals.disconnect(sectionId, id)
