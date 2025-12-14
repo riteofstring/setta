@@ -220,7 +220,7 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-export type BackendLogSeverity = SettaBackendLogEvent["severity"];
+type BackendLogSeverity = SettaBackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {
   projectConfigId: string | null;
