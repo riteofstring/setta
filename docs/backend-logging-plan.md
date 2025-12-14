@@ -1,43 +1,66 @@
-Backend Logging & Error Handling Plan
-=====================================
+Backend Logging & Error Handling
+===============================
 
-Goals
------
+This describes the current backend logging/error-handling behavior (not a wishlist).
 
-- Keep backend logs readable by default (CLI, embedded, MCP bridge).
-- Attach small, explicit `setta_context` metadata to every log line so it’s filterable by request/websocket/project/task.
+Goals:
+- Keep backend logs readable by default (CLI, embedded, listener, MCP bridge).
+- Attach small, explicit `setta_context` metadata to log lines so they’re filterable by request/websocket/project/task.
 - Surface user-relevant backend failures to the frontend via websocket “backend log events”.
 
-Current State
--------------
+Logging Bootstrap
+-----------------
 
-1. **Centralized logging bootstrap.**
-   - `backend/setta/logging/config.py` provides `configure_logging(...)` (backend) and `configure_listener_logging(...)` (listener scripts).
-   - Entry points (`backend/setta/start.py`, `backend/setta/backend_launcher.py`, `backend/setta/mcp/client.py`, `backend/setta/api/listener.py`) call these so `uvicorn` doesn’t override config (`log_config=None`).
-   - Log level defaults to `INFO` and can be overridden via `SETTA_LOG_LEVEL` / `SETTA_LISTENER_LOG_LEVEL` (or CLI flags). The formatter includes `%(setta_context)s`.
+- `backend/setta/logging/config.py` provides `configure_logging(...)` (backend) and `configure_listener_logging(...)` (external listener process).
+- Uvicorn entry points call `configure_logging(...)` and pass `log_config=None` to avoid uvicorn overriding the shared config:
+  - `backend/setta/start.py` (CLI) and `backend/setta/backend_launcher.py` (embedded launcher).
+- Other processes that should share the same formatting also call the bootstrap:
+  - `backend/setta/mcp/client.py` and `backend/setta/api/listener.py`.
+- Default log level is `INFO`, override via `SETTA_LOG_LEVEL` / `SETTA_LISTENER_LOG_LEVEL` (or `--log-level` in `backend/setta/start.py`).
+- The formatter includes `%(setta_context)s` (it renders `-` when no context is bound).
 
-2. **Context propagation (explicit, contextvars-based).**
-   - HTTP: `LoggingContextMiddleware` + `Depends(bind_request_logging_context)` populate context derived from `fastapi.Request` (request id, method/path/endpoint, inferred `project_id`, client).
-   - Websockets: `bind_websocket_logging_context` populates websocket context (`websocket_id`, path, inferred `project_id`, client) and accepts `extra_values`. Some loops additionally record the websocket-manager id as `connection_id`.
-   - Background tasks: `spawn_background_task(...)` binds task context (`task`, optional `project_id` / `request_id` / `websocket_id`, plus `extra_values`) and logs failures through `run_safely(...)`/`log_route_failure(...)` with `failure_label` + `failure_handled` in-context.
+Logging Context (`setta_context`)
+--------------------------------
 
-3. **Structured failures + UI surfacing.**
-   - `backend/setta/logging/errors.py` (`log_route_failure`, `run_safely`) is the structured failure utility used by `spawn_background_task(...)` and other call sites.
-   - `WMHFrontendSender.log_failure_and_broadcast_backend_log_event(...)` is the “log + UI event” helper; it sets `backend_log_event_emitted=true` in the logging context to prevent the global handler from duplicating the UI event.
-   - `backend/setta/server.py` has exception handlers that emit backend log events for validation errors (422), `HTTPException`s, and unhandled exceptions. If app state isn’t available, it falls back to `log_route_failure(...)`.
+- Context is stored in `contextvars` and attached to each log record by `setta.logging.context.LoggingContextFilter`.
+- Context binding is explicit and layered so routing data is available:
+  - HTTP:
+    - Middleware (`backend/setta/middleware/logging_context.py`) binds pre-routing fields: `request_id`, `method`, `path`, `client`.
+    - Dependency (`bind_request_logging_context`) binds post-routing fields: `endpoint` and inferred `project_id`.
+  - WebSockets:
+    - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, `client`, inferred `project_id`, plus caller-provided `extra_values`.
+    - The main websocket loop also adds the websocket-manager id as `connection_id` after `on_connect`.
+  - Background tasks:
+    - `spawn_background_task(...)` binds `task` plus optional `project_id` / `request_id` / `websocket_id`.
+  - Listener process:
+    - The listener runs under `listener_id`, `listener_socket_id`, and `listener_endpoint` contexts (`backend/setta/api/listener.py`).
 
-4. **Notifications vs backend log events.**
-   - Notifications (`SettaNotification`) are currently used only for deliberate UX cues (manual save + autosave).
-   - Everything else that should be visible in the UI should be a backend log event (`SettaBackendLogEvent`: `id`, optional `projectConfigId`, `severity`, `message`, `timestamp`).
-   - Frontend handling: websocket receives `WebsocketMsgBackendLogEvent`, stores it in `useBackendLogEvents`, and renders it in `BackendLogEventsArea` (Overview → Backend Logs). The frontend store enforces basic retention and supports filtering/searching.
+Structured Failures + UI Surfacing
+---------------------------------
 
-5. **Listener visibility.**
-   - Listener connection loops run under an explicit listener logging context (`listener_id`, `listener_socket_id`, `listener_endpoint`), so listener logs are no longer missing `setta_context` by default.
-   - When the backend sends `WebsocketMsgListenerError` to the listener, it also emits a frontend backend-log-event so the UI can’t miss listener failures.
+- `backend/setta/logging/errors.py` provides:
+  - `log_route_failure(...)` (adds `failure_label` + `failure_handled` and always logs with traceback).
+  - `run_safely(...)` (wrapper used by background tasks).
+- `backend/setta/websockets/msg_handlers/frontend_sender.py` provides:
+  - `broadcast_backend_log_event(...)` (UI-only log line).
+  - `log_failure_and_broadcast_backend_log_event(...)` (log + UI event). It sets `backend_log_event_emitted=true` in the logging context so the global HTTP exception handler won’t emit a second UI event.
+- `backend/setta/server.py` exception handlers emit backend log events for:
+  - FastAPI validation errors (422), `HTTPException`, and unhandled exceptions.
+  - If app state isn’t available, it falls back to `log_route_failure(...)`.
+- Listener error visibility:
+  - When the backend sends `WebsocketMsgListenerError` back to the listener, it also emits a frontend backend-log-event (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
 
-Open Work
----------
+Backend Log Events vs Notifications
+----------------------------------
 
-1. Replace remaining `print(...)` calls with structured logging (or remove them) so all output flows through the logging system.
-2. Keep logging context explicit (prefer passing small `extra_values={...}` over serializing payloads).
-3. Ensure any remaining listener entrypoints run inside a bound listener logging context (avoid `setta_context=-` outside the main connection loop).
+- Backend log events (`SettaBackendLogEvent`) are ephemeral UI log lines: `id`, `timestamp`, `severity`, `message`, optional `projectConfigId`.
+  - Frontend receives `WebsocketMsgBackendLogEvent`, stores it in `useBackendLogEvents` (capped at 500; `frontend/src/state/actions/backendLogEvents.ts`), and renders it in `BackendLogEventsArea` (Overview → Backend Logs).
+- Notifications (`SettaNotification`) are toast-style UX messages.
+  - The backend currently emits notifications only for manual save and autosave (`backend/setta/routers/projects.py`, `backend/setta/project_state/base_project_manager.py`).
+  - Notification persistence endpoints exist (`route_get_notifications`, `route_delete_notification`), but the backend does not currently write notifications to the DB.
+
+Notes
+-----
+
+- Prefer passing small `extra_values={...}` into context builders rather than serializing payloads into the log context.
+- If a route already calls `log_failure_and_broadcast_backend_log_event(...)`, it can still raise; `backend_log_event_emitted` prevents duplicate UI events from the global handler.
