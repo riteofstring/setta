@@ -6,3 +6,7 @@ export function addBackendLogEvent(event: SettaBackendLogEvent) {
     events: [event, ...state.events],
   }));
 }
+
+export function clearBackendLogEvents() {
+  useBackendLogEvents.setState(() => ({ events: [] }));
+}

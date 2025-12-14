@@ -68,7 +68,7 @@ def export_db(readable, readable_with_variants):
 @click.pass_context
 def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
     resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level)
+    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
     if ctx.invoked_subcommand is None:
         print("Starting Setta", flush=True)
 

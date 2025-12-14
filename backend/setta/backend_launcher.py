@@ -105,7 +105,7 @@ def start_backend(
     C.PORT = resolved_port
 
     resolved_level = configure_logging(level_override=log_level)
-    uvicorn_level = logging.getLevelName(resolved_level)
+    uvicorn_level = logging.getLevelName(resolved_level).lower()
 
     config = uvicorn.Config(
         "setta.server:app",
