@@ -1,47 +1,54 @@
-Overall
+High-Level Take
 
-- The design matches docs/backend-logging-plan.md (central bootstrap + contextvars + “backend log events”), but there are a few correctness bugs and some duplicated/under-specified behavior that make logging/
-error handling less reliable than the plan implies.
+- The logging architecture mostly matches docs/backend-logging-plan.md and is coherent (central dictConfig, contextvars context, and a single “log + broadcast to UI” path).
+- The main gaps are (1) performance/verbosity issues in hot paths, (2) overly aggressive traceback logging for handled errors, and (3) a few places where exceptions are swallowed or sensitive/large data can end
+up in logs/context.
 
-Progress (Completed)
+What’s Well-Designed (matches the doc)
 
-- Fixed multiple `log_failure_and_broadcast_backend_log_event(...)` call sites that were passing an extra positional payload arg (this was causing a `TypeError` during exception handling, losing both the original
-exception and the UI backend-log-event).
-- Fixed `log_route_failure(...)` to always include a traceback by passing an explicit `(type(exc), exc, exc.__traceback__)` tuple via `exc_info=...` (so tracebacks are preserved even when the exception is no
-longer “current” in `sys.exc_info()`).
-- Eliminated the “manual `broadcast_backend_log_event(...)` + raise `HTTPException`” double-emit path (example: chat-not-found now relies on `HTTPException` + the global handler).
-- Closed the listener “visibility gap”: whenever the backend sends `WebsocketMsgListenerError` back to the listener, it now also emits a frontend backend-log-event so the UI can’t miss listener failures.
-- Added listener logging context binding (`listener_id`, etc.) so listener-side logs are no longer missing Setta context (`setta_context=-`) for the main connection loop.
-- Made initialization failures propagate to callers waiting on readiness (so startup failures are not silently swallowed).
-- Replaced `print(...)` calls in core runtime paths with structured logging (remaining `print(...)` calls still exist in a few non-core paths like codegen and MCP docstring parsing).
-- Removed unused logging-context helpers (`clear_logging_context(...)` / `replace_logging_context(...)`) and simplified tests to use `push_logging_context(replace=True)`.
-- Fixed the `RuntimeWarning: coroutine ... was never awaited` from `AsyncDebouncer` by ensuring background tasks are spawned from coroutine factories (and `AsyncDebouncer` cancels/cleans up its scheduler task).
-- Added retention limits and basic filtering UI for frontend backend-log-events (cap events + filter by project/severity/search).
+- Central bootstrap via backend/setta/logging/config.py:28 and used by entry points (backend/setta/start.py:70, backend/setta/backend_launcher.py:107, backend/setta/mcp/client.py:210) with uvicorn using
+log_config=None.
+- Request/websocket/task context binding is consistent:
+    - Context filter: backend/setta/logging/context.py:84
+    - HTTP: backend/setta/middleware/logging_context.py:14 + dependency backend/setta/middleware/logging_context.py:39
+    - WebSockets: backend/setta/logging/context_bindings.py:18
+    - Background tasks: backend/setta/logging/tasks.py:15
+- Central failure logging with consistent metadata: backend/setta/logging/errors.py:19, and UI surfacing via backend/setta/websockets/msg_handlers/frontend_sender.py:78.
 
-What’s Well Thought Out
+Error Handling: Issues / Inconsistencies
 
-- Central logging bootstrap with consistent formatter + %(setta_context)s filter is solid: backend/setta/logging/config.py:28, backend/setta/logging/context.py:93.
-- Request/websocket/task context propagation is coherent and explicit: backend/setta/middleware/logging_context.py:16, backend/setta/logging/context_bindings.py:18, backend/setta/logging/tasks.py:15.
-- Global FastAPI exception handlers reliably surface errors to the UI (and try to avoid double-emits via backend_log_event_emitted): backend/setta/server.py:157, backend/setta/server.py:202.
+- Tracebacks for handled HTTP errors: global handler logs/broadcasts for all HTTPExceptions and 422s (backend/setta/server.py:174 and backend/setta/server.py:158), and log_route_failure() always includes
+exc_info even when handled=True (backend/setta/logging/errors.py:19). If 4xx happen often, this is noisy and can be expensive.
+- Potential detail leakage to UI: some routes raise HTTPException(..., detail=repr(exc)) (backend/setta/routers/projects.py:82, backend/setta/routers/projects.py:162), and the UI message includes the
+HTTPException detail (backend/setta/server.py:269), so internal exception strings can show up in frontend “backend logs”.
+- Silent swallowing exists:
+    - backend/setta/project_state/code_files.py:440 (except Exception: return None)
+    - backend/setta/project_state/artifacts.py:198 (bare except: pass)
+    These make failures harder to diagnose (and can hide real bugs).
 
-Bugs / Gaps
+Performance / Verbosity Risks
 
-- (Resolved) Extra-positional-arg `TypeError` in `log_failure_and_broadcast_backend_log_event(...)` call sites.
-- (Resolved) Missing tracebacks from `log_route_failure(...)`.
-- (Updated) HTTP request context binding is no longer “duplicate work”:
-  - Middleware binds pre-routing fields (`request_id`, `method`, `path`, `client`).
-  - A FastAPI dependency binds post-routing fields (`endpoint`, inferred `project_id`).
-  This keeps the separation explicit while still capturing `path_params`/`endpoint` (which middleware can’t reliably see).
-- (Resolved) Removed at least one concrete double-emit path (chat-not-found).
-- (Resolved) Listener error visibility gap (backend now emits a frontend backend-log-event alongside `WebsocketMsgListenerError`).
-- (Improved) Listener logs now have context for the connection loop; remaining gaps (if any) should be addressed by ensuring all listener entrypoints run inside a bound listener context.
+- Logging f-strings in hot paths: running ruff --select G flags 18 G004 cases; worst offenders are the LSP modules:
+    - backend/setta/lsp/reader.py:101 / backend/setta/lsp/reader.py:102 log full responses and errors via f-strings (stringification happens even when DEBUG is off).
+    - backend/setta/lsp/writer.py:34 logs params via f-string (params can be large).
+    Converting to lazy %s formatting would avoid building large strings when DEBUG isn’t enabled.
+- Oversized / sensitive context values:
+    - backend/setta/websockets/connect.py:42 puts full command into extra_values and also logs it (backend/setta/websockets/connect.py:52), which can bloat logs and potentially leak secrets.
+    - backend/setta/project_state/jsonSource/jsonSource.py:136 passes a list[str] into extra_values (section_variants), which can become huge and will be repeated in setta_context.
+- Access log context may be missing: because BaseHTTPMiddleware wraps call_next but response streaming/sending happens after your logging_context block (backend/setta/middleware/logging_context.py:35), uvicorn
+access logs can plausibly run after the context is reset and show setta_context as - even though request logs are properly contextualized.
 
-Cleanup Candidates (Unused / Inconsistent)
+Concrete Cleanup Targets I Found
 
-- (Resolved) Logging-context helper “dead code”: `clear_logging_context(...)` / `replace_logging_context(...)` removed; tests updated accordingly.
-- Startup task handling: `_initialization_task` is no longer unused; readiness now awaits it so initialization failures propagate.
-- `print(...)` bypasses structured logging: partially resolved (still present in a few places, e.g. `backend/setta/code_gen/python/code_generator.py` and `backend/setta/mcp/server.py`).
+- Unused import: typing.Any in backend/setta/logging/tasks.py:6 (ruff F401).
+- Unused argument: _cleanup(task, chat_id) in backend/setta/llm/llm_chat_manager.py:204 (ruff ARG001).
+- Two uses of root logger rather than module logger (minor consistency): backend/setta/routers/websocket.py:58, backend/setta/routers/terminals.py:77.
+- Listener stderr fallback is likely redundant most of the time (since _ensure_logging() runs): backend/setta/api/listener.py:462.
 
-Remaining Work
+Recommendations (highest impact first)
 
-- Optional: remove remaining `print(...)` calls (non-core paths) if you want *all* output to flow through structured logging.
+- Decide policy for 4xx: if you don’t want stack traces + UI “backend log events” for handled client errors, adjust backend/setta/server.py:174 / backend/setta/logging/errors.py:19 so handled=True doesn’t always
+include exc_info (or doesn’t broadcast).
+- Stop logging/binding large or sensitive payloads into context (command, large lists); prefer ids/counts.
+- Convert all logging f-strings to lazy formatting, especially in backend/setta/lsp/*.
+- Consider enabling Ruff G and ARG in your normal format_code.sh/CI so these don’t regress.
