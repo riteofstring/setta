@@ -3,8 +3,8 @@ import unittest
 from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
 
-from setta.logging_context import get_logging_context
-from setta.logging_context_sources import ensure_request_context
+from setta.logging.context import get_logging_context
+from setta.logging.context_sources import ensure_request_context
 from setta.middleware import (
     LoggingContextMiddleware,
     bind_request_logging_context,

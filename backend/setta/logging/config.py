@@ -117,7 +117,7 @@ def configure_logging(
         "formatters": formatter_config,
         "filters": {
             "setta_context": {
-                "()": "setta.logging_context.LoggingContextFilter",
+                "()": "setta.logging.context.LoggingContextFilter",
             },
         },
         "handlers": handlers,

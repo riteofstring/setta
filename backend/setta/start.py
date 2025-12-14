@@ -7,7 +7,7 @@ import click
 import uvicorn
 
 from . import __version__
-from .logging_config import configure_logging
+from .logging.config import configure_logging
 from .utils.constants import IS_DEV_MODE, C
 from .websockets.connect import connect as _connect
 

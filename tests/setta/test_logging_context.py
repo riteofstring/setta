@@ -1,7 +1,7 @@
 import logging
 import unittest
 
-from setta.logging_context import (
+from setta.logging.context import (
     LoggingContextFilter,
     clear_logging_context,
     get_logging_context,

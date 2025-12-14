@@ -17,7 +17,7 @@ sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
 from setta.types.artifact import ImageArtifact
-from setta.logging_config import configure_listener_logging
+from setta.logging.config import configure_listener_logging
 
 
 

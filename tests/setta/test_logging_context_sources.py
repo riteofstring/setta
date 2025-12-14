@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.types import Scope
 from starlette.websockets import WebSocket
 
-from setta.logging_context_sources import (
+from setta.logging.context_sources import (
     ProjectContextModel,
     build_background_task_context,
     build_request_context,

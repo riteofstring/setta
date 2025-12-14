@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import Request, WebSocket
 from pydantic import BaseModel
 
-from setta.logging_context import LoggingContextInput
+from setta.logging.context import LoggingContextInput
 
 _REQUEST_ID_STATE_KEY = "setta_request_id"
 _WEBSOCKET_ID_STATE_KEY = "setta_websocket_id"

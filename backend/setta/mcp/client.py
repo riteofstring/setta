@@ -20,7 +20,7 @@ from mcp.server.stdio import stdio_server
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
-from setta.logging_config import configure_logging
+from setta.logging.config import configure_logging
 from setta.mcp.tool_metadata import SettaToolType
 from setta.utils.constants import C
 

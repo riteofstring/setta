@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import uvicorn
 
-from setta.logging_config import configure_logging
+from setta.logging.config import configure_logging
 from setta.utils.constants import IS_DEV_MODE, C
 
 if TYPE_CHECKING:

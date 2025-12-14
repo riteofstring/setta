@@ -28,11 +28,11 @@ Improvement Plan
 ----------------
 
 1. **Centralized logging bootstrap**
-   * **Completed:** built `setta.logging_config` / `configure_listener_logging`, wired the CLI, backend launcher, MCP client, and `SettaListener` runtime (plus manual listener scripts) to these helpers, and removed every `logging.basicConfig` path so uvicorn no longer reconfigures logging.
+   * **Completed:** built `setta.logging.config` / `configure_listener_logging`, wired the CLI, backend launcher, MCP client, and `SettaListener` runtime (plus manual listener scripts) to these helpers, and removed every `logging.basicConfig` path so uvicorn no longer reconfigures logging.
    * **Next:** with the bootstrap unified, focus on context propagation + structured error handling so the new log stream is actually useful (steps 2–4 below).
 2. **Context-aware log records**
-   * **In progress:** created `backend/setta/logging_context.py` to manage contextvars, added `LoggingContextFilter` plus formatter changes so every handler renders a `setta_context` column, and added `tests/setta/test_logging_context.py` to lock down the behavior.
-   * **In progress:** added `backend/setta/logging_context_sources.py` (with tests) to build canonical context blobs for HTTP requests, websocket connections, background tasks, and introduced `ProjectContextModel` so every request payload can expose `get_project_config_id_for_context()` for zero-overhead context binding.
+   * **In progress:** created `backend/setta/logging/context.py` to manage contextvars, added `LoggingContextFilter` plus formatter changes so every handler renders a `setta_context` column, and added `tests/setta/test_logging_context.py` to lock down the behavior.
+   * **In progress:** added `backend/setta/logging/context_sources.py` (with tests) to build canonical context blobs for HTTP requests, websocket connections, background tasks, and introduced `ProjectContextModel` so every request payload can expose `get_project_config_id_for_context()` for zero-overhead context binding.
    * **Completed:** wired `LoggingContextMiddleware` + `bind_request_logging_context` (FastAPI dependency) so every HTTP request now pushes `request_id`, endpoint, path params, etc. into the context, and added `tests/setta/test_logging_context_middleware.py` to exercise the flow end-to-end.
    * **Next:** extend the same context binding to websocket handlers/background tasks via decorators/helpers, then start deleting legacy `logger = logging.getLogger(__name__)` definitions in favor of the centralized helpers. See `docs/websocket-background-context-entrypoints.md` for the enumerated websocket/background-task entry points this refactor must cover.
 3. **Structured error handling utilities**

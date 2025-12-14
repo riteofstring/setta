@@ -25,7 +25,7 @@ sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
 from setta.api.listener import ListenerCallbackBuilder
-from setta.logging_config import configure_listener_logging
+from setta.logging.config import configure_listener_logging
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,

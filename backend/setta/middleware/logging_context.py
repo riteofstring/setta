@@ -7,8 +7,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from setta.logging_context import logging_context
-from setta.logging_context_sources import build_request_context
+from setta.logging.context import logging_context
+from setta.logging.context_sources import build_request_context
 
 
 class LoggingContextMiddleware(BaseHTTPMiddleware):

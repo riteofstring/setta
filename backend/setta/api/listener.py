@@ -58,7 +58,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
 )
 from setta.utils.constants import C
-from setta.logging_config import configure_listener_logging
+from setta.logging.config import configure_listener_logging
 
 from .scheduling import ListenerCallbackScheduler
 
