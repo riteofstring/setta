@@ -201,7 +201,7 @@ class LLMChatManager:
             name=f"llm-chat-{chat.id}",
         )
 
-        def _cleanup(task: asyncio.Task[Any], chat_id: ID) -> None:
+        def _cleanup(_task: asyncio.Task[Any], chat_id: ID) -> None:
             self._tasks.pop(chat_id, None)
 
         task.add_done_callback(lambda t, chat_id=chat.id: _cleanup(t, chat_id))

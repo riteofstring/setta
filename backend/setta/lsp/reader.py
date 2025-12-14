@@ -22,7 +22,7 @@ class LanguageServerReader(LanguageServerInteractor):
         self.lsp_converter = LSPConverters.get_converter()
 
     async def start(self):
-        logger.debug(f"Starting {self.server.name} language server reader")
+        logger.debug("Starting %s language server reader", self.server.name)
         self.stop_event.clear()  # Reset the stop event
         self.reader_task = spawn_background_task(
             self.read_response(),
@@ -32,7 +32,7 @@ class LanguageServerReader(LanguageServerInteractor):
         await self.started.wait()
 
     async def stop(self):
-        logger.debug(f"Stopping {self.server.name} language server reader")
+        logger.debug("Stopping %s language server reader", self.server.name)
         self.stop_event.set()
         self.started.clear()
         if self.reader_task:
@@ -92,18 +92,18 @@ class LanguageServerReader(LanguageServerInteractor):
             response = json.loads(response.decode("utf-8"))
             self.process_response(response)
         except json.JSONDecodeError as e:
-            logger.debug(f"Error decoding JSON response: {e}")
+            logger.debug("Error decoding JSON response: %s", e)
             return
         except Exception as e:
-            logger.debug(f"Error processing response: {e}")
+            logger.debug("Error processing response: %s", e)
             return
 
     def process_response(self, response):
-        logger.debug(f"Processing response: {response}")
-        id = response.get("id", None)
-        method = response.get("method", None)
-        if id:
-            self.process_response_with_id(id, method, response)
+        response_id = response.get("id")
+        method = response.get("method")
+        logger.debug("Processing response (id=%s method=%s)", response_id, method)
+        if response_id:
+            self.process_response_with_id(response_id, method, response)
         else:
             self.process_response_without_id(method, response)
 

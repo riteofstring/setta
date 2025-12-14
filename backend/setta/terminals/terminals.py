@@ -82,7 +82,7 @@ class Terminals:
             ):
                 pty_info["terminalPromptIsReady"].set()
 
-            logger.debug(f"created new pty_process {sectionId}")
+            logger.debug("created new pty_process %s", sectionId)
             if not pty_info["terminalPromptIsReady"].is_set():
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
@@ -115,7 +115,7 @@ class Terminals:
         return True
 
     def disconnect(self, sectionId: str, id: str) -> None:
-        logger.debug(f"disconnecting {id}")
+        logger.debug("disconnecting %s", id)
         try:
             del self.sockets[id]
         except KeyError:
@@ -123,7 +123,7 @@ class Terminals:
         self.section_to_socket_ids[sectionId].discard(id)
 
     async def delete_terminal(self, sectionId):
-        logger.debug(f"delete terminal {sectionId}")
+        logger.debug("delete terminal %s", sectionId)
         if sectionId in self.PTY_PIDS:
             try:
                 await asyncio.to_thread(

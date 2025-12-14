@@ -162,7 +162,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         exc,
         label="fastapi-validation-error",
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        handled=True,
+        handled=False,
     )
     exc_str = f"{exc}".replace("\n", " ").replace("   ", " ")
     content = {"status_code": 10422, "message": exc_str, "data": None}
@@ -212,19 +212,24 @@ async def _log_and_broadcast_http_error(
         return
     request_id = context.get("request_id")
     project_id = context.get("project_id")
+    log_context = {
+        "request_method": request.method,
+        "request_path": request.url.path,
+        "response_status_code": status_code,
+    }
+
+    project_config_id = ID(project_id) if project_id else None
+    severity = (
+        SettaBackendLogEventSeverity.warning
+        if handled
+        else SettaBackendLogEventSeverity.error
+    )
     message = _format_backend_log_event_message(
         request_id=request_id,
         method=request.method,
         path=request.url.path,
         status_code=status_code,
         exc=exc,
-    )
-
-    project_config_id = ID(project_id) if project_id else None
-    severity = (
-        SettaBackendLogEventSeverity.error
-        if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR
-        else SettaBackendLogEventSeverity.warning
     )
     state: SettaFastAPIState | None = getattr(request.app.state, "setta", None)
     if state:
@@ -235,11 +240,7 @@ async def _log_and_broadcast_http_error(
             severity=severity,
             project_config_id=project_config_id,
             handled=handled,
-            context={
-                "request_method": request.method,
-                "request_path": request.url.path,
-                "response_status_code": status_code,
-            },
+            context=log_context,
         )
         return
 
@@ -247,11 +248,8 @@ async def _log_and_broadcast_http_error(
         exc,
         label=label,
         handled=handled,
-        context={
-            "request_method": request.method,
-            "request_path": request.url.path,
-            "response_status_code": status_code,
-        },
+        logger=logger,
+        context=log_context,
     )
 
 

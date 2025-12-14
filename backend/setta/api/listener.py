@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 import inspect
 import logging
-import sys
 from ast import literal_eval
 from dataclasses import dataclass
 from typing import (
@@ -451,7 +450,7 @@ class SettaListener:
         )
 
     def _handle_listener_error(self, message: WebsocketMsgListenerError) -> None:
-        """Surface listener errors even when logging is not configured."""
+        """Surface listener errors."""
         detail_suffix = ""
         if message.content.details is not None:
             detail_suffix = f" (details={message.content.details!r})"
@@ -459,22 +458,7 @@ class SettaListener:
             f"Listener {self._log_identifier} received error "
             f"{message.content.error}{detail_suffix}"
         )
-        current_logger = logger
-        has_real_handler = False
-        while current_logger is not None:
-            for handler in current_logger.handlers:
-                if not isinstance(handler, logging.NullHandler):
-                    has_real_handler = True
-                    break
-            if has_real_handler or not current_logger.propagate:
-                break
-            current_logger = current_logger.parent
-
-        if has_real_handler:
-            logger.error(text)
-        else:
-            sys.stderr.write(text + "\n")
-            sys.stderr.flush()
+        logger.error(text)
 
     def listen(
         self,

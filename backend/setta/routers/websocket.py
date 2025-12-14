@@ -19,6 +19,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 router = SettaAPIRouter()
+logger = logging.getLogger(__name__)
 
 
 async def websocket_route_loop(
@@ -55,7 +56,7 @@ async def websocket_route_loop(
                         json_str, fromWebsocketId
                     )
                 except WebSocketDisconnect:
-                    logging.debug("WebSocketDisconnect!")
+                    logger.debug("WebSocketDisconnect!")
                     break
         except Exception as exc:
             logging_context = get_logging_context()

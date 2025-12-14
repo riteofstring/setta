@@ -1,29 +1,33 @@
-"""FastAPI middleware that attaches logging context metadata to each request."""
+"""FastAPI/Starlette middleware that attaches logging context metadata to each request."""
 
 from collections.abc import AsyncIterator
 
 from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from setta.logging.context import logging_context
-from setta.logging.context_sources import build_request_context, ensure_request_context
+from setta.logging.context import logging_context, push_logging_context
+from setta.logging.context_sources import (
+    build_request_context,
+    ensure_request_context,
+)
 
 
-class LoggingContextMiddleware(BaseHTTPMiddleware):
-    """Populate the logging context with request metadata for each HTTP request."""
+class LoggingContextMiddleware:
+    """Populate the logging context with request metadata for each HTTP request.
+
+    Implemented as a pure ASGI middleware (instead of BaseHTTPMiddleware) so the
+    context stays active for the full response send, including streaming.
+    """
 
     def __init__(self, app: ASGIApp) -> None:
-        super().__init__(app)
+        self.app = app
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: RequestResponseEndpoint,
-    ) -> Response:
-        """Attach request-scoped metadata to the logging context."""
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
+        request = Request(scope, receive=receive)
         context_values = {
             "request_id": ensure_request_context(request),
             "method": request.method.upper(),
@@ -32,8 +36,25 @@ class LoggingContextMiddleware(BaseHTTPMiddleware):
         client_host = request.client.host if request.client else None
         if client_host:
             context_values["client"] = client_host
+
+        enriched = False
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal enriched
+            if not enriched and message["type"] == "http.response.start":
+                full_context = build_request_context(request)
+                extra_context = {
+                    key: full_context[key]
+                    for key in ("endpoint", "project_id")
+                    if key in full_context
+                }
+                if extra_context:
+                    push_logging_context(values=extra_context)
+                enriched = True
+            await send(message)
+
         with logging_context(values=context_values):
-            return await call_next(request)
+            await self.app(scope, receive, send_wrapper)
 
 
 async def bind_request_logging_context(

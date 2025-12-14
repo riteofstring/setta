@@ -133,12 +133,14 @@ class JSONSource:
                     f"{section_id}:{variant_id}"
                     for section_id, variant_id in section_variants_snapshot
                 )
+                section_variants_sample = section_variant_labels[:25]
                 spawn_background_task(
                     load_json_sources_fn(self.json_sources, section_variants_snapshot),
                     label="json-source-load",
                     extra_values={
                         "callback_category": callbackCategory,
-                        "section_variants": section_variant_labels,
+                        "section_variants_count": len(section_variant_labels),
+                        "section_variants_sample": section_variants_sample,
                     },
                 )
 

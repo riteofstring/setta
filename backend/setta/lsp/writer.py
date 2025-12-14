@@ -10,6 +10,23 @@ from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
 
+_MAX_LOGGED_PARAMS_KEYS = 25
+
+
+def _summarize_params(params: object) -> object:
+    if isinstance(params, dict):
+        keys = sorted(str(key) for key in params.keys())
+        if len(keys) > _MAX_LOGGED_PARAMS_KEYS:
+            return {
+                "keys": keys[:_MAX_LOGGED_PARAMS_KEYS],
+                "len": len(keys),
+                "truncated": True,
+            }
+        return {"keys": keys}
+    if isinstance(params, (list, tuple)):
+        return {"len": len(params)}
+    return type(params).__name__
+
 
 class LanguageServerWriter(LanguageServerInteractor):
     def __init__(self, server: LanguageServer):
@@ -31,7 +48,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             return
         stdin.write(header + request)
         await stdin.drain()
-        logger.debug(f"Sent {method} with params: {params}")
+        logger.debug("Sent %s (params=%s)", method, _summarize_params(params))
 
     async def start(self):
         params = {
@@ -62,10 +79,10 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "text": code,
                 }
             }
-            logger.debug(f"send_document_open_request {uri}")
+            logger.debug("send_document_open_request %s", uri)
             await self.send_request("textDocument/didOpen", params=params)
         else:
-            logger.debug(f"document already open, updating it {uri}")
+            logger.debug("document already open, updating it %s", uri)
             await self.send_document_update(
                 filepath=filepath,
                 code=code,

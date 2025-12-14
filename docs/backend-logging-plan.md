@@ -23,10 +23,16 @@ Logging Context (`setta_context`)
 --------------------------------
 
 - Context is stored in `contextvars` and attached to each log record by `setta.logging.context.LoggingContextFilter`.
+- Context values are normalized before storage:
+  - Values can be arbitrary Python objects (including Pydantic models), not just primitives.
+  - Pydantic fields marked as `Annotated[..., Sensitive()]` are redacted when written into context.
+  - Long strings are truncated and large collections are summarized.
+  - Implementation: `backend/setta/logging/redaction.py` + `backend/setta/logging/context.py`.
 - Context binding is explicit and layered so routing data is available:
   - HTTP:
     - Middleware (`backend/setta/middleware/logging_context.py`) binds pre-routing fields: `request_id`, `method`, `path`, `client`.
-    - Dependency (`bind_request_logging_context`) binds post-routing fields: `endpoint` and inferred `project_id`.
+    - The middleware also enriches context at `http.response.start` with post-routing fields (`endpoint`, inferred `project_id`) so request context is still available during response sending (including streaming/access logs).
+    - Dependency (`bind_request_logging_context`) binds post-routing fields (`endpoint`, inferred `project_id`) during route execution.
   - WebSockets:
     - `bind_websocket_logging_context(...)` binds `websocket_id`, `path`, `client`, inferred `project_id`, plus caller-provided `extra_values`.
     - The main websocket loop also adds the websocket-manager id as `connection_id` after `on_connect`.
@@ -39,13 +45,15 @@ Structured Failures + UI Surfacing
 ---------------------------------
 
 - `backend/setta/logging/errors.py` provides:
-  - `log_route_failure(...)` (adds `failure_label` + `failure_handled` and always logs with traceback).
+  - `log_route_failure(...)` (adds `failure_label` + `failure_handled`; tracebacks are included by default, but can be disabled with `include_traceback=False`).
   - `run_safely(...)` (wrapper used by background tasks).
 - `backend/setta/websockets/msg_handlers/frontend_sender.py` provides:
   - `broadcast_backend_log_event(...)` (UI-only log line).
   - `log_failure_and_broadcast_backend_log_event(...)` (log + UI event). It sets `backend_log_event_emitted=true` in the logging context so the global HTTP exception handler won’t emit a second UI event.
 - `backend/setta/server.py` exception handlers emit backend log events for:
   - FastAPI validation errors (422), `HTTPException`, and unhandled exceptions.
+  - 422 validation errors are treated as unhandled (`handled=False`) because they typically indicate a contract mismatch.
+  - `HTTPException(status < 500)` is treated as handled (`handled=True`), but still broadcasts to the UI (usually as a warning).
   - If app state isn’t available, it falls back to `log_route_failure(...)`.
 - Listener error visibility:
   - When the backend sends `WebsocketMsgListenerError` back to the listener, it also emits a frontend backend-log-event (`backend/setta/websockets/msg_handlers/python_script_receiver.py`).
@@ -63,4 +71,5 @@ Notes
 -----
 
 - Prefer passing small `extra_values={...}` into context builders rather than serializing payloads into the log context.
+- The logging context sanitizer is a safety net, not a license to attach huge objects everywhere. Use ids/counts/samples for large payloads.
 - If a route already calls `log_failure_and_broadcast_backend_log_event(...)`, it can still raise; `backend_log_event_emitted` prevents duplicate UI events from the global handler.

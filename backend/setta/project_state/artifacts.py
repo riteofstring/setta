@@ -196,12 +196,9 @@ class Artifacts:
         return path_and_types, path_to_types
 
     def _compute_file_hash(self, path: Path):
-        try:
-            content = self.dbe.read(path, "rb")
-            if content:
-                return compute_md5_hex(content)
-        except:
-            pass
+        content = self.dbe.read(path, "rb")
+        if content:
+            return compute_md5_hex(content)
         return None
 
     def read_image_from_disk(self, path: Path):

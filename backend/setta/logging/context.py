@@ -5,8 +5,10 @@ import logging
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 
+from setta.logging.redaction import sanitize_for_logging_context, to_compact_json
+
 LoggingContextPrimitive = str | int | float | bool
-LoggingContextInput = LoggingContextPrimitive | None
+LoggingContextInput = object | None
 LoggingContextData = dict[str, str]
 LoggingContextToken = contextvars.Token[LoggingContextData]
 
@@ -132,4 +134,13 @@ def _normalize_value(value: LoggingContextInput) -> str:
         raise ValueError("logging context values cannot be None")
     if isinstance(value, bool):
         return "true" if value else "false"
-    return str(value)
+    sanitized = sanitize_for_logging_context(value)
+    if sanitized is None:
+        raise ValueError("logging context values cannot be None")
+    if isinstance(sanitized, bool):
+        return "true" if sanitized else "false"
+    if isinstance(sanitized, (int, float)):
+        return str(sanitized)
+    if isinstance(sanitized, str):
+        return sanitized
+    return to_compact_json(sanitized)

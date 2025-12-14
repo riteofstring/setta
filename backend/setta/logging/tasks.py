@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from setta.logging.context import LoggingContextInput, logging_context
 from setta.logging.context_sources import build_background_task_context

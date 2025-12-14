@@ -259,7 +259,7 @@ class SettaToolManager(ToolManager):
         existing = self._tools.get(tool.name)
         if existing:
             if self.warn_on_duplicate_tools:
-                logger.warning(f"Tool already exists: {tool.name}")
+                logger.warning("Tool already exists: %s", tool.name)
             return cast("SettaTool", existing)
         self._tools[tool.name] = tool
         return tool

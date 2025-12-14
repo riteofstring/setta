@@ -21,6 +21,7 @@ def log_route_failure(
     label: str,
     logger: logging.Logger | None = None,
     handled: bool = False,
+    include_traceback: bool | None = None,
     context: Mapping[str, LoggingContextInput] | None = None,
 ) -> None:
     """Log a structured failure with context metadata."""
@@ -34,12 +35,17 @@ def log_route_failure(
     level = logging.WARNING if handled else logging.ERROR
     message_template = _HANDLED_FAILURE_MESSAGE if handled else _DEFAULT_FAILURE_MESSAGE
 
+    if include_traceback is None:
+        include_traceback = True
+
     with logging_context(values=context, **context_values):
         log.log(
             level,
             message_template,
             label,
-            exc_info=(type(exc), exc, exc.__traceback__),
+            exc_info=(type(exc), exc, exc.__traceback__)
+            if include_traceback
+            else False,
         )
 
 

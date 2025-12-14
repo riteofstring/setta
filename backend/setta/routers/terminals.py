@@ -17,6 +17,7 @@ from setta.types.routes import Route
 
 terminals_http_router = SettaAPIRouter()
 terminals_ws_router = SettaAPIRouter()
+logger = logging.getLogger(__name__)
 
 
 class DeleteTerminalsRequest(BaseModel):
@@ -74,7 +75,7 @@ async def terminal_websocket_endpoint(
             )
             raise
         finally:
-            logging.debug("terminal_websocket_endpoint disconnect: %s", id)
+            logger.debug("terminal_websocket_endpoint disconnect: %s", id)
             state.terminals.disconnect(sectionId, id)
 
 

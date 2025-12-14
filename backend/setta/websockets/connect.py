@@ -45,12 +45,14 @@ async def consumer_handler(websocket, connection_id: str | None):
                 extra_values={
                     "cli_connection_id": connection_id or "cli",
                     "command": command,
+                    "command_len": len(command),
+                    "command_preview": command[:120],
                 },
             )
 
 
 async def run_code_as_subprocess(command):
-    logger.debug(f"Starting subprocess with command: {command}")
+    logger.debug("Starting subprocess (len=%d preview=%s)", len(command), command[:120])
 
     # Use asyncio subprocess to run the command non-blockingly
     # Using None for stdout/stderr inherits the parent's stdout/stderr
@@ -61,4 +63,4 @@ async def run_code_as_subprocess(command):
     await proc.communicate()
 
     # Log completion without capturing output
-    logger.debug(f"Subprocess completed with exit code: {proc.returncode}")
+    logger.debug("Subprocess completed with exit code: %s", proc.returncode)
