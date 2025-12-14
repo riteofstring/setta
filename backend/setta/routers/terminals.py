@@ -121,7 +121,7 @@ async def route_run_code(
     x: RunCodeRequest,
     state: ReadyAppStateFromRequest,
 ):
-    terminal_id = await run_code(
+    await run_code(
         x.projectConfigId,
         x.sectionId,
         x.cliId,

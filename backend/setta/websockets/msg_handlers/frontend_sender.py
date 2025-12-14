@@ -2,8 +2,6 @@ import logging
 from collections.abc import Mapping
 from typing import Literal
 
-from pydantic import BaseModel
-
 from setta.logging.context import LoggingContextInput, push_logging_context
 from setta.logging.errors import log_route_failure
 from setta.project_state.project_manager_types import (
@@ -80,7 +78,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def log_failure_and_broadcast_backend_log_event(
         self,
         exc: BaseException,
-        *context_models: BaseModel,
         label: str,
         message: str,
         severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.error,
@@ -94,7 +91,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         push_logging_context(backend_log_event_emitted=True)
         log_route_failure(
             exc,
-            *context_models,
             label=label,
             logger=logger,
             handled=handled,

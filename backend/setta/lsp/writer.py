@@ -4,6 +4,8 @@ import logging
 import uuid
 from pathlib import Path
 
+from setta.logging.context import logging_context
+
 from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
@@ -138,8 +140,15 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_and_wait(self, fn_call, request_id):
         self.pending_requests[request_id] = asyncio.Future()
-        await fn_call
-        return await self.wait_for_response(request_id)
+        with logging_context(
+            values={
+                "task": "lsp-send-request",
+                "lsp_request_id": request_id,
+                "lsp_server": self.server.name,
+            }
+        ):
+            await fn_call
+            return await self.wait_for_response(request_id)
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
     def get_uri(self, filepath: Path):

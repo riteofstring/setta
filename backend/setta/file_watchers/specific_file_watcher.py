@@ -167,7 +167,6 @@ class SpecificFileEventHandler(FileSystemEventHandler):
                     "handler_count": len(handlers),
                     "file_to_read": str(file_to_read),
                 },
-                context_models=(core_update,),
             )
         )
 

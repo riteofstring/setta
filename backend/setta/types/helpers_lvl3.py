@@ -218,7 +218,6 @@ def build_project_state_summary(
         if isinstance(impl, BaseSectionWithParamsImpl):
             parameters = _build_section_param_summaries(
                 project_state,
-                section_id,
                 impl,
                 shown_param_visibility.get(variant_id, set()),
             )
@@ -265,7 +264,6 @@ def build_project_state_summary(
 
 def _build_section_param_summaries(
     project_state: ProjectStateSingleConfig,
-    section_id: ID,
     section_impl: BaseSectionWithParamsImpl,
     visible_top_level_ids: set[ID],
 ) -> list[ProjectStateSummaryParam]:

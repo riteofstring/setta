@@ -19,7 +19,14 @@ Progress Update (Refactor Work)
 - Normalized websocket identifiers: keep generated `websocket_id` and record the manager id as `connection_id` (backend/setta/routers/websocket.py).
 - Converted “string-only” autosave failures into structured failures with tracebacks (backend/setta/project_state/base_project_manager.py).
 - Cleaned up a few Ruff items called out in this doc (backend/setta/server.py, backend/setta/websockets/msg_handlers/frontend_receiver.py).
-- Validation: `python -m compileall backend/setta -q` and logging tests via `PYTHONPATH=backend python -m unittest tests/setta/test_logging_*.py`.
+- Deleted unused logging scaffolding (context-model helpers + model-to-log serialization) to keep the logging patterns consistent and reduce mental overhead:
+    - Removed `ProjectContextModel` / `attach_*_context_models` / `get_project_id_from_payload` (backend/setta/logging/context_sources.py).
+    - Removed `bind_background_task_logging_context` / `wrap_background_callable` (backend/setta/logging/context_bindings.py).
+    - Deleted `SensitiveLoggingField` + `serialize_logging_models` (backend/setta/logging/context_models.py).
+    - Updated `log_route_failure(...)` to accept explicit `context={...}` only (backend/setta/logging/errors.py) and updated callers/tests accordingly.
+- Fixed missing bound metadata in LSP request helpers by binding request context in `LanguageServerWriter.send_and_wait(...)` (backend/setta/lsp/writer.py).
+- Cleaned up additional Ruff items called out in this doc (backend/setta/project_state/lsp_response_handlers/completion.py, backend/setta/project_state/project_code.py, backend/setta/project_state/settings_project_manager.py, backend/setta/routers/terminals.py, backend/setta/types/helpers_lvl3.py, backend/setta/utils/generate_new_filename.py).
+- Validation: `python -m compileall backend/setta -q` and `python -m unittest tests/setta/test_logging_*.py` (after `source activate.sh`).
 
 What’s Already Well Thought Out
 
@@ -34,38 +41,32 @@ Where Error Handling Breaks Down (High Impact)
     - ✅ File watcher callbacks are now spawned via `spawn_background_task(...)` so exceptions are logged with context (backend/setta/file_watchers/specific_file_watcher.py).
     - ✅ JSON source reload tasks are now spawned via `spawn_background_task(...)` so exceptions are logged with context (backend/setta/project_state/jsonSource/jsonSource.py).
     - ✅ Most “create_task + wrap_background_coroutine” call sites that were effectively fire-and-forget have been moved to `spawn_background_task(...)` (e.g. MCP/LSP startup).
-- wrap_background_coroutine(...) primarily propagates context during execution, but if you then catch/log outside that context you can lose the metadata; you can see the split responsibilities between
-wrap_background_coroutine (backend/setta/logging/context_bindings.py:104) and run_safely (backend/setta/logging/errors.py:50).
+- ✅ `spawn_background_task(...)` ensures the failure handler (`run_safely(...)`) executes inside the bound context, so contextvars metadata is preserved even when exceptions are swallowed.
 - ✅ Duplicate stack traces were likely in routes that called log_route_failure(...) and then raised an HTTPException; those routes now use `log_failure_and_broadcast_backend_log_event(...)` so the global
 exception handler sees `backend_log_event_emitted=true` and exits early (backend/setta/routers/ai.py, backend/setta/routers/projects.py).
 - Websocket context keys are a bit muddled:
     - ✅ bind_websocket_logging_context establishes a generated websocket_id; websocket_route_loop no longer overwrites it and instead stores the manager id under `connection_id` (backend/setta/routers/websocket.py).
 
-“Planned but Unused” Logging Scaffolding
+“Planned but Unused” Logging Scaffolding (Now Removed)
 
-- The doc’s claim holds: these are effectively unused outside tests right now:
-    - ProjectContextModel / attach_request_context_models / attach_websocket_context_models / get_project_id_from_payload (backend/setta/logging/context_sources.py:42, backend/setta/logging/
-    context_sources.py:79, backend/setta/logging/context_sources.py:121, backend/setta/logging/context_sources.py:166)
-    - bind_background_task_logging_context and wrap_background_callable (backend/setta/logging/context_bindings.py:49, backend/setta/logging/context_bindings.py:73)
-    - SensitiveLoggingField exists but is currently test-only in practice (backend/setta/logging/context_models.py:14).
-- This is fine if you’re about to adopt them, but as-is it increases mental overhead because the “intended” pattern and “actual” pattern diverge.
+- ✅ The unused context-model + model-serialization logging scaffolding has been deleted to keep the logging story consistent and to avoid maintaining two competing patterns.
 
 Concrete Cleanup Candidates (Ruff-Found)
 
 - Dead/unused args/vars that can be removed or renamed (all reproducible via ruff check ... --select F401,F841,ARG*):
-    - backend/setta/project_state/lsp_response_handlers/completion.py:21 (code, line_cols, content_idx_with_text_edit are unused; lots of commented-out logic)
-    - backend/setta/project_state/project_code.py:160 (clear_text_field_completion args unused; method is a stub)
-    - backend/setta/project_state/settings_project_manager.py:40 (x unused; method always raises)
-    - backend/setta/routers/terminals.py:124 (terminal_id assigned but unused)
+    - ✅ backend/setta/project_state/lsp_response_handlers/completion.py (removed unused vars + dead commented logic; tightened types)
+    - ✅ backend/setta/project_state/project_code.py (renamed unused args in stub + updated completion handler call)
+    - ✅ backend/setta/project_state/settings_project_manager.py (renamed unused arg + avoided Iterable type)
+    - ✅ backend/setta/routers/terminals.py (removed unused `terminal_id`)
     - backend/setta/server.py:71 (FastAPI catch-all full_path unused; rename to _full_path to document intent)
-    - backend/setta/types/helpers_lvl3.py:266 (section_id unused)
-    - backend/setta/utils/generate_new_filename.py:47 (match unused)
+    - ✅ backend/setta/types/helpers_lvl3.py (removed unused `section_id` param)
+    - ✅ backend/setta/utils/generate_new_filename.py (renamed unused `match` param)
     - backend/setta/websockets/msg_handlers/frontend_receiver.py:45 (websocket_id unused; rename to _websocket_id)
 
 Recommended Next Steps (Prioritized)
 
 - ✅ Wrap background task entrypoints in a single “run in context + log failures” utility: implemented as `spawn_background_task(...)` and adopted in the highest-impact call sites.
 - ✅ Canonical route failure pattern: routes should use `WMHFrontendSender.log_failure_and_broadcast_backend_log_event(...)` when they want UI surfacing, so the global handler doesn’t duplicate it.
-- Either adopt the context-model helpers (attach payload metadata) or delete them for now to reduce confusion (backend/setta/logging/context_sources.py:79).
+- ✅ Deleted the unused context-model + model-serialization helpers; keep logging context explicit via `extra_values={...}` instead.
 - ✅ Normalize websocket identifiers: keep the generated websocket_id for logging and store fromWebsocketId under a distinct key (`connection_id`).
 - ✅ Replace “string-only” UI errors that drop tracebacks (e.g. autosave) with the structured helper so you keep stack traces.

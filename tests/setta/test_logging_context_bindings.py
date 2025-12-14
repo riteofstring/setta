@@ -7,9 +7,7 @@ from setta.logging.context import (
     reset_logging_context,
 )
 from setta.logging.context_bindings import (
-    bind_background_task_logging_context,
     bind_websocket_logging_context,
-    wrap_background_callable,
     wrap_background_coroutine,
 )
 from starlette.types import Scope
@@ -37,38 +35,6 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(context["project_id"], "alpha")
             self.assertEqual(context["path"], "/api/ws/frontend")
 
-    async def test_wrap_background_callable_handles_sync_and_async(self) -> None:
-        calls: list[dict[str, str]] = []
-
-        def _sync_job(value: str) -> str:
-            calls.append(get_logging_context())
-            return value
-
-        async def _async_job(value: str) -> str:
-            calls.append(get_logging_context())
-            return value
-
-        wrapped_sync = wrap_background_callable(
-            _sync_job,
-            label="sync-job",
-            project_id="beta",
-        )
-        wrapped_async = wrap_background_callable(
-            _async_job,
-            label="async-job",
-            project_id="gamma",
-        )
-
-        sync_result = await wrapped_sync("s-value")
-        async_result = await wrapped_async("a-value")
-
-        self.assertEqual(sync_result, "s-value")
-        self.assertEqual(async_result, "a-value")
-        self.assertEqual(calls[0]["task"], "sync-job")
-        self.assertEqual(calls[0]["project_id"], "beta")
-        self.assertEqual(calls[1]["task"], "async-job")
-        self.assertEqual(calls[1]["project_id"], "gamma")
-
     async def test_wrap_background_coroutine_sets_context(self) -> None:
         async def _coro() -> str:
             return get_logging_context()["task"]
@@ -80,17 +46,6 @@ class LoggingContextBindingsTests(unittest.IsolatedAsyncioTestCase):
         )
         result = await wrapped
         self.assertEqual(result, "manual-task")
-
-    async def test_bind_background_task_logging_context_context_manager(self) -> None:
-        async def _bounded_call() -> dict[str, str]:
-            with bind_background_task_logging_context(
-                label="cm-task", websocket_id="ws-77"
-            ):
-                return get_logging_context()
-
-        context = await _bounded_call()
-        self.assertEqual(context["task"], "cm-task")
-        self.assertEqual(context["websocket_id"], "ws-77")
 
 
 def _make_websocket(

@@ -5,8 +5,6 @@ import logging
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 
-from pydantic import BaseModel
-
 from setta.logging.context import LoggingContextInput
 from setta.logging.context_bindings import wrap_background_coroutine
 from setta.logging.errors import run_safely
@@ -27,7 +25,6 @@ def spawn_background_task(
     request_id: str | None = None,
     websocket_id: str | None = None,
     extra_values: dict[str, LoggingContextInput] | None = None,
-    context_models: tuple[BaseModel, ...] | None = None,
 ) -> asyncio.Task[T | None]:
     """Spawn a background task that logs structured failures with context metadata.
 
@@ -48,7 +45,6 @@ def spawn_background_task(
         request_id=request_id,
         websocket_id=websocket_id,
         extra_values=extra_values,
-        context_models=context_models,
     )
 
     task_name = name or label
