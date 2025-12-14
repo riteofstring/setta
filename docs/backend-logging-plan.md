@@ -50,6 +50,7 @@ Improvement Plan
  * **Completed:** added `tests/setta/test_logging_context_propagation.py` exercising AsyncDebouncer, LSP send/receive hooks, and the CLI websocket consumer to ensure the logging context survives through these background entry points.
 3. **Structured error handling utilities**
    * **Completed:** added `backend/setta/logging/errors.py` with `log_route_failure` / `run_safely` plus `tests/setta/test_logging_errors.py` so we can log handled vs unhandled failures with metadata and ensure bad inputs raise loudly.
+   * **Completed:** taught `log_route_failure` to accept request models directly, introduced `setta.logging.context_models` for consistent serialization + sensitive-field masking, and added request/websocket/background context helpers so general logging benefits from the same sanitized metadata (see `tests/setta/test_logging_context_sources.py`).
    * Replace `print`/bare `except` blocks in routers (`projects.py`, `ai.py`, `terminals.py`), websocket loops, and terminal I/O with these helpers. Escalate unexpected failures to `warning`/`error` instead of `debug`.
    * Add a small FastAPI exception handler/middleware for general `Exception` to log and convert errors into consistent JSON responses (matching the validation handler pattern).
 4. **Consistent backend → frontend error pipeline**
