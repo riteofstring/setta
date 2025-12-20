@@ -10,102 +10,99 @@ import {
   adjustSizeToBeAtLeastMin,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
-import {
-  useProjectState,
-  useSettings,
-  ZustandProjectState,
-} from "state/definitions";
-import {
-  SectionSize,
-  SectionSizingPolicy,
-  SectionType,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import { SectionSize, SectionTypeEnum } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
+
+export const INFINITE_MAX_HEIGHT = 100000;
+const INFINITE_MAX_WIDTH = 100000;
+export const PINNED_PARAMS_AREA_MIN_HEIGHT = 64;
+const ROOT_SECTION_HEIGHT = 50;
+const MINIMIZE_SECTION_HEIGHT = 32;
 
 function getMinSectionHeight({
   sectionType,
   hideSearch,
   hideParams,
   isMinimized,
-  sizingPolicy,
-}: {
-  sectionType: SectionType;
-  hideSearch?: boolean;
-  hideParams?: boolean;
-  isMinimized?: boolean;
-  sizingPolicy: SectionSizingPolicy;
-}): number {
-  const policyByType = sizingPolicy.byType[sectionType];
-
+}) {
   if (isMinimized) {
-    return sizingPolicy.globals.minimizedHeight;
+    return MINIMIZE_SECTION_HEIGHT;
   }
 
   if (sectionType === SectionTypeEnum.Callable) {
-    const callablePolicy = sizingPolicy.byType.Callable;
     if (hideSearch) {
-      return callablePolicy.hideSearchMinHeight;
+      return 78;
+    } else if (hideParams) {
+      return 58;
+    } else {
+      return 104;
     }
-    if (hideParams) {
-      return callablePolicy.hideParamsMinHeight;
-    }
+  } else if (
+    sectionType === SectionTypeEnum.ListRoot ||
+    sectionType === SectionTypeEnum.DictRoot
+  ) {
+    return ROOT_SECTION_HEIGHT;
+  } else if (sectionType === SectionTypeEnum.GlobalVariables) {
+    return 78;
+  } else if (sectionType === SectionTypeEnum.Code) {
+    return 58.2;
+  } else if (sectionType === SectionTypeEnum.TextBlock) {
+    return 98;
+  } else if (sectionType === SectionTypeEnum.Terminal) {
+    return 100;
+  } else if (
+    sectionType === SectionTypeEnum.Draw ||
+    sectionType === SectionTypeEnum.Image
+  ) {
+    return 100;
+  } else if (sectionType === SectionTypeEnum.Chart) {
+    return 300;
+  } else if (sectionType === SectionTypeEnum.Social) {
+    return 50;
+  } else if (sectionType === SectionTypeEnum.Chat) {
+    return 200;
+  } else if (sectionType === SectionTypeEnum.Browser) {
+    return 250;
   }
-
-  return policyByType.minHeight;
 }
 
-function getMaxSectionHeight({
-  sectionType,
-  isMinimized,
-  sizingPolicy,
-}: {
-  sectionType: SectionType;
-  isMinimized?: boolean;
-  sizingPolicy: SectionSizingPolicy;
-}): number {
-  const policyByType = sizingPolicy.byType[sectionType];
-
+function getMaxSectionHeight({ sectionType, isMinimized }) {
   if (isMinimized) {
-    return sizingPolicy.globals.minimizedHeight;
+    return MINIMIZE_SECTION_HEIGHT;
+  }
+  if (
+    sectionType === SectionTypeEnum.ListRoot ||
+    sectionType === SectionTypeEnum.DictRoot
+  ) {
+    return ROOT_SECTION_HEIGHT;
+  }
+  return INFINITE_MAX_HEIGHT;
+}
+
+function getMinSectionWidth({ sectionType, isTwitter }) {
+  if (isTwitter) {
+    return 370;
+  }
+  if (sectionType === SectionTypeEnum.Draw) {
+    return 402;
+  } else if (sectionType === SectionTypeEnum.Chart) {
+    return 300;
+  } else if (sectionType === SectionTypeEnum.Chat) {
+    return 400;
   }
 
-  return policyByType.maxHeight;
+  return 200;
 }
 
-function getMinSectionWidth({
-  sectionType,
-  sizingPolicy,
-}: {
-  sectionType: SectionType;
-  sizingPolicy: SectionSizingPolicy;
-}): number {
-  const policyByType = sizingPolicy.byType[sectionType];
-
-  return policyByType.minWidth;
+function getMaxSectionWidth({ isTwitter }) {
+  if (isTwitter) {
+    return 574;
+  }
+  return INFINITE_MAX_WIDTH;
 }
 
-function getMaxSectionWidth({
-  sectionType,
-  sizingPolicy,
-}: {
-  sectionType: SectionType;
-  sizingPolicy: SectionSizingPolicy;
-}): number {
-  const policyByType = sizingPolicy.byType[sectionType];
-
-  return policyByType.maxWidth;
-}
-
-function getSizeMode({
-  sectionType,
-  hideParams,
-  isTwitter,
-}: {
-  sectionType: SectionType;
-  hideParams?: boolean;
-  isTwitter: boolean;
-}) {
+function getSizeMode({ sectionType, hideParams, isTwitter }) {
   if (sectionType === SectionTypeEnum.Callable) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
@@ -122,9 +119,7 @@ function getSizeMode({
   return { height: SIZE_MODE.any, width: SIZE_MODE.any };
 }
 
-export function useSectionMinMaxDims(sectionId: string) {
-  const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-
+export function useSectionMinMaxDims(sectionId) {
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
@@ -138,23 +133,15 @@ export function useSectionMinMaxDims(sectionId: string) {
       hideSearch,
       hideParams,
       isMinimized,
-      sizingPolicy,
     });
 
     const maxHeight = getMaxSectionHeight({
       sectionType,
       isMinimized,
-      sizingPolicy,
     });
 
-    const minWidth = getMinSectionWidth({
-      sectionType,
-      sizingPolicy,
-    });
-    const maxWidth = getMaxSectionWidth({
-      sectionType,
-      sizingPolicy,
-    });
+    const minWidth = getMinSectionWidth({ sectionType, isTwitter });
+    const maxWidth = getMaxSectionWidth({ isTwitter });
 
     const sizeMode = getSizeMode({ sectionType, hideParams, isTwitter });
 
@@ -216,18 +203,10 @@ export function useIsScrollable() {
   };
 }
 
-async function setSectionToHaveAspectRatioAndMinSize(
-  sectionId: string,
-  imgSize: { width: number; height: number },
-) {
+async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
   const sectionType = getSectionType(sectionId);
-  const state = useProjectState.getState();
-  const sizingPolicy = useSettings.getState().sectionSizingPolicy;
-  const minHeight = getMinSectionHeight({ sectionType, sizingPolicy });
-  const minWidth = getMinSectionWidth({
-    sectionType,
-    sizingPolicy,
-  });
+  const minHeight = getMinSectionHeight({ sectionType });
+  const minWidth = getMinSectionWidth({ sectionType });
   const currSize = useProjectState.getState().sections[sectionId].size;
 
   let adjustedSize = adjustAspectRatio(

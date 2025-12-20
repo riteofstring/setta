@@ -220,7 +220,7 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-type RunMode = "once" | "continuous";
+export type RunMode = "once" | "continuous";
 
 export type CustomRunAction =
   | { type: "runCodeBlock"; sectionId: string | null }

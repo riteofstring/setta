@@ -8,9 +8,13 @@ import {
   getCurrShownParamIds,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSettings } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useIsScrollable } from "state/hooks/sectionSizes";
+import {
+  INFINITE_MAX_HEIGHT,
+  PINNED_PARAMS_AREA_MIN_HEIGHT,
+  useIsScrollable,
+} from "state/hooks/sectionSizes";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -108,15 +112,7 @@ function ResizablePinnedArea({
       height: impl.pinnedAreaHeight,
     };
   }, _.isEqual);
-  const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
-    (x) => ({
-      pinnedParamsAreaMinHeight:
-        x.sectionSizingPolicy.globals.pinnedParamsAreaMinHeight,
-      infiniteMaxHeight: x.sectionSizingPolicy.globals.infiniteMaxHeight,
-    }),
-    _.isEqual,
-  );
-  const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
+  const [initialMaxHeight, setInitialMaxHeight] = useState(INFINITE_MAX_HEIGHT);
 
   function onResizeStop(...props) {
     const { height } = getChangedSize({
@@ -140,7 +136,7 @@ function ResizablePinnedArea({
 
   const maxHeight =
     sectionHeight === "auto"
-      ? infiniteMaxHeight
+      ? INFINITE_MAX_HEIGHT
       : outerRef.current?.clientHeight ?? initialMaxHeight;
 
   const { ref, isScrollable } = useIsScrollable();
@@ -152,7 +148,7 @@ function ResizablePinnedArea({
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
-      minHeight={pinnedParamsAreaMinHeight}
+      minHeight={PINNED_PARAMS_AREA_MIN_HEIGHT}
       maxHeight={maxHeight}
       enable={{
         top: false,

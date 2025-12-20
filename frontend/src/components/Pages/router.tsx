@@ -12,7 +12,7 @@ import { MainContainer } from "./Project/MainContainer";
 
 function GridContainer({ children }) {
   return (
-    <section className="grid min-h-0 w-screen flex-1 grid-cols-[1fr] grid-rows-[min-content_1fr] overflow-hidden">
+    <section className="grid min-h-0 flex-1 w-screen grid-cols-[1fr] grid-rows-[min-content_1fr] overflow-hidden">
       {children}
     </section>
   );
