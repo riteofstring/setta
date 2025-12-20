@@ -382,6 +382,7 @@ type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
+  activeChatId: string | null | undefined;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
@@ -400,6 +401,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeys: {},
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
+        activeChatId: undefined,
         chatDetails: {},
         pendingChatDetails: null,
         allChatMetadata: [],
@@ -414,6 +416,22 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
           viewHistory: state.viewHistory,
         }),
       },
+    ),
+  ),
+);
+
+type AIFollowState = {
+  enabled: boolean;
+  sectionIdsByProjectConfigId: Record<string, Record<string, Array<string>>>;
+};
+
+export const useAIFollow = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AIFollowState>(() => ({
+        enabled: false,
+        sectionIdsByProjectConfigId: {},
+      })),
     ),
   ),
 );

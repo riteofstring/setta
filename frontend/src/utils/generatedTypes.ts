@@ -387,6 +387,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
   LLMConfigUpdated: "LLMConfigUpdated",
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  AIFollowUpdate: "AIFollowUpdate",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -3718,6 +3719,22 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
+const AIFollowUpdateContentSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+  sectionIds: z.array(IDSchema),
+});
+
+export type AIFollowUpdateContent = z.infer<typeof AIFollowUpdateContentSchema>;
+
+const WebsocketMsgAIFollowUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AIFollowUpdateContentSchema,
+  messageType: z
+    .literal("AIFollowUpdate")
+    .default(WebsocketMsgTypeForFrontendEnum.AIFollowUpdate),
+});
+
 const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -3733,6 +3750,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
+  WebsocketMsgAIFollowUpdateSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
