@@ -70,10 +70,10 @@ export function RunButton() {
         Run
       </button>
       <NavbarMenuDropdown
-        triggerClassName={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none outline-none transition-colors duration-150 focus-visible:ring-2 data-[state=open]:bg-blue-800 data-[state=open]:text-white ${
+        triggerClassName={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none outline-none transition-colors duration-150 focus-visible:ring-2 ${
           isContinuousActive
             ? activeButtonClasses
-            : "text-setta-700 dark:text-setta-200 hover:bg-setta-100 dark:hover:bg-setta-800 active:bg-blue-800 active:text-white active:dark:bg-blue-800"
+            : "text-setta-700 dark:text-setta-200 hover:bg-setta-100 dark:hover:bg-setta-800 active:bg-blue-100 active:dark:bg-blue-950"
         }`}
         trigger={<RiArrowDownSLine />}
       >
