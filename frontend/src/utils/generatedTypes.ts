@@ -276,6 +276,9 @@ export const RouteEnum = {
   DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
   CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
   CREATE_VIEW_MODE: "/createViewMode",
+  SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
+  TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
+  TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
@@ -4756,6 +4759,16 @@ const SetActiveIdsRequestSchema = z.object({
 
 export type SetActiveIdsRequest = z.infer<typeof SetActiveIdsRequestSchema>;
 
+const SetActiveViewModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  activeViewModeId: IDSchema,
+});
+
+export type SetActiveViewModeRequest = z.infer<
+  typeof SetActiveViewModeRequestSchema
+>;
+
 const SetBrowserAreaViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5085,6 +5098,15 @@ export type TextFieldCompletionRequest = z.infer<
   typeof TextFieldCompletionRequestSchema
 >;
 
+const ToggleIsEditingViewModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+});
+
+export type ToggleIsEditingViewModeRequest = z.infer<
+  typeof ToggleIsEditingViewModeRequestSchema
+>;
+
 const ToggleMinimizedRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5135,6 +5157,16 @@ const ToggleVariantJSONSourceRequestSchema = z.object({
 
 export type ToggleVariantJSONSourceRequest = z.infer<
   typeof ToggleVariantJSONSourceRequestSchema
+>;
+
+const ToggleViewModeUserFacingRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  viewModeId: IDSchema,
+});
+
+export type ToggleViewModeUserFacingRequest = z.infer<
+  typeof ToggleViewModeUserFacingRequestSchema
 >;
 
 const UndoRequestSchema = z.object({

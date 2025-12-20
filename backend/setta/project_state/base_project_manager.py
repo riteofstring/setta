@@ -86,6 +86,7 @@ from setta.project_state.project_manager_types import (
     RenameRefactorBroadcastContent,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
+    SetActiveViewModeRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
@@ -116,11 +117,13 @@ from setta.project_state.project_manager_types import (
     SetTopLevelSectionLayoutRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
+    ToggleIsEditingViewModeRequest,
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
     TogglePositionLockRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
+    ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
@@ -1206,6 +1209,33 @@ class BaseProjectManager(ABC):
         project_state.projectConfig.isEditingViewMode = True
         await self.update_and_broadcast_project_state(project_state)
         return view_mode.id
+
+    @enqueue_method
+    async def set_active_view_mode(self, x: SetActiveViewModeRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if x.activeViewModeId not in project_state.projectConfig.viewModes:
+            raise KeyError(f"View mode {x.activeViewModeId} not found")
+        project_state.projectConfig.activeViewModeId = x.activeViewModeId
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_is_editing_view_mode(
+        self, x: ToggleIsEditingViewModeRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.isEditingViewMode = (
+            not project_state.projectConfig.isEditingViewMode
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_view_mode_user_facing(
+        self, x: ToggleViewModeUserFacingRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
+        view_mode.isUserFacing = not view_mode.isUserFacing
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool()

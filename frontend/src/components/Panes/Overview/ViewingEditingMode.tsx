@@ -3,7 +3,12 @@ import { FiEdit3 } from "react-icons/fi";
 import { HiCode, HiOutlineEye } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
 import { useProjectState } from "state/definitions";
-import { route_create_view_mode } from "utils/generatedEndpoints";
+import {
+  route_create_view_mode,
+  route_set_active_view_mode,
+  route_toggle_is_editing_view_mode,
+  route_toggle_view_mode_user_facing,
+} from "utils/generatedEndpoints";
 
 export function ViewingEditingMode() {
   const {
@@ -36,16 +41,14 @@ export function ViewingEditingMode() {
   const hasViewModes = viewModeList.length > 0;
 
   const handleModeChange = (modeId: string) => {
-    useProjectState.setState((state) => {
-      state.projectConfig.activeViewModeId = modeId;
+    void route_set_active_view_mode({
+      projectConfigId,
+      activeViewModeId: modeId,
     });
   };
 
   const handleToggleEdit = () => {
-    useProjectState.setState((state) => {
-      state.projectConfig.isEditingViewMode =
-        !state.projectConfig.isEditingViewMode;
-    });
+    void route_toggle_is_editing_view_mode({ projectConfigId });
   };
 
   const handleCreateMode = () => {
@@ -53,12 +56,9 @@ export function ViewingEditingMode() {
   };
 
   const handleToggleUserFacing = (modeId: string) => {
-    useProjectState.setState((state) => {
-      const viewMode = state.projectConfig.viewModes[modeId];
-      if (!viewMode) {
-        throw new Error(`View mode ${modeId} not found`);
-      }
-      viewMode.isUserFacing = !viewMode.isUserFacing;
+    void route_toggle_view_mode_user_facing({
+      projectConfigId,
+      viewModeId: modeId,
     });
   };
 
