@@ -1,8 +1,9 @@
-import { useProjectState } from "state/definitions";
+import { useProjectState, useRunControl } from "state/definitions";
 import {
   route_kill_subprocesses,
   route_run_code,
 } from "utils/generatedEndpoints";
+import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
@@ -20,6 +21,18 @@ export async function runCodeBlock(sectionId: string | null) {
 
 export async function runEntryCodeBlock() {
   await runCodeBlock(null);
+}
+
+export async function runFromMainRunButton(): Promise<void> {
+  const { runMode } = useRunControl.getState();
+  if (runMode === "continuous") {
+    useRunControl.setState({ continuousRunStarted: true });
+    await triggerListenerForceRefresh();
+    return;
+  }
+
+  useRunControl.setState({ continuousRunStarted: false });
+  await runEntryCodeBlock();
 }
 
 export async function stopCode() {

@@ -219,6 +219,22 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
+export type RunMode = "once" | "continuous";
+
+type ZustandRunControl = {
+  runMode: RunMode;
+  continuousRunStarted: boolean;
+};
+
+export const useRunControl = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ZustandRunControl>(() => ({
+      runMode: "once",
+      continuousRunStarted: false,
+    })),
+  ),
+);
+
 const useArtifacts = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
