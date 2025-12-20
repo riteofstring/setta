@@ -76,38 +76,24 @@ function getMaxSectionHeight({
 
 function getMinSectionWidth({
   sectionType,
-  isTwitter,
   sizingPolicy,
 }: {
   sectionType: SectionType;
-  isTwitter: boolean;
   sizingPolicy: SectionSizingPolicy;
 }): number {
   const policyByType = sizingPolicy.byType[sectionType];
-  const overrides = policyByType.overrides;
-
-  if (isTwitter) {
-    return overrides?.twitterMinWidth ?? policyByType.minWidth;
-  }
 
   return policyByType.minWidth;
 }
 
 function getMaxSectionWidth({
   sectionType,
-  isTwitter,
   sizingPolicy,
 }: {
   sectionType: SectionType;
-  isTwitter: boolean;
   sizingPolicy: SectionSizingPolicy;
 }): number {
   const policyByType = sizingPolicy.byType[sectionType];
-  const overrides = policyByType.overrides;
-
-  if (isTwitter) {
-    return overrides?.twitterMaxWidth ?? policyByType.maxWidth;
-  }
 
   return policyByType.maxWidth;
 }
@@ -164,12 +150,10 @@ export function useSectionMinMaxDims(sectionId: string) {
 
     const minWidth = getMinSectionWidth({
       sectionType,
-      isTwitter,
       sizingPolicy,
     });
     const maxWidth = getMaxSectionWidth({
       sectionType,
-      isTwitter,
       sizingPolicy,
     });
 
@@ -239,12 +223,10 @@ async function setSectionToHaveAspectRatioAndMinSize(
 ) {
   const sectionType = getSectionType(sectionId);
   const state = useProjectState.getState();
-  const isTwitter = getIsTwitterSection(sectionId, state);
   const sizingPolicy = useSettings.getState().sectionSizingPolicy;
   const minHeight = getMinSectionHeight({ sectionType, sizingPolicy });
   const minWidth = getMinSectionWidth({
     sectionType,
-    isTwitter,
     sizingPolicy,
   });
   const currSize = useProjectState.getState().sections[sectionId].size;

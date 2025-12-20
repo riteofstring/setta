@@ -16,7 +16,6 @@ Move section sizing policy into backend settings so min/max sizing rules are cen
         - `minHeight`, `maxHeight`, `minWidth`, `maxWidth`
         - `overrides`: explicit special-case rules for that type
           - Callable: `hideSearchMinHeight`, `hideParamsMinHeight`, `minimizedHeight`
-          - Social: `twitterMinWidth`, `twitterMaxWidth`
           - Others as needed
     - `globals`: values not tied to a single section type
       - `pinnedParamsAreaMinHeight`
@@ -33,7 +32,7 @@ Move section sizing policy into backend settings so min/max sizing rules are cen
 ## Frontend Changes
 - Consume `settings.sectionSizingPolicy` in `frontend/src/state/hooks/sectionSizes.ts`.
 - Replace hard-coded min/max numbers with values from `settings.sectionSizingPolicy.byType` and `globals`.
-- Keep selection logic in the frontend (e.g., choose callable min height based on `hideSearch`/`hideParams`, enforce twitter constraints, etc.).
+- Keep selection logic in the frontend (e.g., choose callable min height based on `hideSearch`/`hideParams`).
 - Keep UI-only behavior and helpers unchanged (aspect ratio, ResizeObserver, etc.).
 
 ## Migration/Defaults
@@ -43,5 +42,3 @@ Move section sizing policy into backend settings so min/max sizing rules are cen
 ## Testing / Verification
 - Manual: create sections of each type and confirm min/max behavior matches current UI.
 - Manual: toggle `hideSearch`/`hideParams` for callable sections to verify min height selection.
-- Manual: open a Twitter embed and verify min/max width caps still apply.
-

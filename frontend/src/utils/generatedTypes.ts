@@ -2977,8 +2977,6 @@ const SectionSizingPolicyOverridesSchema = z.object({
   hideSearchMinHeight: z.union([z.number(), z.null()]),
   hideParamsMinHeight: z.union([z.number(), z.null()]),
   minimizedHeight: z.union([z.number(), z.null()]),
-  twitterMinWidth: z.union([z.number(), z.null()]),
-  twitterMaxWidth: z.union([z.number(), z.null()]),
 });
 
 const SectionSizingPolicyTypeEntrySchema = z.object({
@@ -3012,8 +3010,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
         hideSearchMinHeight: 78.0,
         hideParamsMinHeight: 58.0,
         minimizedHeight: null,
-        twitterMinWidth: null,
-        twitterMaxWidth: null,
       },
     }),
   ),
@@ -3091,8 +3087,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
         hideSearchMinHeight: null,
         hideParamsMinHeight: null,
         minimizedHeight: null,
-        twitterMinWidth: 370.0,
-        twitterMaxWidth: 574.0,
       },
     }),
   ),

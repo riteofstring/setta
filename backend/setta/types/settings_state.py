@@ -128,8 +128,6 @@ class SectionSizingPolicyOverrides(BaseModel):
     hideSearchMinHeight: float | None
     hideParamsMinHeight: float | None
     minimizedHeight: float | None
-    twitterMinWidth: float | None
-    twitterMaxWidth: float | None
 
 
 class SectionSizingPolicyTypeEntry(BaseModel):
@@ -158,8 +156,6 @@ class SectionSizingPolicyByType(BaseModel):
                 hideSearchMinHeight=78,
                 hideParamsMinHeight=58,
                 minimizedHeight=None,
-                twitterMinWidth=None,
-                twitterMaxWidth=None,
             ),
         )
     )
@@ -237,8 +233,6 @@ class SectionSizingPolicyByType(BaseModel):
                 hideSearchMinHeight=None,
                 hideParamsMinHeight=None,
                 minimizedHeight=None,
-                twitterMinWidth=370,
-                twitterMaxWidth=574,
             ),
         )
     )
