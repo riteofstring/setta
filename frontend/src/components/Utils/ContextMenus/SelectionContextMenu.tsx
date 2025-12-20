@@ -8,7 +8,10 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useContextMenus, useProjectState } from "state/definitions";
-import { route_delete_sections, route_group_sections } from "utils/generatedEndpoints";
+import {
+  route_delete_sections,
+  route_group_sections,
+} from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function SelectionContextMenu() {

@@ -75,9 +75,7 @@ function _SectionHeader({
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
-        {!isUserView && (
-          <DeleteOrHideButton sectionId={sectionId} />
-        )}
+        {!isUserView && <DeleteOrHideButton sectionId={sectionId} />}
       </div>
     </header>
   );

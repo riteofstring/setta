@@ -21,10 +21,12 @@ function _SectionContainer({
   isTopLevel: boolean;
   dragListeners?: any;
 }) {
-  const { visibility, isEditingViewMode, isGroup, isUserView } = useProjectState(
-    (x) => {
-      const { visibility, isEditingViewMode } =
-        getSectionViewModeVisibility(sectionId, x);
+  const { visibility, isEditingViewMode, isGroup, isUserView } =
+    useProjectState((x) => {
+      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+        sectionId,
+        x,
+      );
       const viewMode = getActiveViewModeConfig(x);
       const impl = getCurrEffectiveSectionImpl(x, sectionId);
       return {
@@ -33,9 +35,7 @@ function _SectionContainer({
         isUserView: viewMode.isUserFacing && !isEditingViewMode,
         isGroup: impl.type === SectionTypeEnum.Group,
       };
-    },
-    _.isEqual,
-  );
+    }, _.isEqual);
 
   if (!getSectionShouldRender(visibility, isEditingViewMode)) {
     return null;
@@ -52,10 +52,7 @@ function _SectionContainer({
       isUserView={isUserView}
     >
       {!isGroup && (
-        <SectionContainerCore
-          sectionId={sectionId}
-          isUserView={isUserView}
-        />
+        <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
       )}
       <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
     </ContainerSwitch>

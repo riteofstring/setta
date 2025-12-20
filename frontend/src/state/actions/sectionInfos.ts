@@ -561,7 +561,10 @@ export function ensureProjectViewModes(state: ProjectStateSingleConfig) {
     return;
   }
 
-  if (!projectConfig.activeViewModeId || !viewModes[projectConfig.activeViewModeId]) {
+  if (
+    !projectConfig.activeViewModeId ||
+    !viewModes[projectConfig.activeViewModeId]
+  ) {
     projectConfig.activeViewModeId = viewModeIds[0] ?? null;
   }
 

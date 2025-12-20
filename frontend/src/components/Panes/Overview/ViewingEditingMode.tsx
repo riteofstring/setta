@@ -12,11 +12,13 @@ export function ViewingEditingMode() {
     _.isEqual,
   );
   const viewModeList = Object.values<ViewModeConfig>(viewModes);
-  const activeViewMode = activeViewModeId
-    ? viewModes[activeViewModeId]
-    : null;
+  const activeViewMode = activeViewModeId ? viewModes[activeViewModeId] : null;
   const editLabel = isEditingViewMode ? "Editing" : "Preview";
-  const editIcon = isEditingViewMode ? <FiEdit3 size={16} /> : <HiOutlineEye size={16} />;
+  const editIcon = isEditingViewMode ? (
+    <FiEdit3 size={16} />
+  ) : (
+    <HiOutlineEye size={16} />
+  );
   const hasViewModes = viewModeList.length > 0;
 
   const handleModeChange = (modeId: string) => {
@@ -87,7 +89,11 @@ export function ViewingEditingMode() {
           title="Toggle whether this view is user-facing"
         >
           <span className="text-setta-500 dark:text-setta-400">
-            {activeViewMode.isUserFacing ? <TbUser size={16} /> : <HiCode size={16} />}
+            {activeViewMode.isUserFacing ? (
+              <TbUser size={16} />
+            ) : (
+              <HiCode size={16} />
+            )}
           </span>
           {activeViewMode.isUserFacing ? "User-facing" : "Developer-facing"}
         </button>
@@ -103,10 +109,15 @@ export function ViewingEditingMode() {
         {viewModeList.map((mode) => {
           const isActive = activeViewModeId === mode.id;
           const modeLabel = mode.name || "Untitled View";
-          const icon = mode.isUserFacing ? <TbUser size={18} /> : <HiCode size={18} />;
+          const icon = mode.isUserFacing ? (
+            <TbUser size={18} />
+          ) : (
+            <HiCode size={18} />
+          );
           const baseClasses =
             "flex items-center gap-2 rounded p-2 text-xs transition-all";
-          const activeClasses = "bg-white text-blue-600 shadow-sm dark:bg-setta-800";
+          const activeClasses =
+            "bg-white text-blue-600 shadow-sm dark:bg-setta-800";
           const inactiveClasses =
             "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50";
 

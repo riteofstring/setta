@@ -13,7 +13,10 @@ type SectionContainerCoreProps = {
   isUserView: boolean;
 };
 
-function _SectionContainerCore({ sectionId, isUserView }: SectionContainerCoreProps) {
+function _SectionContainerCore({
+  sectionId,
+  isUserView,
+}: SectionContainerCoreProps) {
   const {
     isActiveSection,
     sectionTypeName,
