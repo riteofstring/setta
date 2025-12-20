@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 
 from setta.code_gen.dependency_graph import (
@@ -14,8 +13,6 @@ from setta.code_gen.utils import (
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -81,11 +78,8 @@ class PythonCodeGenerator:
             )
 
         if cycles_detected:
-            logger.warning(
-                "Found %d dependency cycles during code generation",
-                len(cycles_detected),
-            )
-            logger.debug("Dependency cycles: %s", cycles_detected)
+            print(f"Found {len(cycles_detected)} cycles during code generation")
+            print(cycles_detected)
 
         code = self.generate_wrapper_class()
         gen_code_suffix_position = len(code)

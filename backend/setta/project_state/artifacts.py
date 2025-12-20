@@ -1,6 +1,5 @@
 import base64
 import json
-import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,7 +25,7 @@ from setta.types.artifact import (
     ImageMapping,
 )
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.section_impls import (
     ChartSectionImpl,
     DrawSectionImpl,
@@ -41,8 +40,6 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateBackend
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -161,11 +158,10 @@ class Artifacts:
                 await self.websocket_msg_handler.broadcast_artifacts_update(
                     artifacts=artifacts, updateType="update"
                 )
-            logger.debug(
-                "Artifact update: %s %s",
-                normalized_path,
-                coreUpdate.eventType.value,
+            notification = SettaNotification(
+                message=f"{normalized_path} {coreUpdate.eventType.value}",
             )
+            await self.websocket_msg_handler.broadcast_notification(notification)
             # TODO: do something with conflict_infos. Let's figure this out later.
 
         return fn
@@ -201,9 +197,12 @@ class Artifacts:
         return path_and_types, path_to_types
 
     def _compute_file_hash(self, path: Path):
-        content = self.dbe.read(path, "rb")
-        if content:
-            return compute_md5_hex(content)
+        try:
+            content = self.dbe.read(path, "rb")
+            if content:
+                return compute_md5_hex(content)
+        except:
+            pass
         return None
 
     def read_image_from_disk(self, path: Path):
@@ -509,18 +508,20 @@ class Artifacts:
                 message = f"Detected conflicting changes while saving {result.id}."
                 if result.backupPath:
                     message += f" Local version stored at {result.backupPath}."
-                await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                    message,
-                    severity=SettaBackendLogEventSeverity.warning,
+                notification = SettaNotification(
+                    message=message,
+                    type=SettaNotificationType.warning,
                 )
+                await self.websocket_msg_handler.broadcast_notification(notification)
             elif result.status == "skipped":
                 message = result.message or (
                     f"Skipped saving {result.id} due to detected external changes."
                 )
-                await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                    message,
-                    severity=SettaBackendLogEventSeverity.warning,
+                notification = SettaNotification(
+                    message=message,
+                    type=SettaNotificationType.warning,
                 )
+                await self.websocket_msg_handler.broadcast_notification(notification)
         return results
 
     def _save_artifact_to_disk(
