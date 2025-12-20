@@ -5,9 +5,6 @@ import logging
 from lsprotocol import converters as LSPConverters
 from lsprotocol import types as LSPTypes
 
-from setta.logging.errors import log_failure
-from setta.logging.tasks import spawn_background_task
-
 from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
@@ -23,17 +20,13 @@ class LanguageServerReader(LanguageServerInteractor):
         self.lsp_converter = LSPConverters.get_converter()
 
     async def start(self):
-        logger.debug("Starting %s language server reader", self.server.name)
+        logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
-        self.reader_task = spawn_background_task(
-            self.read_response(),
-            label=f"lsp-reader-{self.server.name}",
-            extra_values={"lsp_server": self.server.name},
-        )
+        self.reader_task = asyncio.create_task(self.read_response())
         await self.started.wait()
 
     async def stop(self):
-        logger.debug("Stopping %s language server reader", self.server.name)
+        logger.debug(f"Stopping {self.server.name} language server reader")
         self.stop_event.set()
         self.started.clear()
         if self.reader_task:
@@ -48,15 +41,10 @@ class LanguageServerReader(LanguageServerInteractor):
         while not self.stop_event.is_set():
             try:
                 await self.read_and_process_message()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                log_failure(
-                    exc,
-                    label=f"lsp-reader-loop-{self.server.name}",
-                    handled=False,
-                )
-                await asyncio.sleep(0.05)
+            except Exception as e:
+                logger.error(f"Error reading from language server: {e}")
+                # Optional: add a small delay to prevent tight loop if there's a persistent error
+                await asyncio.sleep(0.1)
 
     async def read_and_process_message(self):
         try:
@@ -100,42 +88,21 @@ class LanguageServerReader(LanguageServerInteractor):
             return
 
         try:
-            parsed = json.loads(response.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            log_failure(
-                exc,
-                label=f"lsp-reader-parse-{self.server.name}",
-                handled=False,
-                context={
-                    "content_length": content_length,
-                },
-            )
+            response = json.loads(response.decode("utf-8"))
+            self.process_response(response)
+        except json.JSONDecodeError as e:
+            logger.debug(f"Error decoding JSON response: {e}")
             return
-
-        try:
-            self.process_response(parsed)
-        except Exception as exc:
-            context: dict[str, object] = {"content_length": content_length}
-            msg_id = parsed.get("id")
-            if msg_id is not None:
-                context["lsp_msg_id"] = msg_id
-            method = parsed.get("method")
-            if method is not None:
-                context["lsp_method"] = method
-            log_failure(
-                exc,
-                label=f"lsp-reader-process-{self.server.name}",
-                handled=False,
-                context=context,
-            )
+        except Exception as e:
+            logger.debug(f"Error processing response: {e}")
             return
 
     def process_response(self, response):
-        response_id = response.get("id")
-        method = response.get("method")
-        logger.debug("Processing response (id=%s method=%s)", response_id, method)
-        if response_id:
-            self.process_response_with_id(response_id, method, response)
+        logger.debug(f"Processing response: {response}")
+        id = response.get("id", None)
+        method = response.get("method", None)
+        if id:
+            self.process_response_with_id(id, method, response)
         else:
             self.process_response_without_id(method, response)
 
@@ -163,16 +130,11 @@ class LanguageServerReader(LanguageServerInteractor):
             uri = response["params"]["uri"]
             callback = self.diagnostics_response_callbacks.get(uri)
             if callback:
-                spawn_background_task(
+                asyncio.create_task(
                     callback(
                         self.lsp_converter.structure(
                             response,
                             LSPTypes.TextDocumentPublishDiagnosticsNotification,
                         )
-                    ),
-                    label="lsp-diagnostics-callback",
-                    extra_values={
-                        "lsp_server": self.server.name,
-                        "uri": uri,
-                    },
+                    )
                 )

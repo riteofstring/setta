@@ -1,5 +1,3 @@
-import dataclasses
-
 from pydantic import BaseModel
 
 from setta.types.id import (
@@ -35,14 +33,6 @@ def traverse_and_replace(data, replace_func):
                 traverse_and_replace(value, replace_func),
             )
         return clone
-    if dataclasses.is_dataclass(data) and not isinstance(data, type):
-        changes = {}
-        for field in dataclasses.fields(data):
-            if not field.init:
-                continue
-            value = getattr(data, field.name)
-            changes[field.name] = traverse_and_replace(value, replace_func)
-        return dataclasses.replace(data, **changes)
     if isinstance(data, dict):
         return {
             traverse_and_replace(k, replace_func): traverse_and_replace(v, replace_func)

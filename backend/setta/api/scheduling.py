@@ -3,8 +3,6 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
-from setta.logging.tasks import spawn_background_task
-
 CallbackExecutor = Callable[[dict[str, Any]], Awaitable[None] | None]
 
 
@@ -120,12 +118,7 @@ class ListenerCallbackScheduler:
             if entry.timer_handle is not None:
                 entry.timer_handle.cancel()
                 entry.timer_handle = None
-            spawn_background_task(
-                self._execute_callback(entry.callback_id),
-                loop=loop,
-                label="listener-callback-execute",
-                extra_values={"callback_id": entry.callback_id},
-            )
+            loop.create_task(self._execute_callback(entry.callback_id))
             return
         if entry.timer_handle is not None:
             entry.timer_handle.cancel()
@@ -143,13 +136,7 @@ class ListenerCallbackScheduler:
             now = self._get_loop().time()
             self._plan_execution(entry, now)
             return
-        loop = self._get_loop()
-        spawn_background_task(
-            self._execute_callback(callback_id),
-            loop=loop,
-            label="listener-callback-execute",
-            extra_values={"callback_id": callback_id},
-        )
+        self._get_loop().create_task(self._execute_callback(callback_id))
 
     async def _execute_callback(self, callback_id: str) -> None:
         entry = self._callbacks.get(callback_id)

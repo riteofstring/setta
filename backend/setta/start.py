@@ -7,7 +7,6 @@ import click
 import uvicorn
 
 from . import __version__
-from .logging.config import configure_logging
 from .utils.constants import IS_DEV_MODE, C
 from .websockets.connect import connect as _connect
 
@@ -26,7 +25,7 @@ def connect(websocket_id, host, port):
 
 @click.command()
 def version():
-    click.echo(f"setta version {__version__}")
+    print(f"setta version {__version__}")
 
 
 @click.command()
@@ -57,8 +56,8 @@ def export_db(readable, readable_with_variants):
     type=click.Choice(
         ["critical", "error", "warning", "info", "debug"], case_sensitive=False
     ),
-    default=None,
-    help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
+    default="critical",
+    help="Set the logging level",
 )
 @click.option(
     "--open-browser/--no-open-browser",
@@ -67,10 +66,8 @@ def export_db(readable, readable_with_variants):
 )
 @click.pass_context
 def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
-    resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
     if ctx.invoked_subcommand is None:
-        logging.getLogger(__name__).info("Starting Setta")
+        print("Starting Setta", flush=True)
 
         C.HOST = host
         C.PORT = port
@@ -78,12 +75,16 @@ def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
 
         sys.path.append(str(Path(__file__).resolve().parent))
 
+        logging.basicConfig(
+            level=getattr(logging, log_level.upper()),
+            format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
+        )
+
         config = uvicorn.Config(
             "server:app",
             host=host,
             port=port,
-            log_level=uvicorn_log_level,
-            log_config=None,
+            log_level=log_level,
             reload=reload,
             timeout_graceful_shutdown=1,
         )

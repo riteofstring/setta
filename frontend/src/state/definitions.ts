@@ -27,7 +27,6 @@ import {
   LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
-  SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -220,32 +219,32 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-type BackendLogSeverity = SettaBackendLogEvent["severity"];
+export type RunMode = "once" | "continuous";
 
-export type BackendLogEventsFilter = {
-  projectConfigId: string | null;
-  minSeverity: BackendLogSeverity;
-  query: string;
+export type CustomRunAction =
+  | { type: "runCodeBlock"; sectionId: string | null }
+  | { type: "triggerListenerForceRefresh" };
+
+export type CustomRunItem = {
+  id: string;
+  name: string;
+  includeInRunDropdown: boolean;
+  runMode: RunMode;
+  action: CustomRunAction;
 };
 
-export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
-  projectConfigId: null,
-  minSeverity: "info",
-  query: "",
+type ZustandRunControl = {
+  runMode: RunMode;
+  continuousRunStarted: boolean;
+  continuousRunCustomRunId: string | null;
 };
 
-type BackendLogEventsState = {
-  events: Array<SettaBackendLogEvent>;
-  filter: BackendLogEventsFilter;
-  unreadHighSeverityCount: number;
-};
-
-export const useBackendLogEvents = withProjectState(
+export const useRunControl = withProjectState(
   createWithEqualityFn(
-    withResetFn<BackendLogEventsState>(() => ({
-      events: [],
-      filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
-      unreadHighSeverityCount: 0,
+    withResetFn<ZustandRunControl>(() => ({
+      runMode: "once",
+      continuousRunStarted: false,
+      continuousRunCustomRunId: null,
     })),
   ),
 );
@@ -382,7 +381,6 @@ type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
-  activeChatId: string | null | undefined;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
@@ -401,7 +399,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeys: {},
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
-        activeChatId: undefined,
         chatDetails: {},
         pendingChatDetails: null,
         allChatMetadata: [],
@@ -416,22 +413,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
           viewHistory: state.viewHistory,
         }),
       },
-    ),
-  ),
-);
-
-type AIFollowState = {
-  enabled: boolean;
-  sectionIdsByProjectConfigId: Record<string, Record<string, Array<string>>>;
-};
-
-export const useAIFollow = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<AIFollowState>(() => ({
-        enabled: false,
-        sectionIdsByProjectConfigId: {},
-      })),
     ),
   ),
 );
@@ -451,6 +432,7 @@ type ZustandLocalStorage = {
   uiEditorTab: UIEditorTabLocalStorage;
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
+  customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -470,6 +452,7 @@ export const useLocalStorage = createWithEqualityFn(
       uiEditorTab: {},
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
+      customRunsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
