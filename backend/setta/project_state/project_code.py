@@ -155,11 +155,9 @@ class ProjectGenPythonCode(PythonCode):
             return []
         code, line, col = context
         response = await self._request_completion_response(code, line, col)
-        return process_completion_response(response)
+        return process_completion_response(response, fullText)
 
-    async def clear_text_field_completion(
-        self, _sectionId: ID, _paramInfoId: ID | None
-    ):
+    async def clear_text_field_completion(self, sectionId: ID, paramInfoId: ID | None):
         return None
 
     async def set_callable(
@@ -334,7 +332,7 @@ class ProjectGenPythonCode(PythonCode):
         generator.set_gen_code_prefix(fullText)
         line, col = position_to_line_col(generator.code, position)
         response = await self._request_completion_response(generator.code, line, col)
-        return process_completion_response(response)
+        return process_completion_response(response, fullText)
 
     async def gen_code_suffix_completion(self, fullText, position):
         generator = self._clone_generator()
@@ -342,7 +340,7 @@ class ProjectGenPythonCode(PythonCode):
         absolute_position = position + insertion_offset
         line, col = position_to_line_col(generator.code, absolute_position)
         response = await self._request_completion_response(generator.code, line, col)
-        return process_completion_response(response)
+        return process_completion_response(response, fullText)
 
     async def type_check(self):
         await self.send_document_open_request(self.code)
@@ -432,7 +430,7 @@ class ProjectPythonCode(PythonCode):
                 ),
                 request_id,
             )
-        return process_completion_response(response)
+        return process_completion_response(response, fullText)
 
     async def type_check(self):
         await self.send_document_open_request(self.code)

@@ -1,4 +1,3 @@
-import { Button } from "components/Utils/atoms/buttons/Button";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
@@ -29,14 +28,14 @@ export function RunButton() {
 
   return (
     <div className="flex justify-stretch">
-      <Button
+      <button
         onClick={runEntryCodeBlock}
-        twClasses={`${baseClasses} rounded-r-none px-2`}
+        className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer ${baseClasses} rounded-r-none px-2`}
         {...getFloatingBoxHandlers({ content: "Run your code." })}
       >
         <RiPlayMiniFill />
         Run
-      </Button>
+      </button>
       <NavbarMenuDropdown
         triggerClassName="nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800"
         trigger={<RiArrowDownSLine />}

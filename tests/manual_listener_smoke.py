@@ -25,7 +25,6 @@ sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
 from setta.api.listener import ListenerCallbackBuilder
-from setta.logging.config import configure_listener_logging
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -132,7 +131,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    configure_listener_logging(level_override="INFO")
+    logging.basicConfig(level=logging.INFO)
 
     project_name = args.project_name or load_default_project_name()
     listener = build_listener(project_name)

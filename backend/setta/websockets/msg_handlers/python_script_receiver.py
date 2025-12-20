@@ -27,7 +27,6 @@ from setta.types.listener import (
     ListenerRegisterAckContent,
     ListenerRegisterAckStatus,
 )
-from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.websocket import (
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
@@ -61,51 +60,6 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.listener_coverage_tracker = ListenerCoverageTracker()
         self.listener_frontend_emit_resolver = ListenerFrontendEmitResolver()
 
-    @staticmethod
-    def _format_listener_error_message(
-        *,
-        websocket_id: str,
-        error: str,
-        details: dict[str, object],
-        project_config_id: ID | None,
-    ) -> str:
-        pairs: list[str] = [f"listenerWebsocketId={websocket_id}"]
-        if project_config_id is not None:
-            pairs.append(f"projectConfigId={project_config_id}")
-        for key in sorted(details):
-            value = details[key]
-            if isinstance(value, (str, int, float, bool)):
-                pairs.append(f"{key}={value}")
-        suffix = f" ({' '.join(pairs)})"
-        return f"Listener error: {error}{suffix}"
-
-    async def _send_listener_error(
-        self,
-        websocket_id: str,
-        *,
-        error: str,
-        details: dict[str, object],
-        project_config_id: ID | None = None,
-        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.error,
-    ) -> None:
-        await self.websocket_manager.send_message(
-            WebsocketMsgListenerError(
-                content=ListenerErrorContent(error=error, details=details)
-            ),
-            websocket_id,
-        )
-        message = self._format_listener_error_message(
-            websocket_id=websocket_id,
-            error=error,
-            details=details,
-            project_config_id=project_config_id,
-        )
-        await self.frontend_sender.log_and_broadcast_backend_log_event(
-            message,
-            severity=severity,
-            project_config_id=project_config_id,
-        )
-
     async def on_disconnect(self, websocket_id):
         registration = self.listener_registry.get_registration(websocket_id)
         self.listener_registry.remove_registration(websocket_id)
@@ -136,11 +90,13 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     "listener websocket %s missing both project config id and project name",
                     websocket_id,
                 )
-                await self._send_listener_error(
-                    websocket_id,
-                    error="project_state_unavailable",
-                    details={"websocketId": websocket_id},
+                error_message = WebsocketMsgListenerError(
+                    content=ListenerErrorContent(
+                        error="project_state_unavailable",
+                        details={"websocketId": websocket_id},
+                    )
                 )
+                await self.websocket_manager.send_message(error_message, websocket_id)
                 return
             try:
                 project_config_id = self.project_manager_switcher.get_config_id_by_name(
@@ -152,11 +108,13 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     project_name,
                     websocket_id,
                 )
-                await self._send_listener_error(
-                    websocket_id,
-                    error="project_state_unavailable",
-                    details={"projectName": project_name},
+                error_message = WebsocketMsgListenerError(
+                    content=ListenerErrorContent(
+                        error="project_state_unavailable",
+                        details={"projectName": project_name},
+                    )
                 )
+                await self.websocket_manager.send_message(error_message, websocket_id)
                 return
         elif project_name is not None:
             try:
@@ -200,12 +158,27 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 websocket_id,
                 project_config_id,
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="project_state_unavailable",
-                details={"projectConfigId": project_config_id},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+            return
+        except Exception:
+            logger.exception(
+                "unexpected error while preparing bootstrap snapshot for listener websocket %s (project %s)",
+                websocket_id,
+                project_config_id,
+            )
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
         await self.python_script_sender.send_force_refresh(
@@ -264,11 +237,13 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 "dropping listener frontend emit for unregistered websocket %s",
                 websocket_id,
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_not_registered",
-                details={"websocketId": websocket_id},
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_not_registered",
+                    details={"websocketId": websocket_id},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
         expected_project_config_id = registration.project_config_id
         project_config_id = message.content.projectConfigId
@@ -282,15 +257,16 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 expected_project_config_id,
                 project_config_id,
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="project_config_mismatch",
-                details={
-                    "expectedProjectConfigId": expected_project_config_id,
-                    "receivedProjectConfigId": project_config_id,
-                },
-                project_config_id=expected_project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_config_mismatch",
+                    details={
+                        "expectedProjectConfigId": expected_project_config_id,
+                        "receivedProjectConfigId": project_config_id,
+                    },
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
         manager = self.project_manager_switcher.get(project_config_id)
@@ -300,14 +276,15 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             logger.warning(
                 "listener emit rejected due to empty dependency/artifact payload"
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_payload",
-                details={
-                    "message": "listener emits require dependencyValues or artifactUpdates"
-                },
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_payload",
+                    details={
+                        "message": "listener emits require dependencyValues or artifactUpdates"
+                    },
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
         try:
@@ -317,12 +294,13 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 "failed to load dependency graph for listener emit (project %s)",
                 project_config_id,
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="project_state_unavailable",
-                details={"projectConfigId": project_config_id},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
         try:
@@ -341,84 +319,91 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 "listener emit referenced unknown dependency %s",
                 exc.dependency_name,
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_unknown_dependency",
-                details={"dependencyName": exc.dependency_name},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_unknown_dependency",
+                    details={"dependencyName": exc.dependency_name},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
         except InvalidListenerDependencyValueError as exc:
             logger.warning(
                 "listener emit provided invalid value for %s", exc.dependency_name
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_value",
-                details={
-                    "dependencyName": exc.dependency_name,
-                    "expectedType": exc.expected_type.value,
-                },
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_value",
+                    details={
+                        "dependencyName": exc.dependency_name,
+                        "expectedType": exc.expected_type.value,
+                    },
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
         except UnsupportedListenerDependencyError as exc:
             logger.warning(
                 "listener emit targeted unsupported dependency %s", exc.dependency_name
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_unsupported_dependency",
-                details={
-                    "dependencyName": exc.dependency_name,
-                    "reason": exc.reason,
-                },
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_unsupported_dependency",
+                    details={
+                        "dependencyName": exc.dependency_name,
+                        "reason": exc.reason,
+                    },
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
         except InvalidListenerArtifactUpdateError as exc:
             logger.warning(
                 "listener emit provided invalid artifact update for %s", exc.path
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_artifact_update",
-                details={
-                    "path": exc.path,
-                    "message": exc.message,
-                },
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_artifact_update",
+                    details={
+                        "path": exc.path,
+                        "message": exc.message,
+                    },
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
         except UnsupportedListenerArtifactUpdateError as exc:
             logger.warning(
                 "listener emit targeted unsupported artifact update for %s", exc.path
             )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_unsupported_artifact_update",
-                details={"path": exc.path, "reason": exc.reason},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_unsupported_artifact_update",
+                    details={"path": exc.path, "reason": exc.reason},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
         except ListenerFrontendEmitResolverError as exc:
             logger.exception("listener emit resolver failed")
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_failed",
-                details={"message": str(exc)},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_failed",
+                    details={"message": str(exc)},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
         except ValueError as exc:
             logger.warning("invalid listener emit payload: %s", exc)
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_payload",
-                details={"message": str(exc)},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_invalid_payload",
+                    details={"message": str(exc)},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
             return
 
         try:
@@ -429,20 +414,31 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
         except ListenerArtifactUpdateError as exc:
             logger.warning("listener emit artifact updates failed: %s", exc)
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_artifact_update_failed",
-                details={"message": str(exc)},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_artifact_update_failed",
+                    details={"message": str(exc)},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
         except ListenerDependencyUpdateError as exc:
             logger.warning("listener emit failed to apply: %s", exc)
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_failed",
-                details={"message": str(exc)},
-                project_config_id=project_config_id,
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_failed",
+                    details={"message": str(exc)},
+                )
             )
+            await self.websocket_manager.send_message(error_message, websocket_id)
+        except Exception as exc:
+            logger.exception("listener emit failed during backend application")
+            error_message = WebsocketMsgListenerError(
+                content=ListenerErrorContent(
+                    error="listener_emit_failed",
+                    details={"message": str(exc)},
+                )
+            )
+            await self.websocket_manager.send_message(error_message, websocket_id)
 
     async def _sync_listener_coverage(self, project_config_id: ID) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(

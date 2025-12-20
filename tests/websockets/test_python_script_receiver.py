@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 from typing import TYPE_CHECKING, Iterable, TypeVar, cast
 
@@ -785,8 +787,8 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         manager = project_manager_switcher._manager
         self.assertEqual([(PROJECT_ID, [])], manager.listener_updates)
         self.assertEqual(1, len(manager.listener_artifact_updates))
-        project_config_id, artifact_updates = manager.listener_artifact_updates[0]
-        self.assertEqual(PROJECT_ID, project_config_id)
+        project_id, artifact_updates = manager.listener_artifact_updates[0]
+        self.assertEqual(PROJECT_ID, project_id)
         self.assertEqual(1, len(artifact_updates))
         artifact_update = artifact_updates[0]
         self.assertEqual(str(normalize_path("/tmp/image.png")), artifact_update.id)
