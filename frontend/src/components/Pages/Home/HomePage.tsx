@@ -171,7 +171,7 @@ function ProjectItems({
   });
 
   const gridStyles =
-    "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
+    "grid grid-cols-1 gap-8 pt-7 justify-items-start sm:grid-cols-2 lg:grid-cols-3";
 
   return (
     <div className={gridStyles}>
