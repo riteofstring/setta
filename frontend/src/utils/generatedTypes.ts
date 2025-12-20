@@ -2973,6 +2973,231 @@ function createSettingsBackend(
   return SettingsBackendSchema.parse(options);
 }
 
+const SectionSizingPolicyOverridesSchema = z.object({
+  hideSearchMinHeight: z.union([z.number(), z.null()]),
+  hideParamsMinHeight: z.union([z.number(), z.null()]),
+  minimizedHeight: z.union([z.number(), z.null()]),
+  twitterMinWidth: z.union([z.number(), z.null()]),
+  twitterMaxWidth: z.union([z.number(), z.null()]),
+});
+
+const SectionSizingPolicyTypeEntrySchema = z.object({
+  minHeight: z.number(),
+  maxHeight: z.number(),
+  minWidth: z.number(),
+  maxWidth: z.number(),
+  overrides: z
+    .union([SectionSizingPolicyOverridesSchema, z.null()])
+    .default(null),
+});
+
+export type SectionSizingPolicyTypeEntry = z.infer<
+  typeof SectionSizingPolicyTypeEntrySchema
+>;
+
+function createSectionSizingPolicyTypeEntry(
+  options: Partial<SectionSizingPolicyTypeEntry> = {},
+): SectionSizingPolicyTypeEntry {
+  return SectionSizingPolicyTypeEntrySchema.parse(options);
+}
+
+const SectionSizingPolicyByTypeSchema = z.object({
+  callable: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 104.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+      overrides: {
+        hideSearchMinHeight: 78.0,
+        hideParamsMinHeight: 58.0,
+        minimizedHeight: null,
+        twitterMinWidth: null,
+        twitterMaxWidth: null,
+      },
+    }),
+  ),
+  dictSection: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 0.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  listRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 50.0,
+      maxHeight: 50.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  dictRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 50.0,
+      maxHeight: 50.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  group: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 0.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  image: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 100.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  chart: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 300.0,
+      maxHeight: 100000.0,
+      minWidth: 300.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  draw: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 100.0,
+      maxHeight: 100000.0,
+      minWidth: 402.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  textBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 98.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  social: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 50.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+      overrides: {
+        hideSearchMinHeight: null,
+        hideParamsMinHeight: null,
+        minimizedHeight: null,
+        twitterMinWidth: 370.0,
+        twitterMaxWidth: 574.0,
+      },
+    }),
+  ),
+  globalVariables: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 78.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  code: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 58.2,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  genPythonCode: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 0.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  terminal: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 100.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  iFrame: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 0.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  chat: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 200.0,
+      maxHeight: 100000.0,
+      minWidth: 400.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  browser: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 250.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+});
+
+type SectionSizingPolicyByType = z.infer<
+  typeof SectionSizingPolicyByTypeSchema
+>;
+
+function createSectionSizingPolicyByType(
+  options: Partial<SectionSizingPolicyByType> = {},
+): SectionSizingPolicyByType {
+  return SectionSizingPolicyByTypeSchema.parse(options);
+}
+
+const SectionSizingPolicyGlobalsSchema = z.object({
+  pinnedParamsAreaMinHeight: z.number().default(64),
+  minimizedHeight: z.number().default(32),
+  infiniteMaxHeight: z.number().default(100000),
+  infiniteMaxWidth: z.number().default(100000),
+});
+
+type SectionSizingPolicyGlobals = z.infer<
+  typeof SectionSizingPolicyGlobalsSchema
+>;
+
+function createSectionSizingPolicyGlobals(
+  options: Partial<SectionSizingPolicyGlobals> = {},
+): SectionSizingPolicyGlobals {
+  return SectionSizingPolicyGlobalsSchema.parse(options);
+}
+
+const SectionSizingPolicySchema = z.object({
+  byType: SectionSizingPolicyByTypeSchema.default(
+    createSectionSizingPolicyByType,
+  ),
+  globals: SectionSizingPolicyGlobalsSchema.default(
+    createSectionSizingPolicyGlobals,
+  ),
+});
+
+export type SectionSizingPolicy = z.infer<typeof SectionSizingPolicySchema>;
+
+function createSectionSizingPolicy(
+  options: Partial<SectionSizingPolicy> = {},
+): SectionSizingPolicy {
+  return SectionSizingPolicySchema.parse(options);
+}
+
 const UserDefaultBrowserSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -3524,6 +3749,9 @@ const SettingsStateSchema = z.object({
   shortcuts: SettingsShortcutsSchema.default(createSettingsShortcuts),
   gui: SettingsGUISchema.default(createSettingsGUI),
   backend: SettingsBackendSchema.default(createSettingsBackend),
+  sectionSizingPolicy: SectionSizingPolicySchema.default(
+    createSectionSizingPolicy,
+  ),
   languageServer: z.record(z.string(), z.any()).default({}),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,

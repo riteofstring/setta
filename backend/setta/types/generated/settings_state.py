@@ -32,7 +32,12 @@ from setta.types.generated.user_defaults import (
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
 )
-from setta.types.settings_state import SettingsBackend, SettingsGUI, SettingsShortcuts
+from setta.types.settings_state import (
+    SectionSizingPolicy,
+    SettingsBackend,
+    SettingsGUI,
+    SettingsShortcuts,
+)
 
 
 class SettingsState(BaseModel, extra="forbid"):
@@ -42,6 +47,9 @@ class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
+    sectionSizingPolicy: SectionSizingPolicy = Field(
+        default_factory=SectionSizingPolicy
+    )
     languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
 
     browserSectionDefault: UserDefaultBrowserSectionImpl = Field(
