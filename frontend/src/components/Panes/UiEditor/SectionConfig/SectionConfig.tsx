@@ -6,6 +6,7 @@ import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
+import { GenPythonCodeSettings } from "./GenPythonCodeSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
@@ -46,5 +47,7 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <IframeSettings sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
       return <ChatAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.GenPythonCode:
+      return <GenPythonCodeSettings />;
   }
 }

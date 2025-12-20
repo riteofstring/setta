@@ -605,9 +605,7 @@ class BaseProjectManager(ABC):
                 code_generator,
             )
             await new_gen_code.update_file()
-            maybe_update_gen_python_code_section(
-                projectState, new_gen_code.generated_code
-            )
+            maybe_update_gen_python_code_section(projectState, new_gen_code.code)
             self.gen_code[projectConfigId] = new_gen_code
 
             if self.code_dict.get(projectConfigId):
@@ -1081,15 +1079,9 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
         new_project_config = ProjectConfig(previewImgColor=previewImgColor)
-        project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
-        create_top_level_section(
-            self.settings_file.settings,
-            project_state,
-            SectionType.GenPythonCode,
-            Position(),
-        )
-        self.project_state_backend = merge_single_config_into_backend(
-            self.project_state_backend, project_state
+        project_config_id = new_project_config.id
+        self.project_state_backend.projectConfigs[project_config_id] = (
+            new_project_config
         )
         self.project_state_backend.validate_default_project_id()
         await self.broadcast_all_project_metadata()
