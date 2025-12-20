@@ -108,11 +108,13 @@ function ResizablePinnedArea({
       height: impl.pinnedAreaHeight,
     };
   }, _.isEqual);
-  const pinnedParamsAreaMinHeight = useSettings(
-    (x) => x.sectionSizingPolicy.globals.pinnedParamsAreaMinHeight,
-  );
-  const infiniteMaxHeight = useSettings(
-    (x) => x.sectionSizingPolicy.globals.infiniteMaxHeight,
+  const { pinnedParamsAreaMinHeight, infiniteMaxHeight } = useSettings(
+    (x) => ({
+      pinnedParamsAreaMinHeight:
+        x.sectionSizingPolicy.globals.pinnedParamsAreaMinHeight,
+      infiniteMaxHeight: x.sectionSizingPolicy.globals.infiniteMaxHeight,
+    }),
+    _.isEqual,
   );
   const [initialMaxHeight, setInitialMaxHeight] = useState(infiniteMaxHeight);
 
