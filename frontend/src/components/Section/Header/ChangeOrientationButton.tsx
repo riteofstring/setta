@@ -25,7 +25,7 @@ export function ChangeOrientationButton({ sectionId }) {
 
   return (
     <button
-      className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent justify-content-center mr-1 text-setta-400 dark:text-setta-600 hover:text-setta-500 dark:hover:text-setta-400 rounded-full p-0 w-4 h-4"
+      className="nodrag justify-content-center mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
       onClick={onClick}
     >
       {!isHorizontalOrientation ? (

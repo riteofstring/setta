@@ -45,18 +45,18 @@ export function LockPositionButton({ sectionId }) {
 
   return (
     <button
-      className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center ${
+      className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${
         positionAndSizeLocked
-          ? "shadow-[inset_0_1px_1px_0_rgb(0_0_0_/_0.1)] dark:shadow-none dark:border-transparent  dark:bg-transparent  hover:bg-orange-500 dark:hover:bg-orange-500"
+          ? "shadow-[inset_0_1px_1px_0_rgb(0_0_0_/_0.1)] hover:bg-orange-500 dark:border-transparent  dark:bg-transparent  dark:shadow-none dark:hover:bg-orange-500"
           : "bg-transparent"
       } ${iconSize} ${
         positionAndSizeLocked
-          ? "dark:text-orange-500 text-orange-600 hover:!text-orange-100 dark:hover:!text-orange-100"
+          ? "text-orange-600 hover:!text-orange-100 dark:text-orange-500 dark:hover:!text-orange-100"
           : isGroup
             ? "text-setta-400 dark:text-setta-600"
             : "text-setta-600"
-      } hover:text-orange-500 dark:hover:text-orange-700 rounded-full p-0 mr-1 ${
-        isGroup ? "w-5 h-5" : "w-4 h-4"
+      } mr-1 rounded-full p-0 hover:text-orange-500 dark:hover:text-orange-700 ${
+        isGroup ? "h-5 w-5" : "h-4 w-4"
       }`}
       onClick={onClick}
     >

@@ -47,9 +47,7 @@ function _SectionHeader({
             arrowClasses="fill-white dark:fill-setta-800"
             contentClasses="z-20"
             trigger={
-              <button
-                className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent text-setta-500 rounded-full py-1 px-1 w-3 h-3 [&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
-              >
+              <button className="nodrag flex inline-flex h-3 w-3 cursor-pointer items-center justify-center rounded-full bg-transparent px-1 py-1 text-setta-500 focus-visible:ring-2 [&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400">
                 <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
               </button>
             }

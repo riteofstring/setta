@@ -4,13 +4,12 @@ import Controls from "forks/xyflow/controls/Controls";
 import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
-import { MdBugReport, MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
-import { RiPlayList2Fill } from "react-icons/ri";
 import {
   MdBugReport,
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
+import { RiPlayList2Fill } from "react-icons/ri";
 import { useBackendLogEvents, useLocalStorage } from "state/definitions";
 import {
   OverviewTabName,

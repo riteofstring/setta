@@ -12,7 +12,10 @@ import { runCodeBlock } from "./runOrImportCode";
 export function getCustomRunsForProjectConfig(
   projectConfigId: string,
 ): Array<CustomRunItem> {
-  return useLocalStorage.getState().customRunsByProjectConfigId[projectConfigId] ?? [];
+  return (
+    useLocalStorage.getState().customRunsByProjectConfigId[projectConfigId] ??
+    []
+  );
 }
 
 export function setCustomRunsForProjectConfig(
@@ -27,7 +30,10 @@ export function setCustomRunsForProjectConfig(
   }));
 }
 
-export function toggleCustomRunInDropdown(projectConfigId: string, runId: string) {
+export function toggleCustomRunInDropdown(
+  projectConfigId: string,
+  runId: string,
+) {
   const runs = getCustomRunsForProjectConfig(projectConfigId);
   const nextRuns = runs.map((run) =>
     run.id === runId
@@ -43,7 +49,9 @@ export function setCustomRunMode(
   runMode: CustomRunItem["runMode"],
 ) {
   const runs = getCustomRunsForProjectConfig(projectConfigId);
-  const nextRuns = runs.map((run) => (run.id === runId ? { ...run, runMode } : run));
+  const nextRuns = runs.map((run) =>
+    run.id === runId ? { ...run, runMode } : run,
+  );
   setCustomRunsForProjectConfig(projectConfigId, nextRuns);
 }
 
@@ -81,7 +89,8 @@ export function ensureDefaultCustomRuns(projectConfigId: string) {
   const runs = getCustomRunsForProjectConfig(projectConfigId);
 
   const hasEntryRun = runs.some(
-    (run) => run.action.type === "runCodeBlock" && run.action.sectionId === null,
+    (run) =>
+      run.action.type === "runCodeBlock" && run.action.sectionId === null,
   );
   const hasListenerRefreshRun = runs.some(
     (run) => run.action.type === "triggerListenerForceRefresh",
@@ -216,4 +225,3 @@ export async function runContinuousTick() {
 
   await runCustomRunAction(run.action);
 }
-

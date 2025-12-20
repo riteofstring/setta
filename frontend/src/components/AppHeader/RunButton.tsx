@@ -1,8 +1,8 @@
+import * as Menubar from "@radix-ui/react-menubar";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEffect } from "react";
-import * as Menubar from "@radix-ui/react-menubar";
 import {
   RiArrowDownSLine,
   RiLoopRightFill,
@@ -31,11 +31,8 @@ export function RunButton() {
   const dropdownRuns = customRuns.filter((x) => x.includeInRunDropdown);
   const isContinuous = runMode === "continuous";
   const isContinuousActive = isContinuous && continuousRunStarted;
-  const mainIcon = runMode === "continuous" ? (
-    <RiLoopRightFill />
-  ) : (
-    <RiPlayMiniFill />
-  );
+  const mainIcon =
+    runMode === "continuous" ? <RiLoopRightFill /> : <RiPlayMiniFill />;
 
   const baseClasses =
     "relative transition-colors text-xs font-semibold h-full rounded-md gap-1 select-none flex items-center";
@@ -80,109 +77,109 @@ export function RunButton() {
       <div className="flex justify-stretch">
         <button
           onClick={runFromMainRunButton}
-          className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer ${baseClasses} ${
-          isContinuousActive ? activeButtonClasses : idleButtonClasses
-        } rounded-r-none px-2`}
-        {...getFloatingBoxHandlers({ content: "Run your code." })}
-      >
-        {mainIcon}
-        Run
-      </button>
-      <NavbarMenuDropdown
-        triggerClassName={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none outline-none transition-colors duration-150 focus-visible:ring-2 ${
-          isContinuousActive
-            ? activeButtonClasses
-            : "text-setta-700 dark:text-setta-200 hover:bg-setta-100 dark:hover:bg-setta-800 active:bg-blue-100 active:dark:bg-blue-950"
-        }`}
-        trigger={<RiArrowDownSLine />}
-      >
-        {/*
+          className={`nodrag inline-flex cursor-pointer items-center focus-visible:ring-2 ${baseClasses} ${
+            isContinuousActive ? activeButtonClasses : idleButtonClasses
+          } rounded-r-none px-2`}
+          {...getFloatingBoxHandlers({ content: "Run your code." })}
+        >
+          {mainIcon}
+          Run
+        </button>
+        <NavbarMenuDropdown
+          triggerClassName={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none outline-none transition-colors duration-150 focus-visible:ring-2 ${
+            isContinuousActive
+              ? activeButtonClasses
+              : "text-setta-700 dark:text-setta-200 hover:bg-setta-100 dark:hover:bg-setta-800 active:bg-blue-100 active:dark:bg-blue-950"
+          }`}
+          trigger={<RiArrowDownSLine />}
+        >
+          {/*
           We don't use a checkmark indicator; the active mode is shown via blue text/icon.
           Blue is overridden to white on hover to keep menu highlight consistent.
         */}
-        <MenuItem
-          className={menuItemClasses}
-          onClick={() => {
-            useRunControl.setState({
-              runMode: "once",
-              continuousRunStarted: false,
-              continuousRunCustomRunId: null,
-            });
-          }}
-        >
-          <i
-            className={`w-3 opacity-70 ${
-              runMode === "once"
-                ? "text-blue-500 opacity-100 group-data-[highlighted]:text-white"
-                : ""
-            }`}
+          <MenuItem
+            className={menuItemClasses}
+            onClick={() => {
+              useRunControl.setState({
+                runMode: "once",
+                continuousRunStarted: false,
+                continuousRunCustomRunId: null,
+              });
+            }}
           >
-            <RiPlayMiniFill />
-          </i>
-          <span
-            className={`ml-0.5 ${
-              runMode === "once"
-                ? "text-blue-500 group-data-[highlighted]:text-white"
-                : ""
-            }`}
+            <i
+              className={`w-3 opacity-70 ${
+                runMode === "once"
+                  ? "text-blue-500 opacity-100 group-data-[highlighted]:text-white"
+                  : ""
+              }`}
+            >
+              <RiPlayMiniFill />
+            </i>
+            <span
+              className={`ml-0.5 ${
+                runMode === "once"
+                  ? "text-blue-500 group-data-[highlighted]:text-white"
+                  : ""
+              }`}
+            >
+              Run once
+            </span>
+          </MenuItem>
+          <MenuItem
+            className={menuItemClasses}
+            onClick={() => {
+              useRunControl.setState({
+                runMode: "continuous",
+                continuousRunStarted: false,
+                continuousRunCustomRunId: null,
+              });
+            }}
           >
-            Run once
-          </span>
-        </MenuItem>
-        <MenuItem
-          className={menuItemClasses}
-          onClick={() => {
-            useRunControl.setState({
-              runMode: "continuous",
-              continuousRunStarted: false,
-              continuousRunCustomRunId: null,
-            });
-          }}
-        >
-          <i
-            className={`w-3 opacity-70 ${
-              runMode === "continuous"
-                ? "text-blue-500 opacity-100 group-data-[highlighted]:text-white"
-                : ""
-            }`}
-          >
-            <RiLoopRightFill />
-          </i>
-          <span
-            className={`ml-0.5 ${
-              runMode === "continuous"
-                ? "text-blue-500 group-data-[highlighted]:text-white"
-                : ""
-            }`}
-          >
-            Continuous run
-          </span>
-        </MenuItem>
+            <i
+              className={`w-3 opacity-70 ${
+                runMode === "continuous"
+                  ? "text-blue-500 opacity-100 group-data-[highlighted]:text-white"
+                  : ""
+              }`}
+            >
+              <RiLoopRightFill />
+            </i>
+            <span
+              className={`ml-0.5 ${
+                runMode === "continuous"
+                  ? "text-blue-500 group-data-[highlighted]:text-white"
+                  : ""
+              }`}
+            >
+              Continuous run
+            </span>
+          </MenuItem>
 
-        {dropdownRuns.length > 0 && (
-          <>
-            <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
-            {dropdownRuns.map((run) => (
-              <MenuItem
-                key={run.id}
-                className={menuItemClasses}
-                onClick={() => {
-                  void runCustomRun(projectConfigId, run.id);
-                }}
-              >
-                <i className="w-3 opacity-80">
-                  {run.runMode === "continuous" ? (
-                    <RiLoopRightFill />
-                  ) : (
-                    <RiPlayMiniFill />
-                  )}
-                </i>
-                <span className="ml-0.5">{run.name}</span>
-              </MenuItem>
-            ))}
-          </>
-        )}
-      </NavbarMenuDropdown>
+          {dropdownRuns.length > 0 && (
+            <>
+              <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+              {dropdownRuns.map((run) => (
+                <MenuItem
+                  key={run.id}
+                  className={menuItemClasses}
+                  onClick={() => {
+                    void runCustomRun(projectConfigId, run.id);
+                  }}
+                >
+                  <i className="w-3 opacity-80">
+                    {run.runMode === "continuous" ? (
+                      <RiLoopRightFill />
+                    ) : (
+                      <RiPlayMiniFill />
+                    )}
+                  </i>
+                  <span className="ml-0.5">{run.name}</span>
+                </MenuItem>
+              ))}
+            </>
+          )}
+        </NavbarMenuDropdown>
       </div>
     </div>
   );

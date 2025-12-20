@@ -35,7 +35,7 @@ export function MinimizeButton({ sectionId, ...props }) {
     <button
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
-      } nodrag cursor-pointer flex justify-center bg-transparent hover:bg-blue-500 justify-content-center mr-1 text-setta-600 hover:text-white rounded-full p-0 w-4 h-4 ${twClasses ?? ""}`}
+      } nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 text-setta-600 hover:bg-blue-500 hover:text-white ${twClasses ?? ""}`}
       onClick={onClick}
       {...buttonProps}
     >

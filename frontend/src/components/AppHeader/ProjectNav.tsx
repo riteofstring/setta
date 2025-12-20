@@ -1,8 +1,8 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useParams } from "react-router-dom";
 import { EditMenu } from "./EditMenu";
-import { FollowAIToggleButton } from "./FollowAIToggleButton";
 import { FileMenu } from "./FileMenu";
+import { FollowAIToggleButton } from "./FollowAIToggleButton";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
 import { WebsocketConnections } from "./WebsocketConnections";

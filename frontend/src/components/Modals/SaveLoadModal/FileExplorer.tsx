@@ -22,9 +22,7 @@ export function FileExplorer({
       </Dialog.Title>
 
       <div className="mb-2 flex justify-between border-b border-solid border-setta-200 pb-2">
-        <button
-          className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer text-xs text-setta-400 hover:text-setta-900 dark:hover:text-setta-200 rounded-md ring-0"
-        >
+        <button className="nodrag inline-flex cursor-pointer items-center rounded-md text-xs text-setta-400 ring-0 hover:text-setta-900 focus-visible:ring-2 dark:hover:text-setta-200">
           Name
         </button>
       </div>

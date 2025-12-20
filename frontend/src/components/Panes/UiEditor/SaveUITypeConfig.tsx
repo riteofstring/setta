@@ -9,7 +9,7 @@ export function SaveUITypeConfig() {
   return (
     <Dialog.Trigger asChild>
       <button
-        className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent hover:bg-setta-100 dark:hover:bg-setta-800/50 text-setta-500 rounded-full py-2 px-2 w-4 h-4"
+        className="nodrag flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent px-2 py-2 text-setta-500 hover:bg-setta-100 focus-visible:ring-2 dark:hover:bg-setta-800/50"
         onClick={openUITypesModal}
       >
         <BiSave className="text-setta-500 dark:text-setta-600" />

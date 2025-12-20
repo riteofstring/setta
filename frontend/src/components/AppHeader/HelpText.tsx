@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
-import { useLocalStorage, useNotifications, useSettings } from "state/definitions";
+import {
+  useLocalStorage,
+  useNotifications,
+  useSettings,
+} from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 
 const HELP_TEXT_FADE_MS = 150;
@@ -34,7 +38,9 @@ export function HelpText() {
     }
     lastSeenNotificationId.current = latestNotificationInfo.id;
 
-    const notificationTime = new Date(latestNotificationInfo.timestamp).getTime();
+    const notificationTime = new Date(
+      latestNotificationInfo.timestamp,
+    ).getTime();
     if (new Date().getTime() - notificationTime > DEFAULT_TEMP_TIMEOUT) {
       return;
     }

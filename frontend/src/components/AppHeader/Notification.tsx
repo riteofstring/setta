@@ -41,9 +41,12 @@ export function Notification() {
         setIsVisible(true);
       });
 
-      const fadeStartTimeoutId = window.setTimeout(() => {
-        setIsVisible(false);
-      }, Math.max(timeoutDuration - NOTIFICATION_FADE_MS, 0));
+      const fadeStartTimeoutId = window.setTimeout(
+        () => {
+          setIsVisible(false);
+        },
+        Math.max(timeoutDuration - NOTIFICATION_FADE_MS, 0),
+      );
 
       return () => {
         clearTimeout(fadeStartTimeoutId);

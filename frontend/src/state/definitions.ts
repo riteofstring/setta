@@ -246,6 +246,10 @@ export const useRunControl = withProjectState(
       runMode: "once",
       continuousRunStarted: false,
       continuousRunCustomRunId: null,
+    })),
+  ),
+);
+
 type BackendLogSeverity = SettaBackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {

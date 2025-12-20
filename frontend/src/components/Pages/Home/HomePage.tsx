@@ -295,7 +295,7 @@ function ThumbnailArea({
     >
       <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <button
-          className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center ${isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"} text-white/50 hover:text-white rounded-full py-1 px-1 w-4 h-4`}
+          className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"} h-4 w-4 rounded-full px-1 py-1 text-white/50 hover:text-white`}
           onClick={(e) => onSelectProject(e, project.id)}
         >
           <IoMdCheckmark />

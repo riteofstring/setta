@@ -9,7 +9,7 @@ export function RunButton({ sectionId }) {
 
   return (
     <button
-      className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent text-setta-600 hover:text-green-500 active:!text-blue-700 rounded-full p-0 mr-1 w-4 h-4"
+      className="nodrag mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 hover:text-green-500 focus-visible:ring-2 active:!text-blue-700"
       onClick={onClick}
       {...getFloatingBoxHandlers({ title: "Run this code block" })}
     >
