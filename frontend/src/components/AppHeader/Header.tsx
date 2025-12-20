@@ -1,6 +1,7 @@
 import { useProjectLoading } from "state/definitions";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
+import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
 import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
 import { ProjectPageSearchBar } from "./SearchBar/ProjectPageSearch";
@@ -21,9 +22,10 @@ export function HeaderContainer({ path }: { path: string }) {
         <>
           <ProjectNav />
           <SearchSwitch path={path} />
+          <Notification />
         </>
       )}
-      <DarkModeSwitch showNotifications={!projectIsLoading && !projectIs404} />
+      <DarkModeSwitch />
     </header>
   );
 }

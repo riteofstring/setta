@@ -406,7 +406,9 @@ class LLMChatManager:
         )
 
     def _get_temporary_project_config_id(self, project_config_id: ID) -> ID:
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
         should_write = project_config_id not in canonical_to_temporary
         temporary_project_config_id = convert_canonical_ids_to_temporary(
             project_config_id,
