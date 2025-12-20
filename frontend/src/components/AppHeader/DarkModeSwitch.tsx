@@ -24,7 +24,7 @@ export function DarkModeSwitch({
       <div className="relative z-10">
         <HelpText />
       </div>
-      <div className="relative z-30">
+      <div className="relative z-20">
         <Switch.Root
           className={toggleRootClasses}
           checked={darkMode}
