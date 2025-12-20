@@ -422,3 +422,39 @@ input[type="color" i] {
   background: rgb(29 78 216);
   color: white;
 }
+
+.setta-gradient-border-shell {
+  display: inline-flex;
+  border-radius: 0.375rem; /* rounded-md */
+  padding: 1px;
+}
+
+.setta-animated-gradient-border {
+  background: linear-gradient(
+    90deg,
+    rgb(59 130 246),
+    rgb(168 85 247),
+    rgb(236 72 153),
+    rgb(59 130 246)
+  );
+  background-size: 300% 300%;
+  animation: setta-gradient-border-shift 3s linear infinite;
+}
+
+@keyframes setta-gradient-border-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setta-animated-gradient-border {
+    animation: none;
+  }
+}

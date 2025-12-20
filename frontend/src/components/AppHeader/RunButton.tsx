@@ -13,6 +13,9 @@ import { usePendingOperations, useRunControl } from "state/definitions";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
+  const continuousRunStarted = useRunControl((x) => x.continuousRunStarted);
+  const isContinuous = runMode === "continuous";
+  const isContinuousActive = isContinuous && continuousRunStarted;
   const mainIcon = runMode === "continuous" ? (
     <RiLoopRightFill />
   ) : (
@@ -20,7 +23,13 @@ export function RunButton() {
   );
 
   const baseClasses =
-    "relative transition-colors text-xs font-semibold text-setta-700 dark:text-setta-100 h-full rounded-md gap-1 select-none flex items-center hover:bg-setta-100 dark:hover:bg-setta-800 bg-transparent active:!bg-blue-100 active:dark:!bg-blue-950";
+    "relative transition-colors text-xs font-semibold h-full rounded-md gap-1 select-none flex items-center";
+
+  const idleButtonClasses =
+    "bg-transparent text-setta-700 dark:text-setta-100 hover:bg-setta-100 dark:hover:bg-setta-800 active:!bg-blue-800 active:!text-white active:dark:!bg-blue-800";
+
+  const activeButtonClasses =
+    "bg-blue-800 text-white hover:bg-blue-700 dark:bg-blue-800 dark:text-white dark:hover:bg-blue-700";
 
   // Menu item styling with proper hover effect that's contained within the button
   const menuItemClasses =
@@ -44,17 +53,28 @@ export function RunButton() {
   }, []);
 
   return (
-    <div className="flex justify-stretch">
-      <button
-        onClick={runFromMainRunButton}
-        className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer ${baseClasses} rounded-r-none px-2`}
+    <div
+      className={`setta-gradient-border-shell ${
+        isContinuousActive ? "setta-animated-gradient-border" : ""
+      }`}
+    >
+      <div className="flex justify-stretch">
+        <button
+          onClick={runFromMainRunButton}
+          className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer ${baseClasses} ${
+          isContinuousActive ? activeButtonClasses : idleButtonClasses
+        } rounded-r-none px-2`}
         {...getFloatingBoxHandlers({ content: "Run your code." })}
       >
         {mainIcon}
         Run
       </button>
       <NavbarMenuDropdown
-        triggerClassName="nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800"
+        triggerClassName={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-r-md py-1 px-1 text-xs font-semibold leading-none outline-none transition-colors duration-150 focus-visible:ring-2 data-[state=open]:bg-blue-800 data-[state=open]:text-white ${
+          isContinuousActive
+            ? activeButtonClasses
+            : "text-setta-700 dark:text-setta-200 hover:bg-setta-100 dark:hover:bg-setta-800 active:bg-blue-800 active:text-white active:dark:bg-blue-800"
+        }`}
         trigger={<RiArrowDownSLine />}
       >
         {/*
@@ -118,6 +138,7 @@ export function RunButton() {
           </span>
         </MenuItem>
       </NavbarMenuDropdown>
+      </div>
     </div>
   );
 }

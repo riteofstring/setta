@@ -24,8 +24,13 @@ export async function runEntryCodeBlock() {
 }
 
 export async function runFromMainRunButton(): Promise<void> {
-  const { runMode } = useRunControl.getState();
+  const { runMode, continuousRunStarted } = useRunControl.getState();
   if (runMode === "continuous") {
+    if (continuousRunStarted) {
+      useRunControl.setState({ continuousRunStarted: false });
+      return;
+    }
+
     useRunControl.setState({ continuousRunStarted: true });
     await triggerListenerForceRefresh();
     return;
