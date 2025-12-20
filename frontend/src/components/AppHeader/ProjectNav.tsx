@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { EditMenu } from "./EditMenu";
 import { FileMenu } from "./FileMenu";
 import { FollowAIToggleButton } from "./FollowAIToggleButton";
+import { ListenerForceRefreshButton } from "./ListenerForceRefreshButton";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
 import { WebsocketConnections } from "./WebsocketConnections";
@@ -27,6 +28,7 @@ function ProjectNavSwitch() {
             <EditMenu />
             <WebsocketConnections />
             <FollowAIToggleButton />
+            <ListenerForceRefreshButton />
             <RunButton />
           </Menubar.Root>
           <StopButton />

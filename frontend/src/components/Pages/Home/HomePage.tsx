@@ -1,3 +1,4 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
@@ -173,7 +174,7 @@ function ProjectItems({
   });
 
   const gridStyles =
-    "grid grid-cols-1 gap-8 pt-7 justify-items-start sm:grid-cols-2 lg:grid-cols-3";
+    "grid grid-cols-[repeat(minmax(0, 1fr))] md:grid-cols-[repeat(auto-fit,_minmax(15rem,_1fr))] xl:grid-cols-[repeat(auto-fill,_minmax(20rem,_1fr))] gap-8 pt-7 justify-items-start";
 
   return (
     <div className={gridStyles}>
@@ -294,12 +295,13 @@ function ThumbnailArea({
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
     >
       <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
-        <button
-          className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"} h-4 w-4 rounded-full px-1 py-1 text-white/50 hover:text-white`}
+        <IconButton
+          icon={<IoMdCheckmark />}
+          color="text-white/50 hover:text-white"
+          bg={isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"}
+          size="w-4 h-4"
           onClick={(e) => onSelectProject(e, project.id)}
-        >
-          <IoMdCheckmark />
-        </button>
+        />
       </aside>
 
       <div
