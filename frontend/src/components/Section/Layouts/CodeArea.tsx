@@ -55,7 +55,7 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   ".cm-gen-code-readonly-line": {
     "--gen-code-bg": "hsl(219 26% 23% / 0.45)",
     "--gen-code-rail": "hsl(219 25% 34% / 0.9)",
-    "--gen-code-label-bg": "hsl(219 25% 34% / 0.9)",
+    "--gen-code-label-bg": "hsl(219 25% 34%)",
     "--gen-code-label-text": "hsl(222 28% 95% / 0.95)",
     cursor: "not-allowed",
     position: "relative",
@@ -74,6 +74,7 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   },
   ".cm-gen-code-readonly-line-start": {
     borderRadius: GEN_CODE_RADIUS_TOP,
+    zIndex: "2",
   },
   ".cm-gen-code-readonly-line-end": {
     borderRadius: GEN_CODE_RADIUS_BOTTOM,
@@ -111,7 +112,7 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   "&.cm-editor.cm-dark .cm-gen-code-readonly-line": {
     "--gen-code-bg": "hsl(219 26% 23% / 0.7)",
     "--gen-code-rail": "hsl(219 25% 45% / 0.9)",
-    "--gen-code-label-bg": "hsl(219 25% 45% / 0.9)",
+    "--gen-code-label-bg": "hsl(219 25% 45%)",
     "--gen-code-label-text": "hsl(219 24% 89% / 0.95)",
   },
   "&.cm-editor.cm-dark .cm-gen-code-placeholder": {
