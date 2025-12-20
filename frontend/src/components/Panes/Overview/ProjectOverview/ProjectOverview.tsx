@@ -97,13 +97,15 @@ function getDepthListingHelper(
       `Missing visibility for section ${section.id} in view mode ${viewMode.id}`,
     );
   }
-  if (getSectionShouldRender(visibility, isEditingViewMode)) {
-    outputList.push({
-      id: section.id,
-      name: section.name,
-      depth: depth,
-    });
+  const shouldRender = getSectionShouldRender(visibility, isEditingViewMode);
+  if (!shouldRender) {
+    return;
   }
+  outputList.push({
+    id: section.id,
+    name: section.name,
+    depth: depth,
+  });
 
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of sectionImpl.children) {
