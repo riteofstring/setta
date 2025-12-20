@@ -198,27 +198,6 @@ html.dark body {
   background-color: hsl(220, 27%, 6%);
 }
 
-@keyframes header-notification-fade {
-  0% {
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-.header-notification-fade {
-  animation-name: header-notification-fade;
-  animation-timing-function: ease-out;
-  animation-fill-mode: forwards;
-}
-
 @supports (-moz-appearance: none) {
   body {
     scrollbar-width: thin;
@@ -442,58 +421,4 @@ input[type="color" i] {
 ::selection {
   background: rgb(29 78 216);
   color: white;
-}
-
-.setta-gradient-border-shell {
-  display: inline-flex;
-  position: relative;
-  border-radius: 0.375rem; /* rounded-md */
-  padding: 1px;
-  overflow: hidden;
-}
-
-.setta-gradient-border-shell > * {
-  position: relative;
-  z-index: 1;
-}
-
-.setta-gradient-border-shell::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 300%;
-  aspect-ratio: 1 / 1;
-  transform: translate(-50%, -50%) rotate(0deg);
-  border-radius: 9999px;
-  background: conic-gradient(
-    from 0deg,
-    rgb(59 130 246),
-    rgb(168 85 247),
-    rgb(236 72 153),
-    rgb(59 130 246)
-  );
-  opacity: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.setta-animated-gradient-border {
-}
-
-.setta-animated-gradient-border::before {
-  opacity: 1;
-  animation: setta-gradient-border-spin 2.2s linear infinite;
-}
-
-@keyframes setta-gradient-border-spin {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .setta-animated-gradient-border::before {
-    animation: none;
-  }
 }

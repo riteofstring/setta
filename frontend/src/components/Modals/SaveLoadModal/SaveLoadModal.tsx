@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
 import { useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { ObjectValues } from "utils/generatedTypes";
@@ -139,24 +139,20 @@ function Footer({
   return (
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (
-        <Dialog.Close asChild>
-          <button
-            className="nodrag inline-flex cursor-pointer items-center rounded-full bg-setta-200 px-3 py-1 text-sm font-bold text-setta-600 hover:bg-setta-300 hover:cursor-pointer focus-visible:ring-2 dark:bg-setta-850 dark:text-setta-200 dark:hover:bg-setta-900"
-            onClick={onClick}
-          >
-            {buttonText}
-          </button>
-        </Dialog.Close>
+        <DialogCloseButton
+          twClasses="bg-setta-200 dark:bg-setta-850 hover:bg-setta-300 dark:hover:bg-setta-900 text-setta-600 dark:text-setta-200 hover:cursor-pointer"
+          onClick={onClick}
+        >
+          {buttonText}
+        </DialogCloseButton>
       )}
 
-      <Dialog.Close asChild>
-        <button
-          className="nodrag inline-flex cursor-pointer items-center rounded-full border border-solid border-setta-200 px-3 py-1 text-sm font-bold text-setta-400 hover:border-setta-500 hover:text-setta-600 hover:cursor-pointer focus-visible:ring-2 dark:border-setta-800 dark:hover:bg-setta-900 dark:hover:text-setta-200"
-          onClick={onClose}
-        >
-          Close
-        </button>
-      </Dialog.Close>
+      <DialogCloseButton
+        twClasses="border border-solid border-setta-200 dark:border-setta-800 text-setta-400 hover:border-setta-500 hover:text-setta-600 dark:hover:text-setta-200 dark:hover:bg-setta-900 hover:cursor-pointer"
+        onClick={onClose}
+      >
+        Close
+      </DialogCloseButton>
     </div>
   );
 }
