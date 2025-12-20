@@ -146,9 +146,9 @@ function updateNodeDimensionsSubscriptionFn(state) {
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
   const output: Record<string, boolean> = {};
   for (const id of Object.keys(state.projectConfig.topLevelSections)) {
-    const { visibility, viewingEditingMode } =
+    const { visibility, isEditingViewMode } =
       getSectionViewingEditingModeVisibility(id, state);
-    output[id] = getSectionShouldRender(visibility, viewingEditingMode);
+    output[id] = getSectionShouldRender(visibility, isEditingViewMode);
   }
   return output;
 }
