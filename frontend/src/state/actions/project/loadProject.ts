@@ -20,10 +20,7 @@ import {
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
-import {
-  createNodesMapFromProjectConfigChildren,
-  ensureProjectViewModes,
-} from "../sectionInfos";
+import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
@@ -39,7 +36,6 @@ export async function loadProjectConfig({ projectConfigName }) {
 }
 
 async function loadProjectState(p: ProjectStateSingleConfig) {
-  ensureProjectViewModes(p);
   if (!p.projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {

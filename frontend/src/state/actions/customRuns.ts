@@ -9,7 +9,7 @@ import { createNewId } from "utils/idNameCreation";
 import { triggerListenerForceRefresh } from "./listeners";
 import { runCodeBlock } from "./runOrImportCode";
 
-function getCustomRunsForProjectConfig(
+export function getCustomRunsForProjectConfig(
   projectConfigId: string,
 ): Array<CustomRunItem> {
   return (
@@ -18,7 +18,7 @@ function getCustomRunsForProjectConfig(
   );
 }
 
-function setCustomRunsForProjectConfig(
+export function setCustomRunsForProjectConfig(
   projectConfigId: string,
   customRuns: Array<CustomRunItem>,
 ) {
@@ -74,7 +74,7 @@ export function deleteCustomRun(projectConfigId: string, runId: string) {
   }
 }
 
-function addCustomRun(
+export function addCustomRun(
   projectConfigId: string,
   customRun: Omit<CustomRunItem, "id">,
 ) {
@@ -150,7 +150,7 @@ export function addOrGetCustomRunForCodeBlock(
   return id;
 }
 
-async function runCustomRunAction(action: CustomRunAction) {
+export async function runCustomRunAction(action: CustomRunAction) {
   if (action.type === "runCodeBlock") {
     await runCodeBlock(action.sectionId);
     return;
@@ -173,7 +173,7 @@ export async function runCustomRun(projectConfigId: string, runId: string) {
   await toggleContinuousRunForCustomRun(projectConfigId, run.id);
 }
 
-async function toggleContinuousRunForCustomRun(
+export async function toggleContinuousRunForCustomRun(
   projectConfigId: string,
   runId: string,
 ) {

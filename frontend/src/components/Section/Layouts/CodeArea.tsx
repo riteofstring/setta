@@ -1,11 +1,5 @@
 import { EditorState, Transaction } from "@codemirror/state";
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  WidgetType,
-} from "@codemirror/view";
+import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
@@ -13,13 +7,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -214,27 +202,31 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 
   const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
   const [value, setValue] = useState<string>(combinedDoc);
-  const [generatedCodeForValue, setGeneratedCodeForValue] =
-    useState<string>(code);
 
   useEffect(() => {
     setValue(combinedDoc);
-    setGeneratedCodeForValue(code);
-  }, [combinedDoc, code]);
+  }, [combinedDoc]);
+
+  const docParts = splitGenPythonDoc(value, code);
+  const readOnlyStart = docParts.isValid
+    ? Math.max(0, docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH)
+    : 0;
+  const readOnlyEnd = docParts.isValid
+    ? Math.min(value.length, docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH)
+    : 0;
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
 
-  const completionsFn = useCallback(
-    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue),
-    [generatedCodeForValue],
-  );
+  const completionsFn = useCallback(getGenPythonCodeAreaCompletionsFn(code), [
+    code,
+  ]);
 
   function onChange(nextValue: string) {
     setValue(nextValue);
-    const nextParts = splitGenPythonDoc(nextValue, generatedCodeForValue);
+    const nextParts = splitGenPythonDoc(nextValue, code);
     if (!nextParts.isValid) {
       return;
     }
@@ -257,7 +249,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
       return tr;
     }
     const currentDoc = tr.startState.doc.toString();
-    const currentParts = splitGenPythonDoc(currentDoc, generatedCodeForValue);
+    const currentParts = splitGenPythonDoc(currentDoc, code);
     if (!currentParts.isValid) {
       return [];
     }
@@ -278,57 +270,27 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     return touchesReadOnly ? [] : tr;
   });
 
-  const readOnlyDecorations = useMemo(() => {
-    const buildDecorations = (doc: string): DecorationSet => {
-      const docParts = splitGenPythonDoc(doc, generatedCodeForValue);
-      if (!docParts.isValid) {
-        return Decoration.none;
-      }
-      const readOnlyStart = Math.max(
-        0,
-        docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
-      );
-      const readOnlyEnd = Math.min(
-        doc.length,
-        docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
-      );
-      const decorations = getLineStartsInRange(
-        doc,
-        readOnlyStart,
-        readOnlyEnd,
-      ).map((pos) =>
-        Decoration.line({ class: "cm-gen-code-readonly-line" }).range(pos),
-      );
-      if (docParts.prefix.length === 0) {
-        decorations.push(
-          Decoration.widget({
-            widget: new GenPythonPlaceholderWidget("Add imports here"),
-            side: 1,
-          }).range(0),
-        );
-      }
-      return Decoration.set(decorations, true);
-    };
+  const readOnlyLineDecoration = docParts.isValid
+    ? EditorView.decorations.of(
+        Decoration.set(
+          getLineStartsInRange(value, readOnlyStart, readOnlyEnd).map((pos) =>
+            Decoration.line({ class: "cm-gen-code-readonly-line" }).range(pos),
+          ),
+        ),
+      )
+    : EditorView.decorations.of(Decoration.none);
 
-    return ViewPlugin.fromClass(
-      class {
-        decorations: DecorationSet;
-
-        constructor(view: EditorView) {
-          this.decorations = buildDecorations(view.state.doc.toString());
-        }
-
-        update(update) {
-          if (update.docChanged) {
-            this.decorations = buildDecorations(update.state.doc.toString());
-          }
-        }
-      },
-      {
-        decorations: (view) => view.decorations,
-      },
-    );
-  }, [generatedCodeForValue]);
+  const prefixPlaceholderDecoration =
+    docParts.isValid && docParts.prefix.length === 0
+      ? EditorView.decorations.of(
+          Decoration.set([
+            Decoration.widget({
+              widget: new GenPythonPlaceholderWidget("Add imports here"),
+              side: 1,
+            }).range(0),
+          ]),
+        )
+      : EditorView.decorations.of(Decoration.none);
 
   const extensions = getExtensions({
     parentDivId: `${sectionId}-CustomResizable`,
@@ -339,7 +301,8 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     indentWithTab: true,
   }).concat(
     readOnlyGeneratedRange,
-    readOnlyDecorations,
+    readOnlyLineDecoration,
+    prefixPlaceholderDecoration,
     GEN_CODE_READONLY_THEME,
   );
 

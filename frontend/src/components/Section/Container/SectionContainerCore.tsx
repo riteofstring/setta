@@ -8,12 +8,7 @@ import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { getOnSectionClick, getOutlineColor } from "./utils";
 
-type SectionContainerCoreProps = {
-  sectionId: string;
-  isUserView: boolean;
-};
-
-function _SectionContainerCore({ sectionId, isUserView }: SectionContainerCoreProps) {
+function _SectionContainerCore({ sectionId, viewingEditingMode }) {
   const {
     isActiveSection,
     sectionTypeName,
@@ -63,7 +58,7 @@ function _SectionContainerCore({ sectionId, isUserView }: SectionContainerCorePr
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
-        isUserView={isUserView}
+        viewingEditingMode={viewingEditingMode}
         positionAndSizeLocked={positionAndSizeLocked}
       />
     </section>
@@ -71,5 +66,5 @@ function _SectionContainerCore({ sectionId, isUserView }: SectionContainerCorePr
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView,
+  (p, n) => p.viewingEditingMode === n.viewingEditingMode,
 );

@@ -32,7 +32,6 @@ import {
   SettingsState,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
-import { createNewId, createRandomName } from "utils/idNameCreation";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -88,36 +87,22 @@ export const useProjectState = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
       immer(
-        withResetFn<ZustandProjectState>(() => {
-          const initialViewModeId = createNewId();
-          return {
-            projectConfig: createProjectConfig({
-              id: NULL_PROJECT_CONFIG_ID,
-              viewModes: {
-                [initialViewModeId]: {
-                  id: initialViewModeId,
-                  name: createRandomName(),
-                  isUserFacing: false,
-                  visibilityBySectionId: {},
-                },
-              },
-              activeViewModeId: initialViewModeId,
-            }),
-            sections: {},
-            sectionImpls: {},
-            sectionVariants: {},
-            codeObjs: {},
-            codeObjImpls: {},
-            codeObjVariants: {},
-            artifactGroups: {},
-            singletonSections: createSingletonSections(),
-            parentSectionMap: {},
-            yamlValues: {},
-            shownParamIds: {},
-            previewSectionVariantMap: {},
-            requiredDecodedImages: [],
-          };
-        }),
+        withResetFn<ZustandProjectState>(() => ({
+          projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
+          sections: {},
+          sectionImpls: {},
+          sectionVariants: {},
+          codeObjs: {},
+          codeObjImpls: {},
+          codeObjVariants: {},
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: {},
+          yamlValues: {},
+          shownParamIds: {},
+          previewSectionVariantMap: {},
+          requiredDecodedImages: [],
+        })),
       ),
     ),
   ),
@@ -235,7 +220,7 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-type RunMode = "once" | "continuous";
+export type RunMode = "once" | "continuous";
 
 export type CustomRunAction =
   | { type: "runCodeBlock"; sectionId: string | null }

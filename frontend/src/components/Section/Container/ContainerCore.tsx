@@ -4,7 +4,7 @@ import React from "react";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, ViewingEditingModeEnum } from "utils/generatedTypes";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
@@ -21,8 +21,7 @@ function _Container({
   className,
   style,
   trueDragListeners,
-  isEditingViewMode,
-  isUserView,
+  viewingEditingMode,
   children,
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
@@ -40,8 +39,7 @@ function _Container({
       sectionId={sectionId}
       commonProps={commonProps}
       refForPosition={refForPosition}
-      isEditingViewMode={isEditingViewMode}
-      isUserView={isUserView}
+      viewingEditingMode={viewingEditingMode}
       className={className}
       style={style}
     >
@@ -68,8 +66,7 @@ function ContainerGroup({
   sectionId,
   commonProps,
   refForPosition,
-  isEditingViewMode,
-  isUserView,
+  viewingEditingMode,
   className,
   style,
   children,
@@ -98,7 +95,7 @@ function ContainerGroup({
     isInOtherProjectConfigs,
   });
 
-  const isEditingUser = isEditingViewMode;
+  const isEditingUser = viewingEditingMode === ViewingEditingModeEnum.USER_EDIT;
 
   return (
     <div
@@ -125,16 +122,15 @@ function ContainerGroup({
         >
           <GroupSectionTitle sectionId={sectionId} />
         </div>
-        {!isUserView && (
-          <div className="z-10 ml-auto flex items-center">
-            <ChangeOrientationButton sectionId={sectionId} />
-            <LockPositionButton sectionId={sectionId} />
-            <DeleteOrHideButton
-              sectionId={sectionId}
-              size={`min-w-4 h-4 ${isEditingUser ? "scale-120" : "scale-150"}  `}
-            />
-          </div>
-        )}
+        <div className="z-10 ml-auto flex items-center">
+          <ChangeOrientationButton sectionId={sectionId} />
+          <LockPositionButton sectionId={sectionId} />
+          <DeleteOrHideButton
+            sectionId={sectionId}
+            viewingEditingMode={viewingEditingMode}
+            size={`min-w-4 h-4 ${isEditingUser ? "scale-120" : "scale-150"}  `}
+          />
+        </div>
       </div>
 
       {!hasNested && (

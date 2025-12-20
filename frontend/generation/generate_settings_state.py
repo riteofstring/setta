@@ -49,12 +49,7 @@ def generate_settings_state() -> str:
 
 from pydantic import BaseModel, Field
 
-from setta.types.settings_state import (
-    SectionSizingPolicy,
-    SettingsBackend,
-    SettingsGUI,
-    SettingsShortcuts,
-)
+from setta.types.settings_state import SettingsShortcuts, SettingsGUI, SettingsBackend
 
 # Import all UserDefault classes
 from setta.types.generated.user_defaults import (
@@ -69,9 +64,6 @@ class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
-    sectionSizingPolicy: SectionSizingPolicy = Field(
-        default_factory=SectionSizingPolicy
-    )
     languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
     
 {defaults_str}

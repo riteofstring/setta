@@ -141,7 +141,7 @@ function Footer({
       {buttonText && (
         <Dialog.Close asChild>
           <button
-            className="nodrag inline-flex cursor-pointer items-center rounded-full bg-setta-200 px-3 py-1 text-sm font-bold text-setta-600 hover:cursor-pointer hover:bg-setta-300 focus-visible:ring-2 dark:bg-setta-850 dark:text-setta-200 dark:hover:bg-setta-900"
+            className="nodrag inline-flex cursor-pointer items-center rounded-full bg-setta-200 px-3 py-1 text-sm font-bold text-setta-600 hover:bg-setta-300 hover:cursor-pointer focus-visible:ring-2 dark:bg-setta-850 dark:text-setta-200 dark:hover:bg-setta-900"
             onClick={onClick}
           >
             {buttonText}
@@ -151,7 +151,7 @@ function Footer({
 
       <Dialog.Close asChild>
         <button
-          className="nodrag inline-flex cursor-pointer items-center rounded-full border border-solid border-setta-200 px-3 py-1 text-sm font-bold text-setta-400 hover:cursor-pointer hover:border-setta-500 hover:text-setta-600 focus-visible:ring-2 dark:border-setta-800 dark:hover:bg-setta-900 dark:hover:text-setta-200"
+          className="nodrag inline-flex cursor-pointer items-center rounded-full border border-solid border-setta-200 px-3 py-1 text-sm font-bold text-setta-400 hover:border-setta-500 hover:text-setta-600 hover:cursor-pointer focus-visible:ring-2 dark:border-setta-800 dark:hover:bg-setta-900 dark:hover:text-setta-200"
           onClick={onClose}
         >
           Close
