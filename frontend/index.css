@@ -214,8 +214,9 @@ html.dark body {
 }
 
 .header-notification-fade {
-  animation: header-notification-fade
-    var(--header-notification-duration, 2000ms) ease-out;
+  animation-name: header-notification-fade;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
 }
 
 @supports (-moz-appearance: none) {

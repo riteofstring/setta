@@ -57,17 +57,14 @@ export function Notification() {
 
   const { message, type } = displayNotification;
   const notificationStyle: CSSProperties = {
-    "--header-notification-duration": `${DEFAULT_TEMP_TIMEOUT}ms`,
+    animationDuration: `${DEFAULT_TEMP_TIMEOUT}ms`,
   };
 
   return (
     <div
       key={displayNotification.id}
       style={notificationStyle}
-      className={[
-        "header-notification-fade absolute inset-y-0 left-0 right-0 z-20 w-full items-center bg-white pr-8 dark:bg-setta-875",
-        "flex min-w-0 items-center gap-0.5",
-      ].join(" ")}
+      className="header-notification-fade absolute inset-y-0 left-0 right-0 z-20 flex w-full min-w-0 items-center gap-0.5 bg-white pr-8 dark:bg-setta-875"
     >
       {getNotificationIcon(type, "ml-2 h-3 w-3 md:ml-4")}
       <p className="ml-2 hidden min-w-0 flex-1 self-center truncate text-xs text-setta-500 dark:text-setta-100 md:block">
