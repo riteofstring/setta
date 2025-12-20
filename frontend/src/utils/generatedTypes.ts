@@ -186,8 +186,14 @@ export const ViewingEditingModeEnum = {
 
 export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
+const SettaBackendLogEventSeverityEnum = {
+  critical: "critical",
+  error: "error",
+  warning: "warning",
+  info: "info",
+} as const;
+
 export const SettaNotificationTypeEnum = {
-  success: "success",
   error: "error",
   warning: "warning",
   info: "info",
@@ -371,6 +377,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LSPDiagnostics: "LSPDiagnostics",
   TerminalMetadata: "TerminalMetadata",
   Notification: "Notification",
+  BackendLogEvent: "BackendLogEvent",
   LLMStreamingResponse: "LLMStreamingResponse",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
@@ -2584,6 +2591,26 @@ const WebsocketMsgNotificationSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.Notification),
 });
 
+const SettaBackendLogEventSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+  severity: z
+    .enum(SettaBackendLogEventSeverityEnum)
+    .default(SettaBackendLogEventSeverityEnum.info),
+  message: z.string(),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+});
+
+export type SettaBackendLogEvent = z.infer<typeof SettaBackendLogEventSchema>;
+
+const WebsocketMsgBackendLogEventSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: SettaBackendLogEventSchema,
+  messageType: z
+    .literal("BackendLogEvent")
+    .default(WebsocketMsgTypeForFrontendEnum.BackendLogEvent),
+});
+
 const LLMStreamingResponseSchema = z.object({
   chatId: IDSchema,
   chunk: z.union([
@@ -3694,6 +3721,7 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
 const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
+  WebsocketMsgBackendLogEventSchema,
   WebsocketMsgLLMStreamingResponseSchema,
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
@@ -5027,7 +5055,7 @@ export type SaveAsNewProjectConfigRequest = z.infer<
 >;
 
 const SetAsDefaultProjectRequestSchema = z.object({
-  projectId: IDSchema,
+  projectConfigId: IDSchema,
 });
 
 export type SetAsDefaultProjectRequest = z.infer<

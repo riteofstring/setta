@@ -10,6 +10,7 @@ from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.llm.llm_chat_manager import LLMChatManager
+from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
@@ -105,7 +106,14 @@ class SettaFastAPIState:
         self._ready_event: asyncio.Event = asyncio.Event()
 
         loop = asyncio.get_running_loop()
-        self._initialization_task = loop.create_task(self._initialize_async(app))
+        self._initialization_task = spawn_background_task(
+            self._initialize_async(app),
+            label="backend-initialization",
+            request_id="boot",
+            extra_values={"phase": "app-startup"},
+            re_raise=True,
+            loop=loop,
+        )
 
     async def _initialize_async(self, app):
         from setta.project_state.project_manager import ProjectManager
@@ -211,10 +219,18 @@ class SettaFastAPIState:
             self.init_status.record("Starting background services")
             await self._maybe_delay()
             if self.mcp_client:
-                asyncio.create_task(self.mcp_client.connect_to_server())
+                spawn_background_task(
+                    self.mcp_client.connect_to_server(),
+                    label="mcp-client-connect",
+                    request_id="boot",
+                    extra_values={"service": "mcp-client"},
+                )
             if self.lsps and self.lsp_readers and self.lsp_writers:
-                asyncio.create_task(
-                    start_lsps(self.lsps, self.lsp_readers, self.lsp_writers)
+                spawn_background_task(
+                    start_lsps(self.lsps, self.lsp_readers, self.lsp_writers),
+                    label="lsp-startup",
+                    request_id="boot",
+                    extra_values={"service": "language-servers"},
                 )
             if self.specific_file_watcher:
                 self.specific_file_watcher.start()
@@ -228,6 +244,7 @@ class SettaFastAPIState:
             raise
 
     async def wait_until_ready(self) -> None:
+        await self._initialization_task
         await self._ready_event.wait()
 
     async def _maybe_delay(self) -> None:
