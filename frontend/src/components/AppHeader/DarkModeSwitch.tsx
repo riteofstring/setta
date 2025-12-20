@@ -7,11 +7,7 @@ import { useLocalStorage } from "state/definitions";
 import { HelpText } from "./HelpText";
 import { Notification } from "./Notification";
 
-export function DarkModeSwitch({
-  showNotifications,
-}: {
-  showNotifications: boolean;
-}) {
+export function DarkModeSwitch() {
   const darkMode = useDarkMode();
   const toggleRootClasses =
     "items-center p-[0.2rem] w-7 min-w-7 h-3 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
@@ -20,7 +16,7 @@ export function DarkModeSwitch({
 
   return (
     <div className="relative flex flex-1 items-center justify-end">
-      {showNotifications && <Notification overlay={true} />}
+      <Notification />
       <div className="relative z-10">
         <HelpText />
       </div>

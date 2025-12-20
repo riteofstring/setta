@@ -23,7 +23,7 @@ export function HeaderContainer({ path }: { path: string }) {
           <SearchSwitch path={path} />
         </>
       )}
-      <DarkModeSwitch showNotifications={!projectIsLoading && !projectIs404} />
+      <DarkModeSwitch />
     </header>
   );
 }

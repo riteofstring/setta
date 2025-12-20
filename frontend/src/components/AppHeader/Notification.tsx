@@ -6,7 +6,7 @@ import { SettaNotification } from "utils/generatedTypes";
 
 const NOTIFICATION_FADE_MS = 150;
 
-export function Notification({ overlay }: { overlay?: boolean }) {
+export function Notification() {
   // State to track the notification to display in the navbar
   const [displayNotification, setDisplayNotification] =
     useState<SettaNotification | null>(null);
@@ -75,14 +75,10 @@ export function Notification({ overlay }: { overlay?: boolean }) {
 
   const { message, type } = displayNotification;
 
-  const overlayClasses = overlay
-    ? "absolute inset-y-0 left-0 right-0 z-20 w-full items-center bg-white pr-8 dark:bg-setta-875"
-    : "";
-
   return (
     <div
       className={[
-        overlayClasses,
+        "absolute inset-y-0 left-0 right-0 z-20 w-full items-center bg-white pr-8 dark:bg-setta-875",
         "flex min-w-0 items-center gap-0.5 transition-opacity duration-150 ease-out",
         isVisible ? "opacity-100" : "opacity-0",
       ].join(" ")}
