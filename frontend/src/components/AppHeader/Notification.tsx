@@ -1,5 +1,5 @@
 import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
 import { useNotifications } from "state/definitions";
 import { SettaNotification } from "utils/generatedTypes";
@@ -14,34 +14,47 @@ export function Notification() {
     state.notifications.length > 0 ? state.notifications[0] : null,
   );
 
-  // Effect to handle new notifications
+  // Display the latest notification unless it is already stale.
   useEffect(() => {
-    // Only run if latestNotification exists and is different from what's displayed
-    if (
-      latestNotification &&
-      (!displayNotification || latestNotification.id !== displayNotification.id)
-    ) {
-      const timeoutDuration = DEFAULT_TEMP_TIMEOUT;
-      const nowTime = new Date().getTime();
-      const notificationTime = new Date(latestNotification.timestamp).getTime();
-      if (nowTime - notificationTime > timeoutDuration) {
-        return;
+    if (!latestNotification) {
+      return;
+    }
+
+    const timeoutDuration = DEFAULT_TEMP_TIMEOUT;
+    const nowTime = new Date().getTime();
+    const notificationTime = new Date(latestNotification.timestamp).getTime();
+    if (nowTime - notificationTime > timeoutDuration) {
+      return;
+    }
+
+    setDisplayNotification((previousNotification) => {
+      if (
+        previousNotification &&
+        previousNotification.id === latestNotification.id &&
+        previousNotification.message === latestNotification.message &&
+        previousNotification.type === latestNotification.type &&
+        previousNotification.timestamp === latestNotification.timestamp
+      ) {
+        return previousNotification;
       }
 
-      // Update what's being displayed
-      setDisplayNotification(latestNotification);
+      return latestNotification;
+    });
+  }, [latestNotification]);
 
-      // Set a timeout to clear the display
-      const timeoutId = setTimeout(() => {
-        setDisplayNotification(null);
-      }, timeoutDuration);
-
-      return () => {
-        setDisplayNotification(null);
-        clearTimeout(timeoutId);
-      };
+  useEffect(() => {
+    if (!displayNotification) {
+      return;
     }
-  }, [latestNotification]); // Only depend on latestNotification
+
+    const timeoutId = window.setTimeout(() => {
+      setDisplayNotification(null);
+    }, DEFAULT_TEMP_TIMEOUT);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [displayNotification]);
 
   // If there's no notification to display, don't render anything
   if (!displayNotification) {
@@ -49,11 +62,18 @@ export function Notification() {
   }
 
   const { message, type } = displayNotification;
+  const notificationStyle: CSSProperties = {
+    animationDuration: `${DEFAULT_TEMP_TIMEOUT}ms`,
+  };
 
   return (
-    <div className="flex items-center gap-0.5 transition-all">
+    <div
+      key={displayNotification.id}
+      style={notificationStyle}
+      className="header-notification-fade absolute inset-y-0 left-0 right-0 z-20 flex w-full min-w-0 items-center gap-0.5 bg-white pr-8 dark:bg-setta-875"
+    >
       {getNotificationIcon(type, "ml-2 h-3 w-3 md:ml-4")}
-      <p className="ml-2 hidden self-center text-xs text-setta-500 dark:text-setta-100 md:inline-block">
+      <p className="ml-2 hidden min-w-0 flex-1 self-center truncate text-xs text-setta-500 dark:text-setta-100 md:block">
         {message}
       </p>
     </div>
