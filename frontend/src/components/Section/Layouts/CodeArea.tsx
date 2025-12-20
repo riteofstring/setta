@@ -71,24 +71,32 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     "--gen-code-rail": "rgb(96 165 250)",
     "--gen-code-label-bg": "rgb(37 99 235)",
     "--gen-code-label-text": "rgb(239 246 255)",
+    "--gen-code-selection-bg": "hsl(246, 98%, 23%)",
   },
   "&.cm-dark": {
     "--gen-code-bg": "rgb(23 37 84)",
     "--gen-code-rail": "rgb(37 99 235)",
     "--gen-code-label-bg": "rgb(30 64 175)",
     "--gen-code-label-text": "rgb(239 246 255)",
+    "--gen-code-selection-bg": "hsl(246, 98%, 23%)",
   },
   ".dark &": {
     "--gen-code-bg": "rgb(23 37 84)",
     "--gen-code-rail": "rgb(37 99 235)",
     "--gen-code-label-bg": "rgb(30 64 175)",
     "--gen-code-label-text": "rgb(239 246 255)",
+    "--gen-code-selection-bg": "hsl(246, 98%, 23%)",
   },
   ".cm-gen-code-readonly-line": {
-    cursor: "not-allowed",
+    cursor: "text",
     position: "relative",
     zIndex: "0",
   },
+  "&.cm-focused .cm-selectionBackground, & .cm-line::selection, & .cm-line ::selection, & .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection":
+    {
+      background: "var(--gen-code-selection-bg) !important",
+      color: "white !important",
+    },
   ".cm-gen-code-readonly-line::before": {
     content: '""',
     position: "absolute",
@@ -131,7 +139,7 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   ".cm-gen-code-readonly-line-start::after": {
     content: '"Generated read-only"',
     position: "absolute",
-    top: "calc(50% - 2px)",
+    top: "calc(50% - 0px)",
     left: "50%",
     transform: "translateX(-50%)",
     padding: "1px 5px",
@@ -386,53 +394,53 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     return touchesReadOnly ? [] : tr;
   });
 
-const readOnlyDecorations = useMemo(() => {
-      const buildDecorations = (doc: string): DecorationSet => {
-        const docParts = splitGenPythonDoc(doc, generatedCodeForValue);
-        if (!docParts.isValid) {
-          return Decoration.none;
-        }
-        const readOnlyStart = Math.max(
-          0,
-          docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
-        );
-        const readOnlyEnd = Math.min(
-          doc.length,
-          docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
-        );
-        const decorations = [
-          ...getGenReadOnlyLineDecorations(doc, readOnlyStart, readOnlyEnd),
-        ];
-        if (docParts.prefix.length === 0) {
-          decorations.push(
-            Decoration.widget({
-              widget: new GenPythonPlaceholderWidget("Add imports here"),
-              side: 1,
-            }).range(0),
-          );
-        }
-        return Decoration.set(decorations, true);
-      };
-
-      return ViewPlugin.fromClass(
-        class {
-          decorations: DecorationSet;
-
-          constructor(view: EditorView) {
-            this.decorations = buildDecorations(view.state.doc.toString());
-          }
-
-          update(update) {
-            if (update.docChanged) {
-              this.decorations = buildDecorations(update.state.doc.toString());
-            }
-          }
-        },
-        {
-          decorations: (view) => view.decorations,
-        },
+  const readOnlyDecorations = useMemo(() => {
+    const buildDecorations = (doc: string): DecorationSet => {
+      const docParts = splitGenPythonDoc(doc, generatedCodeForValue);
+      if (!docParts.isValid) {
+        return Decoration.none;
+      }
+      const readOnlyStart = Math.max(
+        0,
+        docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
       );
-    }, [generatedCodeForValue]);
+      const readOnlyEnd = Math.min(
+        doc.length,
+        docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
+      );
+      const decorations = [
+        ...getGenReadOnlyLineDecorations(doc, readOnlyStart, readOnlyEnd),
+      ];
+      if (docParts.prefix.length === 0) {
+        decorations.push(
+          Decoration.widget({
+            widget: new GenPythonPlaceholderWidget("Add imports here"),
+            side: 1,
+          }).range(0),
+        );
+      }
+      return Decoration.set(decorations, true);
+    };
+
+    return ViewPlugin.fromClass(
+      class {
+        decorations: DecorationSet;
+
+        constructor(view: EditorView) {
+          this.decorations = buildDecorations(view.state.doc.toString());
+        }
+
+        update(update) {
+          if (update.docChanged) {
+            this.decorations = buildDecorations(update.state.doc.toString());
+          }
+        }
+      },
+      {
+        decorations: (view) => view.decorations,
+      },
+    );
+  }, [generatedCodeForValue]);
 
   const extensions = getExtensions({
     parentDivId: `${sectionId}-CustomResizable`,
@@ -462,7 +470,7 @@ const readOnlyDecorations = useMemo(() => {
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
-        basicSetup={{ tabSize: 4 }}
+        basicSetup={{ tabSize: 4, drawSelection: false }}
       />
     </article>
   );
