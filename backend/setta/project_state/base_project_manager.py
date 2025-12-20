@@ -605,7 +605,9 @@ class BaseProjectManager(ABC):
                 code_generator,
             )
             await new_gen_code.update_file()
-            maybe_update_gen_python_code_section(projectState, new_gen_code.code)
+            maybe_update_gen_python_code_section(
+                projectState, new_gen_code.generated_code
+            )
             self.gen_code[projectConfigId] = new_gen_code
 
             if self.code_dict.get(projectConfigId):
