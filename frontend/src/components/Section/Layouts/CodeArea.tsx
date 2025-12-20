@@ -59,14 +59,14 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     "--gen-code-label-text": "rgb(239 246 255)",
   },
   "&.cm-dark": {
-    "--gen-code-bg": "rgb(30 58 138)",
-    "--gen-code-rail": "rgb(96 165 250 / 0.9)",
+    "--gen-code-bg": "rgb(23 37 84)",
+    "--gen-code-rail": "rgb(37 99 235 / 0.9)",
     "--gen-code-label-bg": "rgb(30 64 175)",
     "--gen-code-label-text": "rgb(239 246 255)",
   },
   ".dark &": {
-    "--gen-code-bg": "rgb(30 58 138)",
-    "--gen-code-rail": "rgb(96 165 250 / 0.9)",
+    "--gen-code-bg": "rgb(23 37 84)",
+    "--gen-code-rail": "rgb(37 99 235 / 0.9)",
     "--gen-code-label-bg": "rgb(30 64 175)",
     "--gen-code-label-text": "rgb(239 246 255)",
   },
