@@ -39,7 +39,7 @@ export function HelpText() {
     mounted && (
       <aside
         className={[
-          "ml-auto mr-4 flex items-center gap-2 transition-opacity duration-150 ease-out",
+          "relative z-10 ml-auto mr-4 flex items-center gap-2 transition-opacity duration-150 ease-out",
           isVisible ? "opacity-100" : "opacity-0",
         ].join(" ")}
       >

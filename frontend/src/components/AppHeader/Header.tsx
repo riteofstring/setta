@@ -1,6 +1,8 @@
 import { useProjectLoading } from "state/definitions";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
+import { HelpText } from "./HelpText";
+import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
 import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
 import { ProjectPageSearchBar } from "./SearchBar/ProjectPageSearch";
@@ -23,7 +25,11 @@ export function HeaderContainer({ path }: { path: string }) {
           <SearchSwitch path={path} />
         </>
       )}
-      <DarkModeSwitch />
+      <div className="relative flex flex-1 items-center justify-end">
+        <Notification />
+        <HelpText />
+        <DarkModeSwitch />
+      </div>
     </header>
   );
 }
