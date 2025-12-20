@@ -52,11 +52,25 @@ const GEN_CODE_RADIUS = "10px";
 const GEN_CODE_RADIUS_TOP = `${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS} 0 0`;
 const GEN_CODE_RADIUS_BOTTOM = `0 0 ${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS}`;
 const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
+  "&": {
+    "--gen-code-bg": "rgb(219 234 254 / 0.75)",
+    "--gen-code-rail": "rgb(96 165 250 / 0.85)",
+    "--gen-code-label-bg": "rgb(37 99 235)",
+    "--gen-code-label-text": "rgb(239 246 255)",
+  },
+  "&.cm-dark": {
+    "--gen-code-bg": "rgb(30 58 138)",
+    "--gen-code-rail": "rgb(96 165 250 / 0.9)",
+    "--gen-code-label-bg": "rgb(30 64 175)",
+    "--gen-code-label-text": "rgb(239 246 255)",
+  },
+  ".dark &": {
+    "--gen-code-bg": "rgb(30 58 138)",
+    "--gen-code-rail": "rgb(96 165 250 / 0.9)",
+    "--gen-code-label-bg": "rgb(30 64 175)",
+    "--gen-code-label-text": "rgb(239 246 255)",
+  },
   ".cm-gen-code-readonly-line": {
-    "--gen-code-bg": "hsl(219 26% 23% / 0.45)",
-    "--gen-code-rail": "hsl(219 25% 34% / 0.9)",
-    "--gen-code-label-bg": "hsl(219 25% 34%)",
-    "--gen-code-label-text": "hsl(222 28% 95% / 0.95)",
     cursor: "not-allowed",
     position: "relative",
     zIndex: "0",
@@ -64,9 +78,9 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   ".cm-gen-code-readonly-line::before": {
     content: '""',
     position: "absolute",
-    top: 0,
+    top: "-0.5px",
     right: "4px",
-    bottom: 0,
+    bottom: "-0.5px",
     left: 0,
     backgroundColor: "var(--gen-code-bg)",
     boxShadow: "inset 3px 0 0 var(--gen-code-rail)",
@@ -76,15 +90,21 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     borderRadius: GEN_CODE_RADIUS_TOP,
     zIndex: "2",
   },
+  ".cm-gen-code-readonly-line-start.cm-activeLine": {
+    borderRadius: "0",
+  },
   ".cm-gen-code-readonly-line-end": {
     borderRadius: GEN_CODE_RADIUS_BOTTOM,
   },
+  ".cm-gen-code-readonly-line-end.cm-activeLine": {
+    borderRadius: "0",
+  },
   ".cm-gen-code-readonly-line-start::before": {
-    top: "50%",
+    top: "calc(50% - 0.5px)",
     borderRadius: GEN_CODE_RADIUS_TOP,
   },
   ".cm-gen-code-readonly-line-end::before": {
-    bottom: "50%",
+    bottom: "calc(50% - 0.5px)",
     borderRadius: GEN_CODE_RADIUS_BOTTOM,
   },
   ".cm-gen-code-readonly-line-start::after": {
@@ -108,12 +128,6 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     color: "rgba(100, 116, 139, 0.9)",
     fontStyle: "italic",
     pointerEvents: "none",
-  },
-  "&.cm-editor.cm-dark .cm-gen-code-readonly-line": {
-    "--gen-code-bg": "hsl(219 26% 23% / 0.7)",
-    "--gen-code-rail": "hsl(219 25% 45% / 0.9)",
-    "--gen-code-label-bg": "hsl(219 25% 45%)",
-    "--gen-code-label-text": "hsl(219 24% 89% / 0.95)",
   },
   "&.cm-editor.cm-dark .cm-gen-code-placeholder": {
     color: "rgba(148, 163, 184, 0.9)",
