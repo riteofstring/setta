@@ -198,6 +198,26 @@ html.dark body {
   background-color: hsl(220, 27%, 6%);
 }
 
+@keyframes header-notification-fade {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.header-notification-fade {
+  animation: header-notification-fade
+    var(--header-notification-duration, 2000ms) ease-out;
+}
+
 @supports (-moz-appearance: none) {
   body {
     scrollbar-width: thin;

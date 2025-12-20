@@ -1,16 +1,13 @@
 import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
 import { useNotifications } from "state/definitions";
 import { SettaNotification } from "utils/generatedTypes";
-
-const NOTIFICATION_FADE_MS = 150;
 
 export function Notification() {
   // State to track the notification to display in the navbar
   const [displayNotification, setDisplayNotification] =
     useState<SettaNotification | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
   const lastShownNotificationIdRef = useRef<string | null>(null);
 
   // Get the most recent notification from the store
@@ -36,21 +33,6 @@ export function Notification() {
       // Update what's being displayed
       lastShownNotificationIdRef.current = latestNotification.id;
       setDisplayNotification(latestNotification);
-      setIsVisible(false);
-      requestAnimationFrame(() => {
-        setIsVisible(true);
-      });
-
-      const fadeStartTimeoutId = window.setTimeout(
-        () => {
-          setIsVisible(false);
-        },
-        Math.max(timeoutDuration - NOTIFICATION_FADE_MS, 0),
-      );
-
-      return () => {
-        clearTimeout(fadeStartTimeoutId);
-      };
     }
   }, [latestNotification]);
 
@@ -74,13 +56,17 @@ export function Notification() {
   }
 
   const { message, type } = displayNotification;
+  const notificationStyle: CSSProperties = {
+    "--header-notification-duration": `${DEFAULT_TEMP_TIMEOUT}ms`,
+  };
 
   return (
     <div
+      key={displayNotification.id}
+      style={notificationStyle}
       className={[
-        "absolute inset-y-0 left-0 right-0 z-20 w-full items-center bg-white pr-8 dark:bg-setta-875",
-        "flex min-w-0 items-center gap-0.5 transition-opacity duration-150 ease-out",
-        isVisible ? "opacity-100" : "opacity-0",
+        "header-notification-fade absolute inset-y-0 left-0 right-0 z-20 w-full items-center bg-white pr-8 dark:bg-setta-875",
+        "flex min-w-0 items-center gap-0.5",
       ].join(" ")}
     >
       {getNotificationIcon(type, "ml-2 h-3 w-3 md:ml-4")}
