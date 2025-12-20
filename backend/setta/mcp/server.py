@@ -1,10 +1,10 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
-import asyncio
 import inspect
 import logging
 from dataclasses import dataclass
 from functools import wraps
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
 
 import bm25s
@@ -22,6 +22,7 @@ from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
 
 from setta.database.db_objs import DBE
+from setta.logging.tasks import spawn_background_task
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
@@ -29,7 +30,6 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
-from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -60,10 +60,11 @@ class SettaFastMCP(FastMCP):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
         self.state = state
-        (
-            self.temporary_to_canonical,
-            self.canonical_to_temporary,
-        ) = dbe.read_temporary_id_map()
+        self.dbe = dbe
+        self._temporary_id_map_mtime_ns: int | None = None
+        self.temporary_to_canonical = {}
+        self.canonical_to_temporary = {}
+        self._refresh_temporary_id_map_if_needed()
         self.fn_param_docstrings = {}
         self.tool_search_index: ToolSearchIndex | None = None
         msg_path = f"{mount_path}/messages/"
@@ -84,8 +85,13 @@ class SettaFastMCP(FastMCP):
 
         self.add_setta_tools()
         self.tool_search_index = self._build_tool_search_index()
-        content = SettaNotification(message="MCP Server Ready")
-        asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
+        spawn_background_task(
+            websocket_msg_handler.log_and_broadcast_backend_log_event(
+                "MCP Server Ready"
+            ),
+            label="mcp-server-ready",
+            extra_values={"mount_path": mount_path},
+        )
 
     def add_setta_tools(self):
         for fn in SETTA_INIT_MCP_TOOLS:
@@ -117,6 +123,7 @@ class SettaFastMCP(FastMCP):
 
         @wraps(func)
         async def wrapper(**kwargs):
+            self._refresh_temporary_id_map_if_needed()
             # Filter out unwanted params
             kwargs = {
                 k: v
@@ -143,6 +150,17 @@ class SettaFastMCP(FastMCP):
             return result
 
         return wrapper
+
+    def _refresh_temporary_id_map_if_needed(self) -> None:
+        path = self.dbe.temporary_id_map
+        mtime_ns = path.stat().st_mtime_ns if path.exists() else None
+        if mtime_ns == self._temporary_id_map_mtime_ns:
+            return
+        (
+            self.temporary_to_canonical,
+            self.canonical_to_temporary,
+        ) = self.dbe.read_temporary_id_map()
+        self._temporary_id_map_mtime_ns = mtime_ns
 
     def _build_tool_search_index(self) -> ToolSearchIndex | None:
         tools = [
@@ -257,7 +275,7 @@ class SettaToolManager(ToolManager):
         existing = self._tools.get(tool.name)
         if existing:
             if self.warn_on_duplicate_tools:
-                logger.warning(f"Tool already exists: {tool.name}")
+                logger.warning("Tool already exists: %s", tool.name)
             return cast("SettaTool", existing)
         self._tools[tool.name] = tool
         return tool
@@ -273,7 +291,7 @@ def extract_tool_docstrings(func):
     try:
         parsed = docstring_parser.parse(docstring)
     except Exception as e:
-        print(f"Failed to parse docstring: {e}")
+        logger.warning("Failed to parse docstring: %s", e, exc_info=True)
         return None, {}
 
     # Extract parameter descriptions

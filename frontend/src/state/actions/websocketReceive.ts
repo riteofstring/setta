@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -37,6 +38,7 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
 } from "./ai";
+import { receiveAIFollowUpdate } from "./aiFollow";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -148,6 +150,10 @@ function receiveMessage(message: string) {
       return receiveLLMConfigUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated:
       return receiveLLMApiKeysUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.BackendLogEvent:
+      return addBackendLogEvent(m.content);
+    case WebsocketMsgTypeForFrontendEnum.AIFollowUpdate:
+      return receiveAIFollowUpdate(m.content);
     default:
       return m satisfies never;
   }

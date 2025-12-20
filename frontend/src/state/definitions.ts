@@ -27,6 +27,7 @@ import {
   LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
+  SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -245,6 +246,32 @@ export const useRunControl = withProjectState(
       runMode: "once",
       continuousRunStarted: false,
       continuousRunCustomRunId: null,
+type BackendLogSeverity = SettaBackendLogEvent["severity"];
+
+export type BackendLogEventsFilter = {
+  projectConfigId: string | null;
+  minSeverity: BackendLogSeverity;
+  query: string;
+};
+
+export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
+  projectConfigId: null,
+  minSeverity: "info",
+  query: "",
+};
+
+type BackendLogEventsState = {
+  events: Array<SettaBackendLogEvent>;
+  filter: BackendLogEventsFilter;
+  unreadHighSeverityCount: number;
+};
+
+export const useBackendLogEvents = withProjectState(
+  createWithEqualityFn(
+    withResetFn<BackendLogEventsState>(() => ({
+      events: [],
+      filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
+      unreadHighSeverityCount: 0,
     })),
   ),
 );
@@ -381,6 +408,7 @@ type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
+  activeChatId: string | null | undefined;
   allChatMetadata: Array<ChatMetadata>;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
@@ -399,6 +427,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeys: {},
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
+        activeChatId: undefined,
         chatDetails: {},
         pendingChatDetails: null,
         allChatMetadata: [],
@@ -413,6 +442,22 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
           viewHistory: state.viewHistory,
         }),
       },
+    ),
+  ),
+);
+
+type AIFollowState = {
+  enabled: boolean;
+  sectionIdsByProjectConfigId: Record<string, Record<string, Array<string>>>;
+};
+
+export const useAIFollow = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AIFollowState>(() => ({
+        enabled: false,
+        sectionIdsByProjectConfigId: {},
+      })),
     ),
   ),
 );

@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import dataclass
 
 from pydantic import BaseModel
 from setta.mcp.utils import (
@@ -105,6 +106,22 @@ class IDConversionTest(unittest.TestCase):
         )
         self.assertEqual(canonical.id, ID("AAA"))
         self.assertEqual(canonical.items, [ID("BBB")])
+
+    def test_conversion_handles_dataclasses(self) -> None:
+        @dataclass(frozen=True)
+        class DummyData:
+            id: ID
+            items: list[ID]
+
+        payload = DummyData(id=ID("AAA"), items=[ID("BBB")])
+
+        converted = convert_canonical_ids_to_temporary(
+            payload, self.canonical_to_temp, self.temp_to_canonical
+        )
+
+        self.assertIsInstance(converted, DummyData)
+        self.assertEqual(converted.id, ID("1"))
+        self.assertEqual(converted.items, [ID("2")])
 
     def test_convert_existing_only_rewrites_known_ids(self) -> None:
         self.canonical_to_temp[ID("known")] = ID("42")

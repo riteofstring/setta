@@ -12,6 +12,7 @@ from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerErrorContent,
@@ -27,7 +28,7 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
-from setta.types.notifications import SettaNotification
+from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
 
 
@@ -36,6 +37,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
     Notification = "Notification"
+    BackendLogEvent = "BackendLogEvent"
     LLMStreamingResponse = "LLMStreamingResponse"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
@@ -45,6 +47,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
     LLMConfigUpdated = "LLMConfigUpdated"
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
+    AIFollowUpdate = "AIFollowUpdate"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -116,6 +119,13 @@ class WebsocketMsgNotification(FrontendWebsocketMsg):
     content: SettaNotification
     messageType: Literal[WebsocketMsgTypeForFrontend.Notification] = (
         WebsocketMsgTypeForFrontend.Notification
+    )
+
+
+class WebsocketMsgBackendLogEvent(FrontendWebsocketMsg):
+    content: SettaBackendLogEvent
+    messageType: Literal[WebsocketMsgTypeForFrontend.BackendLogEvent] = (
+        WebsocketMsgTypeForFrontend.BackendLogEvent
     )
 
 
@@ -193,6 +203,19 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     content: APIKeys
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
         WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
+    )
+
+
+class AIFollowUpdateContent(BaseModel):
+    projectConfigId: ID
+    chatId: ID
+    sectionIds: list[ID]
+
+
+class WebsocketMsgAIFollowUpdate(FrontendWebsocketMsg):
+    content: AIFollowUpdateContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowUpdate] = (
+        WebsocketMsgTypeForFrontend.AIFollowUpdate
     )
 
 

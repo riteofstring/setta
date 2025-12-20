@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import uvicorn
 
+from setta.logging.config import configure_logging
 from setta.utils.constants import IS_DEV_MODE, C
 
 if TYPE_CHECKING:
@@ -75,7 +76,7 @@ def start_backend(
     *,
     host: str | None = None,
     port: int | None = None,
-    log_level: str = "critical",
+    log_level: str | int | None = None,
     wait_for_ready: bool = True,
     ready_timeout: float = _DEFAULT_READY_TIMEOUT_SECONDS,
     open_browser: bool | str = False,
@@ -87,7 +88,7 @@ def start_backend(
     host / port:
         Override the bind address (defaults match the CLI).
     log_level:
-        Logging level name passed to uvicorn.
+        Optional logging level override passed to the shared logging bootstrap.
     wait_for_ready:
         When True, block until the server reports startup finished.
     ready_timeout:
@@ -103,13 +104,15 @@ def start_backend(
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    _configure_logging(log_level)
+    resolved_level = configure_logging(level_override=log_level)
+    uvicorn_level = logging.getLevelName(resolved_level).lower()
 
     config = uvicorn.Config(
         "setta.server:app",
         host=resolved_host,
         port=resolved_port,
-        log_level=log_level,
+        log_level=uvicorn_level,
+        log_config=None,
         timeout_graceful_shutdown=1,
     )
     server = uvicorn.Server(config)
@@ -136,18 +139,6 @@ def start_backend(
         webbrowser.open(target_url)
 
     return handle
-
-
-def _configure_logging(log_level: str) -> None:
-    level = getattr(logging, log_level.upper(), logging.CRITICAL)
-    root_logger = logging.getLogger()
-    if root_logger.handlers:
-        root_logger.setLevel(level)
-        return
-    logging.basicConfig(
-        level=level,
-        format="%(levelname)s - %(asctime)s - %(name)s - %(message)s",
-    )
 
 
 def _resolve_frontend_url(

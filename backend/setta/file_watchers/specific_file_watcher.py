@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from setta.logging.tasks import spawn_background_task
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
@@ -157,7 +158,16 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         )
 
         self.loop.call_soon_threadsafe(
-            lambda: self.loop.create_task(self.call_handlers(handlers, core_update))
+            lambda: spawn_background_task(
+                self.call_handlers(handlers, core_update),
+                loop=self.loop,
+                label="specific-file-watcher-dispatch",
+                extra_values={
+                    "file_event_type": event_type.value,
+                    "handler_count": len(handlers),
+                    "file_to_read": str(file_to_read),
+                },
+            )
         )
 
     async def call_handlers(

@@ -1,6 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useParams } from "react-router-dom";
 import { EditMenu } from "./EditMenu";
+import { FollowAIToggleButton } from "./FollowAIToggleButton";
 import { FileMenu } from "./FileMenu";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
@@ -25,6 +26,7 @@ function ProjectNavSwitch() {
             <FileMenu />
             <EditMenu />
             <WebsocketConnections />
+            <FollowAIToggleButton />
             <RunButton />
           </Menubar.Root>
           <StopButton />

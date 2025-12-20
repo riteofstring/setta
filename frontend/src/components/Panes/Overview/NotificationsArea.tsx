@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import {
   IoAlertCircleSharp,
-  IoCheckmarkCircle,
   IoClose,
   IoInformationCircle,
   IoWarning,
@@ -180,12 +179,6 @@ export function getNotificationIcon(
   className = "",
 ) {
   switch (type) {
-    case SettaNotificationTypeEnum.success:
-      return (
-        <IoCheckmarkCircle
-          className={`${className} text-green-500 dark:text-green-400`}
-        />
-      );
     case SettaNotificationTypeEnum.error:
       return (
         <IoAlertCircleSharp
