@@ -275,6 +275,7 @@ export const RouteEnum = {
   CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
   DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
   CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
+  CREATE_VIEW_MODE: "/createViewMode",
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
@@ -4604,6 +4605,13 @@ const CreateTopLevelSectionRequestSchema = z.object({
 export type CreateTopLevelSectionRequest = z.infer<
   typeof CreateTopLevelSectionRequestSchema
 >;
+
+const CreateViewModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+});
+
+export type CreateViewModeRequest = z.infer<typeof CreateViewModeRequestSchema>;
 
 const DeclineRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

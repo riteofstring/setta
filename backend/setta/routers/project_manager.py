@@ -12,6 +12,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -203,6 +204,15 @@ async def route_create_new_section_variant(
     await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "New Variant Created",
         project_config_id=x.projectConfigId,
+    )
+
+
+@router.post(Route.CREATE_VIEW_MODE)
+async def route_create_view_mode(
+    x: CreateViewModeRequest, state: AppStateFromRequest
+) -> str:
+    return await state.project_manager_switcher.get(x.projectConfigId).create_view_mode(
+        x
     )
 
 

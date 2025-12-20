@@ -68,6 +68,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -204,7 +205,7 @@ from setta.types.notifications import (
     SettaNotification,
     SettaNotificationType,
 )
-from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_config import Position, ProjectConfig, ViewModeConfig
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -1191,6 +1192,20 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].viewport = x.viewport
+
+    @enqueue_method
+    async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        visibility_by_section_id = {
+            section_id: True for section_id in project_state.sections.keys()
+        }
+        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        project_state.projectConfig.activeViewModeId = view_mode.id
+        project_state.projectConfig.isEditingViewMode = True
+        await self.update_and_broadcast_project_state(project_state)
+        return view_mode.id
 
     @enqueue_method
     @project_state_tool()

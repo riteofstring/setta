@@ -3,16 +3,30 @@ import { FiEdit3 } from "react-icons/fi";
 import { HiCode, HiOutlineEye } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
 import { useProjectState } from "state/definitions";
-import type { ViewModeConfig } from "utils/generatedTypes";
-import { createNewId, createRandomName } from "utils/idNameCreation";
+import { route_create_view_mode } from "utils/generatedEndpoints";
 
 export function ViewingEditingMode() {
-  const { viewModes, activeViewModeId, isEditingViewMode } = useProjectState(
-    (x) => x.projectConfig,
-    _.isEqual,
-  );
-  const viewModeList = Object.values<ViewModeConfig>(viewModes);
-  const activeViewMode = activeViewModeId ? viewModes[activeViewModeId] : null;
+  const {
+    projectConfigId,
+    viewModeList,
+    activeViewModeId,
+    activeViewMode,
+    isEditingViewMode,
+  } = useProjectState((x) => {
+    const viewModeList = Object.values(x.projectConfig.viewModes);
+    const activeViewModeId = x.projectConfig.activeViewModeId;
+    const activeViewMode = activeViewModeId
+      ? x.projectConfig.viewModes[activeViewModeId]
+      : null;
+    const isEditingViewMode = x.projectConfig.isEditingViewMode;
+    return {
+      projectConfigId: x.projectConfig.id,
+      viewModeList,
+      activeViewModeId,
+      activeViewMode,
+      isEditingViewMode,
+    };
+  }, _.isEqual);
   const editLabel = isEditingViewMode ? "Editing" : "Preview";
   const editIcon = isEditingViewMode ? (
     <FiEdit3 size={16} />
@@ -35,21 +49,7 @@ export function ViewingEditingMode() {
   };
 
   const handleCreateMode = () => {
-    useProjectState.setState((state) => {
-      const id = createNewId();
-      const visibilityBySectionId: Record<string, boolean> = {};
-      for (const sectionId of Object.keys(state.sections)) {
-        visibilityBySectionId[sectionId] = true;
-      }
-      state.projectConfig.viewModes[id] = {
-        id,
-        name: createRandomName(),
-        isUserFacing: false,
-        visibilityBySectionId,
-      };
-      state.projectConfig.activeViewModeId = id;
-      state.projectConfig.isEditingViewMode = true;
-    });
+    void route_create_view_mode({ projectConfigId });
   };
 
   const handleToggleUserFacing = (modeId: string) => {

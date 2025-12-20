@@ -72,6 +72,7 @@ class Route(str, Enum):
     CREATE_CHILD_SECTIONS_VIA_INCREMENTER = "/createChildSectionsViaIncrementer"
     DELETE_CHILD_SECTIONS_VIA_DECREMENTER = "/deleteChildSectionsViaDecrementer"
     CREATE_NEW_SECTION_VARIANT = "/createNewSectionVariant"
+    CREATE_VIEW_MODE = "/createViewMode"
     UNDO = "/undo"
     REDO = "/redo"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"

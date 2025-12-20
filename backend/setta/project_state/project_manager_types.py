@@ -221,6 +221,10 @@ class CreateNewSectionVariantRequest(ProjectManagerRequestWithSection):
     """Clone the current section state into a new variant slot."""
 
 
+class CreateViewModeRequest(ProjectManagerRequestWithProjectConfig):
+    """Create a new view mode with default visibility settings."""
+
+
 class UndoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
 

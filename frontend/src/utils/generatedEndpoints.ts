@@ -321,6 +321,12 @@ export async function route_create_new_section_variant(
   return await post("/createNewSectionVariant", x);
 }
 
+export async function route_create_view_mode(
+  x: gt.CreateViewModeRequest,
+): Promise<ResponseDataAndStatus<string>> {
+  return await post("/createViewMode", x);
+}
+
 export async function route_undo(
   x: gt.UndoRequest,
 ): Promise<ResponseDataAndStatus<null>> {
