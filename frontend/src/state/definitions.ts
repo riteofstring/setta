@@ -27,6 +27,7 @@ import {
   LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
+  SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -219,18 +220,32 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-export type RunMode = "once" | "continuous";
+type BackendLogSeverity = SettaBackendLogEvent["severity"];
 
-type ZustandRunControl = {
-  runMode: RunMode;
-  continuousRunStarted: boolean;
+export type BackendLogEventsFilter = {
+  projectConfigId: string | null;
+  minSeverity: BackendLogSeverity;
+  query: string;
 };
 
-export const useRunControl = withProjectState(
+export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
+  projectConfigId: null,
+  minSeverity: "info",
+  query: "",
+};
+
+type BackendLogEventsState = {
+  events: Array<SettaBackendLogEvent>;
+  filter: BackendLogEventsFilter;
+  unreadHighSeverityCount: number;
+};
+
+export const useBackendLogEvents = withProjectState(
   createWithEqualityFn(
-    withResetFn<ZustandRunControl>(() => ({
-      runMode: "once",
-      continuousRunStarted: false,
+    withResetFn<BackendLogEventsState>(() => ({
+      events: [],
+      filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
+      unreadHighSeverityCount: 0,
     })),
   ),
 );

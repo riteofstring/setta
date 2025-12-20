@@ -4,8 +4,12 @@ import Controls from "forks/xyflow/controls/Controls";
 import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
-import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
-import { useLocalStorage } from "state/definitions";
+import {
+  MdBugReport,
+  MdNotificationsNone,
+  MdOutlineSmartToy,
+} from "react-icons/md";
+import { useBackendLogEvents, useLocalStorage } from "state/definitions";
 import {
   OverviewTabName,
   OverviewTabNameEnum,
@@ -18,6 +22,7 @@ import {
   onOverviewTabClick,
   TabButton,
 } from "../paneFns";
+import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
@@ -30,6 +35,9 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
+  const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
+    (state) => state.unreadHighSeverityCount > 0,
+  );
   const commonProps = {
     vis,
     selectedTabName,
@@ -70,6 +78,19 @@ export function Overview() {
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Notifications" })}
           icon={<MdNotificationsNone size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.BackendLogs}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Backend Logs" })}
+          icon={
+            <div className="relative">
+              <MdBugReport size={20} />
+              {hasUnreadHighSeverityBackendLogs && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
+              )}
+            </div>
+          }
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ProjectAIChat}
@@ -136,6 +157,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
+    case OverviewTabNameEnum.BackendLogs:
+      return <BackendLogEventsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
     // case OverviewTabNameEnum.ProjectAISettings:

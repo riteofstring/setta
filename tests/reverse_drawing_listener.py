@@ -15,12 +15,9 @@ if ROOT_PATH not in sys.path:
     sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, BACKEND_PATH)
 
-import logging
-
 from setta.api import SettaListener
+from setta.logging.config import configure_listener_logging
 from setta.types.artifact import ImageArtifact
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 def _load_pillow_modules():
@@ -31,8 +28,8 @@ def _load_pillow_modules():
 
 def _default_project_name() -> str:
     data = json.loads(Path("setta_files/project.json").read_text())
-    project_id = data["defaultProjectConfigId"]
-    return data["projectConfigs"][project_id]["name"]
+    project_config_id = data["defaultProjectConfigId"]
+    return data["projectConfigs"][project_config_id]["name"]
 
 
 def _reverse_image_data(value: str) -> str:
@@ -74,6 +71,7 @@ def _build_listener(project_name: str) -> SettaListener:
 
 
 def main() -> None:
+    configure_listener_logging(level_override="DEBUG")
     listener = _build_listener(_default_project_name())
     listener.start()
 

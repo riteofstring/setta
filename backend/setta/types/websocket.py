@@ -27,7 +27,7 @@ from setta.types.llm_config import AllLLMConfigs
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
-from setta.types.notifications import SettaNotification
+from setta.types.notifications import SettaBackendLogEvent, SettaNotification
 from setta.types.project_state import AllProjectMetadata
 
 
@@ -36,6 +36,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
     Notification = "Notification"
+    BackendLogEvent = "BackendLogEvent"
     LLMStreamingResponse = "LLMStreamingResponse"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
@@ -116,6 +117,13 @@ class WebsocketMsgNotification(FrontendWebsocketMsg):
     content: SettaNotification
     messageType: Literal[WebsocketMsgTypeForFrontend.Notification] = (
         WebsocketMsgTypeForFrontend.Notification
+    )
+
+
+class WebsocketMsgBackendLogEvent(FrontendWebsocketMsg):
+    content: SettaBackendLogEvent
+    messageType: Literal[WebsocketMsgTypeForFrontend.BackendLogEvent] = (
+        WebsocketMsgTypeForFrontend.BackendLogEvent
     )
 
 
