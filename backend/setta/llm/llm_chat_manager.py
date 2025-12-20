@@ -21,6 +21,7 @@ from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
 from setta.mcp.utils import (
+    convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
@@ -368,7 +369,7 @@ class LLMChatManager:
         layer can pass it directly to the configured completion client.
         """
         system_message = SystemChatMessage(
-            content=[MessageTextContent(text=self.system_prompt)],
+            content=[MessageTextContent(text=self._build_system_prompt(chat))],
         ).to_openai_format()
         messages: list[dict[str, Any]] = [system_message]
         for message in chat.messages:
@@ -392,6 +393,29 @@ class LLMChatManager:
             raise ValueError("LLM config must specify a model via config or override")
 
         return request
+
+    def _build_system_prompt(self, chat: Chat) -> str:
+        project_config_id = chat.projectConfigId
+        temporary_project_config_id = self._get_temporary_project_config_id(
+            project_config_id
+        )
+        return (
+            f"{self.system_prompt}\n\n"
+            "## Active project config\n"
+            f"- id: {temporary_project_config_id}"
+        )
+
+    def _get_temporary_project_config_id(self, project_config_id: ID) -> ID:
+        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        should_write = project_config_id not in canonical_to_temporary
+        temporary_project_config_id = convert_canonical_ids_to_temporary(
+            project_config_id,
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+        if should_write:
+            self.dbe.write_temporary_id_map(canonical_to_temporary)
+        return temporary_project_config_id
 
     def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
         state = self._get_or_create_chat_tool_state(chat.id)
