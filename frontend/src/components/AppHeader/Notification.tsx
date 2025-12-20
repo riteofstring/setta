@@ -27,7 +27,19 @@ export function Notification() {
       return;
     }
 
-    setDisplayNotification(latestNotification);
+    setDisplayNotification((previousNotification) => {
+      if (
+        previousNotification &&
+        previousNotification.id === latestNotification.id &&
+        previousNotification.message === latestNotification.message &&
+        previousNotification.type === latestNotification.type &&
+        previousNotification.timestamp === latestNotification.timestamp
+      ) {
+        return previousNotification;
+      }
+
+      return latestNotification;
+    });
   }, [latestNotification]);
 
   useEffect(() => {
