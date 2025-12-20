@@ -1,4 +1,4 @@
-import { Toggle } from "components/Utils/atoms/toggles/Toggle";
+import * as Switch from "@radix-ui/react-switch";
 import _ from "lodash";
 import { Link } from "react-router-dom";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
@@ -17,16 +17,22 @@ export function ProjectConfigs() {
     _.isEqual,
   );
   const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
+  const toggleRootClasses =
+    "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
+  const toggleThumbClasses =
+    "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
   return (
     <>
       <aside className="mb-2 flex items-center justify-between">
         <p className="text-xs text-setta-500">Toggle config previews.</p>
-        <Toggle
+        <Switch.Root
+          className={toggleRootClasses}
           checked={previewEnabled}
           onCheckedChange={toggleProjectConfigPreviewEnabled}
-          twThumbClasses="flex"
-        />
+        >
+          <Switch.Thumb className={toggleThumbClasses} />
+        </Switch.Root>
       </aside>
       {/* 
       <p className="text-xs text-setta-600 dark:text-setta-300">
