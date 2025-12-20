@@ -221,9 +221,22 @@ export const useNotifications = createWithEqualityFn(
 
 export type RunMode = "once" | "continuous";
 
+export type CustomRunAction =
+  | { type: "runCodeBlock"; sectionId: string | null }
+  | { type: "triggerListenerForceRefresh" };
+
+export type CustomRunItem = {
+  id: string;
+  name: string;
+  includeInRunDropdown: boolean;
+  runMode: RunMode;
+  action: CustomRunAction;
+};
+
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
+  continuousRunCustomRunId: string | null;
 };
 
 export const useRunControl = withProjectState(
@@ -231,6 +244,7 @@ export const useRunControl = withProjectState(
     withResetFn<ZustandRunControl>(() => ({
       runMode: "once",
       continuousRunStarted: false,
+      continuousRunCustomRunId: null,
     })),
   ),
 );
@@ -418,6 +432,7 @@ type ZustandLocalStorage = {
   uiEditorTab: UIEditorTabLocalStorage;
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
+  customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -437,6 +452,7 @@ export const useLocalStorage = createWithEqualityFn(
       uiEditorTab: {},
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
+      customRunsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation

@@ -5,6 +5,7 @@ import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
+import { RiPlayList2Fill } from "react-icons/ri";
 import { useLocalStorage } from "state/definitions";
 import {
   OverviewTabName,
@@ -22,6 +23,7 @@ import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
+import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 export function Overview() {
@@ -58,6 +60,12 @@ export function Overview() {
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Config Preview" })}
           icon={<i className="gg-git-branch !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.RunInstructions}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Custom Runs" })}
+          icon={<RiPlayList2Fill size={20} />}
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ViewModes}
@@ -132,6 +140,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <ProjectOverview />;
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
+    case OverviewTabNameEnum.RunInstructions:
+      return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:

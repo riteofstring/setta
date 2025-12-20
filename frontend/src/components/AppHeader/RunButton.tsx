@@ -2,18 +2,33 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useEffect } from "react";
+import * as Menubar from "@radix-ui/react-menubar";
 import {
   RiArrowDownSLine,
   RiLoopRightFill,
   RiPlayMiniFill,
 } from "react-icons/ri";
+import {
+  ensureDefaultCustomRuns,
+  runContinuousTick,
+  runCustomRun,
+} from "state/actions/customRuns";
 import { runFromMainRunButton } from "state/actions/runOrImportCode";
-import { triggerListenerForceRefresh } from "state/actions/listeners";
-import { usePendingOperations, useRunControl } from "state/definitions";
+import {
+  useLocalStorage,
+  usePendingOperations,
+  useProjectState,
+  useRunControl,
+} from "state/definitions";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
   const continuousRunStarted = useRunControl((x) => x.continuousRunStarted);
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
+  const customRuns = useLocalStorage(
+    (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
+  );
+  const dropdownRuns = customRuns.filter((x) => x.includeInRunDropdown);
   const isContinuous = runMode === "continuous";
   const isContinuousActive = isContinuous && continuousRunStarted;
   const mainIcon = runMode === "continuous" ? (
@@ -36,6 +51,10 @@ export function RunButton() {
     "flex items-center gap-2 px-1.5 py-1.5 text-xs text-setta-700 dark:text-setta-200  mx-1 rounded-md text-left hover:bg-setta-600 hover:text-white dark:hover:bg-setta-900 dark:hover:text-white active:bg-blue-100 active:dark:bg-blue-950 cursor-pointer";
 
   useEffect(() => {
+    ensureDefaultCustomRuns(projectConfigId);
+  }, [projectConfigId]);
+
+  useEffect(() => {
     const unsubscribe = usePendingOperations.subscribe((state, prevState) => {
       const nextLen = state.pending.length;
       const prevLen = prevState.pending.length;
@@ -46,7 +65,7 @@ export function RunButton() {
       if (runMode !== "continuous" || !continuousRunStarted) {
         return;
       }
-      void triggerListenerForceRefresh();
+      void runContinuousTick();
     });
 
     return unsubscribe;
@@ -87,6 +106,7 @@ export function RunButton() {
             useRunControl.setState({
               runMode: "once",
               continuousRunStarted: false,
+              continuousRunCustomRunId: null,
             });
           }}
         >
@@ -115,6 +135,7 @@ export function RunButton() {
             useRunControl.setState({
               runMode: "continuous",
               continuousRunStarted: false,
+              continuousRunCustomRunId: null,
             });
           }}
         >
@@ -137,6 +158,30 @@ export function RunButton() {
             Continuous run
           </span>
         </MenuItem>
+
+        {dropdownRuns.length > 0 && (
+          <>
+            <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+            {dropdownRuns.map((run) => (
+              <MenuItem
+                key={run.id}
+                className={menuItemClasses}
+                onClick={() => {
+                  void runCustomRun(projectConfigId, run.id);
+                }}
+              >
+                <i className="w-3 opacity-80">
+                  {run.runMode === "continuous" ? (
+                    <RiLoopRightFill />
+                  ) : (
+                    <RiPlayMiniFill />
+                  )}
+                </i>
+                <span className="ml-0.5">{run.name}</span>
+              </MenuItem>
+            ))}
+          </>
+        )}
       </NavbarMenuDropdown>
       </div>
     </div>

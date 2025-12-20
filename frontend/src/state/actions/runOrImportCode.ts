@@ -27,16 +27,25 @@ export async function runFromMainRunButton(): Promise<void> {
   const { runMode, continuousRunStarted } = useRunControl.getState();
   if (runMode === "continuous") {
     if (continuousRunStarted) {
-      useRunControl.setState({ continuousRunStarted: false });
+      useRunControl.setState({
+        continuousRunStarted: false,
+        continuousRunCustomRunId: null,
+      });
       return;
     }
 
-    useRunControl.setState({ continuousRunStarted: true });
+    useRunControl.setState({
+      continuousRunStarted: true,
+      continuousRunCustomRunId: null,
+    });
     await triggerListenerForceRefresh();
     return;
   }
 
-  useRunControl.setState({ continuousRunStarted: false });
+  useRunControl.setState({
+    continuousRunStarted: false,
+    continuousRunCustomRunId: null,
+  });
   await runEntryCodeBlock();
 }
 
