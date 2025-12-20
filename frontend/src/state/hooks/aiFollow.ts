@@ -73,7 +73,8 @@ export function useAIFollowViewport(): void {
       true,
     );
 
-    const duration = useSettings.getState().gui.transitionDuration;
+    // const duration = useSettings.getState().gui.transitionDuration;
+    const duration = 500
     const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
     d3Zoom.transform(getD3Transition(d3Selection, duration), nextTransform);
   }, [
