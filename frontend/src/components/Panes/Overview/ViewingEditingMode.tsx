@@ -16,22 +16,18 @@ import {
 import { ViewModeConfig } from "utils/generatedTypes";
 
 export function ViewingEditingMode() {
-  const {
-    projectConfigId,
-    viewModeList,
-    activeViewModeId,
-    isEditingViewMode,
-  } = useProjectState((x) => {
-    const viewModeList = Object.values(x.projectConfig.viewModes);
-    const activeViewModeId = x.projectConfig.activeViewModeId;
-    const isEditingViewMode = x.projectConfig.isEditingViewMode;
-    return {
-      projectConfigId: x.projectConfig.id,
-      viewModeList,
-      activeViewModeId,
-      isEditingViewMode,
-    };
-  }, _.isEqual);
+  const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
+    useProjectState((x) => {
+      const viewModeList = Object.values(x.projectConfig.viewModes);
+      const activeViewModeId = x.projectConfig.activeViewModeId;
+      const isEditingViewMode = x.projectConfig.isEditingViewMode;
+      return {
+        projectConfigId: x.projectConfig.id,
+        viewModeList,
+        activeViewModeId,
+        isEditingViewMode,
+      };
+    }, _.isEqual);
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -290,7 +286,7 @@ function ViewModeEditingRow({
       </button>
       {isDeletable && (
         <button
-          className="cursor-pointer bg-transparent text-transparent group-hover/viewmode:text-setta-400/50 hover:!text-red-500 active:!text-red-700"
+          className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
           onClick={handleDelete}
           title="Delete view mode"
         >

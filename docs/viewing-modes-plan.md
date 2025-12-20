@@ -56,5 +56,5 @@ Allow arbitrary, developer-defined view modes per project, each with its own vis
 6. [~] Implement a view mode manager UI for create/rename/delete and preview/edit toggles. (Done: list/select, edit/preview toggle, create, user-facing toggle; TODO: rename/duplicate/delete.)
 7. [ ] Validate manually: create multiple view modes, toggle visibility, switch preview/edit, confirm controls and rendering match expectations.
 
-## Frontend initialization
-- Added a frontend guard to ensure `viewModes` + `activeViewModeId` are initialized for fresh configs (prevents "Active view mode is not set" when starting from blank state).
+## State integrity
+- The backend is the only source of truth for initializing and validating `viewModes`, `activeViewModeId`, and per-section visibility data. The frontend does not patch or infer missing view mode state.
