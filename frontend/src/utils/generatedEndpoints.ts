@@ -339,6 +339,12 @@ export async function route_toggle_is_editing_view_mode(
   return await post("/toggleIsEditingViewMode", x);
 }
 
+export async function route_toggle_section_visibility(
+  x: gt.ToggleSectionVisibilityRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleSectionVisibility", x);
+}
+
 export async function route_toggle_view_mode_user_facing(
   x: gt.ToggleViewModeUserFacingRequest,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -5,7 +5,10 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_delete_sections } from "utils/generatedEndpoints";
+import {
+  route_delete_sections,
+  route_toggle_section_visibility,
+} from "utils/generatedEndpoints";
 
 type DeleteOrHideButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   sectionId: string;
@@ -40,15 +43,9 @@ export function DeleteOrHideButton({
 
   const onClick = () => {
     if (isEditingViewMode) {
-      useProjectState.setState((state) => {
-        const viewMode = getActiveViewModeConfig(state);
-        const visibility = viewMode.visibilityBySectionId[sectionId];
-        if (visibility === undefined) {
-          throw new Error(
-            `Missing visibility for section ${sectionId} in view mode ${viewMode.id}`,
-          );
-        }
-        viewMode.visibilityBySectionId[sectionId] = !visibility;
+      route_toggle_section_visibility({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
       });
       return;
     }

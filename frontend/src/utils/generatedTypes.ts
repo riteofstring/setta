@@ -278,6 +278,7 @@ export const RouteEnum = {
   CREATE_VIEW_MODE: "/createViewMode",
   SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
   TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
+  TOGGLE_SECTION_VISIBILITY: "/toggleSectionVisibility",
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   SET_VIEW_MODE_NAME: "/setViewModeName",
   DELETE_VIEW_MODE: "/deleteViewMode",
@@ -5157,6 +5158,16 @@ const TogglePositionLockRequestSchema = z.object({
 
 export type TogglePositionLockRequest = z.infer<
   typeof TogglePositionLockRequestSchema
+>;
+
+const ToggleSectionVisibilityRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type ToggleSectionVisibilityRequest = z.infer<
+  typeof ToggleSectionVisibilityRequestSchema
 >;
 
 const ToggleVariantFrozenRequestSchema = z.object({

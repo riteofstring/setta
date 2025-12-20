@@ -237,6 +237,10 @@ class ToggleIsEditingViewModeRequest(ProjectManagerRequestWithProjectConfig):
     """Toggle the active view mode between edit and preview."""
 
 
+class ToggleSectionVisibilityRequest(ProjectManagerRequestWithSection):
+    """Toggle visibility for a section in the active view mode."""
+
+
 class ToggleViewModeUserFacingRequest(ProjectManagerRequestWithProjectConfig):
     """Update whether a view mode is considered user-facing."""
 

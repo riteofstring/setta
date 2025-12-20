@@ -98,8 +98,6 @@ function ContainerGroup({
     isInOtherProjectConfigs,
   });
 
-  const isEditingUser = isEditingViewMode;
-
   return (
     <div
       className={`group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${className}`}
@@ -131,7 +129,7 @@ function ContainerGroup({
             <LockPositionButton sectionId={sectionId} />
             <DeleteOrHideButton
               sectionId={sectionId}
-              size={`min-w-4 h-4 ${isEditingUser ? "scale-120" : "scale-150"}  `}
+              size={`min-w-4 h-4 ${isEditingViewMode ? "scale-120" : "scale-150"}  `}
             />
           </div>
         )}

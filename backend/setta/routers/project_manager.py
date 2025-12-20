@@ -66,6 +66,7 @@ from setta.project_state.project_manager_types import (
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
     TogglePositionLockRequest,
+    ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     ToggleViewModeUserFacingRequest,
@@ -235,6 +236,15 @@ async def route_toggle_is_editing_view_mode(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).toggle_is_editing_view_mode(x)
+
+
+@router.post(Route.TOGGLE_SECTION_VISIBILITY)
+async def route_toggle_section_visibility(
+    x: ToggleSectionVisibilityRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).toggle_section_visibility(x)
 
 
 @router.post(Route.TOGGLE_VIEW_MODE_USER_FACING)

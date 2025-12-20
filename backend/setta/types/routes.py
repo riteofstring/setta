@@ -75,6 +75,7 @@ class Route(str, Enum):
     CREATE_VIEW_MODE = "/createViewMode"
     SET_ACTIVE_VIEW_MODE = "/setActiveViewMode"
     TOGGLE_IS_EDITING_VIEW_MODE = "/toggleIsEditingViewMode"
+    TOGGLE_SECTION_VISIBILITY = "/toggleSectionVisibility"
     TOGGLE_VIEW_MODE_USER_FACING = "/toggleViewModeUserFacing"
     SET_VIEW_MODE_NAME = "/setViewModeName"
     DELETE_VIEW_MODE = "/deleteViewMode"
