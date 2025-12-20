@@ -20,7 +20,10 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
-from setta.mcp.utils import convert_existing_canonical_ids_to_temporary
+from setta.mcp.utils import (
+    convert_existing_canonical_ids_to_temporary,
+    convert_temporary_ids_to_canonical,
+)
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import (
     create_new_chat,
@@ -253,8 +256,19 @@ class LLMChatManager:
                     MessageStopEvent(message_id=assistant_message.id),
                 )
                 stop_event_sent = True
-                self._finalize_tool_calls(assistant_message, tool_call_state)
+                await self._finalize_tool_calls(
+                    assistant_message,
+                    tool_call_state,
+                    chat.id,
+                    chat.projectConfigId,
+                )
                 tool_results = await self._run_tool_calls(chat, assistant_message)
+                if assistant_message.tool_calls:
+                    await self.websocket_msg_handler.broadcast_ai_follow_update(
+                        chat.projectConfigId,
+                        chat.id,
+                        [],
+                    )
                 new_messages: list[BaseChatMessageUnion] = [assistant_message]
                 if tool_results:
                     new_messages.extend(tool_results)
@@ -277,7 +291,12 @@ class LLMChatManager:
                     )
                     stop_event_sent = True
                 if self._should_persist_partial_message(assistant_message):
-                    self._finalize_tool_calls(assistant_message, tool_call_state)
+                    await self._finalize_tool_calls(
+                        assistant_message,
+                        tool_call_state,
+                        chat.id,
+                        chat.projectConfigId,
+                    )
                     save_messages(self.dbe, chat.id, [assistant_message])
                     await self.websocket_msg_handler.send_streaming_response(
                         chat.id,
@@ -865,13 +884,16 @@ class LLMChatManager:
             )
         return assistant_message.tool_calls[index]
 
-    def _finalize_tool_calls(
+    async def _finalize_tool_calls(
         self,
         assistant_message: AssistantChatMessage,
         tool_call_state: ToolCallStreamState,
+        chat_id: ID,
+        project_config_id: ID,
     ) -> None:
         if not assistant_message.tool_calls:
             return
+        parsed_arguments: list[dict[str, Any]] = []
         for index, tool_call in enumerate(assistant_message.tool_calls):
             raw_arguments = tool_call_state.argument_buffers.get(index)
             if not raw_arguments:
@@ -879,6 +901,12 @@ class LLMChatManager:
             tool_call.function.arguments = self._parse_tool_call_arguments(
                 raw_arguments, tool_call.id
             )
+            parsed_arguments.append(tool_call.function.arguments)
+        await self._broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            parsed_arguments,
+        )
 
     async def _run_tool_calls(
         self,
@@ -1079,6 +1107,61 @@ class LLMChatManager:
                 exc_info=True,
             )
             return {}
+
+    async def _broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        arguments_list: list[dict[str, Any]],
+    ) -> None:
+        section_ids = self._collect_ai_follow_section_ids(arguments_list)
+        if section_ids is None:
+            return
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        section_ids = convert_temporary_ids_to_canonical(
+            section_ids,
+            temporary_to_canonical,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            section_ids,
+        )
+
+    def _collect_ai_follow_section_ids(
+        self, arguments_list: list[dict[str, Any]]
+    ) -> list[ID] | None:
+        if not arguments_list:
+            return None
+        combined: set[ID] = set()
+        found_any = False
+        for arguments in arguments_list:
+            section_ids = self._extract_ai_follow_section_ids(arguments)
+            if section_ids is None:
+                continue
+            found_any = True
+            combined.update(section_ids)
+        if not found_any:
+            return None
+        return list(combined)
+
+    def _extract_ai_follow_section_ids(
+        self, arguments: dict[str, Any]
+    ) -> list[ID] | None:
+        if "sectionIds" in arguments:
+            return self._coerce_section_id_list(arguments["sectionIds"])
+        if "sectionId" in arguments:
+            return self._coerce_section_id_list(arguments["sectionId"])
+        return None
+
+    def _coerce_section_id_list(self, raw_value: Any) -> list[ID] | None:
+        if isinstance(raw_value, list):
+            return [
+                ID(value) for value in raw_value if isinstance(value, str) and value
+            ]
+        if isinstance(raw_value, str):
+            return [ID(raw_value)] if raw_value else []
+        return None
 
     def _resolve_content_index(
         self,

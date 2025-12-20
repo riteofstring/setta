@@ -74,12 +74,14 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
   const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
-  const sections = activeSectionIds.map((sectionId) => {
-    const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
-    return { position: { x, y }, width, height };
-  });
-
-  return getNodesBounds(sections);
+  return (
+    getSectionBounds(activeSectionIds, ignoreGrid) ?? {
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    }
+  );
 }
 
 export function getNodesInside(
@@ -174,6 +176,26 @@ export function getSectionRect(sectionId: string, ignoreGrid = false) {
     ignoreGrid,
   );
   return { x, y, width, height };
+}
+
+export function getSectionBounds(
+  sectionIds: Array<string>,
+  ignoreGrid = false,
+): Rect | null {
+  const sections = sectionIds.flatMap((sectionId) => {
+    const rect = getSectionRect(sectionId, ignoreGrid);
+    if (!rect) {
+      return [];
+    }
+    const { x, y, width, height } = rect;
+    return [{ position: { x, y }, width, height }];
+  });
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return getNodesBounds(sections);
 }
 
 export function getSectionRectWithNested(sectionId: string) {

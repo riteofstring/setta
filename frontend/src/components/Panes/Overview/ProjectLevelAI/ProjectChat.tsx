@@ -1,6 +1,6 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import { useMemo, useState } from "react";
+import { SetStateAction, useCallback, useMemo, useState } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
@@ -13,7 +13,17 @@ import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
 export function ProjectChat() {
-  const [chatId, setChatId] = useState<string | null | undefined>(undefined);
+  const chatId = useAIStore((state) => state.activeChatId);
+  const setChatId = useCallback(
+    (next: SetStateAction<string | null | undefined>) => {
+      useAIStore.setState((state) => {
+        const resolved =
+          typeof next === "function" ? next(state.activeChatId) : next;
+        return { activeChatId: resolved };
+      });
+    },
+    [],
+  );
   const [deepThink, setDeepThink] = useState(false);
   useHydrateLLMState();
 
