@@ -1,5 +1,5 @@
-import { EditorState } from "@codemirror/state";
-import { Decoration, EditorView } from "@codemirror/view";
+import { EditorState, Transaction } from "@codemirror/state";
+import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
@@ -16,11 +16,11 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
+import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
 import {
   route_code_area_completion,
@@ -49,12 +49,37 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     backgroundImage:
       "repeating-linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0, rgba(251, 191, 36, 0.25) 6px, transparent 6px, transparent 12px)",
   },
+  ".cm-gen-code-placeholder": {
+    color: "rgba(100, 116, 139, 0.9)",
+    fontStyle: "italic",
+    pointerEvents: "none",
+  },
   "&.cm-editor.cm-dark .cm-gen-code-readonly": {
     backgroundColor: "rgba(161, 98, 7, 0.25)",
     backgroundImage:
       "repeating-linear-gradient(135deg, rgba(234, 179, 8, 0.3) 0, rgba(234, 179, 8, 0.3) 6px, transparent 6px, transparent 12px)",
   },
+  "&.cm-editor.cm-dark .cm-gen-code-placeholder": {
+    color: "rgba(148, 163, 184, 0.9)",
+  },
 });
+
+class GenPythonPlaceholderWidget extends WidgetType {
+  constructor(private text: string) {
+    super();
+  }
+
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "cm-gen-code-placeholder";
+    span.textContent = this.text;
+    return span;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
 
 const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
   isValid: false,
@@ -65,10 +90,7 @@ const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
   suffixBoundaryLength: 0,
 };
 
-function splitGenPythonDoc(
-  doc: string,
-  generated: string,
-): GenPythonDocParts {
+function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (!generated) {
     return INVALID_GEN_PYTHON_DOC_PARTS;
   }
@@ -90,7 +112,9 @@ function splitGenPythonDoc(
       ? GEN_CODE_SEPARATOR_LENGTH
       : 0;
   const suffix =
-    suffixBoundaryLength > 0 ? suffixDoc.slice(suffixBoundaryLength) : suffixDoc;
+    suffixBoundaryLength > 0
+      ? suffixDoc.slice(suffixBoundaryLength)
+      : suffixDoc;
   return {
     isValid: true,
     generatedStart,
@@ -173,10 +197,9 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 
   const theme = useCodeMirrorStyle();
 
-  const completionsFn = useCallback(
-    getGenPythonCodeAreaCompletionsFn(code),
-    [code],
-  );
+  const completionsFn = useCallback(getGenPythonCodeAreaCompletionsFn(code), [
+    code,
+  ]);
 
   function onChange(nextValue: string) {
     setValue(nextValue);
@@ -197,6 +220,9 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 
   const readOnlyGeneratedRange = EditorState.transactionFilter.of((tr) => {
     if (!tr.docChanged) {
+      return tr;
+    }
+    if (!tr.annotation(Transaction.userEvent)) {
       return tr;
     }
     const currentDoc = tr.startState.doc.toString();
@@ -232,6 +258,18 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
       )
     : EditorView.decorations.of(Decoration.none);
 
+  const prefixPlaceholderDecoration =
+    docParts.isValid && docParts.prefix.length === 0
+      ? EditorView.decorations.of(
+          Decoration.set([
+            Decoration.widget({
+              widget: new GenPythonPlaceholderWidget("Add imports here"),
+              side: 1,
+            }).range(0),
+          ]),
+        )
+      : EditorView.decorations.of(Decoration.none);
+
   const extensions = getExtensions({
     parentDivId: `${sectionId}-CustomResizable`,
     language: "python",
@@ -242,6 +280,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   }).concat(
     readOnlyGeneratedRange,
     readOnlyDecoration,
+    prefixPlaceholderDecoration,
     GEN_CODE_READONLY_THEME,
   );
 

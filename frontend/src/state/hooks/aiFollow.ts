@@ -1,17 +1,12 @@
 import { zoomIdentity } from "d3-zoom";
-import { useEffect, useMemo } from "react";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   getD3Transition,
   getSectionBounds,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
-import {
-  useAIFollow,
-  useAIStore,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { useEffect, useMemo } from "react";
+import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 export function useAIFollowViewport(): void {
@@ -74,7 +69,7 @@ export function useAIFollowViewport(): void {
     );
 
     // const duration = useSettings.getState().gui.transitionDuration;
-    const duration = 500
+    const duration = 500;
     const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
     d3Zoom.transform(getD3Transition(d3Selection, duration), nextTransform);
   }, [
