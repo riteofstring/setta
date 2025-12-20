@@ -44,20 +44,22 @@ type GenPythonDocParts = {
 const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
 const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
 const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
-  ".cm-gen-code-readonly": {
+  ".cm-gen-code-readonly-line": {
     backgroundColor: "rgba(253, 230, 138, 0.35)",
-    backgroundImage:
-      "repeating-linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0, rgba(251, 191, 36, 0.25) 6px, transparent 6px, transparent 12px)",
+  },
+  ".cm-gen-code-readonly-line.cm-activeLine": {
+    backgroundColor: "rgba(253, 230, 138, 0.35)",
   },
   ".cm-gen-code-placeholder": {
     color: "rgba(100, 116, 139, 0.9)",
     fontStyle: "italic",
     pointerEvents: "none",
   },
-  "&.cm-editor.cm-dark .cm-gen-code-readonly": {
+  "&.cm-editor.cm-dark .cm-gen-code-readonly-line": {
     backgroundColor: "rgba(161, 98, 7, 0.25)",
-    backgroundImage:
-      "repeating-linear-gradient(135deg, rgba(234, 179, 8, 0.3) 0, rgba(234, 179, 8, 0.3) 6px, transparent 6px, transparent 12px)",
+  },
+  "&.cm-editor.cm-dark .cm-gen-code-readonly-line.cm-activeLine": {
+    backgroundColor: "rgba(161, 98, 7, 0.25)",
   },
   "&.cm-editor.cm-dark .cm-gen-code-placeholder": {
     color: "rgba(148, 163, 184, 0.9)",
@@ -123,6 +125,27 @@ function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
     suffix,
     suffixBoundaryLength,
   };
+}
+
+function getLineStartsInRange(doc: string, from: number, to: number): number[] {
+  const clampedFrom = Math.max(0, Math.min(doc.length, from));
+  const clampedTo = Math.max(clampedFrom, Math.min(doc.length, to));
+  const lineStarts: number[] = [];
+  let lineStart = 0;
+  while (lineStart <= doc.length) {
+    let lineEnd = doc.indexOf("\n", lineStart);
+    if (lineEnd === -1) {
+      lineEnd = doc.length;
+    }
+    if (lineStart < clampedTo && lineEnd > clampedFrom) {
+      lineStarts.push(lineStart);
+    }
+    if (lineEnd === doc.length) {
+      break;
+    }
+    lineStart = lineEnd + 1;
+  }
+  return lineStarts;
 }
 
 function _CodeArea({ sectionId }) {
@@ -247,14 +270,13 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     return touchesReadOnly ? [] : tr;
   });
 
-  const readOnlyDecoration = docParts.isValid
+  const readOnlyLineDecoration = docParts.isValid
     ? EditorView.decorations.of(
-        Decoration.set([
-          Decoration.mark({ class: "cm-gen-code-readonly" }).range(
-            readOnlyStart,
-            readOnlyEnd,
+        Decoration.set(
+          getLineStartsInRange(value, readOnlyStart, readOnlyEnd).map((pos) =>
+            Decoration.line({ class: "cm-gen-code-readonly-line" }).range(pos),
           ),
-        ]),
+        ),
       )
     : EditorView.decorations.of(Decoration.none);
 
@@ -279,7 +301,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     indentWithTab: true,
   }).concat(
     readOnlyGeneratedRange,
-    readOnlyDecoration,
+    readOnlyLineDecoration,
     prefixPlaceholderDecoration,
     GEN_CODE_READONLY_THEME,
   );
