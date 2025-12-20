@@ -1,5 +1,5 @@
 import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
 import { useNotifications } from "state/definitions";
 import { SettaNotification } from "utils/generatedTypes";
@@ -8,32 +8,26 @@ export function Notification() {
   // State to track the notification to display in the navbar
   const [displayNotification, setDisplayNotification] =
     useState<SettaNotification | null>(null);
-  const lastShownNotificationIdRef = useRef<string | null>(null);
 
   // Get the most recent notification from the store
   const latestNotification = useNotifications((state) =>
     state.notifications.length > 0 ? state.notifications[0] : null,
   );
 
-  // Effect to handle new notifications
+  // Display the latest notification unless it is already stale.
   useEffect(() => {
-    // Only run if latestNotification exists and is different from what's displayed
-    if (
-      latestNotification &&
-      latestNotification.id !== lastShownNotificationIdRef.current
-    ) {
-      const timeoutDuration = DEFAULT_TEMP_TIMEOUT;
-      const nowTime = new Date().getTime();
-      const notificationTime = new Date(latestNotification.timestamp).getTime();
-      if (nowTime - notificationTime > timeoutDuration) {
-        lastShownNotificationIdRef.current = latestNotification.id;
-        return;
-      }
-
-      // Update what's being displayed
-      lastShownNotificationIdRef.current = latestNotification.id;
-      setDisplayNotification(latestNotification);
+    if (!latestNotification) {
+      return;
     }
+
+    const timeoutDuration = DEFAULT_TEMP_TIMEOUT;
+    const nowTime = new Date().getTime();
+    const notificationTime = new Date(latestNotification.timestamp).getTime();
+    if (nowTime - notificationTime > timeoutDuration) {
+      return;
+    }
+
+    setDisplayNotification(latestNotification);
   }, [latestNotification]);
 
   useEffect(() => {
