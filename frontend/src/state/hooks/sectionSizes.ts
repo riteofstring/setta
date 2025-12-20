@@ -37,18 +37,18 @@ function getMinSectionHeight({
   sizingPolicy: SectionSizingPolicy;
 }): number {
   const policyByType = sizingPolicy.byType[sectionType];
-  const overrides = policyByType.overrides;
 
   if (isMinimized) {
-    return overrides?.minimizedHeight ?? sizingPolicy.globals.minimizedHeight;
+    return sizingPolicy.globals.minimizedHeight;
   }
 
   if (sectionType === SectionTypeEnum.Callable) {
+    const callablePolicy = sizingPolicy.byType.Callable;
     if (hideSearch) {
-      return overrides?.hideSearchMinHeight ?? policyByType.minHeight;
+      return callablePolicy.hideSearchMinHeight;
     }
     if (hideParams) {
-      return overrides?.hideParamsMinHeight ?? policyByType.minHeight;
+      return callablePolicy.hideParamsMinHeight;
     }
   }
 
@@ -65,10 +65,9 @@ function getMaxSectionHeight({
   sizingPolicy: SectionSizingPolicy;
 }): number {
   const policyByType = sizingPolicy.byType[sectionType];
-  const overrides = policyByType.overrides;
 
   if (isMinimized) {
-    return overrides?.minimizedHeight ?? sizingPolicy.globals.minimizedHeight;
+    return sizingPolicy.globals.minimizedHeight;
   }
 
   return policyByType.maxHeight;

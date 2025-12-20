@@ -124,18 +124,16 @@ class SettingsBackend(BaseModel):
     saveRenderedValues: bool = False
 
 
-class SectionSizingPolicyOverrides(BaseModel):
-    hideSearchMinHeight: float | None
-    hideParamsMinHeight: float | None
-    minimizedHeight: float | None
-
-
 class SectionSizingPolicyTypeEntry(BaseModel):
     minHeight: float
     maxHeight: float
     minWidth: float
     maxWidth: float
-    overrides: SectionSizingPolicyOverrides | None = None
+
+
+class SectionSizingPolicyCallableTypeEntry(SectionSizingPolicyTypeEntry):
+    hideSearchMinHeight: float
+    hideParamsMinHeight: float
 
 
 class SectionSizingPolicyGlobals(BaseModel):
@@ -146,17 +144,14 @@ class SectionSizingPolicyGlobals(BaseModel):
 
 
 class SectionSizingPolicyByType(BaseModel):
-    Callable: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
+    Callable: SectionSizingPolicyCallableTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyCallableTypeEntry(
             minHeight=104,
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,
-            overrides=SectionSizingPolicyOverrides(
-                hideSearchMinHeight=78,
-                hideParamsMinHeight=58,
-                minimizedHeight=None,
-            ),
+            hideSearchMinHeight=78,
+            hideParamsMinHeight=58,
         )
     )
     Dict: SectionSizingPolicyTypeEntry = Field(
@@ -229,11 +224,6 @@ class SectionSizingPolicyByType(BaseModel):
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,
-            overrides=SectionSizingPolicyOverrides(
-                hideSearchMinHeight=None,
-                hideParamsMinHeight=None,
-                minimizedHeight=None,
-            ),
         )
     )
     GlobalVariables: SectionSizingPolicyTypeEntry = Field(

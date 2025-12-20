@@ -14,12 +14,10 @@ Move section sizing policy into backend settings so min/max sizing rules are cen
     - `byType`: map of section type to policy
       - `SectionSizingPolicyByType`
         - `minHeight`, `maxHeight`, `minWidth`, `maxWidth`
-        - `overrides`: explicit special-case rules for that type
-          - Callable: `hideSearchMinHeight`, `hideParamsMinHeight`, `minimizedHeight`
-          - Others as needed
+        - Callable also includes `hideSearchMinHeight` and `hideParamsMinHeight`
     - `globals`: values not tied to a single section type
       - `pinnedParamsAreaMinHeight`
-      - `minimizedHeight` (if it applies globally)
+      - `minimizedHeight`
       - any other shared constants
 
 ## Backend Changes

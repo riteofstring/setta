@@ -2973,20 +2973,30 @@ function createSettingsBackend(
   return SettingsBackendSchema.parse(options);
 }
 
-const SectionSizingPolicyOverridesSchema = z.object({
-  hideSearchMinHeight: z.union([z.number(), z.null()]),
-  hideParamsMinHeight: z.union([z.number(), z.null()]),
-  minimizedHeight: z.union([z.number(), z.null()]),
+const SectionSizingPolicyCallableTypeEntrySchema = z.object({
+  minHeight: z.number(),
+  maxHeight: z.number(),
+  minWidth: z.number(),
+  maxWidth: z.number(),
+  hideSearchMinHeight: z.number(),
+  hideParamsMinHeight: z.number(),
 });
+
+type SectionSizingPolicyCallableTypeEntry = z.infer<
+  typeof SectionSizingPolicyCallableTypeEntrySchema
+>;
+
+function createSectionSizingPolicyCallableTypeEntry(
+  options: Partial<SectionSizingPolicyCallableTypeEntry> = {},
+): SectionSizingPolicyCallableTypeEntry {
+  return SectionSizingPolicyCallableTypeEntrySchema.parse(options);
+}
 
 const SectionSizingPolicyTypeEntrySchema = z.object({
   minHeight: z.number(),
   maxHeight: z.number(),
   minWidth: z.number(),
   maxWidth: z.number(),
-  overrides: z
-    .union([SectionSizingPolicyOverridesSchema, z.null()])
-    .default(null),
 });
 
 type SectionSizingPolicyTypeEntry = z.infer<
@@ -3000,17 +3010,14 @@ function createSectionSizingPolicyTypeEntry(
 }
 
 const SectionSizingPolicyByTypeSchema = z.object({
-  Callable: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
+  Callable: SectionSizingPolicyCallableTypeEntrySchema.default(() =>
+    createSectionSizingPolicyCallableTypeEntry({
       minHeight: 104.0,
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
-      overrides: {
-        hideSearchMinHeight: 78.0,
-        hideParamsMinHeight: 58.0,
-        minimizedHeight: null,
-      },
+      hideSearchMinHeight: 78.0,
+      hideParamsMinHeight: 58.0,
     }),
   ),
   Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
@@ -3083,11 +3090,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
-      overrides: {
-        hideSearchMinHeight: null,
-        hideParamsMinHeight: null,
-        minimizedHeight: null,
-      },
     }),
   ),
   GlobalVariables: SectionSizingPolicyTypeEntrySchema.default(() =>
