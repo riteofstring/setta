@@ -1,7 +1,7 @@
 import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection";
 import _ from "lodash";
 import { memo } from "react";
-import { useAIFollow, useSettings } from "state/definitions";
+import { useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
@@ -25,8 +25,6 @@ const FlowRenderer = ({
     };
   }, _.isEqual);
 
-  const aiFollowEnabled = useAIFollow((state) => state.enabled);
-
   const {
     panOnDrag,
     panOnScroll,
@@ -47,26 +45,20 @@ const FlowRenderer = ({
     };
   }, _.isEqual);
 
-  const effectivePanOnDrag = !aiFollowEnabled && panOnDrag;
-  const effectivePanOnScroll = !aiFollowEnabled && panOnScroll;
-  const effectiveZoomOnScroll = !aiFollowEnabled && zoomOnScroll;
-  const effectiveZoomOnPinch = !aiFollowEnabled && zoomOnPinch;
-  const effectiveZoomOnDoubleClick = !aiFollowEnabled && zoomOnDoubleClick;
-
   return (
     <ZoomPane
-      zoomOnScroll={effectiveZoomOnScroll}
-      zoomOnPinch={effectiveZoomOnPinch}
-      panOnScroll={effectivePanOnScroll}
+      zoomOnScroll={zoomOnScroll}
+      zoomOnPinch={zoomOnPinch}
+      panOnScroll={panOnScroll}
       panOnScrollSpeed={panOnScrollSpeed}
       panOnScrollMode={panOnScrollMode}
-      zoomOnDoubleClick={effectiveZoomOnDoubleClick}
-      panOnDrag={!selectionKeyPressed && effectivePanOnDrag}
+      zoomOnDoubleClick={zoomOnDoubleClick}
+      panOnDrag={!selectionKeyPressed && panOnDrag}
       panActivationKeyPressed={panActivationKeyPressed}
       zoomActivationKeyPressed={zoomActivationKeyPressed}
       wrapperDimensions={wrapperDimensions}
     >
-      <Pane panOnDrag={effectivePanOnDrag} isSelecting={!!selectionKeyPressed}>
+      <Pane panOnDrag={panOnDrag} isSelecting={!!selectionKeyPressed}>
         {children}
         <NodesSelectionWrapper />
       </Pane>

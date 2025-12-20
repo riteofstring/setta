@@ -12,7 +12,6 @@ from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
-from setta.types.id import ID
 from setta.types.listener import (
     ListenerCoverageSnapshot,
     ListenerErrorContent,
@@ -47,7 +46,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
     LLMConfigUpdated = "LLMConfigUpdated"
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
-    AIFollowUpdate = "AIFollowUpdate"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -203,19 +201,6 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     content: APIKeys
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMApiKeysUpdated] = (
         WebsocketMsgTypeForFrontend.LLMApiKeysUpdated
-    )
-
-
-class AIFollowUpdateContent(BaseModel):
-    projectConfigId: ID
-    chatId: ID
-    sectionIds: list[ID]
-
-
-class WebsocketMsgAIFollowUpdate(FrontendWebsocketMsg):
-    content: AIFollowUpdateContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowUpdate] = (
-        WebsocketMsgTypeForFrontend.AIFollowUpdate
     )
 
 

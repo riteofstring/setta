@@ -35,9 +35,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
-    AIFollowUpdateContent,
     WebsocketConnectionType,
-    WebsocketMsgAIFollowUpdate,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgBackendLogEvent,
     WebsocketMsgListenerCoverageSnapshot,
@@ -263,22 +261,5 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def broadcast_llm_api_keys_update(self, payload: APIKeys):
         await self.websocket_manager.broadcast(
             WebsocketMsgLLMApiKeysUpdated(content=payload),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_ai_follow_update(
-        self,
-        projectConfigId: ID,
-        chatId: ID,
-        sectionIds: list[ID],
-    ):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgAIFollowUpdate(
-                content=AIFollowUpdateContent(
-                    projectConfigId=projectConfigId,
-                    chatId=chatId,
-                    sectionIds=sectionIds,
-                )
-            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )

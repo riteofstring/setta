@@ -3,7 +3,6 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { useEffect } from "react";
-import { useAIFollowViewport } from "state/hooks/aiFollow";
 import { initializeGlobalSectionColumnWidthEventListeners } from "state/actions/sectionColumnWidth";
 import { useLoadProjectConfig } from "state/hooks/project";
 import { Overview } from "../../../components/Panes/Overview/Overview";
@@ -16,7 +15,6 @@ export function MainContainer() {
   const [doneLoading, is404] = useLoadProjectConfig();
   useCodeMirrorStyleLoader(doneLoading, is404);
   useAddMouseLocationListener();
-  useAIFollowViewport();
 
   useEffect(() => {
     if (doneLoading && !is404) {

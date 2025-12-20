@@ -4,7 +4,6 @@ import inspect
 import logging
 from dataclasses import dataclass
 from functools import wraps
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
 
 import bm25s
@@ -60,11 +59,10 @@ class SettaFastMCP(FastMCP):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
         self.state = state
-        self.dbe = dbe
-        self._temporary_id_map_mtime_ns: int | None = None
-        self.temporary_to_canonical = {}
-        self.canonical_to_temporary = {}
-        self._refresh_temporary_id_map_if_needed()
+        (
+            self.temporary_to_canonical,
+            self.canonical_to_temporary,
+        ) = dbe.read_temporary_id_map()
         self.fn_param_docstrings = {}
         self.tool_search_index: ToolSearchIndex | None = None
         msg_path = f"{mount_path}/messages/"
@@ -123,7 +121,6 @@ class SettaFastMCP(FastMCP):
 
         @wraps(func)
         async def wrapper(**kwargs):
-            self._refresh_temporary_id_map_if_needed()
             # Filter out unwanted params
             kwargs = {
                 k: v
@@ -150,17 +147,6 @@ class SettaFastMCP(FastMCP):
             return result
 
         return wrapper
-
-    def _refresh_temporary_id_map_if_needed(self) -> None:
-        path = self.dbe.temporary_id_map
-        mtime_ns = path.stat().st_mtime_ns if path.exists() else None
-        if mtime_ns == self._temporary_id_map_mtime_ns:
-            return
-        (
-            self.temporary_to_canonical,
-            self.canonical_to_temporary,
-        ) = self.dbe.read_temporary_id_map()
-        self._temporary_id_map_mtime_ns = mtime_ns
 
     def _build_tool_search_index(self) -> ToolSearchIndex | None:
         tools = [
