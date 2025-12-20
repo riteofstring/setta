@@ -31,7 +31,7 @@ export function GlobalWrapper({ children }) {
   }
 
   return (
-    <div className="app-base flex min-h-0 min-w-full flex-1 flex-col bg-setta-light dark:bg-setta-dark">
+    <div className="app-base min-h-screen min-w-full bg-setta-light dark:bg-setta-dark">
       {children}
     </div>
   );

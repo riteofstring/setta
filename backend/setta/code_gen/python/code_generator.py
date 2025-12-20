@@ -14,8 +14,10 @@ from setta.code_gen.utils import (
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
+from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
+GEN_CODE_SEPARATOR = "\n" * C.GEN_CODE_SEPARATOR_NEWLINES
 
 
 @dataclass
@@ -64,6 +66,7 @@ class PythonCodeGenerator:
             str, BaseDependencyKeyUnion
         ] = {}  # var name to dep_key
         self.value_pos_start_to_dep_key: dict[int, BaseDependencyKeyUnion] = {}
+        self.generated_code: str = ""
         self.code: str = ""
         self.lines: dict[BaseDependencyKeyUnion, PythonCodeLine] = {}
 
@@ -87,10 +90,13 @@ class PythonCodeGenerator:
             )
             logger.debug("Dependency cycles: %s", cycles_detected)
 
-        code = self.generate_wrapper_class()
-        gen_code_suffix_position = len(code)
-        self.code = f"{code}{self.gen_code_suffix}"
-        return gen_code_suffix_position
+        # Store only the generated body separately; full code is prefix + body + suffix.
+        prefix_offset = len(self.gen_code_prefix) + len(GEN_CODE_SEPARATOR)
+        self.generated_code = self.generate_wrapper_class(prefix_offset)
+        # Persist blank separator lines between prefix/body/suffix.
+        self.code = f"{self.gen_code_prefix}{GEN_CODE_SEPARATOR}{self.generated_code}{GEN_CODE_SEPARATOR}{self.gen_code_suffix}"
+        # Position offset accounts for prefix + separator newlines.
+        return prefix_offset + len(self.generated_code) + len(GEN_CODE_SEPARATOR)
 
     def _process_node_and_deps(self, dep_key, node, processed_nodes, path=None):
         """Process a node and its dependencies, recording any cycles found."""
@@ -133,23 +139,26 @@ class PythonCodeGenerator:
 
         return cycles  # Return all cycles found
 
-    def generate_wrapper_class(self):
+    def generate_wrapper_class(self, position_offset: int):
         code = CLASS_DEF
         helper_block = self._helper_import_block()
         if helper_block:
             code = f"{helper_block}\n{code}"
-        if self.gen_code_prefix:
-            code = f"{self.gen_code_prefix}\n{code}"
         indent = "        "
         indent_len = len(indent)
 
         # no sections or params? Then just pass.
         if len(self.lines) == 0:
-            return f"{code}{indent}pass\n"
+            return f"{code}{indent}pass"
 
-        for key, l in self.lines.items():
-            curr_pos = len(code) + indent_len
-            code = f"{code}{indent}{l.var_str}\n"
+        lines = list(self.lines.items())
+        last_index = len(lines) - 1
+        for i, (key, l) in enumerate(lines):
+            curr_pos = position_offset + len(code) + indent_len
+            line_str = f"{indent}{l.var_str}"
+            code = f"{code}{line_str}"
+            if i < last_index:
+                code = f"{code}\n"
             self.lines[key].pos = curr_pos
             value_pos_start = self.lines[key].value_pos_start
             if value_pos_start is not None:
