@@ -272,6 +272,7 @@ function SwitchParamConfigured({
       onEscape={onEscape}
       isDisabled={isDisabled}
       outerDivClassName="section-value flex justify-self-start self-center"
+      twRootClasses="nodrag"
     />
   );
 }
