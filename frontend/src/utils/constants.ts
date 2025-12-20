@@ -17,10 +17,10 @@ export type PaneName = ObjectValues<typeof PaneNameEnum>;
 
 export const OverviewTabNameEnum = {
   Overview: "Overview",
+  RunInstructions: "RunInstructions",
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
   Notifications: "Notifications",
-  BackendLogs: "BackendLogs",
   ProjectAIChat: "ProjectAIChat",
   ProjectAISettings: "ProjectAISettings",
 } as const;
@@ -29,10 +29,10 @@ export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
 
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
+  [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",
-  [OverviewTabNameEnum.BackendLogs]: "Backend Logs",
   [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
   [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
 } as const satisfies Record<OverviewTabName, string>;

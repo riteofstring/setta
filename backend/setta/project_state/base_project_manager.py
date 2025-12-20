@@ -30,8 +30,6 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
-from setta.logging.errors import log_failure
-from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPWriters
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tools.project_state_registry import project_state_tool
@@ -199,11 +197,7 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.notifications import (
-    SettaBackendLogEventSeverity,
-    SettaNotification,
-    SettaNotificationType,
-)
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -271,17 +265,9 @@ class BaseProjectManager(ABC):
         )
         logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
-        self.queue_task = spawn_background_task(
-            self._process_queue(),
-            label=f"{type(self).__name__}-queue",
-            extra_values={"project_manager": type(self).__name__},
-        )
+        self.queue_task = asyncio.create_task(self._process_queue())
         logger.debug("Queue task created with id %s", id(self.queue_task))
-        self.autosave_debouncer = AsyncDebouncer(
-            self.autosave,
-            wait=2.0,
-            label=f"{type(self).__name__}-autosave",
-        )
+        self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self._deferred_json_source_loads: dict[str, set[tuple[str, str]]] = {}
         self.pending_rename_results: dict[
@@ -316,18 +302,10 @@ class BaseProjectManager(ABC):
                     "Setting result on future (cancelled=%s)", future.cancelled()
                 )
                 future.set_result(result)
-            except Exception as exc:
+            except Exception as e:
                 # Propagate any exceptions back to the caller
-                log_failure(
-                    exc,
-                    label="project-manager-queue-handler",
-                    logger=logger,
-                    context={
-                        "handler_name": handler_name,
-                        "project_manager": type(self).__name__,
-                    },
-                )
-                future.set_exception(exc)
+                logger.exception("Error in handler %s", handler_name)
+                future.set_exception(e)
             finally:
                 # Mark the task as done
                 logger.debug("Marking queue task as done")
@@ -1131,28 +1109,29 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = False
+        notification = None
         try:
             Path(x.filepath).unlink()
             success = True
         except FileNotFoundError:
-            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                f"File '{x.filepath}' not found",
-                severity=SettaBackendLogEventSeverity.error,
-                project_config_id=x.projectConfigId,
+            notification = SettaNotification(
+                message=f"File '{x.filepath}' not found",
+                type=SettaNotificationType.error,
             )
-        except OSError as exc:
-            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                f"Failed to delete file: {exc}",
-                severity=SettaBackendLogEventSeverity.error,
-                project_config_id=x.projectConfigId,
+        except OSError as e:
+            notification = SettaNotification(
+                message=f"Failed to delete file: {str(e)}",
+                type=SettaNotificationType.error,
             )
         if success:
             delete_section_variant(project_state, x.sectionId, x.variantId)
             await self.update_and_broadcast_project_state(project_state)
-            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                "Variant and file deleted",
-                project_config_id=x.projectConfigId,
+            notification = SettaNotification(
+                message="Variant and file deleted",
+                type=SettaNotificationType.info,
             )
+        if notification:
+            await self.websocket_msg_handler.broadcast_notification(notification)
 
     @enqueue_method
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
@@ -1173,6 +1152,7 @@ class BaseProjectManager(ABC):
         ].activeIds = x.activeIds
 
     @enqueue_method
+    @project_state_tool()
     async def set_viewport(self, x: SetViewportRequest):
         """Update the stored viewport offsets/zoom for a project configuration.
 
@@ -1318,11 +1298,12 @@ class BaseProjectManager(ABC):
             self.settings_file.settings, project_state, x.sectionIds
         )
         if not success:
-            await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                "Cannot group sections from different parents",
-                severity=SettaBackendLogEventSeverity.error,
-                project_config_id=x.projectConfigId,
+            notification = SettaNotification(
+                projectConfigId=x.projectConfigId,
+                message="Cannot group sections from different parents",
+                type=SettaNotificationType.error,
             )
+            await self.websocket_msg_handler.broadcast_notification(notification)
         else:
             await self.update_and_broadcast_project_state(project_state)
 
@@ -1473,16 +1454,12 @@ class BaseProjectManager(ABC):
             notification = SettaNotification(
                 message="Autosaved!", type=SettaNotificationType.save
             )
-            await self.websocket_msg_handler.broadcast_notification(notification)
-        except Exception as exc:
-            await (
-                self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
-                    exc,
-                    label="autosave",
-                    message="Failed to autosave",
-                    severity=SettaBackendLogEventSeverity.error,
-                )
+        except:
+            notification = SettaNotification(
+                message="Failed to autosave",
+                type=SettaNotificationType.error,
             )
+        await self.websocket_msg_handler.broadcast_notification(notification)
 
     @abstractmethod
     def save(self):

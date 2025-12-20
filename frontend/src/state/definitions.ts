@@ -27,7 +27,6 @@ import {
   LLMConfig,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
-  SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -220,32 +219,32 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-type BackendLogSeverity = SettaBackendLogEvent["severity"];
+export type RunMode = "once" | "continuous";
 
-export type BackendLogEventsFilter = {
-  projectConfigId: string | null;
-  minSeverity: BackendLogSeverity;
-  query: string;
+export type CustomRunAction =
+  | { type: "runCodeBlock"; sectionId: string | null }
+  | { type: "triggerListenerForceRefresh" };
+
+export type CustomRunItem = {
+  id: string;
+  name: string;
+  includeInRunDropdown: boolean;
+  runMode: RunMode;
+  action: CustomRunAction;
 };
 
-export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
-  projectConfigId: null,
-  minSeverity: "info",
-  query: "",
+type ZustandRunControl = {
+  runMode: RunMode;
+  continuousRunStarted: boolean;
+  continuousRunCustomRunId: string | null;
 };
 
-type BackendLogEventsState = {
-  events: Array<SettaBackendLogEvent>;
-  filter: BackendLogEventsFilter;
-  unreadHighSeverityCount: number;
-};
-
-export const useBackendLogEvents = withProjectState(
+export const useRunControl = withProjectState(
   createWithEqualityFn(
-    withResetFn<BackendLogEventsState>(() => ({
-      events: [],
-      filter: { ...DEFAULT_BACKEND_LOG_EVENTS_FILTER },
-      unreadHighSeverityCount: 0,
+    withResetFn<ZustandRunControl>(() => ({
+      runMode: "once",
+      continuousRunStarted: false,
+      continuousRunCustomRunId: null,
     })),
   ),
 );
@@ -433,6 +432,7 @@ type ZustandLocalStorage = {
   uiEditorTab: UIEditorTabLocalStorage;
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
+  customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -452,6 +452,7 @@ export const useLocalStorage = createWithEqualityFn(
       uiEditorTab: {},
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
+      customRunsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation

@@ -69,12 +69,13 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.clipboard import SectionsClipboardData
+from setta.types.notifications import SettaNotification
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
-router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
+router = SettaAPIRouter()
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
@@ -200,10 +201,10 @@ async def route_create_new_section_variant(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_new_section_variant(x)
-    await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
-        "New Variant Created",
-        project_config_id=x.projectConfigId,
+    notification = SettaNotification(
+        message="New Variant Created",
     )
+    await state.wmh_frontend_sender.broadcast_notification(notification)
 
 
 @router.post(Route.UNDO)
