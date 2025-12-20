@@ -12,7 +12,7 @@ export const StandardSearchRightBtn = React.forwardRef<
   return (
     <button
       ref={ref}
-      className={`nodrag flex grid cursor-pointer place-items-center justify-center focus-visible:ring-2 ${
+      className={`nodrag grid cursor-pointer place-items-center justify-center focus-visible:ring-2 ${
         bg || "bg-transparent"
       } text-setta-500 ${
         rounded || "rounded-full"
