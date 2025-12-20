@@ -18,57 +18,10 @@ import {
 import {
   SectionSize,
   SectionSizingPolicy,
-  SectionSizingPolicyTypeEntry,
   SectionType,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
-
-function getSizingPolicyByType(
-  sizingPolicy: SectionSizingPolicy,
-  sectionType: SectionType,
-): SectionSizingPolicyTypeEntry {
-  switch (sectionType) {
-    case SectionTypeEnum.Callable:
-      return sizingPolicy.byType.callable;
-    case SectionTypeEnum.Dict:
-      return sizingPolicy.byType.dictSection;
-    case SectionTypeEnum.ListRoot:
-      return sizingPolicy.byType.listRoot;
-    case SectionTypeEnum.DictRoot:
-      return sizingPolicy.byType.dictRoot;
-    case SectionTypeEnum.Group:
-      return sizingPolicy.byType.group;
-    case SectionTypeEnum.Image:
-      return sizingPolicy.byType.image;
-    case SectionTypeEnum.Chart:
-      return sizingPolicy.byType.chart;
-    case SectionTypeEnum.Draw:
-      return sizingPolicy.byType.draw;
-    case SectionTypeEnum.TextBlock:
-      return sizingPolicy.byType.textBlock;
-    case SectionTypeEnum.Social:
-      return sizingPolicy.byType.social;
-    case SectionTypeEnum.GlobalVariables:
-      return sizingPolicy.byType.globalVariables;
-    case SectionTypeEnum.Code:
-      return sizingPolicy.byType.code;
-    case SectionTypeEnum.GenPythonCode:
-      return sizingPolicy.byType.genPythonCode;
-    case SectionTypeEnum.Terminal:
-      return sizingPolicy.byType.terminal;
-    case SectionTypeEnum.IFrame:
-      return sizingPolicy.byType.iFrame;
-    case SectionTypeEnum.Chat:
-      return sizingPolicy.byType.chat;
-    case SectionTypeEnum.Browser:
-      return sizingPolicy.byType.browser;
-    default: {
-      const exhaustiveCheck: never = sectionType;
-      throw new Error(`Unsupported section type: ${exhaustiveCheck}`);
-    }
-  }
-}
 
 function getMinSectionHeight({
   sectionType,
@@ -83,7 +36,7 @@ function getMinSectionHeight({
   isMinimized?: boolean;
   sizingPolicy: SectionSizingPolicy;
 }): number {
-  const policyByType = getSizingPolicyByType(sizingPolicy, sectionType);
+  const policyByType = sizingPolicy.byType[sectionType];
   const overrides = policyByType.overrides;
 
   if (isMinimized) {
@@ -111,7 +64,7 @@ function getMaxSectionHeight({
   isMinimized?: boolean;
   sizingPolicy: SectionSizingPolicy;
 }): number {
-  const policyByType = getSizingPolicyByType(sizingPolicy, sectionType);
+  const policyByType = sizingPolicy.byType[sectionType];
   const overrides = policyByType.overrides;
 
   if (isMinimized) {
@@ -130,7 +83,7 @@ function getMinSectionWidth({
   isTwitter: boolean;
   sizingPolicy: SectionSizingPolicy;
 }): number {
-  const policyByType = getSizingPolicyByType(sizingPolicy, sectionType);
+  const policyByType = sizingPolicy.byType[sectionType];
   const overrides = policyByType.overrides;
 
   if (isTwitter) {
@@ -149,7 +102,7 @@ function getMaxSectionWidth({
   isTwitter: boolean;
   sizingPolicy: SectionSizingPolicy;
 }): number {
-  const policyByType = getSizingPolicyByType(sizingPolicy, sectionType);
+  const policyByType = sizingPolicy.byType[sectionType];
   const overrides = policyByType.overrides;
 
   if (isTwitter) {
@@ -185,10 +138,7 @@ function getSizeMode({
 }
 
 export function useSectionMinMaxDims(sectionId: string) {
-  const sizingPolicy = useSettings(
-    (x) => x.sectionSizingPolicy,
-    _.isEqual,
-  );
+  const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
 
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);

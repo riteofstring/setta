@@ -2991,7 +2991,7 @@ const SectionSizingPolicyTypeEntrySchema = z.object({
     .default(null),
 });
 
-export type SectionSizingPolicyTypeEntry = z.infer<
+type SectionSizingPolicyTypeEntry = z.infer<
   typeof SectionSizingPolicyTypeEntrySchema
 >;
 
@@ -3002,7 +3002,7 @@ function createSectionSizingPolicyTypeEntry(
 }
 
 const SectionSizingPolicyByTypeSchema = z.object({
-  callable: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Callable: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 104.0,
       maxHeight: 100000.0,
@@ -3017,7 +3017,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       },
     }),
   ),
-  dictSection: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 0.0,
       maxHeight: 100000.0,
@@ -3025,7 +3025,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  listRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
+  ListRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 50.0,
       maxHeight: 50.0,
@@ -3033,7 +3033,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  dictRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
+  DictRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 50.0,
       maxHeight: 50.0,
@@ -3041,7 +3041,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  group: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Group: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 0.0,
       maxHeight: 100000.0,
@@ -3049,7 +3049,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  image: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Image: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 100.0,
       maxHeight: 100000.0,
@@ -3057,7 +3057,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  chart: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Chart: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 300.0,
       maxHeight: 100000.0,
@@ -3065,7 +3065,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  draw: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Draw: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 100.0,
       maxHeight: 100000.0,
@@ -3073,7 +3073,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  textBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
+  TextBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 98.0,
       maxHeight: 100000.0,
@@ -3081,7 +3081,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  social: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Social: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 50.0,
       maxHeight: 100000.0,
@@ -3096,7 +3096,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       },
     }),
   ),
-  globalVariables: SectionSizingPolicyTypeEntrySchema.default(() =>
+  GlobalVariables: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 78.0,
       maxHeight: 100000.0,
@@ -3104,7 +3104,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  code: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Code: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 58.2,
       maxHeight: 100000.0,
@@ -3112,7 +3112,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  genPythonCode: SectionSizingPolicyTypeEntrySchema.default(() =>
+  GenPythonCode: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 0.0,
       maxHeight: 100000.0,
@@ -3120,7 +3120,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  terminal: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Terminal: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 100.0,
       maxHeight: 100000.0,
@@ -3128,7 +3128,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  iFrame: SectionSizingPolicyTypeEntrySchema.default(() =>
+  IFrame: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 0.0,
       maxHeight: 100000.0,
@@ -3136,7 +3136,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  chat: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Chat: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 200.0,
       maxHeight: 100000.0,
@@ -3144,7 +3144,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  browser: SectionSizingPolicyTypeEntrySchema.default(() =>
+  Browser: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 250.0,
       maxHeight: 100000.0,

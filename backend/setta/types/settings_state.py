@@ -148,7 +148,7 @@ class SectionSizingPolicyGlobals(BaseModel):
 
 
 class SectionSizingPolicyByType(BaseModel):
-    callable: SectionSizingPolicyTypeEntry = Field(
+    Callable: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=104,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -163,7 +163,7 @@ class SectionSizingPolicyByType(BaseModel):
             ),
         )
     )
-    dictSection: SectionSizingPolicyTypeEntry = Field(
+    Dict: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -171,7 +171,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    listRoot: SectionSizingPolicyTypeEntry = Field(
+    ListRoot: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=ROOT_SECTION_HEIGHT,
             maxHeight=ROOT_SECTION_HEIGHT,
@@ -179,7 +179,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    dictRoot: SectionSizingPolicyTypeEntry = Field(
+    DictRoot: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=ROOT_SECTION_HEIGHT,
             maxHeight=ROOT_SECTION_HEIGHT,
@@ -187,7 +187,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    group: SectionSizingPolicyTypeEntry = Field(
+    Group: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -195,7 +195,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    image: SectionSizingPolicyTypeEntry = Field(
+    Image: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=100,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -203,7 +203,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    chart: SectionSizingPolicyTypeEntry = Field(
+    Chart: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=300,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -211,7 +211,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    draw: SectionSizingPolicyTypeEntry = Field(
+    Draw: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=100,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -219,7 +219,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    textBlock: SectionSizingPolicyTypeEntry = Field(
+    TextBlock: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=98,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -227,7 +227,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    social: SectionSizingPolicyTypeEntry = Field(
+    Social: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=50,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -242,7 +242,7 @@ class SectionSizingPolicyByType(BaseModel):
             ),
         )
     )
-    globalVariables: SectionSizingPolicyTypeEntry = Field(
+    GlobalVariables: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=78,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -250,7 +250,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    code: SectionSizingPolicyTypeEntry = Field(
+    Code: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=58.2,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -258,7 +258,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    genPythonCode: SectionSizingPolicyTypeEntry = Field(
+    GenPythonCode: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -266,7 +266,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    terminal: SectionSizingPolicyTypeEntry = Field(
+    Terminal: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=100,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -274,7 +274,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    iFrame: SectionSizingPolicyTypeEntry = Field(
+    IFrame: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -282,7 +282,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    chat: SectionSizingPolicyTypeEntry = Field(
+    Chat: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=200,
             maxHeight=INFINITE_MAX_HEIGHT,
@@ -290,7 +290,7 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    browser: SectionSizingPolicyTypeEntry = Field(
+    Browser: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=250,
             maxHeight=INFINITE_MAX_HEIGHT,
