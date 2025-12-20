@@ -1,10 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
-import {
-  useLocalStorage,
-  useNotifications,
-  useSettings,
-} from "state/definitions";
+import { useEffect, useState } from "react";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 
 const HELP_TEXT_FADE_MS = 150;
@@ -15,57 +10,7 @@ export function HelpText() {
     shortcutPrettified(x.shortcuts.showTooltipShortcut),
   );
 
-  const latestNotificationInfo = useNotifications((state) => {
-    const latest = state.notifications[0];
-    if (!latest) {
-      return null;
-    }
-    const { id, timestamp } = latest;
-    return { id, timestamp };
-  });
-
-  const hideTimeoutId = useRef<number | null>(null);
-  const lastSeenNotificationId = useRef<string | null>(null);
-  const [hideDueToNotification, setHideDueToNotification] = useState(false);
-
-  useEffect(() => {
-    if (!latestNotificationInfo) {
-      return;
-    }
-
-    if (lastSeenNotificationId.current === latestNotificationInfo.id) {
-      return;
-    }
-    lastSeenNotificationId.current = latestNotificationInfo.id;
-
-    const notificationTime = new Date(
-      latestNotificationInfo.timestamp,
-    ).getTime();
-    if (new Date().getTime() - notificationTime > DEFAULT_TEMP_TIMEOUT) {
-      return;
-    }
-
-    if (hideTimeoutId.current) {
-      clearTimeout(hideTimeoutId.current);
-    }
-
-    setHideDueToNotification(true);
-    hideTimeoutId.current = window.setTimeout(() => {
-      hideTimeoutId.current = null;
-      setHideDueToNotification(false);
-    }, DEFAULT_TEMP_TIMEOUT);
-  }, [latestNotificationInfo]);
-
-  useEffect(() => {
-    return () => {
-      if (hideTimeoutId.current) {
-        clearTimeout(hideTimeoutId.current);
-        hideTimeoutId.current = null;
-      }
-    };
-  }, []);
-
-  const shouldShow = showMessage && !hideDueToNotification;
+  const shouldShow = showMessage;
 
   const [mounted, setMounted] = useState(shouldShow);
   const [isVisible, setIsVisible] = useState(shouldShow);
