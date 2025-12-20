@@ -1,5 +1,3 @@
-import { EditorState, Transaction } from "@codemirror/state";
-import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
@@ -16,7 +14,6 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
-import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -24,106 +21,9 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_code_area_completion,
-  route_gen_code_prefix_completion,
-  route_gen_code_suffix_completion,
   route_set_code,
-  route_set_gen_code_prefix,
-  route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
-type GenPythonDocParts = {
-  isValid: boolean;
-  generatedStart: number;
-  generatedEnd: number;
-  prefix: string;
-  suffix: string;
-  suffixBoundaryLength: number;
-};
-
-const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
-const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
-const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
-  ".cm-gen-code-readonly": {
-    backgroundColor: "rgba(253, 230, 138, 0.35)",
-    backgroundImage:
-      "repeating-linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0, rgba(251, 191, 36, 0.25) 6px, transparent 6px, transparent 12px)",
-  },
-  ".cm-gen-code-placeholder": {
-    color: "rgba(100, 116, 139, 0.9)",
-    fontStyle: "italic",
-    pointerEvents: "none",
-  },
-  "&.cm-editor.cm-dark .cm-gen-code-readonly": {
-    backgroundColor: "rgba(161, 98, 7, 0.25)",
-    backgroundImage:
-      "repeating-linear-gradient(135deg, rgba(234, 179, 8, 0.3) 0, rgba(234, 179, 8, 0.3) 6px, transparent 6px, transparent 12px)",
-  },
-  "&.cm-editor.cm-dark .cm-gen-code-placeholder": {
-    color: "rgba(148, 163, 184, 0.9)",
-  },
-});
-
-class GenPythonPlaceholderWidget extends WidgetType {
-  constructor(private text: string) {
-    super();
-  }
-
-  toDOM() {
-    const span = document.createElement("span");
-    span.className = "cm-gen-code-placeholder";
-    span.textContent = this.text;
-    return span;
-  }
-
-  ignoreEvent() {
-    return true;
-  }
-}
-
-const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
-  isValid: false,
-  generatedStart: 0,
-  generatedEnd: 0,
-  prefix: "",
-  suffix: "",
-  suffixBoundaryLength: 0,
-};
-
-function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
-  if (!generated) {
-    return INVALID_GEN_PYTHON_DOC_PARTS;
-  }
-  const wrappedGenerated = `${GEN_CODE_SEPARATOR}${generated}${GEN_CODE_SEPARATOR}`;
-  const wrappedStart = doc.indexOf(wrappedGenerated);
-  if (wrappedStart < 0) {
-    return INVALID_GEN_PYTHON_DOC_PARTS;
-  }
-  const generatedStart = wrappedStart + GEN_CODE_SEPARATOR_LENGTH;
-  const generatedEnd = generatedStart + generated.length;
-  const prefixDoc = doc.slice(0, generatedStart);
-  const suffixDoc = doc.slice(generatedEnd);
-  const prefix =
-    GEN_CODE_SEPARATOR_LENGTH > 0 && prefixDoc.endsWith(GEN_CODE_SEPARATOR)
-      ? prefixDoc.slice(0, -GEN_CODE_SEPARATOR_LENGTH)
-      : prefixDoc;
-  const suffixBoundaryLength =
-    GEN_CODE_SEPARATOR_LENGTH > 0 && suffixDoc.startsWith(GEN_CODE_SEPARATOR)
-      ? GEN_CODE_SEPARATOR_LENGTH
-      : 0;
-  const suffix =
-    suffixBoundaryLength > 0
-      ? suffixDoc.slice(suffixBoundaryLength)
-      : suffixDoc;
-  return {
-    isValid: true,
-    generatedStart,
-    generatedEnd,
-    prefix,
-    suffix,
-    suffixBoundaryLength,
-  };
-}
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
@@ -163,126 +63,37 @@ function BashCodeArea({ sectionId, language }) {
   return <CoreCodeArea sectionId={sectionId} language={language} />;
 }
 
-function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
-  const { code, prefix, suffix } = useProjectState((x) => {
+function _GenPythonCodeArea({ sectionId }) {
+  const code = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.GenPythonCode,
     );
-    return {
-      code: impl.code,
-      prefix: x.projectConfig.genCodePrefix,
-      suffix: x.projectConfig.genCodeSuffix,
-    };
+    return impl.code;
   });
 
-  const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
-  const [value, setValue] = useState<string>(combinedDoc);
+  return (
+    <ReadOnlyCoreCodeArea sectionId={sectionId} language="python" code={code} />
+  );
+}
 
-  useEffect(() => {
-    setValue(combinedDoc);
-  }, [combinedDoc]);
+export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
 
-  const docParts = splitGenPythonDoc(value, code);
-  const readOnlyStart = docParts.isValid
-    ? Math.max(0, docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH)
-    : 0;
-  const readOnlyEnd = docParts.isValid
-    ? Math.min(value.length, docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH)
-    : 0;
-
+function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
 
-  const completionsFn = useCallback(getGenPythonCodeAreaCompletionsFn(code), [
-    code,
-  ]);
-
-  function onChange(nextValue: string) {
-    setValue(nextValue);
-    const nextParts = splitGenPythonDoc(nextValue, code);
-    if (!nextParts.isValid) {
-      return;
-    }
-    if (nextParts.prefix !== prefix) {
-      debouncedSetGenCodePrefix(nextParts.prefix);
-    }
-    if (nextParts.suffix !== suffix) {
-      debouncedSetGenCodeSuffix(nextParts.suffix);
-    }
-  }
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
-  const readOnlyGeneratedRange = EditorState.transactionFilter.of((tr) => {
-    if (!tr.docChanged) {
-      return tr;
-    }
-    if (!tr.annotation(Transaction.userEvent)) {
-      return tr;
-    }
-    const currentDoc = tr.startState.doc.toString();
-    const currentParts = splitGenPythonDoc(currentDoc, code);
-    if (!currentParts.isValid) {
-      return [];
-    }
-    const currentReadOnlyStart = Math.max(
-      0,
-      currentParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
-    );
-    const currentReadOnlyEnd = Math.min(
-      currentDoc.length,
-      currentParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
-    );
-    let touchesReadOnly = false;
-    tr.changes.iterChanges((from, to) => {
-      if (from < currentReadOnlyEnd && to > currentReadOnlyStart) {
-        touchesReadOnly = true;
-      }
-    });
-    return touchesReadOnly ? [] : tr;
-  });
-
-  const readOnlyDecoration = docParts.isValid
-    ? EditorView.decorations.of(
-        Decoration.set([
-          Decoration.mark({ class: "cm-gen-code-readonly" }).range(
-            readOnlyStart,
-            readOnlyEnd,
-          ),
-        ]),
-      )
-    : EditorView.decorations.of(Decoration.none);
-
-  const prefixPlaceholderDecoration =
-    docParts.isValid && docParts.prefix.length === 0
-      ? EditorView.decorations.of(
-          Decoration.set([
-            Decoration.widget({
-              widget: new GenPythonPlaceholderWidget("Add imports here"),
-              side: 1,
-            }).range(0),
-          ]),
-        )
-      : EditorView.decorations.of(Decoration.none);
-
   const extensions = getExtensions({
-    parentDivId: `${sectionId}-CustomResizable`,
-    language: "python",
-    completionsFn,
+    language,
     onEscape: onEscapeFocusOnArticleDiv,
-    tabToAutocomplete: true,
-    indentWithTab: true,
-  }).concat(
-    readOnlyGeneratedRange,
-    readOnlyDecoration,
-    prefixPlaceholderDecoration,
-    GEN_CODE_READONLY_THEME,
-  );
+    isDisabled: true,
+  });
 
   return (
     <article
@@ -292,20 +103,16 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
-        maxHeight={maxHeight}
-        value={value}
-        theme={theme}
         extensions={extensions}
-        onChange={onChange}
+        value={code}
+        maxHeight={maxHeight}
+        theme={theme}
         onCreateEditor={handleCreateEditor}
-        indentWithTab={false} // I take care of this in getExtensions
         basicSetup={{ tabSize: 4 }}
       />
     </article>
   );
 }
-
-export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value, variantIsFrozen } = useProjectState((x) => {
@@ -511,34 +318,6 @@ const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
   });
 }, 200);
 
-const debouncedSetGenCodePrefix = _.debounce((value: string) => {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      state.projectConfig.genCodePrefix = value;
-    },
-    send: (frontendOpId) =>
-      route_set_gen_code_prefix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodePrefix: value,
-        frontendOpId,
-      }),
-  });
-}, 50);
-
-const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      state.projectConfig.genCodeSuffix = value;
-    },
-    send: (frontendOpId) =>
-      route_set_gen_code_suffix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodeSuffix: value,
-        frontendOpId,
-      }),
-  });
-}, 50);
-
 function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {
     const projectConfigId = getCurrProjectConfigId();
@@ -551,46 +330,6 @@ function getPythonCodeAreaCompletionsFn(sectionId) {
 
     if (res200(res)) {
       return res.data;
-    }
-    return [];
-  };
-
-  return wrappedCompletionsFn(fn);
-}
-
-function getGenPythonCodeAreaCompletionsFn(generatedCode: string) {
-  const fn = async (fullText: string, position: number) => {
-    const docParts = splitGenPythonDoc(fullText, generatedCode);
-    if (!docParts.isValid) {
-      return [];
-    }
-    const projectConfigId = getCurrProjectConfigId();
-    if (position < docParts.generatedStart) {
-      const prefixPosition = Math.min(position, docParts.prefix.length);
-      const res = await route_gen_code_prefix_completion({
-        projectConfigId,
-        fullText: docParts.prefix,
-        position: prefixPosition,
-      });
-      if (res200(res)) {
-        return res.data;
-      }
-      return [];
-    }
-    if (position >= docParts.generatedEnd) {
-      const suffixPosition = Math.max(
-        0,
-        position - docParts.generatedEnd - docParts.suffixBoundaryLength,
-      );
-      const res = await route_gen_code_suffix_completion({
-        projectConfigId,
-        fullText: docParts.suffix,
-        position: suffixPosition,
-      });
-      if (res200(res)) {
-        return res.data;
-      }
-      return [];
     }
     return [];
   };

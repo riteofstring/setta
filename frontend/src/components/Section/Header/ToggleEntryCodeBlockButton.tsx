@@ -1,4 +1,3 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { MdMemory } from "react-icons/md";
 import { useProjectState } from "state/definitions";
@@ -27,14 +26,18 @@ export function ToggleEntryCodeBlockButton({
   }
 
   return (
-    <IconButton
-      icon={<MdMemory />}
-      color={`${isEntryCodeBlock ? "text-blue-500 hover:!text-cyan-200" : "text-setta-600 hover:!text-blue-500"}  active:!text-blue-500`}
-      bg={`${isEntryCodeBlock ? "hover:bg-blue-500" : "bg-transparent"}`}
-      size="w-4 h-4"
-      padding="p-0 mr-1"
+    <button
+      className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${
+        isEntryCodeBlock ? "hover:bg-blue-500" : "bg-transparent"
+      } ${
+        isEntryCodeBlock
+          ? "text-blue-500 hover:!text-cyan-200"
+          : "text-setta-600 hover:!text-blue-500"
+      } mr-1 h-4 w-4 rounded-full p-0 active:!text-blue-500`}
       onClick={onClick}
       {...getFloatingBoxHandlers({ title: "Toggle Entry Code Block" })}
-    />
+    >
+      <MdMemory />
+    </button>
   );
 }

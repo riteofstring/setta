@@ -65,7 +65,6 @@ class C:
     SETTA_MCP_PARAM_NAMES = [
         MCP_SETTA_STATE_ARG_NAME,
     ]
-    GEN_CODE_SEPARATOR_NEWLINES = 2
 
     @classproperty
     def FRONTEND_ORIGINS(cls):
