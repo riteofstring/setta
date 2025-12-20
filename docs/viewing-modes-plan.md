@@ -48,10 +48,10 @@ Allow arbitrary, developer-defined view modes per project, each with its own vis
 - No migration needed. Require projects to be re-saved under the new schema.
 
 ## Implementation steps
-1. Backend schema: introduce `ViewModeConfig`, `ProjectConfig.viewModes/activeViewModeId/isEditingViewMode`, and move visibility to per-view map.
-2. Add a validator/helper to populate missing visibility entries for all sections whenever view modes change.
-3. Regenerate types (`pnpm generate` after `source activate.sh`).
-4. Replace `viewingEditingMode` logic in `frontend/src/state/actions/sectionInfos.ts` and subscriptions with `activeViewModeId` + `isEditingViewMode`.
-5. Update components/menus that assume `USER` or `USER_EDIT` (`ViewingEditingMode`, `SelectionContextMenu`, `DeleteOrHideButton`, container wrappers, overview lists).
-6. Implement a view mode manager UI for create/rename/delete and preview/edit toggles.
-7. Validate manually: create multiple view modes, toggle visibility, switch preview/edit, confirm controls and rendering match expectations.
+1. [x] Backend schema: introduce `ViewModeConfig`, `ProjectConfig.viewModes/activeViewModeId/isEditingViewMode`, and move visibility to per-view map.
+2. [ ] Add a validator/helper to populate missing visibility entries for all sections whenever view modes change.
+3. [x] Regenerate types (`pnpm generate` after `source activate.sh`).
+4. [ ] Replace `viewingEditingMode` logic in `frontend/src/state/actions/sectionInfos.ts` and subscriptions with `activeViewModeId` + `isEditingViewMode`.
+5. [ ] Update components/menus that assume `USER` or `USER_EDIT` (`ViewingEditingMode`, `SelectionContextMenu`, `DeleteOrHideButton`, container wrappers, overview lists).
+6. [ ] Implement a view mode manager UI for create/rename/delete and preview/edit toggles.
+7. [ ] Validate manually: create multiple view modes, toggle visibility, switch preview/edit, confirm controls and rendering match expectations.
