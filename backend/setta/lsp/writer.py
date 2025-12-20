@@ -52,16 +52,27 @@ class LanguageServerWriter(LanguageServerInteractor):
             logger.debug("Sent %s (params=%s)", method, _summarize_params(params))
 
     async def start(self):
+        workspace_uri = self.workspace_folder.as_uri()
         params = {
+            "processId": None,
             "capabilities": {
-                "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}
+                "workspace": {
+                    "didChangeWatchedFiles": {"dynamicRegistration": True},
+                    "workspaceFolders": True,
+                },
             },
-            "workspaceFolders": [{"uri": self.workspace_folder.as_uri()}],
+            "rootUri": workspace_uri,
+            "rootPath": self.workspace_folder.as_posix(),
+            "workspaceFolders": [{"uri": workspace_uri, "name": "setta"}],
+            "clientInfo": {"name": "setta"},
         }
         request_id = str(uuid.uuid4())
         self.server.initialization_request_id = request_id
         await self.send_request("initialize", params=params, id=request_id)
-        await self.send_did_change_configuration()  # pyright requires this step
+
+    async def send_initialized_notification(self):
+        await self.send_request("initialized", params={})
+        await self.send_did_change_configuration()
 
     async def send_document_open_request(
         self, filepath, code, diagnostics_callback=None
@@ -133,7 +144,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
-            "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
         await self.send_request(
             "textDocument/signatureHelp",
@@ -142,11 +152,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_did_change_configuration(self):
-        # THIS FORMAT WORKS
-        # settings = {
-        #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
-        # }
-
         await self.send_request(
             "workspace/didChangeConfiguration",
             params={"settings": self.settings},

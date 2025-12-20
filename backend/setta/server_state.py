@@ -185,7 +185,9 @@ class SettaFastAPIState:
                 self.wmh_python_script_sender,
                 self.project_manager_switcher,
             )
-            self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
+            self.lsp_readers = LSPReaders(
+                self.lsps, self.wmh_frontend_sender, self.lsp_writers
+            )
 
             self.init_status.record("Booting MCP and chat managers")
             await self._maybe_delay()

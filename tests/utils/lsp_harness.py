@@ -80,6 +80,8 @@ async def start_lsp(
         await reader.start()
         await writer.start()
         await _wait_for_initialized(server, timeout_s=timeout_s)
+        await writer.send_initialized_notification()
+        await writer.send_did_change_configuration()
         yield LSPHarness(server=server, reader=reader, writer=writer)
     finally:
         await reader.stop()

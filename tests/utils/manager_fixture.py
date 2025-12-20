@@ -110,7 +110,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
             lsps = LSPServers(settings_file.settings.languageServer)
             lsp_writers = LSPWriters(lsps)
-            lsp_readers = LSPReaders(lsps, frontend_sender)
+            lsp_readers = LSPReaders(lsps, frontend_sender, lsp_writers)
 
             specific_file_watcher = SpecificFileWatcher()
             artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
@@ -138,7 +138,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 await start_lsps(lsps, lsp_readers, lsp_writers)
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
-                    "basedpyright-langserver is required for tests; ensure it is on PATH"
+                    "ty is required for tests; ensure `ty` is on PATH"
                 ) from exc
 
             stack.push_async_callback(
@@ -205,7 +205,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
             lsps = LSPServers(settings_file.settings.languageServer)
             lsp_writers = LSPWriters(lsps)
-            lsp_readers = LSPReaders(lsps, frontend_sender)
+            lsp_readers = LSPReaders(lsps, frontend_sender, lsp_writers)
 
             specific_file_watcher = SpecificFileWatcher()
             artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
@@ -233,7 +233,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 await start_lsps(lsps, lsp_readers, lsp_writers)
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
-                    "basedpyright-langserver is required for tests; ensure it is on PATH"
+                    "ty is required for tests; ensure `ty` is on PATH"
                 ) from exc
 
             stack.push_async_callback(

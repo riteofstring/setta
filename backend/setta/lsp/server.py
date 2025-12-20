@@ -29,11 +29,13 @@ class LanguageServer:
     async def start(self):
         logger.debug("Starting %s language server", self.name)
         self.init_properties()
-        self.server = await asyncio.create_subprocess_shell(
-            "basedpyright-langserver --stdio",
+        self.server = await asyncio.create_subprocess_exec(
+            "ty",
+            "server",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=self.workspace_folder,
         )
 
     def init_properties(self):

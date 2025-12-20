@@ -24,7 +24,7 @@ dependencies = [
     "pywinpty==2.0.15; platform_system == 'Windows'",
     "ptyprocess==0.7.0; platform_system != 'Windows'",
     "psutil==7.0.0",
-    "basedpyright==1.25.0",  # later versions were slower, so stick with this version
+    "ty==0.0.3",
     "docstring-to-markdown==0.17",
     "watchdog==6.0.0",
     "python-dotenv==1.1.0",
@@ -70,3 +70,6 @@ include = [
 artifacts = [
     "backend/setta/static/frontend/**",
 ]
+
+[tool.ty.environment]
+python = "/Users/kevin/Documents/AppDevelopment/setta/.venv/bin/python"

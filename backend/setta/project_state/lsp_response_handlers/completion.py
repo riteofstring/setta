@@ -12,7 +12,9 @@ def process_completion_response(response: Any) -> list[CodeMirrorCompletion]:
     if not isinstance(response, dict):
         return []
     result = response.get("result")
-    if not result or not result.get("items"):
+    if isinstance(result, list):
+        return process_completion(result)
+    if not result or not isinstance(result, dict) or not result.get("items"):
         return []
     return process_completion(result["items"])
 
@@ -20,7 +22,9 @@ def process_completion_response(response: Any) -> list[CodeMirrorCompletion]:
 def process_completion(items: list[dict[str, Any]]) -> list[CodeMirrorCompletion]:
     content: list[CodeMirrorCompletion] = []
     for x in items:
-        c = CodeMirrorCompletion(label=x["label"], type=type_mapping[x["kind"]])
+        kind = x.get("kind")
+        completion_type = type_mapping.get(kind, "Text")
+        c = CodeMirrorCompletion(label=x["label"], type=completion_type)
         content.append(c)
 
     return content

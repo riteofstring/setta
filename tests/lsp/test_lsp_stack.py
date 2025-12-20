@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import os
 import uuid
 from pathlib import Path
@@ -6,6 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest import IsolatedAsyncioTestCase
 
 from lsprotocol import types as LSPTypes
+import litellm
 
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
@@ -50,6 +52,21 @@ async def _poll_until(
             return last_value
         await asyncio.sleep(interval_s)
     return last_value
+
+
+async def _request_signature_help(harness, filepath: Path, line: int, character: int):
+    request_id = str(uuid.uuid4())
+    harness.writer.pending_requests[request_id] = asyncio.Future()
+    await harness.writer.send_signature_help_request(
+        filepath=filepath,
+        line=line,
+        character=character,
+        request_id=request_id,
+    )
+    try:
+        return await harness.writer.wait_for_response(request_id, timeout=2.0)
+    except asyncio.TimeoutError:
+        return None
 
 
 class TestLSPStack(IsolatedAsyncioTestCase):
@@ -150,6 +167,86 @@ class TestLSPStack(IsolatedAsyncioTestCase):
                 self.assertIsInstance(
                     response, LSPTypes.TextDocumentSignatureHelpResponse
                 )
+                signature = response.result.signatures[0]
+                self.assertIsNotNone(signature.parameters)
+                self.assertEqual(len(signature.parameters), 2)
+                settings = SettingsState()
+                parsed = process_signature_help_response(settings, response)
+                self.assertIsNotNone(parsed)
+
+    async def test_signature_help_returns_signature_for_math_sqrt(self) -> None:
+        if _skip_completion_signature_tests():
+            self.skipTest("SETTA_LSP_TEST_ONLY_DIAGNOSTICS=1")
+
+        with TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            filepath = workspace / "signature_math_test.py"
+            call_line = "math.sqrt("
+            code = f"import math\n{call_line}\n"
+            filepath.write_text(code)
+
+            async with start_lsp(workspace) as harness:
+                await harness.writer.send_document_open_request(filepath, code)
+
+                response = await _poll_until(
+                    timeout_s=10.0,
+                    interval_s=0.2,
+                    request_fn=lambda: _request_signature_help(
+                        harness, filepath, 1, len(call_line)
+                    ),
+                    predicate_fn=lambda candidate: bool(
+                        candidate and candidate.result and candidate.result.signatures
+                    ),
+                )
+
+                self.assertIsNotNone(response)
+                self.assertIsInstance(
+                    response, LSPTypes.TextDocumentSignatureHelpResponse
+                )
+                signature = response.result.signatures[0]
+                self.assertIsNotNone(signature.parameters)
+                self.assertEqual(len(signature.parameters), 1)
+                settings = SettingsState()
+                parsed = process_signature_help_response(settings, response)
+                self.assertIsNotNone(parsed)
+
+    async def test_signature_help_returns_signature_for_litellm_completion(
+        self,
+    ) -> None:
+        if _skip_completion_signature_tests():
+            self.skipTest("SETTA_LSP_TEST_ONLY_DIAGNOSTICS=1")
+
+        with TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            filepath = workspace / "signature_litellm_test.py"
+            call_line = "litellm.completion("
+            code = f"import litellm\n{call_line}\n"
+            filepath.write_text(code)
+
+            async with start_lsp(workspace) as harness:
+                await harness.writer.send_document_open_request(filepath, code)
+
+                response = await _poll_until(
+                    timeout_s=10.0,
+                    interval_s=0.2,
+                    request_fn=lambda: _request_signature_help(
+                        harness, filepath, 1, len(call_line)
+                    ),
+                    predicate_fn=lambda candidate: bool(
+                        candidate and candidate.result and candidate.result.signatures
+                    ),
+                )
+
+                self.assertIsNotNone(response)
+                self.assertIsInstance(
+                    response, LSPTypes.TextDocumentSignatureHelpResponse
+                )
+                signature = response.result.signatures[0]
+                expected_param_count = len(
+                    inspect.signature(litellm.completion).parameters
+                )
+                self.assertIsNotNone(signature.parameters)
+                self.assertGreaterEqual(len(signature.parameters), expected_param_count)
                 settings = SettingsState()
                 parsed = process_signature_help_response(settings, response)
                 self.assertIsNotNone(parsed)

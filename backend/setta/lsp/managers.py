@@ -35,10 +35,24 @@ class LSPWriters:
 
 
 class LSPReaders:
-    def __init__(self, servers, websocket_msg_handler: WMHFrontendSender):
+    def __init__(
+        self,
+        servers,
+        websocket_msg_handler: WMHFrontendSender,
+        lsp_writers: "LSPWriters",
+    ):
         server_name = servers.full.name
 
+        async def post_initialize() -> None:
+            await lsp_writers.full.send_initialized_notification()
+            await lsp_writers.full.send_did_change_configuration()
+
         def initialization_callback():
+            spawn_background_task(
+                post_initialize(),
+                label="lsp-post-initialize",
+                extra_values={"lsp_server": server_name},
+            )
             spawn_background_task(
                 websocket_msg_handler.log_and_broadcast_backend_log_event(
                     "Language Server Started"
