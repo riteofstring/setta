@@ -128,6 +128,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def _validate_code_file_bindings(self):
         return self.validate_code_file_bindings()
 
+    @model_validator(mode="after")
+    def _validate_view_modes(self):
+        return self.validate_view_modes()
+
     def validate_singleton_sections(self):
         output = SingletonSections()
         found = set()
@@ -272,6 +276,26 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 access_mode=CodeFileAccessMode.write_only,
             )
         self.genCodeBinding = gen_code_binding
+        return self
+
+    def validate_view_modes(self):
+        project_config = self.projectConfig
+        if not project_config.viewModes:
+            return self
+
+        section_ids = set(self.sections.keys())
+        for view_mode in project_config.viewModes.values():
+            visibility = view_mode.visibilityBySectionId
+            for section_id in section_ids:
+                if section_id not in visibility:
+                    visibility[section_id] = True
+
+            stale_ids = [
+                section_id for section_id in visibility if section_id not in section_ids
+            ]
+            for section_id in stale_ids:
+                del visibility[section_id]
+
         return self
 
 

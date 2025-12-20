@@ -9,7 +9,6 @@ import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbFolderFilled } from "react-icons/tb";
-import SettaSLogo from "assets/icons/s-logo-only-og.svg?react";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
@@ -46,15 +45,12 @@ export function HeaderIcon({
 
   switch (sectionTypeName) {
     case SectionTypeEnum.Code:
+    case SectionTypeEnum.GenPythonCode:
       return (
         <CodeLanguageIcon
           sectionId={sectionId}
-          classes="text-setta-300 group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500 transition-colors"
+          classes="text-setta-300  group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500  transition-colors"
         />
-      );
-    case SectionTypeEnum.GenPythonCode:
-      return (
-        <SettaSLogo className="h-[16px] w-[16px] text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] [&>g>rect]:fill-current [&>g>path]:fill-current" />
       );
     case SectionTypeEnum.Terminal:
       return <TerminalIcon sectionId={sectionId} />;

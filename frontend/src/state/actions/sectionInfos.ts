@@ -38,11 +38,9 @@ import {
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
   Variant,
-  ViewingEditingMode,
-  ViewingEditingModeEnum,
   Viewport,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 
 function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -413,6 +411,7 @@ export function processProjectStateUpdateFromBackend(
     for (const opInfo of nextPending) {
       opInfo.apply(x.projectState);
     }
+    ensureProjectViewModes(x.projectState);
     return x.projectState;
   });
   useNodeInternals.setState((state) => ({
@@ -535,66 +534,121 @@ function getCodeChildrenAndParentCodeInfoId(
 
 export function getSectionShouldRender(
   visibility: boolean,
-  viewingEditingMode: ViewingEditingMode,
+  isEditingViewMode: boolean,
 ) {
-  return visibility || viewingEditingMode !== ViewingEditingModeEnum.USER;
+  return isEditingViewMode || visibility;
 }
 
-export function getSectionViewingEditingModeVisibility(
+export function ensureProjectViewModes(state: ProjectStateSingleConfig) {
+  const projectConfig = state.projectConfig;
+  const { viewModes } = projectConfig;
+  const sectionIds = Object.keys(state.sections);
+  const viewModeIds = Object.keys(viewModes);
+
+  if (viewModeIds.length === 0) {
+    const id = createNewId();
+    const visibilityBySectionId: Record<string, boolean> = {};
+    for (const sectionId of sectionIds) {
+      visibilityBySectionId[sectionId] = true;
+    }
+    viewModes[id] = {
+      id,
+      name: createRandomName(),
+      isUserFacing: false,
+      visibilityBySectionId,
+    };
+    projectConfig.activeViewModeId = id;
+    return;
+  }
+
+  if (!projectConfig.activeViewModeId || !viewModes[projectConfig.activeViewModeId]) {
+    projectConfig.activeViewModeId = viewModeIds[0] ?? null;
+  }
+
+  const sectionIdSet = new Set(sectionIds);
+  for (const viewMode of Object.values(viewModes)) {
+    for (const sectionId of sectionIds) {
+      if (viewMode.visibilityBySectionId[sectionId] === undefined) {
+        viewMode.visibilityBySectionId[sectionId] = true;
+      }
+    }
+
+    for (const sectionId of Object.keys(viewMode.visibilityBySectionId)) {
+      if (!sectionIdSet.has(sectionId)) {
+        delete viewMode.visibilityBySectionId[sectionId];
+      }
+    }
+  }
+}
+
+export function getActiveViewModeConfig(state: ZustandProjectState) {
+  const { activeViewModeId, viewModes } = state.projectConfig;
+  if (!activeViewModeId) {
+    throw new Error("Active view mode is not set");
+  }
+  const viewMode = viewModes[activeViewModeId];
+  if (!viewMode) {
+    throw new Error(`Active view mode ${activeViewModeId} not found`);
+  }
+  return viewMode;
+}
+
+function getSectionVisibilityForActiveViewMode(
   sectionId: string,
   state: ZustandProjectState,
 ) {
-  const { viewingEditingMode } = state.projectConfig;
-  const sectionImpl = getCurrEffectiveSectionImpl(state, sectionId);
-  const visibility =
-    sectionImpl.visibility[getSectionVisibilityKey(viewingEditingMode)];
+  const viewMode = getActiveViewModeConfig(state);
+  const visibility = viewMode.visibilityBySectionId[sectionId];
+  if (visibility === undefined) {
+    throw new Error(
+      `Missing visibility for section ${sectionId} in view mode ${viewMode.id}`,
+    );
+  }
   return {
     visibility,
-    viewingEditingMode,
+    viewMode,
   };
 }
 
-export function getSectionVisibilityKey(
-  viewingEditingMode: ViewingEditingMode,
+export function getSectionViewModeVisibility(
+  sectionId: string,
+  state: ZustandProjectState,
 ) {
-  switch (viewingEditingMode) {
-    case ViewingEditingModeEnum.DEV:
-    case ViewingEditingModeEnum.USER:
-      return viewingEditingMode;
-    case ViewingEditingModeEnum.USER_EDIT:
-      return ViewingEditingModeEnum.USER;
-    default:
-      return viewingEditingMode satisfies never;
-  }
-}
-
-function getSectionVisibilityKeyForDisplay(
-  viewingEditingMode: ViewingEditingMode,
-) {
-  switch (viewingEditingMode) {
-    case ViewingEditingModeEnum.USER:
-      return viewingEditingMode;
-    case ViewingEditingModeEnum.DEV:
-    case ViewingEditingModeEnum.USER_EDIT:
-      return ViewingEditingModeEnum.DEV;
-    default:
-      return viewingEditingMode satisfies never;
-  }
+  const { isEditingViewMode } = state.projectConfig;
+  const { visibility } = getSectionVisibilityForActiveViewMode(
+    sectionId,
+    state,
+  );
+  return {
+    visibility,
+    isEditingViewMode,
+  };
 }
 
 export function getAncestorSameVisibility(
   sectionId: string,
   state: ZustandProjectState,
 ) {
-  const { viewingEditingMode } = state.projectConfig;
+  const { visibilityBySectionId, id: viewModeId } =
+    getActiveViewModeConfig(state);
   let impl = getCurrEffectiveSectionImpl(state, sectionId);
   let { parentId } = impl;
-  const key = getSectionVisibilityKey(viewingEditingMode);
-  const targetVisibility = impl.visibility[key];
+  const targetVisibility = visibilityBySectionId[sectionId];
+  if (targetVisibility === undefined) {
+    throw new Error(
+      `Missing visibility for section ${sectionId} in view mode ${viewModeId}`,
+    );
+  }
 
   while (parentId) {
     impl = getCurrEffectiveSectionImpl(state, parentId);
-    if (impl.visibility[key] === targetVisibility) {
+    const parentVisibility = visibilityBySectionId[parentId];
+    if (parentVisibility === undefined) {
+      throw new Error(
+        `Missing visibility for section ${parentId} in view mode ${viewModeId}`,
+      );
+    }
+    if (parentVisibility === targetVisibility) {
       return true;
     }
 
