@@ -1,4 +1,3 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import {
   TbArrowBigDownLinesFilled,
   TbArrowBigRightLinesFilled,
@@ -25,19 +24,15 @@ export function ChangeOrientationButton({ sectionId }) {
   }
 
   return (
-    <IconButton
-      icon={
-        !isHorizontalOrientation ? (
-          <TbArrowBigDownLinesFilled />
-        ) : (
-          <TbArrowBigRightLinesFilled />
-        )
-      }
-      color="text-setta-400 dark:text-setta-600 hover:text-setta-500 dark:hover:text-setta-400"
-      bg="bg-transparent justify-content-center mr-1"
-      size="w-4 h-4"
-      padding="p-0"
+    <button
+      className="nodrag justify-content-center mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
       onClick={onClick}
-    />
+    >
+      {!isHorizontalOrientation ? (
+        <TbArrowBigDownLinesFilled />
+      ) : (
+        <TbArrowBigRightLinesFilled />
+      )}
+    </button>
   );
 }

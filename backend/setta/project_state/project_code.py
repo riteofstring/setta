@@ -373,10 +373,6 @@ class ProjectGenPythonCode(PythonCode):
     def code(self):
         return self.code_generator.code
 
-    @property
-    def generated_code(self) -> str:
-        return self.code_generator.generated_code
-
     def write_to_folder(self, folder: Path):
         return super().write_to_folder(self.code, folder)
 
