@@ -47,7 +47,6 @@ function ProjectPageSearchInput({
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   const shortcuts = useSettings((x) => {
     return {
-      searchkey: shortcutPrettified(x.shortcuts.searchShortcut),
       advancedkey: shortcutPrettified(x.shortcuts.advancedSearchShortcut),
       commandkey: shortcutPrettified(x.shortcuts.commandPaletteShortcut),
     };
@@ -58,7 +57,7 @@ function ProjectPageSearchInput({
       <input
         id={ProjectPageSearchBarDivId}
         className="w-full flex-grow cursor-auto overflow-hidden rounded-full bg-setta-100 py-1 pl-7 pr-2 text-xs text-setta-900 placeholder-setta-300 outline-offset-2 outline-blue-500 hover:bg-setta-50 focus:bg-white focus-visible:outline dark:bg-setta-950 dark:text-setta-200 dark:placeholder-setta-600 dark:hover:bg-setta-800/50"
-        placeholder={`Args (${shortcuts.searchkey}) / Search (${shortcuts.advancedkey}) / Create (${shortcuts.commandkey})`}
+        placeholder={`Search (${shortcuts.advancedkey}) / Create (${shortcuts.commandkey})`}
         tabIndex={0}
         autoComplete="off"
         {...getFloatingBoxHandlers({
