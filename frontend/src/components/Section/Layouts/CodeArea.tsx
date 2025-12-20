@@ -51,9 +51,11 @@ const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
 const GEN_CODE_RADIUS = "10px";
 const GEN_CODE_RADIUS_TOP = `${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS} 0 0`;
 const GEN_CODE_RADIUS_BOTTOM = `0 0 ${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS}`;
+const GEN_CODE_LINE_OVERLAP = "1px";
+const GEN_CODE_LINE_HALF_OFFSET = `calc(50% - ${GEN_CODE_LINE_OVERLAP})`;
 const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   "&": {
-    "--gen-code-bg": "rgb(219 234 254 / 0.75)",
+    "--gen-code-bg": "rgb(219 234 254)",
     "--gen-code-rail": "rgb(96 165 250 / 0.85)",
     "--gen-code-label-bg": "rgb(37 99 235)",
     "--gen-code-label-text": "rgb(239 246 255)",
@@ -78,9 +80,9 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   ".cm-gen-code-readonly-line::before": {
     content: '""',
     position: "absolute",
-    top: "-0.5px",
+    top: `-${GEN_CODE_LINE_OVERLAP}`,
     right: "4px",
-    bottom: "-0.5px",
+    bottom: `-${GEN_CODE_LINE_OVERLAP}`,
     left: 0,
     backgroundColor: "var(--gen-code-bg)",
     boxShadow: "inset 3px 0 0 var(--gen-code-rail)",
@@ -100,11 +102,11 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     borderRadius: "0",
   },
   ".cm-gen-code-readonly-line-start::before": {
-    top: "calc(50% - 0.5px)",
+    top: GEN_CODE_LINE_HALF_OFFSET,
     borderRadius: GEN_CODE_RADIUS_TOP,
   },
   ".cm-gen-code-readonly-line-end::before": {
-    bottom: "calc(50% - 0.5px)",
+    bottom: GEN_CODE_LINE_HALF_OFFSET,
     borderRadius: GEN_CODE_RADIUS_BOTTOM,
   },
   ".cm-gen-code-readonly-line-start::after": {
