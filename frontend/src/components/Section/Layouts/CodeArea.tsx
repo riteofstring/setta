@@ -41,14 +41,67 @@ type GenPythonDocParts = {
   suffixBoundaryLength: number;
 };
 
+type GenPythonLineStartInfo = {
+  pos: number;
+  lineIndex: number;
+};
+
 const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
 const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
+const GEN_CODE_RADIUS = "10px";
+const GEN_CODE_RADIUS_TOP = `${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS} 0 0`;
+const GEN_CODE_RADIUS_BOTTOM = `0 0 ${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS}`;
 const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   ".cm-gen-code-readonly-line": {
-    backgroundColor: "rgba(253, 230, 138, 0.35)",
+    "--gen-code-bg": "hsl(219 26% 23% / 0.45)",
+    "--gen-code-rail": "hsl(219 25% 34% / 0.9)",
+    "--gen-code-label-bg": "hsl(219 25% 34% / 0.9)",
+    "--gen-code-label-text": "hsl(222 28% 95% / 0.95)",
+    cursor: "not-allowed",
+    position: "relative",
+    zIndex: "0",
   },
-  ".cm-gen-code-readonly-line.cm-activeLine": {
-    backgroundColor: "rgba(253, 230, 138, 0.35)",
+  ".cm-gen-code-readonly-line::before": {
+    content: '""',
+    position: "absolute",
+    top: 0,
+    right: "4px",
+    bottom: 0,
+    left: 0,
+    backgroundColor: "var(--gen-code-bg)",
+    boxShadow: "inset 3px 0 0 var(--gen-code-rail)",
+    zIndex: "-1",
+  },
+  ".cm-gen-code-readonly-line-start": {
+    borderRadius: GEN_CODE_RADIUS_TOP,
+  },
+  ".cm-gen-code-readonly-line-end": {
+    borderRadius: GEN_CODE_RADIUS_BOTTOM,
+  },
+  ".cm-gen-code-readonly-line-start::before": {
+    top: "50%",
+    borderRadius: GEN_CODE_RADIUS_TOP,
+  },
+  ".cm-gen-code-readonly-line-end::before": {
+    bottom: "50%",
+    borderRadius: GEN_CODE_RADIUS_BOTTOM,
+  },
+  ".cm-gen-code-readonly-line-start::after": {
+    content: '"Generated read-only"',
+    position: "absolute",
+    top: "calc(50% - 2px)",
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: "1px 5px",
+    borderRadius: "999px",
+    backgroundColor: "var(--gen-code-label-bg)",
+    color: "var(--gen-code-label-text)",
+    fontSize: "8px",
+    letterSpacing: "0.1em",
+    lineHeight: "1.3",
+    textTransform: "uppercase",
+    pointerEvents: "none",
+    zIndex: "2",
   },
   ".cm-gen-code-placeholder": {
     color: "rgba(100, 116, 139, 0.9)",
@@ -56,10 +109,10 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     pointerEvents: "none",
   },
   "&.cm-editor.cm-dark .cm-gen-code-readonly-line": {
-    backgroundColor: "rgba(161, 98, 7, 0.25)",
-  },
-  "&.cm-editor.cm-dark .cm-gen-code-readonly-line.cm-activeLine": {
-    backgroundColor: "rgba(161, 98, 7, 0.25)",
+    "--gen-code-bg": "hsl(219 26% 23% / 0.7)",
+    "--gen-code-rail": "hsl(219 25% 45% / 0.9)",
+    "--gen-code-label-bg": "hsl(219 25% 45% / 0.9)",
+    "--gen-code-label-text": "hsl(219 24% 89% / 0.95)",
   },
   "&.cm-editor.cm-dark .cm-gen-code-placeholder": {
     color: "rgba(148, 163, 184, 0.9)",
@@ -127,25 +180,50 @@ function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   };
 }
 
-function getLineStartsInRange(doc: string, from: number, to: number): number[] {
+function getLineStartsInRange(
+  doc: string,
+  from: number,
+  to: number,
+): GenPythonLineStartInfo[] {
   const clampedFrom = Math.max(0, Math.min(doc.length, from));
   const clampedTo = Math.max(clampedFrom, Math.min(doc.length, to));
-  const lineStarts: number[] = [];
+  const lineStarts: GenPythonLineStartInfo[] = [];
   let lineStart = 0;
+  let lineIndex = 0;
   while (lineStart <= doc.length) {
     let lineEnd = doc.indexOf("\n", lineStart);
     if (lineEnd === -1) {
       lineEnd = doc.length;
     }
     if (lineStart < clampedTo && lineEnd > clampedFrom) {
-      lineStarts.push(lineStart);
+      lineStarts.push({ pos: lineStart, lineIndex });
     }
     if (lineEnd === doc.length) {
       break;
     }
     lineStart = lineEnd + 1;
+    lineIndex += 1;
   }
   return lineStarts;
+}
+
+function getGenReadOnlyLineDecorations(doc: string, from: number, to: number) {
+  const lineStarts = getLineStartsInRange(doc, from, to);
+  if (lineStarts.length === 0) {
+    return [];
+  }
+  const firstLineIndex = lineStarts[0].lineIndex;
+  const lastLineIndex = lineStarts[lineStarts.length - 1].lineIndex;
+  return lineStarts.map(({ pos, lineIndex }) => {
+    const classes = ["cm-gen-code-readonly-line"];
+    if (lineIndex === firstLineIndex) {
+      classes.push("cm-gen-code-readonly-line-start");
+    }
+    if (lineIndex === lastLineIndex) {
+      classes.push("cm-gen-code-readonly-line-end");
+    }
+    return Decoration.line({ class: classes.join(" ") }).range(pos);
+  });
 }
 
 function _CodeArea({ sectionId }) {
@@ -273,9 +351,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   const readOnlyLineDecoration = docParts.isValid
     ? EditorView.decorations.of(
         Decoration.set(
-          getLineStartsInRange(value, readOnlyStart, readOnlyEnd).map((pos) =>
-            Decoration.line({ class: "cm-gen-code-readonly-line" }).range(pos),
-          ),
+          getGenReadOnlyLineDecorations(value, readOnlyStart, readOnlyEnd),
         ),
       )
     : EditorView.decorations.of(Decoration.none);
