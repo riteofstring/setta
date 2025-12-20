@@ -1,11 +1,5 @@
-exclude = ["tests"]
-
 [lint]
-extend-select = [
-    "ARG", # unused function arguments
-    "G",   # logging format
-    "TCH", # TYPE_CHECKING import blocks
-]
+extend-select = ["TCH"] # for TYPE_CHECKING imports
 
 ignore = [
     "E266",  # too many leading '#' for block comment
@@ -19,5 +13,3 @@ ignore = [
 
 [lint.per-file-ignores]
 "__init__.py" = ["F401"]  # unused import
-
-

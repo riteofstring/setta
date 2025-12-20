@@ -265,14 +265,14 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
 
             wrapped_tool = mcp_server.setta_id_transformer(_dummy_tool)
 
-            project_config_id = ID("test-project-uuid")
-            self.assertNotIn(project_config_id, mcp_server.canonical_to_temporary)
+            project_id = ID("test-project-uuid")
+            self.assertNotIn(project_id, mcp_server.canonical_to_temporary)
 
-            await wrapped_tool(projectConfigId=str(project_config_id))
+            await wrapped_tool(projectConfigId=str(project_id))
 
-            self.assertNotIn(project_config_id, mcp_server.canonical_to_temporary)
+            self.assertNotIn(project_id, mcp_server.canonical_to_temporary)
             temporary_to_canonical, canonical_to_temporary = (
                 fixture.dbe.read_temporary_id_map()
             )
-            self.assertNotIn(project_config_id, canonical_to_temporary)
-            self.assertNotIn(project_config_id, temporary_to_canonical.values())
+            self.assertNotIn(project_id, canonical_to_temporary)
+            self.assertNotIn(project_id, temporary_to_canonical.values())

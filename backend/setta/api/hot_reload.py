@@ -165,12 +165,11 @@ class ListenerHotReloader:
 
     async def watch(self) -> None:
         """Watch configured paths and hot-reload callbacks on change."""
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "ListenerHotReloader watching %s for module %s",
-                ", ".join(str(path) for path in self._paths),
-                self._module_name,
-            )
+        logger.debug(
+            "ListenerHotReloader watching %s for module %s",
+            ", ".join(str(path) for path in self._paths),
+            self._module_name,
+        )
         try:
             async for changes in awatch(
                 *self._paths,

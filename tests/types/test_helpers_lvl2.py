@@ -10,7 +10,6 @@ from setta.types.helpers_lvl2 import (
     add_kwarg,
     create_top_level_section,
     get_curr_top_level_param_ids,
-    delete_sections,
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
@@ -65,30 +64,6 @@ class AddKwargTests(unittest.TestCase):
             self.project_state, section_id
         )
         self.assertEqual(top_level_param_ids, [kwarg_id])
-
-
-class DeleteSectionsTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_delete_sections_cleans_section_variant_map(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Dict,
-            Position(),
-        )
-        self.project_state.validate_parent_section_map()
-        self.assertIn(section_id, self.project_state.projectConfig.sectionVariantMap)
-
-        delete_sections(self.project_state, [section_id])
-
-        self.assertNotIn(section_id, self.project_state.sections)
-        self.assertNotIn(section_id, self.project_state.projectConfig.sectionVariantMap)
-        self.project_state.validate_code_file_bindings()
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -47,7 +47,7 @@ def create_backup(db_path: Path, autobackupKeepLastN: int, backup_dir: Path):
     timestamp = get_now_timestamp()
     backup_filename = f"backup_{timestamp_to_filename(timestamp)}.db"
     backup_path = backup_dir / backup_filename
-    logger.debug("creating backup: %s", backup_path)
+    logger.debug(f"creating backup: {backup_path}")
 
     shutil.copy2(db_path, backup_path)
     cleanup_old_backups(autobackupKeepLastN, backup_dir)
@@ -60,7 +60,7 @@ def should_create_backup(
     if not autobackup:
         return False
     last_backup_time = get_last_backup_time(backup_dir)
-    logger.debug("last_backup_time: %s", last_backup_time)
+    logger.debug(f"last_backup_time: {last_backup_time}")
     if last_backup_time is None:
         return True
 

@@ -121,7 +121,7 @@ class SettaListenerDependencyTranslationTests(unittest.TestCase):
         listener = SettaListener(
             project_name=self.project_state.projectConfig.name,
         )
-        listener._project_config_id = self.project_state.projectConfig.id
+        listener._project_id = self.project_state.projectConfig.id
         listener._runtime_state = ListenerRuntimeState(
             project_state=self.project_state,
             dependency_graph=self.dependency_graph,

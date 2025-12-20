@@ -55,7 +55,7 @@ def parse_signature(settings: SettingsState, signature: LSPTypes.SignatureInform
     documentation = lsp_documentation_to_str(signature.documentation)
     var_docstrings = process_docstring(documentation)
     codeObjs, codeObjImplMap = wrapper_parse_signature(
-        settings, signature, var_docstrings, get_lsp_param_proposals
+        settings, signature, var_docstrings, get_pyright_param_proposals
     )
     if len(codeObjs) == 0:
         codeObjs, codeObjImplMap = wrapper_parse_signature(
@@ -147,7 +147,7 @@ def get_docstring_parser_param_proposals(_, docstring: ProcessedVarDocstringDict
     ]
 
 
-def get_lsp_param_proposals(signature: LSPTypes.SignatureInformation, _):
+def get_pyright_param_proposals(signature: LSPTypes.SignatureInformation, _):
     proposals: list[ParamProposal] = []
     parameters = signature.parameters
     if not parameters:

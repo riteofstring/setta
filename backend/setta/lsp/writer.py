@@ -4,28 +4,9 @@ import logging
 import uuid
 from pathlib import Path
 
-from setta.logging.context import logging_context
-
 from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
-
-_MAX_LOGGED_PARAMS_KEYS = 25
-
-
-def _summarize_params(params: object) -> object:
-    if isinstance(params, dict):
-        keys = sorted(str(key) for key in params.keys())
-        if len(keys) > _MAX_LOGGED_PARAMS_KEYS:
-            return {
-                "keys": keys[:_MAX_LOGGED_PARAMS_KEYS],
-                "len": len(keys),
-                "truncated": True,
-            }
-        return {"keys": keys}
-    if isinstance(params, (list, tuple)):
-        return {"len": len(params)}
-    return type(params).__name__
 
 
 class LanguageServerWriter(LanguageServerInteractor):
@@ -48,31 +29,19 @@ class LanguageServerWriter(LanguageServerInteractor):
             return
         stdin.write(header + request)
         await stdin.drain()
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Sent %s (params=%s)", method, _summarize_params(params))
+        logger.debug(f"Sent {method} with params: {params}")
 
     async def start(self):
-        workspace_uri = self.workspace_folder.as_uri()
         params = {
-            "processId": None,
             "capabilities": {
-                "workspace": {
-                    "didChangeWatchedFiles": {"dynamicRegistration": True},
-                    "workspaceFolders": True,
-                },
+                "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}
             },
-            "rootUri": workspace_uri,
-            "rootPath": self.workspace_folder.as_posix(),
-            "workspaceFolders": [{"uri": workspace_uri, "name": "setta"}],
-            "clientInfo": {"name": "setta"},
+            "workspaceFolders": [{"uri": self.workspace_folder.as_uri()}],
         }
         request_id = str(uuid.uuid4())
         self.server.initialization_request_id = request_id
         await self.send_request("initialize", params=params, id=request_id)
-
-    async def send_initialized_notification(self):
-        await self.send_request("initialized", params={})
-        await self.send_did_change_configuration()
+        await self.send_did_change_configuration()  # pyright requires this step
 
     async def send_document_open_request(
         self, filepath, code, diagnostics_callback=None
@@ -91,10 +60,10 @@ class LanguageServerWriter(LanguageServerInteractor):
                     "text": code,
                 }
             }
-            logger.debug("send_document_open_request %s", uri)
+            logger.debug(f"send_document_open_request {uri}")
             await self.send_request("textDocument/didOpen", params=params)
         else:
-            logger.debug("document already open, updating it %s", uri)
+            logger.debug(f"document already open, updating it {uri}")
             await self.send_document_update(
                 filepath=filepath,
                 code=code,
@@ -144,6 +113,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
+            "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
         await self.send_request(
             "textDocument/signatureHelp",
@@ -152,6 +122,11 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_did_change_configuration(self):
+        # THIS FORMAT WORKS
+        # settings = {
+        #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
+        # }
+
         await self.send_request(
             "workspace/didChangeConfiguration",
             params={"settings": self.settings},
@@ -163,15 +138,8 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_and_wait(self, fn_call, request_id):
         self.pending_requests[request_id] = asyncio.Future()
-        with logging_context(
-            values={
-                "task": "lsp-send-request",
-                "lsp_request_id": request_id,
-                "lsp_server": self.server.name,
-            }
-        ):
-            await fn_call
-            return await self.wait_for_response(request_id)
+        asyncio.create_task(fn_call)
+        return await self.wait_for_response(request_id)
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
     def get_uri(self, filepath: Path):
