@@ -2653,6 +2653,8 @@ const ViewModeConfigSchema = z.object({
   visibilityBySectionId: z.record(IDSchema, z.boolean()).default({}),
 });
 
+export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
+
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),

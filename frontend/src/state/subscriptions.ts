@@ -20,7 +20,7 @@ import {
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
-  getSectionViewingEditingModeVisibility,
+  getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
@@ -147,7 +147,7 @@ function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
   const output: Record<string, boolean> = {};
   for (const id of Object.keys(state.projectConfig.topLevelSections)) {
     const { visibility, isEditingViewMode } =
-      getSectionViewingEditingModeVisibility(id, state);
+      getSectionViewModeVisibility(id, state);
     output[id] = getSectionShouldRender(visibility, isEditingViewMode);
   }
   return output;

@@ -40,7 +40,7 @@ import {
   Variant,
   Viewport,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 
 function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -411,6 +411,7 @@ export function processProjectStateUpdateFromBackend(
     for (const opInfo of nextPending) {
       opInfo.apply(x.projectState);
     }
+    ensureProjectViewModes(x.projectState);
     return x.projectState;
   });
   useNodeInternals.setState((state) => ({
@@ -538,7 +539,49 @@ export function getSectionShouldRender(
   return isEditingViewMode || visibility;
 }
 
-function getActiveViewModeConfig(state: ZustandProjectState) {
+export function ensureProjectViewModes(state: ProjectStateSingleConfig) {
+  const projectConfig = state.projectConfig;
+  const { viewModes } = projectConfig;
+  const sectionIds = Object.keys(state.sections);
+  const viewModeIds = Object.keys(viewModes);
+
+  if (viewModeIds.length === 0) {
+    const id = createNewId();
+    const visibilityBySectionId: Record<string, boolean> = {};
+    for (const sectionId of sectionIds) {
+      visibilityBySectionId[sectionId] = true;
+    }
+    viewModes[id] = {
+      id,
+      name: createRandomName(),
+      isUserFacing: false,
+      visibilityBySectionId,
+    };
+    projectConfig.activeViewModeId = id;
+    return;
+  }
+
+  if (!projectConfig.activeViewModeId || !viewModes[projectConfig.activeViewModeId]) {
+    projectConfig.activeViewModeId = viewModeIds[0] ?? null;
+  }
+
+  const sectionIdSet = new Set(sectionIds);
+  for (const viewMode of Object.values(viewModes)) {
+    for (const sectionId of sectionIds) {
+      if (viewMode.visibilityBySectionId[sectionId] === undefined) {
+        viewMode.visibilityBySectionId[sectionId] = true;
+      }
+    }
+
+    for (const sectionId of Object.keys(viewMode.visibilityBySectionId)) {
+      if (!sectionIdSet.has(sectionId)) {
+        delete viewMode.visibilityBySectionId[sectionId];
+      }
+    }
+  }
+}
+
+export function getActiveViewModeConfig(state: ZustandProjectState) {
   const { activeViewModeId, viewModes } = state.projectConfig;
   if (!activeViewModeId) {
     throw new Error("Active view mode is not set");
@@ -567,7 +610,7 @@ function getSectionVisibilityForActiveViewMode(
   };
 }
 
-export function getSectionViewingEditingModeVisibility(
+export function getSectionViewModeVisibility(
   sectionId: string,
   state: ZustandProjectState,
 ) {

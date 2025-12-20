@@ -291,9 +291,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     visibility[section_id] = True
 
             stale_ids = [
-                section_id
-                for section_id in visibility
-                if section_id not in section_ids
+                section_id for section_id in visibility if section_id not in section_ids
             ]
             for section_id in stale_ids:
                 del visibility[section_id]

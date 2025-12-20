@@ -1,9 +1,10 @@
 import _ from "lodash";
 import React from "react";
 import {
+  getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getSectionShouldRender,
-  getSectionViewingEditingModeVisibility,
+  getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -20,18 +21,23 @@ function _SectionContainer({
   isTopLevel: boolean;
   dragListeners?: any;
 }) {
-  const { visibility, viewingEditingMode, isGroup } = useProjectState((x) => {
-    const { visibility, viewingEditingMode } =
-      getSectionViewingEditingModeVisibility(sectionId, x);
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    return {
-      visibility,
-      viewingEditingMode,
-      isGroup: impl.type === SectionTypeEnum.Group,
-    };
-  });
+  const { visibility, isEditingViewMode, isGroup, isUserView } = useProjectState(
+    (x) => {
+      const { visibility, isEditingViewMode } =
+        getSectionViewModeVisibility(sectionId, x);
+      const viewMode = getActiveViewModeConfig(x);
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
+      return {
+        visibility,
+        isEditingViewMode,
+        isUserView: viewMode.isUserFacing && !isEditingViewMode,
+        isGroup: impl.type === SectionTypeEnum.Group,
+      };
+    },
+    _.isEqual,
+  );
 
-  if (!getSectionShouldRender(visibility, viewingEditingMode)) {
+  if (!getSectionShouldRender(visibility, isEditingViewMode)) {
     return null;
   }
 
@@ -42,12 +48,13 @@ function _SectionContainer({
       dragListeners={dragListeners}
       isTopLevel={isTopLevel}
       visibility={visibility}
-      viewingEditingMode={viewingEditingMode}
+      isEditingViewMode={isEditingViewMode}
+      isUserView={isUserView}
     >
       {!isGroup && (
         <SectionContainerCore
           sectionId={sectionId}
-          viewingEditingMode={viewingEditingMode}
+          isUserView={isUserView}
         />
       )}
       <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />

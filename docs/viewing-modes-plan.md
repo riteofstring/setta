@@ -52,6 +52,9 @@ Allow arbitrary, developer-defined view modes per project, each with its own vis
 2. [x] Add a validator/helper to populate missing visibility entries for all sections whenever view modes change.
 3. [x] Regenerate types (`pnpm generate` after `source activate.sh`).
 4. [x] Replace `viewingEditingMode` logic in `frontend/src/state/actions/sectionInfos.ts` and subscriptions with `activeViewModeId` + `isEditingViewMode`.
-5. [ ] Update components/menus that assume `USER` or `USER_EDIT` (`ViewingEditingMode`, `SelectionContextMenu`, `DeleteOrHideButton`, container wrappers, overview lists).
-6. [ ] Implement a view mode manager UI for create/rename/delete and preview/edit toggles.
+5. [x] Update components/menus that assume `USER` or `USER_EDIT` (`ViewingEditingMode`, `SelectionContextMenu`, `DeleteOrHideButton`, container wrappers, overview lists).
+6. [~] Implement a view mode manager UI for create/rename/delete and preview/edit toggles. (Done: list/select, edit/preview toggle, create, user-facing toggle; TODO: rename/duplicate/delete.)
 7. [ ] Validate manually: create multiple view modes, toggle visibility, switch preview/edit, confirm controls and rendering match expectations.
+
+## Frontend initialization
+- Added a frontend guard to ensure `viewModes` + `activeViewModeId` are initialized for fresh configs (prevents "Active view mode is not set" when starting from blank state).
