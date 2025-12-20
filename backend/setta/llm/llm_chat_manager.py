@@ -67,6 +67,8 @@ SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_pr
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
+    parsed_arguments_by_index: dict[int, dict[str, Any]] = field(default_factory=dict)
+    last_broadcast_follow_section_ids: set[ID] = field(default_factory=set)
 
 
 @dataclass
@@ -246,6 +248,7 @@ class LLMChatManager:
                 async for chunk in self._iterate_stream(stream_result):
                     await self._handle_stream_chunk(
                         chat.id,
+                        chat.projectConfigId,
                         assistant_message,
                         chunk,
                         tool_call_state,
@@ -592,6 +595,7 @@ class LLMChatManager:
     async def _handle_stream_chunk(
         self,
         chat_id: ID,
+        project_config_id: ID,
         assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
@@ -609,6 +613,7 @@ class LLMChatManager:
 
         await self._handle_tool_call_deltas(
             chat_id,
+            project_config_id,
             assistant_message,
             delta,
             tool_call_state,
@@ -816,6 +821,7 @@ class LLMChatManager:
     async def _handle_tool_call_deltas(
         self,
         chat_id: ID,
+        project_config_id: ID,
         assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
@@ -836,6 +842,14 @@ class LLMChatManager:
                 chat_id,
                 event,
             )
+            if self._update_streaming_tool_call_arguments(
+                entry.index, tool_call_state
+            ):
+                await self._maybe_broadcast_ai_follow_update_streaming(
+                    project_config_id,
+                    chat_id,
+                    tool_call_state,
+                )
 
     def _apply_tool_call_delta(
         self,
@@ -866,6 +880,60 @@ class LLMChatManager:
             tool_call_id=tool_call.id,
             arguments_delta=entry.function.arguments,
             tool_name=tool_name,
+        )
+
+    def _update_streaming_tool_call_arguments(
+        self,
+        index: int,
+        tool_call_state: ToolCallStreamState,
+    ) -> bool:
+        buffer = tool_call_state.argument_buffers.get(index)
+        if not buffer:
+            return False
+        parsed = self._try_parse_tool_call_arguments(buffer)
+        if parsed is None:
+            return False
+        existing = tool_call_state.parsed_arguments_by_index.get(index)
+        if existing == parsed:
+            return False
+        tool_call_state.parsed_arguments_by_index[index] = parsed
+        return True
+
+    def _try_parse_tool_call_arguments(
+        self,
+        arguments: str,
+    ) -> dict[str, Any] | None:
+        data = arguments.strip()
+        if not data:
+            return None
+        if not data.endswith("}") and not data.endswith("]"):
+            return None
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    async def _maybe_broadcast_ai_follow_update_streaming(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        tool_call_state: ToolCallStreamState,
+    ) -> None:
+        if not tool_call_state.parsed_arguments_by_index:
+            return
+        arguments_list = list(tool_call_state.parsed_arguments_by_index.values())
+        section_ids = self._collect_ai_follow_section_ids(arguments_list)
+        if section_ids is None:
+            return
+        new_ids = set(section_ids)
+        if new_ids == tool_call_state.last_broadcast_follow_section_ids:
+            return
+        tool_call_state.last_broadcast_follow_section_ids = new_ids
+        await self._broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            arguments_list,
         )
 
     def _ensure_tool_call_entry(
