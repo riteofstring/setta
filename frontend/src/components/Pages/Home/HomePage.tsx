@@ -1,3 +1,4 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
@@ -71,12 +72,14 @@ function RightColumn({
     await createAndGoToProjectConfig();
   }
 
-  function onSelectProject(e: React.MouseEvent, projectId: string) {
+  function onSelectProject(e: React.MouseEvent, projectConfigId: string) {
     e.preventDefault(); // to prevent going into the project
-    if (selectedProjects.includes(projectId)) {
-      setSelectedProjects(selectedProjects.filter((x) => x !== projectId));
+    if (selectedProjects.includes(projectConfigId)) {
+      setSelectedProjects(
+        selectedProjects.filter((x) => x !== projectConfigId),
+      );
     } else {
-      setSelectedProjects([...selectedProjects, projectId]);
+      setSelectedProjects([...selectedProjects, projectConfigId]);
     }
   }
 
@@ -97,11 +100,11 @@ function RightColumn({
   }
 
   async function onClickMakeDefault() {
-    const projectId = selectedProjects[0];
-    if (!projectId) {
+    const projectConfigId = selectedProjects[0];
+    if (!projectConfigId) {
       return;
     }
-    await router_set_as_default_project({ projectId });
+    await router_set_as_default_project({ projectConfigId });
   }
 
   return (
@@ -292,12 +295,13 @@ function ThumbnailArea({
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
     >
       <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
-        <button
-          className={`focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center ${isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"} text-white/50 hover:text-white rounded-full py-1 px-1 w-4 h-4`}
+        <IconButton
+          icon={<IoMdCheckmark />}
+          color="text-white/50 hover:text-white"
+          bg={isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"}
+          size="w-4 h-4"
           onClick={(e) => onSelectProject(e, project.id)}
-        >
-          <IoMdCheckmark />
-        </button>
+        />
       </aside>
 
       <div

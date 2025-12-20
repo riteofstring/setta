@@ -1,3 +1,4 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCodeBlock } from "state/actions/runOrImportCode";
@@ -8,12 +9,14 @@ export function RunButton({ sectionId }) {
   }
 
   return (
-    <button
-      className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent text-setta-600 hover:text-green-500 active:!text-blue-700 rounded-full p-0 mr-1 w-4 h-4"
+    <IconButton
+      icon={<RiPlayMiniFill />}
+      color="text-setta-600 hover:text-green-500  active:!text-blue-700"
+      bg="bg-transparent"
+      size="w-4 h-4"
+      padding="p-0 mr-1"
       onClick={onClick}
       {...getFloatingBoxHandlers({ title: "Run this code block" })}
-    >
-      <RiPlayMiniFill />
-    </button>
+    />
   );
 }

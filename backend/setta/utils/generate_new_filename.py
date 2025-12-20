@@ -44,7 +44,7 @@ def generate_new_filename(input_pattern: str) -> str:
 
         # Helper function to replace each match with a random choice
         def random_replacement(pattern, choices):
-            def replace_func(match):
+            def replace_func(_match):
                 return random.choice(choices)
 
             return re.sub(pattern, replace_func, cleaned_base)

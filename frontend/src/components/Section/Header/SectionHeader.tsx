@@ -1,3 +1,4 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import React from "react";
@@ -47,11 +48,12 @@ function _SectionHeader({
             arrowClasses="fill-white dark:fill-setta-800"
             contentClasses="z-20"
             trigger={
-              <button
-                className="focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent text-setta-500 rounded-full py-1 px-1 w-3 h-3 [&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
+              <IconButton
+                twClasses="[&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
+                bg="bg-transparent"
               >
                 <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
-              </button>
+              </IconButton>
             }
           >
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />

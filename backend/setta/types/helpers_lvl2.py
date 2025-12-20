@@ -464,7 +464,7 @@ def create_child_sections_via_incrementer(
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
-    for id in to_delete:
+    for id in reversed(to_delete):
         parentId = p.parentSectionMap[id]
         # delete from parent's current children list
         if parentId:
@@ -475,12 +475,19 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
                     children=lambda currChildren: [x for x in currChildren if x != id]
                 ),
             )
+        else:
+            p.projectConfig.topLevelSections.pop(id, None)
 
         still_used = check_if_section_is_still_used_somewhere(p, id)
         if not still_used:
+            core = p.sections[id]
+            p.projectConfig.sectionVariantMap.pop(id, None)
             del p.sections[id]
-            if not parentId:
-                del p.projectConfig.topLevelSections[id]
+            for variant_id in core.variants:
+                variant = p.sectionVariants[variant_id]
+                del p.sectionVariants[variant_id]
+                for impl_id in variant.nonPresetImpls:
+                    del p.sectionImpls[impl_id]
 
     p.validate_active_ids()
 
@@ -532,7 +539,14 @@ def get_all_sections_for_deletion_or_copying(
             idsToDelete.extend(currChildren)
             visited.add(currId)
         idx += 1
-    return set(idsToDelete)
+    output: list[ID] = []
+    seen: set[ID] = set()
+    for id in idsToDelete:
+        if id in seen:
+            continue
+        output.append(id)
+        seen.add(id)
+    return output
 
 
 def get_section_descendants_from_all_variants(

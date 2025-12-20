@@ -1,9 +1,9 @@
 from setta.routers.dependencies import AppStateFromRequest
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.listener import ListenerCoverageRequest, ListenerCoverageSnapshot
 from setta.types.routes import Route
 
-router = SettaAPIRouter()
+router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
 
 
 @router.post(Route.GET_LISTENER_COVERAGE)

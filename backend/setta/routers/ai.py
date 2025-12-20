@@ -1,8 +1,9 @@
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 
+from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import AppStateFromRequest
-from setta.routers.setta_api_router import SettaAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
@@ -10,10 +11,9 @@ from setta.types.generated.chat_messages import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 
-router = SettaAPIRouter()
+router = SettaProjectContextAPIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
@@ -44,18 +44,22 @@ class StopLLMChatRequest(BaseModel):
 
 
 @router.post(Route.GET_LLM_RESPONSE)
+@require_project_context()
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     state: AppStateFromRequest,
 ) -> str | None:
-    # try:
-    print(x, flush=True)
-    chat = state.chat_manager.get_or_create_chat(
-        x.chatId,
-        x.message,
-        x.llmConfigId,
-        x.projectConfigId,
-    )
+    try:
+        chat = state.chat_manager.get_or_create_chat(
+            x.chatId,
+            x.message,
+            x.llmConfigId,
+            x.projectConfigId,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail="Failed to enqueue LLM request"
+        ) from exc
 
     if chat:
         state.chat_manager.start_processing_query(
@@ -63,15 +67,6 @@ async def route_get_llm_response(
             x.deepThink,
         )
         return chat.id
-
-    # except Exception as e:
-    #     print(f"Error in route_get_llm_response: {str(e)}")
-    #     # Return a more specific error message
-    #     error_message = f"Error calling LLM: {str(e)}"
-    #     return {
-    #         "error": error_message,
-    #         "status": "error",
-    #     }
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)
@@ -100,23 +95,10 @@ async def route_stop_llm_chat(
 @router.post(Route.GET_LLM_CHAT)
 async def route_get_llm_chat(
     x: GetLLMChatRequest,
-    background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ) -> GetLLMChatRequestResponse:
     chat = state.chat_manager.get_chat(x.chatId)
     if not chat:
-        # it's possible for projectConfigId to be null
-        # if the llm chats are requested before a project is loaded to the frontend
-        if x.projectConfigId:
-            notification = SettaNotification(
-                projectConfigId=x.projectConfigId,
-                message="Chat not found!",
-                type=SettaNotificationType.error,
-            )
-            background_tasks.add_task(
-                state.wmh_frontend_sender.broadcast_notification,
-                notification,
-            )
         raise HTTPException(status_code=404, detail="Chat not found")
 
     waiting_for_response = state.chat_manager.is_waiting_for_response(x.chatId)
