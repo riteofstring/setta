@@ -345,6 +345,18 @@ export async function route_toggle_view_mode_user_facing(
   return await post("/toggleViewModeUserFacing", x);
 }
 
+export async function route_set_view_mode_name(
+  x: gt.SetViewModeNameRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setViewModeName", x);
+}
+
+export async function route_delete_view_mode(
+  x: gt.DeleteViewModeRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteViewMode", x);
+}
+
 export async function route_undo(
   x: gt.UndoRequest,
 ): Promise<ResponseDataAndStatus<null>> {

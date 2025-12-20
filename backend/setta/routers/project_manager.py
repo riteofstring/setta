@@ -19,6 +19,7 @@ from setta.project_state.project_manager_types import (
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteViewModeRequest,
     ForceRefreshProjectRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -58,6 +59,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
     ToggleIsEditingViewModeRequest,
@@ -242,6 +244,20 @@ async def route_toggle_view_mode_user_facing(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).toggle_view_mode_user_facing(x)
+
+
+@router.post(Route.SET_VIEW_MODE_NAME)
+async def route_set_view_mode_name(
+    x: SetViewModeNameRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(x.projectConfigId).set_view_mode_name(x)
+
+
+@router.post(Route.DELETE_VIEW_MODE)
+async def route_delete_view_mode(
+    x: DeleteViewModeRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(x.projectConfigId).delete_view_mode(x)
 
 
 @router.post(Route.UNDO)

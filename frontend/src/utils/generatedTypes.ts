@@ -279,6 +279,8 @@ export const RouteEnum = {
   SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
   TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
+  SET_VIEW_MODE_NAME: "/setViewModeName",
+  DELETE_VIEW_MODE: "/deleteViewMode",
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
@@ -4675,6 +4677,14 @@ const DeleteSectionsRequestSchema = z.object({
 
 export type DeleteSectionsRequest = z.infer<typeof DeleteSectionsRequestSchema>;
 
+const DeleteViewModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  viewModeId: IDSchema,
+});
+
+export type DeleteViewModeRequest = z.infer<typeof DeleteViewModeRequestSchema>;
+
 const ForceRefreshProjectRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5075,6 +5085,17 @@ const SetTopLevelSectionLayoutRequestSchema = z.object({
 
 export type SetTopLevelSectionLayoutRequest = z.infer<
   typeof SetTopLevelSectionLayoutRequestSchema
+>;
+
+const SetViewModeNameRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  viewModeId: IDSchema,
+  name: z.string(),
+});
+
+export type SetViewModeNameRequest = z.infer<
+  typeof SetViewModeNameRequestSchema
 >;
 
 const SetViewportRequestSchema = z.object({

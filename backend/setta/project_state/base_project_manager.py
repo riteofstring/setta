@@ -75,6 +75,7 @@ from setta.project_state.project_manager_types import (
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -115,6 +116,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
     ToggleIsEditingViewModeRequest,
@@ -1235,6 +1237,27 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         view_mode = project_state.projectConfig.viewModes[x.viewModeId]
         view_mode.isUserFacing = not view_mode.isUserFacing
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
+        view_mode.name = x.name
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_modes = project_state.projectConfig.viewModes
+        if x.viewModeId not in view_modes:
+            raise KeyError(f"View mode {x.viewModeId} not found")
+        if len(view_modes) < 2:
+            return
+        del view_modes[x.viewModeId]
+        if project_state.projectConfig.activeViewModeId == x.viewModeId:
+            project_state.projectConfig.activeViewModeId = next(iter(view_modes))
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

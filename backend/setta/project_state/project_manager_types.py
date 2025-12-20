@@ -245,6 +245,25 @@ class ToggleViewModeUserFacingRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
+class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
+    """Rename a view mode in the current project config."""
+
+    viewModeId: ID = Field(
+        description="Identifier of the view mode to rename.",
+    )
+    name: str = Field(
+        description="New display name for the view mode.",
+    )
+
+
+class DeleteViewModeRequest(ProjectManagerRequestWithProjectConfig):
+    """Remove a view mode from the current project config."""
+
+    viewModeId: ID = Field(
+        description="Identifier of the view mode to delete.",
+    )
+
+
 class UndoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
 
