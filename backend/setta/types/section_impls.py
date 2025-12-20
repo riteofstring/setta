@@ -100,6 +100,11 @@ class BrowserAreaItemType(str, Enum):
     Other = "Other"
 
 
+class Visibility(BaseModel, extra="forbid"):
+    DEV: bool = True
+    USER: bool = True
+
+
 class BrowserAreaItem(BaseModel, extra="forbid"):
     id: str
     type: Any
@@ -111,6 +116,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     isFrozen: bool = False
+    visibility: Visibility = Field(default_factory=Visibility)
     isInOtherProjectConfigs: bool = False
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool | float = False

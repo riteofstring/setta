@@ -3,7 +3,11 @@ import _ from "lodash";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  SectionType,
+  SectionTypeEnum,
+  ViewingEditingModeEnum,
+} from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
@@ -22,23 +26,14 @@ import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { getBgColor } from "./utils";
 
-type SectionContainerCoreResizableProps = {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  isActiveSection: boolean;
-  isInOtherProjectConfigs: boolean;
-  isUserView: boolean;
-  positionAndSizeLocked: boolean;
-};
-
 export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   isActiveSection,
   isInOtherProjectConfigs,
-  isUserView,
+  viewingEditingMode,
   positionAndSizeLocked,
-}: SectionContainerCoreResizableProps) {
+}) {
   const { isMinimized, isYouTube } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
@@ -50,6 +45,7 @@ export function SectionContainerCoreResizable({
 
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
+  const isUserView = viewingEditingMode === ViewingEditingModeEnum.USER;
 
   return (
     <CustomResizable
@@ -64,6 +60,7 @@ export function SectionContainerCoreResizable({
         isActiveSection={isActiveSection}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
+        viewingEditingMode={viewingEditingMode}
         isUserView={isUserView}
         isRoot={isRoot}
       />
