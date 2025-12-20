@@ -1173,7 +1173,6 @@ class BaseProjectManager(ABC):
         ].activeIds = x.activeIds
 
     @enqueue_method
-    @project_state_tool()
     async def set_viewport(self, x: SetViewportRequest):
         """Update the stored viewport offsets/zoom for a project configuration.
 
