@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
+from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
@@ -46,6 +47,7 @@ from setta.project_state.chats.save import (
 from setta.project_state.project_manager_types import (
     GetLatestProjectStateSummaryRequest,
 )
+from setta.project_state.project_state_summary_types import ProjectStateSummary
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -78,7 +80,6 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 
@@ -177,6 +178,7 @@ class LLMChatManager:
     ) -> None:
         self.dbe = dbe
         self.mcp_client = mcp_client
+        self.tool_preunlocker = ToolPreunlocker(self.mcp_client)
         self.websocket_msg_handler = websocket_msg_handler
         self.project_manager_switcher = project_manager_switcher
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
@@ -451,8 +453,11 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
+        system_prompt, project_summary = await self._build_system_prompt_with_summary(
+            chat
+        )
         system_message = SystemChatMessage(
-            content=[MessageTextContent(text=await self._build_system_prompt(chat))],
+            content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
         messages: list[dict[str, Any]] = [system_message]
         for message in chat.messages:
@@ -466,6 +471,7 @@ class LLMChatManager:
 
         request["messages"] = messages
         self._maybe_apply_cache_prompting(request, messages)
+        self._preunlock_tools(chat, project_summary)
         tools = self._build_tool_definitions(chat)
         if tools:
             request["tools"] = tools
@@ -477,13 +483,16 @@ class LLMChatManager:
 
         return request
 
-    async def _build_system_prompt(self, chat: Chat) -> str:
+    async def _build_system_prompt_with_summary(
+        self, chat: Chat
+    ) -> tuple[str, ProjectStateSummary]:
         project_config_id = chat.projectConfigId
         (
             temporary_project_config_id,
             project_summary,
+            summary_payload,
         ) = await self._build_project_summary(project_config_id)
-        return (
+        prompt = (
             f"{self.system_prompt}\n\n"
             "## Active project config\n"
             f"- id: {temporary_project_config_id}\n\n"
@@ -492,8 +501,11 @@ class LLMChatManager:
             " refresh after edits.)\n"
             f"{project_summary}"
         )
+        return prompt, summary_payload
 
-    async def _build_project_summary(self, project_config_id: ID) -> tuple[ID, str]:
+    async def _build_project_summary(
+        self, project_config_id: ID
+    ) -> tuple[ID, str, ProjectStateSummary]:
         project_manager = self.project_manager_switcher.get(project_config_id)
         summary = await project_manager.get_latest_project_state_summary(
             GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
@@ -511,7 +523,7 @@ class LLMChatManager:
         temporary_project_config_id = converted_summary.projectConfig.id
         summary_text = self._serialize_prompt_payload(converted_summary)
         summary_block = f"```json\n{summary_text}\n```"
-        return temporary_project_config_id, summary_block
+        return temporary_project_config_id, summary_block, converted_summary
 
     @staticmethod
     def _serialize_prompt_payload(payload: Any) -> str:
@@ -533,6 +545,24 @@ class LLMChatManager:
         if not state.init_tools and self.mcp_client.init_tool_definitions:
             state.init_tools = dict(self.mcp_client.init_tool_definitions)
         return state.build_payload()
+
+    def _preunlock_tools(
+        self,
+        chat: Chat,
+        project_summary: ProjectStateSummary,
+    ) -> None:
+        definitions = self.tool_preunlocker.select_tools(chat, project_summary)
+        if not definitions:
+            return
+        state = self._get_or_create_chat_tool_state(chat.id)
+        added_tool_names = state.unlock_tools(definitions)
+        if logger.isEnabledFor(logging.DEBUG) and added_tool_names:
+            logger.debug(
+                "[chat %s] pre-unlocked %s tools: %s",
+                chat.id,
+                len(added_tool_names),
+                added_tool_names,
+            )
 
     def _maybe_apply_cache_prompting(
         self,

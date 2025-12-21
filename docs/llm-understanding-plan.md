@@ -17,7 +17,7 @@
 - Step 1: Completed. The system prompt now includes the generated code pipeline, `state`/`SettaState` naming, dependency-expression rules, a “where code goes” map, explicit tool-call sequences, a don't-do list, and canonical examples.
 - Step 2: Completed. The chat manager injects a per-request project summary (via `get_latest_project_state_summary`) into the system prompt.
 - Step 3: Completed. Tool search now indexes derived tags + categories, and search results include name/description/category without increasing the default result limit.
-- Step 4: Not started.
+- Step 4: Completed. The chat manager pre-unlocks a small set of likely tools (top 2) based on tool metadata + active section types.
 - Step 5: Not started.
 
 ### 1) Upgrade the Setta Knowledge Pack (system prompt)
@@ -60,14 +60,14 @@
 **Deliverable**
 - Improved tool discovery that usually succeeds with one search.
 
-### 4) Pre-unlock Tool Groups by Context
+### 4) Pre-unlock Top Tools by Context
 **Why:** The chat should already have the likely tools when the first action is needed.
 
 **Changes**
 - In `backend/setta/llm/llm_chat_manager.py`, detect likely workflows from:
-  - User message keywords.
-  - Active section types.
-- Auto-unlock tool groups (e.g., layout, sections, code wiring, artifacts).
+  - User message relevance vs tool metadata (name/description/search tags).
+  - Active section types (light bias via tool category).
+- Auto-unlock the top N tools (currently N=2), not entire groups.
 
 **Deliverable**
 - Lower tool-search counts and faster first tool calls.
@@ -86,7 +86,7 @@
 ## Suggested Rollout
 1) System prompt expansion + per-request project summary.
 2) Tool search indexing upgrades + structured search results.
-3) Pre-unlock common tool groups.
+3) Pre-unlock top tools for likely workflows.
 4) Add playbooks and regression evaluation.
 
 ## Open Questions
