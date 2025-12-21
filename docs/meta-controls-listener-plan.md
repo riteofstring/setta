@@ -28,7 +28,7 @@ Make meta controls drive arbitrary UI behavior by routing their value changes th
   - Emit realtime dependency updates so listeners fire.
 - Add a backend route that persists meta control values to project state.
 
-### 4) Encode meta control values server-side
+### 4) Encode meta control values server-side (done)
 - Add a value encoding path in the backend code generator for `SectionType.MetaControl`.
 - Use `metaControlType` to decide how to interpret raw strings:
   - slider/rotary: number

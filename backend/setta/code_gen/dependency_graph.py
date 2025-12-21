@@ -42,6 +42,7 @@ from setta.types.section_impls import (
     BaseSectionImpl,
     DrawSectionImpl,
     MetaControlSectionImpl,
+    MetaControlType,
     SectionType,
     TextBlockSectionImpl,
 )
@@ -66,6 +67,8 @@ class Node(ABC):
 
 @dataclass
 class SectionNode(Node):
+    meta_control_type: MetaControlType | None = None
+
     @property
     def has_name_and_value(self) -> bool:
         return True
@@ -283,6 +286,7 @@ class DependencyGraph:
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
             value=LiteralDependencyValue(section_impl.metaControlValue),
+            meta_control_type=section_impl.metaControlType,
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)
