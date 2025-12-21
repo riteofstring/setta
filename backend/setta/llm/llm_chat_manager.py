@@ -23,7 +23,7 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
-from setta.mcp.client import MCPClient
+from setta.mcp.multi_client import MultiMCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -172,7 +172,7 @@ class LLMChatManager:
     def __init__(
         self,
         dbe: DBE,
-        mcp_client: MCPClient,
+        mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
         project_manager_switcher: "ProjectManagerSwitcher",
     ) -> None:
@@ -1638,7 +1638,8 @@ class LLMChatManager:
         completed_at = get_now_timestamp()
 
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
-        if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME and not call_result.isError:
+        search_server_id = self._get_search_tool_server_id(tool_name)
+        if search_server_id and not call_result.isError:
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
                 tool_name,
@@ -1647,6 +1648,7 @@ class LLMChatManager:
                 sanitized_arguments,
                 started_at,
                 completed_at,
+                search_server_id,
             )
         else:
             tool_chat_message = ToolChatMessage(
@@ -1682,6 +1684,33 @@ class LLMChatManager:
         )
         return json.loads(json.dumps(converted))
 
+    @staticmethod
+    def _get_search_tool_server_id(tool_name: str) -> str | None:
+        if "." not in tool_name:
+            return None
+        server_id, base_name = tool_name.split(".", 1)
+        if not server_id or base_name != C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME:
+            return None
+        return server_id
+
+    @staticmethod
+    def _namespace_search_tool_results(
+        search_results: list[dict[str, str | None]],
+        server_id: str,
+    ) -> list[dict[str, str | None]]:
+        namespaced_results: list[dict[str, str | None]] = []
+        for result in search_results:
+            name = result.get("name")
+            if not name:
+                continue
+            namespaced_results.append(
+                {
+                    **result,
+                    "name": f"{server_id}.{name}",
+                }
+            )
+        return namespaced_results
+
     def _build_search_tool_chat_message(
         self,
         chat_id: ID,
@@ -1691,8 +1720,10 @@ class LLMChatManager:
         arguments: dict[str, Any],
         started_at,
         completed_at,
+        server_id: str,
     ) -> ToolChatMessage:
         search_results = self._parse_search_tool_results(call_result)
+        search_results = self._namespace_search_tool_results(search_results, server_id)
         definitions = self._build_tool_definitions_from_search_results(search_results)
         added_tool_names: list[str] = []
         if definitions:
