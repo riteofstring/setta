@@ -344,6 +344,20 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
+class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
+    """Set a parameter's name and value in one step."""
+
+    codeObjId: ID = Field(
+        description="Identifier of the parameter code object that should be renamed.",
+    )
+    name: str = Field(
+        description="New name to apply to the parameter code object.",
+    )
+    value: str = Field(
+        description="Raw text value to persist for the parameter.",
+    )
+
+
 class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     """Rename a code object tracked within the project state."""
 
