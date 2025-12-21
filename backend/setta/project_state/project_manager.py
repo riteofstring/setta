@@ -18,7 +18,6 @@ class ProjectManager(BaseProjectManager):
         return self.dbe.read_project()
 
     def save(self):
-        self._flush_code_files_for_all_configs()
         p = self.project_state_backend.model_copy(deep=True)
         save_json_source_data(self.dbe, p)
         remove_json_source_values(p)

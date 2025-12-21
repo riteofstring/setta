@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -17,11 +17,45 @@ class LLMConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class MCPServerConfig(BaseModel):
+    """Configuration for a single MCP server."""
+
+    label: str | None = None
+    transport: Literal["sse", "stdio"]
+    url: str | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
+    command: str | None = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    cwd: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate_transport(self) -> "MCPServerConfig":
+        if self.transport == "sse":
+            if not self.url:
+                raise ValueError("SSE MCP server requires url")
+        if self.transport == "stdio":
+            if not self.command:
+                raise ValueError("stdio MCP server requires command")
+        return self
+
+
+class MCPServersConfig(BaseModel):
+    """Collection of MCP servers keyed by server id."""
+
+    servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class AllLLMConfigs(BaseModel):
     """Top-level structure persisted in ``setta_files/llm_config.json``."""
 
     configs: dict[str, LLMConfig] = Field(default_factory=dict)
     default_config_id: str | None = None
+    mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
 
