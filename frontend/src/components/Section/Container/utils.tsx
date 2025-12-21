@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
+import { useEffect, useState } from "react";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
@@ -11,7 +12,13 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useAIFollow, useAIStore, useMisc, useProjectState } from "state/definitions";
+import { hasSectionIdForChat } from "state/aiFollowUtils";
+import {
+  useAIFollow,
+  useAIStore,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -116,25 +123,28 @@ export function useAiSectionHighlight(
   projectConfigId: string,
 ): boolean {
   const activeChatId = useAIStore((state) => state.activeChatId);
-  const isAiWorkingOnSection = useAIFollow((state) => {
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    if (activeChatId) {
-      const activeSectionIds = projectEntries[activeChatId] ?? [];
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIds of Object.values(projectEntries)) {
-      if (sectionIds.includes(sectionId)) {
-        return true;
-      }
-    }
-    return false;
-  });
+  const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
+    (state) => {
+      const isAiWorkingOnSection = hasSectionIdForChat(
+        state.toolArgumentsIdsByProjectConfigId,
+        projectConfigId,
+        sectionId,
+        activeChatId,
+      );
+      const isToolResultHighlight = hasSectionIdForChat(
+        state.toolResultIdsByProjectConfigId,
+        projectConfigId,
+        sectionId,
+        activeChatId,
+      );
+      return { isAiWorkingOnSection, isToolResultHighlight };
+    },
+    _.isEqual,
+  );
   const [showAiHighlight, setShowAiHighlight] = useState(false);
+  const shouldHighlight = isAiWorkingOnSection || isToolResultHighlight;
   useEffect(() => {
-    if (isAiWorkingOnSection) {
+    if (shouldHighlight) {
       setShowAiHighlight(true);
       return;
     }
@@ -147,6 +157,6 @@ export function useAiSectionHighlight(
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [isAiWorkingOnSection, showAiHighlight]);
+  }, [shouldHighlight, showAiHighlight]);
   return showAiHighlight;
 }
