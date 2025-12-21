@@ -14,6 +14,7 @@ import {
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
 import { SelectionModeEnum } from "utils/generatedTypes";
+import { logTerminalLockDebug } from "utils/terminalLockDebug";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
@@ -110,6 +111,18 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
         y,
       },
     });
+
+    logTerminalLockDebug("pane_selection_start", {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      startX: x,
+      startY: y,
+      targetTag:
+        event.target instanceof HTMLElement ? event.target.tagName : null,
+      targetClassName:
+        event.target instanceof HTMLElement ? event.target.className : null,
+      selectionKeyPressed: useReactFlow.getState().selectionKeyPressed,
+    });
   };
 
   const onMouseMove = (event: ReactMouseEvent): void => {
@@ -150,6 +163,16 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     useReactFlow.setState({
       userSelectionRect: nextUserSelectRect,
     });
+
+    if (!userSelectionActive) {
+      logTerminalLockDebug("pane_selection_activate", {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        width: nextUserSelectRect.width,
+        height: nextUserSelectRect.height,
+        selectionKeyPressed: useReactFlow.getState().selectionKeyPressed,
+      });
+    }
   };
 
   const onMouseUp = (event: ReactMouseEvent) => {
@@ -170,12 +193,32 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     useReactFlow
       .getState()
       .setNodesSelection(prevSelectedNodesCount.current, true);
+
+    if (userSelectionRect) {
+      logTerminalLockDebug("pane_selection_end", {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        width: userSelectionRect.width,
+        height: userSelectionRect.height,
+        selectionKeyPressed: useReactFlow.getState().selectionKeyPressed,
+      });
+    }
     resetUserSelection();
   };
 
   const onMouseLeave = (event: ReactMouseEvent) => {
     if (userSelectionActive) {
       useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
+    }
+    const { userSelectionRect } = useReactFlow.getState();
+    if (userSelectionRect) {
+      logTerminalLockDebug("pane_selection_leave", {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        width: userSelectionRect.width,
+        height: userSelectionRect.height,
+        selectionKeyPressed: useReactFlow.getState().selectionKeyPressed,
+      });
     }
     resetUserSelection();
   };

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
@@ -8,6 +9,7 @@ import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
+import { logTerminalLockDebug } from "utils/terminalLockDebug";
 import {
   scrollSensitivityUpdater,
   terminalCleanup,
@@ -37,6 +39,144 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
     }); // Instantiate the terminal
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
+
+    terminal.onSelectionChange(() => {
+      logTerminalLockDebug("terminal_selection_change", {
+        sectionId,
+        hasSelection: terminal.hasSelection(),
+        selectionLength: terminal.getSelection().length,
+      });
+    });
+
+    const pointerMoveThrottleMs = 150;
+    let lastPointerMoveTs = 0;
+
+    function isPositionLocked() {
+      const state = useProjectState.getState();
+      return Boolean(state.sections?.[sectionId]?.positionAndSizeLocked);
+    }
+
+    function getSelectionSnapshot() {
+      if (typeof window === "undefined") {
+        return null;
+      }
+      const selection = window.getSelection();
+      if (!selection) {
+        return null;
+      }
+      const anchorNode = selection.anchorNode;
+      const focusNode = selection.focusNode;
+      return {
+        type: selection.type,
+        isCollapsed: selection.isCollapsed,
+        rangeCount: selection.rangeCount,
+        anchorNodeName: anchorNode?.nodeName ?? null,
+        focusNodeName: focusNode?.nodeName ?? null,
+        anchorParentClassName:
+          anchorNode?.parentElement?.className ?? null,
+        focusParentClassName: focusNode?.parentElement?.className ?? null,
+      };
+    }
+
+    function logPointerEvent(name: string, event: PointerEvent) {
+      if (!isPositionLocked()) {
+        return;
+      }
+      if (name === "terminal_pointer_move") {
+        const now =
+          typeof performance === "undefined" ? Date.now() : performance.now();
+        if (now - lastPointerMoveTs < pointerMoveThrottleMs) {
+          return;
+        }
+        lastPointerMoveTs = now;
+      }
+      const activeElement =
+        typeof document !== "undefined" ? document.activeElement : null;
+      logTerminalLockDebug(name, {
+        sectionId,
+        pointerId: event.pointerId,
+        pointerType: event.pointerType,
+        button: event.button,
+        buttons: event.buttons,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        targetTag:
+          event.target instanceof HTMLElement ? event.target.tagName : null,
+        targetClassName:
+          event.target instanceof HTMLElement ? event.target.className : null,
+        selectionSnapshot: getSelectionSnapshot(),
+        activeElementTag:
+          activeElement instanceof HTMLElement ? activeElement.tagName : null,
+        activeElementClassName:
+          activeElement instanceof HTMLElement ? activeElement.className : null,
+      });
+    }
+
+    function onSelectionChange() {
+      if (!isPositionLocked()) {
+        return;
+      }
+      logTerminalLockDebug("document_selection_change", {
+        sectionId,
+        selectionSnapshot: getSelectionSnapshot(),
+      });
+    }
+
+    const terminalElement = terminal.element;
+    const helperTextarea = terminalElement?.querySelector(
+      "textarea.xterm-helper-textarea",
+    );
+    const terminalContainer = terminalRef.current;
+
+    logTerminalLockDebug("terminal_pointer_targets", {
+      sectionId,
+      hasTerminalElement: Boolean(terminalElement),
+      hasHelperTextarea: Boolean(helperTextarea),
+      hasTerminalContainer: Boolean(terminalContainer),
+    });
+
+    const handlePointerDown = (event: PointerEvent) => {
+      logPointerEvent("terminal_pointer_down", event);
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      logPointerEvent("terminal_pointer_up", event);
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      logPointerEvent("terminal_pointer_move", event);
+    };
+    const handlePointerCancel = (event: PointerEvent) => {
+      logPointerEvent("terminal_pointer_cancel", event);
+    };
+
+    const pointerTargets = new Set<EventTarget>();
+    if (terminalContainer) {
+      pointerTargets.add(terminalContainer);
+    }
+    if (terminalElement && terminalElement !== terminalContainer) {
+      pointerTargets.add(terminalElement);
+    }
+    if (
+      helperTextarea &&
+      helperTextarea !== terminalElement &&
+      helperTextarea !== terminalContainer
+    ) {
+      pointerTargets.add(helperTextarea);
+    }
+
+    pointerTargets.forEach((target) => {
+      target.addEventListener("pointerdown", handlePointerDown, true);
+      target.addEventListener("pointerup", handlePointerUp, true);
+      target.addEventListener("pointermove", handlePointerMove, true);
+      target.addEventListener("pointercancel", handlePointerCancel, true);
+    });
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("selectionchange", onSelectionChange, true);
+    }
 
     const { ws } = newTerminalWebsocket(sectionId);
 
@@ -69,6 +209,19 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
     return () => {
       terminalCleanup(ws, terminal);
       unsub();
+      pointerTargets.forEach((target) => {
+        target.removeEventListener("pointerdown", handlePointerDown, true);
+        target.removeEventListener("pointerup", handlePointerUp, true);
+        target.removeEventListener("pointermove", handlePointerMove, true);
+        target.removeEventListener("pointercancel", handlePointerCancel, true);
+      });
+      if (typeof document !== "undefined") {
+        document.removeEventListener(
+          "selectionchange",
+          onSelectionChange,
+          true,
+        );
+      }
     };
   }, []);
 

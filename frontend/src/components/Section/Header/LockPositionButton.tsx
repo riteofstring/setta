@@ -5,17 +5,22 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { logTerminalLockDebug } from "utils/terminalLockDebug";
 import { route_toggle_position_lock } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
-  const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
+  const { isGroup, positionAndSizeLocked, sectionTypeName } = useProjectState(
+    (x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
       isGroup: impl.type === SectionTypeEnum.Group,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      sectionTypeName: impl.type,
     };
-  }, _.isEqual);
+  },
+    _.isEqual,
+  );
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
 
@@ -26,6 +31,14 @@ export function LockPositionButton({ sectionId }) {
     : "[&>i]:!scale-[.4]"; // when !isGroup
 
   function onClick() {
+    const nextLocked = !positionAndSizeLocked;
+    if (sectionTypeName === SectionTypeEnum.Terminal) {
+      logTerminalLockDebug("position_lock_toggle", {
+        sectionId,
+        prevLocked: positionAndSizeLocked,
+        nextLocked,
+      });
+    }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         const section = state.sections[sectionId];

@@ -35,6 +35,7 @@ import {
   deactivateParamSelect,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
+import { logTerminalLockDebug } from "utils/terminalLockDebug";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import {
@@ -658,12 +659,40 @@ function onEscapeKey() {
   removeFrozenFloatingBox();
 }
 
-function activateSelectionKeyPressed() {
+function activateSelectionKeyPressed(event?: KeyboardEvent) {
   useReactFlow.setState({ selectionKeyPressed: true });
+  const activeElement =
+    typeof document !== "undefined" ? document.activeElement : null;
+  logTerminalLockDebug("selection_key_down", {
+    key: event?.key ?? null,
+    code: event?.code ?? null,
+    shiftKey: event?.shiftKey ?? null,
+    altKey: event?.altKey ?? null,
+    metaKey: event?.metaKey ?? null,
+    ctrlKey: event?.ctrlKey ?? null,
+    activeElementTag:
+      activeElement instanceof HTMLElement ? activeElement.tagName : null,
+    activeElementClassName:
+      activeElement instanceof HTMLElement ? activeElement.className : null,
+  });
 }
 
-function deactivateSelectionKeyPressed() {
+function deactivateSelectionKeyPressed(event?: KeyboardEvent) {
   useReactFlow.setState({ selectionKeyPressed: false });
+  const activeElement =
+    typeof document !== "undefined" ? document.activeElement : null;
+  logTerminalLockDebug("selection_key_up", {
+    key: event?.key ?? null,
+    code: event?.code ?? null,
+    shiftKey: event?.shiftKey ?? null,
+    altKey: event?.altKey ?? null,
+    metaKey: event?.metaKey ?? null,
+    ctrlKey: event?.ctrlKey ?? null,
+    activeElementTag:
+      activeElement instanceof HTMLElement ? activeElement.tagName : null,
+    activeElementClassName:
+      activeElement instanceof HTMLElement ? activeElement.className : null,
+  });
 }
 
 function activateMultiSelectionPressed() {

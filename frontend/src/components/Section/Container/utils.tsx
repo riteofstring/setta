@@ -16,6 +16,7 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { logTerminalLockDebug } from "utils/terminalLockDebug";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName: SectionTypeEnum) {
@@ -62,12 +63,41 @@ export function getOutlineColor({
 
 export function getOnSectionClick(sectionId, isActiveSection) {
   return (e) => {
-    if (
+    const impl = getCurrEffectiveSectionImpl(
+      useProjectState.getState(),
+      sectionId,
+    );
+    const isTerminal = impl.type === SectionTypeEnum.Terminal;
+    const positionAndSizeLocked = impl.positionAndSizeLocked;
+    const blockedByTarget = Boolean(
       e.target.closest(
         `button, [role="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
-      ) ||
-      isActuallyADrag()
-    ) {
+      ),
+    );
+    const blockedByDrag = isActuallyADrag();
+    const isBlocked = blockedByTarget || blockedByDrag;
+
+    if (isTerminal && positionAndSizeLocked) {
+      const targetElement = e.target instanceof HTMLElement ? e.target : null;
+      logTerminalLockDebug("section_click", {
+        sectionId,
+        positionAndSizeLocked,
+        blockedByTarget,
+        blockedByDrag,
+        isBlocked,
+        isActiveSection,
+        targetTag: targetElement?.tagName ?? null,
+        targetClassName: targetElement?.className ?? null,
+        currentTargetClassName:
+          e.currentTarget instanceof HTMLElement
+            ? e.currentTarget.className
+            : null,
+        isSelectingParams: useMisc.getState().isSelectingParams,
+        multiSelectionActive: useReactFlow.getState().multiSelectionActive,
+      });
+    }
+
+    if (isBlocked) {
       // if a child button, menu item, or resizable is clicked,
       // or the click is actually a drag,
       // then don't "activate" the section
@@ -81,10 +111,6 @@ export function getOnSectionClick(sectionId, isActiveSection) {
 
     if (useMisc.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
-      const impl = getCurrEffectiveSectionImpl(
-        useProjectState.getState(),
-        sectionId,
-      );
       const atLeastOneParamSelected =
         isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0;
       if (!isActiveSection && atLeastOneParamSelected) {
