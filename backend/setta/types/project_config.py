@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from setta.code_gen.utils import GEN_CODE_CLASS_NAME
+from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
 from setta.types.id import ID
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -50,7 +50,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
     genCodePrefix: str = ""
-    genCodeSuffix: str = f"s = {GEN_CODE_CLASS_NAME}()"
+    genCodeSuffix: str = f"{GEN_CODE_INSTANCE_NAME} = {GEN_CODE_CLASS_NAME}()"
     entryCodeBlockId: ID | None = None
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)

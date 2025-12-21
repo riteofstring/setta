@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
-    SELF_IDENTIFIER,
+    GEN_CODE_INSTANCE_NAME,
     create_unique_name,
     sanitize_name,
 )
@@ -274,7 +274,7 @@ class DependencyGraph:
         callable = get_curr_section_callable_code_obj(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(
-                callable.name, SELF_IDENTIFIER, keep_attr_only=True
+                callable.name, GEN_CODE_INSTANCE_NAME, keep_attr_only=True
             )
             return callable.name, potential_refs
         return None, None
@@ -317,7 +317,7 @@ class DependencyGraph:
                     raw_value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
-                    raw_value, SELF_IDENTIFIER, keep_attr_only=True
+                    raw_value, GEN_CODE_INSTANCE_NAME, keep_attr_only=True
                 )
                 if potential_refs:
                     self.nodes_with_potential_refs[dep_key] = potential_refs
