@@ -12,7 +12,6 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
-from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
 
@@ -42,10 +41,6 @@ class GetLLMChatRequestResponse(BaseModel):
 
 class StopLLMChatRequest(BaseModel):
     chatId: ID
-
-
-class GetAIFollowSnapshotRequest(BaseModel):
-    projectConfigId: ID
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -115,15 +110,6 @@ async def route_get_llm_chat(
         waitingForResponse=waiting_for_response,
         llmConfig=chat.llmConfig,
     )
-
-
-@router.post(Route.GET_AI_FOLLOW_SNAPSHOT)
-@require_project_context()
-def route_get_ai_follow_snapshot(
-    x: GetAIFollowSnapshotRequest,
-    state: AppStateFromRequest,
-) -> list[AIFollowToolArgumentsUpdateContent]:
-    return state.chat_manager.get_ai_follow_snapshot(x.projectConfigId)
 
 
 def merge_db_messages_with_current_stream(
