@@ -13,6 +13,13 @@
 
 ## Plan Overview
 
+## Current Progress
+- Step 1: In progress. The system prompt now defines the generated code pipeline, `state`/`SettaState` naming, dependency-expression rules, and where to place logic. Still missing: explicit tool-call sequences, a don't-do list, and canonical examples.
+- Step 2: Not started.
+- Step 3: Not started.
+- Step 4: Not started.
+- Step 5: Not started.
+
 ### 1) Upgrade the Setta Knowledge Pack (system prompt)
 **Why:** The model needs precise “where to write code” and “how to update state” rules.
 
