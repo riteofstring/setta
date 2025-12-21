@@ -6,11 +6,21 @@ from typing import Any, Iterable
 from setta.database.db_objs import DBE
 from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 
 
 def load_llm_config(dbe: DBE) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
+    print("\n\n\n\nraw", raw)
+    if constants.IS_DEV_MODE and (
+        not raw or raw == {"configs": {}, "default_config_id": None}
+    ):
+        example = dbe.read_llm_config_example()
+        if example:
+            config = AllLLMConfigs.model_validate(example)
+            save_llm_config(config, dbe)
+            return config
     if not raw:
         config = AllLLMConfigs()
         save_llm_config(config, dbe)
