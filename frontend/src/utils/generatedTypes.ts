@@ -178,6 +178,14 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 
+export const ViewingEditingModeEnum = {
+  DEV: "DEV",
+  USER: "USER",
+  USER_EDIT: "USER_EDIT",
+} as const;
+
+export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
+
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
   error: "error",
@@ -275,10 +283,6 @@ export const RouteEnum = {
   CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
   DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
   CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
-  CREATE_VIEW_MODE: "/createViewMode",
-  SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
-  TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
-  TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
@@ -982,6 +986,17 @@ export function createSectionSize(
   return SectionSizeSchema.parse(options);
 }
 
+const VisibilitySchema = z.object({
+  DEV: z.boolean().default(true),
+  USER: z.boolean().default(true),
+});
+
+type Visibility = z.infer<typeof VisibilitySchema>;
+
+function createVisibility(options: Partial<Visibility> = {}): Visibility {
+  return VisibilitySchema.parse(options);
+}
+
 const SharedModifierSchema = z.object({
   activeLayerIdx: z.int().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -1049,6 +1064,7 @@ const SharedModifierSchema = z.object({
   url: z.string().optional(),
   value: z.string().optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
+  visibility: VisibilitySchema.optional(),
 });
 
 type SharedModifier = z.infer<typeof SharedModifierSchema>;
@@ -1133,6 +1149,7 @@ const CoreSchema = z.object({
         "url",
         "value",
         "viewMode",
+        "visibility",
       ]),
     )
     .default(() => [
@@ -1151,6 +1168,7 @@ const CallableSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1184,6 +1202,7 @@ const DictSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1219,6 +1238,7 @@ const ListRootSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1237,6 +1257,7 @@ const DictRootSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1255,6 +1276,7 @@ const GroupSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1274,6 +1296,7 @@ const ImageSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1292,6 +1315,7 @@ const ChartSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 400.0, height: 400.0 }),
@@ -1316,6 +1340,7 @@ const DrawSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1346,6 +1371,7 @@ const TextBlockSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1369,6 +1395,7 @@ const SocialSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1387,6 +1414,7 @@ const GlobalVariablesSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1424,6 +1452,7 @@ const CodeSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1444,6 +1473,7 @@ const GenPythonCodeSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1463,6 +1493,7 @@ const TerminalSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 700.0, height: 300.0 }),
@@ -1482,6 +1513,7 @@ const IFrameSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1499,6 +1531,7 @@ const ChatSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 405.0, height: 405.0 }),
@@ -1518,6 +1551,7 @@ const BrowserSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -1932,6 +1966,7 @@ const ChartSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -1954,6 +1989,7 @@ const DrawSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2131,6 +2167,7 @@ const CodeSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2151,6 +2188,7 @@ const GenPythonCodeSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2172,6 +2210,7 @@ const DictSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2203,6 +2242,7 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2236,6 +2276,7 @@ const ListRootSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2254,6 +2295,7 @@ const DictRootSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2272,6 +2314,7 @@ const GroupSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2291,6 +2334,7 @@ const CallableSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2320,6 +2364,7 @@ const ImageSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2338,6 +2383,7 @@ const TextBlockSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2359,6 +2405,7 @@ const SocialSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2377,6 +2424,7 @@ const TerminalSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2394,6 +2442,7 @@ const IFrameSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2411,6 +2460,7 @@ const ChatSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2428,6 +2478,7 @@ const BrowserSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2650,15 +2701,6 @@ function createViewport(options: Partial<Viewport> = {}): Viewport {
   return ViewportSchema.parse(options);
 }
 
-const ViewModeConfigSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isUserFacing: z.boolean().default(false),
-  visibilityBySectionId: z.record(IDSchema, z.boolean()).default({}),
-});
-
-export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
-
 const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -2674,9 +2716,9 @@ const ProjectConfigSchema = z.object({
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
-  viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
-  activeViewModeId: z.union([IDSchema, z.null()]).default(null),
-  isEditingViewMode: z.boolean().default(false),
+  viewingEditingMode: z
+    .enum(ViewingEditingModeEnum)
+    .default(ViewingEditingModeEnum.DEV),
   genCodePrefix: z.string().default("" as const),
   genCodeSuffix: z.string().default("s = S()" as const),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
@@ -3154,6 +3196,7 @@ function createSectionSizingPolicy(
 
 const UserDefaultBrowserSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3177,6 +3220,7 @@ function createUserDefaultBrowserSectionImpl(
 
 const UserDefaultCallableSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3206,6 +3250,7 @@ function createUserDefaultCallableSectionImpl(
 
 const UserDefaultChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 400.0, height: 400.0 }),
   ),
@@ -3227,6 +3272,7 @@ function createUserDefaultChartSectionImpl(
 
 const UserDefaultChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 405.0, height: 405.0 }),
   ),
@@ -3247,6 +3293,7 @@ function createUserDefaultChatSectionImpl(
 
 const UserDefaultCodeSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3268,6 +3315,7 @@ function createUserDefaultCodeSectionImpl(
 
 const UserDefaultDictRootSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3286,6 +3334,7 @@ function createUserDefaultDictRootSectionImpl(
 
 const UserDefaultDictSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3316,6 +3365,7 @@ function createUserDefaultDictSectionImpl(
 
 const UserDefaultDrawSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3346,6 +3396,7 @@ function createUserDefaultDrawSectionImpl(
 
 const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3366,6 +3417,7 @@ function createUserDefaultGenPythonCodeSectionImpl(
 
 const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3396,6 +3448,7 @@ function createUserDefaultGlobalVariablesSectionImpl(
 
 const UserDefaultGroupSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3415,6 +3468,7 @@ function createUserDefaultGroupSectionImpl(
 
 const UserDefaultIFrameSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3433,6 +3487,7 @@ function createUserDefaultIFrameSectionImpl(
 
 const UserDefaultImageSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3452,6 +3507,7 @@ function createUserDefaultImageSectionImpl(
 
 const UserDefaultListRootSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3470,6 +3526,7 @@ function createUserDefaultListRootSectionImpl(
 
 const UserDefaultSocialSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3489,6 +3546,7 @@ function createUserDefaultSocialSectionImpl(
 
 const UserDefaultTerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 700.0, height: 300.0 }),
   ),
@@ -3509,6 +3567,7 @@ function createUserDefaultTerminalSectionImpl(
 
 const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -3927,6 +3986,7 @@ const BaseCanvasSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -3974,6 +4034,7 @@ const BaseCodeSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -3993,6 +4054,7 @@ const BaseDictSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -4050,6 +4112,7 @@ const BaseParentSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -4070,6 +4133,7 @@ const BaseSectionImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -4087,6 +4151,7 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -4186,6 +4251,7 @@ const BaseSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -4203,6 +4269,7 @@ const BaseCanvasSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -4221,6 +4288,7 @@ const BaseCodeSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -4240,6 +4308,7 @@ const BaseDictSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -4275,6 +4344,7 @@ const BaseParentSectionImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -4293,6 +4363,7 @@ const BaseSectionWithParamsImplSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
@@ -4609,13 +4680,6 @@ export type CreateTopLevelSectionRequest = z.infer<
   typeof CreateTopLevelSectionRequestSchema
 >;
 
-const CreateViewModeRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-});
-
-export type CreateViewModeRequest = z.infer<typeof CreateViewModeRequestSchema>;
-
 const DeclineRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -4758,16 +4822,6 @@ const SetActiveIdsRequestSchema = z.object({
 });
 
 export type SetActiveIdsRequest = z.infer<typeof SetActiveIdsRequestSchema>;
-
-const SetActiveViewModeRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  activeViewModeId: IDSchema,
-});
-
-export type SetActiveViewModeRequest = z.infer<
-  typeof SetActiveViewModeRequestSchema
->;
 
 const SetBrowserAreaViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -5098,15 +5152,6 @@ export type TextFieldCompletionRequest = z.infer<
   typeof TextFieldCompletionRequestSchema
 >;
 
-const ToggleIsEditingViewModeRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-});
-
-export type ToggleIsEditingViewModeRequest = z.infer<
-  typeof ToggleIsEditingViewModeRequestSchema
->;
-
 const ToggleMinimizedRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5157,16 +5202,6 @@ const ToggleVariantJSONSourceRequestSchema = z.object({
 
 export type ToggleVariantJSONSourceRequest = z.infer<
   typeof ToggleVariantJSONSourceRequestSchema
->;
-
-const ToggleViewModeUserFacingRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  viewModeId: IDSchema,
-});
-
-export type ToggleViewModeUserFacingRequest = z.infer<
-  typeof ToggleViewModeUserFacingRequestSchema
 >;
 
 const UndoRequestSchema = z.object({

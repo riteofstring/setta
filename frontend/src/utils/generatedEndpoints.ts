@@ -321,30 +321,6 @@ export async function route_create_new_section_variant(
   return await post("/createNewSectionVariant", x);
 }
 
-export async function route_create_view_mode(
-  x: gt.CreateViewModeRequest,
-): Promise<ResponseDataAndStatus<string>> {
-  return await post("/createViewMode", x);
-}
-
-export async function route_set_active_view_mode(
-  x: gt.SetActiveViewModeRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setActiveViewMode", x);
-}
-
-export async function route_toggle_is_editing_view_mode(
-  x: gt.ToggleIsEditingViewModeRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleIsEditingViewMode", x);
-}
-
-export async function route_toggle_view_mode_user_facing(
-  x: gt.ToggleViewModeUserFacingRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleViewModeUserFacing", x);
-}
-
 export async function route_undo(
   x: gt.UndoRequest,
 ): Promise<ResponseDataAndStatus<null>> {

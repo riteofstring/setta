@@ -11,10 +11,8 @@ import {
   toggleCustomRunInDropdown,
 } from "state/actions/customRuns";
 import {
-  getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getSectionCore,
-  getSectionShouldRender,
 } from "state/actions/sectionInfos";
 import {
   CustomRunItem,
@@ -24,11 +22,10 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import {
+  BaseSectionImplUnion,
+  Core,
   isBaseParentSectionImpl,
   SectionTypeEnum,
-  type BaseSectionImplUnion,
-  type Core,
-  type ViewModeConfig,
 } from "utils/generatedTypes";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
@@ -210,8 +207,6 @@ function AddCodeBlockRow({
 function useRunnableCodeBlockListing() {
   return useProjectState((x) => {
     const outputList: Array<RunnableCodeBlock> = [];
-    const viewMode = getActiveViewModeConfig(x);
-    const { isEditingViewMode } = x.projectConfig;
     for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
@@ -220,8 +215,6 @@ function useRunnableCodeBlockListing() {
         sectionImpl,
         0,
         x,
-        viewMode,
-        isEditingViewMode,
         outputList,
       );
     }
@@ -234,21 +227,16 @@ function getRunnableCodeBlockListingHelper(
   sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,
-  viewMode: ViewModeConfig,
-  isEditingViewMode: boolean,
   outputList: Array<RunnableCodeBlock>,
 ) {
   const isRunnable =
     sectionImpl.type === SectionTypeEnum.Code ||
     sectionImpl.type === SectionTypeEnum.GenPythonCode;
 
-  const visibility = viewMode.visibilityBySectionId[section.id];
-  if (visibility === undefined) {
-    throw new Error(
-      `Missing visibility for section ${section.id} in view mode ${viewMode.id}`,
-    );
-  }
-  if (isRunnable && getSectionShouldRender(visibility, isEditingViewMode)) {
+  if (
+    isRunnable &&
+    sectionImpl.visibility[x.projectConfig.viewingEditingMode]
+  ) {
     outputList.push({ sectionId: section.id, name: section.name, depth });
   }
 
@@ -264,8 +252,6 @@ function getRunnableCodeBlockListingHelper(
         childImpl,
         depth + 1,
         x,
-        viewMode,
-        isEditingViewMode,
         outputList,
       );
     }
