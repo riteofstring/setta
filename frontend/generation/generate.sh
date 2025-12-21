@@ -16,7 +16,6 @@ python -m generation.generate_unions unions && \
 python -m generation.generate_effective_impls && \
 python -m generation.generate_unions websocket_unions && \
 python -m generation.generate_unions clipboard_data && \
-python -m generation.generate_listener_endpoints && \
 python -m generation.convert_pydantic_to_js && \
 python -m generation.convert_constants_to_js && \
 python -m generation.convert_endpoints && \

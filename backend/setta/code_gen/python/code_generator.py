@@ -9,7 +9,7 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.utils import (
     CLASS_DEF,
-    SELF_IDENTIFIER,
+    GEN_CODE_INSTANCE_NAME,
 )
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
@@ -181,7 +181,7 @@ class PythonCodeGenerator:
         self.lines[dep_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
     def create_var_name(self, dep_key, node: Node):
-        var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
+        var_name = f"{GEN_CODE_INSTANCE_NAME}.{node.full_path_name}"
         self.var_name_mapping[dep_key] = var_name
         self.reverse_var_name_mapping[var_name] = dep_key
         return var_name

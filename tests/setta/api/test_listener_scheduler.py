@@ -10,7 +10,7 @@ class ListenerCallbackSchedulerTests(unittest.IsolatedAsyncioTestCase):
         invocations: list[dict[str, int]] = []
         event = asyncio.Event()
 
-        async def executor(payload: dict[str, int], actions: list[object]):
+        async def executor(payload: dict[str, int]):
             invocations.append(dict(payload))
             event.set()
 
@@ -21,11 +21,11 @@ class ListenerCallbackSchedulerTests(unittest.IsolatedAsyncioTestCase):
             throttle_ms=None,
         )
 
-        scheduler.submit("cb", changed={"a": 1})
+        scheduler.submit("cb", {"a": 1})
         await asyncio.sleep(0.02)
         self.assertFalse(event.is_set())
 
-        scheduler.submit("cb", changed={"b": 2})
+        scheduler.submit("cb", {"b": 2})
         await asyncio.sleep(0.02)
         self.assertFalse(event.is_set())
 
@@ -42,7 +42,7 @@ class ListenerCallbackSchedulerTests(unittest.IsolatedAsyncioTestCase):
 
         loop = asyncio.get_running_loop()
 
-        async def executor(payload: dict[str, int], actions: list[object]):
+        async def executor(payload: dict[str, int]):
             call_times.append(loop.time())
             payloads.append(dict(payload))
             if len(call_times) == 1:
@@ -57,10 +57,10 @@ class ListenerCallbackSchedulerTests(unittest.IsolatedAsyncioTestCase):
             throttle_ms=50,
         )
 
-        scheduler.submit("cb", changed={"value": 1})
+        scheduler.submit("cb", {"value": 1})
         await asyncio.wait_for(first_event.wait(), timeout=0.2)
 
-        scheduler.submit("cb", changed={"value": 2})
+        scheduler.submit("cb", {"value": 2})
         await asyncio.sleep(0.02)
         self.assertFalse(second_event.is_set())
 
