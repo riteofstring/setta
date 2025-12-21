@@ -2,6 +2,7 @@ import asyncio
 import copy
 import json
 import logging
+import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -63,11 +64,15 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
+SECTION_ID_KEY_RE = re.compile(r'"sectionId"\s*:\s*"([^"]+)"')
+SECTION_IDS_KEY_RE = re.compile(r'"sectionIds"\s*:\s*\[([^\]]*)')
+SECTION_ID_VALUE_RE = re.compile(r'"([^"]+)"')
 
 
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
+    last_emitted_section_ids: set[ID] = field(default_factory=set)
 
 
 @dataclass
@@ -250,6 +255,7 @@ class LLMChatManager:
                         assistant_message,
                         chunk,
                         tool_call_state,
+                        chat.projectConfigId,
                     )
 
                 await self.websocket_msg_handler.send_streaming_response(
@@ -621,6 +627,7 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
+        project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -638,6 +645,7 @@ class LLMChatManager:
             assistant_message,
             delta,
             tool_call_state,
+            project_config_id,
         )
 
     async def _handle_text_deltas(
@@ -845,6 +853,7 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
+        project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
@@ -861,6 +870,11 @@ class LLMChatManager:
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
                 event,
+            )
+            await self._maybe_broadcast_streaming_follow_update(
+                project_config_id,
+                chat_id,
+                tool_call_state,
             )
 
     def _apply_tool_call_delta(
@@ -893,6 +907,61 @@ class LLMChatManager:
             arguments_delta=entry.function.arguments,
             tool_name=tool_name,
         )
+
+    async def _maybe_broadcast_streaming_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        tool_call_state: ToolCallStreamState,
+    ) -> None:
+        section_ids = self._extract_stream_section_ids_from_buffers(tool_call_state)
+        if not section_ids:
+            return
+        if section_ids == tool_call_state.last_emitted_section_ids:
+            return
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        resolved_ids: list[ID] = []
+        for section_id in section_ids:
+            if section_id not in temporary_to_canonical:
+                continue
+            resolved_ids.append(section_id)
+        if not resolved_ids:
+            return
+        canonical_ids = convert_temporary_ids_to_canonical(
+            resolved_ids,
+            temporary_to_canonical,
+        )
+        if not canonical_ids:
+            return
+        await self.websocket_msg_handler.broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            canonical_ids,
+        )
+        tool_call_state.last_emitted_section_ids = section_ids
+
+    def _extract_stream_section_ids_from_buffers(
+        self, tool_call_state: ToolCallStreamState
+    ) -> set[ID]:
+        combined: set[ID] = set()
+        for buffer in tool_call_state.argument_buffers.values():
+            if not buffer:
+                continue
+            combined.update(self._extract_stream_section_ids_from_buffer(buffer))
+        return combined
+
+    def _extract_stream_section_ids_from_buffer(self, buffer: str) -> set[ID]:
+        combined: set[ID] = set()
+        for match in SECTION_ID_KEY_RE.finditer(buffer):
+            value = match.group(1)
+            if value:
+                combined.add(ID(value))
+        for match in SECTION_IDS_KEY_RE.finditer(buffer):
+            values = match.group(1)
+            for value in SECTION_ID_VALUE_RE.findall(values):
+                if value:
+                    combined.add(ID(value))
+        return combined
 
     def _ensure_tool_call_entry(
         self, assistant_message: AssistantChatMessage, index: int
