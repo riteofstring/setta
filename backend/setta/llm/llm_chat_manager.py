@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, is_dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal, TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Literal, TypeVar, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -510,7 +510,9 @@ class LLMChatManager:
         summary = await project_manager.get_latest_project_state_summary(
             GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
         )
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
         map_size_before = len(canonical_to_temporary)
         converted_summary = convert_canonical_ids_to_temporary(
             summary,

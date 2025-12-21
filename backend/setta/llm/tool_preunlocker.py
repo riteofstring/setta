@@ -7,6 +7,7 @@ from setta.types.section_impls import SectionType
 
 if TYPE_CHECKING:
     from litellm.types.llms.openai import ChatCompletionToolParam
+
     from setta.project_state.project_state_summary_types import ProjectStateSummary
     from setta.types.chat import Chat
 
