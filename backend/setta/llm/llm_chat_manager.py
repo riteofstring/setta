@@ -2,12 +2,11 @@ import asyncio
 import copy
 import json
 import logging
-import string
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal, TypeVar, cast
+from typing import Any, AsyncIterator, Iterator, Literal
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -21,13 +20,6 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
-from setta.mcp.tool_metadata import (
-    AIFollowToolArgumentsMetadata,
-    AIFollowToolResultMetadata,
-    FollowIdType,
-    ToolArgumentPreviewIdType,
-    ToolArgumentPreviewMetadata,
-)
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
@@ -59,14 +51,12 @@ from setta.types.chat_stream_events import (
     MessageStopEvent,
     MessageTextDelta,
     MessageThinkingDelta,
-    ToolArgumentPreviewDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
-from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -78,16 +68,6 @@ SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_pr
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
-    preview_values_by_index: dict[int, str] = field(default_factory=dict)
-    preview_target_ids_by_index: dict[
-        int, dict[ToolArgumentPreviewIdType, list[ID]]
-    ] = field(default_factory=dict)
-
-
-@dataclass
-class AIFollowState:
-    project_config_id: ID
-    ids_by_type: dict[FollowIdType, list[ID]]
 
 
 @dataclass
@@ -109,27 +89,6 @@ class StreamContentEntry:
         if self.kind == "text":
             return bool(self.text)
         return bool(self.text) or self.signature is not None
-
-
-_ToolIdType = TypeVar("_ToolIdType", bound=str)
-
-
-@dataclass
-class _JsonContainerState:
-    kind: Literal["object", "array"]
-    value_owner_key: str | None
-    object_key_owner: str | None = None
-    expecting_key: bool = False
-    expecting_value: bool = False
-    pending_key: str | None = None
-
-
-@dataclass
-class _PartialJsonStringToken:
-    value: str
-    kind: Literal["key", "value"]
-    owner_key: str | None
-    is_complete: bool
 
 
 @dataclass
@@ -175,7 +134,6 @@ class LLMChatManager:
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
-        self._ai_follow_state: dict[ID, AIFollowState] = {}
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
@@ -215,26 +173,6 @@ class LLMChatManager:
     def delete_chat(self, chat_id: ID) -> None:
         delete_chat_record(self.dbe, chat_id)
         self._chat_tool_states.pop(chat_id, None)
-        self._ai_follow_state.pop(chat_id, None)
-
-    def get_ai_follow_snapshot(
-        self, project_config_id: ID
-    ) -> list[AIFollowToolArgumentsUpdateContent]:
-        snapshot: list[AIFollowToolArgumentsUpdateContent] = []
-        for chat_id, state in self._ai_follow_state.items():
-            if state.project_config_id != project_config_id:
-                continue
-            ids_by_type = self._normalize_ai_follow_ids_by_type(state.ids_by_type)
-            if not ids_by_type:
-                continue
-            snapshot.append(
-                AIFollowToolArgumentsUpdateContent(
-                    projectConfigId=project_config_id,
-                    chatId=chat_id,
-                    idsByType=ids_by_type,
-                )
-            )
-        return snapshot
 
     def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
         metadata = self.get_all_chat_metadata()
@@ -312,7 +250,6 @@ class LLMChatManager:
                         assistant_message,
                         chunk,
                         tool_call_state,
-                        chat.projectConfigId,
                     )
 
                 await self.websocket_msg_handler.send_streaming_response(
@@ -328,10 +265,10 @@ class LLMChatManager:
                 )
                 tool_results = await self._run_tool_calls(chat, assistant_message)
                 if assistant_message.tool_calls:
-                    await self._update_and_broadcast_ai_follow_update(
+                    await self.websocket_msg_handler.broadcast_ai_follow_update(
                         chat.projectConfigId,
                         chat.id,
-                        {},
+                        [],
                     )
                 new_messages: list[BaseChatMessageUnion] = [assistant_message]
                 if tool_results:
@@ -366,11 +303,6 @@ class LLMChatManager:
                         chat.id,
                         MessageFinalizedEvent(message=assistant_message),
                     )
-                await self._update_and_broadcast_ai_follow_update(
-                    chat.projectConfigId,
-                    chat.id,
-                    {},
-                )
                 raise
             except Exception as exc:
                 if not stop_event_sent:
@@ -387,11 +319,6 @@ class LLMChatManager:
                     project_config_id=chat.projectConfigId,
                     logger=logger,
                     context={"chat_id": str(chat.id)},
-                )
-                await self._update_and_broadcast_ai_follow_update(
-                    chat.projectConfigId,
-                    chat.id,
-                    {},
                 )
                 return
             finally:
@@ -694,7 +621,6 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
-        project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -712,7 +638,6 @@ class LLMChatManager:
             assistant_message,
             delta,
             tool_call_state,
-            project_config_id,
         )
 
     async def _handle_text_deltas(
@@ -920,35 +845,22 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
-        project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
             return
 
         for entry in entries:
-            tool_call_event = self._apply_tool_call_delta(
+            event = self._apply_tool_call_delta(
                 assistant_message,
                 entry,
                 tool_call_state,
             )
-            if not tool_call_event:
+            if not event:
                 continue
-            preview_event = self._build_streaming_preview_event(
-                assistant_message,
-                tool_call_state,
-                entry.index,
-                entry.function.arguments,
-            )
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
-                preview_event or tool_call_event,
-            )
-            await self._maybe_broadcast_streaming_follow_update(
-                project_config_id,
-                chat_id,
-                assistant_message,
-                tool_call_state,
+                event,
             )
 
     def _apply_tool_call_delta(
@@ -982,476 +894,6 @@ class LLMChatManager:
             tool_name=tool_name,
         )
 
-    async def _maybe_broadcast_streaming_follow_update(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-    ) -> None:
-        ids_by_type = self._extract_stream_ids_by_type_from_buffers(
-            assistant_message,
-            tool_call_state,
-        )
-        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
-            ids_by_type,
-            filter_to_known=True,
-        )
-        if canonical_ids_by_type is None:
-            return
-        await self._update_and_broadcast_ai_follow_update(
-            project_config_id,
-            chat_id,
-            canonical_ids_by_type,
-        )
-
-    def _build_streaming_preview_event(
-        self,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-        tool_call_index: int,
-        arguments_delta: str,
-    ) -> ToolArgumentPreviewDeltaEvent | None:
-        buffer = tool_call_state.argument_buffers.get(tool_call_index)
-        if not buffer:
-            return None
-        tool_calls = assistant_message.tool_calls or []
-        if tool_call_index >= len(tool_calls):
-            return None
-        tool_call = tool_calls[tool_call_index]
-        tool_name = tool_call.function.name.strip()
-        if not tool_name:
-            return None
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.toolArgumentPreview:
-            return None
-        metadata = annotations.toolArgumentPreview
-        tokens = self._scan_partial_json_strings(buffer)
-        preview_value = self._extract_preview_value_from_tokens(
-            tokens,
-            metadata.previewValuePath,
-        )
-        if preview_value is None:
-            return None
-        target_ids_by_type = self._extract_preview_target_ids_from_tokens(
-            tokens,
-            metadata,
-        )
-        canonical_target_ids_by_type = self._canonicalize_preview_ids_by_type(
-            target_ids_by_type,
-            metadata.targetIdPathsByType,
-        )
-        if canonical_target_ids_by_type is None:
-            return None
-        last_value = tool_call_state.preview_values_by_index.get(tool_call_index, "")
-        preview_value = self._coalesce_preview_value(last_value, preview_value)
-        if last_value and not preview_value.startswith(last_value):
-            return None
-        preview_delta = preview_value[len(last_value) :]
-        last_ids = tool_call_state.preview_target_ids_by_index.get(tool_call_index)
-        ids_match = last_ids is not None and self._preview_ids_by_type_to_sets(
-            last_ids
-        ) == self._preview_ids_by_type_to_sets(canonical_target_ids_by_type)
-        if not preview_delta and ids_match:
-            return None
-        tool_call_state.preview_values_by_index[tool_call_index] = preview_value
-        tool_call_state.preview_target_ids_by_index[tool_call_index] = (
-            canonical_target_ids_by_type
-        )
-        return ToolArgumentPreviewDeltaEvent(
-            message_id=assistant_message.id,
-            tool_call_id=tool_call.id,
-            tool_name=tool_name,
-            arguments_delta=arguments_delta,
-            preview_kind=metadata.previewKind,
-            target_ids_by_type=canonical_target_ids_by_type,
-            preview_value_delta=preview_delta,
-        )
-
-    def _extract_stream_ids_by_type_from_buffers(
-        self,
-        assistant_message: AssistantChatMessage,
-        tool_call_state: ToolCallStreamState,
-    ) -> dict[FollowIdType, list[ID]]:
-        combined: dict[FollowIdType, set[ID]] = {}
-        tool_calls = assistant_message.tool_calls or []
-        for index, buffer in tool_call_state.argument_buffers.items():
-            if not buffer:
-                continue
-            tool_name = (
-                tool_calls[index].function.name.strip()
-                if index < len(tool_calls)
-                else ""
-            )
-            if not tool_name:
-                continue
-            buffer_ids_by_type = self._extract_stream_ids_by_type_from_buffer(
-                buffer,
-                tool_name,
-            )
-            for id_type, ids in buffer_ids_by_type.items():
-                combined.setdefault(id_type, set()).update(ids)
-        return {id_type: list(ids) for id_type, ids in combined.items() if ids}
-
-    def _extract_stream_ids_by_type_from_paths(
-        self,
-        buffer: str,
-        paths_by_id_type: dict[_ToolIdType, list[str]],
-    ) -> dict[_ToolIdType, set[ID]]:
-        tokens = self._scan_partial_json_strings(buffer)
-        return self._extract_stream_ids_by_type_from_tokens(tokens, paths_by_id_type)
-
-    def _extract_stream_ids_by_type_from_tokens(
-        self,
-        tokens: list[_PartialJsonStringToken],
-        paths_by_id_type: dict[_ToolIdType, list[str]],
-    ) -> dict[_ToolIdType, set[ID]]:
-        keys_by_type: dict[_ToolIdType, set[str]] = {}
-        for id_type, paths in paths_by_id_type.items():
-            for path in paths:
-                if path == "$":
-                    continue
-                segments = [segment for segment in path.split(".") if segment]
-                if not segments:
-                    continue
-                keys_by_type.setdefault(id_type, set()).add(segments[-1])
-        if not keys_by_type:
-            return {}
-        key_to_types: dict[str, set[_ToolIdType]] = {}
-        for id_type, keys in keys_by_type.items():
-            for key in keys:
-                key_to_types.setdefault(key, set()).add(id_type)
-        combined: dict[_ToolIdType, set[ID]] = {}
-        for token in tokens:
-            if not token.is_complete:
-                continue
-            if not token.value:
-                continue
-            owner_key = token.owner_key
-            if not owner_key:
-                continue
-            types_for_key = key_to_types.get(owner_key)
-            if not types_for_key:
-                continue
-            for id_type in types_for_key:
-                combined.setdefault(id_type, set()).add(ID(token.value))
-        return combined
-
-    def _extract_stream_ids_by_type_from_buffer(
-        self,
-        buffer: str,
-        tool_name: str,
-    ) -> dict[FollowIdType, set[ID]]:
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolArguments:
-            return {}
-        metadata = annotations.aiFollowToolArguments
-        combined = self._extract_stream_ids_by_type_from_paths(
-            buffer,
-            metadata.pathsByIdType,
-        )
-        return {id_type: ids for id_type, ids in combined.items() if ids}
-
-    def _extract_preview_target_ids_from_tokens(
-        self,
-        tokens: list[_PartialJsonStringToken],
-        metadata: ToolArgumentPreviewMetadata,
-    ) -> dict[ToolArgumentPreviewIdType, list[ID]]:
-        combined = self._extract_stream_ids_by_type_from_tokens(
-            tokens,
-            metadata.targetIdPathsByType,
-        )
-        return {id_type: list(ids) for id_type, ids in combined.items() if ids}
-
-    def _extract_preview_value_from_tokens(
-        self,
-        tokens: list[_PartialJsonStringToken],
-        preview_value_path: str,
-    ) -> str | None:
-        key = self._preview_value_key(preview_value_path)
-        if not key:
-            return None
-        last_value: str | None = None
-        for token in tokens:
-            if token.kind != "value":
-                continue
-            if token.owner_key != key:
-                continue
-            last_value = token.value
-        return last_value
-
-    @staticmethod
-    def _preview_value_key(preview_value_path: str) -> str | None:
-        if preview_value_path == "$":
-            return None
-        segments = [segment for segment in preview_value_path.split(".") if segment]
-        if not segments:
-            return None
-        return segments[-1]
-
-    def _scan_partial_json_strings(
-        self,
-        buffer: str,
-    ) -> list[_PartialJsonStringToken]:
-        tokens: list[_PartialJsonStringToken] = []
-        containers: list[_JsonContainerState] = []
-        # Stateful scan to capture string tokens from partial JSON buffers.
-        i = 0
-        while i < len(buffer):
-            char = buffer[i]
-            if char == '"':
-                value, next_index, is_complete = (
-                    self._parse_partial_json_string_with_end(buffer, i + 1)
-                )
-                container = containers[-1] if containers else None
-                if container and container.kind == "object":
-                    if container.expecting_key:
-                        tokens.append(
-                            _PartialJsonStringToken(
-                                value=value,
-                                kind="key",
-                                owner_key=container.object_key_owner,
-                                is_complete=is_complete,
-                            )
-                        )
-                        if is_complete:
-                            container.pending_key = value
-                            container.expecting_key = False
-                    elif container.expecting_value:
-                        tokens.append(
-                            _PartialJsonStringToken(
-                                value=value,
-                                kind="value",
-                                owner_key=container.pending_key,
-                                is_complete=is_complete,
-                            )
-                        )
-                        if is_complete:
-                            container.pending_key = None
-                            container.expecting_value = False
-                    else:
-                        tokens.append(
-                            _PartialJsonStringToken(
-                                value=value,
-                                kind="value",
-                                owner_key=None,
-                                is_complete=is_complete,
-                            )
-                        )
-                elif container and container.kind == "array":
-                    tokens.append(
-                        _PartialJsonStringToken(
-                            value=value,
-                            kind="value",
-                            owner_key=container.value_owner_key,
-                            is_complete=is_complete,
-                        )
-                    )
-                else:
-                    tokens.append(
-                        _PartialJsonStringToken(
-                            value=value,
-                            kind="value",
-                            owner_key=None,
-                            is_complete=is_complete,
-                        )
-                    )
-                i = next_index
-                if not is_complete:
-                    break
-                continue
-            if char == "{":
-                value_owner_key = None
-                object_key_owner = None
-                if containers:
-                    parent = containers[-1]
-                    if (
-                        parent.kind == "object"
-                        and parent.expecting_value
-                        and parent.pending_key is not None
-                    ):
-                        value_owner_key = parent.pending_key
-                        object_key_owner = parent.pending_key
-                        parent.expecting_value = False
-                        parent.pending_key = None
-                    elif parent.kind == "array":
-                        value_owner_key = parent.value_owner_key
-                containers.append(
-                    _JsonContainerState(
-                        kind="object",
-                        value_owner_key=value_owner_key,
-                        object_key_owner=object_key_owner,
-                        expecting_key=True,
-                    )
-                )
-                i += 1
-                continue
-            if char == "[":
-                value_owner_key = None
-                if containers:
-                    parent = containers[-1]
-                    if (
-                        parent.kind == "object"
-                        and parent.expecting_value
-                        and parent.pending_key is not None
-                    ):
-                        value_owner_key = parent.pending_key
-                        parent.expecting_value = False
-                        parent.pending_key = None
-                    elif parent.kind == "array":
-                        value_owner_key = parent.value_owner_key
-                containers.append(
-                    _JsonContainerState(
-                        kind="array",
-                        value_owner_key=value_owner_key,
-                    )
-                )
-                i += 1
-                continue
-            if char == ":":
-                if containers and containers[-1].kind == "object":
-                    container = containers[-1]
-                    if (
-                        container.pending_key is not None
-                        and not container.expecting_value
-                    ):
-                        container.expecting_value = True
-                i += 1
-                continue
-            if char == ",":
-                if containers and containers[-1].kind == "object":
-                    container = containers[-1]
-                    container.expecting_key = True
-                    container.expecting_value = False
-                    container.pending_key = None
-                i += 1
-                continue
-            if char == "}":
-                if containers and containers[-1].kind == "object":
-                    containers.pop()
-                i += 1
-                continue
-            if char == "]":
-                if containers and containers[-1].kind == "array":
-                    containers.pop()
-                i += 1
-                continue
-            if containers and containers[-1].kind == "object":
-                container = containers[-1]
-                if container.expecting_value and not char.isspace():
-                    i = self._consume_non_string_value(buffer, i, container)
-                    continue
-            i += 1
-        return tokens
-
-    @staticmethod
-    def _consume_non_string_value(
-        buffer: str,
-        start_index: int,
-        container: _JsonContainerState,
-    ) -> int:
-        container.expecting_value = False
-        container.pending_key = None
-        i = start_index
-        while i < len(buffer) and buffer[i] not in ",]}":
-            i += 1
-        return i
-
-    @staticmethod
-    def _parse_partial_json_string_with_end(
-        buffer: str,
-        start_index: int,
-    ) -> tuple[str, int, bool]:
-        parsed: list[str] = []
-        i = start_index
-        while i < len(buffer):
-            char = buffer[i]
-            if char == '"':
-                return "".join(parsed), i + 1, True
-            if char != "\\":
-                parsed.append(char)
-                i += 1
-                continue
-            i += 1
-            if i >= len(buffer):
-                return "".join(parsed), len(buffer), False
-            escape = buffer[i]
-            if escape == '"':
-                parsed.append('"')
-            elif escape == "\\":
-                parsed.append("\\")
-            elif escape == "/":
-                parsed.append("/")
-            elif escape == "b":
-                parsed.append("\b")
-            elif escape == "f":
-                parsed.append("\f")
-            elif escape == "n":
-                parsed.append("\n")
-            elif escape == "r":
-                parsed.append("\r")
-            elif escape == "t":
-                parsed.append("\t")
-            elif escape == "u":
-                if i + 4 >= len(buffer):
-                    return "".join(parsed), len(buffer), False
-                code = buffer[i + 1 : i + 5]
-                if not LLMChatManager._is_hex_digits(code):
-                    return "".join(parsed), len(buffer), False
-                parsed.append(chr(int(code, 16)))
-                i += 5
-                continue
-            else:
-                parsed.append(escape)
-            i += 1
-        return "".join(parsed), len(buffer), False
-
-    @staticmethod
-    def _is_hex_digits(value: str) -> bool:
-        return all(char in string.hexdigits for char in value)
-
-    @staticmethod
-    def _coalesce_preview_value(
-        last_value: str | None,
-        next_value: str,
-    ) -> str:
-        if last_value is None:
-            return next_value
-        if len(next_value) < len(last_value) and last_value.startswith(next_value):
-            return last_value
-        return next_value
-
-    def _preview_ids_by_type_to_sets(
-        self,
-        ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
-    ) -> dict[ToolArgumentPreviewIdType, set[ID]]:
-        return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
-
-    def _canonicalize_preview_ids_by_type(
-        self,
-        ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
-        required_paths_by_type: dict[ToolArgumentPreviewIdType, list[str]],
-    ) -> dict[ToolArgumentPreviewIdType, list[ID]] | None:
-        if not ids_by_type:
-            return None
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        filtered: dict[ToolArgumentPreviewIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            if not ids:
-                continue
-            resolved = [entry for entry in ids if entry in temporary_to_canonical]
-            if resolved:
-                filtered[id_type] = resolved
-        if not filtered:
-            return None
-        for id_type in required_paths_by_type.keys():
-            if id_type not in filtered or not filtered[id_type]:
-                return None
-        return convert_temporary_ids_to_canonical(
-            filtered,
-            temporary_to_canonical,
-        )
-
     def _ensure_tool_call_entry(
         self, assistant_message: AssistantChatMessage, index: int
     ) -> ToolCall:
@@ -1477,7 +919,7 @@ class LLMChatManager:
     ) -> None:
         if not assistant_message.tool_calls:
             return
-        parsed_tool_calls: list[ToolCall] = []
+        parsed_arguments: list[dict[str, Any]] = []
         for index, tool_call in enumerate(assistant_message.tool_calls):
             raw_arguments = tool_call_state.argument_buffers.get(index)
             if not raw_arguments:
@@ -1485,11 +927,11 @@ class LLMChatManager:
             tool_call.function.arguments = self._parse_tool_call_arguments(
                 raw_arguments, tool_call.id
             )
-            parsed_tool_calls.append(tool_call)
+            parsed_arguments.append(tool_call.function.arguments)
         await self._broadcast_ai_follow_update(
             project_config_id,
             chat_id,
-            parsed_tool_calls,
+            parsed_arguments,
         )
 
     async def _run_tool_calls(
@@ -1571,12 +1013,6 @@ class LLMChatManager:
             ToolResultEvent(
                 result=tool_chat_message,
             ),
-        )
-        await self._maybe_broadcast_ai_follow_tool_result_update(
-            tool_name,
-            call_result,
-            chat.projectConfigId,
-            chat_id,
         )
         return tool_chat_message
 
@@ -1698,274 +1134,53 @@ class LLMChatManager:
             )
             return {}
 
-    def _select_values_by_path(self, payload: Any, path: str) -> list[Any]:
-        if path == "$":
-            return [payload]
-        segments = [segment for segment in path.split(".") if segment]
-        current: list[Any] = [payload]
-        for segment in segments:
-            key = segment
-            next_values: list[Any] = []
-            for item in current:
-                if not isinstance(item, dict):
-                    continue
-                if key not in item:
-                    continue
-                value = item[key]
-                next_values.append(value)
-            current = next_values
-            if not current:
-                break
-        return current
-
-    def _collect_ai_follow_ids_from_paths(
-        self,
-        payload: Any,
-        paths_by_id_type: dict[FollowIdType, list[str]],
-        *,
-        allow_dict_keys: bool,
-    ) -> tuple[dict[FollowIdType, set[ID]], set[FollowIdType]]:
-        ids_by_type: dict[FollowIdType, set[ID]] = {}
-        found_types: set[FollowIdType] = set()
-        for id_type, paths in paths_by_id_type.items():
-            for path in paths:
-                values = self._select_values_by_path(payload, path)
-                for value in values:
-                    ids = self._coerce_id_list(value)
-                    if ids is None and allow_dict_keys and isinstance(value, dict):
-                        dict_keys = [
-                            key for key in value.keys() if isinstance(key, str)
-                        ]
-                        ids = self._coerce_id_list(dict_keys)
-                    if ids is None:
-                        continue
-                    found_types.add(id_type)
-                    if ids:
-                        ids_by_type.setdefault(id_type, set()).update(ids)
-        return ids_by_type, found_types
-
-    def _extract_ai_follow_tool_result_ids(
-        self,
-        payload: Any,
-        metadata: AIFollowToolResultMetadata,
-    ) -> dict[FollowIdType, list[ID]]:
-        ids_by_type, _ = self._collect_ai_follow_ids_from_paths(
-            payload,
-            metadata.pathsByIdType,
-            allow_dict_keys=False,
-        )
-        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
-
-    def _extract_ai_follow_tool_argument_ids(
-        self,
-        arguments: dict[str, Any],
-        metadata: AIFollowToolArgumentsMetadata,
-    ) -> dict[FollowIdType, list[ID]] | None:
-        ids_by_type, found_types = self._collect_ai_follow_ids_from_paths(
-            arguments,
-            metadata.pathsByIdType,
-            allow_dict_keys=True,
-        )
-        if not found_types:
-            return None
-        return {
-            id_type: list(ids_by_type.get(id_type, set())) for id_type in found_types
-        }
-
-    def _canonicalize_ai_follow_ids_by_type(
-        self,
-        ids_by_type: dict[FollowIdType, list[ID]],
-        *,
-        filter_to_known: bool,
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if not ids_by_type:
-            return None
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        if not filter_to_known:
-            return convert_temporary_ids_to_canonical(
-                ids_by_type,
-                temporary_to_canonical,
-            )
-        filtered: dict[FollowIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            resolved = [entry for entry in ids if entry in temporary_to_canonical]
-            if resolved:
-                filtered[id_type] = resolved
-        if not filtered:
-            return None
-        return convert_temporary_ids_to_canonical(
-            filtered,
-            temporary_to_canonical,
-        )
-
-    def _build_ai_follow_tool_result_update(
-        self,
-        tool_name: str,
-        call_result: CallToolResult,
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if call_result.isError:
-            return None
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolResult:
-            return None
-        metadata = annotations.aiFollowToolResult
-        text_entry = cast("TextContent", call_result.content[0])
-        text = (text_entry.text or "").strip()
-        payload: Any
-        if all(
-            path == "$" for paths in metadata.pathsByIdType.values() for path in paths
-        ):
-            payload = text
-        else:
-            payload = json.loads(text)
-        ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
-        if not ids_by_type:
-            return None
-        return self._canonicalize_ai_follow_ids_by_type(
-            ids_by_type,
-            filter_to_known=False,
-        )
-
-    async def _maybe_broadcast_ai_follow_tool_result_update(
-        self,
-        tool_name: str,
-        call_result: CallToolResult,
-        project_config_id: ID,
-        chat_id: ID,
-    ) -> None:
-        canonical_ids_by_type = self._build_ai_follow_tool_result_update(
-            tool_name,
-            call_result,
-        )
-        if canonical_ids_by_type is None:
-            return
-        await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
-            project_config_id,
-            chat_id,
-            canonical_ids_by_type,
-        )
-
     async def _broadcast_ai_follow_update(
         self,
         project_config_id: ID,
         chat_id: ID,
-        tool_calls: list[ToolCall],
+        arguments_list: list[dict[str, Any]],
     ) -> None:
-        ids_by_type = self._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
-        if ids_by_type is None:
+        section_ids = self._collect_ai_follow_section_ids(arguments_list)
+        if section_ids is None:
             return
-        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
-            ids_by_type,
-            filter_to_known=False,
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        section_ids = convert_temporary_ids_to_canonical(
+            section_ids,
+            temporary_to_canonical,
         )
-        if canonical_ids_by_type is None:
-            return
-        await self._update_and_broadcast_ai_follow_update(
+        await self.websocket_msg_handler.broadcast_ai_follow_update(
             project_config_id,
             chat_id,
-            canonical_ids_by_type,
+            section_ids,
         )
 
-    def _normalize_ai_follow_ids_by_type(
-        self, ids_by_type: dict[FollowIdType, list[ID]]
-    ) -> dict[FollowIdType, list[ID]]:
-        normalized: dict[FollowIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            if not ids:
-                continue
-            normalized[id_type] = list(dict.fromkeys(ids))
-        return normalized
-
-    def _ids_by_type_to_sets(
-        self, ids_by_type: dict[FollowIdType, list[ID]]
-    ) -> dict[FollowIdType, set[ID]]:
-        return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
-
-    def _ai_follow_state_matches(
-        self,
-        chat_id: ID,
-        project_config_id: ID,
-        ids_by_type: dict[FollowIdType, list[ID]],
-    ) -> bool:
-        if chat_id not in self._ai_follow_state:
-            return False
-        state = self._ai_follow_state[chat_id]
-        if state.project_config_id != project_config_id:
-            return False
-        return self._ids_by_type_to_sets(
-            state.ids_by_type
-        ) == self._ids_by_type_to_sets(ids_by_type)
-
-    async def _update_and_broadcast_ai_follow_update(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        ids_by_type: dict[FollowIdType, list[ID]],
-    ) -> None:
-        normalized_ids_by_type = self._normalize_ai_follow_ids_by_type(ids_by_type)
-        if self._ai_follow_state_matches(
-            chat_id,
-            project_config_id,
-            normalized_ids_by_type,
-        ):
-            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
-            return
-        payload_ids_by_type = dict(normalized_ids_by_type)
-        self._ai_follow_state[chat_id] = AIFollowState(
-            project_config_id=project_config_id,
-            ids_by_type=payload_ids_by_type,
-        )
-        logger.debug(
-            "Broadcasting AI follow update for chat %s (ids_by_type=%s)",
-            chat_id,
-            payload_ids_by_type,
-        )
-        await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
-            project_config_id,
-            chat_id,
-            payload_ids_by_type,
-        )
-
-    def _collect_ai_follow_ids_by_type_from_tool_calls(
-        self,
-        tool_calls: list[ToolCall],
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if not tool_calls:
+    def _collect_ai_follow_section_ids(
+        self, arguments_list: list[dict[str, Any]]
+    ) -> list[ID] | None:
+        if not arguments_list:
             return None
-        combined: dict[FollowIdType, set[ID]] = {}
+        combined: set[ID] = set()
         found_any = False
-        for tool_call in tool_calls:
-            tool_name = tool_call.function.name.strip()
-            if not tool_name:
-                continue
-            arguments = tool_call.function.arguments or {}
-            ids_by_type = self._extract_ai_follow_ids_by_type_for_tool(
-                tool_name,
-                arguments,
-            )
-            if ids_by_type is None:
+        for arguments in arguments_list:
+            section_ids = self._extract_ai_follow_section_ids(arguments)
+            if section_ids is None:
                 continue
             found_any = True
-            for id_type, ids in ids_by_type.items():
-                combined.setdefault(id_type, set()).update(ids)
+            combined.update(section_ids)
         if not found_any:
             return None
-        return {id_type: list(ids) for id_type, ids in combined.items()}
+        return list(combined)
 
-    def _extract_ai_follow_ids_by_type_for_tool(
-        self,
-        tool_name: str,
-        arguments: dict[str, Any],
-    ) -> dict[FollowIdType, list[ID]] | None:
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolArguments:
-            return None
-        return self._extract_ai_follow_tool_argument_ids(
-            arguments,
-            annotations.aiFollowToolArguments,
-        )
+    def _extract_ai_follow_section_ids(
+        self, arguments: dict[str, Any]
+    ) -> list[ID] | None:
+        if "sectionIds" in arguments:
+            return self._coerce_section_id_list(arguments["sectionIds"])
+        if "sectionId" in arguments:
+            return self._coerce_section_id_list(arguments["sectionId"])
+        return None
 
-    def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
+    def _coerce_section_id_list(self, raw_value: Any) -> list[ID] | None:
         if isinstance(raw_value, list):
             return [
                 ID(value) for value in raw_value if isinstance(value, str) and value

@@ -25,6 +25,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -90,6 +91,7 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "layers",
                 "max",
+                "metaControlType",
                 "min",
                 "name",
                 "paramFilter",
@@ -398,6 +400,21 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
     text: NotRequired[str | Callable[[str], str]]
+
+
+class MetaControlSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.MetaControl]]
+    metaControlType: NotRequired[MetaControlType]
+
+
+class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.MetaControl]
+        | Callable[[Literal[SectionType.MetaControl]], Literal[SectionType.MetaControl]]
+    ]
+    metaControlType: NotRequired[
+        MetaControlType | Callable[[MetaControlType], MetaControlType]
+    ]
 
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
