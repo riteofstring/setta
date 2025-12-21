@@ -1,8 +1,9 @@
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
 import { FiFileText } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
@@ -18,7 +19,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
+import { useResizableColumn } from "state/hooks/useResizableColumns";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -42,10 +43,7 @@ const artifactTypes = [
   { type: "Other", icon: <MdCategory /> },
 ];
 
-const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
-
 export function BrowserArea({ sectionId }: { sectionId: string }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const { width, hideColumn, viewMode, folder } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -62,71 +60,40 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
       folder: impl.folder,
     };
   }, _.isEqual);
-  const handleTypesColumnResizeStart = useBrowserColumnWidth({
-    sectionId,
-    outerRef: containerRef,
-    widthKey: "typesColumnWidth",
-    cssVarName: "--browser-types-column-width",
-  });
-  const typesColumnWidth = "var(--browser-types-column-width, 50%)";
 
   return (
-    <div
-      className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
-      ref={containerRef}
-    >
-      {!hideColumn && (
-        <TypesColumn
-          width={width}
-          columnWidth={typesColumnWidth}
-          onResizeStart={handleTypesColumnResizeStart}
-        />
-      )}
+    <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
+      {!hideColumn && <TypesColumn width={width} />}
       <ItemsColumn sectionId={sectionId} viewMode={viewMode} folder={folder} />
     </div>
   );
 }
 
-function TypesColumn({
-  width,
-  columnWidth,
-  onResizeStart,
-}: {
-  width: number;
-  columnWidth: string;
-  onResizeStart: React.MouseEventHandler<HTMLDivElement>;
-}) {
+function TypesColumn({ width }: { width: number }) {
   const { ref, isScrollable } = useIsScrollable();
-  const isResizable = width > TYPES_COLUMN_MIN_CONTAINER_WIDTH;
   return (
-    <article
-      className="nodrag relative flex min-w-0 flex-col pr-1"
-      style={isResizable ? { width: columnWidth } : undefined}
-    >
-      {isResizable && (
-        <div className="absolute right-0 top-0 flex h-full items-center">
-          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        </div>
-      )}
-      <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-        Types
-      </h3>
+    <>
+      <ResizableColumn width={width}>
+        <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+          Types
+        </h3>
 
-      <div
-        ref={ref}
-        className={`relative mb-2 mt-2 flex min-h-0 flex-col overflow-y-auto pr-1 ${isScrollable ? "nowheel" : ""}`}
-      >
-        {artifactTypes.map((x) => (
-          <CheckboxNextToLabel key={x.type} icon={x.icon}>
-            <p className="truncate">{x.type}</p>
-          </CheckboxNextToLabel>
-        ))}
-      </div>
-      <button className="nodrag mt-auto flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-2 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400">
-        <BiSolidSelectMultiple />
-        Select All
-      </button>
-    </article>
+        <div
+          ref={ref}
+          className={`relative mb-2 mt-2 flex min-h-0 flex-col overflow-y-auto pr-1 ${isScrollable ? "nowheel" : ""}`}
+        >
+          {artifactTypes.map((x) => (
+            <CheckboxNextToLabel icon={x.icon}>
+              <p className="truncate">{x.type}</p>
+            </CheckboxNextToLabel>
+          ))}
+        </div>
+        <button className="nodrag mt-auto flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-2 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400">
+          <BiSolidSelectMultiple />
+          Select All
+        </button>
+      </ResizableColumn>
+    </>
   );
 }
 
@@ -220,31 +187,27 @@ function ThumbnailItem({
   );
 }
 
-function ResizableFileList({
-  items,
-  sectionId,
-}: {
-  items: Array<BrowserAreaItem>;
-  sectionId: string;
-}) {
-  const outerRef = useRef<HTMLDivElement | null>(null);
-  const handleResize = useBrowserColumnWidth({
-    sectionId,
-    outerRef,
-    widthKey: "columnWidth",
-    cssVarName: "--browser-column-width",
-  });
+function ResizableFileList({ items, sectionId }) {
+  const { headerRef, contentRef, handleResize, getRowProps } =
+    useResizableColumn(sectionId, {
+      minWidth: 80,
+      maxWidth: 400,
+      defaultWidth: 180,
+    });
   const { ref, isScrollable } = useIsScrollable();
-  const columnWidth = "var(--browser-column-width, 50%)";
+
+  function totalContentRef(e) {
+    ref.current = e;
+    contentRef.current = e;
+  }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" ref={outerRef}>
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Header Row */}
       <div
+        ref={headerRef}
         className="mb-3 grid border-b border-solid border-setta-200 text-xs text-setta-300 dark:border-setta-700 dark:text-setta-700"
-        style={{
-          gridTemplateColumns: `minmax(min-content, ${columnWidth}) 1fr`,
-        }}
+        style={{ gridTemplateColumns: "minmax(min-content, 180px) 1fr" }}
       >
         <div className="relative flex items-center px-1 py-2">
           <p>Name</p>
@@ -260,15 +223,14 @@ function ResizableFileList({
       {/* List Items */}
       <div
         className={`min-h-0 flex-1 overflow-x-auto overflow-y-scroll ${isScrollable ? "nowheel" : ""}`}
-        ref={ref}
+        ref={totalContentRef}
       >
         {items.map((item) => (
           <div
             key={item.id}
             className="group/listitem grid"
-            style={{
-              gridTemplateColumns: `minmax(min-content, ${columnWidth}) 1fr`,
-            }}
+            style={{ gridTemplateColumns: "minmax(min-content, 180px) 1fr" }}
+            {...getRowProps()}
           >
             <div className="relative w-full">
               <div className="absolute min-h-6 w-full min-w-0 cursor-pointer items-center gap-2 overflow-clip truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/listitem:!text-blue-500 dark:text-setta-200">
@@ -490,6 +452,35 @@ function ItemsColumn({
       <ViewSwitch view={value} sectionId={sectionId} items={items} />
     </div>
   );
+}
+
+function ResizableColumn({
+  width,
+  minContainerWidth = 384,
+  children,
+  minWidth = 0,
+  maxWidth = "70%",
+  enable = { right: true },
+  className = "nodrag relative flex flex-col pr-1",
+  handleClasses = {
+    right:
+      "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0  before:m-auto before:w-1/4 hover:before:bg-blue-500 before:rounded-full",
+  },
+}) {
+  if (width > minContainerWidth) {
+    return (
+      <ResizableWithScale
+        className={className}
+        enable={enable}
+        minWidth={minWidth}
+        maxWidth={maxWidth}
+        handleClasses={handleClasses}
+      >
+        {children}
+      </ResizableWithScale>
+    );
+  }
+  return <article className="-mr-2 flex flex-col pr-2">{children}</article>;
 }
 
 function CheckboxNextToLabel({

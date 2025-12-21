@@ -388,6 +388,19 @@ const useOriginalYamlObj = withProjectState(
   createWithEqualityFn(withResetFn(() => {})),
 );
 
+export const useSectionColumnWidth = withProjectState(
+  createWithEqualityFn(subscribeWithSelector(withResetFn(() => {}))),
+);
+
+export const useResizerStore = withProjectState(
+  createWithEqualityFn(
+    withResetFn(() => ({
+      activeResizer: null, // { sectionId, ref, startX, startWidth, containerWidth, maxNestedDepth }
+      globalEventListenersInitialized: false,
+    })),
+  ),
+);
+
 export type ChatDetails = {
   messages: Array<BaseChatMessageUnion>;
   toolCallArguments: Record<string, string>;

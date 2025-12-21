@@ -312,8 +312,6 @@ export const RouteEnum = {
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
-  SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
-  SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
@@ -1051,7 +1049,6 @@ const SharedModifierSchema = z.object({
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
-  typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   url: z.string().optional(),
   value: z.string().optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
@@ -1136,7 +1133,6 @@ const CoreSchema = z.object({
         "textDisplayMode",
         "topLevelParamId",
         "type",
-        "typesColumnWidth",
         "url",
         "value",
         "viewMode",
@@ -1517,8 +1513,6 @@ const BrowserSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   folder: z.string().default("" as const),
   hideColumn: z.boolean().default(false),
-  columnWidth: z.union([z.number(), z.null()]).default(null),
-  typesColumnWidth: z.union([z.number(), z.null()]).default(null),
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
@@ -2408,8 +2402,6 @@ const BrowserSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   folder: z.string().optional(),
   hideColumn: z.boolean().optional(),
-  columnWidth: z.union([z.number(), z.null()]).optional(),
-  typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
 });
 
@@ -3123,8 +3115,6 @@ const UserDefaultBrowserSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   folder: z.string().default("" as const),
   hideColumn: z.boolean().default(false),
-  columnWidth: z.union([z.number(), z.null()]).default(null),
-  typesColumnWidth: z.union([z.number(), z.null()]).default(null),
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
@@ -4762,18 +4752,6 @@ export type SetBrowserAreaViewModeRequestInput = z.input<
   typeof SetBrowserAreaViewModeRequestSchema
 >;
 
-const SetBrowserColumnWidthsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  columnWidth: z.union([z.number(), z.null()]),
-  typesColumnWidth: z.union([z.number(), z.null()]),
-});
-
-export type SetBrowserColumnWidthsRequestInput = z.input<
-  typeof SetBrowserColumnWidthsRequestSchema
->;
-
 const SetBrowserHideColumnRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -4947,17 +4925,6 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
->;
-
-const SetSectionColumnWidthRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  columnWidth: z.union([z.number(), z.null()]),
-});
-
-export type SetSectionColumnWidthRequestInput = z.input<
-  typeof SetSectionColumnWidthRequestSchema
 >;
 
 const SetSectionHideUnpinnedParamsRequestSchema = z.object({
