@@ -239,7 +239,6 @@ def build_project_state_summary(
             isSingletonMember=section_id in singleton_members,
             hideParams=bool(getattr(impl, "hideParams", False)),
             hideUnpinnedParams=bool(getattr(impl, "hideUnpinnedParams", False)),
-            visibility=getattr(impl, "visibility", None),
             topLevelLayout=top_level_layouts.get(section_id),
             layoutLocked=bool(getattr(impl, "positionAndSizeLocked", False)),
             parameters=parameters,

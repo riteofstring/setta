@@ -68,6 +68,7 @@ Don't bother running `pnpm test` for now, as there are currently no frontend tes
 ## Project State access style
 
 I prefer a hard KeyError instead of hiding problems via project_state.some_dict.get(key).
+Make existence checks explicit (e.g., `if key not in dict: raise KeyError(...)`) instead of relying on bare dict access for side effects.
 When you know a section impl or code obj impl must be of a specific type, use the helper getter functions ending with "with_type_guard".
 
 ## Generated types

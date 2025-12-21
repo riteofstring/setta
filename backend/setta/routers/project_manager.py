@@ -12,12 +12,14 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteViewModeRequest,
     ForceRefreshProjectRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -28,6 +30,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RedoRequest,
     SetActiveIdsRequest,
+    SetActiveViewModeRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
@@ -56,13 +59,17 @@ from setta.project_state.project_manager_types import (
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
+    ToggleIsEditingViewModeRequest,
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
     TogglePositionLockRequest,
+    ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
+    ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
@@ -204,6 +211,63 @@ async def route_create_new_section_variant(
         "New Variant Created",
         project_config_id=x.projectConfigId,
     )
+
+
+@router.post(Route.CREATE_VIEW_MODE)
+async def route_create_view_mode(
+    x: CreateViewModeRequest, state: AppStateFromRequest
+) -> str:
+    return await state.project_manager_switcher.get(x.projectConfigId).create_view_mode(
+        x
+    )
+
+
+@router.post(Route.SET_ACTIVE_VIEW_MODE)
+async def route_set_active_view_mode(
+    x: SetActiveViewModeRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(x.projectConfigId).set_active_view_mode(x)
+
+
+@router.post(Route.TOGGLE_IS_EDITING_VIEW_MODE)
+async def route_toggle_is_editing_view_mode(
+    x: ToggleIsEditingViewModeRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).toggle_is_editing_view_mode(x)
+
+
+@router.post(Route.TOGGLE_SECTION_VISIBILITY)
+async def route_toggle_section_visibility(
+    x: ToggleSectionVisibilityRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).toggle_section_visibility(x)
+
+
+@router.post(Route.TOGGLE_VIEW_MODE_USER_FACING)
+async def route_toggle_view_mode_user_facing(
+    x: ToggleViewModeUserFacingRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).toggle_view_mode_user_facing(x)
+
+
+@router.post(Route.SET_VIEW_MODE_NAME)
+async def route_set_view_mode_name(
+    x: SetViewModeNameRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(x.projectConfigId).set_view_mode_name(x)
+
+
+@router.post(Route.DELETE_VIEW_MODE)
+async def route_delete_view_mode(
+    x: DeleteViewModeRequest, state: AppStateFromRequest
+) -> None:
+    await state.project_manager_switcher.get(x.projectConfigId).delete_view_mode(x)
 
 
 @router.post(Route.UNDO)

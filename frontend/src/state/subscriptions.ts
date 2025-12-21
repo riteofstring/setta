@@ -20,7 +20,7 @@ import {
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
-  getSectionViewingEditingModeVisibility,
+  getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
@@ -146,9 +146,11 @@ function updateNodeDimensionsSubscriptionFn(state) {
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
   const output: Record<string, boolean> = {};
   for (const id of Object.keys(state.projectConfig.topLevelSections)) {
-    const { visibility, viewingEditingMode } =
-      getSectionViewingEditingModeVisibility(id, state);
-    output[id] = getSectionShouldRender(visibility, viewingEditingMode);
+    const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      id,
+      state,
+    );
+    output[id] = getSectionShouldRender(visibility, isEditingViewMode);
   }
   return output;
 }

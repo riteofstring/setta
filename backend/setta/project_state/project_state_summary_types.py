@@ -7,7 +7,6 @@ from setta.types.project_state import SingletonSections
 from setta.types.section_impls import (
     CodeFileBinding,
     SectionType,
-    Visibility,
 )
 
 
@@ -41,7 +40,6 @@ class ProjectStateSummarySection:  # setta-convert-pydantic-to-js: skip
     isSingletonMember: bool = False
     hideParams: bool = False
     hideUnpinnedParams: bool = False
-    visibility: Visibility | None = None
     topLevelLayout: TopLevelSectionLayout | None = None
     layoutLocked: bool = False
     parameters: list[ProjectStateSummaryParam] = field(default_factory=list)

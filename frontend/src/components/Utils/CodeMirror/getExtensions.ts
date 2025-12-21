@@ -16,18 +16,6 @@ import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { shortcutCodemirrorFormat } from "utils/utils";
 
-const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
-  ".cm-gutters": {
-    borderRight: "0",
-  },
-  "&light .cm-gutters": {
-    borderRight: "0",
-  },
-  "&dark .cm-gutters": {
-    borderRight: "0",
-  },
-});
-
 export function getExtensions({
   parentDivId,
   language,
@@ -42,7 +30,7 @@ export function getExtensions({
 }: {
   completionsFn?: CompletionSource;
 }) {
-  const extensions = [EditorView.lineWrapping, CODEMIRROR_GUTTER_LAYOUT_FIX];
+  const extensions = [EditorView.lineWrapping];
 
   if (parentDivId) {
     extensions.push(

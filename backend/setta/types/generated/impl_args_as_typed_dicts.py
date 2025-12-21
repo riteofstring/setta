@@ -17,7 +17,7 @@ from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
     TopLevelSectionLayout,
-    ViewingEditingMode,
+    ViewModeConfig,
     Viewport,
 )
 from setta.types.section_impls import (
@@ -31,7 +31,6 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
-    Visibility,
 )
 
 
@@ -109,7 +108,6 @@ class CoreArgs(TypedDict):
                 "url",
                 "value",
                 "viewMode",
-                "visibility",
             ]
         ]
     ]
@@ -120,7 +118,9 @@ class ProjectConfigArgs(TypedDict):
     name: NotRequired[str]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
-    viewingEditingMode: NotRequired[ViewingEditingMode]
+    viewModes: NotRequired[dict[ID, ViewModeConfig]]
+    activeViewModeId: NotRequired[ID | None]
+    isEditingViewMode: NotRequired[bool]
     genCodePrefix: NotRequired[str]
     genCodeSuffix: NotRequired[str]
     entryCodeBlockId: NotRequired[ID | None]
@@ -134,7 +134,6 @@ class BaseSectionImplArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
     isFrozen: NotRequired[bool]
-    visibility: NotRequired[Visibility]
     isInOtherProjectConfigs: NotRequired[bool]
     size: NotRequired[SectionSize]
     aspectRatio: NotRequired[bool | float]
@@ -150,7 +149,6 @@ class BaseSectionImplArgsWithCallable(TypedDict):
     id: NotRequired[ID | Callable[[ID], ID]]
     name: NotRequired[str | Callable[[str], str]]
     isFrozen: NotRequired[bool | Callable[[bool], bool]]
-    visibility: NotRequired[Visibility | Callable[[Visibility], Visibility]]
     isInOtherProjectConfigs: NotRequired[bool | Callable[[bool], bool]]
     size: NotRequired[SectionSize | Callable[[SectionSize], SectionSize]]
     aspectRatio: NotRequired[bool | float | Callable[[bool | float], bool | float]]

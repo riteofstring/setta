@@ -221,6 +221,53 @@ class CreateNewSectionVariantRequest(ProjectManagerRequestWithSection):
     """Clone the current section state into a new variant slot."""
 
 
+class CreateViewModeRequest(ProjectManagerRequestWithProjectConfig):
+    """Create a new view mode with default visibility settings."""
+
+
+class SetActiveViewModeRequest(ProjectManagerRequestWithProjectConfig):
+    """Set the active view mode for the project config."""
+
+    activeViewModeId: ID = Field(
+        description="Identifier of the view mode to activate.",
+    )
+
+
+class ToggleIsEditingViewModeRequest(ProjectManagerRequestWithProjectConfig):
+    """Toggle the active view mode between edit and preview."""
+
+
+class ToggleSectionVisibilityRequest(ProjectManagerRequestWithSection):
+    """Toggle visibility for a section in the active view mode."""
+
+
+class ToggleViewModeUserFacingRequest(ProjectManagerRequestWithProjectConfig):
+    """Update whether a view mode is considered user-facing."""
+
+    viewModeId: ID = Field(
+        description="Identifier of the view mode to update.",
+    )
+
+
+class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
+    """Rename a view mode in the current project config."""
+
+    viewModeId: ID = Field(
+        description="Identifier of the view mode to rename.",
+    )
+    name: str = Field(
+        description="New display name for the view mode.",
+    )
+
+
+class DeleteViewModeRequest(ProjectManagerRequestWithProjectConfig):
+    """Remove a view mode from the current project config."""
+
+    viewModeId: ID = Field(
+        description="Identifier of the view mode to delete.",
+    )
+
+
 class UndoRequest(ProjectManagerRequestWithProjectConfig):
     steps: int
 

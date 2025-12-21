@@ -1,13 +1,17 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getSectionVisibilityKey } from "state/actions/sectionInfos";
-// import { deleteSections } from "state/actions/sections/deleteSections";
+import {
+  getActiveViewModeConfig,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { useContextMenus, useProjectState } from "state/definitions";
-import { ViewingEditingModeEnum } from "utils/generatedTypes";
+import {
+  route_delete_sections,
+  route_group_sections,
+} from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function SelectionContextMenu() {
@@ -16,31 +20,43 @@ export function SelectionContextMenu() {
     _.isEqual,
   );
 
-  const { allVisible, allLocked, viewingEditingMode } = useProjectState((x) => {
-    const { viewingEditingMode } = x.projectConfig;
-    const visibilityKey = getSectionVisibilityKey(viewingEditingMode);
-    const nodeMap = x.sections;
+  const { allVisible, allLocked, isEditingViewMode, isUserView } =
+    useProjectState((state) => {
+      const viewMode = getActiveViewModeConfig(state);
+      const nodeMap = state.sections;
+      const { isEditingViewMode } = state.projectConfig;
 
-    let allVisible = true;
-    let allLocked = true;
+      let allVisible = true;
+      let allLocked = true;
 
-    for (const id of nodeIds) {
-      const node = nodeMap[id];
-      if (!node.visibility[visibilityKey]) {
-        allVisible = false;
+      for (const id of nodeIds) {
+        const node = nodeMap[id];
+        const visibility = viewMode.visibilityBySectionId[id];
+        if (visibility === undefined) {
+          throw new Error(
+            `Missing visibility for section ${id} in view mode ${viewMode.id}`,
+          );
+        }
+        if (!visibility) {
+          allVisible = false;
+        }
+
+        if (!node.positionAndSizeLocked) {
+          allLocked = false;
+        }
+
+        if (!allVisible && !allLocked) {
+          break;
+        }
       }
 
-      if (!node.positionAndSizeLocked) {
-        allLocked = false;
-      }
-
-      if (!allVisible && !allLocked) {
-        break;
-      }
-    }
-
-    return { allVisible, allLocked, viewingEditingMode };
-  });
+      return {
+        allVisible,
+        allLocked,
+        isEditingViewMode,
+        isUserView: viewMode.isUserFacing && !isEditingViewMode,
+      };
+    }, _.isEqual);
 
   const closeContextMenu = () => {
     closeAllContextMenus();
@@ -48,16 +64,17 @@ export function SelectionContextMenu() {
   };
 
   function onClickCreate() {
-    groupSections({
-      nodeIds,
-      position: screenToFlowPosition({ x, y }),
+    route_group_sections({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionIds: nodeIds,
     });
     closeContextMenu();
   }
 
   function onClickDelete() {
-    useProjectState.setState((state) => {
-      deleteSections(nodeIds, state);
+    route_delete_sections({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionIds: nodeIds,
     });
     closeContextMenu();
     clearActiveSectionIds();
@@ -74,10 +91,15 @@ export function SelectionContextMenu() {
 
   function onClickVisibility() {
     useProjectState.setState((state) => {
+      const viewMode = getActiveViewModeConfig(state);
       for (const n of nodeIds) {
-        state.sections[n].visibility[
-          getSectionVisibilityKey(viewingEditingMode)
-        ] = !allVisible;
+        const visibility = viewMode.visibilityBySectionId[n];
+        if (visibility === undefined) {
+          throw new Error(
+            `Missing visibility for section ${n} in view mode ${viewMode.id}`,
+          );
+        }
+        viewMode.visibilityBySectionId[n] = !allVisible;
       }
     });
     closeContextMenu();
@@ -89,6 +111,10 @@ export function SelectionContextMenu() {
 
   const visibilityItem = allVisible ? "Hide" : "Show";
 
+  if (isUserView) {
+    return null;
+  }
+
   return (
     <ContextMenuCore
       x={x}
@@ -99,7 +125,7 @@ export function SelectionContextMenu() {
       <Item onClick={onClickCreate}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
       <Item onClick={onClickLock}>{lockItem}</Item>
-      {viewingEditingMode === ViewingEditingModeEnum.USER_EDIT && (
+      {isEditingViewMode && (
         <Item onClick={onClickVisibility}>{visibilityItem}</Item>
       )}
     </ContextMenuCore>
