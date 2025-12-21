@@ -56,6 +56,7 @@ class Route(str, Enum):
     DELETE_LLM_CHAT = "/deleteLLMChat"
     STOP_LLM_CHAT = "/stopLLMChat"
     GET_LLM_CHAT = "/getLLMChat"
+    GET_AI_FOLLOW_SNAPSHOT = "/getAIFollowSnapshot"
     RUN_CODE = "/runCode"
     TYPE_CHECK = "/typeCheck"
     CLEAR_TEXT_FIELD_COMPLETION = "/clearTextFieldCompletion"
