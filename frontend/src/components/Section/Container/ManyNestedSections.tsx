@@ -1,9 +1,7 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
 
@@ -50,10 +48,7 @@ function NestedSectionsWithMargin({ childIds, sectionId, isGroup }) {
   };
 
   const isHorizontalOrientation = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
-    },
+    (x) => x.sections[sectionId].isHorizontalOrientation,
   );
 
   return (

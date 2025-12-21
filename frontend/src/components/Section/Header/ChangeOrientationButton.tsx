@@ -17,12 +17,8 @@ export function ChangeOrientationButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const impl = getCurrEffectiveSectionImpl(state, sectionId);
-      if (impl.type !== SectionTypeEnum.Group) {
-        return;
-      }
       setCurrEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
-        isHorizontalOrientation: !impl.isHorizontalOrientation,
+        isHorizontalOrientation: !isHorizontalOrientation,
       });
     });
   }
