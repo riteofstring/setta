@@ -319,6 +319,7 @@ export const RouteEnum = {
   ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
   DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
   APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
+  MOVE_SECTION: "/moveSection",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
@@ -4662,6 +4663,17 @@ const GroupSectionsRequestSchema = z.object({
 });
 
 export type GroupSectionsRequest = z.infer<typeof GroupSectionsRequestSchema>;
+
+const MoveSectionRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  newParentId: z.union([IDSchema, z.null()]),
+  newIndex: z.union([z.int(), z.null()]),
+  position: z.union([PositionSchema, z.null()]),
+});
+
+export type MoveSectionRequest = z.infer<typeof MoveSectionRequestSchema>;
 
 const PasteSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),

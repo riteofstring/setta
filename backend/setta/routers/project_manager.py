@@ -25,6 +25,7 @@ from setta.project_state.project_manager_types import (
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
+    MoveSectionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     ProjectStateSingleConfigWithCompletedOpIds,
@@ -568,6 +569,11 @@ async def route_set_text_block_format(
 @router.post(Route.SET_SOCIAL_URL)
 async def route_set_social_url(x: SetSocialUrlRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_social_url(x)
+
+
+@router.post(Route.MOVE_SECTION)
+async def route_move_section(x: MoveSectionRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).move_section(x)
 
 
 @router.post(Route.GROUP_SECTIONS)

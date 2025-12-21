@@ -481,6 +481,12 @@ class SetSocialUrlRequest(ProjectManagerRequestWithSection):
     url: str
 
 
+class MoveSectionRequest(ProjectManagerRequestWithSection):
+    newParentId: ID | None
+    newIndex: int | None
+    position: Position | None
+
+
 class GroupSectionsRequest(ProjectManagerRequestWithSectionIds):
     pass
 

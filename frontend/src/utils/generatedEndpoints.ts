@@ -593,6 +593,12 @@ export async function route_set_social_url(
   return await post("/setSocialUrl", x);
 }
 
+export async function route_move_section(
+  x: gt.MoveSectionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/moveSection", x);
+}
+
 export async function route_group_sections(
   x: gt.GroupSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {

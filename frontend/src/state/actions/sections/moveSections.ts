@@ -1,8 +1,13 @@
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { ZustandProjectState } from "state/definitions";
+import { route_move_section } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
-import { setSectionChildren } from "../sectionInfos";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+  setSectionChildren,
+} from "../sectionInfos";
 
 function moveSections({
   sectionIds,
@@ -26,7 +31,7 @@ function moveSections({
   }
 }
 
-export function moveSection({
+function moveSection({
   oldParentId,
   newParentId,
   oldSectionId,
@@ -54,6 +59,43 @@ export function moveSection({
   });
 
   // setSectionSizeAfterMove(newParentId, newSectionId, state);
+}
+
+export function moveSectionWithBackend({
+  oldParentId,
+  newParentId,
+  sectionId,
+  newIndex,
+  position,
+}: {
+  oldParentId: string | null;
+  newParentId: string | null;
+  sectionId: string;
+  newIndex: number | null;
+  position: Position | null;
+}) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      moveSection({
+        oldParentId,
+        newParentId,
+        oldSectionId: sectionId,
+        newSectionId: sectionId,
+        newIndex,
+        position,
+        state,
+      });
+    },
+    send: (frontendOpId) =>
+      route_move_section({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        newParentId,
+        newIndex,
+        position,
+        frontendOpId,
+      }),
+  });
 }
 
 function setChildrenAndParent({

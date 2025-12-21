@@ -117,6 +117,7 @@ class Route(str, Enum):
     ACCEPT_RENAME_REFACTOR = "/acceptRenameRefactor"
     DECLINE_RENAME_REFACTOR = "/declineRenameRefactor"
     APPEND_DRAW_AREA_LAYER_ITEM = "/appendDrawAreaLayerItem"
+    MOVE_SECTION = "/moveSection"
     GROUP_SECTIONS = "/groupSections"
     UNGROUP_GROUPS = "/ungroupGroups"
     TOGGLE_PARAM_SELECTED = "/toggleParamSelected"

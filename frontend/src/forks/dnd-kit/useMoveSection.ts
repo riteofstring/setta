@@ -5,13 +5,11 @@ import { justMoveANode } from "state/actions/nodeInternals";
 import {
   getSectionChildren,
   manualDndChildrenReset,
-  setSectionChildren,
 } from "state/actions/sectionInfos";
-import { moveSection } from "state/actions/sections/moveSections";
+import { moveSectionWithBackend } from "state/actions/sections/moveSections";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { DragEndEvent } from "./CustomCore";
-import { arrayMove } from "./CustomSortable";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropTypeEnum } from "./dropTypes";
@@ -22,12 +20,14 @@ function onSortEnd({ active, over }: Pick<DragEndEvent, "active" | "over">) {
     if (!parentId) {
       return;
     }
-    useProjectState.setState((state) => {
-      setSectionChildren(state, parentId, (x) => {
-        const activeIndex = x.indexOf(active.id);
-        const overIndex = x.indexOf(over.id);
-        return arrayMove(x, activeIndex, overIndex);
-      });
+    const children = getSectionChildren(useProjectState.getState(), parentId);
+    const overIndex = children.indexOf(over.id);
+    moveSectionWithBackend({
+      oldParentId: parentId,
+      newParentId: parentId,
+      sectionId: active.id,
+      newIndex: overIndex,
+      position: null,
     });
   }
 }
@@ -102,23 +102,18 @@ async function onFreeMoveEnd({
   // });
 
   let newSectionId = sectionId;
-  useProjectState.setState((state) => {
-    // if (maybeNewSectionData.sections) {
-    //   updateProjectState({ ...maybeNewSectionData, state });
-    //   newSectionId = Object.keys(maybeNewSectionData.sections)[0];
-    // } else {
-    //   newSectionId = maybeNewSectionData;
-    // }
-
-    moveSection({
-      oldParentId,
-      newParentId,
-      oldSectionId: sectionId,
-      newSectionId,
-      newIndex,
-      position,
-      state,
-    });
+  // if (maybeNewSectionData.sections) {
+  //   updateProjectState({ ...maybeNewSectionData, state });
+  //   newSectionId = Object.keys(maybeNewSectionData.sections)[0];
+  // } else {
+  //   newSectionId = maybeNewSectionData;
+  // }
+  moveSectionWithBackend({
+    oldParentId,
+    newParentId,
+    sectionId: newSectionId,
+    newIndex,
+    position,
   });
 }
 

@@ -81,6 +81,7 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
+    MoveSectionRequest,
     PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
@@ -165,6 +166,8 @@ from setta.types.helpers_lvl2 import (
     get_curr_section_callable_code_obj,
     group_sections,
     maybe_update_gen_python_code_section,
+    move_section_to_pane,
+    move_section_to_parent_section,
     set_browser_area_view_mode,
     set_browser_hide_column,
     set_callable_hide_params,
@@ -1423,6 +1426,23 @@ class BaseProjectManager(ABC):
         set_chart_settings(
             project_state, x.sectionId, x.chartSettings, x.changedSettings
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def move_section(self, x: MoveSectionRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if x.newParentId is None:
+            if x.position is None:
+                raise KeyError("Expected position when moving section to pane.")
+            move_section_to_pane(project_state, x.sectionId, x.position)
+        else:
+            if x.newIndex is None:
+                raise KeyError(
+                    "Expected newIndex when moving section into parent section."
+                )
+            move_section_to_parent_section(
+                project_state, x.newParentId, x.sectionId, x.newIndex
+            )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
