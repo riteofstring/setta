@@ -17,7 +17,7 @@ type DragListeners = {
   up: (() => void) | null;
 };
 
-export type ColumnWidthState = {
+type ColumnWidthState = {
   currentWidth: number;
   containerWidth: number;
   currentPercentage: number;

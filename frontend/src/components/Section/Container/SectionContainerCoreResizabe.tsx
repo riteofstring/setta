@@ -15,7 +15,6 @@ import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
-import { MetaControlArea } from "../Layouts/MetaControlArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -49,13 +48,8 @@ export function SectionContainerCoreResizable({
     };
   }, _.isEqual);
 
-  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
-  const shouldRenderMetaHeader = isMetaControl && !isUserView;
-  const metaControlFrameClassName = isMetaControl
-    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
-    : undefined;
 
   return (
     <CustomResizable
@@ -64,31 +58,15 @@ export function SectionContainerCoreResizable({
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
       positionAndSizeLocked={positionAndSizeLocked}
-      frameClassName={metaControlFrameClassName}
     >
-      {isMetaControl ? (
-        shouldRenderMetaHeader && (
-          <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
-            <SectionHeader
-              sectionId={sectionId}
-              isActiveSection={isActiveSection}
-              sectionTypeName={sectionTypeName}
-              isInOtherProjectConfigs={isInOtherProjectConfigs}
-              isUserView={isUserView}
-              isRoot={isRoot}
-            />
-          </div>
-        )
-      ) : (
-        <SectionHeader
-          sectionId={sectionId}
-          isActiveSection={isActiveSection}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          isRoot={isRoot}
-        />
-      )}
+      <SectionHeader
+        sectionId={sectionId}
+        isActiveSection={isActiveSection}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isUserView={isUserView}
+        isRoot={isRoot}
+      />
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       {!isMinimized && (
         <AreaSwitch
@@ -125,8 +103,6 @@ function AreaSwitch({
       return <SocialArea sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
       return <TextBlock sectionId={sectionId} />;
-    case SectionTypeEnum.MetaControl:
-      return <MetaControlArea sectionId={sectionId} />;
     case SectionTypeEnum.GlobalVariables:
       return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Code:

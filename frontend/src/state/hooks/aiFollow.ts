@@ -5,12 +5,14 @@ import {
   getSectionBounds,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
-import { useEffect, useMemo } from "react";
+import _ from "lodash";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
+const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
+
 export function useAIFollowViewport(): void {
-  const enabled = useAIFollow((state) => state.enabled);
   const activeChatId = useAIStore((state) => state.activeChatId);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const { d3Zoom, d3Selection, width, height } = useReactFlow(
@@ -22,18 +24,79 @@ export function useAIFollowViewport(): void {
     }),
     shallow,
   );
-  const sectionIds = useAIFollow((state) => {
-    if (!activeChatId) {
-      return [];
-    }
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return [];
-    }
-    return projectEntries[activeChatId] ?? [];
-  });
+  const { enabled, sectionIds, toolResultSectionIds } = useAIFollow(
+    (state) => {
+      const getSectionIds = (
+        idsByType: Record<string, Array<string>> | undefined,
+      ): Array<string> => idsByType?.section ?? [];
 
-  const sectionIdsKey = useMemo(() => sectionIds.join("|"), [sectionIds]);
+      const toolArgumentsEntries =
+        state.toolArgumentsIdsByProjectConfigId[projectConfigId];
+      const sectionIds = activeChatId
+        ? getSectionIds(toolArgumentsEntries?.[activeChatId])
+        : [];
+
+      const toolResultEntries =
+        state.toolResultIdsByProjectConfigId[projectConfigId];
+      const toolResultSectionIds = activeChatId
+        ? getSectionIds(toolResultEntries?.[activeChatId])
+        : [];
+
+      return {
+        enabled: state.enabled,
+        sectionIds,
+        toolResultSectionIds,
+      };
+    },
+    _.isEqual,
+  );
+  const toolResultSectionIdsKey = toolResultSectionIds.join("|");
+  const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] = useState<
+    string[]
+  >([]);
+  const toolResultGroupTimeout = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (toolResultGroupTimeout.current !== null) {
+      window.clearTimeout(toolResultGroupTimeout.current);
+      toolResultGroupTimeout.current = null;
+    }
+    if (toolResultSectionIds.length === 0) {
+      setGroupedToolResultSectionIds([]);
+      return;
+    }
+    toolResultGroupTimeout.current = window.setTimeout(() => {
+      setGroupedToolResultSectionIds(toolResultSectionIds);
+      toolResultGroupTimeout.current = null;
+    }, TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS);
+    return () => {
+      if (toolResultGroupTimeout.current !== null) {
+        window.clearTimeout(toolResultGroupTimeout.current);
+        toolResultGroupTimeout.current = null;
+      }
+    };
+  }, [
+    activeChatId,
+    projectConfigId,
+    toolResultSectionIdsKey,
+  ]);
+
+  const combinedSectionIds = useMemo(() => {
+    if (sectionIds.length === 0) {
+      return groupedToolResultSectionIds;
+    }
+    if (groupedToolResultSectionIds.length === 0) {
+      return sectionIds;
+    }
+    return Array.from(
+      new Set([...sectionIds, ...groupedToolResultSectionIds]),
+    );
+  }, [sectionIds, groupedToolResultSectionIds]);
+
+  const sectionIdsKey = useMemo(
+    () => combinedSectionIds.join("|"),
+    [combinedSectionIds],
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -42,11 +105,11 @@ export function useAIFollowViewport(): void {
     if (!activeChatId) {
       return;
     }
-    if (sectionIds.length === 0) {
+    if (combinedSectionIds.length === 0) {
       return;
     }
 
-    const bounds = getSectionBounds(sectionIds);
+    const bounds = getSectionBounds(combinedSectionIds);
     if (!bounds) {
       return;
     }

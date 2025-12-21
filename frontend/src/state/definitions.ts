@@ -25,7 +25,6 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  Position,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
@@ -440,7 +439,14 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
 
 type AIFollowState = {
   enabled: boolean;
-  sectionIdsByProjectConfigId: Record<string, Record<string, Array<string>>>;
+  toolArgumentsIdsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
+  toolResultIdsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
 };
 
 export const useAIFollow = withProjectState(
@@ -448,7 +454,8 @@ export const useAIFollow = withProjectState(
     immer(
       withResetFn<AIFollowState>(() => ({
         enabled: false,
-        sectionIdsByProjectConfigId: {},
+        toolArgumentsIdsByProjectConfigId: {},
+        toolResultIdsByProjectConfigId: {},
       })),
     ),
   ),

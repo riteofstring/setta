@@ -32,7 +32,6 @@ class SectionType(str, Enum):
     Chart = "Chart"
     Draw = "Draw"
     TextBlock = "TextBlock"
-    MetaControl = "MetaControl"
     Social = "Social"
     GlobalVariables = "GlobalVariables"
     Code = "Code"
@@ -41,19 +40,6 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
-
-
-class MetaControlType(str, Enum):
-    button = "button"
-    dropdown = "dropdown"
-    slider = "slider"
-    switch = "switch"
-    rotary = "rotary"
-    textInput = "textInput"
-    textArea = "textArea"
-    password = "password"
-    color = "color"
-    dropzone = "dropzone"
 
 
 class SectionSizeMode(str, Enum):
@@ -238,11 +224,6 @@ class TextBlockSectionImpl(BaseSectionImpl):
     headingAsSectionName: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
-
-
-class MetaControlSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.MetaControl] = SectionType.MetaControl
-    metaControlType: MetaControlType = MetaControlType.button
 
 
 class SocialSectionImpl(BaseSectionImpl):

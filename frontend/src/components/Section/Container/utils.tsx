@@ -11,7 +11,13 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useAIFollow, useAIStore, useMisc, useProjectState } from "state/definitions";
+import _ from "lodash";
+import {
+  useAIFollow,
+  useAIStore,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -30,8 +36,6 @@ export function getBgColor(sectionTypeName: SectionTypeEnum) {
       return "@container/multipane";
     case SectionTypeEnum.GlobalVariables:
       return "bg-white dark:bg-black";
-    case SectionTypeEnum.MetaControl:
-      return "bg-transparent";
     default:
       return "bg-setta-50 dark:bg-setta-860";
   }
@@ -118,25 +122,60 @@ export function useAiSectionHighlight(
   projectConfigId: string,
 ): boolean {
   const activeChatId = useAIStore((state) => state.activeChatId);
-  const isAiWorkingOnSection = useAIFollow((state) => {
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    if (activeChatId) {
-      const activeSectionIds = projectEntries[activeChatId] ?? [];
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIds of Object.values(projectEntries)) {
-      if (sectionIds.includes(sectionId)) {
-        return true;
+  const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
+    (state) => {
+      const getSectionIds = (
+        idsByType: Record<string, Array<string>> | undefined,
+      ): Array<string> => idsByType?.section ?? [];
+
+      let isAiWorkingOnSection = false;
+      const toolArgumentEntries =
+        state.toolArgumentsIdsByProjectConfigId[projectConfigId];
+      if (toolArgumentEntries) {
+        if (activeChatId) {
+          const activeSectionIds = getSectionIds(
+            toolArgumentEntries[activeChatId],
+          );
+          isAiWorkingOnSection = activeSectionIds.includes(sectionId);
+        } else {
+          for (const idsByType of Object.values(toolArgumentEntries)) {
+            const sectionIds = getSectionIds(idsByType);
+            if (sectionIds.includes(sectionId)) {
+              isAiWorkingOnSection = true;
+              break;
+            }
+          }
+        }
       }
-    }
-    return false;
-  });
+
+      let isToolResultHighlight = false;
+      const toolResultEntries =
+        state.toolResultIdsByProjectConfigId[projectConfigId];
+      if (toolResultEntries) {
+        if (activeChatId) {
+          const activeSectionIds = getSectionIds(
+            toolResultEntries[activeChatId],
+          );
+          isToolResultHighlight = activeSectionIds.includes(sectionId);
+        } else {
+          for (const sectionIdsByType of Object.values(toolResultEntries)) {
+            const sectionIds = getSectionIds(sectionIdsByType);
+            if (sectionIds.includes(sectionId)) {
+              isToolResultHighlight = true;
+              break;
+            }
+          }
+        }
+      }
+
+      return { isAiWorkingOnSection, isToolResultHighlight };
+    },
+    _.isEqual,
+  );
   const [showAiHighlight, setShowAiHighlight] = useState(false);
+  const shouldHighlight = isAiWorkingOnSection || isToolResultHighlight;
   useEffect(() => {
-    if (isAiWorkingOnSection) {
+    if (shouldHighlight) {
       setShowAiHighlight(true);
       return;
     }
@@ -149,6 +188,6 @@ export function useAiSectionHighlight(
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [isAiWorkingOnSection, showAiHighlight]);
+  }, [shouldHighlight, showAiHighlight]);
   return showAiHighlight;
 }

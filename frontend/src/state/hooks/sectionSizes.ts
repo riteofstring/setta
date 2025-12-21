@@ -133,17 +133,13 @@ export function useSectionMinMaxDims(sectionId: string) {
     const hideParams = impl.hideParams;
     const isMinimized = impl.isMinimized;
 
-    const rawMinHeight = getMinSectionHeight({
+    const minHeight = getMinSectionHeight({
       sectionType,
       hideSearch,
       hideParams,
       isMinimized,
       sizingPolicy,
     });
-    const minHeight =
-      sectionType === SectionTypeEnum.MetaControl
-        ? Math.min(rawMinHeight, 48)
-        : rawMinHeight;
 
     const maxHeight = getMaxSectionHeight({
       sectionType,

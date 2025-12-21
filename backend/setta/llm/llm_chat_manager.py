@@ -2,11 +2,12 @@ import asyncio
 import copy
 import json
 import logging
+import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal
+from typing import Any, AsyncIterator, Iterator, Literal, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -20,6 +21,11 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
+from setta.mcp.tool_metadata import (
+    AIFollowToolArgumentsMetadata,
+    AIFollowToolResultMetadata,
+    FollowIdType,
+)
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
@@ -57,17 +63,26 @@ from setta.types.chat_stream_events import (
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
+STREAM_STRING_VALUE_RE = re.compile(r'"([^"]+)"')
+STREAM_OBJECT_KEY_RE = re.compile(r'"([^"]+)"\s*:')
 
 
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
+
+
+@dataclass
+class AIFollowState:
+    project_config_id: ID
+    ids_by_type: dict[FollowIdType, list[ID]]
 
 
 @dataclass
@@ -134,6 +149,7 @@ class LLMChatManager:
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
+        self._ai_follow_state: dict[ID, AIFollowState] = {}
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
@@ -173,6 +189,26 @@ class LLMChatManager:
     def delete_chat(self, chat_id: ID) -> None:
         delete_chat_record(self.dbe, chat_id)
         self._chat_tool_states.pop(chat_id, None)
+        self._ai_follow_state.pop(chat_id, None)
+
+    def get_ai_follow_snapshot(
+        self, project_config_id: ID
+    ) -> list[AIFollowToolArgumentsUpdateContent]:
+        snapshot: list[AIFollowToolArgumentsUpdateContent] = []
+        for chat_id, state in self._ai_follow_state.items():
+            if state.project_config_id != project_config_id:
+                continue
+            ids_by_type = self._normalize_ai_follow_ids_by_type(state.ids_by_type)
+            if not ids_by_type:
+                continue
+            snapshot.append(
+                AIFollowToolArgumentsUpdateContent(
+                    projectConfigId=project_config_id,
+                    chatId=chat_id,
+                    idsByType=ids_by_type,
+                )
+            )
+        return snapshot
 
     def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
         metadata = self.get_all_chat_metadata()
@@ -250,6 +286,7 @@ class LLMChatManager:
                         assistant_message,
                         chunk,
                         tool_call_state,
+                        chat.projectConfigId,
                     )
 
                 await self.websocket_msg_handler.send_streaming_response(
@@ -265,10 +302,10 @@ class LLMChatManager:
                 )
                 tool_results = await self._run_tool_calls(chat, assistant_message)
                 if assistant_message.tool_calls:
-                    await self.websocket_msg_handler.broadcast_ai_follow_update(
+                    await self._update_and_broadcast_ai_follow_update(
                         chat.projectConfigId,
                         chat.id,
-                        [],
+                        {},
                     )
                 new_messages: list[BaseChatMessageUnion] = [assistant_message]
                 if tool_results:
@@ -303,6 +340,11 @@ class LLMChatManager:
                         chat.id,
                         MessageFinalizedEvent(message=assistant_message),
                     )
+                await self._update_and_broadcast_ai_follow_update(
+                    chat.projectConfigId,
+                    chat.id,
+                    {},
+                )
                 raise
             except Exception as exc:
                 if not stop_event_sent:
@@ -319,6 +361,11 @@ class LLMChatManager:
                     project_config_id=chat.projectConfigId,
                     logger=logger,
                     context={"chat_id": str(chat.id)},
+                )
+                await self._update_and_broadcast_ai_follow_update(
+                    chat.projectConfigId,
+                    chat.id,
+                    {},
                 )
                 return
             finally:
@@ -621,6 +668,7 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
+        project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -638,6 +686,7 @@ class LLMChatManager:
             assistant_message,
             delta,
             tool_call_state,
+            project_config_id,
         )
 
     async def _handle_text_deltas(
@@ -845,6 +894,7 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
+        project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
@@ -861,6 +911,12 @@ class LLMChatManager:
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
                 event,
+            )
+            await self._maybe_broadcast_streaming_follow_update(
+                project_config_id,
+                chat_id,
+                assistant_message,
+                tool_call_state,
             )
 
     def _apply_tool_call_delta(
@@ -894,6 +950,104 @@ class LLMChatManager:
             tool_name=tool_name,
         )
 
+    async def _maybe_broadcast_streaming_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        assistant_message: AssistantChatMessage,
+        tool_call_state: ToolCallStreamState,
+    ) -> None:
+        ids_by_type = self._extract_stream_ids_by_type_from_buffers(
+            assistant_message,
+            tool_call_state,
+        )
+        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
+            ids_by_type,
+            filter_to_known=True,
+        )
+        if canonical_ids_by_type is None:
+            return
+        await self._update_and_broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            canonical_ids_by_type,
+        )
+
+    def _extract_stream_ids_by_type_from_buffers(
+        self,
+        assistant_message: AssistantChatMessage,
+        tool_call_state: ToolCallStreamState,
+    ) -> dict[FollowIdType, list[ID]]:
+        combined: dict[FollowIdType, set[ID]] = {}
+        tool_calls = assistant_message.tool_calls or []
+        for index, buffer in tool_call_state.argument_buffers.items():
+            if not buffer:
+                continue
+            tool_name = (
+                tool_calls[index].function.name.strip()
+                if index < len(tool_calls)
+                else ""
+            )
+            if not tool_name:
+                continue
+            buffer_ids_by_type = self._extract_stream_ids_by_type_from_buffer(
+                buffer,
+                tool_name,
+            )
+            for id_type, ids in buffer_ids_by_type.items():
+                combined.setdefault(id_type, set()).update(ids)
+        return {id_type: list(ids) for id_type, ids in combined.items() if ids}
+
+    def _extract_stream_ids_by_type_from_buffer(
+        self,
+        buffer: str,
+        tool_name: str,
+    ) -> dict[FollowIdType, set[ID]]:
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.aiFollowToolArguments:
+            return {}
+        metadata = annotations.aiFollowToolArguments
+        keys_by_type: dict[FollowIdType, set[str]] = {}
+        for id_type, paths in metadata.pathsByIdType.items():
+            for path in paths:
+                if path == "$":
+                    continue
+                segments = [segment for segment in path.split(".") if segment]
+                if not segments:
+                    continue
+                keys_by_type.setdefault(id_type, set()).add(segments[-1])
+        if not keys_by_type:
+            return {}
+        combined: dict[FollowIdType, set[ID]] = {}
+        for id_type, keys in keys_by_type.items():
+            for key in keys:
+                single_re, list_re, object_re = self._build_stream_id_regexes(key)
+                for match in single_re.finditer(buffer):
+                    value = match.group(1)
+                    if value:
+                        combined.setdefault(id_type, set()).add(ID(value))
+                for match in list_re.finditer(buffer):
+                    values = match.group(1)
+                    for value in STREAM_STRING_VALUE_RE.findall(values):
+                        if value:
+                            combined.setdefault(id_type, set()).add(ID(value))
+                for match in object_re.finditer(buffer):
+                    values = match.group(1)
+                    for value in STREAM_OBJECT_KEY_RE.findall(values):
+                        if value:
+                            combined.setdefault(id_type, set()).add(ID(value))
+        return combined
+
+    @staticmethod
+    def _build_stream_id_regexes(
+        key: str,
+    ) -> tuple[re.Pattern[str], re.Pattern[str], re.Pattern[str]]:
+        escaped = re.escape(key)
+        single_re = re.compile(r'"%s"\s*:\s*"([^"]+)"' % escaped)
+        list_re = re.compile(r'"%s"\s*:\s*\[([^\]]*)' % escaped)
+        object_re = re.compile(r'"%s"\s*:\s*\{([^}]*)' % escaped)
+        return single_re, list_re, object_re
+
     def _ensure_tool_call_entry(
         self, assistant_message: AssistantChatMessage, index: int
     ) -> ToolCall:
@@ -919,7 +1073,7 @@ class LLMChatManager:
     ) -> None:
         if not assistant_message.tool_calls:
             return
-        parsed_arguments: list[dict[str, Any]] = []
+        parsed_tool_calls: list[ToolCall] = []
         for index, tool_call in enumerate(assistant_message.tool_calls):
             raw_arguments = tool_call_state.argument_buffers.get(index)
             if not raw_arguments:
@@ -927,11 +1081,11 @@ class LLMChatManager:
             tool_call.function.arguments = self._parse_tool_call_arguments(
                 raw_arguments, tool_call.id
             )
-            parsed_arguments.append(tool_call.function.arguments)
+            parsed_tool_calls.append(tool_call)
         await self._broadcast_ai_follow_update(
             project_config_id,
             chat_id,
-            parsed_arguments,
+            parsed_tool_calls,
         )
 
     async def _run_tool_calls(
@@ -1013,6 +1167,12 @@ class LLMChatManager:
             ToolResultEvent(
                 result=tool_chat_message,
             ),
+        )
+        await self._maybe_broadcast_ai_follow_tool_result_update(
+            tool_name,
+            call_result,
+            chat.projectConfigId,
+            chat_id,
         )
         return tool_chat_message
 
@@ -1134,53 +1294,296 @@ class LLMChatManager:
             )
             return {}
 
+    def _select_values_by_path(self, payload: Any, path: str) -> list[Any]:
+        if path == "$":
+            return [payload]
+        segments = [segment for segment in path.split(".") if segment]
+        current: list[Any] = [payload]
+        for segment in segments:
+            key = segment
+            next_values: list[Any] = []
+            for item in current:
+                if not isinstance(item, dict):
+                    continue
+                if key not in item:
+                    continue
+                value = item[key]
+                next_values.append(value)
+            current = next_values
+            if not current:
+                break
+        return current
+
+    def _collect_ai_follow_ids_from_paths(
+        self,
+        payload: Any,
+        paths_by_id_type: dict[FollowIdType, list[str]],
+        *,
+        allow_dict_keys: bool,
+    ) -> tuple[dict[FollowIdType, set[ID]], set[FollowIdType]]:
+        ids_by_type: dict[FollowIdType, set[ID]] = {}
+        found_types: set[FollowIdType] = set()
+        for id_type, paths in paths_by_id_type.items():
+            for path in paths:
+                values = self._select_values_by_path(payload, path)
+                for value in values:
+                    ids = self._coerce_id_list(value)
+                    if ids is None and allow_dict_keys and isinstance(value, dict):
+                        dict_keys = [
+                            key for key in value.keys() if isinstance(key, str)
+                        ]
+                        ids = self._coerce_id_list(dict_keys)
+                    if ids is None:
+                        continue
+                    found_types.add(id_type)
+                    if ids:
+                        ids_by_type.setdefault(id_type, set()).update(ids)
+        return ids_by_type, found_types
+
+    def _extract_ai_follow_tool_result_ids(
+        self,
+        payload: Any,
+        metadata: AIFollowToolResultMetadata,
+    ) -> dict[FollowIdType, list[ID]]:
+        ids_by_type, _ = self._collect_ai_follow_ids_from_paths(
+            payload,
+            metadata.pathsByIdType,
+            allow_dict_keys=False,
+        )
+        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
+
+    def _extract_ai_follow_tool_argument_ids(
+        self,
+        arguments: dict[str, Any],
+        metadata: AIFollowToolArgumentsMetadata,
+    ) -> dict[FollowIdType, list[ID]] | None:
+        ids_by_type, found_types = self._collect_ai_follow_ids_from_paths(
+            arguments,
+            metadata.pathsByIdType,
+            allow_dict_keys=True,
+        )
+        if not found_types:
+            return None
+        return {
+            id_type: list(ids_by_type.get(id_type, set())) for id_type in found_types
+        }
+
+    def _canonicalize_ai_follow_ids_by_type(
+        self,
+        ids_by_type: dict[FollowIdType, list[ID]],
+        *,
+        filter_to_known: bool,
+    ) -> dict[FollowIdType, list[ID]] | None:
+        if not ids_by_type:
+            return None
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        if not filter_to_known:
+            return convert_temporary_ids_to_canonical(
+                ids_by_type,
+                temporary_to_canonical,
+            )
+        filtered: dict[FollowIdType, list[ID]] = {}
+        for id_type, ids in ids_by_type.items():
+            resolved = [entry for entry in ids if entry in temporary_to_canonical]
+            if resolved:
+                filtered[id_type] = resolved
+        if not filtered:
+            return None
+        return convert_temporary_ids_to_canonical(
+            filtered,
+            temporary_to_canonical,
+        )
+
+    def _build_ai_follow_tool_result_update(
+        self,
+        tool_name: str,
+        call_result: CallToolResult,
+    ) -> dict[FollowIdType, list[ID]] | None:
+        if call_result.isError:
+            return None
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.aiFollowToolResult:
+            return None
+        metadata = annotations.aiFollowToolResult
+        text_entry = cast("TextContent", call_result.content[0])
+        text = (text_entry.text or "").strip()
+        payload: Any
+        if all(
+            path == "$" for paths in metadata.pathsByIdType.values() for path in paths
+        ):
+            payload = text
+        else:
+            payload = json.loads(text)
+        ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
+        if not ids_by_type:
+            return None
+        return self._canonicalize_ai_follow_ids_by_type(
+            ids_by_type,
+            filter_to_known=False,
+        )
+
+    async def _maybe_broadcast_ai_follow_tool_result_update(
+        self,
+        tool_name: str,
+        call_result: CallToolResult,
+        project_config_id: ID,
+        chat_id: ID,
+    ) -> None:
+        canonical_ids_by_type = self._build_ai_follow_tool_result_update(
+            tool_name,
+            call_result,
+        )
+        if canonical_ids_by_type is None:
+            return
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
+            project_config_id,
+            chat_id,
+            canonical_ids_by_type,
+        )
+
     async def _broadcast_ai_follow_update(
         self,
         project_config_id: ID,
         chat_id: ID,
-        arguments_list: list[dict[str, Any]],
+        tool_calls: list[ToolCall],
     ) -> None:
-        section_ids = self._collect_ai_follow_section_ids(arguments_list)
-        if section_ids is None:
+        ids_by_type = self._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
+        if ids_by_type is None:
             return
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        section_ids = convert_temporary_ids_to_canonical(
-            section_ids,
-            temporary_to_canonical,
+        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
+            ids_by_type,
+            filter_to_known=False,
         )
-        await self.websocket_msg_handler.broadcast_ai_follow_update(
+        if canonical_ids_by_type is None:
+            return
+        await self._update_and_broadcast_ai_follow_update(
             project_config_id,
             chat_id,
-            section_ids,
+            canonical_ids_by_type,
         )
 
-    def _collect_ai_follow_section_ids(
-        self, arguments_list: list[dict[str, Any]]
-    ) -> list[ID] | None:
-        if not arguments_list:
+    def _normalize_ai_follow_ids_by_type(
+        self, ids_by_type: dict[FollowIdType, list[ID]]
+    ) -> dict[FollowIdType, list[ID]]:
+        normalized: dict[FollowIdType, list[ID]] = {}
+        for id_type, ids in ids_by_type.items():
+            if not ids:
+                continue
+            normalized[id_type] = list(dict.fromkeys(ids))
+        return normalized
+
+    def _ids_by_type_to_sets(
+        self, ids_by_type: dict[FollowIdType, list[ID]]
+    ) -> dict[FollowIdType, set[ID]]:
+        return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
+
+    def _ai_follow_state_matches(
+        self,
+        chat_id: ID,
+        project_config_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> bool:
+        if chat_id not in self._ai_follow_state:
+            return False
+        state = self._ai_follow_state[chat_id]
+        if state.project_config_id != project_config_id:
+            return False
+        return self._ids_by_type_to_sets(
+            state.ids_by_type
+        ) == self._ids_by_type_to_sets(ids_by_type)
+
+    async def _update_and_broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type: dict[FollowIdType, list[ID]],
+    ) -> None:
+        normalized_ids_by_type = self._normalize_ai_follow_ids_by_type(ids_by_type)
+        if self._ai_follow_state_matches(
+            chat_id,
+            project_config_id,
+            normalized_ids_by_type,
+        ):
+            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
+            return
+        payload_ids_by_type = dict(normalized_ids_by_type)
+        self._ai_follow_state[chat_id] = AIFollowState(
+            project_config_id=project_config_id,
+            ids_by_type=payload_ids_by_type,
+        )
+        logger.debug(
+            "Broadcasting AI follow update for chat %s (ids_by_type=%s)",
+            chat_id,
+            payload_ids_by_type,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_arguments_update(
+            project_config_id,
+            chat_id,
+            payload_ids_by_type,
+        )
+
+    def _collect_ai_follow_ids_by_type_from_tool_calls(
+        self,
+        tool_calls: list[ToolCall],
+    ) -> dict[FollowIdType, list[ID]] | None:
+        if not tool_calls:
             return None
-        combined: set[ID] = set()
+        combined: dict[FollowIdType, set[ID]] = {}
         found_any = False
-        for arguments in arguments_list:
-            section_ids = self._extract_ai_follow_section_ids(arguments)
-            if section_ids is None:
+        for tool_call in tool_calls:
+            tool_name = tool_call.function.name.strip()
+            if not tool_name:
+                continue
+            arguments = tool_call.function.arguments or {}
+            ids_by_type = self._extract_ai_follow_ids_by_type_for_tool(
+                tool_name,
+                arguments,
+            )
+            if ids_by_type is None:
                 continue
             found_any = True
-            combined.update(section_ids)
+            for id_type, ids in ids_by_type.items():
+                combined.setdefault(id_type, set()).update(ids)
         if not found_any:
             return None
-        return list(combined)
+        return {id_type: list(ids) for id_type, ids in combined.items()}
 
-    def _extract_ai_follow_section_ids(
+    def _extract_ai_follow_ids_by_type(
         self, arguments: dict[str, Any]
-    ) -> list[ID] | None:
+    ) -> dict[FollowIdType, list[ID]] | None:
+        ids_by_type: dict[FollowIdType, list[ID]] = {}
         if "sectionIds" in arguments:
-            return self._coerce_section_id_list(arguments["sectionIds"])
-        if "sectionId" in arguments:
-            return self._coerce_section_id_list(arguments["sectionId"])
-        return None
+            section_ids = self._coerce_id_list(arguments["sectionIds"])
+            if section_ids is not None:
+                ids_by_type["section"] = section_ids
+        elif "sectionId" in arguments:
+            section_ids = self._coerce_id_list(arguments["sectionId"])
+            if section_ids is not None:
+                ids_by_type["section"] = section_ids
+        if "codeObjIds" in arguments:
+            code_obj_ids = self._coerce_id_list(arguments["codeObjIds"])
+            if code_obj_ids is not None:
+                ids_by_type["codeObj"] = code_obj_ids
+        elif "codeObjId" in arguments:
+            code_obj_ids = self._coerce_id_list(arguments["codeObjId"])
+            if code_obj_ids is not None:
+                ids_by_type["codeObj"] = code_obj_ids
+        return ids_by_type or None
 
-    def _coerce_section_id_list(self, raw_value: Any) -> list[ID] | None:
+    def _extract_ai_follow_ids_by_type_for_tool(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[FollowIdType, list[ID]] | None:
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if annotations and annotations.aiFollowToolArguments:
+            return self._extract_ai_follow_tool_argument_ids(
+                arguments,
+                annotations.aiFollowToolArguments,
+            )
+        return self._extract_ai_follow_ids_by_type(arguments)
+
+    def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
         if isinstance(raw_value, list):
             return [
                 ID(value) for value in raw_value if isinstance(value, str) and value
