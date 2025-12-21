@@ -58,6 +58,7 @@ from setta.types.chat_stream_events import (
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.websocket import AIFollowUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -72,7 +73,12 @@ SECTION_ID_VALUE_RE = re.compile(r'"([^"]+)"')
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
-    last_emitted_section_ids: set[ID] = field(default_factory=set)
+
+
+@dataclass
+class AIFollowState:
+    project_config_id: ID
+    section_ids: list[ID]
 
 
 @dataclass
@@ -139,6 +145,7 @@ class LLMChatManager:
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
+        self._ai_follow_state: dict[ID, AIFollowState] = {}
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
@@ -178,6 +185,25 @@ class LLMChatManager:
     def delete_chat(self, chat_id: ID) -> None:
         delete_chat_record(self.dbe, chat_id)
         self._chat_tool_states.pop(chat_id, None)
+        self._ai_follow_state.pop(chat_id, None)
+
+    def get_ai_follow_snapshot(
+        self, project_config_id: ID
+    ) -> list[AIFollowUpdateContent]:
+        snapshot: list[AIFollowUpdateContent] = []
+        for chat_id, state in self._ai_follow_state.items():
+            if state.project_config_id != project_config_id:
+                continue
+            if not state.section_ids:
+                continue
+            snapshot.append(
+                AIFollowUpdateContent(
+                    projectConfigId=project_config_id,
+                    chatId=chat_id,
+                    sectionIds=state.section_ids,
+                )
+            )
+        return snapshot
 
     def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
         metadata = self.get_all_chat_metadata()
@@ -271,7 +297,7 @@ class LLMChatManager:
                 )
                 tool_results = await self._run_tool_calls(chat, assistant_message)
                 if assistant_message.tool_calls:
-                    await self.websocket_msg_handler.broadcast_ai_follow_update(
+                    await self._update_and_broadcast_ai_follow_update(
                         chat.projectConfigId,
                         chat.id,
                         [],
@@ -309,6 +335,11 @@ class LLMChatManager:
                         chat.id,
                         MessageFinalizedEvent(message=assistant_message),
                     )
+                await self._update_and_broadcast_ai_follow_update(
+                    chat.projectConfigId,
+                    chat.id,
+                    [],
+                )
                 raise
             except Exception as exc:
                 if not stop_event_sent:
@@ -325,6 +356,11 @@ class LLMChatManager:
                     project_config_id=chat.projectConfigId,
                     logger=logger,
                     context={"chat_id": str(chat.id)},
+                )
+                await self._update_and_broadcast_ai_follow_update(
+                    chat.projectConfigId,
+                    chat.id,
+                    [],
                 )
                 return
             finally:
@@ -917,8 +953,6 @@ class LLMChatManager:
         section_ids = self._extract_stream_section_ids_from_buffers(tool_call_state)
         if not section_ids:
             return
-        if section_ids == tool_call_state.last_emitted_section_ids:
-            return
         temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
         resolved_ids: list[ID] = []
         for section_id in section_ids:
@@ -933,12 +967,11 @@ class LLMChatManager:
         )
         if not canonical_ids:
             return
-        await self.websocket_msg_handler.broadcast_ai_follow_update(
+        await self._update_and_broadcast_ai_follow_update(
             project_config_id,
             chat_id,
             canonical_ids,
         )
-        tool_call_state.last_emitted_section_ids = section_ids
 
     def _extract_stream_section_ids_from_buffers(
         self, tool_call_state: ToolCallStreamState
@@ -1217,10 +1250,48 @@ class LLMChatManager:
             section_ids,
             temporary_to_canonical,
         )
-        await self.websocket_msg_handler.broadcast_ai_follow_update(
+        await self._update_and_broadcast_ai_follow_update(
             project_config_id,
             chat_id,
             section_ids,
+        )
+
+    def _ai_follow_state_matches(
+        self,
+        chat_id: ID,
+        project_config_id: ID,
+        section_ids: list[ID],
+    ) -> bool:
+        if chat_id not in self._ai_follow_state:
+            return False
+        state = self._ai_follow_state[chat_id]
+        if state.project_config_id != project_config_id:
+            return False
+        return set(state.section_ids) == set(section_ids)
+
+    async def _update_and_broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        section_ids: list[ID],
+    ) -> None:
+        if self._ai_follow_state_matches(chat_id, project_config_id, section_ids):
+            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
+            return
+        payload_section_ids = list(section_ids)
+        self._ai_follow_state[chat_id] = AIFollowState(
+            project_config_id=project_config_id,
+            section_ids=payload_section_ids,
+        )
+        logger.debug(
+            "Broadcasting AI follow update for chat %s (section_ids=%s)",
+            chat_id,
+            payload_section_ids,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            payload_section_ids,
         )
 
     def _collect_ai_follow_section_ids(

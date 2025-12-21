@@ -38,7 +38,7 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
 } from "./ai";
-import { receiveAIFollowUpdate } from "./aiFollow";
+import { receiveAIFollowUpdate, requestAIFollowSnapshot } from "./aiFollow";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -80,6 +80,7 @@ export const openWebSocket = _.debounce(
           });
           if (res200(res)) {
             processProjectStateUpdateFromBackend(res.data);
+            await requestAIFollowSnapshot(projectConfigId);
           }
         }
       });
