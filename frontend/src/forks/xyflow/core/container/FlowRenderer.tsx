@@ -25,9 +25,7 @@ const FlowRenderer = ({
     };
   }, _.isEqual);
 
-  const isFollowTransitioning = useAIFollow(
-    (state) => state.isFollowTransitioning,
-  );
+  const aiFollowEnabled = useAIFollow((state) => state.enabled);
 
   const {
     panOnDrag,
@@ -49,27 +47,26 @@ const FlowRenderer = ({
     };
   }, _.isEqual);
 
+  const effectivePanOnDrag = !aiFollowEnabled && panOnDrag;
+  const effectivePanOnScroll = !aiFollowEnabled && panOnScroll;
+  const effectiveZoomOnScroll = !aiFollowEnabled && zoomOnScroll;
+  const effectiveZoomOnPinch = !aiFollowEnabled && zoomOnPinch;
+  const effectiveZoomOnDoubleClick = !aiFollowEnabled && zoomOnDoubleClick;
+
   return (
     <ZoomPane
-      zoomOnScroll={!isFollowTransitioning && zoomOnScroll}
-      zoomOnPinch={!isFollowTransitioning && zoomOnPinch}
-      panOnScroll={!isFollowTransitioning && panOnScroll}
+      zoomOnScroll={effectiveZoomOnScroll}
+      zoomOnPinch={effectiveZoomOnPinch}
+      panOnScroll={effectivePanOnScroll}
       panOnScrollSpeed={panOnScrollSpeed}
       panOnScrollMode={panOnScrollMode}
-      zoomOnDoubleClick={!isFollowTransitioning && zoomOnDoubleClick}
-      panOnDrag={!selectionKeyPressed && !isFollowTransitioning && panOnDrag}
-      panActivationKeyPressed={
-        !isFollowTransitioning && panActivationKeyPressed
-      }
-      zoomActivationKeyPressed={
-        !isFollowTransitioning && zoomActivationKeyPressed
-      }
+      zoomOnDoubleClick={effectiveZoomOnDoubleClick}
+      panOnDrag={!selectionKeyPressed && effectivePanOnDrag}
+      panActivationKeyPressed={panActivationKeyPressed}
+      zoomActivationKeyPressed={zoomActivationKeyPressed}
       wrapperDimensions={wrapperDimensions}
     >
-      <Pane
-        panOnDrag={!isFollowTransitioning && panOnDrag}
-        isSelecting={!!selectionKeyPressed}
-      >
+      <Pane panOnDrag={effectivePanOnDrag} isSelecting={!!selectionKeyPressed}>
         {children}
         <NodesSelectionWrapper />
       </Pane>

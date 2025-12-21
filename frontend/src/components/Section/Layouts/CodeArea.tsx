@@ -27,12 +27,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import {
-  useMisc,
-  useProjectState,
-  useResizeEvent,
-  useToolArgumentPreview,
-} from "state/definitions";
+import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
@@ -484,7 +479,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
-  const { value: baseValue, variantIsFrozen } = useProjectState((x) => {
+  const { value, variantIsFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -495,16 +490,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       variantIsFrozen: false,
     };
   }, _.isEqual);
-  const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const previewCode = useToolArgumentPreview((state) => {
-    const previewState = state.byProjectConfigId[projectConfigId];
-    if (!previewState) {
-      return null;
-    }
-    const entry = previewState.previewCodeBySectionId[sectionId];
-    return entry ? entry.value : null;
-  });
-  const value = previewCode ?? baseValue;
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });

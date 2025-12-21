@@ -12,7 +12,7 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { useAIFollow, useMisc, useSettings } from "state/definitions";
+import { useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { clamp, isMacOs } from "utils/utils";
@@ -219,12 +219,6 @@ const ZoomPane = ({
         d3Zoom.on("zoom", null);
       } else if (!userSelectionActive) {
         d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, any>) => {
-          if (
-            useAIFollow.getState().isFollowTransitioning &&
-            event.sourceEvent
-          ) {
-            return;
-          }
           useReactFlow.setState({
             transform: [
               event.transform.x,

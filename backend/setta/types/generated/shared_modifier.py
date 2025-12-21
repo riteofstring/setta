@@ -21,6 +21,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -77,6 +78,7 @@ class SharedModifier(TypedDict):
     jsonSourceMissing: NotRequired[bool]
     layers: NotRequired[list[DrawAreaLayer]]
     max: NotRequired[int]
+    metaControlType: NotRequired[MetaControlType]
     min: NotRequired[int]
     name: NotRequired[str]
     paramFilter: NotRequired[str]
