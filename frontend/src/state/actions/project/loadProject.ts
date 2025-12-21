@@ -17,7 +17,6 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
-import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 
@@ -26,7 +25,6 @@ export async function loadProjectConfig({ projectConfigName }) {
   if (res200(res)) {
     const loaded = await loadProjectState(res.data);
     if (loaded) {
-      await requestAIFollowSnapshot(res.data.projectConfig.id);
       await fetchListenerCoverageSnapshot(res.data.projectConfig.id);
     }
     return loaded;

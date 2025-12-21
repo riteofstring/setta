@@ -4,25 +4,36 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
-  CreateSectionsContextMenuInfo,
   createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
+import type { CreateSectionsContextMenuInfo } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
+type CanvasContextMenuItem = {
+  name: string;
+  onClick: () => void;
+};
+
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
+  const position = screenToFlowPosition({ x, y });
 
-  function onClick(implSpecs: CreateSectionsContextMenuInfo["implSpecs"]) {
-    createTopLevelSectionFromImplSpecs(
-      implSpecs,
-      screenToFlowPosition({ x, y }),
-    );
+  function onClickSection(
+    implSpecs: CreateSectionsContextMenuInfo["implSpecs"],
+  ) {
+    createTopLevelSectionFromImplSpecs(implSpecs, position);
     closeAllContextMenus();
   }
 
-  const contextMenuItems = useCreateSectionsList();
+  const contextMenuItems = useCreateSectionsList().map((group) => ({
+    group: group.group,
+    items: group.items.map((item) => ({
+      name: item.name,
+      onClick: () => onClickSection(item.implSpecs),
+    })),
+  }));
 
   return (
     <ContextMenuCore
@@ -36,7 +47,6 @@ export function PaneContextMenu() {
           key={x.group}
           name={x.group}
           items={x.items}
-          onClick={onClick}
         />
       ))}
     </ContextMenuCore>
@@ -46,11 +56,9 @@ export function PaneContextMenu() {
 function DropdownGroup({
   name,
   items = [],
-  onClick,
 }: {
   name: string;
-  items: Array<CreateSectionsContextMenuInfo>;
-  onClick: (x: CreateSectionsContextMenuInfo["implSpecs"]) => void;
+  items: Array<CanvasContextMenuItem>;
 }) {
   return (
     <DropdownMenu.Group className="[&:not(:first-child)]:mt-1.5">
@@ -58,7 +66,7 @@ function DropdownGroup({
         {name}
       </DropdownMenu.Label>
       {items.map((e) => (
-        <Item key={e.name} onClick={() => onClick(e.implSpecs)}>
+        <Item key={e.name} onClick={e.onClick}>
           {e.name}
         </Item>
       ))}

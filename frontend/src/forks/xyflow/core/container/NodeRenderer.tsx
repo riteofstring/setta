@@ -26,7 +26,6 @@ const NodeRenderer = () => {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
-
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
       return null;
@@ -50,18 +49,16 @@ const NodeRenderer = () => {
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
-      {nodeIds.map((nodeId) => {
-        return (
-          <NodeWrapper
-            key={nodeId}
-            id={nodeId}
-            selected={activeSectionIds.includes(nodeId)}
-            isDraggable={!panActivationKeyPressed}
-            resizeObserver={resizeObserver}
-            visibility={readyToBeVisible ? "visible" : "hidden"}
-          />
-        );
-      })}
+      {nodeIds.map((nodeId) => (
+        <NodeWrapper
+          key={nodeId}
+          id={nodeId}
+          selected={activeSectionIds.includes(nodeId)}
+          isDraggable={!panActivationKeyPressed}
+          resizeObserver={resizeObserver}
+          visibility={readyToBeVisible ? "visible" : "hidden"}
+        />
+      ))}
     </div>
   );
 };

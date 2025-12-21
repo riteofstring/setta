@@ -106,6 +106,9 @@ function getSizeMode({
   hideParams?: boolean;
   isTwitter: boolean;
 }) {
+  if (sectionType === SectionTypeEnum.MetaControl) {
+    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
+  }
   if (sectionType === SectionTypeEnum.Callable) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
@@ -133,13 +136,17 @@ export function useSectionMinMaxDims(sectionId: string) {
     const hideParams = impl.hideParams;
     const isMinimized = impl.isMinimized;
 
-    const minHeight = getMinSectionHeight({
+    const rawMinHeight = getMinSectionHeight({
       sectionType,
       hideSearch,
       hideParams,
       isMinimized,
       sizingPolicy,
     });
+    const minHeight =
+      sectionType === SectionTypeEnum.MetaControl
+        ? Math.min(rawMinHeight, 20)
+        : rawMinHeight;
 
     const maxHeight = getMaxSectionHeight({
       sectionType,
