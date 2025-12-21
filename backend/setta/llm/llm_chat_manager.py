@@ -909,28 +909,28 @@ class LLMChatManager:
             return
 
         for entry in entries:
-            event = self._apply_tool_call_delta(
+            tool_call_event = self._apply_tool_call_delta(
                 assistant_message,
                 entry,
                 tool_call_state,
             )
-            if not event:
+            if not tool_call_event:
                 continue
+            preview_event = self._build_streaming_preview_event(
+                assistant_message,
+                tool_call_state,
+                entry.index,
+                entry.function.arguments,
+            )
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
-                event,
+                preview_event or tool_call_event,
             )
             await self._maybe_broadcast_streaming_follow_update(
                 project_config_id,
                 chat_id,
                 assistant_message,
                 tool_call_state,
-            )
-            await self._maybe_broadcast_streaming_preview_update(
-                chat_id,
-                assistant_message,
-                tool_call_state,
-                entry.index,
             )
 
     def _apply_tool_call_delta(
@@ -987,33 +987,33 @@ class LLMChatManager:
             canonical_ids_by_type,
         )
 
-    async def _maybe_broadcast_streaming_preview_update(
+    def _build_streaming_preview_event(
         self,
-        chat_id: ID,
         assistant_message: AssistantChatMessage,
         tool_call_state: ToolCallStreamState,
         tool_call_index: int,
-    ) -> None:
+        arguments_delta: str,
+    ) -> ToolArgumentPreviewDeltaEvent | None:
         buffer = tool_call_state.argument_buffers.get(tool_call_index)
         if not buffer:
-            return
+            return None
         tool_calls = assistant_message.tool_calls or []
         if tool_call_index >= len(tool_calls):
-            return
+            return None
         tool_call = tool_calls[tool_call_index]
         tool_name = tool_call.function.name.strip()
         if not tool_name:
-            return
+            return None
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.toolArgumentPreview:
-            return
+            return None
         metadata = annotations.toolArgumentPreview
         preview_value = self._extract_preview_value_from_buffer(
             buffer,
             metadata.previewValuePath,
         )
         if preview_value is None:
-            return
+            return None
         target_ids_by_type = self._extract_preview_target_ids_from_buffer(
             buffer,
             metadata,
@@ -1023,32 +1023,30 @@ class LLMChatManager:
             metadata.targetIdPathsByType,
         )
         if canonical_target_ids_by_type is None:
-            return
+            return None
         last_value = tool_call_state.preview_values_by_index.get(tool_call_index, "")
         preview_value = self._coalesce_preview_value(last_value, preview_value)
         if last_value and not preview_value.startswith(last_value):
-            return
+            return None
         preview_delta = preview_value[len(last_value) :]
         last_ids = tool_call_state.preview_target_ids_by_index.get(tool_call_index)
         ids_match = last_ids is not None and self._preview_ids_by_type_to_sets(
             last_ids
         ) == self._preview_ids_by_type_to_sets(canonical_target_ids_by_type)
         if not preview_delta and ids_match:
-            return
+            return None
         tool_call_state.preview_values_by_index[tool_call_index] = preview_value
         tool_call_state.preview_target_ids_by_index[tool_call_index] = (
             canonical_target_ids_by_type
         )
-        await self.websocket_msg_handler.send_streaming_response(
-            chat_id,
-            ToolArgumentPreviewDeltaEvent(
-                message_id=assistant_message.id,
-                tool_call_id=tool_call.id,
-                tool_name=tool_name,
-                preview_kind=metadata.previewKind,
-                target_ids_by_type=canonical_target_ids_by_type,
-                preview_value_delta=preview_delta,
-            ),
+        return ToolArgumentPreviewDeltaEvent(
+            message_id=assistant_message.id,
+            tool_call_id=tool_call.id,
+            tool_name=tool_name,
+            arguments_delta=arguments_delta,
+            preview_kind=metadata.previewKind,
+            target_ids_by_type=canonical_target_ids_by_type,
+            preview_value_delta=preview_delta,
         )
 
     def _extract_stream_ids_by_type_from_buffers(

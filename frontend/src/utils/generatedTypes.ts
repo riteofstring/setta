@@ -875,6 +875,7 @@ const ToolArgumentPreviewDeltaEventSchema = z.object({
   message_id: z.string(),
   tool_call_id: z.string(),
   tool_name: z.string(),
+  arguments_delta: z.string(),
   preview_kind: z.enum(ToolArgumentPreviewKindEnum),
   target_ids_by_type: z.record(
     z.literal(["section", "codeObj"]),

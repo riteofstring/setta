@@ -73,6 +73,7 @@ class ToolArgumentPreviewDeltaEvent(BaseModel):
     message_id: str
     tool_call_id: str
     tool_name: str
+    arguments_delta: str
     preview_kind: ToolArgumentPreviewKind
     target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]]
     preview_value_delta: str

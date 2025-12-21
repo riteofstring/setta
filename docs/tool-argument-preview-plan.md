@@ -53,6 +53,7 @@ Add a new streaming event in `backend/setta/types/chat_stream_events.py`:
   - `message_id`
   - `tool_call_id`
   - `tool_name`
+  - `arguments_delta`
   - `preview_kind`
   - `target_ids_by_type`
   - `preview_value_delta`
