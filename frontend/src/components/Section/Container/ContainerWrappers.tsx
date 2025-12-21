@@ -4,7 +4,6 @@ import _ from "lodash";
 import React from "react";
 import { getAncestorSameVisibility } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { ViewingEditingModeEnum } from "utils/generatedTypes";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
@@ -16,7 +15,8 @@ function _DndSlotAndDndWatcher({
   draggableRef,
   dragListeners,
   visibility,
-  viewingEditingMode,
+  isEditingViewMode,
+  isUserView,
   children,
 }) {
   const { style, behaviorDropType } = useHighlightDroppable({
@@ -34,7 +34,8 @@ function _DndSlotAndDndWatcher({
         draggableRef={draggableRef}
         dragListeners={dragListeners}
         visibility={visibility}
-        viewingEditingMode={viewingEditingMode}
+        isEditingViewMode={isEditingViewMode}
+        isUserView={isUserView}
         style={style}
       >
         {children}
@@ -49,7 +50,8 @@ export const DndSlotAndDndWatcher = React.memo(
     p.isGroup === n.isGroup &&
     p.children === n.children &&
     p.visibility === n.visibility &&
-    p.viewingEditingMode === n.viewingEditingMode &&
+    p.isEditingViewMode === n.isEditingViewMode &&
+    p.isUserView === n.isUserView &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
@@ -61,7 +63,8 @@ function _DndWatcherAndContainer({
   draggableRef,
   dragListeners,
   visibility,
-  viewingEditingMode,
+  isEditingViewMode,
+  isUserView,
   style,
   children,
 }) {
@@ -81,7 +84,7 @@ function _DndWatcherAndContainer({
     ...maybeGetOpacityStyle(
       activeIsSelf,
       visibility,
-      viewingEditingMode,
+      isEditingViewMode,
       ancestorHasSameVisibility,
     ),
   };
@@ -93,7 +96,8 @@ function _DndWatcherAndContainer({
       droppableRef={droppableRef}
       draggableRef={draggableRef}
       trueDragListeners={trueDragListeners}
-      viewingEditingMode={viewingEditingMode}
+      isEditingViewMode={isEditingViewMode}
+      isUserView={isUserView}
       className={className}
       style={fullStyle}
     >
@@ -105,10 +109,10 @@ function _DndWatcherAndContainer({
 function maybeGetOpacityStyle(
   activeIsSelf,
   visibility,
-  viewingEditingMode,
+  isEditingViewMode,
   ancestorHasSameVisibility,
 ) {
-  if (!visibility && viewingEditingMode === ViewingEditingModeEnum.USER_EDIT) {
+  if (!visibility && isEditingViewMode) {
     return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
   }
   if (activeIsSelf) {

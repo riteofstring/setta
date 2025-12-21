@@ -68,12 +68,14 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
+    DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -85,6 +87,7 @@ from setta.project_state.project_manager_types import (
     RenameRefactorBroadcastContent,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
+    SetActiveViewModeRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
@@ -113,13 +116,17 @@ from setta.project_state.project_manager_types import (
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
+    ToggleIsEditingViewModeRequest,
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
     TogglePositionLockRequest,
+    ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
+    ToggleViewModeUserFacingRequest,
     UndoRequest,
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
@@ -204,7 +211,7 @@ from setta.types.notifications import (
     SettaNotification,
     SettaNotificationType,
 )
-from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_config import Position, ProjectConfig, ViewModeConfig
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -570,6 +577,7 @@ class BaseProjectManager(ABC):
         async with self._project_state_lock.write_lock():
             projectState.validate_singleton_sections()
             projectState.validate_parent_section_map()
+            projectState.validate_view_modes()
             projectState.validate_shown_param_ids()
             projectState.validate_yaml_values()
             projectState.validate_required_decoded_images()
@@ -1088,6 +1096,12 @@ class BaseProjectManager(ABC):
             SectionType.GenPythonCode,
             Position(),
         )
+        visibility_by_section_id = {
+            section_id: True for section_id in project_state.sections.keys()
+        }
+        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        project_state.projectConfig.activeViewModeId = view_mode.id
         self.project_state_backend = merge_single_config_into_backend(
             self.project_state_backend, project_state
         )
@@ -1190,6 +1204,98 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].viewport = x.viewport
+
+    @enqueue_method
+    async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        visibility_by_section_id = {
+            section_id: True for section_id in project_state.sections.keys()
+        }
+        view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
+        project_state.projectConfig.viewModes[view_mode.id] = view_mode
+        project_state.projectConfig.activeViewModeId = view_mode.id
+        project_state.projectConfig.isEditingViewMode = True
+        await self.update_and_broadcast_project_state(project_state)
+        return view_mode.id
+
+    @enqueue_method
+    async def set_active_view_mode(self, x: SetActiveViewModeRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        if x.activeViewModeId not in project_state.projectConfig.viewModes:
+            raise KeyError(f"View mode {x.activeViewModeId} not found")
+        project_state.projectConfig.activeViewModeId = x.activeViewModeId
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_is_editing_view_mode(
+        self, x: ToggleIsEditingViewModeRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.isEditingViewMode = (
+            not project_state.projectConfig.isEditingViewMode
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_section_visibility(
+        self, x: ToggleSectionVisibilityRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        for section_id in x.sectionIds:
+            if section_id not in project_state.sections:
+                raise KeyError(f"Section {section_id} not found")
+        active_view_mode_id = project_state.projectConfig.activeViewModeId
+        if active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        if active_view_mode_id not in project_state.projectConfig.viewModes:
+            raise KeyError(f"View mode {active_view_mode_id} not found")
+        view_mode = project_state.projectConfig.viewModes[active_view_mode_id]
+        visibility_by_section_id = view_mode.visibilityBySectionId
+        all_visible = True
+        for section_id in x.sectionIds:
+            if section_id not in visibility_by_section_id:
+                raise KeyError(
+                    "Missing visibility for section "
+                    f"{section_id} in view mode {view_mode.id}"
+                )
+            if not visibility_by_section_id[section_id]:
+                all_visible = False
+                break
+        next_visibility = not all_visible
+        for section_id in x.sectionIds:
+            visibility_by_section_id[section_id] = next_visibility
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_view_mode_user_facing(
+        self, x: ToggleViewModeUserFacingRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
+        view_mode.isUserFacing = not view_mode.isUserFacing
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_view_mode_name(self, x: SetViewModeNameRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_mode = project_state.projectConfig.viewModes[x.viewModeId]
+        view_mode.name = x.name
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_modes = project_state.projectConfig.viewModes
+        if x.viewModeId not in view_modes:
+            raise KeyError(f"View mode {x.viewModeId} not found")
+        if len(view_modes) < 2:
+            return
+        del view_modes[x.viewModeId]
+        if project_state.projectConfig.activeViewModeId == x.viewModeId:
+            project_state.projectConfig.activeViewModeId = next(iter(view_modes))
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool()

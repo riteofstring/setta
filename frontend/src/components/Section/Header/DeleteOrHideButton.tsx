@@ -1,40 +1,58 @@
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
-  getCurrEffectiveSectionImpl,
+  getActiveViewModeConfig,
   getCurrProjectConfigId,
-  getSectionVisibilityKey,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_delete_sections } from "utils/generatedEndpoints";
 import {
-  ViewingEditingMode,
-  ViewingEditingModeEnum,
-} from "utils/generatedTypes";
+  route_delete_sections,
+  route_toggle_section_visibility,
+} from "utils/generatedEndpoints";
+
+type DeleteOrHideButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  sectionId: string;
+  icon?: ReactNode;
+  twClasses?: string;
+  size?: string;
+  padding?: string;
+  bg?: string;
+  color?: string;
+  rounded?: string;
+  grid?: boolean;
+};
 
 // absolute top-1 right-1
 export function DeleteOrHideButton({
   sectionId,
-  viewingEditingMode,
   ...props
-}) {
-  const visibility = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    return impl.visibility[getSectionVisibilityKey(viewingEditingMode)];
+}: DeleteOrHideButtonProps) {
+  const { visibility, isEditingViewMode } = useProjectState((state) => {
+    const viewMode = getActiveViewModeConfig(state);
+    const visibility = viewMode.visibilityBySectionId[sectionId];
+    if (visibility === undefined) {
+      throw new Error(
+        `Missing visibility for section ${sectionId} in view mode ${viewMode.id}`,
+      );
+    }
+    return {
+      visibility,
+      isEditingViewMode: state.projectConfig.isEditingViewMode,
+    };
   });
 
   const onClick = () => {
+    if (isEditingViewMode) {
+      route_toggle_section_visibility({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionIds: [sectionId],
+      });
+      return;
+    }
     route_delete_sections({
       projectConfigId: getCurrProjectConfigId(),
       sectionIds: [sectionId],
     });
-    // useProjectState.setState((state) => {
-    //   if (viewingEditingMode === ViewingEditingModeEnum.DEV) {
-    //     route_delete_sections({projectConfigId: })
-    //   } else if (viewingEditingMode === ViewingEditingModeEnum.USER_EDIT) {
-    //     state.sections[sectionId].visibility[ViewingEditingModeEnum.USER] =
-    //       !visibility;
-    //   }
-    // });
   };
 
   const {
@@ -63,18 +81,16 @@ export function DeleteOrHideButton({
       {...buttonProps}
       onClick={onClickOverride ?? onClick}
     >
-      {icon ?? getIcon(viewingEditingMode, visibility)}
+      {icon ?? getIcon(isEditingViewMode, visibility)}
       {children}
     </button>
   );
   // return <button onClick={onClick} className="gg-close" />;
 }
 
-function getIcon(viewingEditingMode: ViewingEditingMode, visibility: boolean) {
-  switch (viewingEditingMode) {
-    case ViewingEditingModeEnum.DEV:
-      return <i className="gg-close" />;
-    case ViewingEditingModeEnum.USER_EDIT:
-      return visibility ? <BiShow /> : <BiHide />;
+function getIcon(isEditingViewMode: boolean, visibility: boolean) {
+  if (isEditingViewMode) {
+    return visibility ? <BiShow /> : <BiHide />;
   }
+  return <i className="gg-close" />;
 }

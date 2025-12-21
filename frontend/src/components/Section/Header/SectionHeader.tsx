@@ -5,7 +5,7 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -15,15 +15,23 @@ import { RunButton } from "./RunButton";
 import { SectionTitle } from "./SectionTitle";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
 
+type SectionHeaderProps = {
+  sectionId: string;
+  isActiveSection: boolean;
+  sectionTypeName: SectionType;
+  isInOtherProjectConfigs: boolean;
+  isUserView: boolean;
+  isRoot: boolean;
+};
+
 function _SectionHeader({
   sectionId,
   isActiveSection,
   sectionTypeName,
   isInOtherProjectConfigs,
-  viewingEditingMode,
   isUserView,
   isRoot,
-}) {
+}: SectionHeaderProps) {
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
 
   // DOM: maybe get rid of the extra div under header?
@@ -67,12 +75,7 @@ function _SectionHeader({
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}
         {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
-        {!isUserView && (
-          <DeleteOrHideButton
-            sectionId={sectionId}
-            viewingEditingMode={viewingEditingMode}
-          />
-        )}
+        {!isUserView && <DeleteOrHideButton sectionId={sectionId} />}
       </div>
     </header>
   );

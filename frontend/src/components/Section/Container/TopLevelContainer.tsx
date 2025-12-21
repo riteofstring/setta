@@ -1,21 +1,22 @@
 import { useDraggable, useDroppable } from "forks/dnd-kit/CustomCore";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
-import { ViewingEditingMode } from "utils/generatedTypes";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
 export function TopLevelContainer({
   isGroup,
   sectionId,
   visibility,
-  viewingEditingMode,
+  isEditingViewMode,
+  isUserView,
   children,
 }: {
   isGroup: boolean;
   sectionId: string;
   children: React.ReactNode;
   visibility: boolean;
-  viewingEditingMode: ViewingEditingMode;
+  isEditingViewMode: boolean;
+  isUserView: boolean;
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const dndProps = useDndProps({ sectionId, isTopLevel: true });
@@ -35,7 +36,8 @@ export function TopLevelContainer({
       draggableRef={draggableRef}
       dragListeners={dragListeners}
       visibility={visibility}
-      viewingEditingMode={viewingEditingMode}
+      isEditingViewMode={isEditingViewMode}
+      isUserView={isUserView}
     >
       {children}
     </DndSlotAndDndWatcher>

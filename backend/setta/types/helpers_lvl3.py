@@ -18,7 +18,12 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.id import ID
-from setta.types.project_config import Position, ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import (
+    Position,
+    ProjectConfig,
+    TopLevelSectionLayout,
+    ViewModeConfig,
+)
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
     ProjectStateBackend,
@@ -239,7 +244,6 @@ def build_project_state_summary(
             isSingletonMember=section_id in singleton_members,
             hideParams=bool(getattr(impl, "hideParams", False)),
             hideUnpinnedParams=bool(getattr(impl, "hideUnpinnedParams", False)),
-            visibility=getattr(impl, "visibility", None),
             topLevelLayout=top_level_layouts.get(section_id),
             layoutLocked=bool(getattr(impl, "positionAndSizeLocked", False)),
             parameters=parameters,
@@ -370,6 +374,22 @@ def remap_section_variant_map(
     return section_variant_map
 
 
+def remap_view_modes(
+    view_modes: dict[ID, ViewModeConfig],
+    section_id_map: dict[ID, ID] | None,
+):
+    if not section_id_map:
+        return view_modes
+    remapped_view_modes: dict[ID, ViewModeConfig] = {}
+    for view_mode_id, view_mode in view_modes.items():
+        visibility = rename_keys(view_mode.visibilityBySectionId, section_id_map)
+        remapped_view_modes[view_mode_id] = view_mode.model_copy(
+            update={"visibilityBySectionId": visibility},
+            deep=True,
+        )
+    return remapped_view_modes
+
+
 def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
@@ -394,6 +414,9 @@ def copy_project_config(
             project_config.sectionVariantMap, section_id_map, section_variant_id_map
         )
         new_values["activeIds"] = [section_id_map[v] for v in project_config.activeIds]
+        new_values["viewModes"] = remap_view_modes(
+            project_config.viewModes, section_id_map
+        )
 
     return project_config.model_copy(update=new_values, deep=True)
 
