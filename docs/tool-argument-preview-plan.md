@@ -55,7 +55,7 @@ Add a new streaming event in `backend/setta/types/chat_stream_events.py`:
   - `tool_name`
   - `preview_kind`
   - `target_ids_by_type`
-  - `preview_value_delta` or `preview_value_full`
+  - `preview_value_delta`
 
 Prefer sending full preview value (reconstructed from buffers) to simplify
 frontend state updates, even though the transport itself is streaming.

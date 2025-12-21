@@ -3,6 +3,7 @@ import copy
 import json
 import logging
 import re
+import string
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
     FollowIdType,
+    ToolArgumentPreviewIdType,
+    ToolArgumentPreviewMetadata,
 )
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
@@ -57,6 +60,7 @@ from setta.types.chat_stream_events import (
     MessageStopEvent,
     MessageTextDelta,
     MessageThinkingDelta,
+    ToolArgumentPreviewDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
 )
@@ -77,6 +81,10 @@ STREAM_OBJECT_KEY_RE = re.compile(r'"([^"]+)"\s*:')
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
+    preview_values_by_index: dict[int, str] = field(default_factory=dict)
+    preview_target_ids_by_index: dict[
+        int, dict[ToolArgumentPreviewIdType, list[ID]]
+    ] = field(default_factory=dict)
 
 
 @dataclass
@@ -918,6 +926,12 @@ class LLMChatManager:
                 assistant_message,
                 tool_call_state,
             )
+            await self._maybe_broadcast_streaming_preview_update(
+                chat_id,
+                assistant_message,
+                tool_call_state,
+                entry.index,
+            )
 
     def _apply_tool_call_delta(
         self,
@@ -973,6 +987,70 @@ class LLMChatManager:
             canonical_ids_by_type,
         )
 
+    async def _maybe_broadcast_streaming_preview_update(
+        self,
+        chat_id: ID,
+        assistant_message: AssistantChatMessage,
+        tool_call_state: ToolCallStreamState,
+        tool_call_index: int,
+    ) -> None:
+        buffer = tool_call_state.argument_buffers.get(tool_call_index)
+        if not buffer:
+            return
+        tool_calls = assistant_message.tool_calls or []
+        if tool_call_index >= len(tool_calls):
+            return
+        tool_call = tool_calls[tool_call_index]
+        tool_name = tool_call.function.name.strip()
+        if not tool_name:
+            return
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.toolArgumentPreview:
+            return
+        metadata = annotations.toolArgumentPreview
+        preview_value = self._extract_preview_value_from_buffer(
+            buffer,
+            metadata.previewValuePath,
+        )
+        if preview_value is None:
+            return
+        target_ids_by_type = self._extract_preview_target_ids_from_buffer(
+            buffer,
+            metadata,
+        )
+        canonical_target_ids_by_type = self._canonicalize_preview_ids_by_type(
+            target_ids_by_type,
+            metadata.targetIdPathsByType,
+        )
+        if canonical_target_ids_by_type is None:
+            return
+        last_value = tool_call_state.preview_values_by_index.get(tool_call_index, "")
+        preview_value = self._coalesce_preview_value(last_value, preview_value)
+        if last_value and not preview_value.startswith(last_value):
+            return
+        preview_delta = preview_value[len(last_value) :]
+        last_ids = tool_call_state.preview_target_ids_by_index.get(tool_call_index)
+        ids_match = last_ids is not None and self._preview_ids_by_type_to_sets(
+            last_ids
+        ) == self._preview_ids_by_type_to_sets(canonical_target_ids_by_type)
+        if not preview_delta and ids_match:
+            return
+        tool_call_state.preview_values_by_index[tool_call_index] = preview_value
+        tool_call_state.preview_target_ids_by_index[tool_call_index] = (
+            canonical_target_ids_by_type
+        )
+        await self.websocket_msg_handler.send_streaming_response(
+            chat_id,
+            ToolArgumentPreviewDeltaEvent(
+                message_id=assistant_message.id,
+                tool_call_id=tool_call.id,
+                tool_name=tool_name,
+                preview_kind=metadata.previewKind,
+                target_ids_by_type=canonical_target_ids_by_type,
+                preview_value_delta=preview_delta,
+            ),
+        )
+
     def _extract_stream_ids_by_type_from_buffers(
         self,
         assistant_message: AssistantChatMessage,
@@ -998,17 +1076,13 @@ class LLMChatManager:
                 combined.setdefault(id_type, set()).update(ids)
         return {id_type: list(ids) for id_type, ids in combined.items() if ids}
 
-    def _extract_stream_ids_by_type_from_buffer(
+    def _extract_stream_ids_by_type_from_paths(
         self,
         buffer: str,
-        tool_name: str,
-    ) -> dict[FollowIdType, set[ID]]:
-        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if not annotations or not annotations.aiFollowToolArguments:
-            return {}
-        metadata = annotations.aiFollowToolArguments
-        keys_by_type: dict[FollowIdType, set[str]] = {}
-        for id_type, paths in metadata.pathsByIdType.items():
+        paths_by_id_type: dict[str, list[str]],
+    ) -> dict[str, set[ID]]:
+        keys_by_type: dict[str, set[str]] = {}
+        for id_type, paths in paths_by_id_type.items():
             for path in paths:
                 if path == "$":
                     continue
@@ -1018,7 +1092,7 @@ class LLMChatManager:
                 keys_by_type.setdefault(id_type, set()).add(segments[-1])
         if not keys_by_type:
             return {}
-        combined: dict[FollowIdType, set[ID]] = {}
+        combined: dict[str, set[ID]] = {}
         for id_type, keys in keys_by_type.items():
             for key in keys:
                 single_re, list_re, object_re = self._build_stream_id_regexes(key)
@@ -1038,6 +1112,32 @@ class LLMChatManager:
                             combined.setdefault(id_type, set()).add(ID(value))
         return combined
 
+    def _extract_stream_ids_by_type_from_buffer(
+        self,
+        buffer: str,
+        tool_name: str,
+    ) -> dict[FollowIdType, set[ID]]:
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.aiFollowToolArguments:
+            return {}
+        metadata = annotations.aiFollowToolArguments
+        combined = self._extract_stream_ids_by_type_from_paths(
+            buffer,
+            metadata.pathsByIdType,
+        )
+        return {id_type: ids for id_type, ids in combined.items() if ids}
+
+    def _extract_preview_target_ids_from_buffer(
+        self,
+        buffer: str,
+        metadata: ToolArgumentPreviewMetadata,
+    ) -> dict[ToolArgumentPreviewIdType, list[ID]]:
+        combined = self._extract_stream_ids_by_type_from_paths(
+            buffer,
+            metadata.targetIdPathsByType,
+        )
+        return {id_type: list(ids) for id_type, ids in combined.items() if ids}
+
     @staticmethod
     def _build_stream_id_regexes(
         key: str,
@@ -1047,6 +1147,139 @@ class LLMChatManager:
         list_re = re.compile(r'"%s"\s*:\s*\[([^\]]*)' % escaped)
         object_re = re.compile(r'"%s"\s*:\s*\{([^}]*)' % escaped)
         return single_re, list_re, object_re
+
+    def _extract_preview_value_from_buffer(
+        self,
+        buffer: str,
+        preview_value_path: str,
+    ) -> str | None:
+        key = self._preview_value_key(preview_value_path)
+        if not key:
+            return None
+        return self._scan_json_string_value(buffer, key)
+
+    @staticmethod
+    def _preview_value_key(preview_value_path: str) -> str | None:
+        if preview_value_path == "$":
+            return None
+        segments = [segment for segment in preview_value_path.split(".") if segment]
+        if not segments:
+            return None
+        return segments[-1]
+
+    def _scan_json_string_value(self, buffer: str, key: str) -> str | None:
+        key_token = f'"{key}"'
+        search_index = 0
+        last_value: str | None = None
+        while True:
+            key_index = buffer.find(key_token, search_index)
+            if key_index == -1:
+                break
+            colon_index = buffer.find(":", key_index + len(key_token))
+            if colon_index == -1:
+                break
+            value_start = colon_index + 1
+            while value_start < len(buffer) and buffer[value_start].isspace():
+                value_start += 1
+            if value_start >= len(buffer):
+                break
+            if buffer[value_start] != '"':
+                search_index = value_start
+                continue
+            last_value = self._parse_partial_json_string(buffer, value_start + 1)
+            search_index = value_start + 1
+        return last_value
+
+    @staticmethod
+    def _parse_partial_json_string(buffer: str, start_index: int) -> str:
+        parsed: list[str] = []
+        i = start_index
+        while i < len(buffer):
+            char = buffer[i]
+            if char == '"':
+                return "".join(parsed)
+            if char != "\\":
+                parsed.append(char)
+                i += 1
+                continue
+            i += 1
+            if i >= len(buffer):
+                return "".join(parsed)
+            escape = buffer[i]
+            if escape == '"':
+                parsed.append('"')
+            elif escape == "\\":
+                parsed.append("\\")
+            elif escape == "/":
+                parsed.append("/")
+            elif escape == "b":
+                parsed.append("\b")
+            elif escape == "f":
+                parsed.append("\f")
+            elif escape == "n":
+                parsed.append("\n")
+            elif escape == "r":
+                parsed.append("\r")
+            elif escape == "t":
+                parsed.append("\t")
+            elif escape == "u":
+                if i + 4 >= len(buffer):
+                    return "".join(parsed)
+                code = buffer[i + 1 : i + 5]
+                if not LLMChatManager._is_hex_digits(code):
+                    return "".join(parsed)
+                parsed.append(chr(int(code, 16)))
+                i += 4
+            else:
+                parsed.append(escape)
+            i += 1
+        return "".join(parsed)
+
+    @staticmethod
+    def _is_hex_digits(value: str) -> bool:
+        return all(char in string.hexdigits for char in value)
+
+    @staticmethod
+    def _coalesce_preview_value(
+        last_value: str | None,
+        next_value: str,
+    ) -> str:
+        if last_value is None:
+            return next_value
+        if len(next_value) < len(last_value) and last_value.startswith(next_value):
+            return last_value
+        return next_value
+
+    def _preview_ids_by_type_to_sets(
+        self,
+        ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
+    ) -> dict[ToolArgumentPreviewIdType, set[ID]]:
+        return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
+
+    def _canonicalize_preview_ids_by_type(
+        self,
+        ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
+        required_paths_by_type: dict[ToolArgumentPreviewIdType, list[str]],
+    ) -> dict[ToolArgumentPreviewIdType, list[ID]] | None:
+        if not ids_by_type:
+            return None
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        filtered: dict[ToolArgumentPreviewIdType, list[ID]] = {}
+        for id_type, ids in ids_by_type.items():
+            if not ids:
+                continue
+            resolved = [entry for entry in ids if entry in temporary_to_canonical]
+            if resolved:
+                filtered[id_type] = resolved
+        if not filtered:
+            return None
+        for id_type in required_paths_by_type.keys():
+            if id_type not in filtered or not filtered[id_type]:
+                return None
+        return convert_temporary_ids_to_canonical(
+            filtered,
+            temporary_to_canonical,
+        )
 
     def _ensure_tool_call_entry(
         self, assistant_message: AssistantChatMessage, index: int
