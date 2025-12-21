@@ -63,6 +63,7 @@ AllImplFields = Literal[
     "textDisplayMode",
     "topLevelParamId",
     "type",
+    "typesColumnWidth",
     "url",
     "value",
     "viewMode",

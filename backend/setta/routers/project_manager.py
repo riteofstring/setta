@@ -33,6 +33,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetBrowserAreaViewModeRequest,
+    SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
@@ -48,6 +49,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
+    SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
@@ -539,6 +541,24 @@ async def route_set_section_hide_unpinned_params(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_section_hide_unpinned_params(x)
+
+
+@router.post(Route.SET_SECTION_COLUMN_WIDTH)
+async def route_set_section_column_width(
+    x: SetSectionColumnWidthRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_section_column_width(x)
+
+
+@router.post(Route.SET_BROWSER_COLUMN_WIDTHS)
+async def route_set_browser_column_widths(
+    x: SetBrowserColumnWidthsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_browser_column_widths(x)
 
 
 @router.post(Route.SET_BROWSER_AREA_VIEW_MODE)
