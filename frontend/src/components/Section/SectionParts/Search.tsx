@@ -206,7 +206,7 @@ function SectionSearchCore({
         isDisabled={isDisabled}
       />
       {showRightIndicator && (
-        <div className="single-cell-child pointer-events-none mr-2 flex items-center justify-self-end self-center">
+        <div className="single-cell-child pointer-events-none mr-2 flex items-center self-center justify-self-end">
           <span className="relative grid h-[22px] w-[22px] place-items-center">
             {valueNameInconsistent && (
               <span className="setta-callable-ready-icon">

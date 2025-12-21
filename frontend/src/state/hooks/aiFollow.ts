@@ -7,14 +7,13 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getSectionIdsForChat } from "state/aiFollowUtils";
-import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
+import { getSectionIdsForProject } from "state/aiFollowUtils";
+import { useAIFollow, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
 
 export function useAIFollowViewport(): void {
-  const activeChatId = useAIStore((state) => state.activeChatId);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const { d3Zoom, d3Selection, width, height } = useReactFlow(
     (state) => ({
@@ -28,15 +27,13 @@ export function useAIFollowViewport(): void {
   const { enabled, sectionIds, toolResultSectionIds } = useAIFollow((state) => {
     return {
       enabled: state.enabled,
-      sectionIds: getSectionIdsForChat(
+      sectionIds: getSectionIdsForProject(
         state.toolArgumentsIdsByProjectConfigId,
         projectConfigId,
-        activeChatId,
       ),
-      toolResultSectionIds: getSectionIdsForChat(
+      toolResultSectionIds: getSectionIdsForProject(
         state.toolResultIdsByProjectConfigId,
         projectConfigId,
-        activeChatId,
       ),
     };
   }, _.isEqual);
@@ -74,7 +71,7 @@ export function useAIFollowViewport(): void {
         toolResultGroupTimeout.current = null;
       }
     };
-  }, [activeChatId, projectConfigId, toolResultSectionIdsKey]);
+  }, [projectConfigId, toolResultSectionIdsKey]);
 
   const combinedSectionIds = useMemo(() => {
     if (sectionIds.length === 0) {
@@ -93,9 +90,6 @@ export function useAIFollowViewport(): void {
 
   useEffect(() => {
     if (!enabled) {
-      return;
-    }
-    if (!activeChatId) {
       return;
     }
     if (combinedSectionIds.length === 0) {
@@ -145,7 +139,6 @@ export function useAIFollowViewport(): void {
     transition.on("interrupt", clearTransitionLock);
     d3Zoom.transform(transition, nextTransform);
   }, [
-    activeChatId,
     d3Selection,
     d3Zoom,
     enabled,
