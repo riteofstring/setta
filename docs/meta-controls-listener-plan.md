@@ -4,10 +4,10 @@
 Make meta controls drive arbitrary UI behavior by routing their value changes through the listener system, while persisting control values in project state.
 
 ## Current State
-- Meta controls are UI-only widgets with local state and no backend persistence.
+- Meta controls persist `metaControlValue` in project state and emit realtime dependency updates.
 - Listener realtime deltas support only section/param dependency keys.
 - Listener emits can only update section params and TextBlock sections today.
-- Dependency graph and codegen exclude MetaControl sections.
+- Dependency graph includes MetaControl sections; backend codegen still lacks meta control value encoding.
 
 ## Plan (Minimal Integration, Listener-First)
 ### 1) Persist meta control values in project state (done)
@@ -20,12 +20,13 @@ Make meta controls drive arbitrary UI behavior by routing their value changes th
 - Export a `SectionNode` with a literal value sourced from `metaControlValue`.
 - This enables listener deps like `@listener.listen(deps=["my_meta_control"])`.
 
-### 3) Realtime UI change path for meta controls
+### 3) Realtime UI change path for meta controls (done)
 - Add a frontend helper similar to `sendRealtimeSectionParamLiteral` that emits a `SectionDependencyKey` + `LiteralDependencyValue` for MetaControl sections.
 - Update the meta control UI components to:
   - Read `metaControlValue` from project state.
-  - Write back to project state optimistically.
+  - Write back to project state with debounced optimistic updates.
   - Emit realtime dependency updates so listeners fire.
+- Add a backend route that persists meta control values to project state.
 
 ### 4) Encode meta control values server-side
 - Add a value encoding path in the backend code generator for `SectionType.MetaControl`.

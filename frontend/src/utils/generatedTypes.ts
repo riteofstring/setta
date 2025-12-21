@@ -318,6 +318,7 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_META_CONTROL_VALUE: "/setMetaControlValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_CODE: "/setCode",
@@ -5093,6 +5094,17 @@ const SetImageAreaImagePathRequestSchema = z.object({
 
 export type SetImageAreaImagePathRequestInput = z.input<
   typeof SetImageAreaImagePathRequestSchema
+>;
+
+const SetMetaControlValueRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  value: z.string(),
+});
+
+export type SetMetaControlValueRequestInput = z.input<
+  typeof SetMetaControlValueRequestSchema
 >;
 
 const SetParamEnteredValueRequestSchema = z.object({

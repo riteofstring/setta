@@ -6,7 +6,7 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useState, type ReactNode } from "react";
+import { type DragEvent, type ReactNode } from "react";
 import { FiUploadCloud } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,44 +31,115 @@ const META_CONTROL_ACCENTS: Record<MetaControlType, string> = {
   dropzone: "bg-teal-500",
 };
 
+let buttonSequence = 0;
+
+function createButtonTriggerValue(kind: "primary" | "icon"): string {
+  buttonSequence += 1;
+  return `${kind}:${buttonSequence}`;
+}
+
+function normalizeRotaryValue(value: string): number {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  if (parsed < 0) {
+    return 0;
+  }
+  if (parsed > 1) {
+    return 1;
+  }
+  return parsed;
+}
+
 export function MetaControlContent({
   metaControlType,
+  metaControlValue,
+  onMetaControlValueChange,
 }: {
   metaControlType: MetaControlType;
+  metaControlValue: string;
+  onMetaControlValueChange: (value: string) => void;
 }) {
   const accent = META_CONTROL_ACCENTS[metaControlType];
   let content: ReactNode = null;
 
   switch (metaControlType) {
     case "button":
-      content = <ButtonControl />;
+      content = <ButtonControl onChange={onMetaControlValueChange} />;
       break;
     case "dropdown":
-      content = <DropdownControl />;
+      content = (
+        <DropdownControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "slider":
-      content = <SliderControl />;
+      content = (
+        <SliderControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "switch":
-      content = <SwitchControl />;
+      content = (
+        <SwitchControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "rotary":
-      content = <RotaryControl accent={accent} />;
+      content = (
+        <RotaryControl
+          accent={accent}
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "textInput":
-      content = <TextInputControl />;
+      content = (
+        <TextInputControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "textArea":
-      content = <TextAreaControl />;
+      content = (
+        <TextAreaControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "password":
-      content = <PasswordControl />;
+      content = (
+        <PasswordControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "color":
-      content = <ColorControl />;
+      content = (
+        <ColorControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     case "dropzone":
-      content = <DropzoneControl />;
+      content = (
+        <DropzoneControl
+          value={metaControlValue}
+          onChange={onMetaControlValueChange}
+        />
+      );
       break;
     default:
       return null;
@@ -81,46 +152,70 @@ export function MetaControlContent({
   );
 }
 
-function ButtonControl() {
+type ButtonControlProps = {
+  onChange: (value: string) => void;
+};
+
+function ButtonControl({ onChange }: ButtonControlProps) {
   const primaryButtonClasses = `${NO_DRAG_CLASS_NAME} flex h-8 flex-1 items-center justify-center rounded-lg bg-setta-200/30 px-3 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-300 dark:hover:bg-setta-900`;
   const iconButtonClasses = `${NO_DRAG_CLASS_NAME} flex h-8 w-8 items-center justify-center rounded-lg bg-setta-200/30 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900`;
 
+  function handleClick(kind: "primary" | "icon") {
+    onChange(createButtonTriggerValue(kind));
+  }
+
   return (
     <div className="flex w-full items-center gap-2">
-      <button type="button" className={primaryButtonClasses}>
+      <button
+        type="button"
+        className={primaryButtonClasses}
+        onClick={() => handleClick("primary")}
+      >
         Fire
       </button>
-      <button type="button" className={iconButtonClasses}>
+      <button
+        type="button"
+        className={iconButtonClasses}
+        onClick={() => handleClick("icon")}
+      >
         &gt;
       </button>
     </div>
   );
 }
 
-function DropdownControl() {
-  const choices = ["Warm", "Neutral", "Cool"];
-  const [value, setValue] = useState<string>(choices[0]);
+type DropdownControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
 
-  function onChange(nextValue: string | null) {
+function DropdownControl({ value, onChange }: DropdownControlProps) {
+  const choices = ["Warm", "Neutral", "Cool"];
+
+  function handleChange(nextValue: string | null) {
     if (nextValue === null) {
       return;
     }
-    setValue(nextValue);
+    onChange(nextValue);
   }
 
   return (
     <DropdownInput
       choices={choices}
       value={value}
-      onChange={onChange}
+      onChange={handleChange}
       outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center [&_search]:my-auto`}
       placeholder="Choose tone"
     />
   );
 }
 
-function SliderControl() {
-  const [value, setValue] = useState<number>(68);
+type SliderControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function SliderControl({ value, onChange }: SliderControlProps) {
   const sliderRootClassName = `${NO_DRAG_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5`;
   const sliderTrackClassName =
     "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
@@ -129,13 +224,17 @@ function SliderControl() {
   const textInputClassName =
     "hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:block";
 
+  function handleChange(nextValue: number) {
+    onChange(String(nextValue));
+  }
+
   return (
     <SliderInput
       value={value}
       min={0}
       max={100}
       step={1}
-      onChange={setValue}
+      onChange={handleChange}
       wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} cursor-pointer @container/slider section-value flex w-full min-w-0 items-center gap-1`}
       sliderRootClassName={sliderRootClassName}
       sliderTrackClassName={sliderTrackClassName}
@@ -146,8 +245,17 @@ function SliderControl() {
   );
 }
 
-function SwitchControl() {
-  const [value, setValue] = useState<boolean>(true);
+type SwitchControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function SwitchControl({ value, onChange }: SwitchControlProps) {
+  const isOn = value === "true";
+
+  function handleChange(nextValue: boolean) {
+    onChange(String(nextValue));
+  }
 
   return (
     <div className="flex w-full items-center justify-between gap-3">
@@ -156,22 +264,41 @@ function SwitchControl() {
           Enabled
         </span>
         <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
-          {value ? "On" : "Off"}
+          {isOn ? "On" : "Off"}
         </span>
       </div>
       <SwitchInput
-        value={value}
-        onChange={setValue}
+        value={isOn}
+        onChange={handleChange}
         outerDivClassName={`${NO_DRAG_CLASS_NAME} section-value flex justify-self-start self-center`}
       />
     </div>
   );
 }
 
-function RotaryControl({ accent }: { accent: string }) {
+type RotaryControlProps = {
+  accent: string;
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function RotaryControl({ accent, value, onChange }: RotaryControlProps) {
+  const normalizedValue = normalizeRotaryValue(value);
+  const labelValue = normalizedValue.toFixed(2);
+
+  function handleClick() {
+    const nextValue = Number((normalizedValue + 0.1).toFixed(2));
+    const wrappedValue = nextValue > 1 ? 0 : nextValue;
+    onChange(String(wrappedValue));
+  }
+
   return (
     <div className="flex w-full items-center gap-3">
-      <div className="relative h-12 w-12">
+      <button
+        type="button"
+        className={`${NO_DRAG_CLASS_NAME} relative h-12 w-12 cursor-pointer bg-transparent p-0`}
+        onClick={handleClick}
+      >
         <div className="absolute inset-0 rounded-full border border-setta-300/70 bg-gradient-to-br from-setta-50 via-setta-200 to-setta-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] dark:border-setta-700/70 dark:from-setta-900 dark:via-setta-800 dark:to-setta-950" />
         <div className="absolute inset-[6px] rounded-full border border-setta-200/70 bg-setta-100 dark:border-setta-700/70 dark:bg-setta-850" />
         <div className="absolute inset-[13px] rounded-full bg-setta-50 dark:bg-setta-900" />
@@ -179,26 +306,29 @@ function RotaryControl({ accent }: { accent: string }) {
           className={`absolute left-1/2 top-[6px] h-3 w-[2px] -translate-x-1/2 rounded-full ${accent}`}
         />
         <div className="absolute inset-0 rounded-full border border-dashed border-setta-300/40 dark:border-setta-700/40" />
-      </div>
+      </button>
       <div className="flex flex-col">
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
           Level
         </span>
         <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
-          0.72
+          {labelValue}
         </span>
       </div>
     </div>
   );
 }
 
-function TextInputControl() {
-  const [value, setValue] = useState<string>("");
+type TextInputControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
 
+function TextInputControl({ value, onChange }: TextInputControlProps) {
   return (
     <MetaControlCodeMirror
       value={value}
-      onChange={setValue}
+      onChange={onChange}
       placeholder="Type here..."
       singleLine={true}
       wrapperClassName="w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-1 dark:border-setta-700 dark:bg-setta-850"
@@ -207,17 +337,19 @@ function TextInputControl() {
   );
 }
 
-function TextAreaControl() {
-  const [value, setValue] = useState<string>(
-    "### Notes\n- tag your workflow\n- keep it short",
-  );
+type TextAreaControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function TextAreaControl({ value, onChange }: TextAreaControlProps) {
   const previewValue = value.trim() === "" ? "*Nothing here yet.*" : value;
 
   return (
     <div className="flex w-full flex-col gap-2">
       <MetaControlCodeMirror
         value={value}
-        onChange={setValue}
+        onChange={onChange}
         placeholder="Write markdown..."
         language="markdown"
         minHeight="96px"
@@ -237,15 +369,18 @@ function TextAreaControl() {
   );
 }
 
-function PasswordControl() {
-  const [value, setValue] = useState<string>("hunter2");
+type PasswordControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
 
+function PasswordControl({ value, onChange }: PasswordControlProps) {
   return (
     <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
       <PasswordInput
         className={`${NO_DRAG_CLASS_NAME} single-cell-child flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
         value={value}
-        onChange={setValue}
+        onChange={onChange}
         gridArea="single-cell-child"
       />
       <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
@@ -253,8 +388,12 @@ function PasswordControl() {
   );
 }
 
-function ColorControl() {
-  const [value, setValue] = useState<string>("#38bdf8");
+type ColorControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function ColorControl({ value, onChange }: ColorControlProps) {
   const colorChoices = [
     { color: "#38bdf8", description: "Sky" },
     { color: "#22c55e", description: "Field" },
@@ -265,20 +404,46 @@ function ColorControl() {
     <ColorPickerInput
       colorChoices={colorChoices}
       value={value}
-      onChange={setValue}
+      onChange={onChange}
       wrapperClassName={`${NO_DRAG_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
     />
   );
 }
 
-function DropzoneControl() {
+type DropzoneControlProps = {
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function DropzoneControl({ value, onChange }: DropzoneControlProps) {
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length > 0) {
+      onChange(files.map((file) => file.name).join(", "));
+      return;
+    }
+    const text = event.dataTransfer.getData("text");
+    if (text) {
+      onChange(text);
+    }
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+  }
+
+  const label = value === "" ? "Drop A File Here." : value;
+
   return (
     <div
       className={`${NO_DRAG_CLASS_NAME} flex w-full items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500`}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
     >
       <FiUploadCloud className="text-base" />
-      Drop A File Here.
+      {label}
     </div>
   );
 }

@@ -111,6 +111,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlValueRequest,
     SetParamEnteredValueRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
@@ -187,6 +188,7 @@ from setta.types.helpers_lvl2 import (
     set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
+    set_meta_control_value,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -770,6 +772,19 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_meta_control_value(self, x: SetMetaControlValueRequest):
+        """Write a new manual value for the targeted meta control."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_meta_control_value(project_state, x.sectionId, x.value)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
