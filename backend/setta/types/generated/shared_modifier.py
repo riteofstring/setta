@@ -91,6 +91,7 @@ class SharedModifier(TypedDict):
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     topLevelParamId: NotRequired[ID | None]
+    typesColumnWidth: NotRequired[float | None]
     url: NotRequired[str]
     value: NotRequired[str]
     viewMode: NotRequired[BrowserAreaViewMode]

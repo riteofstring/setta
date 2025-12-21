@@ -105,6 +105,7 @@ class CoreArgs(TypedDict):
                 "textDisplayMode",
                 "topLevelParamId",
                 "type",
+                "typesColumnWidth",
                 "url",
                 "value",
                 "viewMode",
@@ -488,6 +489,8 @@ class BrowserSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Browser]]
     folder: NotRequired[str]
     hideColumn: NotRequired[bool]
+    columnWidth: NotRequired[float | None]
+    typesColumnWidth: NotRequired[float | None]
     viewMode: NotRequired[BrowserAreaViewMode]
 
 
@@ -498,6 +501,8 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     folder: NotRequired[str | Callable[[str], str]]
     hideColumn: NotRequired[bool | Callable[[bool], bool]]
+    columnWidth: NotRequired[float | None | Callable[[float | None], float | None]]
+    typesColumnWidth: NotRequired[float | None | Callable[[float | None], float | None]]
     viewMode: NotRequired[
         BrowserAreaViewMode | Callable[[BrowserAreaViewMode], BrowserAreaViewMode]
     ]

@@ -13,9 +13,12 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import {
+  calculateBoundedWidth,
+  getDefaultColumnWidth,
+} from "state/hooks/columnWidthUtils";
 import { route_set_section_column_width } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { clamp } from "utils/utils";
 
 const CENTER_OFFSET = 18;
 
@@ -36,19 +39,6 @@ type UseParamColumnWidthArgs = {
   outerRef: RefObject<HTMLDivElement>;
   maxNestedDepth: number;
 };
-
-function getMarginPx(maxNestedDepth: number) {
-  return 72 + Math.max(0, 12 * (maxNestedDepth - 1));
-}
-
-function calculateBoundedWidth(
-  width: number,
-  containerWidth: number,
-  maxNestedDepth: number,
-) {
-  const marginPx = getMarginPx(maxNestedDepth);
-  return clamp(width, marginPx, containerWidth - marginPx);
-}
 
 export function useParamColumnWidth({
   sectionId,
@@ -187,7 +177,7 @@ export function useParamColumnWidth({
         if (!containerWidth) {
           return;
         }
-        let rawWidth = containerWidth / 2;
+        let rawWidth = getDefaultColumnWidth(containerWidth);
         if (columnWidth !== null && columnWidth !== undefined) {
           rawWidth = columnWidth + CENTER_OFFSET;
         }
@@ -225,13 +215,13 @@ export function useParamColumnWidth({
       widthRef.current.containerWidth = containerWidth;
 
       if (widthRef.current.currentWidth === 0) {
-        setNewWidth(containerWidth, containerWidth / 2);
+        setNewWidth(containerWidth, getDefaultColumnWidth(containerWidth));
       }
 
       if (event.detail === 2) {
         widthRef.current.isDragging = false;
         widthRef.current.currentPercentage = 50;
-        const rawWidth = containerWidth / 2;
+        const rawWidth = getDefaultColumnWidth(containerWidth);
         setNewWidth(containerWidth, rawWidth);
         persistWidth(rawWidth);
         return;

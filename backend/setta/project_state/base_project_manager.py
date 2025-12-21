@@ -90,6 +90,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetBrowserAreaViewModeRequest,
+    SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
@@ -170,6 +171,7 @@ from setta.types.helpers_lvl2 import (
     move_section_to_pane,
     move_section_to_parent_section,
     set_browser_area_view_mode,
+    set_browser_column_widths,
     set_browser_hide_column,
     set_callable_hide_params,
     set_chart_area_data_path,
@@ -1344,6 +1346,17 @@ class BaseProjectManager(ABC):
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_browser_column_widths(self, x: SetBrowserColumnWidthsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_browser_column_widths(
+            project_state,
+            x.sectionId,
+            x.columnWidth,
+            x.typesColumnWidth,
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

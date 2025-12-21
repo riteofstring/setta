@@ -469,6 +469,11 @@ class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
     columnWidth: float | None
 
 
+class SetBrowserColumnWidthsRequest(ProjectManagerRequestWithSection):
+    columnWidth: float | None
+    typesColumnWidth: float | None
+
+
 class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithSection):
     viewMode: BrowserAreaViewMode
 

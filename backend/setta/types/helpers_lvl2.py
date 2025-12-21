@@ -89,6 +89,7 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
+    BrowserSectionImpl,
     CallableSectionImpl,
     CodeFileBinding,
     ConfigLanguage,
@@ -1090,10 +1091,32 @@ def set_section_hide_unpinned_params(
 def set_section_column_width(
     p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
 ):
+    impl = get_curr_effective_section_impl(p, sectionId)
+    if not isinstance(impl, BaseSectionWithParamsImpl):
+        raise TypeError(f"Section {sectionId} does not support params columnWidth")
     set_curr_effective_section_impl_value(
         p,
         sectionId,
         BaseSectionWithParamsImplArgsWithCallable(columnWidth=columnWidth),
+    )
+
+
+def set_browser_column_widths(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    columnWidth: float | None,
+    typesColumnWidth: float | None,
+):
+    impl = get_curr_effective_section_impl(p, sectionId)
+    if not isinstance(impl, BrowserSectionImpl):
+        raise TypeError(f"Section {sectionId} does not support browser column widths")
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BrowserSectionImplArgsWithCallable(
+            columnWidth=columnWidth,
+            typesColumnWidth=typesColumnWidth,
+        ),
     )
 
 
