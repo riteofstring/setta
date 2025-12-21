@@ -66,10 +66,10 @@ export function getOnSectionClick(sectionId, isActiveSection) {
       e.target.closest(
         `button, [role="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
       ) ||
-      isActuallyADrag()
+      useMisc.getState().mouseDownDraggingSection
     ) {
       // if a child button, menu item, or resizable is clicked,
-      // or the click is actually a drag,
+      // or a section resize/drag is in progress,
       // then don't "activate" the section
       return;
     }
@@ -108,20 +108,4 @@ export function getOnSectionClick(sectionId, isActiveSection) {
 
 export function useHasTempNested(sectionId: string) {
   return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
-}
-
-function isActuallyADrag(minimumDelta = 5) {
-  const { lastMouseDownLocation, lastMouseUpLocation } = useMisc.getState();
-
-  if (!lastMouseDownLocation || !lastMouseUpLocation) {
-    return false;
-  }
-
-  const deltaX = lastMouseUpLocation.x - lastMouseDownLocation.x;
-  const deltaY = lastMouseUpLocation.y - lastMouseDownLocation.y;
-
-  // Pythagorean theorem: a² + b² = c²
-  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-  return distance > minimumDelta;
 }
