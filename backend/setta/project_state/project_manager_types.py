@@ -344,17 +344,11 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
-class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
-    """Set a parameter's name and value in one step."""
+class SetMetaControlValueRequest(ProjectManagerRequestWithSection):
+    """Assign a new manual value to a meta control section."""
 
-    codeObjId: ID = Field(
-        description="Identifier of the parameter code object that should be renamed.",
-    )
-    name: str = Field(
-        description="New name to apply to the parameter code object.",
-    )
     value: str = Field(
-        description="Raw text value to persist for the parameter.",
+        description="Raw text value to persist for the meta control.",
     )
 
 

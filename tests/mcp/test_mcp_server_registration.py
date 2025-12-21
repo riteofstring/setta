@@ -55,13 +55,11 @@ class _StubFrontendSender:
 
 
 class _StubMCPClient:
-    def __init__(self, mcp_server: SettaFastMCP, server_id: str = "setta"):
-        self._server_id = server_id
+    def __init__(self, mcp_server: SettaFastMCP):
         self._tools = {tool.name: tool for tool in mcp_server.list_registered_tools()}
         self.init_tool_definitions: dict[str, dict] = {}
         self.discoverable_tool_definitions: dict[str, dict] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
-        self._tool_cache_version = 0
         self._populate_tool_definitions()
 
     def _populate_tool_definitions(self):
@@ -76,36 +74,19 @@ class _StubMCPClient:
             definition = {
                 "type": "function",
                 "function": {
-                    "name": f"{self._server_id}.{tool.name}",
+                    "name": tool.name,
                     "description": tool.description or "",
                     "parameters": tool.parameters or {},
                 },
             }
-            namespaced_name = definition["function"]["name"]
             if tool_type == SettaToolType.init:
-                self.init_tool_definitions[namespaced_name] = definition
+                self.init_tool_definitions[tool.name] = definition
             elif tool_type == SettaToolType.discoverable:
-                self.discoverable_tool_definitions[namespaced_name] = definition
-            self.tool_annotations_by_name[namespaced_name] = annotations
-        self._tool_cache_version += 1
-
-    @property
-    def tool_cache_version(self) -> int:
-        return self._tool_cache_version
-
-    def _split_namespaced_tool_name(self, tool_name: str) -> str:
-        if "." not in tool_name:
-            raise ValueError("Tool name must be namespaced")
-        server_id, base_name = tool_name.split(".", 1)
-        if server_id != self._server_id:
-            raise KeyError(f"MCP server '{server_id}' is not registered")
-        if not base_name:
-            raise ValueError("Tool name is missing tool name")
-        return base_name
+                self.discoverable_tool_definitions[tool.name] = definition
+            self.tool_annotations_by_name[tool.name] = annotations
 
     async def call_tool(self, tool_name: str, arguments: dict):
-        base_name = self._split_namespaced_tool_name(tool_name)
-        tool = self._tools[base_name]
+        tool = self._tools[tool_name]
         result = await tool.run(arguments, context=None)
         if isinstance(result, str):
             text_result = result
@@ -151,13 +132,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 limit=2,
                 setta_state=setta_state,
             )
-            search_result_names = [result.name for result in search_results.root]
-            print("Search results:", search_result_names)
-            self.assertIn("set_section_sizes", search_result_names)
-            self.assertNotIn(
-                "search_and_unlock_mcp_tools",
-                search_result_names,
-            )
+            print("Search results:", search_results.root)
+            self.assertIn("set_section_sizes", search_results.root)
+            self.assertNotIn("search_and_unlock_mcp_tools", search_results.root)
 
             search_tool = next(
                 tool
@@ -172,13 +149,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 context=None,
             )
             parsed_results = results_via_tool_run.root
-            parsed_result_names = [result.name for result in parsed_results]
-            print("Search results via tool run:", parsed_result_names)
-            self.assertIn("set_section_sizes", parsed_result_names)
-            self.assertNotIn(
-                "search_and_unlock_mcp_tools",
-                parsed_result_names,
-            )
+            print("Search results via tool run:", parsed_results)
+            self.assertIn("set_section_sizes", parsed_results)
+            self.assertNotIn("search_and_unlock_mcp_tools", parsed_results)
 
     async def test_search_finds_create_top_level_section(self) -> None:
         async with real_project_manager() as fixture:
@@ -206,10 +179,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     limit=limit,
                     setta_state=setta_state,
                 )
-                result_names = [result.name for result in results.root]
                 self.assertIn(
                     "create_top_level_section",
-                    result_names,
+                    results.root,
                     msg=(
                         f"search results for '{query}' did not include "
                         "create_top_level_section"
@@ -238,7 +210,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 fixture.dbe,
                 mcp_client,
                 websocket_sender,
-                setta_state.project_manager_switcher,
             )
 
             chat_manager.update_config(
@@ -269,21 +240,16 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
 
             tool_call = ToolCall(
                 function=ToolCallFunction(
-                    name=f"setta.{C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME}",
+                    name=C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
                     arguments={"query": "section size settings", "limit": 2},
                 )
             )
 
             tool_message = await chat_manager._dispatch_tool_call(chat, tool_call)
 
-            search_result_names = [
-                entry.get("name")
-                for entry in tool_message.result.get("searchResults", [])
-                if isinstance(entry, dict)
-            ]
-            self.assertIn("setta.set_section_sizes", search_result_names)
+            self.assertIn("set_section_sizes", tool_message.result["searchResults"])
             chat_state = chat_manager._get_or_create_chat_tool_state(chat.id)
-            self.assertIn("setta.set_section_sizes", chat_state.unlocked_tools)
+            self.assertIn("set_section_sizes", chat_state.unlocked_tools)
 
     async def test_does_not_register_project_config_id_in_temp_map(self) -> None:
         async with real_project_manager() as fixture:

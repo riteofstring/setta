@@ -1,4 +1,3 @@
-import asyncio
 import unittest
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -22,8 +21,6 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-from tests.utils.project_summary import build_project_summary_switcher
-
 
 @contextmanager
 def _manager_context() -> Iterator[LLMChatManager]:
@@ -32,13 +29,7 @@ def _manager_context() -> Iterator[LLMChatManager]:
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         mcp_client = MCPClient("http://localhost")
-        project_manager_switcher = build_project_summary_switcher(ID("project-uuid"))
-        manager = LLMChatManager(
-            dbe,
-            mcp_client,
-            frontend_sender,
-            project_manager_switcher,
-        )
+        manager = LLMChatManager(dbe, mcp_client, frontend_sender)
         yield manager
 
 
@@ -52,14 +43,7 @@ def _build_manager_and_chat(
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
         mcp_client = MCPClient("http://localhost")
-        project_config_id = ID("project-uuid")
-        project_manager_switcher = build_project_summary_switcher(project_config_id)
-        manager = LLMChatManager(
-            dbe,
-            mcp_client,
-            frontend_sender,
-            project_manager_switcher,
-        )
+        manager = LLMChatManager(dbe, mcp_client, frontend_sender)
         manager.config = AllLLMConfigs(
             configs={
                 "provider-one": LLMConfig(
@@ -74,7 +58,7 @@ def _build_manager_and_chat(
         chat = Chat(
             id=ID("chat-uuid"),
             name="Test Chat",
-            projectConfigId=project_config_id,
+            projectConfigId=ID("project-uuid"),
             llmConfig=manager.config.configs["provider-one"],
             messages=[
                 UserChatMessage(
@@ -134,15 +118,12 @@ class SystemPromptInjectionTests(unittest.TestCase):
         with _build_manager_and_chat() as (manager, chat):
             prompt = manager.system_prompt
 
-            payload = asyncio.run(
-                manager._build_llm_request_payload(chat, deep_think=False)
-            )
+            payload = manager._build_llm_request_payload(chat, deep_think=False)
 
             self.assertEqual(payload["messages"][0]["role"], "system")
             system_text = payload["messages"][0]["content"][0]["text"]
             self.assertTrue(system_text.startswith(prompt))
             self.assertIn("## Active project config", system_text)
-            self.assertIn("## Project summary", system_text)
             self.assertEqual(payload["messages"][1]["role"], "user")
             self.assertEqual(
                 payload["messages"][1]["content"][0]["text"],
@@ -157,9 +138,7 @@ class CachePromptingTests(unittest.TestCase):
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=True,
             ):
-                payload = asyncio.run(
-                    manager._build_llm_request_payload(chat, deep_think=False)
-                )
+                payload = manager._build_llm_request_payload(chat, deep_think=False)
 
             self.assertEqual(
                 payload.get("cache_control_injection_points"),
@@ -175,9 +154,7 @@ class CachePromptingTests(unittest.TestCase):
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=False,
             ):
-                payload = asyncio.run(
-                    manager._build_llm_request_payload(chat, deep_think=False)
-                )
+                payload = manager._build_llm_request_payload(chat, deep_think=False)
 
             self.assertNotIn("cache_control_injection_points", payload)
 
@@ -193,9 +170,7 @@ class CachePromptingTests(unittest.TestCase):
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=True,
             ):
-                payload = asyncio.run(
-                    manager._build_llm_request_payload(chat, deep_think=False)
-                )
+                payload = manager._build_llm_request_payload(chat, deep_think=False)
 
             self.assertEqual(
                 payload["cache_control_injection_points"],
@@ -215,9 +190,7 @@ class CachePromptingTests(unittest.TestCase):
                 "setta.llm.llm_chat_manager.supports_prompt_caching",
                 return_value=True,
             ):
-                payload = asyncio.run(
-                    manager._build_llm_request_payload(chat, deep_think=False)
-                )
+                payload = manager._build_llm_request_payload(chat, deep_think=False)
 
             self.assertEqual(
                 payload["cache_control_injection_points"],
