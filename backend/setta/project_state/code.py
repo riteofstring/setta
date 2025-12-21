@@ -35,7 +35,7 @@ class Code(ABC):
     def get_run_command(self):
         pass
 
-    def update_file(self, code: str) -> bool:
+    def write_to_disk(self, code: str) -> bool:
         filepath = self.binding.canonical_path
         access_mode = self.code_files.get_access_mode(filepath)
         if access_mode == CodeFileAccessMode.read_only:
@@ -45,9 +45,13 @@ class Code(ABC):
         code_hash = compute_md5_hex(code)
 
         metadata: CodeFileMetadata | None = self.code_files.get_metadata(filepath)
-        content_already_synced = metadata is not None and (
-            metadata.last_read_hash == code_hash
-            or metadata.last_written_hash == code_hash
+        content_already_synced = (
+            filepath.exists()
+            and metadata is not None
+            and (
+                metadata.last_read_hash == code_hash
+                or metadata.last_written_hash == code_hash
+            )
         )
 
         self.code_files.record_write(filepath, code_hash)
@@ -59,6 +63,9 @@ class Code(ABC):
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.dbe.write(filepath, code)
         return True
+
+    async def sync_lsp(self, _code: str) -> None:
+        return None
 
     async def handle_external_reload(self, new_code: str) -> None:
         """Refresh in-memory state after the canonical file was reloaded."""
@@ -85,19 +92,16 @@ class PythonCode(Code):
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
 
-    async def update_file(self, code):
-        wrote = super().update_file(code)
-        if wrote:
-            await self.send_document_open_request(code)
+    async def sync_lsp(self, code: str) -> None:
+        await self.send_document_open_request(code)
 
     async def send_document_open_request(self, code):
         filepath = self.binding.canonical_path
-        if filepath.exists():
-            self.uri = await self.lsp_writer.send_document_open_request(
-                filepath=filepath,
-                code=code,
-                diagnostics_callback=self.diagnostics_callback,
-            )
+        self.uri = await self.lsp_writer.send_document_open_request(
+            filepath=filepath,
+            code=code,
+            diagnostics_callback=self.diagnostics_callback,
+        )
 
     def callback_cleanup(self):
         if self.diagnostics_callback and self.uri:

@@ -25,7 +25,6 @@ from setta.code_gen.dependency_graph import (
     Node,
 )
 from setta.code_gen.python.code_generator import PythonCodeGenerator
-from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
@@ -795,7 +794,7 @@ class SettaListener:
                 s_instance=None,
             )
         try:
-            s_instance = self._instantiate_state(code_generator.code)
+            s_instance = self._instantiate_s(code_generator.code)
         except _RECOVERABLE_SNAPSHOT_ERRORS as error:
             logger.warning(
                 "Listener %s failed to instantiate generated state: %s",
@@ -811,17 +810,15 @@ class SettaListener:
             s_instance=s_instance,
         )
 
-    def _instantiate_state(self, generated_code: str) -> Any:
+    def _instantiate_s(self, generated_code: str) -> Any:
         namespace: dict[str, Any] = {"__builtins__": __builtins__}
         exec(generated_code, namespace)
-        if GEN_CODE_INSTANCE_NAME in namespace:
-            return namespace[GEN_CODE_INSTANCE_NAME]
-        state_cls = namespace.get(GEN_CODE_CLASS_NAME)
-        if state_cls is None:
-            raise RuntimeError(
-                f"Generated code missing {GEN_CODE_CLASS_NAME} class definition"
-            )
-        return state_cls()
+        if "s" in namespace:
+            return namespace["s"]
+        S_cls = namespace.get("S")
+        if S_cls is None:
+            raise RuntimeError("Generated code missing S class definition")
+        return S_cls()
 
     def _get_dependency_value(
         self,
@@ -1074,7 +1071,7 @@ class SettaListener:
         value: BaseDependencyValueUnion,
         node: Node,
     ) -> Any:
-        """Set a dependency value on the cached state instance."""
+        """Set a dependency value on the cached S instance."""
         node.value = value
         expression = runtime_state.code_generator.get_value(node)
         hydrated = self._evaluate_expression(

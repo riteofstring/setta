@@ -92,6 +92,7 @@ class CoreArgs(TypedDict):
                 "layers",
                 "max",
                 "metaControlType",
+                "metaControlValue",
                 "min",
                 "name",
                 "paramFilter",
@@ -405,6 +406,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
     metaControlType: NotRequired[MetaControlType]
+    metaControlValue: NotRequired[str]
 
 
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -415,6 +417,7 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     metaControlType: NotRequired[
         MetaControlType | Callable[[MetaControlType], MetaControlType]
     ]
+    metaControlValue: NotRequired[str | Callable[[str], str]]
 
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
