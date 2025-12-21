@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTerminal } from "state/hooks/terminals/terminal";
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 
 function _TerminalArea({ sectionId }) {
   const { width, height } = useProjectState((x) => {
@@ -52,7 +53,7 @@ function TerminalAreaCore({ width, height, hasScrollbar, terminalRef }) {
   return (
     <div
       ref={terminalRef}
-      className={`${hasScrollbar ? "nowheel" : ""} nodrag section-row-search-gutter section-key-value`}
+      className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag section-row-search-gutter section-key-value`}
       style={{ width: `${width - 24}px`, height: `${height - 32}px` }}
     />
   );
