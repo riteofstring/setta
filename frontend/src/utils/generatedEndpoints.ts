@@ -237,12 +237,6 @@ export async function route_get_llm_chat(
   return await post("/getLLMChat", x);
 }
 
-export async function route_get_ai_follow_snapshot(
-  x: gt.GetAIFollowSnapshotRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.AIFollowUpdateContent>>> {
-  return await post("/getAIFollowSnapshot", x);
-}
-
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

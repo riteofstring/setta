@@ -453,23 +453,6 @@ export const useAIFollow = withProjectState(
   ),
 );
 
-type AIFollowToolResultState = {
-  idsByProjectConfigId: Record<
-    string,
-    Record<string, Record<string, Array<string>>>
-  >;
-};
-
-export const useAIFollowToolResult = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<AIFollowToolResultState>(() => ({
-        idsByProjectConfigId: {},
-      })),
-    ),
-  ),
-);
-
 type ZustandLocalStorage = {
   snapToGrid: boolean;
   darkMode: boolean;

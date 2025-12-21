@@ -11,13 +11,7 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import {
-  useAIFollow,
-  useAIFollowToolResult,
-  useAIStore,
-  useMisc,
-  useProjectState,
-} from "state/definitions";
+import { useAIFollow, useAIStore, useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -138,29 +132,9 @@ export function useAiSectionHighlight(
     }
     return false;
   });
-  const isToolResultHighlight = useAIFollowToolResult((state) => {
-    const projectEntries = state.idsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    const getSectionIds = (idsByType: Record<string, Array<string>> | undefined) =>
-      idsByType?.section ?? [];
-    if (activeChatId) {
-      const activeSectionIds = getSectionIds(projectEntries[activeChatId]);
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIdsByType of Object.values(projectEntries)) {
-      const sectionIds = getSectionIds(sectionIdsByType);
-      if (sectionIds.includes(sectionId)) {
-        return true;
-      }
-    }
-    return false;
-  });
   const [showAiHighlight, setShowAiHighlight] = useState(false);
-  const shouldHighlight = isAiWorkingOnSection || isToolResultHighlight;
   useEffect(() => {
-    if (shouldHighlight) {
+    if (isAiWorkingOnSection) {
       setShowAiHighlight(true);
       return;
     }
@@ -173,6 +147,6 @@ export function useAiSectionHighlight(
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [shouldHighlight, showAiHighlight]);
+  }, [isAiWorkingOnSection, showAiHighlight]);
   return showAiHighlight;
 }
