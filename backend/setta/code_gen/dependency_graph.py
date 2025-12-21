@@ -110,7 +110,6 @@ class DependencyGraph:
         self.section_exporters: dict[SectionType, SectionExporter] = {
             SectionType.Callable: self._export_callable_section,
             SectionType.Dict: self._export_dict_section,
-            SectionType.DictRoot: self._export_parent_section,
             SectionType.ListRoot: self._export_parent_section,
             SectionType.Group: self._export_parent_section,
             SectionType.GlobalVariables: self._export_global_variables_section,
@@ -366,7 +365,6 @@ class DependencyGraph:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
             parent_node.type == SectionType.Callable
-            or parent_node.type == SectionType.DictRoot
             or parent_node.type == SectionType.Group
             or parent_node.type == SectionType.Dict
             or parent_node.type == CodeObjType.NestedParam

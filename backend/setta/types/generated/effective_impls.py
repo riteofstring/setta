@@ -40,7 +40,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgsWithCallable,
     CodeSectionImplArgsWithCallable,
     ColorPickerParamCodeObjImplArgsWithCallable,
-    DictRootSectionImplArgsWithCallable,
     DictSectionImplArgsWithCallable,
     DrawSectionImplArgsWithCallable,
     DropdownParamCodeObjImplArgsWithCallable,
@@ -83,7 +82,6 @@ from setta.types.section_impls import (
     ChartSectionImpl,
     ChatSectionImpl,
     CodeSectionImpl,
-    DictRootSectionImpl,
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
@@ -131,13 +129,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: ListRootSectionImplArgsWithCallable,
 ) -> ListRootSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: DictRootSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: DictRootSectionImplArgsWithCallable,
-) -> DictRootSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: GroupSectionImpl,
@@ -336,20 +327,6 @@ def set_effective_impl_value(
 ) -> BaseDictSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseParentCodeObjImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseParentCodeObjImplArgsWithCallable,
-) -> BaseParentCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParentCodeObjImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParentCodeObjImplArgsWithCallable,
-) -> BaseParentCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,
     core: Core,
     variant: Variant,
@@ -362,6 +339,20 @@ def set_effective_impl_value(
     variant: Variant,
     args: BaseParentSectionImplArgsWithCallable,
 ) -> BaseParentSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseParentCodeObjImplUnion,
+    core: Core,
+    variant: Variant,
+    args: BaseParentCodeObjImplArgsWithCallable,
+) -> BaseParentCodeObjImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseParentCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseParentCodeObjImplArgsWithCallable,
+) -> BaseParentCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseSectionWithParamsImplUnion,

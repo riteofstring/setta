@@ -110,7 +110,6 @@ function getMenuItems(uiTypeName) {
         ResetToDefaultVersion,
       ];
     case SectionTypeEnum.ListRoot:
-    case SectionTypeEnum.DictRoot:
     case SectionTypeEnum.Code:
       return [CreateNewVariantButton, ResetToDefaultVersion];
     case SectionTypeEnum.Group:

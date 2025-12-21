@@ -34,7 +34,6 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "CallableSectionImpl": DEFAULT_EXCLUSIONS.union({"callable"}),
     "DictSectionImpl": DEFAULT_EXCLUSIONS,
     "ListRootSectionImpl": DEFAULT_EXCLUSIONS,
-    "DictRootSectionImpl": DEFAULT_EXCLUSIONS,
     "GroupSectionImpl": DEFAULT_EXCLUSIONS,
     "ImageSectionImpl": DEFAULT_EXCLUSIONS,
     "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),

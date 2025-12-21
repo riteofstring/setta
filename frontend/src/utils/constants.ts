@@ -77,10 +77,6 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
-  [SectionTypeEnum.DictRoot]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
   [SectionTypeEnum.Code]: [
     UIEditorTabNameEnum.SectionConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,

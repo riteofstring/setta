@@ -37,7 +37,7 @@ export const BaseParamCodeObjImplTypeSet = new Set([
 
 const BaseParentCodeObjImplTypeSet = new Set(["CodeCallable", "NestedParam"]);
 
-const BaseParentSectionImplTypeSet = new Set(["DictRoot", "Group", "ListRoot"]);
+const BaseParentSectionImplTypeSet = new Set(["Group", "ListRoot"]);
 
 const BaseSectionWithParamsImplTypeSet = new Set([
   "Callable",
@@ -120,7 +120,6 @@ export const SectionTypeEnum = {
   Callable: "Callable",
   Dict: "Dict",
   ListRoot: "ListRoot",
-  DictRoot: "DictRoot",
   Group: "Group",
   Image: "Image",
   Chart: "Chart",
@@ -1235,24 +1234,6 @@ const ListRootSectionImplSchema = z.object({
 
 type ListRootSectionImpl = z.infer<typeof ListRootSectionImplSchema>;
 
-const DictRootSectionImplSchema = z.object({
-  type: z.literal("DictRoot").default(SectionTypeEnum.DictRoot),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default([]),
-});
-
-type DictRootSectionImpl = z.infer<typeof DictRootSectionImplSchema>;
-
 const GroupSectionImplSchema = z.object({
   type: z.literal("Group").default(SectionTypeEnum.Group),
   id: IDSchema.default(create_new_id),
@@ -1715,7 +1696,6 @@ const ProjectStateCoreSchema = z.object({
         CallableSectionImplSchema,
         DictSectionImplSchema,
         ListRootSectionImplSchema,
-        DictRootSectionImplSchema,
         GroupSectionImplSchema,
         ImageSectionImplSchema,
         ChartSectionImplSchema,
@@ -1890,7 +1870,6 @@ type BaseParentCodeObjImplUnion = z.infer<
 
 const BaseParentSectionImplUnionSchema = z.union([
   ListRootSectionImplSchema,
-  DictRootSectionImplSchema,
   GroupSectionImplSchema,
 ]);
 
@@ -1902,7 +1881,6 @@ const BaseSectionImplUnionSchema = z.union([
   CallableSectionImplSchema,
   DictSectionImplSchema,
   ListRootSectionImplSchema,
-  DictRootSectionImplSchema,
   GroupSectionImplSchema,
   ImageSectionImplSchema,
   ChartSectionImplSchema,
@@ -2251,24 +2229,6 @@ const ListRootSectionImplArgsSchema = z.object({
 });
 
 type ListRootSectionImplArgs = z.infer<typeof ListRootSectionImplArgsSchema>;
-
-const DictRootSectionImplArgsSchema = z.object({
-  type: z.literal("DictRoot").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  children: z.array(IDSchema).optional(),
-});
-
-type DictRootSectionImplArgs = z.infer<typeof DictRootSectionImplArgsSchema>;
 
 const GroupSectionImplArgsSchema = z.object({
   type: z.literal("Group").optional(),
@@ -2736,7 +2696,6 @@ const ProjectStateSingleConfigSchema = z.object({
         CallableSectionImplSchema,
         DictSectionImplSchema,
         ListRootSectionImplSchema,
-        DictRootSectionImplSchema,
         GroupSectionImplSchema,
         ImageSectionImplSchema,
         ChartSectionImplSchema,
@@ -2990,14 +2949,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
     }),
   ),
   ListRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 50.0,
-      maxHeight: 50.0,
-      minWidth: 200.0,
-      maxWidth: 100000.0,
-    }),
-  ),
-  DictRoot: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 50.0,
       maxHeight: 50.0,
@@ -3267,24 +3218,6 @@ function createUserDefaultCodeSectionImpl(
   options: Partial<UserDefaultCodeSectionImpl> = {},
 ): UserDefaultCodeSectionImpl {
   return UserDefaultCodeSectionImplSchema.parse(options);
-}
-
-const UserDefaultDictRootSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-});
-
-type UserDefaultDictRootSectionImpl = z.infer<
-  typeof UserDefaultDictRootSectionImplSchema
->;
-
-function createUserDefaultDictRootSectionImpl(
-  options: Partial<UserDefaultDictRootSectionImpl> = {},
-): UserDefaultDictRootSectionImpl {
-  return UserDefaultDictRootSectionImplSchema.parse(options);
 }
 
 const UserDefaultDictSectionImplSchema = z.object({
@@ -3707,9 +3640,6 @@ const SettingsStateSchema = z.object({
   ),
   codeSectionDefault: UserDefaultCodeSectionImplSchema.default(
     createUserDefaultCodeSectionImpl,
-  ),
-  dictRootSectionDefault: UserDefaultDictRootSectionImplSchema.default(
-    createUserDefaultDictRootSectionImpl,
   ),
   dictSectionDefault: UserDefaultDictSectionImplSchema.default(
     createUserDefaultDictSectionImpl,
@@ -4587,7 +4517,6 @@ const CreateTopLevelSectionRequestSchema = z.object({
         CallableSectionImplArgsSchema,
         DictSectionImplArgsSchema,
         ListRootSectionImplArgsSchema,
-        DictRootSectionImplArgsSchema,
         GroupSectionImplArgsSchema,
         ImageSectionImplArgsSchema,
         ChartSectionImplArgsSchema,
@@ -5488,14 +5417,6 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       ListRootSectionImplArgs,
       ListRootSectionImpl
-    >;
-  };
-
-  DictRootSection: {
-    impl: DictRootSectionImpl;
-    args: ImplArgsBundleWithUpdaters<
-      DictRootSectionImplArgs,
-      DictRootSectionImpl
     >;
   };
 

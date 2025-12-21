@@ -24,7 +24,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgs,
     CodeSectionImplArgs,
     ColorPickerParamCodeObjImplArgs,
-    DictRootSectionImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
     DropdownParamCodeObjImplArgs,
@@ -54,7 +53,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
     UserDefaultColorPickerParamCodeObjImpl,
-    UserDefaultDictRootSectionImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
@@ -81,7 +79,6 @@ from setta.types.section_impls import (
     ChartSectionImpl,
     ChatSectionImpl,
     CodeSectionImpl,
-    DictRootSectionImpl,
     DictSectionImpl,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
@@ -119,14 +116,6 @@ def create_section_impl(
     defaults: UserDefaultListRootSectionImpl,
     overrides: ListRootSectionImplArgs | None = None,
 ) -> ListRootSectionImpl: ...
-
-
-@overload
-def create_section_impl(
-    type: Literal[SectionType.DictRoot],
-    defaults: UserDefaultDictRootSectionImpl,
-    overrides: DictRootSectionImplArgs | None = None,
-) -> DictRootSectionImpl: ...
 
 
 @overload
@@ -321,11 +310,6 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
             if overrides is None:
                 overrides = {}
             return ListRootSectionImpl(**{**defaults.model_dump(), **overrides})
-
-        case SectionType.DictRoot:
-            if overrides is None:
-                overrides = {}
-            return DictRootSectionImpl(**{**defaults.model_dump(), **overrides})
 
         case SectionType.Group:
             if overrides is None:

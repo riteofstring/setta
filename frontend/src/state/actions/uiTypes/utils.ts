@@ -2,7 +2,6 @@ import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
 const rootTypes = new Set([
   SectionTypeEnum.ListRoot,
-  SectionTypeEnum.DictRoot,
   SectionTypeEnum.Group,
 ]);
 

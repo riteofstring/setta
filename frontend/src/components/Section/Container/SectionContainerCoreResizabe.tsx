@@ -118,7 +118,6 @@ function AreaSwitch({
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     case SectionTypeEnum.ListRoot:
-    case SectionTypeEnum.DictRoot:
     case SectionTypeEnum.Group:
       return null;
     default:

@@ -93,7 +93,7 @@ class PythonValueCodec:
                 return self._format_callable_section(node)
             case SectionType.ListRoot:
                 return self.format_list(node.deps)
-            case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
+            case SectionType.Group | SectionType.Dict:
                 return self.format_dict(node.deps)
             case SectionType.TextBlock:
                 if node.value:

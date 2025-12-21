@@ -27,7 +27,6 @@ class SectionType(str, Enum):
     Callable = "Callable"
     Dict = "Dict"
     ListRoot = "ListRoot"
-    DictRoot = "DictRoot"
     Group = "Group"
     Image = "Image"
     Chart = "Chart"
@@ -182,10 +181,6 @@ class DictSectionImpl(BaseDictSectionImpl):
 
 class ListRootSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
-
-
-class DictRootSectionImpl(BaseParentSectionImpl):
-    type: Literal[SectionType.DictRoot] = SectionType.DictRoot
 
 
 class GroupSectionImpl(BaseParentSectionImpl):

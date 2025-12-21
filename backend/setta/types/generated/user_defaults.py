@@ -78,10 +78,6 @@ class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="fo
     pass
 
 
-class UserDefaultDictRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
-    pass
-
-
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     isHorizontalOrientation: bool = False
 

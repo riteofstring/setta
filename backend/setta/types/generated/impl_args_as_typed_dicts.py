@@ -292,17 +292,6 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
     ]
 
 
-class DictRootSectionImplArgs(BaseParentSectionImplArgs):
-    type: NotRequired[Literal[SectionType.DictRoot]]
-
-
-class DictRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.DictRoot]
-        | Callable[[Literal[SectionType.DictRoot]], Literal[SectionType.DictRoot]]
-    ]
-
-
 class GroupSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.Group]]
     isHorizontalOrientation: NotRequired[bool]

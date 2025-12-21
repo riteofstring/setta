@@ -27,10 +27,6 @@ export function useCreateSectionsList() {
       name: "List of Objects",
       implSpecs: { type: SectionTypeEnum.ListRoot },
     },
-    {
-      name: "Dict of Objects",
-      implSpecs: { type: SectionTypeEnum.DictRoot },
-    },
     { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
   ];

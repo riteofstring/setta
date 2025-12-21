@@ -170,14 +170,6 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    DictRoot: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=ROOT_SECTION_HEIGHT,
-            maxHeight=ROOT_SECTION_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
     Group: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=0,

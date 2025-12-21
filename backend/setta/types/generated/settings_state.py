@@ -13,7 +13,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
     UserDefaultColorPickerParamCodeObjImpl,
-    UserDefaultDictRootSectionImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
@@ -66,9 +65,6 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     codeSectionDefault: UserDefaultCodeSectionImpl = Field(
         default_factory=UserDefaultCodeSectionImpl
-    )
-    dictRootSectionDefault: UserDefaultDictRootSectionImpl = Field(
-        default_factory=UserDefaultDictRootSectionImpl
     )
     dictSectionDefault: UserDefaultDictSectionImpl = Field(
         default_factory=UserDefaultDictSectionImpl
@@ -146,9 +142,6 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
 
         case SectionType.ListRoot:
             return settings.listRootSectionDefault
-
-        case SectionType.DictRoot:
-            return settings.dictRootSectionDefault
 
         case SectionType.Group:
             return settings.groupSectionDefault
