@@ -22,7 +22,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultIFrameSectionImpl,
     UserDefaultImageSectionImpl,
     UserDefaultListRootSectionImpl,
-    UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
@@ -91,9 +90,6 @@ class SettingsState(BaseModel, extra="forbid"):
     listRootSectionDefault: UserDefaultListRootSectionImpl = Field(
         default_factory=UserDefaultListRootSectionImpl
     )
-    metaControlSectionDefault: UserDefaultMetaControlSectionImpl = Field(
-        default_factory=UserDefaultMetaControlSectionImpl
-    )
     socialSectionDefault: UserDefaultSocialSectionImpl = Field(
         default_factory=UserDefaultSocialSectionImpl
     )
@@ -161,9 +157,6 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
 
         case SectionType.TextBlock:
             return settings.textBlockSectionDefault
-
-        case SectionType.MetaControl:
-            return settings.metaControlSectionDefault
 
         case SectionType.Social:
             return settings.socialSectionDefault

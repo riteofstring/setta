@@ -10,8 +10,9 @@ import {
   route_toggle_section_visibility,
 } from "utils/generatedEndpoints";
 
-type DeleteOrHideButtonBaseProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  icon: ReactNode;
+type DeleteOrHideButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  sectionId: string;
+  icon?: ReactNode;
   twClasses?: string;
   size?: string;
   padding?: string;
@@ -19,11 +20,6 @@ type DeleteOrHideButtonBaseProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   color?: string;
   rounded?: string;
   grid?: boolean;
-};
-
-type DeleteOrHideButtonProps = Omit<DeleteOrHideButtonBaseProps, "icon"> & {
-  sectionId: string;
-  icon?: ReactNode;
 };
 
 // absolute top-1 right-1
@@ -61,32 +57,18 @@ export function DeleteOrHideButton({
 
   const {
     icon,
+    children,
+    twClasses,
+    size,
+    padding,
+    bg,
+    color,
+    rounded,
+    grid,
     onClick: onClickOverride,
     ...buttonProps
   } = props;
 
-  return (
-    <DeleteOrHideButtonCore
-      {...buttonProps}
-      icon={icon ?? getIcon(isEditingViewMode, visibility)}
-      onClick={onClickOverride ?? onClick}
-    />
-  );
-  // return <button onClick={onClick} className="gg-close" />;
-}
-
-export function DeleteOrHideButtonCore({
-  icon,
-  children,
-  twClasses,
-  size,
-  padding,
-  bg,
-  color,
-  rounded,
-  grid,
-  ...buttonProps
-}: DeleteOrHideButtonBaseProps) {
   return (
     <button
       className={`focus-visible:ring-2 ${
@@ -97,11 +79,13 @@ export function DeleteOrHideButtonCore({
         rounded ?? "rounded-full"
       } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${twClasses ?? ""}`}
       {...buttonProps}
+      onClick={onClickOverride ?? onClick}
     >
-      {icon}
+      {icon ?? getIcon(isEditingViewMode, visibility)}
       {children}
     </button>
   );
+  // return <button onClick={onClick} className="gg-close" />;
 }
 
 function getIcon(isEditingViewMode: boolean, visibility: boolean) {

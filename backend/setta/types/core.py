@@ -45,6 +45,4 @@ def get_default_section_core_name(implType: SectionType):
             return "Global Variables"
         case SectionType.GenPythonCode:
             return "Generated Python Code"
-        case SectionType.MetaControl:
-            return "Meta Control"
     return generate_memorable_string()

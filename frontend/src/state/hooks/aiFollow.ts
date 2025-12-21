@@ -5,13 +5,15 @@ import {
   getSectionBounds,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
-import { useEffect, useMemo } from "react";
-import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
+import _ from "lodash";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getSectionIdsForProject } from "state/aiFollowUtils";
+import { useAIFollow, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
+const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
+
 export function useAIFollowViewport(): void {
-  const enabled = useAIFollow((state) => state.enabled);
-  const activeChatId = useAIStore((state) => state.activeChatId);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const { d3Zoom, d3Selection, width, height } = useReactFlow(
     (state) => ({
@@ -22,31 +24,79 @@ export function useAIFollowViewport(): void {
     }),
     shallow,
   );
-  const sectionIds = useAIFollow((state) => {
-    if (!activeChatId) {
-      return [];
-    }
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return [];
-    }
-    return projectEntries[activeChatId] ?? [];
-  });
+  const { enabled, sectionIds, toolResultSectionIds } = useAIFollow((state) => {
+    return {
+      enabled: state.enabled,
+      sectionIds: getSectionIdsForProject(
+        state.toolArgumentsIdsByProjectConfigId,
+        projectConfigId,
+      ),
+      toolResultSectionIds: getSectionIdsForProject(
+        state.toolResultIdsByProjectConfigId,
+        projectConfigId,
+      ),
+    };
+  }, _.isEqual);
+  const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] =
+    useState<string[]>([]);
+  const toolResultGroupTimeout = useRef<number | null>(null);
+  const followTransitionId = useRef(0);
+  const toolResultSectionIdsKey = toolResultSectionIds.join("|");
 
-  const sectionIdsKey = useMemo(() => sectionIds.join("|"), [sectionIds]);
+  useEffect(() => {
+    if (enabled) {
+      return;
+    }
+    useAIFollow.setState((state) => {
+      state.isFollowTransitioning = false;
+    });
+  }, [enabled]);
+
+  useEffect(() => {
+    if (toolResultGroupTimeout.current !== null) {
+      window.clearTimeout(toolResultGroupTimeout.current);
+      toolResultGroupTimeout.current = null;
+    }
+    if (toolResultSectionIds.length === 0) {
+      setGroupedToolResultSectionIds([]);
+      return;
+    }
+    toolResultGroupTimeout.current = window.setTimeout(() => {
+      setGroupedToolResultSectionIds(toolResultSectionIds);
+      toolResultGroupTimeout.current = null;
+    }, TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS);
+    return () => {
+      if (toolResultGroupTimeout.current !== null) {
+        window.clearTimeout(toolResultGroupTimeout.current);
+        toolResultGroupTimeout.current = null;
+      }
+    };
+  }, [projectConfigId, toolResultSectionIdsKey]);
+
+  const combinedSectionIds = useMemo(() => {
+    if (sectionIds.length === 0) {
+      return groupedToolResultSectionIds;
+    }
+    if (groupedToolResultSectionIds.length === 0) {
+      return sectionIds;
+    }
+    return Array.from(new Set([...sectionIds, ...groupedToolResultSectionIds]));
+  }, [sectionIds, groupedToolResultSectionIds]);
+
+  const sectionIdsKey = useMemo(
+    () => combinedSectionIds.join("|"),
+    [combinedSectionIds],
+  );
 
   useEffect(() => {
     if (!enabled) {
       return;
     }
-    if (!activeChatId) {
-      return;
-    }
-    if (sectionIds.length === 0) {
+    if (combinedSectionIds.length === 0) {
       return;
     }
 
-    const bounds = getSectionBounds(sectionIds);
+    const bounds = getSectionBounds(combinedSectionIds);
     if (!bounds) {
       return;
     }
@@ -71,9 +121,24 @@ export function useAIFollowViewport(): void {
     // const duration = useSettings.getState().gui.transitionDuration;
     const duration = 500;
     const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
-    d3Zoom.transform(getD3Transition(d3Selection, duration), nextTransform);
+    const transitionId = followTransitionId.current + 1;
+    followTransitionId.current = transitionId;
+    useAIFollow.setState((state) => {
+      state.isFollowTransitioning = true;
+    });
+    const transition = getD3Transition(d3Selection, duration);
+    const clearTransitionLock = () => {
+      if (followTransitionId.current !== transitionId) {
+        return;
+      }
+      useAIFollow.setState((state) => {
+        state.isFollowTransitioning = false;
+      });
+    };
+    transition.on("end", clearTransitionLock);
+    transition.on("interrupt", clearTransitionLock);
+    d3Zoom.transform(transition, nextTransform);
   }, [
-    activeChatId,
     d3Selection,
     d3Zoom,
     enabled,

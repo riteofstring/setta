@@ -9,7 +9,7 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
@@ -70,8 +70,9 @@ function SectionSearchCore({
   isDisabled: boolean;
   divId: string;
 }) {
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
-    name: codeInfoName,
+    name: baseCodeInfoName,
     description,
     configLanguage,
   } = useProjectState((x) => {
@@ -89,6 +90,15 @@ function SectionSearchCore({
     }
     return { name: "", description: "", configLanguage };
   }, _.isEqual);
+  const previewCallableName = useToolArgumentPreview((state) => {
+    const previewState = state.byProjectConfigId[projectConfigId];
+    if (!previewState) {
+      return null;
+    }
+    const entry = previewState.previewCallableNameBySectionId[sectionId];
+    return entry ? entry.value : null;
+  });
+  const codeInfoName = previewCallableName ?? baseCodeInfoName;
 
   const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
   const [draftCallableName, setDraftCallableName] = useState<string | null>(
@@ -206,7 +216,7 @@ function SectionSearchCore({
         isDisabled={isDisabled}
       />
       {showRightIndicator && (
-        <div className="single-cell-child pointer-events-none mr-2 flex items-center justify-self-end self-center">
+        <div className="single-cell-child pointer-events-none mr-2 flex items-center self-center justify-self-end">
           <span className="relative grid h-[22px] w-[22px] place-items-center">
             {valueNameInconsistent && (
               <span className="setta-callable-ready-icon">

@@ -1,5 +1,11 @@
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { ChatDetails, useAIStore } from "state/definitions";
+import {
+  ChatDetails,
+  ToolArgumentPreviewEntry,
+  ToolArgumentPreviewProjectState,
+  useAIStore,
+  useToolArgumentPreview,
+} from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
@@ -24,6 +30,7 @@ import {
   MessageTextContent,
   MessageThinkingContent,
   StreamingEventTypeEnum,
+  ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolResultEvent,
@@ -183,6 +190,9 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     case StreamingEventTypeEnum.TOOL_CALL_DELTA:
       handleToolCallDelta(chatId, chunk);
       return;
+    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
+      handleToolArgumentPreviewDelta(chatId, chunk);
+      return;
     case StreamingEventTypeEnum.TOOL_RESULT:
       handleToolResult(chatId, chunk);
       return;
@@ -265,48 +275,7 @@ function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
 }
 
 function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
-  updateChatDetails(chatId, (details) => {
-    const toolCallArguments = {
-      ...details.toolCallArguments,
-      [chunk.tool_call_id]:
-        (details.toolCallArguments?.[chunk.tool_call_id] ?? "") +
-        chunk.arguments_delta,
-    };
-    const { messages, changed } = updateMessageById(
-      details.messages,
-      chunk.message_id,
-      (message) => {
-        const toolCalls = [...(message.tool_calls ?? [])];
-        const existingIndex = toolCalls.findIndex(
-          (entry) => entry.id === chunk.tool_call_id,
-        );
-        if (existingIndex !== -1) {
-          if (!chunk.tool_name) {
-            return null;
-          }
-          const existingCall = toolCalls[existingIndex];
-          if (existingCall.function.name === chunk.tool_name) {
-            return null;
-          }
-          toolCalls[existingIndex] = {
-            ...existingCall,
-            function: {
-              ...existingCall.function,
-              name: chunk.tool_name,
-            },
-          };
-          return { ...message, tool_calls: toolCalls };
-        }
-        toolCalls.push(createToolCallPlaceholder(chunk));
-        return { ...message, tool_calls: toolCalls };
-      },
-    );
-    return {
-      ...details,
-      toolCallArguments,
-      ...(changed ? { messages } : {}),
-    };
-  });
+  updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
 }
 
 function handleToolResult(chatId: string, chunk: ToolResultEvent) {
@@ -316,6 +285,10 @@ function handleToolResult(chatId: string, chunk: ToolResultEvent) {
       messages: upsertMessage(details.messages, chunk.result),
     };
   });
+  clearToolArgumentPreviewByToolCallId(
+    getCurrProjectConfigId(),
+    chunk.result.tool_call_id,
+  );
 }
 
 function handleMessageStop(chatId: string) {
@@ -334,6 +307,188 @@ function handleMessageFinalized(chatId: string, chunk: MessageFinalizedEvent) {
       waitingForResponse: false,
       toolCallArguments: {},
     };
+  });
+}
+
+function handleToolArgumentPreviewDelta(
+  chatId: string,
+  chunk: ToolArgumentPreviewDeltaEvent,
+) {
+  updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
+  const projectConfigId = getCurrProjectConfigId();
+  useToolArgumentPreview.setState((state) => {
+    const previewState =
+      state.byProjectConfigId[projectConfigId] ??
+      (state.byProjectConfigId[projectConfigId] =
+        createToolArgumentPreviewProjectState());
+    const previewDelta = chunk.preview_value_delta;
+    const toolCallId = chunk.tool_call_id;
+    switch (chunk.preview_kind) {
+      case "code": {
+        const sectionIds = chunk.target_ids_by_type.section ?? [];
+        for (const sectionId of sectionIds) {
+          const existing = previewState.previewCodeBySectionId[sectionId];
+          previewState.previewCodeBySectionId[sectionId] = applyPreviewDelta(
+            existing,
+            previewDelta,
+            toolCallId,
+          );
+        }
+        return;
+      }
+      case "paramValue": {
+        const sectionIds = chunk.target_ids_by_type.section ?? [];
+        const paramIds = chunk.target_ids_by_type.codeObj ?? [];
+        if (sectionIds.length === 0 || paramIds.length === 0) {
+          return;
+        }
+        for (const sectionId of sectionIds) {
+          const paramEntries =
+            previewState.previewParamValueBySectionAndParamId[sectionId] ??
+            (previewState.previewParamValueBySectionAndParamId[sectionId] = {});
+          for (const paramInfoId of paramIds) {
+            const existing = paramEntries[paramInfoId];
+            paramEntries[paramInfoId] = applyPreviewDelta(
+              existing,
+              previewDelta,
+              toolCallId,
+            );
+          }
+        }
+        return;
+      }
+      case "callableName": {
+        const sectionIds = chunk.target_ids_by_type.section ?? [];
+        for (const sectionId of sectionIds) {
+          const existing = previewState.previewCallableNameBySectionId[sectionId];
+          previewState.previewCallableNameBySectionId[sectionId] =
+            applyPreviewDelta(existing, previewDelta, toolCallId);
+        }
+        return;
+      }
+      default: {
+        chunk.preview_kind satisfies never;
+        return;
+      }
+    }
+  });
+}
+
+function applyToolCallDelta(
+  details: ChatDetails,
+  chunk: {
+    message_id: string;
+    tool_call_id: string;
+    tool_name: string | null;
+    arguments_delta: string;
+  },
+): ChatDetails {
+  const toolCallArguments = {
+    ...details.toolCallArguments,
+    [chunk.tool_call_id]:
+      (details.toolCallArguments?.[chunk.tool_call_id] ?? "") +
+      chunk.arguments_delta,
+  };
+  const { messages, changed } = updateMessageById(
+    details.messages,
+    chunk.message_id,
+    (message) => {
+      const toolCalls = [...(message.tool_calls ?? [])];
+      const existingIndex = toolCalls.findIndex(
+        (entry) => entry.id === chunk.tool_call_id,
+      );
+      if (existingIndex !== -1) {
+        if (!chunk.tool_name) {
+          return null;
+        }
+        const existingCall = toolCalls[existingIndex];
+        if (existingCall.function.name === chunk.tool_name) {
+          return null;
+        }
+        toolCalls[existingIndex] = {
+          ...existingCall,
+          function: {
+            ...existingCall.function,
+            name: chunk.tool_name,
+          },
+        };
+        return { ...message, tool_calls: toolCalls };
+      }
+      toolCalls.push(createToolCallPlaceholder(chunk));
+      return { ...message, tool_calls: toolCalls };
+    },
+  );
+  return {
+    ...details,
+    toolCallArguments,
+    ...(changed ? { messages } : {}),
+  };
+}
+
+function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProjectState {
+  return {
+    previewCodeBySectionId: {},
+    previewParamValueBySectionAndParamId: {},
+    previewCallableNameBySectionId: {},
+  };
+}
+
+function applyPreviewDelta(
+  existing: ToolArgumentPreviewEntry | undefined,
+  previewDelta: string,
+  toolCallId: string,
+): ToolArgumentPreviewEntry {
+  if (!existing || existing.toolCallId !== toolCallId) {
+    return { value: previewDelta, toolCallId };
+  }
+  if (!previewDelta) {
+    return existing;
+  }
+  return { value: existing.value + previewDelta, toolCallId };
+}
+
+function clearToolArgumentPreviewByToolCallId(
+  projectConfigId: string,
+  toolCallId: string,
+) {
+  useToolArgumentPreview.setState((state) => {
+    const previewState = state.byProjectConfigId[projectConfigId];
+    if (!previewState) {
+      return;
+    }
+    for (const [sectionId, entry] of Object.entries(
+      previewState.previewCodeBySectionId,
+    )) {
+      if (entry.toolCallId === toolCallId) {
+        delete previewState.previewCodeBySectionId[sectionId];
+      }
+    }
+    for (const [sectionId, entry] of Object.entries(
+      previewState.previewCallableNameBySectionId,
+    )) {
+      if (entry.toolCallId === toolCallId) {
+        delete previewState.previewCallableNameBySectionId[sectionId];
+      }
+    }
+    for (const [sectionId, paramEntries] of Object.entries(
+      previewState.previewParamValueBySectionAndParamId,
+    )) {
+      for (const [paramInfoId, entry] of Object.entries(paramEntries)) {
+        if (entry.toolCallId === toolCallId) {
+          delete paramEntries[paramInfoId];
+        }
+      }
+      if (Object.keys(paramEntries).length === 0) {
+        delete previewState.previewParamValueBySectionAndParamId[sectionId];
+      }
+    }
+    if (
+      Object.keys(previewState.previewCodeBySectionId).length === 0 &&
+      Object.keys(previewState.previewCallableNameBySectionId).length === 0 &&
+      Object.keys(previewState.previewParamValueBySectionAndParamId).length === 0
+    ) {
+      delete state.byProjectConfigId[projectConfigId];
+    }
   });
 }
 
@@ -373,7 +528,10 @@ function ensureThinkingContentBlock(
   return block as MessageThinkingContent;
 }
 
-function createToolCallPlaceholder(chunk: ToolCallDeltaEvent): ToolCall {
+function createToolCallPlaceholder(chunk: {
+  tool_call_id: string;
+  tool_name: string | null;
+}): ToolCall {
   return {
     id: chunk.tool_call_id,
     type: "function",
