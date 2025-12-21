@@ -214,21 +214,6 @@ export function sendRealtimeSectionParamLiteral(
   emitRealtimeDependencyValue(dependencyKey, dependencyValue);
 }
 
-export function sendRealtimeMetaControlLiteral(
-  sectionId: string,
-  value: string,
-) {
-  const dependencyKey: SectionDependencyKey = {
-    type: DependencyKeyTypeEnum.Section,
-    sectionId,
-  };
-  const dependencyValue: LiteralDependencyValue = {
-    payload: value,
-    type: DependencyValueTypeEnum.Literal,
-  };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
-}
-
 export function sendRealtimeSectionBase64(
   sectionId: string,
   base64Payload: string,

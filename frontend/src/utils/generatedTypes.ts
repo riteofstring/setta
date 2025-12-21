@@ -318,7 +318,6 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
-  SET_META_CONTROL_VALUE: "/setMetaControlValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_CODE: "/setCode",
@@ -1084,7 +1083,6 @@ const SharedModifierSchema = z.object({
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.int().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
-  metaControlValue: z.string().optional(),
   min: z.int().optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -1170,7 +1168,6 @@ const CoreSchema = z.object({
         "layers",
         "max",
         "metaControlType",
-        "metaControlValue",
         "min",
         "name",
         "paramFilter",
@@ -1419,7 +1416,6 @@ const MetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
-  metaControlValue: z.string().default("" as const),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -2411,7 +2407,6 @@ const MetaControlSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
-  metaControlValue: z.string().optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -3528,7 +3523,6 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
-  metaControlValue: z.string().default("" as const),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
@@ -5094,17 +5088,6 @@ const SetImageAreaImagePathRequestSchema = z.object({
 
 export type SetImageAreaImagePathRequestInput = z.input<
   typeof SetImageAreaImagePathRequestSchema
->;
-
-const SetMetaControlValueRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  value: z.string(),
-});
-
-export type SetMetaControlValueRequestInput = z.input<
-  typeof SetMetaControlValueRequestSchema
 >;
 
 const SetParamEnteredValueRequestSchema = z.object({
