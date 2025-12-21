@@ -11,6 +11,7 @@ import { useContextMenus, useProjectState } from "state/definitions";
 import {
   route_delete_sections,
   route_group_sections,
+  route_toggle_section_visibility,
 } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -90,17 +91,9 @@ export function SelectionContextMenu() {
   }
 
   function onClickVisibility() {
-    useProjectState.setState((state) => {
-      const viewMode = getActiveViewModeConfig(state);
-      for (const n of nodeIds) {
-        const visibility = viewMode.visibilityBySectionId[n];
-        if (visibility === undefined) {
-          throw new Error(
-            `Missing visibility for section ${n} in view mode ${viewMode.id}`,
-          );
-        }
-        viewMode.visibilityBySectionId[n] = !allVisible;
-      }
+    route_toggle_section_visibility({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionIds: nodeIds,
     });
     closeContextMenu();
   }

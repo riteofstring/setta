@@ -5163,7 +5163,7 @@ export type TogglePositionLockRequest = z.infer<
 const ToggleSectionVisibilityRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  sectionId: IDSchema,
+  sectionIds: z.array(IDSchema),
 });
 
 export type ToggleSectionVisibilityRequest = z.infer<

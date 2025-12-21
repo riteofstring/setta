@@ -1242,8 +1242,9 @@ class BaseProjectManager(ABC):
         self, x: ToggleSectionVisibilityRequest
     ) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
-        if x.sectionId not in project_state.sections:
-            raise KeyError(f"Section {x.sectionId} not found")
+        for section_id in x.sectionIds:
+            if section_id not in project_state.sections:
+                raise KeyError(f"Section {section_id} not found")
         active_view_mode_id = project_state.projectConfig.activeViewModeId
         if active_view_mode_id is None:
             raise KeyError("Active view mode is not set")
@@ -1251,13 +1252,19 @@ class BaseProjectManager(ABC):
             raise KeyError(f"View mode {active_view_mode_id} not found")
         view_mode = project_state.projectConfig.viewModes[active_view_mode_id]
         visibility_by_section_id = view_mode.visibilityBySectionId
-        if x.sectionId not in visibility_by_section_id:
-            raise KeyError(
-                f"Missing visibility for section {x.sectionId} in view mode {view_mode.id}"
-            )
-        visibility_by_section_id[x.sectionId] = not visibility_by_section_id[
-            x.sectionId
-        ]
+        all_visible = True
+        for section_id in x.sectionIds:
+            if section_id not in visibility_by_section_id:
+                raise KeyError(
+                    "Missing visibility for section "
+                    f"{section_id} in view mode {view_mode.id}"
+                )
+            if not visibility_by_section_id[section_id]:
+                all_visible = False
+                break
+        next_visibility = not all_visible
+        for section_id in x.sectionIds:
+            visibility_by_section_id[section_id] = next_visibility
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

@@ -45,7 +45,7 @@ export function DeleteOrHideButton({
     if (isEditingViewMode) {
       route_toggle_section_visibility({
         projectConfigId: getCurrProjectConfigId(),
-        sectionId,
+        sectionIds: [sectionId],
       });
       return;
     }
