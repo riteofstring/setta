@@ -934,11 +934,21 @@ class LLMChatManager:
             )
             if not tool_call_event:
                 continue
+            tokens: list[_PartialJsonStringToken] | None = None
+            buffer = tool_call_state.argument_buffers.get(entry.index, "")
+            tool_name = tool_call_event.tool_name or ""
+            if buffer and tool_name:
+                annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+                if annotations and (
+                    annotations.toolArgumentPreview or annotations.aiFollowToolArguments
+                ):
+                    tokens = self._scan_partial_json_strings(buffer)
             preview_event = self._build_streaming_preview_event(
                 assistant_message,
                 tool_call_state,
                 entry.index,
                 entry.function.arguments,
+                tokens,
             )
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
@@ -949,6 +959,7 @@ class LLMChatManager:
                 chat_id,
                 assistant_message,
                 tool_call_state,
+                {entry.index: tokens} if tokens is not None else None,
             )
 
     def _apply_tool_call_delta(
@@ -988,10 +999,12 @@ class LLMChatManager:
         chat_id: ID,
         assistant_message: AssistantChatMessage,
         tool_call_state: ToolCallStreamState,
+        tokens_by_index: dict[int, list[_PartialJsonStringToken]] | None,
     ) -> None:
         ids_by_type = self._extract_stream_ids_by_type_from_buffers(
             assistant_message,
             tool_call_state,
+            tokens_by_index,
         )
         canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
             ids_by_type,
@@ -1011,6 +1024,7 @@ class LLMChatManager:
         tool_call_state: ToolCallStreamState,
         tool_call_index: int,
         arguments_delta: str,
+        tokens: list[_PartialJsonStringToken] | None,
     ) -> ToolArgumentPreviewDeltaEvent | None:
         buffer = tool_call_state.argument_buffers.get(tool_call_index)
         if not buffer:
@@ -1026,7 +1040,8 @@ class LLMChatManager:
         if not annotations or not annotations.toolArgumentPreview:
             return None
         metadata = annotations.toolArgumentPreview
-        tokens = self._scan_partial_json_strings(buffer)
+        if tokens is None:
+            tokens = self._scan_partial_json_strings(buffer)
         preview_value = self._extract_preview_value_from_tokens(
             tokens,
             metadata.previewValuePath,
@@ -1072,6 +1087,7 @@ class LLMChatManager:
         self,
         assistant_message: AssistantChatMessage,
         tool_call_state: ToolCallStreamState,
+        tokens_by_index: dict[int, list[_PartialJsonStringToken]] | None,
     ) -> dict[FollowIdType, list[ID]]:
         combined: dict[FollowIdType, set[ID]] = {}
         tool_calls = assistant_message.tool_calls or []
@@ -1085,9 +1101,11 @@ class LLMChatManager:
             )
             if not tool_name:
                 continue
+            tokens = tokens_by_index.get(index) if tokens_by_index else None
             buffer_ids_by_type = self._extract_stream_ids_by_type_from_buffer(
                 buffer,
                 tool_name,
+                tokens,
             )
             for id_type, ids in buffer_ids_by_type.items():
                 combined.setdefault(id_type, set()).update(ids)
@@ -1141,15 +1159,22 @@ class LLMChatManager:
         self,
         buffer: str,
         tool_name: str,
+        tokens: list[_PartialJsonStringToken] | None = None,
     ) -> dict[FollowIdType, set[ID]]:
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.aiFollowToolArguments:
             return {}
         metadata = annotations.aiFollowToolArguments
-        combined = self._extract_stream_ids_by_type_from_paths(
-            buffer,
-            metadata.pathsByIdType,
-        )
+        if tokens is None:
+            combined = self._extract_stream_ids_by_type_from_paths(
+                buffer,
+                metadata.pathsByIdType,
+            )
+        else:
+            combined = self._extract_stream_ids_by_type_from_tokens(
+                tokens,
+                metadata.pathsByIdType,
+            )
         return {id_type: ids for id_type, ids in combined.items() if ids}
 
     def _extract_preview_target_ids_from_tokens(

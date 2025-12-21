@@ -53,6 +53,56 @@ function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   return effective;
 }
 
+function getEffectiveSectionImplIfPresent(
+  projectState: ZustandProjectState,
+  sectionId: string,
+): BaseSectionImplUnion | null {
+  const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    return null;
+  }
+  const variant = projectState.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = projectState.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = projectState.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  return getEffectiveImpl(impl, core, variant);
+}
+
+function getEffectiveCodeObjImplIfPresent(
+  projectState: ZustandProjectState,
+  sectionImpl: BaseSectionImplUnion,
+  codeObjId: string,
+): BaseCodeObjImplUnion | null {
+  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
+    return null;
+  }
+  const variantId = sectionImpl.codeObjVariantMap[codeObjId];
+  if (variantId === undefined) {
+    return null;
+  }
+  const variant = projectState.codeObjVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = projectState.codeObjImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = projectState.codeObjs[codeObjId];
+  if (!core) {
+    return null;
+  }
+  return getEffectiveImpl(impl, core, variant);
+}
+
 export function getCurrSectionVariantId(
   p: ZustandProjectState,
   sectionId: string,
@@ -445,27 +495,37 @@ function clearToolArgumentPreviewForProjectState(
     for (const [sectionId, entry] of Object.entries(
       previewState.previewCodeBySectionId,
     )) {
-      const impl = getCurrEffectiveSectionImplOfType(
+      const sectionImpl = getEffectiveSectionImplIfPresent(
         projectState,
         sectionId,
-        SectionTypeEnum.Code,
       );
-      if (impl.code === entry.value) {
+      if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Code) {
+        delete previewState.previewCodeBySectionId[sectionId];
+        continue;
+      }
+      if (sectionImpl.code === entry.value) {
         delete previewState.previewCodeBySectionId[sectionId];
       }
     }
     for (const [sectionId, entry] of Object.entries(
       previewState.previewCallableNameBySectionId,
     )) {
-      const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      const sectionImpl = getEffectiveSectionImplIfPresent(
         projectState,
         sectionId,
-        isBaseSectionWithParamsImpl,
       );
+      if (!sectionImpl || !isBaseSectionWithParamsImpl(sectionImpl)) {
+        delete previewState.previewCallableNameBySectionId[sectionId];
+        continue;
+      }
       const { callable } = sectionImpl;
       let canonicalName = "";
       if (callable) {
-        const codeObj = getCodeObjCore(projectState, callable);
+        const codeObj = projectState.codeObjs[callable];
+        if (!codeObj) {
+          delete previewState.previewCallableNameBySectionId[sectionId];
+          continue;
+        }
         canonicalName = codeObj.name;
       }
       if (canonicalName === entry.value) {
@@ -475,13 +535,24 @@ function clearToolArgumentPreviewForProjectState(
     for (const [sectionId, paramEntries] of Object.entries(
       previewState.previewParamValueBySectionAndParamId,
     )) {
+      const sectionImpl = getEffectiveSectionImplIfPresent(
+        projectState,
+        sectionId,
+      );
+      if (!sectionImpl || !isBaseSectionWithParamsImpl(sectionImpl)) {
+        delete previewState.previewParamValueBySectionAndParamId[sectionId];
+        continue;
+      }
       for (const [paramInfoId, entry] of Object.entries(paramEntries)) {
-        const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        const impl = getEffectiveCodeObjImplIfPresent(
           projectState,
-          sectionId,
+          sectionImpl,
           paramInfoId,
-          isBaseChildlessCodeObjImpl,
         );
+        if (!impl || !isBaseChildlessCodeObjImpl(impl)) {
+          delete paramEntries[paramInfoId];
+          continue;
+        }
         if (impl.value === entry.value) {
           delete paramEntries[paramInfoId];
         }
@@ -493,7 +564,8 @@ function clearToolArgumentPreviewForProjectState(
     if (
       Object.keys(previewState.previewCodeBySectionId).length === 0 &&
       Object.keys(previewState.previewCallableNameBySectionId).length === 0 &&
-      Object.keys(previewState.previewParamValueBySectionAndParamId).length === 0
+      Object.keys(previewState.previewParamValueBySectionAndParamId).length ===
+        0
     ) {
       delete state.byProjectConfigId[projectConfigId];
     }

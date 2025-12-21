@@ -308,6 +308,11 @@ function handleMessageFinalized(chatId: string, chunk: MessageFinalizedEvent) {
       toolCallArguments: {},
     };
   });
+  const toolCallIds: string[] =
+    chunk.message.role === "assistant"
+      ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
+      : [];
+  clearToolArgumentPreviewByToolCallIds(getCurrProjectConfigId(), toolCallIds);
 }
 
 function handleToolArgumentPreviewDelta(
@@ -360,7 +365,8 @@ function handleToolArgumentPreviewDelta(
       case "callableName": {
         const sectionIds = chunk.target_ids_by_type.section ?? [];
         for (const sectionId of sectionIds) {
-          const existing = previewState.previewCallableNameBySectionId[sectionId];
+          const existing =
+            previewState.previewCallableNameBySectionId[sectionId];
           previewState.previewCallableNameBySectionId[sectionId] =
             applyPreviewDelta(existing, previewDelta, toolCallId);
         }
@@ -451,6 +457,17 @@ function clearToolArgumentPreviewByToolCallId(
   projectConfigId: string,
   toolCallId: string,
 ) {
+  clearToolArgumentPreviewByToolCallIds(projectConfigId, [toolCallId]);
+}
+
+function clearToolArgumentPreviewByToolCallIds(
+  projectConfigId: string,
+  toolCallIds: string[],
+) {
+  if (toolCallIds.length === 0) {
+    return;
+  }
+  const toolCallIdSet = new Set(toolCallIds);
   useToolArgumentPreview.setState((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
     if (!previewState) {
@@ -459,14 +476,14 @@ function clearToolArgumentPreviewByToolCallId(
     for (const [sectionId, entry] of Object.entries(
       previewState.previewCodeBySectionId,
     )) {
-      if (entry.toolCallId === toolCallId) {
+      if (toolCallIdSet.has(entry.toolCallId)) {
         delete previewState.previewCodeBySectionId[sectionId];
       }
     }
     for (const [sectionId, entry] of Object.entries(
       previewState.previewCallableNameBySectionId,
     )) {
-      if (entry.toolCallId === toolCallId) {
+      if (toolCallIdSet.has(entry.toolCallId)) {
         delete previewState.previewCallableNameBySectionId[sectionId];
       }
     }
@@ -474,7 +491,7 @@ function clearToolArgumentPreviewByToolCallId(
       previewState.previewParamValueBySectionAndParamId,
     )) {
       for (const [paramInfoId, entry] of Object.entries(paramEntries)) {
-        if (entry.toolCallId === toolCallId) {
+        if (toolCallIdSet.has(entry.toolCallId)) {
           delete paramEntries[paramInfoId];
         }
       }
@@ -485,7 +502,8 @@ function clearToolArgumentPreviewByToolCallId(
     if (
       Object.keys(previewState.previewCodeBySectionId).length === 0 &&
       Object.keys(previewState.previewCallableNameBySectionId).length === 0 &&
-      Object.keys(previewState.previewParamValueBySectionAndParamId).length === 0
+      Object.keys(previewState.previewParamValueBySectionAndParamId).length ===
+        0
     ) {
       delete state.byProjectConfigId[projectConfigId];
     }
