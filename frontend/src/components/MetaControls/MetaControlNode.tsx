@@ -11,6 +11,7 @@ import { FiUploadCloud } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
+  NO_PAN_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -73,7 +74,11 @@ export function MetaControlContent({
       return null;
   }
 
-  return <div className="w-full">{content}</div>;
+  return (
+    <div className="flex h-full w-full min-h-0 min-w-0 items-stretch">
+      {content}
+    </div>
+  );
 }
 
 function ButtonControl() {
@@ -122,9 +127,9 @@ function DropdownControl() {
 
 function SliderControl() {
   const [value, setValue] = useState<number>(68);
-  const sliderRootClassName = `${NO_DRAG_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5`;
+  const sliderRootClassName = `${NO_DRAG_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5`;
   const sliderTrackClassName =
-    "relative flex-grow rounded-full bg-setta-200 h-[3px] data-[orientation='vertical']:h-full data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
+    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName = `${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`;
   const textInputClassName =
@@ -137,7 +142,7 @@ function SliderControl() {
       max={100}
       step={1}
       onChange={setValue}
-      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} cursor-pointer @container/slider section-value flex w-full min-w-0 items-center gap-1`}
       sliderRootClassName={sliderRootClassName}
       sliderTrackClassName={sliderTrackClassName}
       sliderRangeClassName={sliderRangeClassName}
@@ -202,8 +207,8 @@ function TextInputControl() {
       onChange={setValue}
       placeholder="Type here..."
       singleLine={true}
-      wrapperClassName="w-full rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-1 dark:border-setta-700 dark:bg-setta-850"
-      editorClassName="text-[11px] font-mono text-setta-700 dark:text-setta-200 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0"
+      wrapperClassName="w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-1 dark:border-setta-700 dark:bg-setta-850"
+      editorClassName="w-full text-[11px] font-mono text-setta-700 dark:text-setta-200 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0"
     />
   );
 }
@@ -224,10 +229,10 @@ function TextAreaControl() {
         language="markdown"
         minHeight="96px"
         maxHeight="140px"
-        wrapperClassName="rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850"
-        editorClassName="text-[11px] font-mono text-setta-700 dark:text-setta-200 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0"
+        wrapperClassName="w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850"
+        editorClassName="w-full text-[11px] font-mono text-setta-700 dark:text-setta-200 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0"
       />
-      <div className="nodrag max-h-32 overflow-y-auto rounded-lg border border-setta-200/70 bg-white px-3 py-2 text-[11px] text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200">
+      <div className="nodrag w-full max-h-32 overflow-y-auto rounded-lg border border-setta-200/70 bg-white px-3 py-2 text-[11px] text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           className="prose prose-sm min-w-full dark:prose-invert prose-headings:tracking-tight prose-headings:text-setta-400 prose-p:text-xs prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]"
@@ -245,7 +250,7 @@ function PasswordControl() {
   return (
     <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
       <PasswordInput
-        className={`${NO_DRAG_CLASS_NAME} single-cell-child flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
+        className={`${NO_DRAG_CLASS_NAME} cursor-text select-text single-cell-child flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
         value={value}
         onChange={setValue}
         gridArea="single-cell-child"
@@ -277,7 +282,7 @@ function ColorControl() {
 function DropzoneControl() {
   return (
     <div
-      className={`${NO_DRAG_CLASS_NAME} flex w-full items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500`}
+      className={`${NO_DRAG_CLASS_NAME} flex w-full items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500`}
     >
       <FiUploadCloud className="text-base" />
       Drop A File Here.
@@ -317,14 +322,16 @@ function MetaControlCodeMirror({
   });
 
   return (
-    <div className={`${NO_DRAG_CLASS_NAME} ${wrapperClassName}`.trim()}>
+    <div
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} w-full min-w-0 cursor-text select-text ${wrapperClassName}`.trim()}
+    >
       <CodeMirror
         value={value}
         theme={theme}
         extensions={extensions}
         onChange={onChange}
         placeholder={placeholder}
-        className={`${NO_DRAG_CLASS_NAME} ${editorClassName}`.trim()}
+        className={`${NO_DRAG_CLASS_NAME} cursor-text select-text ${editorClassName}`.trim()}
         minHeight={minHeight}
         maxHeight={maxHeight}
         indentWithTab={false}

@@ -49,8 +49,13 @@ export function SectionContainerCoreResizable({
     };
   }, _.isEqual);
 
+  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
+  const shouldRenderMetaHeader = isMetaControl && !isUserView;
+  const metaControlFrameClassName = isMetaControl
+    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
+    : undefined;
 
   return (
     <CustomResizable
@@ -59,15 +64,31 @@ export function SectionContainerCoreResizable({
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
       positionAndSizeLocked={positionAndSizeLocked}
+      frameClassName={metaControlFrameClassName}
     >
-      <SectionHeader
-        sectionId={sectionId}
-        isActiveSection={isActiveSection}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        isUserView={isUserView}
-        isRoot={isRoot}
-      />
+      {isMetaControl ? (
+        shouldRenderMetaHeader && (
+          <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
+            <SectionHeader
+              sectionId={sectionId}
+              isActiveSection={isActiveSection}
+              sectionTypeName={sectionTypeName}
+              isInOtherProjectConfigs={isInOtherProjectConfigs}
+              isUserView={isUserView}
+              isRoot={isRoot}
+            />
+          </div>
+        )
+      ) : (
+        <SectionHeader
+          sectionId={sectionId}
+          isActiveSection={isActiveSection}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          isUserView={isUserView}
+          isRoot={isRoot}
+        />
+      )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       {!isMinimized && (
         <AreaSwitch
