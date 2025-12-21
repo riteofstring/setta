@@ -38,7 +38,8 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
 } from "./ai";
-import { receiveAIFollowUpdate } from "./aiFollow";
+import { receiveAIFollowUpdate, requestAIFollowSnapshot } from "./aiFollow";
+import { receiveAIFollowToolResultUpdate } from "./aiFollowToolResult";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -80,6 +81,7 @@ export const openWebSocket = _.debounce(
           });
           if (res200(res)) {
             processProjectStateUpdateFromBackend(res.data);
+            await requestAIFollowSnapshot(projectConfigId);
           }
         }
       });
@@ -154,6 +156,8 @@ function receiveMessage(message: string) {
       return addBackendLogEvent(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowUpdate:
       return receiveAIFollowUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
+      return receiveAIFollowToolResultUpdate(m.content);
     default:
       return m satisfies never;
   }

@@ -1,4 +1,5 @@
 import dataclasses
+from typing import Callable, TypeVar
 
 from pydantic import BaseModel
 
@@ -13,7 +14,10 @@ class IDDoesNotExist(Exception):
     pass
 
 
-def traverse_and_replace(data, replace_func):
+T = TypeVar("T")
+
+
+def traverse_and_replace(data: T, replace_func: Callable[[object], object]) -> T:
     """
     Recursively traverse data structure and apply replace_func to all string values.
 
@@ -57,10 +61,10 @@ def traverse_and_replace(data, replace_func):
 
 
 def convert_canonical_ids_to_temporary(
-    data,
+    data: T,
     canonical_to_temporary: CanonicalToTemporaryIDMap,
     temporary_to_canonical: TemporaryToCanonicalIDMap,
-):
+) -> T:
     """Replace canonical IDs with their temporary counterparts for LLM payloads."""
 
     def replace_canonical(value):
@@ -84,8 +88,8 @@ def convert_canonical_ids_to_temporary(
 
 
 def convert_temporary_ids_to_canonical(
-    data, temporary_to_canonical: TemporaryToCanonicalIDMap
-):
+    data: T, temporary_to_canonical: TemporaryToCanonicalIDMap
+) -> T:
     """Swap temporary IDs back to canonical IDs when processing LLM output."""
 
     def replace_temporary(value):
@@ -102,9 +106,9 @@ def convert_temporary_ids_to_canonical(
 
 
 def convert_existing_canonical_ids_to_temporary(
-    data,
+    data: T,
     canonical_to_temporary: CanonicalToTemporaryIDMap,
-):
+) -> T:
     """Replace only the canonical IDs that already exist in the map."""
 
     def replace_existing(value):
