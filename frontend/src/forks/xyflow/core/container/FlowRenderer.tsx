@@ -58,12 +58,8 @@ const FlowRenderer = ({
       panOnScrollMode={panOnScrollMode}
       zoomOnDoubleClick={!isFollowTransitioning && zoomOnDoubleClick}
       panOnDrag={!selectionKeyPressed && !isFollowTransitioning && panOnDrag}
-      panActivationKeyPressed={
-        !isFollowTransitioning && panActivationKeyPressed
-      }
-      zoomActivationKeyPressed={
-        !isFollowTransitioning && zoomActivationKeyPressed
-      }
+      panActivationKeyPressed={!isFollowTransitioning && panActivationKeyPressed}
+      zoomActivationKeyPressed={!isFollowTransitioning && zoomActivationKeyPressed}
       wrapperDimensions={wrapperDimensions}
     >
       <Pane

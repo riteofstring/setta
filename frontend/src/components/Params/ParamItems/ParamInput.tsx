@@ -7,15 +7,14 @@ import {
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { sendRealtimeSectionParamLiteral } from "state/actions/websocketReceive";
-import { useProjectState, useToolArgumentPreview } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const baseValue = useProjectState((x) => {
+  const globalValue = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
@@ -25,20 +24,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     );
     return impl.value;
   });
-  const previewValue = useToolArgumentPreview((state) => {
-    const previewState = state.byProjectConfigId[projectConfigId];
-    if (!previewState) {
-      return null;
-    }
-    const sectionEntries =
-      previewState.previewParamValueBySectionAndParamId[sectionId];
-    if (!sectionEntries) {
-      return null;
-    }
-    const entry = sectionEntries[paramInfoId];
-    return entry ? entry.value : null;
-  });
-  const globalValue = previewValue ?? baseValue;
 
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,

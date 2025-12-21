@@ -9,31 +9,34 @@ function getSectionIdsFromIdsByType(
   return idsByType?.section ?? [];
 }
 
-export function getSectionIdsForProject(
+export function getSectionIdsForChat(
   idsByProject: AIFollowIdsByProject,
   projectConfigId: string,
+  chatId: string | null | undefined,
 ): Array<string> {
+  if (!chatId) {
+    return [];
+  }
   const projectEntries = idsByProject[projectConfigId];
   if (!projectEntries) {
     return [];
   }
-  const sectionIds = new Set<string>();
-  for (const idsByType of Object.values(projectEntries)) {
-    for (const sectionId of getSectionIdsFromIdsByType(idsByType)) {
-      sectionIds.add(sectionId);
-    }
-  }
-  return Array.from(sectionIds);
+  return getSectionIdsFromIdsByType(projectEntries[chatId]);
 }
 
-export function hasSectionIdInProject(
+export function hasSectionIdForChat(
   idsByProject: AIFollowIdsByProject,
   projectConfigId: string,
   sectionId: string,
+  chatId: string | null | undefined,
 ): boolean {
   const projectEntries = idsByProject[projectConfigId];
   if (!projectEntries) {
     return false;
+  }
+  if (chatId) {
+    const sectionIds = getSectionIdsFromIdsByType(projectEntries[chatId]);
+    return sectionIds.includes(sectionId);
   }
   for (const idsByType of Object.values(projectEntries)) {
     const sectionIds = getSectionIdsFromIdsByType(idsByType);

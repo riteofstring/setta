@@ -12,8 +12,13 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { hasSectionIdInProject } from "state/aiFollowUtils";
-import { useAIFollow, useMisc, useProjectState } from "state/definitions";
+import { hasSectionIdForChat } from "state/aiFollowUtils";
+import {
+  useAIFollow,
+  useAIStore,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -117,17 +122,20 @@ export function useAiSectionHighlight(
   sectionId: string,
   projectConfigId: string,
 ): boolean {
+  const activeChatId = useAIStore((state) => state.activeChatId);
   const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
     (state) => {
-      const isAiWorkingOnSection = hasSectionIdInProject(
+      const isAiWorkingOnSection = hasSectionIdForChat(
         state.toolArgumentsIdsByProjectConfigId,
         projectConfigId,
         sectionId,
+        activeChatId,
       );
-      const isToolResultHighlight = hasSectionIdInProject(
+      const isToolResultHighlight = hasSectionIdForChat(
         state.toolResultIdsByProjectConfigId,
         projectConfigId,
         sectionId,
+        activeChatId,
       );
       return { isAiWorkingOnSection, isToolResultHighlight };
     },

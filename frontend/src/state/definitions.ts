@@ -463,34 +463,6 @@ export const useAIFollow = withProjectState(
   ),
 );
 
-export type ToolArgumentPreviewEntry = {
-  value: string;
-  toolCallId: string;
-};
-
-export type ToolArgumentPreviewProjectState = {
-  previewCodeBySectionId: Record<string, ToolArgumentPreviewEntry>;
-  previewParamValueBySectionAndParamId: Record<
-    string,
-    Record<string, ToolArgumentPreviewEntry>
-  >;
-  previewCallableNameBySectionId: Record<string, ToolArgumentPreviewEntry>;
-};
-
-type ToolArgumentPreviewState = {
-  byProjectConfigId: Record<string, ToolArgumentPreviewProjectState>;
-};
-
-export const useToolArgumentPreview = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ToolArgumentPreviewState>(() => ({
-        byProjectConfigId: {},
-      })),
-    ),
-  ),
-);
-
 type ZustandLocalStorage = {
   snapToGrid: boolean;
   darkMode: boolean;
