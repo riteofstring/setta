@@ -14,7 +14,7 @@
 ## Plan Overview
 
 ## Current Progress
-- Step 1: In progress. The system prompt now defines the generated code pipeline, `state`/`SettaState` naming, dependency-expression rules, and where to place logic. Still missing: explicit tool-call sequences, a don't-do list, and canonical examples.
+- Step 1: Completed. The system prompt now includes the generated code pipeline, `state`/`SettaState` naming, dependency-expression rules, a “where code goes” map, explicit tool-call sequences, a don't-do list, and canonical examples.
 - Step 2: Not started.
 - Step 3: Not started.
 - Step 4: Not started.

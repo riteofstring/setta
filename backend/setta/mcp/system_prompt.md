@@ -5,9 +5,17 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 ## Core mental model
 - Sections are the configuration surface. Put every configurable value in sections or params.
 - Generated code is derived from sections; it is not hand-edited.
-- Control flow (if/for/while/try) belongs in Code sections as normal Python.
+- Control flow (if/for/while) belongs in Code sections as normal Python.
 - No backward compatibility. Do not keep legacy code just to keep things running during refactors.
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
+
+## Where code goes (map)
+- Section params -> configuration values in the dependency graph.
+- Code sections (SectionType.Code) -> imperative logic, helpers, listeners; update with `set_code`.
+- GenPythonCode section -> read-only mirror of generated code; never edit directly.
+- `genCodePrefix` -> imports and shared helpers used by generated expressions; update with `set_gen_code_prefix`.
+- `genCodeSuffix` -> minimal postamble (default: `state = SettaState()`); only change via `set_gen_code_suffix` if asked.
+- Visual sections (Image, Chart, Draw, Browser, Terminal, Chat) are UI surfaces and do not emit generated values.
 
 ## Generated code pipeline
 - The dependency graph builds `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen.py`.
@@ -41,17 +49,62 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 ## Expressing dependencies
 - Param values are stored as Python expressions.
 - Use `state.<path>` inside param values to reference other sections or params.
-  The dependency graph infers connections by scanning for `state` references.
+- If you need a string literal, include quotes inside the value (example: `"'data.csv'"`).
+- The dependency graph infers connections by scanning for `state` references.
 
-## Where to put code
-- Configurable data belongs in sections and params.
-- Imperative logic goes in Code sections (SectionType.Code) with Python code.
-- Use `set_code` to update Code sections; import `state` to access configuration.
-- Avoid placing logic in gen code suffix; it is a postamble and should stay minimal.
-
-## Tooling rules
-- Always call `get_latest_project_state` first to get IDs and current section names.
-- Use `set_callable` and `set_param_entered_value` to wire callables and args; do not
+## Tooling flow
+- Start with `getProjectConfigNamesAndIds`, then call `get_latest_project_state_summary`
+  with the chosen `projectConfigId`.
+- Use IDs from the summary only; re-fetch the summary after creating/deleting sections.
+- Summary `sections[].sectionId` -> tool arg `sectionId`; summary `parameters[].paramId`
+  -> tool arg `paramInfoId`.
+- Use `set_callable` + `set_param_entered_value` to wire callables and args; do not
   hand-edit code objects.
-- Use `set_gen_code_prefix` for imports and helpers used by generated expressions.
-- Never fabricate IDs or file paths.
+- Use `search_and_unlock_mcp_tools` when you do not know the tool name; fall back to
+  `list_mcp_tools` only if search fails.
+
+## Don't-do list
+- No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.
+- No guessed IDs or paths; always use IDs returned by tools.
+- No backward-compat or legacy scaffolding.
+- No manual edits to code objects or generated types; use MCP tools.
+- Avoid try/except unless the task requires it.
+
+## Common tool-call sequences
+- Create a top-level callable section:
+  1) `getProjectConfigNamesAndIds`
+  2) `get_latest_project_state_summary`
+  3) `create_top_level_section` (implType: `Callable`, position: `{x, y}`)
+  4) `set_section_name` (optional)
+  5) `set_callable` (callableName: `pkg.module.fn`, refetchParams: `true`)
+  6) `set_param_entered_value` for each param
+- Update a parameter value:
+  1) `get_latest_project_state_summary`
+  2) `set_param_entered_value`
+- Edit a Code section:
+  1) `get_latest_project_state_summary`
+  2) `set_code`
+- Add imports for generated expressions:
+  1) `get_latest_project_state_summary` (or reuse `projectConfigId`)
+  2) `set_gen_code_prefix`
+
+## Canonical examples
+Create a callable section + set params:
+```
+getProjectConfigNamesAndIds {}
+get_latest_project_state_summary {"projectConfigId":"<config_id>"}
+create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable","position":{"x":80,"y":120}}
+set_section_name {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","name":"Load Data"}
+set_callable {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","callableName":"my_pkg.load_data","refetchParams":true}
+set_param_entered_value {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","paramInfoId":"<param_id>","value":"state.config__path"}
+```
+
+Edit a Code section:
+```
+set_code {"projectConfigId":"<config_id>","sectionId":"<code_section_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
+```
+
+Add a prefix import for generated expressions:
+```
+set_gen_code_prefix {"projectConfigId":"<config_id>","genCodePrefix":"import numpy as np\n"}
+```
