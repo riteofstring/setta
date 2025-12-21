@@ -344,6 +344,14 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
+class SetMetaControlValueRequest(ProjectManagerRequestWithSection):
+    """Assign a new manual value to a meta control section."""
+
+    value: str = Field(
+        description="Raw text value to persist for the meta control.",
+    )
+
+
 class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     """Rename a code object tracked within the project state."""
 
