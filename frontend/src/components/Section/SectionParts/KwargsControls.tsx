@@ -11,12 +11,32 @@ import {
   route_delete_kwarg,
   route_set_section_param_filter,
 } from "utils/generatedEndpoints";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { isBaseSectionWithParamsImpl, SectionTypeEnum } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 
-export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
+type KwargsControlsProps = {
+  sectionId: string;
+  bgColor?: string;
+};
+
+export function KwargsControls({
+  sectionId,
+  bgColor = "bg-transparent",
+}: KwargsControlsProps) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
+  const callableMissing = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    if (impl.type !== SectionTypeEnum.Callable) {
+      return false;
+    }
+    return impl.callable == null;
+  }, _.isEqual);
+  const kwargButtonsDisabled = variantIsFrozen || callableMissing;
 
   const onClickDeleteSelectedKwargs = () => {};
 
@@ -45,7 +65,7 @@ export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
                 })
               }
               tabIndex={0}
-              disabled={variantIsFrozen}
+              disabled={kwargButtonsDisabled}
             >
               <i className="gg-math-minus before:!left-0 " />
             </button>
@@ -58,7 +78,7 @@ export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
                 })
               }
               tabIndex={0}
-              disabled={variantIsFrozen}
+              disabled={kwargButtonsDisabled}
             >
               <i className="gg-math-plus !scale-50" />
             </button>
