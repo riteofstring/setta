@@ -10,6 +10,7 @@ from setta.mcp.tool_metadata import (
     SettaToolAnnotations,
     SettaToolType,
 )
+from setta.types.id import ID
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.types.chat_messages import ToolCall, ToolCallFunction
@@ -31,11 +32,23 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
+    def _collect_ids_from_arguments(
+        self, arguments_list: list[dict[str, object]]
+    ) -> dict[str, list[ID]] | None:
+        tool_calls = [
+            ToolCall(
+                function=ToolCallFunction(
+                    name="test_tool",
+                    arguments=arguments,
+                )
+            )
+            for arguments in arguments_list
+        ]
+        return self.manager._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
+
     def test_collects_single_section_id(self) -> None:
-        result = self.manager._collect_ai_follow_ids_by_type(
-            [
-                {"sectionId": "section-1"},
-            ]
+        result = self._collect_ids_from_arguments(
+            [{"sectionId": "section-1"}]
         )
 
         self.assertIsNotNone(result)
@@ -45,7 +58,7 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         )
 
     def test_collects_multiple_section_ids_and_dedupes(self) -> None:
-        result = self.manager._collect_ai_follow_ids_by_type(
+        result = self._collect_ids_from_arguments(
             [
                 {"sectionIds": ["section-1", "section-2", "", 123]},
                 {"sectionId": "section-2"},
@@ -60,19 +73,15 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         )
 
     def test_empty_section_list_returns_empty_list(self) -> None:
-        result = self.manager._collect_ai_follow_ids_by_type(
-            [
-                {"sectionIds": []},
-            ]
+        result = self._collect_ids_from_arguments(
+            [{"sectionIds": []}]
         )
 
         self.assertEqual(result, {"section": []})
 
     def test_missing_section_ids_returns_none(self) -> None:
-        result = self.manager._collect_ai_follow_ids_by_type(
-            [
-                {"otherKey": "value"},
-            ]
+        result = self._collect_ids_from_arguments(
+            [{"otherKey": "value"}]
         )
 
         self.assertIsNone(result)

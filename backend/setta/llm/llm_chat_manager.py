@@ -961,21 +961,11 @@ class LLMChatManager:
             assistant_message,
             tool_call_state,
         )
-        if not ids_by_type:
-            return
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        resolved_ids_by_type: dict[FollowIdType, list[ID]] = {}
-        for id_type, ids in ids_by_type.items():
-            resolved_ids = [entry for entry in ids if entry in temporary_to_canonical]
-            if resolved_ids:
-                resolved_ids_by_type[id_type] = resolved_ids
-        if not resolved_ids_by_type:
-            return
-        canonical_ids_by_type = convert_temporary_ids_to_canonical(
-            resolved_ids_by_type,
-            temporary_to_canonical,
+        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
+            ids_by_type,
+            filter_to_known=True,
         )
-        if not canonical_ids_by_type:
+        if canonical_ids_by_type is None:
             return
         await self._update_and_broadcast_ai_follow_update(
             project_config_id,
@@ -1324,37 +1314,21 @@ class LLMChatManager:
                 break
         return current
 
-    def _extract_ai_follow_tool_result_ids(
+    def _collect_ai_follow_ids_from_paths(
         self,
         payload: Any,
-        metadata: AIFollowToolResultMetadata,
-    ) -> dict[str, list[ID]]:
-        ids_by_type: dict[str, set[ID]] = {}
-        for id_type, paths in metadata.pathsByIdType.items():
-            values: list[Any] = []
-            for path in paths:
-                values.extend(self._select_values_by_path(payload, path))
-            if not values:
-                continue
-            for value in values:
-                ids = self._coerce_id_list(value)
-                if ids:
-                    ids_by_type.setdefault(id_type, set()).update(ids)
-        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
-
-    def _extract_ai_follow_tool_argument_ids(
-        self,
-        arguments: dict[str, Any],
-        metadata: AIFollowToolArgumentsMetadata,
-    ) -> dict[FollowIdType, list[ID]] | None:
+        paths_by_id_type: dict[FollowIdType, list[str]],
+        *,
+        allow_dict_keys: bool,
+    ) -> tuple[dict[FollowIdType, set[ID]], set[FollowIdType]]:
         ids_by_type: dict[FollowIdType, set[ID]] = {}
         found_types: set[FollowIdType] = set()
-        for id_type, paths in metadata.pathsByIdType.items():
+        for id_type, paths in paths_by_id_type.items():
             for path in paths:
-                values = self._select_values_by_path(arguments, path)
+                values = self._select_values_by_path(payload, path)
                 for value in values:
                     ids = self._coerce_id_list(value)
-                    if ids is None and isinstance(value, dict):
+                    if ids is None and allow_dict_keys and isinstance(value, dict):
                         dict_keys = [
                             key for key in value.keys() if isinstance(key, str)
                         ]
@@ -1364,17 +1338,67 @@ class LLMChatManager:
                     found_types.add(id_type)
                     if ids:
                         ids_by_type.setdefault(id_type, set()).update(ids)
+        return ids_by_type, found_types
+
+    def _extract_ai_follow_tool_result_ids(
+        self,
+        payload: Any,
+        metadata: AIFollowToolResultMetadata,
+    ) -> dict[FollowIdType, list[ID]]:
+        ids_by_type, _ = self._collect_ai_follow_ids_from_paths(
+            payload,
+            metadata.pathsByIdType,
+            allow_dict_keys=False,
+        )
+        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
+
+    def _extract_ai_follow_tool_argument_ids(
+        self,
+        arguments: dict[str, Any],
+        metadata: AIFollowToolArgumentsMetadata,
+    ) -> dict[FollowIdType, list[ID]] | None:
+        ids_by_type, found_types = self._collect_ai_follow_ids_from_paths(
+            arguments,
+            metadata.pathsByIdType,
+            allow_dict_keys=True,
+        )
         if not found_types:
             return None
         return {
             id_type: list(ids_by_type.get(id_type, set())) for id_type in found_types
         }
 
+    def _canonicalize_ai_follow_ids_by_type(
+        self,
+        ids_by_type: dict[FollowIdType, list[ID]],
+        *,
+        filter_to_known: bool,
+    ) -> dict[FollowIdType, list[ID]] | None:
+        if not ids_by_type:
+            return None
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        if not filter_to_known:
+            return convert_temporary_ids_to_canonical(
+                ids_by_type,
+                temporary_to_canonical,
+            )
+        filtered: dict[FollowIdType, list[ID]] = {}
+        for id_type, ids in ids_by_type.items():
+            resolved = [entry for entry in ids if entry in temporary_to_canonical]
+            if resolved:
+                filtered[id_type] = resolved
+        if not filtered:
+            return None
+        return convert_temporary_ids_to_canonical(
+            filtered,
+            temporary_to_canonical,
+        )
+
     def _build_ai_follow_tool_result_update(
         self,
         tool_name: str,
         call_result: CallToolResult,
-    ) -> dict[str, list[ID]] | None:
+    ) -> dict[FollowIdType, list[ID]] | None:
         if call_result.isError:
             return None
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
@@ -1393,10 +1417,9 @@ class LLMChatManager:
         ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
         if not ids_by_type:
             return None
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        return convert_temporary_ids_to_canonical(
+        return self._canonicalize_ai_follow_ids_by_type(
             ids_by_type,
-            temporary_to_canonical,
+            filter_to_known=False,
         )
 
     async def _maybe_broadcast_ai_follow_tool_result_update(
@@ -1427,11 +1450,12 @@ class LLMChatManager:
         ids_by_type = self._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
         if ids_by_type is None:
             return
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        canonical_ids_by_type = convert_temporary_ids_to_canonical(
+        canonical_ids_by_type = self._canonicalize_ai_follow_ids_by_type(
             ids_by_type,
-            temporary_to_canonical,
+            filter_to_known=False,
         )
+        if canonical_ids_by_type is None:
+            return
         await self._update_and_broadcast_ai_follow_update(
             project_config_id,
             chat_id,
@@ -1497,24 +1521,6 @@ class LLMChatManager:
             chat_id,
             payload_ids_by_type,
         )
-
-    def _collect_ai_follow_ids_by_type(
-        self, arguments_list: list[dict[str, Any]]
-    ) -> dict[FollowIdType, list[ID]] | None:
-        if not arguments_list:
-            return None
-        combined: dict[FollowIdType, set[ID]] = {}
-        found_any = False
-        for arguments in arguments_list:
-            ids_by_type = self._extract_ai_follow_ids_by_type(arguments)
-            if ids_by_type is None:
-                continue
-            found_any = True
-            for id_type, ids in ids_by_type.items():
-                combined.setdefault(id_type, set()).update(ids)
-        if not found_any:
-            return None
-        return {id_type: list(ids) for id_type, ids in combined.items()}
 
     def _collect_ai_follow_ids_by_type_from_tool_calls(
         self,
