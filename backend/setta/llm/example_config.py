@@ -2,7 +2,7 @@
 
 from setta.database.db_objs import DBE
 from setta.llm.config import save_llm_config
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 
 DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
     configs={
@@ -14,6 +14,27 @@ DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
         ),
     },
     default_config_id="claude-sonnet",
+    mcp_servers={
+        "setta": MCPServerConfig(
+            label="Setta MCP",
+            transport="sse",
+            url="http://127.0.0.1:8000/mcp",
+            headers={},
+        ),
+        "context7": MCPServerConfig(
+            label="Context7",
+            transport="stdio",
+            command="npx",
+            args=[
+                "-y",
+                "@upstash/context7-mcp",
+                "--api-key",
+                "${CONTEXT7_API_KEY}",
+            ],
+            env={},
+            cwd=None,
+        ),
+    },
 )
 
 
