@@ -5,22 +5,26 @@ import logging
 import string
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Literal, TypeVar, cast
 
+import bm25s
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from mcp.types import CallToolResult, TextContent
+from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
+from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
-from setta.mcp.client import MCPClient
+from setta.mcp.multi_client import MultiMCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -41,6 +45,10 @@ from setta.project_state.chats.save import (
 from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
+from setta.project_state.project_manager_types import (
+    GetLatestProjectStateSummaryRequest,
+)
+from setta.project_state.project_state_summary_types import ProjectStateSummary
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -71,6 +79,8 @@ from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
+if TYPE_CHECKING:
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 
@@ -157,18 +167,35 @@ class ChatToolState:
         return list(combined.values())
 
 
+@dataclass
+class _ToolSearchEntry:
+    name: str
+    description: str
+    category: str | None
+    document: str
+
+
+@dataclass
+class _ToolSearchIndex:
+    retriever: bm25s.BM25
+    entries: list[_ToolSearchEntry]
+
+
 class LLMChatManager:
     """Coordinates chat persistence, streaming responses, and tool execution."""
 
     def __init__(
         self,
         dbe: DBE,
-        mcp_client: MCPClient,
+        mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
+        project_manager_switcher: "ProjectManagerSwitcher",
     ) -> None:
         self.dbe = dbe
         self.mcp_client = mcp_client
+        self.tool_preunlocker = ToolPreunlocker(self.mcp_client)
         self.websocket_msg_handler = websocket_msg_handler
+        self.project_manager_switcher = project_manager_switcher
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
         self._raw_env_vars: APIKeys = {}
@@ -176,6 +203,8 @@ class LLMChatManager:
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
         self._ai_follow_state: dict[ID, AIFollowState] = {}
+        self._tool_search_index: _ToolSearchIndex | None = None
+        self._tool_search_index_version = -1
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
@@ -276,7 +305,7 @@ class LLMChatManager:
 
     async def process_query(self, chat: Chat, deepThink: bool):
         while True:
-            payload = self._build_llm_request_payload(chat, deepThink)
+            payload = await self._build_llm_request_payload(chat, deepThink)
 
             assistant_message = AssistantChatMessage(
                 content=[],
@@ -430,7 +459,7 @@ class LLMChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    def _build_llm_request_payload(
+    async def _build_llm_request_payload(
         self,
         chat: Chat,
         deep_think: bool,
@@ -441,8 +470,11 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
+        system_prompt, project_summary = await self._build_system_prompt_with_summary(
+            chat
+        )
         system_message = SystemChatMessage(
-            content=[MessageTextContent(text=self._build_system_prompt(chat))],
+            content=[MessageTextContent(text=system_prompt)],
         ).to_openai_format()
         messages: list[dict[str, Any]] = [system_message]
         for message in chat.messages:
@@ -456,6 +488,7 @@ class LLMChatManager:
 
         request["messages"] = messages
         self._maybe_apply_cache_prompting(request, messages)
+        self._preunlock_tools(chat, project_summary)
         tools = self._build_tool_definitions(chat)
         if tools:
             request["tools"] = tools
@@ -467,36 +500,88 @@ class LLMChatManager:
 
         return request
 
-    def _build_system_prompt(self, chat: Chat) -> str:
+    async def _build_system_prompt_with_summary(
+        self, chat: Chat
+    ) -> tuple[str, ProjectStateSummary]:
         project_config_id = chat.projectConfigId
-        temporary_project_config_id = self._get_temporary_project_config_id(
-            project_config_id
-        )
-        return (
+        (
+            temporary_project_config_id,
+            project_summary,
+            summary_payload,
+        ) = await self._build_project_summary(project_config_id)
+        prompt = (
             f"{self.system_prompt}\n\n"
             "## Active project config\n"
-            f"- id: {temporary_project_config_id}"
+            f"- id: {temporary_project_config_id}\n\n"
+            "## Project summary\n"
+            "(Injected at request start; call get_latest_project_state_summary only to"
+            " refresh after edits.)\n"
+            f"{project_summary}"
         )
+        return prompt, summary_payload
 
-    def _get_temporary_project_config_id(self, project_config_id: ID) -> ID:
+    async def _build_project_summary(
+        self, project_config_id: ID
+    ) -> tuple[ID, str, ProjectStateSummary]:
+        project_manager = self.project_manager_switcher.get(project_config_id)
+        summary = await project_manager.get_latest_project_state_summary(
+            GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
+        )
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
         )
-        should_write = project_config_id not in canonical_to_temporary
-        temporary_project_config_id = convert_canonical_ids_to_temporary(
-            project_config_id,
+        map_size_before = len(canonical_to_temporary)
+        converted_summary = convert_canonical_ids_to_temporary(
+            summary,
             canonical_to_temporary,
             temporary_to_canonical,
         )
-        if should_write:
+        if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-        return temporary_project_config_id
+
+        temporary_project_config_id = converted_summary.projectConfig.id
+        summary_text = self._serialize_prompt_payload(converted_summary)
+        summary_block = f"```json\n{summary_text}\n```"
+        return temporary_project_config_id, summary_block, converted_summary
+
+    @staticmethod
+    def _serialize_prompt_payload(payload: Any) -> str:
+        def default(obj: Any):
+            if is_dataclass(obj):
+                return asdict(obj)
+            if isinstance(obj, BaseModel):
+                return obj.model_dump(mode="json")
+            if isinstance(obj, Enum):
+                return obj.value
+            if isinstance(obj, Path):
+                return str(obj)
+            return str(obj)
+
+        return json.dumps(payload, indent=2, default=default)
 
     def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
         state = self._get_or_create_chat_tool_state(chat.id)
         if not state.init_tools and self.mcp_client.init_tool_definitions:
             state.init_tools = dict(self.mcp_client.init_tool_definitions)
         return state.build_payload()
+
+    def _preunlock_tools(
+        self,
+        chat: Chat,
+        project_summary: ProjectStateSummary,
+    ) -> None:
+        definitions = self.tool_preunlocker.select_tools(chat, project_summary)
+        if not definitions:
+            return
+        state = self._get_or_create_chat_tool_state(chat.id)
+        added_tool_names = state.unlock_tools(definitions)
+        if logger.isEnabledFor(logging.DEBUG) and added_tool_names:
+            logger.debug(
+                "[chat %s] pre-unlocked %s tools: %s",
+                chat.id,
+                len(added_tool_names),
+                added_tool_names,
+            )
 
     def _maybe_apply_cache_prompting(
         self,
@@ -1557,20 +1642,22 @@ class LLMChatManager:
                 f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
             )
         arguments = dict(tool_call.function.arguments or {})
-        started_at = get_now_timestamp()
-        try:
-            call_result = await self.mcp_client.call_tool(tool_name, arguments)
-        except Exception:
-            logger.exception(
-                "MCP tool invocation failed for chat %s (tool=%s)",
-                chat_id,
-                tool_name,
+        if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME:
+            raise ValueError(
+                "Tool name must be namespaced as '<server_id>.search_and_unlock_mcp_tools'"
             )
-            raise
-        completed_at = get_now_timestamp()
-
+        started_at = get_now_timestamp()
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
-        if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME and not call_result.isError:
+        if self._is_namespaced_search_tool(tool_name):
+            normalized_query, normalized_limit = self._parse_search_tool_arguments(
+                arguments
+            )
+            search_results = self._search_mcp_tools(
+                normalized_query,
+                normalized_limit,
+            )
+            call_result = self._build_search_tool_call_result(search_results)
+            completed_at = get_now_timestamp()
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
                 tool_name,
@@ -1579,8 +1666,19 @@ class LLMChatManager:
                 sanitized_arguments,
                 started_at,
                 completed_at,
+                search_results,
             )
         else:
+            try:
+                call_result = await self.mcp_client.call_tool(tool_name, arguments)
+            except Exception:
+                logger.exception(
+                    "MCP tool invocation failed for chat %s (tool=%s)",
+                    chat_id,
+                    tool_name,
+                )
+                raise
+            completed_at = get_now_timestamp()
             tool_chat_message = ToolChatMessage(
                 tool_call_id=tool_call.id,
                 tool_name=tool_name,
@@ -1614,6 +1712,150 @@ class LLMChatManager:
         )
         return json.loads(json.dumps(converted))
 
+    @staticmethod
+    def _is_namespaced_search_tool(tool_name: str) -> bool:
+        if "." not in tool_name:
+            return False
+        server_id, base_name = tool_name.split(".", 1)
+        if not server_id:
+            raise ValueError("Tool name is missing server id")
+        return base_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
+
+    @staticmethod
+    def _parse_search_tool_arguments(arguments: dict[str, Any]) -> tuple[str, int]:
+        if "query" not in arguments:
+            raise KeyError("search_and_unlock_mcp_tools requires query")
+        query_value = arguments["query"]
+        if not isinstance(query_value, str):
+            raise ValueError("query must be a string")
+        normalized_query = query_value.strip()
+        if normalized_query == "":
+            raise ValueError("query must not be empty")
+        limit_value = arguments["limit"] if "limit" in arguments else 2
+        if isinstance(limit_value, bool) or not isinstance(limit_value, int):
+            raise ValueError("limit must be an integer")
+        normalized_limit = limit_value if limit_value > 0 else 5
+        return normalized_query, normalized_limit
+
+    def _get_tool_search_index(self) -> _ToolSearchIndex | None:
+        current_version = self.mcp_client.tool_cache_version
+        if (
+            self._tool_search_index is not None
+            and self._tool_search_index_version == current_version
+        ):
+            return self._tool_search_index
+        entries = self._build_tool_search_entries()
+        if not entries:
+            self._tool_search_index = None
+            self._tool_search_index_version = current_version
+            return None
+        documents = [entry.document for entry in entries]
+        retriever = bm25s.BM25()
+        corpus_tokens = bm25s.tokenize(documents, stopwords="en")
+        retriever.index(corpus_tokens)
+        self._tool_search_index = _ToolSearchIndex(
+            retriever=retriever,
+            entries=entries,
+        )
+        self._tool_search_index_version = current_version
+        return self._tool_search_index
+
+    def _build_tool_search_entries(self) -> list[_ToolSearchEntry]:
+        entries: list[_ToolSearchEntry] = []
+        definitions = self.mcp_client.discoverable_tool_definitions
+        annotations_by_name = self.mcp_client.tool_annotations_by_name
+        for name, definition in definitions.items():
+            if name not in annotations_by_name:
+                raise KeyError(f"MCP tool '{name}' is missing annotations")
+            annotations = annotations_by_name[name]
+            function_payload = definition.get("function")
+            if not isinstance(function_payload, dict):
+                raise ValueError(
+                    f"Tool definition for '{name}' is missing function payload"
+                )
+            description = ""
+            raw_description = function_payload.get("description")
+            if isinstance(raw_description, str):
+                description = raw_description
+            category = annotations.searchCategory
+            tags = [tag for tag in annotations.searchTags if tag.strip()]
+            document = self._build_tool_search_document(
+                name,
+                description,
+                tags,
+                category,
+            )
+            entries.append(
+                _ToolSearchEntry(
+                    name=name,
+                    description=description,
+                    category=category,
+                    document=document,
+                )
+            )
+        return entries
+
+    @staticmethod
+    def _build_tool_search_document(
+        name: str,
+        description: str,
+        tags: list[str],
+        category: str | None,
+    ) -> str:
+        parts: list[str] = [name]
+        if "_" in name or "." in name:
+            parts.append(name.replace("_", " ").replace(".", " "))
+        if "." in name:
+            _, base_name = name.split(".", 1)
+            parts.append(base_name)
+            if "_" in base_name:
+                parts.append(base_name.replace("_", " "))
+        if description:
+            parts.append(description)
+        if category:
+            parts.append(category)
+        for tag in tags:
+            if tag:
+                parts.append(tag)
+        return " ".join(part for part in parts if part)
+
+    def _search_mcp_tools(
+        self,
+        query: str,
+        limit: int,
+    ) -> list[dict[str, str | None]]:
+        index = self._get_tool_search_index()
+        if index is None:
+            return []
+        query_tokens = bm25s.tokenize([query], stopwords="en")
+        if not query_tokens or not any(query_tokens[0]):
+            raise ValueError("query must include at least one searchable token")
+        max_results = min(limit, len(index.entries))
+        doc_ids, _ = index.retriever.retrieve(query_tokens, k=max_results)
+        ranked_results: list[dict[str, str | None]] = []
+        for doc_index in doc_ids[0]:
+            if doc_index < 0 or doc_index >= len(index.entries):
+                continue
+            entry = index.entries[doc_index]
+            ranked_results.append(
+                {
+                    "name": entry.name,
+                    "description": entry.description,
+                    "category": entry.category,
+                }
+            )
+        return ranked_results
+
+    @staticmethod
+    def _build_search_tool_call_result(
+        search_results: list[dict[str, str | None]],
+    ) -> CallToolResult:
+        payload = json.dumps(search_results)
+        return CallToolResult(
+            content=[TextContent(type="text", text=payload)],
+            isError=False,
+        )
+
     def _build_search_tool_chat_message(
         self,
         chat_id: ID,
@@ -1623,8 +1865,8 @@ class LLMChatManager:
         arguments: dict[str, Any],
         started_at,
         completed_at,
+        search_results: list[dict[str, str | None]],
     ) -> ToolChatMessage:
-        search_results = self._parse_search_tool_results(call_result)
         definitions = self._build_tool_definitions_from_search_results(search_results)
         added_tool_names: list[str] = []
         if definitions:
@@ -1661,38 +1903,21 @@ class LLMChatManager:
             completed_at=completed_at,
         )
 
-    def _parse_search_tool_results(self, call_result: CallToolResult) -> list[str]:
-        entry = call_result.content[0] if call_result.content else None
-        if not isinstance(entry, TextContent):
-            return []
-
-        text = (entry.text or "").strip()
-        if not text:
-            return []
-
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError:
-            logger.debug("Failed to parse search tool payload", exc_info=True)
-            return []
-
-        return payload if isinstance(payload, list) else []
-
     def _build_tool_definitions_from_search_results(
         self,
-        tool_names: list[str],
+        search_results: list[dict[str, str | None]],
     ) -> dict[str, ChatCompletionToolParam]:
         definitions: dict[str, ChatCompletionToolParam] = {}
         available = self.mcp_client.discoverable_tool_definitions
-        for name in tool_names:
-            definition = available.get(name)
-            if not definition:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "Search tool returned unknown definition '%s'",
-                        name,
-                    )
-                continue
+        for result in search_results:
+            if "name" not in result:
+                raise KeyError("Search result is missing a name")
+            name = result["name"]
+            if not name:
+                raise ValueError("Search result name must not be empty")
+            if name not in available:
+                raise KeyError(f"Search result '{name}' is missing a definition")
+            definition = available[name]
             definitions[name] = definition
         return definitions
 
