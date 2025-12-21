@@ -4,8 +4,13 @@ import _ from "lodash";
 import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 import { getActiveViewModeConfig } from "state/actions/sectionInfos";
+import { deleteNodes } from "state/actions/nodeInternals";
 import type { MetaControl } from "state/definitions";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import {
+  useMetaControls,
+  useNodeInternals,
+  useProjectState,
+} from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { MetaControlNode } from "./MetaControlNode";
 
@@ -30,6 +35,41 @@ export function MetaControlWrapper({
     const viewMode = getActiveViewModeConfig(state);
     return viewMode.isUserFacing && !state.projectConfig.isEditingViewMode;
   });
+  const isLocked = control.positionAndSizeLocked;
+  const canDrag = isDraggable && !isLocked;
+
+  const onToggleLock = () => {
+    useMetaControls.setState((state) => ({
+      controls: state.controls.map((entry) =>
+        entry.id === id
+          ? {
+              ...entry,
+              positionAndSizeLocked: !entry.positionAndSizeLocked,
+            }
+          : entry,
+      ),
+    }));
+  };
+
+  const onDelete = () => {
+    useMetaControls.setState((state) => ({
+      controls: state.controls.filter((entry) => entry.id !== id),
+    }));
+    deleteNodes([id]);
+  };
+
+  const onRename = (value: string) => {
+    useMetaControls.setState((state) => ({
+      controls: state.controls.map((entry) =>
+        entry.id === id
+          ? {
+              ...entry,
+              label: value,
+            }
+          : entry,
+      ),
+    }));
+  };
 
   useEffect(() => {
     if (!nodeRef.current) {
@@ -44,7 +84,7 @@ export function MetaControlWrapper({
 
   useDrag({
     nodeRef,
-    disabled: !isDraggable,
+    disabled: !canDrag,
     nodeId: id,
   });
 
@@ -57,7 +97,7 @@ export function MetaControlWrapper({
       className={cc([
         "react-flow__node",
         {
-          [NO_PAN_CLASS_NAME]: isDraggable,
+          [NO_PAN_CLASS_NAME]: canDrag,
         },
       ])}
       ref={nodeRef}
@@ -70,8 +110,14 @@ export function MetaControlWrapper({
       data-id={id}
       data-testid={`rf__node-${id}`}
     >
-      <div className="cursor-grab active:cursor-grabbing">
-        <MetaControlNode control={control} showChrome={!isUserView} />
+      <div className={canDrag ? "cursor-grab active:cursor-grabbing" : ""}>
+        <MetaControlNode
+          control={control}
+          showChrome={!isUserView}
+          onToggleLock={onToggleLock}
+          onDelete={onDelete}
+          onRename={onRename}
+        />
       </div>
     </div>
   );

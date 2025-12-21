@@ -26,38 +26,71 @@ type SectionTitleStyleProps = {
 
 type SectionTitleProps =
   | { sectionId: string; titleProps: SectionTitleStyleProps }
-  | { title: string; titleProps: { fixed: string } };
+  | {
+      title: string;
+      titleProps: SectionTitleStyleProps;
+      editable?: {
+        onRename: (value: string) => void;
+        condition?: (value: string) => boolean | Promise<boolean>;
+      };
+    };
 
 export function SectionTitle(props: SectionTitleProps) {
-  if ("title" in props) {
+  if ("sectionId" in props) {
+    const { sectionId, titleProps } = props;
+    const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
+
+    if (titleIsEditable) {
+      const editableTitleProps = getEditableTitleProps(titleProps);
+      return (
+        <EditableTitle
+          title={sectionName}
+          onRename={(value: string) => setSectionName(sectionId, value)}
+          condition={(value: string) => !getSiblingHasName(sectionId, value)}
+          titleProps={editableTitleProps}
+          {...getFloatingBoxHandlers({ title: sectionName })}
+        />
+      );
+    }
     return (
       <FixedTitle
-        sectionName={props.title}
-        className={props.titleProps.fixed}
-        {...getFloatingBoxHandlers({ title: props.title })}
-      />
-    );
-  }
-
-  const { sectionId, titleProps } = props;
-  const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
-
-  if (titleIsEditable) {
-    const editableTitleProps = getEditableTitleProps(titleProps);
-    return (
-      <EditableTitle
-        sectionId={sectionId}
         sectionName={sectionName}
-        titleProps={editableTitleProps}
+        className={titleProps.fixed ?? titleProps.notEditing ?? ""}
         {...getFloatingBoxHandlers({ title: sectionName })}
       />
     );
   }
+
+  const { title, titleProps, editable } = props;
+  if (editable) {
+    const editableTitleProps = getEditableTitleProps(titleProps);
+    const condition = editable.condition ?? (() => true);
+    return (
+      <EditableTitle
+        title={title}
+        onRename={editable.onRename}
+        condition={condition}
+        titleProps={editableTitleProps}
+        {...getFloatingBoxHandlers({ title })}
+      />
+    );
+  }
+
+  if (titleProps.fixed) {
+    return (
+      <FixedTitle
+        sectionName={title}
+        className={titleProps.fixed}
+        {...getFloatingBoxHandlers({ title })}
+      />
+    );
+  }
+
   return (
     <FixedTitle
-      sectionName={sectionName}
-      className={titleProps.fixed ?? titleProps.notEditing}
-      {...getFloatingBoxHandlers({ title: sectionName })}
+      sectionName={title}
+      className={titleProps.notEditing ?? ""}
+      {...getFloatingBoxHandlers({ title })}
     />
   );
 }
@@ -85,28 +118,22 @@ function FixedTitle({
 }
 
 function EditableTitle({
-  sectionId,
-  sectionName,
+  title,
+  onRename,
+  condition,
   titleProps,
   onMouseEnter,
   onMouseLeave,
 }: {
-  sectionId: string;
-  sectionName: string;
+  title: string;
+  onRename: (value: string) => void;
+  condition: (value: string) => boolean | Promise<boolean>;
   titleProps: SectionTitleEditableProps;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }) {
-  function onTitleInputChange(value: string) {
-    setSectionName(sectionId, value);
-  }
-
-  function condition(value: string) {
-    return !getSiblingHasName(sectionId, value);
-  }
-
   const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
-    useEditableOnSubmit(sectionName, onTitleInputChange, condition);
+    useEditableOnSubmit(title, onRename, condition);
 
   return (
     <Editable

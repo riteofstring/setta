@@ -1,6 +1,5 @@
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
-import { SectionTitle } from "components/Section/Header/SectionTitle";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import type { ReactNode } from "react";
 import type { MetaControl, MetaControlType } from "state/definitions";
@@ -8,6 +7,7 @@ import {
   NO_DRAG_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import { MetaControlHeader } from "./MetaControlHeader";
 
 const META_CONTROL_WIDTH: Record<MetaControlType, string> = {
   button: "w-44",
@@ -30,25 +30,17 @@ const META_CONTROL_ACCENTS: Record<MetaControlType, string> = {
 type MetaControlNodeProps = {
   control: MetaControl;
   showChrome: boolean;
+  onToggleLock: () => void;
+  onDelete: () => void;
+  onRename: (value: string) => void;
 };
-
-const META_CONTROL_TITLE_PROPS = {
-  fixed:
-    "select-none truncate text-[0.7rem] font-semibold tracking-tight text-setta-600 dark:text-setta-300",
-};
-
-const META_CONTROL_MENU_BUTTON_CLASSES =
-  "nodrag flex h-[14px] w-[14px] items-center justify-center rounded-full p-1 text-setta-700 transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800";
-
-const META_CONTROL_LOCK_BUTTON_CLASSES =
-  "nodrag flex h-4 w-4 items-center justify-center rounded-full text-setta-500 transition-colors duration-150 hover:text-orange-500 dark:text-setta-400 dark:hover:text-orange-400";
-
-const META_CONTROL_CLOSE_BUTTON_CLASSES =
-  "nodrag flex h-4 w-4 items-center justify-center rounded-full text-setta-500 transition-colors duration-150 hover:text-red-500 dark:text-setta-400 dark:hover:text-red-400";
 
 export function MetaControlNode({
   control,
   showChrome,
+  onToggleLock,
+  onDelete,
+  onRename,
 }: MetaControlNodeProps) {
   const accent = META_CONTROL_ACCENTS[control.type];
   const widthClass = META_CONTROL_WIDTH[control.type];
@@ -78,30 +70,21 @@ export function MetaControlNode({
   }
 
   return (
-    <div className={`group/metacontrol relative ${widthClass} select-none`}>
-      {showChrome && <MetaControlHeader label={control.label} />}
+    <div
+      className={`group/metacontrol group/card-section relative ${widthClass} select-none`}
+    >
+      {showChrome && (
+        <div className="absolute -top-5 left-0 right-0 flex cursor-move items-center opacity-0 transition-opacity duration-150 pointer-events-none group-hover/metacontrol:pointer-events-auto group-hover/metacontrol:opacity-100">
+          <MetaControlHeader
+            label={control.label}
+            isLocked={control.positionAndSizeLocked}
+            onToggleLock={onToggleLock}
+            onDelete={onDelete}
+            onRename={onRename}
+          />
+        </div>
+      )}
       <div className="flex items-center gap-3">{content}</div>
-    </div>
-  );
-}
-
-function MetaControlHeader({ label }: { label: string }) {
-  return (
-    <div className="nodrag absolute -top-5 left-0 right-0 flex items-center gap-1 opacity-0 transition-opacity duration-150 pointer-events-none group-hover/metacontrol:pointer-events-auto group-hover/metacontrol:opacity-100">
-      <button className={META_CONTROL_MENU_BUTTON_CLASSES} type="button">
-        <i className="gg-menu" />
-      </button>
-      <div className="min-w-0 flex-1">
-        <SectionTitle title={label} titleProps={META_CONTROL_TITLE_PROPS} />
-      </div>
-      <div className="ml-auto flex items-center gap-1">
-        <button className={META_CONTROL_LOCK_BUTTON_CLASSES} type="button">
-          <i className="gg-lock-unlock" />
-        </button>
-        <button className={META_CONTROL_CLOSE_BUTTON_CLASSES} type="button">
-          <i className="gg-close" />
-        </button>
-      </div>
     </div>
   );
 }

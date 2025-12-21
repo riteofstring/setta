@@ -226,6 +226,7 @@ export type MetaControl = {
   type: MetaControlType;
   label: string;
   position: Position;
+  positionAndSizeLocked: boolean;
 };
 
 const DEFAULT_META_CONTROLS: Array<MetaControl> = [
@@ -234,36 +235,42 @@ const DEFAULT_META_CONTROLS: Array<MetaControl> = [
     type: "button",
     label: "Trigger",
     position: { x: 140, y: 140 },
+    positionAndSizeLocked: false,
   },
   {
     id: "meta-control-slider-1",
     type: "slider",
     label: "Intensity",
     position: { x: 360, y: 140 },
+    positionAndSizeLocked: false,
   },
   {
     id: "meta-control-knob-1",
     type: "knob",
     label: "Resonance",
     position: { x: 140, y: 300 },
+    positionAndSizeLocked: false,
   },
   {
     id: "meta-control-text-1",
     type: "text",
     label: "Prompt",
     position: { x: 360, y: 300 },
+    positionAndSizeLocked: false,
   },
   {
     id: "meta-control-color-1",
     type: "color",
     label: "Accent",
     position: { x: 140, y: 460 },
+    positionAndSizeLocked: false,
   },
   {
     id: "meta-control-drop-1",
     type: "dropzone",
     label: "Sample",
     position: { x: 360, y: 460 },
+    positionAndSizeLocked: false,
   },
 ];
 
