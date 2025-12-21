@@ -2,11 +2,12 @@ import asyncio
 import copy
 import json
 import logging
+import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal
+from typing import Any, AsyncIterator, Iterator, Literal, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -20,6 +21,7 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
+from setta.mcp.tool_metadata import AIFollowToolResultMetadata
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
@@ -57,17 +59,27 @@ from setta.types.chat_stream_events import (
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.websocket import AIFollowUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
+SECTION_ID_KEY_RE = re.compile(r'"sectionId"\s*:\s*"([^"]+)"')
+SECTION_IDS_KEY_RE = re.compile(r'"sectionIds"\s*:\s*\[([^\]]*)')
+SECTION_ID_VALUE_RE = re.compile(r'"([^"]+)"')
 
 
 @dataclass
 class ToolCallStreamState:
     argument_buffers: dict[int, str] = field(default_factory=dict)
+
+
+@dataclass
+class AIFollowState:
+    project_config_id: ID
+    section_ids: list[ID]
 
 
 @dataclass
@@ -134,6 +146,7 @@ class LLMChatManager:
         self._sessions: dict[str, StreamingSession] = {}
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
+        self._ai_follow_state: dict[ID, AIFollowState] = {}
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
     def get_chat(self, chat_id: ID) -> Chat | None:
@@ -173,6 +186,25 @@ class LLMChatManager:
     def delete_chat(self, chat_id: ID) -> None:
         delete_chat_record(self.dbe, chat_id)
         self._chat_tool_states.pop(chat_id, None)
+        self._ai_follow_state.pop(chat_id, None)
+
+    def get_ai_follow_snapshot(
+        self, project_config_id: ID
+    ) -> list[AIFollowUpdateContent]:
+        snapshot: list[AIFollowUpdateContent] = []
+        for chat_id, state in self._ai_follow_state.items():
+            if state.project_config_id != project_config_id:
+                continue
+            if not state.section_ids:
+                continue
+            snapshot.append(
+                AIFollowUpdateContent(
+                    projectConfigId=project_config_id,
+                    chatId=chat_id,
+                    sectionIds=state.section_ids,
+                )
+            )
+        return snapshot
 
     def _hydrate_config(self, config: AllLLMConfigs) -> AllLLMConfigs:
         metadata = self.get_all_chat_metadata()
@@ -250,6 +282,7 @@ class LLMChatManager:
                         assistant_message,
                         chunk,
                         tool_call_state,
+                        chat.projectConfigId,
                     )
 
                 await self.websocket_msg_handler.send_streaming_response(
@@ -265,7 +298,7 @@ class LLMChatManager:
                 )
                 tool_results = await self._run_tool_calls(chat, assistant_message)
                 if assistant_message.tool_calls:
-                    await self.websocket_msg_handler.broadcast_ai_follow_update(
+                    await self._update_and_broadcast_ai_follow_update(
                         chat.projectConfigId,
                         chat.id,
                         [],
@@ -303,6 +336,11 @@ class LLMChatManager:
                         chat.id,
                         MessageFinalizedEvent(message=assistant_message),
                     )
+                await self._update_and_broadcast_ai_follow_update(
+                    chat.projectConfigId,
+                    chat.id,
+                    [],
+                )
                 raise
             except Exception as exc:
                 if not stop_event_sent:
@@ -319,6 +357,11 @@ class LLMChatManager:
                     project_config_id=chat.projectConfigId,
                     logger=logger,
                     context={"chat_id": str(chat.id)},
+                )
+                await self._update_and_broadcast_ai_follow_update(
+                    chat.projectConfigId,
+                    chat.id,
+                    [],
                 )
                 return
             finally:
@@ -621,6 +664,7 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         chunk: ModelResponseStream,
         tool_call_state: ToolCallStreamState,
+        project_config_id: ID,
     ) -> None:
         choices = chunk.choices
         if not choices:
@@ -638,6 +682,7 @@ class LLMChatManager:
             assistant_message,
             delta,
             tool_call_state,
+            project_config_id,
         )
 
     async def _handle_text_deltas(
@@ -845,6 +890,7 @@ class LLMChatManager:
         assistant_message: AssistantChatMessage,
         delta: Delta,
         tool_call_state: ToolCallStreamState,
+        project_config_id: ID,
     ) -> None:
         entries = delta.tool_calls
         if not entries:
@@ -861,6 +907,11 @@ class LLMChatManager:
             await self.websocket_msg_handler.send_streaming_response(
                 chat_id,
                 event,
+            )
+            await self._maybe_broadcast_streaming_follow_update(
+                project_config_id,
+                chat_id,
+                tool_call_state,
             )
 
     def _apply_tool_call_delta(
@@ -893,6 +944,58 @@ class LLMChatManager:
             arguments_delta=entry.function.arguments,
             tool_name=tool_name,
         )
+
+    async def _maybe_broadcast_streaming_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        tool_call_state: ToolCallStreamState,
+    ) -> None:
+        section_ids = self._extract_stream_section_ids_from_buffers(tool_call_state)
+        if not section_ids:
+            return
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        resolved_ids: list[ID] = []
+        for section_id in section_ids:
+            if section_id not in temporary_to_canonical:
+                continue
+            resolved_ids.append(section_id)
+        if not resolved_ids:
+            return
+        canonical_ids = convert_temporary_ids_to_canonical(
+            resolved_ids,
+            temporary_to_canonical,
+        )
+        if not canonical_ids:
+            return
+        await self._update_and_broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            canonical_ids,
+        )
+
+    def _extract_stream_section_ids_from_buffers(
+        self, tool_call_state: ToolCallStreamState
+    ) -> set[ID]:
+        combined: set[ID] = set()
+        for buffer in tool_call_state.argument_buffers.values():
+            if not buffer:
+                continue
+            combined.update(self._extract_stream_section_ids_from_buffer(buffer))
+        return combined
+
+    def _extract_stream_section_ids_from_buffer(self, buffer: str) -> set[ID]:
+        combined: set[ID] = set()
+        for match in SECTION_ID_KEY_RE.finditer(buffer):
+            value = match.group(1)
+            if value:
+                combined.add(ID(value))
+        for match in SECTION_IDS_KEY_RE.finditer(buffer):
+            values = match.group(1)
+            for value in SECTION_ID_VALUE_RE.findall(values):
+                if value:
+                    combined.add(ID(value))
+        return combined
 
     def _ensure_tool_call_entry(
         self, assistant_message: AssistantChatMessage, index: int
@@ -1014,6 +1117,12 @@ class LLMChatManager:
                 result=tool_chat_message,
             ),
         )
+        await self._maybe_broadcast_ai_follow_tool_result_update(
+            tool_name,
+            call_result,
+            chat.projectConfigId,
+            chat_id,
+        )
         return tool_chat_message
 
     def _sanitize_tool_arguments(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1134,6 +1243,80 @@ class LLMChatManager:
             )
             return {}
 
+    def _select_tool_result_values(self, payload: Any, path: str) -> list[Any]:
+        if path == "$":
+            return [payload]
+        segments = [segment for segment in path.split(".") if segment]
+        current: list[Any] = [payload]
+        for segment in segments:
+            key = segment
+            next_values: list[Any] = []
+            for item in current:
+                if not isinstance(item, dict):
+                    continue
+                if key not in item:
+                    continue
+                value = item[key]
+                next_values.append(value)
+            current = next_values
+            if not current:
+                break
+        return current
+
+    def _extract_ai_follow_tool_result_ids(
+        self,
+        payload: Any,
+        metadata: AIFollowToolResultMetadata,
+    ) -> dict[str, list[ID]]:
+        ids_by_type: dict[str, set[ID]] = {}
+        for id_type, paths in metadata.pathsByIdType.items():
+            values: list[Any] = []
+            for path in paths:
+                values.extend(self._select_tool_result_values(payload, path))
+            if not values:
+                continue
+            for value in values:
+                ids = self._coerce_id_list(value)
+                if ids:
+                    ids_by_type.setdefault(id_type, set()).update(ids)
+        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
+
+    async def _maybe_broadcast_ai_follow_tool_result_update(
+        self,
+        tool_name: str,
+        call_result: CallToolResult,
+        project_config_id: ID,
+        chat_id: ID,
+    ) -> None:
+        if call_result.isError:
+            return
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.aiFollowToolResult:
+            return
+        metadata = annotations.aiFollowToolResult
+        text_entry = cast("TextContent", call_result.content[0])
+        text = (text_entry.text or "").strip()
+        payload: Any
+        if all(
+            path == "$" for paths in metadata.pathsByIdType.values() for path in paths
+        ):
+            payload = text
+        else:
+            payload = json.loads(text)
+        ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
+        if not ids_by_type:
+            return
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        canonical_ids_by_type = convert_temporary_ids_to_canonical(
+            ids_by_type,
+            temporary_to_canonical,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
+            project_config_id,
+            chat_id,
+            canonical_ids_by_type,
+        )
+
     async def _broadcast_ai_follow_update(
         self,
         project_config_id: ID,
@@ -1148,10 +1331,48 @@ class LLMChatManager:
             section_ids,
             temporary_to_canonical,
         )
-        await self.websocket_msg_handler.broadcast_ai_follow_update(
+        await self._update_and_broadcast_ai_follow_update(
             project_config_id,
             chat_id,
             section_ids,
+        )
+
+    def _ai_follow_state_matches(
+        self,
+        chat_id: ID,
+        project_config_id: ID,
+        section_ids: list[ID],
+    ) -> bool:
+        if chat_id not in self._ai_follow_state:
+            return False
+        state = self._ai_follow_state[chat_id]
+        if state.project_config_id != project_config_id:
+            return False
+        return set(state.section_ids) == set(section_ids)
+
+    async def _update_and_broadcast_ai_follow_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        section_ids: list[ID],
+    ) -> None:
+        if self._ai_follow_state_matches(chat_id, project_config_id, section_ids):
+            logger.debug("Skipping AI follow update for chat %s; no changes", chat_id)
+            return
+        payload_section_ids = list(section_ids)
+        self._ai_follow_state[chat_id] = AIFollowState(
+            project_config_id=project_config_id,
+            section_ids=payload_section_ids,
+        )
+        logger.debug(
+            "Broadcasting AI follow update for chat %s (section_ids=%s)",
+            chat_id,
+            payload_section_ids,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_update(
+            project_config_id,
+            chat_id,
+            payload_section_ids,
         )
 
     def _collect_ai_follow_section_ids(
@@ -1175,12 +1396,12 @@ class LLMChatManager:
         self, arguments: dict[str, Any]
     ) -> list[ID] | None:
         if "sectionIds" in arguments:
-            return self._coerce_section_id_list(arguments["sectionIds"])
+            return self._coerce_id_list(arguments["sectionIds"])
         if "sectionId" in arguments:
-            return self._coerce_section_id_list(arguments["sectionId"])
+            return self._coerce_id_list(arguments["sectionId"])
         return None
 
-    def _coerce_section_id_list(self, raw_value: Any) -> list[ID] | None:
+    def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
         if isinstance(raw_value, list):
             return [
                 ID(value) for value in raw_value if isinstance(value, str) and value

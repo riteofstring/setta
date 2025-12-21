@@ -1,5 +1,3 @@
-import logging
-
 from setta.project_state.project_manager import ProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
@@ -15,8 +13,6 @@ from setta.websockets.msg_handlers.base import (
 )
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
-
-logger = logging.getLogger(__name__)
 
 
 class WMHFrontendReceiver(BaseWebsocketMsgReceiver):

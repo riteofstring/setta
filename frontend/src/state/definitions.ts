@@ -25,7 +25,6 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  Position,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
@@ -209,70 +208,6 @@ export const useNodeInternals = withProjectState(
   createWithEqualityFn(
     withResetFn<ZustandNodeInternalsState>(() => ({
       x: new Map(),
-    })),
-  ),
-);
-
-export type MetaControlType =
-  | "button"
-  | "slider"
-  | "knob"
-  | "text"
-  | "color"
-  | "dropzone";
-
-export type MetaControl = {
-  id: string;
-  type: MetaControlType;
-  label: string;
-  position: Position;
-};
-
-const DEFAULT_META_CONTROLS: Array<MetaControl> = [
-  {
-    id: "meta-control-button-1",
-    type: "button",
-    label: "Trigger",
-    position: { x: 140, y: 140 },
-  },
-  {
-    id: "meta-control-slider-1",
-    type: "slider",
-    label: "Intensity",
-    position: { x: 360, y: 140 },
-  },
-  {
-    id: "meta-control-knob-1",
-    type: "knob",
-    label: "Resonance",
-    position: { x: 140, y: 300 },
-  },
-  {
-    id: "meta-control-text-1",
-    type: "text",
-    label: "Prompt",
-    position: { x: 360, y: 300 },
-  },
-  {
-    id: "meta-control-color-1",
-    type: "color",
-    label: "Accent",
-    position: { x: 140, y: 460 },
-  },
-  {
-    id: "meta-control-drop-1",
-    type: "dropzone",
-    label: "Sample",
-    position: { x: 360, y: 460 },
-  },
-];
-
-type ZustandMetaControls = { controls: Array<MetaControl> };
-
-export const useMetaControls = withProjectState(
-  createWithEqualityFn(
-    withResetFn<ZustandMetaControls>(() => ({
-      controls: DEFAULT_META_CONTROLS,
     })),
   ),
 );
@@ -513,6 +448,23 @@ export const useAIFollow = withProjectState(
       withResetFn<AIFollowState>(() => ({
         enabled: false,
         sectionIdsByProjectConfigId: {},
+      })),
+    ),
+  ),
+);
+
+type AIFollowToolResultState = {
+  idsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
+};
+
+export const useAIFollowToolResult = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AIFollowToolResultState>(() => ({
+        idsByProjectConfigId: {},
       })),
     ),
   ),

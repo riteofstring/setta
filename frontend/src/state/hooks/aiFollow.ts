@@ -5,9 +5,16 @@ import {
   getSectionBounds,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
-import { useEffect, useMemo } from "react";
-import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useAIFollow,
+  useAIFollowToolResult,
+  useAIStore,
+  useProjectState,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
+
+const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
 
 export function useAIFollowViewport(): void {
   const enabled = useAIFollow((state) => state.enabled);
@@ -32,8 +39,64 @@ export function useAIFollowViewport(): void {
     }
     return projectEntries[activeChatId] ?? [];
   });
+  const toolResultSectionIds = useAIFollowToolResult((state) => {
+    if (!activeChatId) {
+      return [];
+    }
+    const projectEntries = state.idsByProjectConfigId[projectConfigId];
+    if (!projectEntries) {
+      return [];
+    }
+    const idsByType = projectEntries[activeChatId];
+    return idsByType?.section ?? [];
+  });
+  const toolResultSectionIdsKey = toolResultSectionIds.join("|");
+  const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] = useState<
+    string[]
+  >([]);
+  const toolResultGroupTimeout = useRef<number | null>(null);
 
-  const sectionIdsKey = useMemo(() => sectionIds.join("|"), [sectionIds]);
+  useEffect(() => {
+    if (toolResultGroupTimeout.current !== null) {
+      window.clearTimeout(toolResultGroupTimeout.current);
+      toolResultGroupTimeout.current = null;
+    }
+    if (toolResultSectionIds.length === 0) {
+      setGroupedToolResultSectionIds([]);
+      return;
+    }
+    toolResultGroupTimeout.current = window.setTimeout(() => {
+      setGroupedToolResultSectionIds(toolResultSectionIds);
+      toolResultGroupTimeout.current = null;
+    }, TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS);
+    return () => {
+      if (toolResultGroupTimeout.current !== null) {
+        window.clearTimeout(toolResultGroupTimeout.current);
+        toolResultGroupTimeout.current = null;
+      }
+    };
+  }, [
+    activeChatId,
+    projectConfigId,
+    toolResultSectionIdsKey,
+  ]);
+
+  const combinedSectionIds = useMemo(() => {
+    if (sectionIds.length === 0) {
+      return groupedToolResultSectionIds;
+    }
+    if (groupedToolResultSectionIds.length === 0) {
+      return sectionIds;
+    }
+    return Array.from(
+      new Set([...sectionIds, ...groupedToolResultSectionIds]),
+    );
+  }, [sectionIds, groupedToolResultSectionIds]);
+
+  const sectionIdsKey = useMemo(
+    () => combinedSectionIds.join("|"),
+    [combinedSectionIds],
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -42,11 +105,11 @@ export function useAIFollowViewport(): void {
     if (!activeChatId) {
       return;
     }
-    if (sectionIds.length === 0) {
+    if (combinedSectionIds.length === 0) {
       return;
     }
 
-    const bounds = getSectionBounds(sectionIds);
+    const bounds = getSectionBounds(combinedSectionIds);
     if (!bounds) {
       return;
     }

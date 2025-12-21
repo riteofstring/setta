@@ -12,43 +12,15 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
-type SectionTitleEditableProps = {
-  editing: string;
-  notEditing: string;
-  fixed?: string;
-};
-
-type SectionTitleStyleProps = {
-  editing?: string;
-  notEditing?: string;
-  fixed?: string;
-};
-
-type SectionTitleProps =
-  | { sectionId: string; titleProps: SectionTitleStyleProps }
-  | { title: string; titleProps: { fixed: string } };
-
-export function SectionTitle(props: SectionTitleProps) {
-  if ("title" in props) {
-    return (
-      <FixedTitle
-        sectionName={props.title}
-        className={props.titleProps.fixed}
-        {...getFloatingBoxHandlers({ title: props.title })}
-      />
-    );
-  }
-
-  const { sectionId, titleProps } = props;
+export function SectionTitle({ sectionId, titleProps }: { sectionId: string }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
 
   if (titleIsEditable) {
-    const editableTitleProps = getEditableTitleProps(titleProps);
     return (
       <EditableTitle
         sectionId={sectionId}
         sectionName={sectionName}
-        titleProps={editableTitleProps}
+        titleProps={titleProps}
         {...getFloatingBoxHandlers({ title: sectionName })}
       />
     );
@@ -56,23 +28,13 @@ export function SectionTitle(props: SectionTitleProps) {
   return (
     <FixedTitle
       sectionName={sectionName}
-      className={titleProps.fixed ?? titleProps.notEditing}
+      className={titleProps.fixed}
       {...getFloatingBoxHandlers({ title: sectionName })}
     />
   );
 }
 
-function FixedTitle({
-  sectionName,
-  className,
-  onMouseEnter,
-  onMouseLeave,
-}: {
-  sectionName: string;
-  className: string;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
-}) {
+function FixedTitle({ sectionName, className, onMouseEnter, onMouseLeave }) {
   return (
     <h2
       className={className}
@@ -90,12 +52,6 @@ function EditableTitle({
   titleProps,
   onMouseEnter,
   onMouseLeave,
-}: {
-  sectionId: string;
-  sectionName: string;
-  titleProps: SectionTitleEditableProps;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
 }) {
   function onTitleInputChange(value: string) {
     setSectionName(sectionId, value);
@@ -158,16 +114,6 @@ function useTitleIsEditable(sectionId: string) {
       titleIsEditable: !uneditableTypes.includes(impl.type),
     };
   });
-}
-
-function getEditableTitleProps(
-  titleProps: SectionTitleStyleProps,
-): SectionTitleEditableProps {
-  return {
-    editing: titleProps.editing ?? titleProps.fixed ?? "",
-    notEditing: titleProps.notEditing ?? titleProps.fixed ?? "",
-    fixed: titleProps.fixed,
-  };
 }
 
 function getSiblingHasName(sectionId: string, newName: string) {
