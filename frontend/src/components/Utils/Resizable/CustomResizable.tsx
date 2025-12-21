@@ -32,6 +32,7 @@ export function CustomResizable({
   isActiveSection,
   positionAndSizeLocked,
   frameClassName = "before:border-white dark:before:border-setta-700",
+  layoutClassName,
   children,
   as,
 }) {
@@ -45,6 +46,7 @@ export function CustomResizable({
       isActiveSection={isActiveSection}
       positionAndSizeLocked={positionAndSizeLocked}
       frameClassName={frameClassName}
+      layoutClassName={layoutClassName}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
@@ -64,6 +66,7 @@ function CustomResizableCore({
   isActiveSection,
   positionAndSizeLocked,
   frameClassName = "before:border-white dark:before:border-setta-700",
+  layoutClassName,
   minHeight,
   maxHeight,
   minWidth,
@@ -148,6 +151,7 @@ function CustomResizableCore({
       widthResizable={widthResizable}
       positionAndSizeLocked={positionAndSizeLocked}
       frameClassName={frameClassName}
+      layoutClassName={layoutClassName}
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
       aspectRatio={aspectRatio}
@@ -168,6 +172,7 @@ function CustomResizableSuperCore({
   isYouTube,
   isActiveSection,
   frameClassName = "before:border-white dark:before:border-setta-700",
+  layoutClassName,
   size,
   minHeight,
   maxHeight,
@@ -201,9 +206,11 @@ function CustomResizableSuperCore({
           bottomLeft: false,
         };
 
+  const layoutClassNameToUse =
+    layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
   const inputClasses = `${
     disablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} section-grid-cols section-grid-rows section-grid-areas relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-xl" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${
+  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-xl" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${frameClassName}`;
 
