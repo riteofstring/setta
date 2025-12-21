@@ -5,13 +5,17 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getSectionCore,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeMetaControlLiteral } from "state/actions/websocketReceive";
+import {
+  sendRealtimeMetaControlAction,
+  sendRealtimeMetaControlLiteral,
+} from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_meta_control_value } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { MetaControlTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
   const metaControlType = useProjectState((x) => {
@@ -30,6 +34,9 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     );
     return impl.metaControlValue;
   });
+  const sectionName = useProjectState(
+    (x) => getSectionCore(x, sectionId).name,
+  );
 
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
@@ -48,6 +55,15 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
 
   function handleMetaControlValueChange(nextValue: string) {
     const valueStr = _.toString(nextValue);
+    if (metaControlType === MetaControlTypeEnum.button) {
+      sendRealtimeMetaControlAction({
+        controlName: sectionName,
+        actionId: sectionName,
+        metaControlType,
+        payload: valueStr,
+      });
+      return;
+    }
     setPendingValue(valueStr);
     if (value !== valueStr) {
       sendRealtimeMetaControlLiteral(sectionId, valueStr);

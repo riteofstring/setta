@@ -56,10 +56,10 @@ def on_action(s):
    - Start with `RunOp` (custom run kinds allowed).
    - Add `emit_project_ops` on the listener side and route ops to the existing run pipeline.
 
-4) Frontend meta control behavior (pending)
-   - Treat button meta controls as action-only (no state write to `metaControlValue`).
-   - Emit a `MetaControlActionEvent` on click using the websocket helper.
-   - Keep existing Run button wired directly, unchanged.
+4) Frontend meta control behavior (in progress)
+   - Treat button meta controls as action-only (no state write to `metaControlValue`). (done)
+   - Emit a `MetaControlActionEvent` on click using the websocket helper. (done)
+   - Keep existing Run button wired directly, unchanged. (pending)
 
 5) Make actions extensible beyond buttons (pending)
    - Extend the meta control config with an action mode:

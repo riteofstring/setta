@@ -207,7 +207,7 @@ type MetaControlActionEventInput = {
   payload?: string | null;
 };
 
-function sendRealtimeMetaControlAction(
+export function sendRealtimeMetaControlAction(
   action: MetaControlActionEventInput,
 ): void {
   const projectConfigId = getCurrProjectConfigId();
