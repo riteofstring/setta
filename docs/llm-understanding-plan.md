@@ -16,7 +16,7 @@
 ## Current Progress
 - Step 1: Completed. The system prompt now includes the generated code pipeline, `state`/`SettaState` naming, dependency-expression rules, a “where code goes” map, explicit tool-call sequences, a don't-do list, and canonical examples.
 - Step 2: Completed. The chat manager injects a per-request project summary (via `get_latest_project_state_summary`) into the system prompt.
-- Step 3: Not started.
+- Step 3: Completed. Tool search now indexes derived tags + categories, and search results include name/description/category without increasing the default result limit.
 - Step 4: Not started.
 - Step 5: Not started.
 
@@ -55,7 +55,7 @@
   - Include a short “category” descriptor (layout, code, artifacts, etc.).
 - In `backend/setta/mcp/tools/tool_search.py`:
   - Return short descriptions with tool names (or add a companion tool for details).
-  - Raise default limits for broader first-pass results.
+  - Keep default limits low; rely on richer metadata instead of more results.
 
 **Deliverable**
 - Improved tool discovery that usually succeeds with one search.
@@ -85,11 +85,10 @@
 
 ## Suggested Rollout
 1) System prompt expansion + per-request project summary.
-2) Tool search indexing upgrades + higher default limits.
+2) Tool search indexing upgrades + structured search results.
 3) Pre-unlock common tool groups.
 4) Add playbooks and regression evaluation.
 
 ## Open Questions
 - Which 5–10 workflows are most critical to improve first?
 - Do we want a dedicated “project summary” init tool instead of injecting it in the system prompt?
-- Should tool search return tool descriptions by default or via a separate tool?

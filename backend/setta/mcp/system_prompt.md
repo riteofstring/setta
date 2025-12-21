@@ -62,6 +62,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   hand-edit code objects.
 - Use `search_and_unlock_mcp_tools` when you do not know the tool name; fall back to
   `list_mcp_tools` only if search fails.
+- `search_and_unlock_mcp_tools` returns entries with `name`, `description`, and
+  `category`; always use the `name` field when calling a tool.
 
 ## Don't-do list
 - No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.

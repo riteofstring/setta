@@ -1697,7 +1697,9 @@ class LLMChatManager:
             completed_at=completed_at,
         )
 
-    def _parse_search_tool_results(self, call_result: CallToolResult) -> list[str]:
+    def _parse_search_tool_results(
+        self, call_result: CallToolResult
+    ) -> list[dict[str, str | None]]:
         entry = call_result.content[0] if call_result.content else None
         if not isinstance(entry, TextContent):
             return []
@@ -1712,15 +1714,41 @@ class LLMChatManager:
             logger.debug("Failed to parse search tool payload", exc_info=True)
             return []
 
-        return payload if isinstance(payload, list) else []
+        if not isinstance(payload, list):
+            return []
+
+        results: list[dict[str, str | None]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            description = item.get("description")
+            if not isinstance(description, str):
+                description = ""
+            category = item.get("category")
+            if not isinstance(category, str) or not category.strip():
+                category = None
+            results.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "category": category,
+                }
+            )
+        return results
 
     def _build_tool_definitions_from_search_results(
         self,
-        tool_names: list[str],
+        search_results: list[dict[str, str | None]],
     ) -> dict[str, ChatCompletionToolParam]:
         definitions: dict[str, ChatCompletionToolParam] = {}
         available = self.mcp_client.discoverable_tool_definitions
-        for name in tool_names:
+        for result in search_results:
+            name = result.get("name")
+            if not name:
+                continue
             definition = available.get(name)
             if not definition:
                 if logger.isEnabledFor(logging.DEBUG):
