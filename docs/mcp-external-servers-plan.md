@@ -7,8 +7,9 @@ name collisions and support both SSE and stdio transports.
 ## Current State
 - The chat manager uses `MultiMCPClient` seeded from `llm_config.json` and
   routes tool calls via namespaced tool names.
-- `search_and_unlock_mcp_tools` is still served by Setta and only searches
-  Setta-registered tools (aggregated search still pending).
+- `search_and_unlock_mcp_tools` is handled by `LLMChatManager` with aggregated
+  search across all namespaced tools (Setta's MCP server still exposes its tool
+  for external clients).
 - External tool annotations are normalized with default `SettaToolAnnotations`
   (discoverable type, empty tags/category, no follow/preview metadata).
 
@@ -124,7 +125,7 @@ Move aggregated search into the chat manager:
 2) Implement `MultiMCPClient` with SSE support (namespaced tool caches). (done)
 3) Add stdio transport support. (done)
 4) Integrate into `LLMChatManager` and replace the single client. (done)
-5) Add aggregated search/unlock and update the system prompt.
+5) Add aggregated search/unlock and update the system prompt. (done)
 6) Document usage in `docs/mcp-system-overview.md`.
 
 ## Testing and Verification

@@ -184,6 +184,7 @@ class MultiMCPClient:
         self.init_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
         self.discoverable_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
+        self._tool_cache_version = 0
         for server_id, config in server_configs.items():
             self._server_clients[server_id] = MCPServerClient(
                 server_id,
@@ -191,6 +192,10 @@ class MultiMCPClient:
                 on_tools_updated=self._rebuild_tool_cache,
             )
         self._rebuild_tool_cache()
+
+    @property
+    def tool_cache_version(self) -> int:
+        return self._tool_cache_version
 
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if not self._server_clients:
@@ -253,6 +258,7 @@ class MultiMCPClient:
         self.init_tool_definitions = init_tools
         self.discoverable_tool_definitions = discoverable_tools
         self.tool_annotations_by_name = tool_annotations_by_name
+        self._tool_cache_version += 1
 
     @staticmethod
     def _build_namespaced_tool_name(server_id: str, tool_name: str) -> str:
