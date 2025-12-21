@@ -5,12 +5,7 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "state/actions/nodeInternals";
-import { MetaControlWrapper } from "components/MetaControls/MetaControlWrapper";
-import {
-  useMetaControls,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
@@ -31,12 +26,6 @@ const NodeRenderer = () => {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
-  const metaControls = useMetaControls((x) => x.controls);
-
-  const metaControlsById = useMemo(() => {
-    return new Map(metaControls.map((control) => [control.id, control]));
-  }, [metaControls]);
-
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
       return null;
@@ -60,32 +49,16 @@ const NodeRenderer = () => {
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
-      {nodeIds.map((nodeId) => {
-        const metaControl = metaControlsById.get(nodeId);
-        if (metaControl) {
-          return (
-            <MetaControlWrapper
-              key={nodeId}
-              id={nodeId}
-              control={metaControl}
-              isDraggable={!panActivationKeyPressed}
-              resizeObserver={resizeObserver}
-              visibility={readyToBeVisible ? "visible" : "hidden"}
-            />
-          );
-        }
-
-        return (
-          <NodeWrapper
-            key={nodeId}
-            id={nodeId}
-            selected={activeSectionIds.includes(nodeId)}
-            isDraggable={!panActivationKeyPressed}
-            resizeObserver={resizeObserver}
-            visibility={readyToBeVisible ? "visible" : "hidden"}
-          />
-        );
-      })}
+      {nodeIds.map((nodeId) => (
+        <NodeWrapper
+          key={nodeId}
+          id={nodeId}
+          selected={activeSectionIds.includes(nodeId)}
+          isDraggable={!panActivationKeyPressed}
+          resizeObserver={resizeObserver}
+          visibility={readyToBeVisible ? "visible" : "hidden"}
+        />
+      ))}
     </div>
   );
 };

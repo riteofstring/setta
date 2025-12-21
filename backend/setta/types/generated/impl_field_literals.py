@@ -48,6 +48,7 @@ AllImplFields = Literal[
     "jsonSourceMissing",
     "layers",
     "max",
+    "metaControlType",
     "min",
     "name",
     "paramFilter",

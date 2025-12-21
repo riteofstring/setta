@@ -4,6 +4,7 @@ import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
+  MetaControlTypeEnum,
   Position,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -93,10 +94,87 @@ export function useCreateSectionsList() {
     },
   ];
 
+  const metaControlGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    {
+      name: "Dropdown",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.dropdown,
+      },
+    },
+    {
+      name: "Slider",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.slider,
+      },
+    },
+    {
+      name: "Switch",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.switch,
+      },
+    },
+    {
+      name: "Text Input",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.textInput,
+      },
+    },
+    {
+      name: "Text Area",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.textArea,
+      },
+    },
+    {
+      name: "Password Field",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.password,
+      },
+    },
+    {
+      name: "Color Picker",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.color,
+      },
+    },
+    {
+      name: "Button",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.button,
+      },
+    },
+    {
+      name: "Rotary Encoder",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.rotary,
+      },
+    },
+    {
+      name: "Dropzone",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+        metaControlType: MetaControlTypeEnum.dropzone,
+      },
+    },
+  ];
+
   return [
     {
       group: "Section",
       items: sectionGroupItems,
+    },
+    {
+      group: "MetaControls",
+      items: metaControlGroupItems,
     },
     {
       group: "Code",

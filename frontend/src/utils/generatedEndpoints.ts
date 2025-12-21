@@ -67,25 +67,25 @@ export async function route_delete_notification(
   return await post("/deleteNotification", x);
 }
 
-async function route_new_json_version_name(
+export async function route_new_json_version_name(
   x: gt.NewJSONVersionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/newJsonVersionName", x);
 }
 
-async function route_create_file(
+export async function route_create_file(
   x: gt.CreateFileRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createFile", x);
 }
 
-async function route_get_json_source_path_to_be_deleted(
+export async function route_get_json_source_path_to_be_deleted(
   x: gt.GetJSONSourcePathToBeDeletedInput,
 ): Promise<ResponseDataAndStatus<string>> {
   return await post("/getJsonSourcePathToBeDeleted", x);
 }
 
-async function route_delete_terminals(
+export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteTerminals", x);
@@ -189,7 +189,7 @@ export async function route_get_llm_config(): Promise<
   return await get("/llm/config");
 }
 
-async function route_set_llm_config(
+export async function route_set_llm_config(
   config: gt.AllLLMConfigsInput,
 ): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
   return await post("/llm/config", config);
@@ -201,7 +201,7 @@ export async function route_get_llm_api_keys(): Promise<
   return await get("/llm/apiKeys");
 }
 
-async function route_set_llm_api_keys(
+export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequestInput,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/llm/apiKeys", payload);
@@ -291,7 +291,7 @@ export async function route_create_top_level_section(
   return await post("/createTopLevelSection", x);
 }
 
-async function route_create_child_sections(
+export async function route_create_child_sections(
   x: gt.CreateChildSectionsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createChildSections", x);
@@ -533,13 +533,13 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
-async function route_accept_rename_refactor(
+export async function route_accept_rename_refactor(
   x: gt.AcceptRenameRefactorRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/acceptRenameRefactor", x);
 }
 
-async function route_decline_rename_refactor(
+export async function route_decline_rename_refactor(
   x: gt.DeclineRenameRefactorRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/declineRenameRefactor", x);
