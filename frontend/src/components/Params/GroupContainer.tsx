@@ -2,7 +2,6 @@ import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScal
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
-import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
@@ -11,6 +10,7 @@ import {
 import { useProjectState, useSettings } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,

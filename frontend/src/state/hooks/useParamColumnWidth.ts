@@ -91,7 +91,8 @@ export function useParamColumnWidth({
       );
       widthRef.current.currentWidth = boundedWidth;
       widthRef.current.containerWidth = containerWidth;
-      widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
+      widthRef.current.currentPercentage =
+        (boundedWidth / containerWidth) * 100;
       applyWidth(boundedWidth);
     },
     [applyWidth],
@@ -128,7 +129,8 @@ export function useParamColumnWidth({
     if (!containerWidth) {
       return;
     }
-    const newWidth = (containerWidth * widthRef.current.currentPercentage) / 100;
+    const newWidth =
+      (containerWidth * widthRef.current.currentPercentage) / 100;
     setNewWidth(containerWidth, newWidth);
   }, [outerRef, setNewWidth]);
 
