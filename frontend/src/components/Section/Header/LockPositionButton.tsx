@@ -54,7 +54,7 @@ type LockPositionButtonCoreProps = {
   iconClassName?: string;
 };
 
-export function LockPositionButtonCore({
+function LockPositionButtonCore({
   isLocked,
   isGroup,
   onClick,

@@ -59,11 +59,7 @@ export function DeleteOrHideButton({
     });
   };
 
-  const {
-    icon,
-    onClick: onClickOverride,
-    ...buttonProps
-  } = props;
+  const { icon, onClick: onClickOverride, ...buttonProps } = props;
 
   return (
     <DeleteOrHideButtonCore
@@ -75,7 +71,7 @@ export function DeleteOrHideButton({
   // return <button onClick={onClick} className="gg-close" />;
 }
 
-export function DeleteOrHideButtonCore({
+function DeleteOrHideButtonCore({
   icon,
   children,
   twClasses,

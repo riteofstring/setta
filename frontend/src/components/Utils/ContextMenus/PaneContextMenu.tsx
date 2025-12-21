@@ -3,11 +3,11 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
+import type { CreateSectionsContextMenuInfo } from "state/actions/sections/createSectionsHelper";
 import {
   createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
-import type { CreateSectionsContextMenuInfo } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -43,11 +43,7 @@ export function PaneContextMenu() {
       isOpen={isOpen}
     >
       {contextMenuItems.map((x) => (
-        <DropdownGroup
-          key={x.group}
-          name={x.group}
-          items={x.items}
-        />
+        <DropdownGroup key={x.group} name={x.group} items={x.items} />
       ))}
     </ContextMenuCore>
   );

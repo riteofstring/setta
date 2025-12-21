@@ -1,8 +1,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { BiHide, BiShow } from "react-icons/bi";
 import type { ReactNode } from "react";
+import { BiHide, BiShow } from "react-icons/bi";
 import {
   dispatchOptimisticProjectStateUpdate,
   getActiveViewModeConfig,
@@ -188,7 +188,8 @@ function MetaControlMenuButton({
   const titleProps = {
     editing: `${titleBaseClasses} bg-setta-100 dark:bg-setta-900/60`,
     notEditing: titleBaseClasses,
-    fixed: "block w-full px-2 py-1 text-xs font-semibold text-setta-700 dark:text-setta-100",
+    fixed:
+      "block w-full px-2 py-1 text-xs font-semibold text-setta-700 dark:text-setta-100",
   };
 
   function onToggleLock() {
@@ -244,18 +245,18 @@ function MetaControlMenuButton({
             <SectionTitle sectionId={sectionId} titleProps={titleProps} />
           </div>
           <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/70" />
-        <DropdownMenuItem onClick={onToggleLock}>
-          <span className="flex items-center gap-2">
-            {lockIcon}
-            <span>{lockLabel}</span>
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onClose}>
-          <span className="flex items-center gap-2">
-            {closeIcon}
-            <span>{closeLabel}</span>
-          </span>
-        </DropdownMenuItem>
+          <DropdownMenuItem onClick={onToggleLock}>
+            <span className="flex items-center gap-2">
+              {lockIcon}
+              <span>{lockLabel}</span>
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onClose}>
+            <span className="flex items-center gap-2">
+              {closeIcon}
+              <span>{closeLabel}</span>
+            </span>
+          </DropdownMenuItem>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

@@ -1,5 +1,5 @@
-import React from "react";
 import { MetaControlContent } from "components/MetaControls/MetaControlNode";
+import React from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";

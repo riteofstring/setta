@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { useEffect, useState } from "react";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
@@ -11,7 +11,12 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useAIFollow, useAIStore, useMisc, useProjectState } from "state/definitions";
+import {
+  useAIFollow,
+  useAIStore,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,

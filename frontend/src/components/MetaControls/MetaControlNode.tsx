@@ -11,8 +11,8 @@ import { FiUploadCloud } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  NO_PAN_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -75,7 +75,7 @@ export function MetaControlContent({
   }
 
   return (
-    <div className="flex h-full w-full min-h-0 min-w-0 items-stretch">
+    <div className="flex h-full min-h-0 w-full min-w-0 items-stretch">
       {content}
     </div>
   );
@@ -87,16 +87,10 @@ function ButtonControl() {
 
   return (
     <div className="flex w-full items-center gap-2">
-      <button
-        type="button"
-        className={primaryButtonClasses}
-      >
+      <button type="button" className={primaryButtonClasses}>
         Fire
       </button>
-      <button
-        type="button"
-        className={iconButtonClasses}
-      >
+      <button type="button" className={iconButtonClasses}>
         &gt;
       </button>
     </div>
@@ -161,7 +155,7 @@ function SwitchControl() {
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
           Enabled
         </span>
-        <span className="text-xs font-mono text-setta-700 dark:text-setta-200">
+        <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
           {value ? "On" : "Off"}
         </span>
       </div>
@@ -190,7 +184,7 @@ function RotaryControl({ accent }: { accent: string }) {
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
           Level
         </span>
-        <span className="text-xs font-mono text-setta-700 dark:text-setta-200">
+        <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
           0.72
         </span>
       </div>
@@ -217,8 +211,7 @@ function TextAreaControl() {
   const [value, setValue] = useState<string>(
     "### Notes\n- tag your workflow\n- keep it short",
   );
-  const previewValue =
-    value.trim() === "" ? "*Nothing here yet.*" : value;
+  const previewValue = value.trim() === "" ? "*Nothing here yet.*" : value;
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -232,7 +225,7 @@ function TextAreaControl() {
         wrapperClassName="w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850"
         editorClassName="w-full text-[11px] font-mono text-setta-700 dark:text-setta-200 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0"
       />
-      <div className="nodrag w-full max-h-32 overflow-y-auto rounded-lg border border-setta-200/70 bg-white px-3 py-2 text-[11px] text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200">
+      <div className="nodrag max-h-32 w-full overflow-y-auto rounded-lg border border-setta-200/70 bg-white px-3 py-2 text-[11px] text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           className="prose prose-sm min-w-full dark:prose-invert prose-headings:tracking-tight prose-headings:text-setta-400 prose-p:text-xs prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]"
@@ -250,7 +243,7 @@ function PasswordControl() {
   return (
     <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
       <PasswordInput
-        className={`${NO_DRAG_CLASS_NAME} cursor-text select-text single-cell-child flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
+        className={`${NO_DRAG_CLASS_NAME} single-cell-child flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
         value={value}
         onChange={setValue}
         gridArea="single-cell-child"

@@ -25,7 +25,6 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  Position,
   ProjectStateSingleConfig,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
