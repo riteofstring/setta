@@ -242,7 +242,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
-    metaControlType: MetaControlType = MetaControlType.button
+    metaControlType: MetaControlType
 
 
 class SocialSectionImpl(BaseSectionImpl):
