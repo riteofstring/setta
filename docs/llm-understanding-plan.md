@@ -15,7 +15,7 @@
 
 ## Current Progress
 - Step 1: Completed. The system prompt now includes the generated code pipeline, `state`/`SettaState` naming, dependency-expression rules, a “where code goes” map, explicit tool-call sequences, a don't-do list, and canonical examples.
-- Step 2: Not started.
+- Step 2: Completed. The chat manager injects a per-request project summary (via `get_latest_project_state_summary`) into the system prompt.
 - Step 3: Not started.
 - Step 4: Not started.
 - Step 5: Not started.

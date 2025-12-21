@@ -5,9 +5,10 @@ import logging
 import string
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal, TypeVar, cast
+from typing import Any, AsyncIterator, Iterator, Literal, TYPE_CHECKING, TypeVar, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -15,6 +16,7 @@ from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from mcp.types import CallToolResult, TextContent
+from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
@@ -40,6 +42,9 @@ from setta.project_state.chats.save import (
 )
 from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
+)
+from setta.project_state.project_manager_types import (
+    GetLatestProjectStateSummaryRequest,
 )
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
@@ -70,6 +75,9 @@ from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+if TYPE_CHECKING:
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
@@ -165,10 +173,12 @@ class LLMChatManager:
         dbe: DBE,
         mcp_client: MCPClient,
         websocket_msg_handler: WMHFrontendSender,
+        project_manager_switcher: "ProjectManagerSwitcher",
     ) -> None:
         self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
+        self.project_manager_switcher = project_manager_switcher
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
         self._raw_env_vars: APIKeys = {}
@@ -276,7 +286,7 @@ class LLMChatManager:
 
     async def process_query(self, chat: Chat, deepThink: bool):
         while True:
-            payload = self._build_llm_request_payload(chat, deepThink)
+            payload = await self._build_llm_request_payload(chat, deepThink)
 
             assistant_message = AssistantChatMessage(
                 content=[],
@@ -430,7 +440,7 @@ class LLMChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    def _build_llm_request_payload(
+    async def _build_llm_request_payload(
         self,
         chat: Chat,
         deep_think: bool,
@@ -442,7 +452,7 @@ class LLMChatManager:
         layer can pass it directly to the configured completion client.
         """
         system_message = SystemChatMessage(
-            content=[MessageTextContent(text=self._build_system_prompt(chat))],
+            content=[MessageTextContent(text=await self._build_system_prompt(chat))],
         ).to_openai_format()
         messages: list[dict[str, Any]] = [system_message]
         for message in chat.messages:
@@ -467,30 +477,56 @@ class LLMChatManager:
 
         return request
 
-    def _build_system_prompt(self, chat: Chat) -> str:
+    async def _build_system_prompt(self, chat: Chat) -> str:
         project_config_id = chat.projectConfigId
-        temporary_project_config_id = self._get_temporary_project_config_id(
-            project_config_id
-        )
+        (
+            temporary_project_config_id,
+            project_summary,
+        ) = await self._build_project_summary(project_config_id)
         return (
             f"{self.system_prompt}\n\n"
             "## Active project config\n"
-            f"- id: {temporary_project_config_id}"
+            f"- id: {temporary_project_config_id}\n\n"
+            "## Project summary\n"
+            "(Injected at request start; call get_latest_project_state_summary only to"
+            " refresh after edits.)\n"
+            f"{project_summary}"
         )
 
-    def _get_temporary_project_config_id(self, project_config_id: ID) -> ID:
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
+    async def _build_project_summary(self, project_config_id: ID) -> tuple[ID, str]:
+        project_manager = self.project_manager_switcher.get(project_config_id)
+        summary = await project_manager.get_latest_project_state_summary(
+            GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
         )
-        should_write = project_config_id not in canonical_to_temporary
-        temporary_project_config_id = convert_canonical_ids_to_temporary(
-            project_config_id,
+        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        map_size_before = len(canonical_to_temporary)
+        converted_summary = convert_canonical_ids_to_temporary(
+            summary,
             canonical_to_temporary,
             temporary_to_canonical,
         )
-        if should_write:
+        if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-        return temporary_project_config_id
+
+        temporary_project_config_id = converted_summary.projectConfig.id
+        summary_text = self._serialize_prompt_payload(converted_summary)
+        summary_block = f"```json\n{summary_text}\n```"
+        return temporary_project_config_id, summary_block
+
+    @staticmethod
+    def _serialize_prompt_payload(payload: Any) -> str:
+        def default(obj: Any):
+            if is_dataclass(obj):
+                return asdict(obj)
+            if isinstance(obj, BaseModel):
+                return obj.model_dump(mode="json")
+            if isinstance(obj, Enum):
+                return obj.value
+            if isinstance(obj, Path):
+                return str(obj)
+            return str(obj)
+
+        return json.dumps(payload, indent=2, default=default)
 
     def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
         state = self._get_or_create_chat_tool_state(chat.id)
