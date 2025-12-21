@@ -201,10 +201,7 @@ class SettaFastAPIState:
             )
             self.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
             self.chat_manager = LLMChatManager(
-                self.dbe,
-                self.mcp_client,
-                self.wmh_frontend_sender,
-                self.project_manager_switcher,
+                self.dbe, self.mcp_client, self.wmh_frontend_sender
             )
             self.dotenv_watcher = DotEnvWatcher(
                 self.specific_file_watcher,

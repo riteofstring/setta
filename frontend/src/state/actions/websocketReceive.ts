@@ -22,11 +22,14 @@ import {
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
+  MetaControlActionEvent,
+  MetaControlType,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
+  WebsocketMsgRealtimeActionEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
@@ -197,6 +200,39 @@ function emitRealtimeDependencyValue(
   sendMessage(message);
 }
 
+type MetaControlActionEventInput = {
+  controlName: string;
+  actionId: string;
+  metaControlType: MetaControlType;
+  payload?: string | null;
+};
+
+export function sendRealtimeMetaControlAction(
+  action: MetaControlActionEventInput,
+): void {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+
+  const actionEvent: MetaControlActionEvent = {
+    controlName: action.controlName,
+    actionId: action.actionId,
+    metaControlType: action.metaControlType,
+    payload: action.payload ?? null,
+    timestampMs: Date.now(),
+  };
+  const message: WebsocketMsgRealtimeActionEvent = {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.RealtimeActionEvent,
+    content: {
+      projectConfigId,
+      actionEvent,
+    },
+  };
+  sendMessage(message);
+}
+
 export function sendRealtimeSectionParamLiteral(
   sectionId: string,
   codeObjId: string,
@@ -206,6 +242,21 @@ export function sendRealtimeSectionParamLiteral(
     type: DependencyKeyTypeEnum.SectionParam,
     sectionId,
     codeObjId,
+  };
+  const dependencyValue: LiteralDependencyValue = {
+    payload: value,
+    type: DependencyValueTypeEnum.Literal,
+  };
+  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+}
+
+export function sendRealtimeMetaControlLiteral(
+  sectionId: string,
+  value: string,
+) {
+  const dependencyKey: SectionDependencyKey = {
+    type: DependencyKeyTypeEnum.Section,
+    sectionId,
   };
   const dependencyValue: LiteralDependencyValue = {
     payload: value,

@@ -28,8 +28,6 @@ from setta.websockets.websocket_manager import WebsocketManager
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
-from tests.utils.project_summary import build_project_summary_switcher
-
 
 class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
@@ -38,12 +36,10 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.mcp_client = MCPClient("http://localhost")
-        project_manager_switcher = build_project_summary_switcher(ID("project-1"))
         self.manager = LLMChatManager(
             self.dbe,
             self.mcp_client,
             self.frontend_sender,
-            project_manager_switcher,
         )
         self.mcp_client.tool_annotations_by_name = {
             "follow_tool": SettaToolAnnotations(
