@@ -3,6 +3,9 @@
 ## Goal
 Make meta controls drive arbitrary UI behavior by routing their value changes through the listener system, while persisting control values in project state.
 
+## Note
+Existing branch implementations are provisional; do not preserve them during the refactor.
+
 ## Current State
 - Meta controls persist `metaControlValue` in project state and emit realtime dependency updates.
 - Listener realtime deltas support only section/param dependency keys.
@@ -55,13 +58,13 @@ Make meta controls drive arbitrary UI behavior by routing their value changes th
   - Dropzone: accept filters, payload mode.
 - Store config in `MetaControlSectionImpl` so UI is data-driven.
 
-### C) Support non-value project ops
-- Introduce a listener "project ops" message union for actions like:
-  - set section variant
-  - change param impl
-  - set view mode
-  - set section impl fields beyond values
-- Provide `SettaListener.emit_project_ops` to express UI-level changes that are not simple literal dependency updates.
+### C) Support typed router endpoint calls (no string ops)
+- Provide a typed listener API generated from router endpoints (autocompletion + minimal validation).
+- Generate a listener-facing `RouterEndpointAPI` wrapper from FastAPI routes.
+- Use an allowlist so only safe endpoints are exposed to listeners.
+- Prefer project-config–scoped endpoints and auto-inject `projectConfigId` where required.
+- Define a stable call/result envelope with `callId`, `ok`, `result`, `error`.
+- Keep `emit_to_frontend` as the helper for dependency/artifact updates.
 
 ## Encoding Decision (Aligned With Param Model)
 - Store raw strings in project state.

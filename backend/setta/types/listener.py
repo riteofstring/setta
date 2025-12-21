@@ -11,6 +11,7 @@ from setta.types.generated.dependency_values import (
 )
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
+from setta.types.project_ops import ProjectOp
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import MetaControlType
 
@@ -79,6 +80,27 @@ class ListenerFrontendEmitRawContent(BaseModel):
     artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
         default_factory=list
     )
+
+
+class ListenerProjectOpsContent(BaseModel):
+    projectConfigId: ID
+    projectOps: list[ProjectOp]
+
+
+class ListenerProjectManagerCallContent(BaseModel):
+    projectConfigId: ID
+    callId: str
+    operation: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ListenerProjectManagerResultContent(BaseModel):
+    projectConfigId: ID
+    callId: str
+    ok: bool
+    result: Any | None = None
+    error: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ListenerCoverageRequest(BaseModel):

@@ -1,13 +1,14 @@
 # Meta Control Actions Plan (Listener-Only)
 
 ## Goal
-Allow meta controls to emit higher-level "actions" (especially button clicks) that flow through listeners, enabling listener-driven project ops like Run.
+Allow meta controls to emit higher-level "actions" (especially button clicks) that flow through listeners, enabling listener-driven project manager calls and state updates.
 
 ## Constraints
 - All meta control actions go through listeners.
 - Existing hard-coded UI buttons (e.g., the current Run button) remain as-is.
 - No backward compatibility; it is acceptable for the app to be broken during refactor.
 - The solution must be general enough to extend beyond buttons later.
+- Current branch implementations (e.g., `emit_project_ops` / string-based calls) are provisional and may be removed entirely.
 
 ## Proposed Model
 ### Action Event
@@ -32,11 +33,17 @@ ListenerInput = LiteralDependencyUpdate | MetaControlActionEvent
 ```
 
 ### Listener API
-Add action subscriptions and a handler to emit project ops.
+Add action subscriptions and a typed project manager call interface.
 ```
-@listener.listen(actions=["my_run_button"])
-def on_action(s):
-  s.emit_project_ops([RunOp(run_kind="special")])
+@listener.listen(actions=["inspect_state"])
+async def on_action(s, ctx):
+  state = await ctx.project_manager.get_latest_project_state()
+```
+Keep `emit_to_frontend` as a helper for dependency/artifact updates:
+```
+@listener.listen(deps=["Welcome"])
+async def on_change(s, ctx):
+  await ctx.emit_to_frontend(dependency_values={"OtherText": s.Welcome})
 ```
 
 ## Plan (Progress)
@@ -51,10 +58,15 @@ def on_action(s):
    - Support action wildcards with `actions=[]` while `actions=None` means no action subscription. (done)
    - Ensure action events do not persist to project state. (done)
 
-3) Project ops output (pending)
-   - Introduce a `ProjectOp` union for higher-level app actions.
-   - Start with `RunOp` (custom run kinds allowed).
-   - Add `emit_project_ops` on the listener side and route ops to the existing run pipeline.
+3) Replace project ops with typed router endpoint calls (pending)
+   - Remove `ProjectOp` union + `emit_project_ops` and any websocket messages/handlers.
+   - Replace string-based calls with a typed listener API generated from router endpoints:
+     - Emit a listener-side `RouterEndpointAPI` with method stubs + typed payloads.
+     - Use an allowlist so only safe/desired endpoints are exposed.
+     - Prefer project-config–scoped endpoints; avoid CLI/WS-only endpoints.
+     - Auto-inject `projectConfigId` when the request model defines it.
+   - Keep `emit_to_frontend` as a convenience helper.
+   - Keep non-backward compatible changes; allow breakage during refactor.
 
 4) Frontend meta control behavior (in progress)
    - Treat button meta controls as action-only (no state write to `metaControlValue`). (done)
@@ -68,9 +80,10 @@ def on_action(s):
      - Optional `payload` mapping (e.g., current value as string)
    - UI can emit both: value updates (stateful controls) and action events (when enabled).
 
-6) Regenerate and test (in progress)
-   - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates. (done)
-   - Add backend tests for action dispatch and project ops execution. (pending)
+6) Regenerate and test (pending)
+   - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates.
+   - Add backend tests for action dispatch + typed project manager calls.
+   - Add tests for router endpoint call allowlist + serialization of results/errors.
 
 ## Notes
 - Action events are transient by design; they should never be written into project state.

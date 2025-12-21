@@ -44,12 +44,15 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
+    ListenerProjectManagerCallContent,
+    ListenerProjectOpsContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
     ListenerRegisterContent,
     MetaControlActionEvent,
 )
+from setta.types.project_ops import ProjectOp, ProjectOpTypeAdapter
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
@@ -58,6 +61,9 @@ from setta.types.websocket import (
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
+    WebsocketMsgListenerProjectManagerCall,
+    WebsocketMsgListenerProjectManagerResult,
+    WebsocketMsgListenerProjectOps,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
@@ -115,6 +121,8 @@ class ListenerCallbackContext:
     actions: list[MetaControlActionEvent]
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
+    emit_project_ops: Callable[..., Awaitable[None]]
+    call_project_manager: Callable[..., Awaitable[Any]]
 
 
 @dataclass(slots=True)
@@ -153,6 +161,7 @@ class SettaListener:
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
+        self._pending_project_manager_calls: dict[str, asyncio.Future[Any]] = {}
         self._logging_configured = False
 
     @property
@@ -342,6 +351,19 @@ class SettaListener:
                     self._registration_pending = False
                     self._is_registered = False
                     self._expected_ack_callback_ids = set()
+                    if self._pending_project_manager_calls:
+                        pending_calls = list(
+                            self._pending_project_manager_calls.items()
+                        )
+                        self._pending_project_manager_calls = {}
+                        for call_id, future in pending_calls:
+                            if future.done():
+                                continue
+                            future.set_exception(
+                                RuntimeError(
+                                    f"Listener connection closed before call {call_id} completed"
+                                )
+                            )
 
     def _parse_websocket_payload(self, payload: str) -> Any | None:
         """Parse raw websocket payloads into typed messages."""
@@ -376,6 +398,9 @@ class SettaListener:
             return
         if isinstance(message, WebsocketMsgListenerError):
             self._handle_listener_error(message)
+            return
+        if isinstance(message, WebsocketMsgListenerProjectManagerResult):
+            self._handle_project_manager_result(message)
             return
         logger.debug(
             "Listener %s ignoring unsupported message type %s",
@@ -467,6 +492,35 @@ class SettaListener:
             f"{message.content.error}{detail_suffix}"
         )
         logger.error(text)
+
+    def _handle_project_manager_result(
+        self, message: WebsocketMsgListenerProjectManagerResult
+    ) -> None:
+        content = message.content
+        future = self._pending_project_manager_calls.get(content.callId)
+        if future is None:
+            logger.warning(
+                "Listener %s received unknown call result %s",
+                self._log_identifier,
+                content.callId,
+            )
+            return
+        if future.done():
+            logger.warning(
+                "Listener %s received duplicate call result %s",
+                self._log_identifier,
+                content.callId,
+            )
+            return
+        if content.ok:
+            future.set_result(content.result)
+            return
+        details_suffix = ""
+        if content.details:
+            details_suffix = f" (details={content.details!r})"
+        future.set_exception(
+            RuntimeError(f"{content.error or 'listener_call_failed'}{details_suffix}")
+        )
 
     def listen(
         self,
@@ -1141,6 +1195,77 @@ class SettaListener:
         )
         await self._send_websocket_payload(message.model_dump_json())
 
+    async def emit_project_ops(
+        self,
+        *,
+        project_ops: Sequence[ProjectOp | dict[str, Any]],
+    ) -> None:
+        if self._runtime_state is None:
+            raise RuntimeError(
+                "Listener project state is unavailable; wait for bootstrap before emitting"
+            )
+        if not self._is_registered and not self._registration_pending:
+            raise RuntimeError(
+                "Listener is not registered with the server; wait for registration to complete before emitting"
+            )
+        serialized_ops = self._serialize_project_ops(project_ops)
+        if not serialized_ops:
+            raise ValueError("emit_project_ops requires at least one project op")
+        project_config_id = self._require_project_id()
+        message = WebsocketMsgListenerProjectOps(
+            content=ListenerProjectOpsContent(
+                projectConfigId=project_config_id,
+                projectOps=serialized_ops,
+            )
+        )
+        logger.debug(
+            "Listener %s emitting project ops %s",
+            self._log_identifier,
+            ", ".join(op.type for op in serialized_ops) or "-",
+        )
+        await self._send_websocket_payload(message.model_dump_json())
+
+    async def call_project_manager(
+        self,
+        *,
+        operation: str,
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
+        if self._runtime_state is None:
+            raise RuntimeError(
+                "Listener project state is unavailable; wait for bootstrap before calling project manager"
+            )
+        if not self._is_registered and not self._registration_pending:
+            raise RuntimeError(
+                "Listener is not registered with the server; wait for registration to complete before calling project manager"
+            )
+        if not operation:
+            raise ValueError("call_project_manager requires a non-empty operation")
+        call_id = uuid4().hex
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[Any] = loop.create_future()
+        self._pending_project_manager_calls[call_id] = future
+        project_config_id = self._require_project_id()
+        message = WebsocketMsgListenerProjectManagerCall(
+            content=ListenerProjectManagerCallContent(
+                projectConfigId=project_config_id,
+                callId=call_id,
+                operation=operation,
+                payload=payload or {},
+            )
+        )
+        logger.debug(
+            "Listener %s calling project manager op %s (callId=%s)",
+            self._log_identifier,
+            operation,
+            call_id,
+        )
+        await self._send_websocket_payload(message.model_dump_json())
+        try:
+            return await future
+        finally:
+            self._pending_project_manager_calls.pop(call_id, None)
+
     def _serialize_listener_artifact_updates(
         self,
         artifact_updates: Sequence[
@@ -1160,6 +1285,14 @@ class SettaListener:
                     "artifact_updates entries must match the BaseArtifact schema"
                 ) from exc
         return serialized
+
+    def _serialize_project_ops(
+        self,
+        project_ops: Sequence[ProjectOp | dict[str, Any]],
+    ) -> list[ProjectOp]:
+        if not project_ops:
+            return []
+        return [ProjectOpTypeAdapter.validate_python(op) for op in project_ops]
 
     def _set_dependency_value(
         self,
@@ -1247,6 +1380,8 @@ class SettaListener:
             actions=actions,
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
+            emit_project_ops=self.emit_project_ops,
+            call_project_manager=self.call_project_manager,
         )
 
     async def _send_websocket_payload(self, payload: str) -> None:

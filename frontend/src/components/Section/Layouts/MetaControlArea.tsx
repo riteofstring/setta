@@ -34,9 +34,7 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     );
     return impl.metaControlValue;
   });
-  const sectionName = useProjectState(
-    (x) => getSectionCore(x, sectionId).name,
-  );
+  const sectionName = useProjectState((x) => getSectionCore(x, sectionId).name);
 
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,

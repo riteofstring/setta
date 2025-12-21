@@ -21,6 +21,9 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
+    ListenerProjectManagerCallContent,
+    ListenerProjectManagerResultContent,
+    ListenerProjectOpsContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
     ListenerRegisterContent,
@@ -69,6 +72,9 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
     ListenerFrontendEmit = "ListenerFrontendEmit"
+    ListenerProjectOps = "ListenerProjectOps"
+    ListenerProjectManagerCall = "ListenerProjectManagerCall"
+    ListenerProjectManagerResult = "ListenerProjectManagerResult"
 
 
 class WebsocketConnectionType(str, Enum):
@@ -292,6 +298,27 @@ class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerFrontendEmit] = (
         WebsocketMsgTypeForPythonScript.ListenerFrontendEmit
     )
+
+
+class WebsocketMsgListenerProjectOps(PythonScriptWebsocketMsg):
+    content: ListenerProjectOpsContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerProjectOps] = (
+        WebsocketMsgTypeForPythonScript.ListenerProjectOps
+    )
+
+
+class WebsocketMsgListenerProjectManagerCall(PythonScriptWebsocketMsg):
+    content: ListenerProjectManagerCallContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerProjectManagerCall] = (
+        WebsocketMsgTypeForPythonScript.ListenerProjectManagerCall
+    )
+
+
+class WebsocketMsgListenerProjectManagerResult(PythonScriptWebsocketMsg):
+    content: ListenerProjectManagerResultContent
+    messageType: Literal[
+        WebsocketMsgTypeForPythonScript.ListenerProjectManagerResult
+    ] = WebsocketMsgTypeForPythonScript.ListenerProjectManagerResult
 
 
 class WebsocketMsgListenerRegister(PythonScriptWebsocketMsg):
