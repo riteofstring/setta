@@ -107,7 +107,7 @@ function getSizeMode({
   isTwitter: boolean;
 }) {
   if (sectionType === SectionTypeEnum.MetaControl) {
-    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+    return { height: SIZE_MODE.any, width: SIZE_MODE.any };
   }
   if (sectionType === SectionTypeEnum.Callable) {
     if (hideParams) {
