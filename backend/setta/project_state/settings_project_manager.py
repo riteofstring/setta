@@ -24,7 +24,6 @@ class SettingsProjectManager(BaseProjectManager):
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):
-        self._flush_code_files_for_all_configs()
         default_id = self.project_state_backend.defaultProjectConfigId
         if not default_id:
             raise ValueError
