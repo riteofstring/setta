@@ -39,37 +39,38 @@ def on_action(s):
   s.emit_project_ops([RunOp(run_kind="special")])
 ```
 
-## Plan
-1) Add action event types and server routing
-   - Add `MetaControlActionEvent` to backend types.
-   - Add a backend endpoint to receive action events and inject them into the listener pipeline.
-   - Add frontend generated endpoint and helper to post action events.
+## Plan (Progress)
+1) Add action event types and server routing (done)
+   - Add `MetaControlActionEvent` to backend types. (done)
+   - Add a backend websocket message handler to receive action events and inject them into the listener pipeline. (done)
+   - Add a frontend websocket helper to post action events over the existing frontend connection. (done)
 
-2) Update listener wiring
-   - Extend listener input parsing to accept `MetaControlActionEvent`.
-   - Add subscription filtering for actions (e.g., `listen(actions=[...])`).
-   - Ensure action events do not persist to project state.
+2) Update listener wiring (done)
+   - Extend listener input parsing to accept `MetaControlActionEvent`. (done)
+   - Add subscription filtering for actions (e.g., `listen(actions=[...])`). (done)
+   - Support action wildcards with `actions=[]` while `actions=None` means no action subscription. (done)
+   - Ensure action events do not persist to project state. (done)
 
-3) Project ops output
+3) Project ops output (pending)
    - Introduce a `ProjectOp` union for higher-level app actions.
    - Start with `RunOp` (custom run kinds allowed).
    - Add `emit_project_ops` on the listener side and route ops to the existing run pipeline.
 
-4) Frontend meta control behavior
+4) Frontend meta control behavior (pending)
    - Treat button meta controls as action-only (no state write to `metaControlValue`).
-   - Emit a `MetaControlActionEvent` on click using the generated endpoint helper.
+   - Emit a `MetaControlActionEvent` on click using the websocket helper.
    - Keep existing Run button wired directly, unchanged.
 
-5) Make actions extensible beyond buttons
+5) Make actions extensible beyond buttons (pending)
    - Extend the meta control config with an action mode:
      - `action_id` (required when action mode is on)
      - `emit_action_on_change` (opt-in for other controls)
      - Optional `payload` mapping (e.g., current value as string)
    - UI can emit both: value updates (stateful controls) and action events (when enabled).
 
-6) Regenerate and test
-   - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates.
-   - Add backend tests for action dispatch and project ops execution.
+6) Regenerate and test (in progress)
+   - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates. (done)
+   - Add backend tests for action dispatch and project ops execution. (pending)
 
 ## Notes
 - Action events are transient by design; they should never be written into project state.

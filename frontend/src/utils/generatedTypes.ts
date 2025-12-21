@@ -396,6 +396,7 @@ export const WebsocketConnectionTypeEnum = {
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
+  RealtimeActionEvent: "RealtimeActionEvent",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -2532,6 +2533,35 @@ const WebsocketMsgRealtimeUIChangeSchema = z.object({
 
 export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
+>;
+
+const MetaControlActionEventSchema = z.object({
+  controlName: z.string(),
+  actionId: z.string(),
+  metaControlType: z.enum(MetaControlTypeEnum),
+  payload: z.union([z.string(), z.null()]).default(null),
+  timestampMs: z.int(),
+});
+
+export type MetaControlActionEvent = z.infer<
+  typeof MetaControlActionEventSchema
+>;
+
+const RealtimeActionEventContentSchema = z.object({
+  projectConfigId: IDSchema,
+  actionEvent: MetaControlActionEventSchema,
+});
+
+const WebsocketMsgRealtimeActionEventSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: RealtimeActionEventContentSchema,
+  messageType: z
+    .literal("RealtimeActionEvent")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeActionEvent),
+});
+
+export type WebsocketMsgRealtimeActionEvent = z.infer<
+  typeof WebsocketMsgRealtimeActionEventSchema
 >;
 
 const WebsocketMsgCurrentAddressUpdateSchema = z.object({

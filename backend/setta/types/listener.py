@@ -12,6 +12,7 @@ from setta.types.generated.dependency_values import (
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.section_impls import MetaControlType
 
 
 class ListenerDependencyMode(str, Enum):
@@ -36,6 +37,25 @@ class ListenerInitContent(BaseModel):
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: ID
     deltas: list["ListenerRealtimeDelta"]
+    sequence: int
+
+
+class MetaControlActionEvent(BaseModel):
+    controlName: str
+    actionId: str
+    metaControlType: MetaControlType
+    payload: str | None = None
+    timestampMs: int
+
+
+class RealtimeActionEventContent(BaseModel):
+    projectConfigId: ID
+    actionEvent: MetaControlActionEvent
+
+
+class ListenerActionEventContent(BaseModel):
+    projectConfigId: ID
+    actionEvents: list[MetaControlActionEvent]
     sequence: int
 
 
@@ -89,6 +109,7 @@ class ListenerRegisterCallback(BaseModel):
     debounceMs: int | None = None
     throttleMs: int | None = None
     runOnRefresh: bool = False
+    actions: list[str] | None = None
 
 
 class ListenerRegisterContent(BaseModel):
