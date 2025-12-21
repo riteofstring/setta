@@ -85,9 +85,16 @@ export const StreamingEventTypeEnum = {
   MESSAGE_START: "message_start",
   DELTA: "delta",
   TOOL_CALL_DELTA: "tool_call_delta",
+  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
   TOOL_RESULT: "tool_result",
   MESSAGE_STOP: "message_stop",
   MESSAGE_FINALIZED: "message_finalized",
+} as const;
+
+const ToolArgumentPreviewKindEnum = {
+  code: "code",
+  paramValue: "paramValue",
+  callableName: "callableName",
 } as const;
 
 export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
@@ -274,6 +281,7 @@ export const RouteEnum = {
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
+  GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
   RUN_CODE: "/runCode",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
@@ -404,7 +412,8 @@ export const WebsocketMsgTypeForFrontendEnum = {
   ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
   LLMConfigUpdated: "LLMConfigUpdated",
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
-  AIFollowUpdate: "AIFollowUpdate",
+  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -874,6 +883,26 @@ const ToolResultEventSchema = z.object({
 });
 
 export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
+
+const ToolArgumentPreviewDeltaEventSchema = z.object({
+  type: z
+    .literal("tool_argument_preview_delta")
+    .default(StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA),
+  message_id: z.string(),
+  tool_call_id: z.string(),
+  tool_name: z.string(),
+  arguments_delta: z.string(),
+  preview_kind: z.enum(ToolArgumentPreviewKindEnum),
+  target_ids_by_type: z.record(
+    z.literal(["section", "codeObj"]),
+    z.array(IDSchema),
+  ),
+  preview_value_delta: z.string(),
+});
+
+export type ToolArgumentPreviewDeltaEvent = z.infer<
+  typeof ToolArgumentPreviewDeltaEventSchema
+>;
 
 const MessageStopEventSchema = z.object({
   type: z.literal("message_stop").default(StreamingEventTypeEnum.MESSAGE_STOP),
@@ -2600,6 +2629,7 @@ const LLMStreamingResponseSchema = z.object({
     MessageDeltaEventSchema,
     ToolCallDeltaEventSchema,
     ToolResultEventSchema,
+    ToolArgumentPreviewDeltaEventSchema,
     MessageStopEventSchema,
     MessageFinalizedEventSchema,
   ]),
@@ -3923,20 +3953,40 @@ const WebsocketMsgLLMApiKeysUpdatedSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated),
 });
 
-const AIFollowUpdateContentSchema = z.object({
+const AIFollowToolArgumentsUpdateContentSchema = z.object({
   projectConfigId: IDSchema,
   chatId: IDSchema,
-  sectionIds: z.array(IDSchema),
+  idsByType: z.record(z.literal(["section", "codeObj"]), z.array(IDSchema)),
 });
 
-export type AIFollowUpdateContent = z.infer<typeof AIFollowUpdateContentSchema>;
+export type AIFollowToolArgumentsUpdateContent = z.infer<
+  typeof AIFollowToolArgumentsUpdateContentSchema
+>;
 
-const WebsocketMsgAIFollowUpdateSchema = z.object({
+const WebsocketMsgAIFollowToolArgumentsUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: AIFollowUpdateContentSchema,
+  content: AIFollowToolArgumentsUpdateContentSchema,
   messageType: z
-    .literal("AIFollowUpdate")
-    .default(WebsocketMsgTypeForFrontendEnum.AIFollowUpdate),
+    .literal("AIFollowToolArgumentsUpdate")
+    .default(WebsocketMsgTypeForFrontendEnum.AIFollowToolArgumentsUpdate),
+});
+
+const AIFollowToolResultUpdateContentSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+  idsByType: z.record(z.literal(["section", "codeObj"]), z.array(IDSchema)),
+});
+
+export type AIFollowToolResultUpdateContent = z.infer<
+  typeof AIFollowToolResultUpdateContentSchema
+>;
+
+const WebsocketMsgAIFollowToolResultUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AIFollowToolResultUpdateContentSchema,
+  messageType: z
+    .literal("AIFollowToolResultUpdate")
+    .default(WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate),
 });
 
 const FrontendWebsocketMsgUnionSchema = z.union([
@@ -3954,7 +4004,8 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgListenerCoverageSnapshotSchema,
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
-  WebsocketMsgAIFollowUpdateSchema,
+  WebsocketMsgAIFollowToolArgumentsUpdateSchema,
+  WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -4397,6 +4448,14 @@ const DeleteLLMChatRequestSchema = z.object({
 
 export type DeleteLLMChatRequestInput = z.input<
   typeof DeleteLLMChatRequestSchema
+>;
+
+const GetAIFollowSnapshotRequestSchema = z.object({
+  projectConfigId: IDSchema,
+});
+
+export type GetAIFollowSnapshotRequestInput = z.input<
+  typeof GetAIFollowSnapshotRequestSchema
 >;
 
 const GetLLMChatRequestSchema = z.object({
