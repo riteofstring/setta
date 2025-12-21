@@ -439,7 +439,14 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
 
 type AIFollowState = {
   enabled: boolean;
-  sectionIdsByProjectConfigId: Record<string, Record<string, Array<string>>>;
+  toolArgumentsIdsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
+  toolResultIdsByProjectConfigId: Record<
+    string,
+    Record<string, Record<string, Array<string>>>
+  >;
 };
 
 export const useAIFollow = withProjectState(
@@ -447,24 +454,8 @@ export const useAIFollow = withProjectState(
     immer(
       withResetFn<AIFollowState>(() => ({
         enabled: false,
-        sectionIdsByProjectConfigId: {},
-      })),
-    ),
-  ),
-);
-
-type AIFollowToolResultState = {
-  idsByProjectConfigId: Record<
-    string,
-    Record<string, Record<string, Array<string>>>
-  >;
-};
-
-export const useAIFollowToolResult = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<AIFollowToolResultState>(() => ({
-        idsByProjectConfigId: {},
+        toolArgumentsIdsByProjectConfigId: {},
+        toolResultIdsByProjectConfigId: {},
       })),
     ),
   ),

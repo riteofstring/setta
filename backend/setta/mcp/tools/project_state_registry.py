@@ -7,8 +7,10 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from setta.mcp.tool_metadata import (
+    AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
     SettaToolType,
+    attach_ai_follow_tool_arguments,
     attach_ai_follow_tool_result,
 )
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
@@ -24,6 +26,7 @@ def project_state_tool(
     name: str | None = None,
     tool_type: SettaToolType = SettaToolType.discoverable,
     ai_follow_tool_result: AIFollowToolResultMetadata | None = None,
+    ai_follow_tool_arguments: AIFollowToolArgumentsMetadata | None = None,
 ):
     """Decorator used on BaseProjectManager coroutines to expose them as MCP tools."""
 
@@ -38,6 +41,7 @@ def project_state_tool(
             docstring=inspect.getdoc(method),
         )
         attach_ai_follow_tool_result(tool_fn, ai_follow_tool_result)
+        attach_ai_follow_tool_arguments(tool_fn, ai_follow_tool_arguments)
         register = setta_init_tool if tool_type == SettaToolType.init else setta_tool
         register(tool_fn)
         return method

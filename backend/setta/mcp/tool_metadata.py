@@ -19,6 +19,7 @@ class AIFollowToolResultMetadata(BaseModel):
 
 
 AI_FOLLOW_TOOL_RESULT_ATTR = "_setta_ai_follow_tool_result"
+AI_FOLLOW_TOOL_ARGUMENTS_ATTR = "_setta_ai_follow_tool_arguments"
 
 
 def attach_ai_follow_tool_result(
@@ -36,6 +37,26 @@ def get_ai_follow_tool_result(
     return getattr(fn, AI_FOLLOW_TOOL_RESULT_ATTR, None)
 
 
+class AIFollowToolArgumentsMetadata(BaseModel):
+    pathsByIdType: dict[FollowIdType, list[str]]
+
+
+def attach_ai_follow_tool_arguments(
+    fn: Callable[..., Any],
+    metadata: AIFollowToolArgumentsMetadata | None,
+) -> None:
+    if metadata is None:
+        return
+    setattr(fn, AI_FOLLOW_TOOL_ARGUMENTS_ATTR, metadata)
+
+
+def get_ai_follow_tool_arguments(
+    fn: Callable[..., Any],
+) -> AIFollowToolArgumentsMetadata | None:
+    return getattr(fn, AI_FOLLOW_TOOL_ARGUMENTS_ATTR, None)
+
+
 class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
     aiFollowToolResult: AIFollowToolResultMetadata | None = None
+    aiFollowToolArguments: AIFollowToolArgumentsMetadata | None = None

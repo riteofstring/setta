@@ -11,9 +11,9 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
+import _ from "lodash";
 import {
   useAIFollow,
-  useAIFollowToolResult,
   useAIStore,
   useMisc,
   useProjectState,
@@ -122,41 +122,56 @@ export function useAiSectionHighlight(
   projectConfigId: string,
 ): boolean {
   const activeChatId = useAIStore((state) => state.activeChatId);
-  const isAiWorkingOnSection = useAIFollow((state) => {
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    if (activeChatId) {
-      const activeSectionIds = projectEntries[activeChatId] ?? [];
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIds of Object.values(projectEntries)) {
-      if (sectionIds.includes(sectionId)) {
-        return true;
+  const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
+    (state) => {
+      const getSectionIds = (
+        idsByType: Record<string, Array<string>> | undefined,
+      ): Array<string> => idsByType?.section ?? [];
+
+      let isAiWorkingOnSection = false;
+      const toolArgumentEntries =
+        state.toolArgumentsIdsByProjectConfigId[projectConfigId];
+      if (toolArgumentEntries) {
+        if (activeChatId) {
+          const activeSectionIds = getSectionIds(
+            toolArgumentEntries[activeChatId],
+          );
+          isAiWorkingOnSection = activeSectionIds.includes(sectionId);
+        } else {
+          for (const idsByType of Object.values(toolArgumentEntries)) {
+            const sectionIds = getSectionIds(idsByType);
+            if (sectionIds.includes(sectionId)) {
+              isAiWorkingOnSection = true;
+              break;
+            }
+          }
+        }
       }
-    }
-    return false;
-  });
-  const isToolResultHighlight = useAIFollowToolResult((state) => {
-    const projectEntries = state.idsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    const getSectionIds = (idsByType: Record<string, Array<string>> | undefined) =>
-      idsByType?.section ?? [];
-    if (activeChatId) {
-      const activeSectionIds = getSectionIds(projectEntries[activeChatId]);
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIdsByType of Object.values(projectEntries)) {
-      const sectionIds = getSectionIds(sectionIdsByType);
-      if (sectionIds.includes(sectionId)) {
-        return true;
+
+      let isToolResultHighlight = false;
+      const toolResultEntries =
+        state.toolResultIdsByProjectConfigId[projectConfigId];
+      if (toolResultEntries) {
+        if (activeChatId) {
+          const activeSectionIds = getSectionIds(
+            toolResultEntries[activeChatId],
+          );
+          isToolResultHighlight = activeSectionIds.includes(sectionId);
+        } else {
+          for (const sectionIdsByType of Object.values(toolResultEntries)) {
+            const sectionIds = getSectionIds(sectionIdsByType);
+            if (sectionIds.includes(sectionId)) {
+              isToolResultHighlight = true;
+              break;
+            }
+          }
+        }
       }
-    }
-    return false;
-  });
+
+      return { isAiWorkingOnSection, isToolResultHighlight };
+    },
+    _.isEqual,
+  );
   const [showAiHighlight, setShowAiHighlight] = useState(false);
   const shouldHighlight = isAiWorkingOnSection || isToolResultHighlight;
   useEffect(() => {

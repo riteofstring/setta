@@ -48,7 +48,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
     LLMConfigUpdated = "LLMConfigUpdated"
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
-    AIFollowUpdate = "AIFollowUpdate"
+    AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
 
 
@@ -208,16 +208,16 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     )
 
 
-class AIFollowUpdateContent(BaseModel):
+class AIFollowToolArgumentsUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
-    sectionIds: list[ID]
+    idsByType: dict[FollowIdType, list[ID]]
 
 
-class WebsocketMsgAIFollowUpdate(FrontendWebsocketMsg):
-    content: AIFollowUpdateContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowUpdate] = (
-        WebsocketMsgTypeForFrontend.AIFollowUpdate
+class WebsocketMsgAIFollowToolArgumentsUpdate(FrontendWebsocketMsg):
+    content: AIFollowToolArgumentsUpdateContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate] = (
+        WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate
     )
 
 

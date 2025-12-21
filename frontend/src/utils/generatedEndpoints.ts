@@ -239,7 +239,9 @@ export async function route_get_llm_chat(
 
 export async function route_get_ai_follow_snapshot(
   x: gt.GetAIFollowSnapshotRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.AIFollowUpdateContent>>> {
+): Promise<
+  ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
+> {
   return await post("/getAIFollowSnapshot", x);
 }
 

@@ -12,7 +12,7 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
-from setta.types.websocket import AIFollowUpdateContent
+from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
 
@@ -122,7 +122,7 @@ async def route_get_llm_chat(
 def route_get_ai_follow_snapshot(
     x: GetAIFollowSnapshotRequest,
     state: AppStateFromRequest,
-) -> list[AIFollowUpdateContent]:
+) -> list[AIFollowToolArgumentsUpdateContent]:
     return state.chat_manager.get_ai_follow_snapshot(x.projectConfigId)
 
 

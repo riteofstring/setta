@@ -12,6 +12,11 @@ from litellm.types.utils import (
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager, ToolCallStreamState
 from setta.mcp.client import MCPClient
+from setta.mcp.tool_metadata import (
+    AIFollowToolArgumentsMetadata,
+    SettaToolAnnotations,
+    SettaToolType,
+)
 from setta.types.chat_messages import AssistantChatMessage
 from setta.types.id import ID
 from setta.types.websocket import (
@@ -36,6 +41,14 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
             self.mcp_client,
             self.frontend_sender,
         )
+        self.mcp_client.tool_annotations_by_name = {
+            "follow_tool": SettaToolAnnotations(
+                settaToolType=SettaToolType.discoverable,
+                aiFollowToolArguments=AIFollowToolArgumentsMetadata(
+                    pathsByIdType={"section": ["sectionId", "sectionIds"]},
+                ),
+            )
+        }
         self.websocket_id = "stream-follow-socket"
         self._sent_messages: list[Message] = []
         self._receive_counter = 0
@@ -101,7 +114,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(follow_updates))
         self.assertEqual(
             {"section-a"},
-            set(follow_updates[-1]["content"]["sectionIds"]),
+            set(follow_updates[-1]["content"]["idsByType"]["section"]),
         )
 
         chunk_two = self._build_stream_chunk(
@@ -118,7 +131,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(2, len(follow_updates))
         self.assertEqual(
             {"section-a", "section-b"},
-            set(follow_updates[-1]["content"]["sectionIds"]),
+            set(follow_updates[-1]["content"]["idsByType"]["section"]),
         )
 
         chunk_three = self._build_stream_chunk("}")
@@ -142,7 +155,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(3, len(follow_updates))
         self.assertEqual(
             {"section-a", "section-b"},
-            set(follow_updates[-1]["content"]["sectionIds"]),
+            set(follow_updates[-1]["content"]["idsByType"]["section"]),
         )
 
     def _build_stream_chunk(self, arguments_delta: str) -> ModelResponseStream:
@@ -178,7 +191,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
             if message.get("type") != "websocket.send" or "text" not in message:
                 continue
             payload = json.loads(message["text"])
-            if payload.get("messageType") == "AIFollowUpdate":
+            if payload.get("messageType") == "AIFollowToolArgumentsUpdate":
                 follow_updates.append(payload)
         return follow_updates
 

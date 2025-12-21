@@ -5,19 +5,14 @@ import {
   getSectionBounds,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
+import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  useAIFollow,
-  useAIFollowToolResult,
-  useAIStore,
-  useProjectState,
-} from "state/definitions";
+import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
 
 export function useAIFollowViewport(): void {
-  const enabled = useAIFollow((state) => state.enabled);
   const activeChatId = useAIStore((state) => state.activeChatId);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const { d3Zoom, d3Selection, width, height } = useReactFlow(
@@ -29,27 +24,32 @@ export function useAIFollowViewport(): void {
     }),
     shallow,
   );
-  const sectionIds = useAIFollow((state) => {
-    if (!activeChatId) {
-      return [];
-    }
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return [];
-    }
-    return projectEntries[activeChatId] ?? [];
-  });
-  const toolResultSectionIds = useAIFollowToolResult((state) => {
-    if (!activeChatId) {
-      return [];
-    }
-    const projectEntries = state.idsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return [];
-    }
-    const idsByType = projectEntries[activeChatId];
-    return idsByType?.section ?? [];
-  });
+  const { enabled, sectionIds, toolResultSectionIds } = useAIFollow(
+    (state) => {
+      const getSectionIds = (
+        idsByType: Record<string, Array<string>> | undefined,
+      ): Array<string> => idsByType?.section ?? [];
+
+      const toolArgumentsEntries =
+        state.toolArgumentsIdsByProjectConfigId[projectConfigId];
+      const sectionIds = activeChatId
+        ? getSectionIds(toolArgumentsEntries?.[activeChatId])
+        : [];
+
+      const toolResultEntries =
+        state.toolResultIdsByProjectConfigId[projectConfigId];
+      const toolResultSectionIds = activeChatId
+        ? getSectionIds(toolResultEntries?.[activeChatId])
+        : [];
+
+      return {
+        enabled: state.enabled,
+        sectionIds,
+        toolResultSectionIds,
+      };
+    },
+    _.isEqual,
+  );
   const toolResultSectionIdsKey = toolResultSectionIds.join("|");
   const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] = useState<
     string[]

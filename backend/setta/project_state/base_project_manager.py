@@ -33,7 +33,11 @@ from setta.file_watchers.specific_file_watcher import (
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPWriters
-from setta.mcp.tool_metadata import AIFollowToolResultMetadata, SettaToolType
+from setta.mcp.tool_metadata import (
+    AIFollowToolArgumentsMetadata,
+    AIFollowToolResultMetadata,
+    SettaToolType,
+)
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
@@ -541,7 +545,11 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["topLevelSections"]}
+        )
+    )
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
         """Persist the provided top-level section layout ordering for a project."""
         self.project_state_backend.projectConfigs[
@@ -549,7 +557,11 @@ class BaseProjectManager(ABC):
         ].topLevelSections = x.topLevelSections
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionSizes"]}
+        )
+    )
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -672,7 +684,11 @@ class BaseProjectManager(ABC):
         await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
         self.add_new_history_entry()
@@ -727,7 +743,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
+        )
+    )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
         self.add_new_history_entry()
@@ -741,7 +761,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"codeObj": ["codeObjId"]}
+        )
+    )
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -761,7 +785,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
         """Flip whether a section's layout is locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -769,7 +797,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def toggle_minimized(self, x: ToggleMinimizedRequest):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -777,7 +809,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def set_code(self, x: SetCodeRequest):
         """Persist inline code edits for the requested section if edits are allowed."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -798,7 +834,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
         """Update the value filter applied to a section's parameter list."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -806,7 +846,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def set_section_variant(self, x: SetSectionVariantRequest):
         """Switch a section to an explicit variant and propagate its state."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -814,7 +858,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def set_default_section_variant(self, x: SetDefaultSectionVariantRequest):
         """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -822,7 +870,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
+        )
+    )
     async def change_param_impl(self, x: ChangeParamImplRequest):
         """Swap the selected implementation backing a section parameter."""
         self.add_new_history_entry()
@@ -863,7 +915,11 @@ class BaseProjectManager(ABC):
         return sectionId
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["parentId"]}
+        )
+    )
     async def create_child_sections(self, x: CreateChildSectionsRequest):
         """Create one or more child sections beneath a parent section."""
         self.add_new_history_entry()
@@ -879,7 +935,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["calledBy"]}
+        )
+    )
     async def create_child_sections_via_incrementer(
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
@@ -909,7 +969,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionIds"]}
+        )
+    )
     async def delete_sections(self, x: DeleteSectionsRequest):
         """Remove the specified sections and broadcast the updated project."""
         self.add_new_history_entry()
@@ -918,7 +982,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["calledBy"]}
+        )
+    )
     async def delete_child_sections_via_decrementer(
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
@@ -929,7 +997,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
+        )
+    )
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
         """Overwrite the configuration dict for a parameter implementation."""
         self.add_new_history_entry()
@@ -938,7 +1010,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
         """Duplicate the current section state into an additional variant."""
         self.add_new_history_entry()
@@ -947,7 +1023,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def add_kwarg(self, x: AddKwargRequest):
         """Append a blank keyword argument entry to the section."""
         self.add_new_history_entry()
@@ -956,7 +1036,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
         self.add_new_history_entry()
@@ -1311,7 +1395,11 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
     async def set_section_name(self, x: SetSectionNameRequest):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)

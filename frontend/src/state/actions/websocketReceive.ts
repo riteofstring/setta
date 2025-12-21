@@ -38,8 +38,11 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
 } from "./ai";
-import { receiveAIFollowUpdate, requestAIFollowSnapshot } from "./aiFollow";
-import { receiveAIFollowToolResultUpdate } from "./aiFollowToolResult";
+import {
+  receiveAIFollowToolArgumentsUpdate,
+  requestAIFollowSnapshot,
+} from "./aiFollow";
+import { receiveAIFollowToolResultUpdate } from "./aiFollow";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -154,8 +157,8 @@ function receiveMessage(message: string) {
       return receiveLLMApiKeysUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.BackendLogEvent:
       return addBackendLogEvent(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AIFollowUpdate:
-      return receiveAIFollowUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.AIFollowToolArgumentsUpdate:
+      return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
     default:

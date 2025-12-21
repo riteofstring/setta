@@ -25,6 +25,7 @@ from setta.logging.tasks import spawn_background_task
 from setta.mcp.tool_metadata import (
     SettaToolAnnotations,
     SettaToolType,
+    get_ai_follow_tool_arguments,
     get_ai_follow_tool_result,
 )
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
@@ -106,11 +107,13 @@ class SettaFastMCP(FastMCP):
         self, fn: Callable[..., Any], tool_type: SettaToolType
     ) -> None:
         # Re-validate against the base class so Pydantic preserves custom fields
+        ai_follow_tool_arguments = get_ai_follow_tool_arguments(fn)
         ai_follow_tool_result = get_ai_follow_tool_result(fn)
         annotations = ToolAnnotations.model_validate(
             SettaToolAnnotations(
                 settaToolType=tool_type,
                 aiFollowToolResult=ai_follow_tool_result,
+                aiFollowToolArguments=ai_follow_tool_arguments,
             ).model_dump()
         )
         self.add_tool(

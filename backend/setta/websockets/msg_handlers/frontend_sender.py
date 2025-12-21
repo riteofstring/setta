@@ -6,6 +6,7 @@ from typing import Literal
 from setta.logging.context import LoggingContextInput, logging_context
 from setta.logging.errors import log_failure
 from setta.logging.levels import parse_log_level
+from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
@@ -35,11 +36,11 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
+    AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
-    AIFollowUpdateContent,
     WebsocketConnectionType,
+    WebsocketMsgAIFollowToolArgumentsUpdate,
     WebsocketMsgAIFollowToolResultUpdate,
-    WebsocketMsgAIFollowUpdate,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgBackendLogEvent,
     WebsocketMsgListenerCoverageSnapshot,
@@ -268,18 +269,18 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_ai_follow_update(
+    async def broadcast_ai_follow_tool_arguments_update(
         self,
         projectConfigId: ID,
         chatId: ID,
-        sectionIds: list[ID],
+        idsByType: dict[FollowIdType, list[ID]],
     ):
         await self.websocket_manager.broadcast(
-            WebsocketMsgAIFollowUpdate(
-                content=AIFollowUpdateContent(
+            WebsocketMsgAIFollowToolArgumentsUpdate(
+                content=AIFollowToolArgumentsUpdateContent(
                     projectConfigId=projectConfigId,
                     chatId=chatId,
-                    sectionIds=sectionIds,
+                    idsByType=idsByType,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,
@@ -289,7 +290,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         self,
         projectConfigId: ID,
         chatId: ID,
-        idsByType: dict[str, list[ID]],
+        idsByType: dict[FollowIdType, list[ID]],
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgAIFollowToolResultUpdate(
