@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
-    GEN_CODE_INSTANCE_NAME,
+    SELF_IDENTIFIER,
     create_unique_name,
     sanitize_name,
 )
@@ -41,6 +41,8 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
     DrawSectionImpl,
+    MetaControlSectionImpl,
+    MetaControlType,
     SectionType,
     TextBlockSectionImpl,
 )
@@ -65,6 +67,8 @@ class Node(ABC):
 
 @dataclass
 class SectionNode(Node):
+    meta_control_type: MetaControlType | None = None
+
     @property
     def has_name_and_value(self) -> bool:
         return True
@@ -115,6 +119,7 @@ class DependencyGraph:
             SectionType.GlobalVariables: self._export_global_variables_section,
             SectionType.TextBlock: self._export_text_block_section,
             SectionType.Draw: self._export_draw_section,
+            SectionType.MetaControl: self._export_meta_control_section,
         }
         self.construct_graph(p)
 
@@ -270,11 +275,27 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
+    def _export_meta_control_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, MetaControlSectionImpl):
+            return
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(section_impl.metaControlValue),
+            meta_control_type=section_impl.metaControlType,
+            deps={},
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: ID):
         callable = get_curr_section_callable_code_obj(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(
-                callable.name, GEN_CODE_INSTANCE_NAME, keep_attr_only=True
+                callable.name, SELF_IDENTIFIER, keep_attr_only=True
             )
             return callable.name, potential_refs
         return None, None
@@ -317,7 +338,7 @@ class DependencyGraph:
                     raw_value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
-                    raw_value, GEN_CODE_INSTANCE_NAME, keep_attr_only=True
+                    raw_value, SELF_IDENTIFIER, keep_attr_only=True
                 )
                 if potential_refs:
                     self.nodes_with_potential_refs[dep_key] = potential_refs
