@@ -35,10 +35,8 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
-    AIFollowToolResultUpdateContent,
     AIFollowUpdateContent,
     WebsocketConnectionType,
-    WebsocketMsgAIFollowToolResultUpdate,
     WebsocketMsgAIFollowUpdate,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgBackendLogEvent,
@@ -280,23 +278,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     projectConfigId=projectConfigId,
                     chatId=chatId,
                     sectionIds=sectionIds,
-                )
-            ),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_ai_follow_tool_result_update(
-        self,
-        projectConfigId: ID,
-        chatId: ID,
-        idsByType: dict[str, list[ID]],
-    ):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgAIFollowToolResultUpdate(
-                content=AIFollowToolResultUpdateContent(
-                    projectConfigId=projectConfigId,
-                    chatId=chatId,
-                    idsByType=idsByType,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,

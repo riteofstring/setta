@@ -10,6 +10,7 @@ import {
 import {
   PendingOperation,
   useAllProjectMetadata,
+  useMetaControls,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
@@ -460,7 +461,38 @@ export function createNodesMapFromProjectConfigChildren(
     });
   }
 
+  addMetaControlNodes(nodesMap, nodes);
+
   return nodesMap;
+}
+
+function addMetaControlNodes(
+  nodesMap: Map<string, Node>,
+  existingNodes: ZustandNodeInternalsState["x"],
+) {
+  const controls = useMetaControls.getState().controls;
+  const baseZIndex = nodesMap.size;
+
+  for (let i = 0; i < controls.length; i += 1) {
+    const control = controls[i];
+    if (nodesMap.has(control.id)) {
+      continue;
+    }
+
+    const existing = existingNodes.get(control.id);
+    const position = existing?.position ?? control.position;
+    const zIndex = existing?.zIndex ?? baseZIndex + i + 1;
+    const tempZIndex = existing?.tempZIndex ?? zIndex;
+
+    nodesMap.set(control.id, {
+      id: control.id,
+      position,
+      width: existing?.width ?? null,
+      height: existing?.height ?? null,
+      zIndex,
+      tempZIndex,
+    });
+  }
 }
 
 export function setSectionChildren(

@@ -9,6 +9,9 @@
     hsl(219, 24%, 89%),
     hsl(219, 25%, 77%)
   );
+  --setta-callable-ready-from: #f59e0b;
+  --setta-callable-ready-to: #3b82f6;
+  --setta-callable-ready-glow: rgba(59, 130, 246, 0.35);
 }
 
 html.dark {
@@ -18,6 +21,9 @@ html.dark {
     hsl(220, 24%, 4.5%),
     hsl(220, 25%, 3%)
   );
+  --setta-callable-ready-from: #92400e;
+  --setta-callable-ready-to: #60a5fa;
+  --setta-callable-ready-glow: rgba(96, 165, 250, 0.35);
 }
 
 .app-shell {
@@ -552,6 +558,63 @@ input[type="color" i] {
 
 @media (prefers-reduced-motion: reduce) {
   .setta-ai-gradient-border-active::before {
+    animation: none;
+  }
+}
+
+.section-search .setta-callable-ready {
+  border-color: var(--setta-callable-ready-from);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.section-search:not(:focus-within) .setta-callable-ready {
+  border-color: var(--setta-callable-ready-from) !important;
+  box-shadow: 0 0 0 0 transparent !important;
+}
+
+.section-search:focus-within .setta-callable-ready {
+  animation: setta-callable-ready-border 1.4s ease-in-out infinite;
+}
+
+.section-search .setta-callable-ready-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--setta-callable-ready-from);
+}
+
+.section-search:focus-within .setta-callable-ready-icon {
+  animation: setta-callable-ready-icon 1.4s ease-in-out infinite;
+}
+
+@keyframes setta-callable-ready-border {
+  0%,
+  100% {
+    border-color: var(--setta-callable-ready-from);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    border-color: var(--setta-callable-ready-to);
+    box-shadow: 0 0 0 1px var(--setta-callable-ready-glow);
+  }
+}
+
+@keyframes setta-callable-ready-icon {
+  0%,
+  100% {
+    color: var(--setta-callable-ready-from);
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    color: var(--setta-callable-ready-to);
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-search:focus-within .setta-callable-ready,
+  .section-search:focus-within .setta-callable-ready-icon {
     animation: none;
   }
 }

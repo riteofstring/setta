@@ -95,6 +95,10 @@ function SectionSearchCore({
     null,
   );
   const shouldResetValueOnBlur = useRef(false);
+  const waitingForResult = useTextFieldWaitingForLSPResult({
+    sectionId,
+    paramInfoId: null,
+  });
 
   const debouncedSetValueNameInconsistent = useCallback(
     _.debounce((isInconsistent: boolean) => {
@@ -145,6 +149,7 @@ function SectionSearchCore({
   function onTab(value: string, completionResult: boolean) {
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
+      clearApplyIndicator();
       onEnter(value);
     }
   }
@@ -154,30 +159,34 @@ function SectionSearchCore({
     setValueAndCheckConsistency(value);
   }
 
-  function _onEnter(value: string) {
-    onEnter(value);
-  }
-
-  function _onShiftEnter(value: string) {
-    onShiftEnter(value);
+  function clearApplyIndicator() {
+    debouncedSetValueNameInconsistent.cancel();
+    setValueNameInconsistent(false);
   }
 
   const keyComboActions = {
-    Enter: _onEnter,
-    "Alt-Enter": _onShiftEnter,
+    Enter: (value: string) => {
+      clearApplyIndicator();
+      onEnter(value);
+    },
+    "Alt-Enter": (value: string) => {
+      clearApplyIndicator();
+      onShiftEnter(value);
+    },
   };
 
   // TODO: Shouldn't use important for this, but ok for now. FIX.
   const valueNameInconsistentStyle = valueNameInconsistent
-    ? "!border-amber-500 dark:!border-amber-800"
+    ? "setta-callable-ready"
     : "";
+  const showRightIndicator = valueNameInconsistent || waitingForResult;
 
   const displayedCallableName =
     draftCallableName !== null ? draftCallableName : codeInfoName;
 
   return (
     <search
-      className="section-search single-cell-container w-full"
+      className="section-search single-cell-container relative w-full"
       {...getFloatingBoxHandlers({ title: codeInfoName, content: description })}
     >
       <TextInputCodeMirror
@@ -196,21 +205,23 @@ function SectionSearchCore({
         language={configLanguage}
         isDisabled={isDisabled}
       />
-      <LoadingSpinner sectionId={sectionId} />
+      {showRightIndicator && (
+        <div className="single-cell-child pointer-events-none mr-2 flex items-center justify-self-end self-center">
+          <span className="relative grid h-[22px] w-[22px] place-items-center">
+            {valueNameInconsistent && (
+              <span className="setta-callable-ready-icon">
+                <i className="gg-corner-right-down" />
+              </span>
+            )}
+            {waitingForResult && (
+              <span className="absolute inset-0 grid place-items-center rounded bg-white dark:bg-setta-950">
+                <i className="gg-spinner text-blue-500/70" />
+              </span>
+            )}
+          </span>
+        </div>
+      )}
     </search>
-  );
-}
-
-function LoadingSpinner({ sectionId }) {
-  const waitingForResult = useTextFieldWaitingForLSPResult({
-    sectionId,
-    paramInfoId: null,
-  });
-  // const waitingForResult = true;
-  return (
-    waitingForResult && (
-      <i className="single-cell-child gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
-    )
   );
 }
 

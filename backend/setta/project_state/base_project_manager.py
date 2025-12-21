@@ -33,7 +33,7 @@ from setta.file_watchers.specific_file_watcher import (
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPWriters
-from setta.mcp.tool_metadata import AIFollowToolResultMetadata, SettaToolType
+from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import (
@@ -837,13 +837,7 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_result=AIFollowToolResultMetadata(
-            pathsByIdType={
-                "section": ["$"],
-            },
-        )
-    )
+    @project_state_tool()
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
         """Create a root-level section for the requested implementation.
 

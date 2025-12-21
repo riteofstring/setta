@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.server import SettaFastMCP
-from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
+from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tools.tool_search import search_and_unlock_mcp_tools
 from setta.types.chat_messages import (
     MessageTextContent,
@@ -59,18 +59,12 @@ class _StubMCPClient:
         self._tools = {tool.name: tool for tool in mcp_server.list_registered_tools()}
         self.init_tool_definitions: dict[str, dict] = {}
         self.discoverable_tool_definitions: dict[str, dict] = {}
-        self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
         self._populate_tool_definitions()
 
     def _populate_tool_definitions(self):
         for tool in self._tools.values():
             tool_annotations = getattr(tool, "annotations", None)
-            if tool_annotations is None:
-                raise ValueError(f"MCP tool {tool.name} is missing annotations")
-            annotations = SettaToolAnnotations.model_validate(
-                tool_annotations.model_dump()
-            )
-            tool_type = annotations.settaToolType
+            tool_type = getattr(tool_annotations, "settaToolType", None)
             definition = {
                 "type": "function",
                 "function": {
@@ -83,7 +77,6 @@ class _StubMCPClient:
                 self.init_tool_definitions[tool.name] = definition
             elif tool_type == SettaToolType.discoverable:
                 self.discoverable_tool_definitions[tool.name] = definition
-            self.tool_annotations_by_name[tool.name] = annotations
 
     async def call_tool(self, tool_name: str, arguments: dict):
         tool = self._tools[tool_name]
