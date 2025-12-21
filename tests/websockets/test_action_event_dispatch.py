@@ -3,10 +3,13 @@ import unittest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
+from setta.types.dependency_key import create_dep_key
+from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import (
     ListenerDependencyMode,
     ListenerRegisterCallback,
+    ListenerRealtimeDelta,
     MetaControlActionEvent,
 )
 from setta.types.section_impls import MetaControlType
@@ -14,12 +17,14 @@ from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
     WebsocketMsgListenerActionEvent,
+    WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -66,6 +71,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.sender = WMHPythonScriptSender(
             self.websocket_manager, self.listener_registry
         )
+        self.event_hub = RealtimeEventHub(self.sender)
         self.project_config_id = ID("proj-actions")
         self._messages_by_socket: dict[str, list[Message]] = {}
         self._websockets: dict[str, WebSocket] = {}
@@ -186,6 +192,113 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(parsed_wildcard, WebsocketMsgListenerActionEvent)
         self.assertEqual(self.project_config_id, parsed_wildcard.content.projectConfigId)
         self.assertEqual(3, parsed_wildcard.content.sequence)
+
+    async def test_emit_action_event_increments_sequence(self) -> None:
+        self.listener_registry.upsert_registration(
+            websocket_id="socket-wildcard",
+            project_config_id=self.project_config_id,
+            callbacks={
+                "cb-wildcard": ListenerRegisterCallback(
+                    dependencies=[],
+                    dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
+                    actions=[],
+                )
+            },
+        )
+
+        action_event = MetaControlActionEvent(
+            controlName="Run",
+            actionId="inspect_state",
+            metaControlType=MetaControlType.button,
+            payload=None,
+            timestampMs=123,
+        )
+
+        await self.event_hub.emit_action_event(
+            project_config_id=self.project_config_id,
+            action_events=[action_event],
+        )
+        await self.event_hub.emit_action_event(
+            project_config_id=self.project_config_id,
+            action_events=[action_event],
+        )
+
+        wildcard_messages = _sent_text_messages(
+            self._messages_by_socket["socket-wildcard"]
+        )
+        self.assertEqual(2, len(wildcard_messages))
+
+        parsed_first = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            wildcard_messages[0]
+        )
+        parsed_second = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            wildcard_messages[1]
+        )
+        self.assertIsInstance(parsed_first, WebsocketMsgListenerActionEvent)
+        self.assertIsInstance(parsed_second, WebsocketMsgListenerActionEvent)
+        self.assertEqual(1, parsed_first.content.sequence)
+        self.assertEqual(2, parsed_second.content.sequence)
+
+    async def test_emit_action_event_shares_sequence_with_realtime_delta(self) -> None:
+        dependency = create_dep_key(
+            sectionId=ID("section-a"),
+            codeObjId=ID("param-a"),
+        )
+        self.listener_registry.upsert_registration(
+            websocket_id="socket-specific",
+            project_config_id=self.project_config_id,
+            callbacks={
+                "cb-specific": ListenerRegisterCallback(
+                    dependencies=[dependency],
+                    dependencyMode=ListenerDependencyMode.SPECIFIC,
+                    actions=["inspect_state"],
+                )
+            },
+        )
+
+        delta = ListenerRealtimeDelta(
+            dependency=dependency,
+            value=LiteralDependencyValue("value-1"),
+        )
+        await self.event_hub.emit_realtime_delta(
+            project_config_id=self.project_config_id,
+            deltas=[delta],
+        )
+
+        action_event = MetaControlActionEvent(
+            controlName="Run",
+            actionId="inspect_state",
+            metaControlType=MetaControlType.button,
+            payload=None,
+            timestampMs=321,
+        )
+        await self.event_hub.emit_action_event(
+            project_config_id=self.project_config_id,
+            action_events=[action_event],
+        )
+
+        specific_messages = _sent_text_messages(
+            self._messages_by_socket["socket-specific"]
+        )
+        self.assertEqual(2, len(specific_messages))
+
+        parsed_delta = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            specific_messages[0]
+        )
+        parsed_action = PythonScriptWebsocketMsgTypeAdapter.validate_json(
+            specific_messages[1]
+        )
+        self.assertIsInstance(parsed_delta, WebsocketMsgListenerRealtimeEvent)
+        self.assertIsInstance(parsed_action, WebsocketMsgListenerActionEvent)
+        self.assertEqual(1, parsed_delta.content.sequence)
+        self.assertEqual(2, parsed_action.content.sequence)
+
+    async def test_emit_action_event_rejects_empty_payload(self) -> None:
+        with self.assertRaises(ValueError):
+            await self.event_hub.emit_action_event(
+                project_config_id=self.project_config_id,
+                action_events=[],
+            )
 
 
 if __name__ == "__main__":  # pragma: no cover

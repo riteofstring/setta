@@ -68,11 +68,12 @@ async def on_change(s, ctx):
    - Keep `emit_to_frontend` as a convenience helper. (done)
    - Keep non-backward compatible changes; allow breakage during refactor. (done)
 
-4) Regenerate and test (pending)
-   - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates.
+4) Regenerate and test (done)
+   - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates. (done)
    - Regenerate websocket unions + listener endpoint stubs. (done)
    - Add backend tests for action dispatch + typed project manager calls. (done)
    - Add tests for router endpoint call allowlist + serialization of results/errors. (done)
+   - Run `source activate.sh && python -m unittest discover`. (done)
 
 ## Notes
 - Action events are transient by design; they should never be written into project state.
