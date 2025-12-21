@@ -107,6 +107,9 @@ export function useParamColumnWidth({
   useEffect(() => {
     return useProjectState.subscribe(
       (state) => {
+        if (!(sectionId in state.sections)) {
+          return null;
+        }
         const impl = getCurrEffectiveSectionImplWithTypeGuard(
           state,
           sectionId,
