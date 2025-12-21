@@ -1548,40 +1548,18 @@ class LLMChatManager:
             return None
         return {id_type: list(ids) for id_type, ids in combined.items()}
 
-    def _extract_ai_follow_ids_by_type(
-        self, arguments: dict[str, Any]
-    ) -> dict[FollowIdType, list[ID]] | None:
-        ids_by_type: dict[FollowIdType, list[ID]] = {}
-        if "sectionIds" in arguments:
-            section_ids = self._coerce_id_list(arguments["sectionIds"])
-            if section_ids is not None:
-                ids_by_type["section"] = section_ids
-        elif "sectionId" in arguments:
-            section_ids = self._coerce_id_list(arguments["sectionId"])
-            if section_ids is not None:
-                ids_by_type["section"] = section_ids
-        if "codeObjIds" in arguments:
-            code_obj_ids = self._coerce_id_list(arguments["codeObjIds"])
-            if code_obj_ids is not None:
-                ids_by_type["codeObj"] = code_obj_ids
-        elif "codeObjId" in arguments:
-            code_obj_ids = self._coerce_id_list(arguments["codeObjId"])
-            if code_obj_ids is not None:
-                ids_by_type["codeObj"] = code_obj_ids
-        return ids_by_type or None
-
     def _extract_ai_follow_ids_by_type_for_tool(
         self,
         tool_name: str,
         arguments: dict[str, Any],
     ) -> dict[FollowIdType, list[ID]] | None:
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
-        if annotations and annotations.aiFollowToolArguments:
-            return self._extract_ai_follow_tool_argument_ids(
-                arguments,
-                annotations.aiFollowToolArguments,
-            )
-        return self._extract_ai_follow_ids_by_type(arguments)
+        if not annotations or not annotations.aiFollowToolArguments:
+            return None
+        return self._extract_ai_follow_tool_argument_ids(
+            arguments,
+            annotations.aiFollowToolArguments,
+        )
 
     def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
         if isinstance(raw_value, list):
