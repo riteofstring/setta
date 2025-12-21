@@ -26,6 +26,7 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
+    Visibility,
 )
 
 
@@ -94,3 +95,4 @@ class SharedModifier(TypedDict):
     url: NotRequired[str]
     value: NotRequired[str]
     viewMode: NotRequired[BrowserAreaViewMode]
+    visibility: NotRequired[Visibility]

@@ -1,18 +1,15 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import {
-  getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getSectionCore,
-  getSectionShouldRender,
 } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import {
+  BaseSectionImplUnion,
+  Core,
   isBaseParentSectionImpl,
-  type BaseSectionImplUnion,
-  type Core,
-  type ViewModeConfig,
 } from "utils/generatedTypes";
 import { ProjectName } from "./ProjectName";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
@@ -63,20 +60,10 @@ function ProjectOverviewCore({
 export function useOverviewListing() {
   return useProjectState((x) => {
     const outputList: Array<OverviewListingType> = [];
-    const viewMode = getActiveViewModeConfig(x);
-    const { isEditingViewMode } = x.projectConfig;
     for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
-      getDepthListingHelper(
-        sectionCore,
-        sectionImpl,
-        0,
-        x,
-        viewMode,
-        isEditingViewMode,
-        outputList,
-      );
+      getDepthListingHelper(sectionCore, sectionImpl, 0, x, outputList);
     }
     return outputList;
   }, _.isEqual);
@@ -87,25 +74,14 @@ function getDepthListingHelper(
   sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,
-  viewMode: ViewModeConfig,
-  isEditingViewMode: boolean,
   outputList: Array<OverviewListingType>,
 ) {
-  const visibility = viewMode.visibilityBySectionId[section.id];
-  if (visibility === undefined) {
-    throw new Error(
-      `Missing visibility for section ${section.id} in view mode ${viewMode.id}`,
-    );
-  }
-  const shouldRender = getSectionShouldRender(visibility, isEditingViewMode);
-  if (!shouldRender) {
-    return;
-  }
-  outputList.push({
-    id: section.id,
-    name: section.name,
-    depth: depth,
-  });
+  if (sectionImpl.visibility[x.projectConfig.viewingEditingMode])
+    outputList.push({
+      id: section.id,
+      name: section.name,
+      depth: depth,
+    });
 
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of sectionImpl.children) {
@@ -117,8 +93,6 @@ function getDepthListingHelper(
           childSectionImpl,
           depth + 1,
           x,
-          viewMode,
-          isEditingViewMode,
           outputList,
         );
       }

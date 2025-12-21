@@ -23,11 +23,13 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
+    Visibility,
 )
 
 
 class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     isFrozen: bool = False
+    visibility: Visibility = Field(default_factory=Visibility)
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool | float = False
     isMinimized: bool = False

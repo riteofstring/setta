@@ -106,6 +106,7 @@ from setta.types.artifact import LineChartSettings, ScatterChartSettings
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
     SectionSize,
+    Visibility,
     CodeLanguage,
     ConfigLanguage,
     TextBlockDisplayMode,
@@ -123,7 +124,7 @@ from setta.types.code_obj_impls import (
     ColorPickerChoice,
     CodeObjType
 )
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode
 from setta.types.generated.shared_modifier import SharedModifier
 
 """

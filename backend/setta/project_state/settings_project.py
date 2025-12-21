@@ -18,11 +18,7 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers_lvl2 import is_color_hex
 from setta.types.id import ID
-from setta.types.project_config import (
-    ProjectConfig,
-    TopLevelSectionLayout,
-    ViewModeConfig,
-)
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -199,10 +195,6 @@ def create_settings_project_state(settings_path: Path):
         sectionVariantMap=sectionVariantMap,
         viewport=None,
     )
-    visibility_by_section_id = {section_id: True for section_id in sections.keys()}
-    view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
-    projectConfig.viewModes[view_mode.id] = view_mode
-    projectConfig.activeViewModeId = view_mode.id
 
     return ProjectStateSingleConfig(
         projectConfig=projectConfig,
