@@ -1,4 +1,4 @@
-import { MetaControlContent } from "components/MetaControls/MetaControlNode";
+import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import React from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
