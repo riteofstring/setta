@@ -3,6 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from setta.mcp.tool_metadata import (
+    ToolArgumentPreviewIdType,
+    ToolArgumentPreviewKind,
+)
 from setta.types.chat_messages import ToolChatMessage
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnionWithDiscriminator,
@@ -14,6 +18,7 @@ class StreamingEventType(str, Enum):
     MESSAGE_START = "message_start"
     DELTA = "delta"
     TOOL_CALL_DELTA = "tool_call_delta"
+    TOOL_ARGUMENT_PREVIEW_DELTA = "tool_argument_preview_delta"
     TOOL_RESULT = "tool_result"
     MESSAGE_STOP = "message_stop"
     MESSAGE_FINALIZED = "message_finalized"
@@ -61,6 +66,19 @@ class ToolResultEvent(BaseModel):
     result: ToolChatMessage
 
 
+class ToolArgumentPreviewDeltaEvent(BaseModel):
+    type: Literal[StreamingEventType.TOOL_ARGUMENT_PREVIEW_DELTA] = (
+        StreamingEventType.TOOL_ARGUMENT_PREVIEW_DELTA
+    )
+    message_id: str
+    tool_call_id: str
+    tool_name: str
+    arguments_delta: str
+    preview_kind: ToolArgumentPreviewKind
+    target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]]
+    preview_value_delta: str
+
+
 class MessageStopEvent(BaseModel):
     type: Literal[StreamingEventType.MESSAGE_STOP] = StreamingEventType.MESSAGE_STOP
     message_id: str
@@ -78,6 +96,7 @@ LLMStreamingResponseChunk = (
     | MessageDeltaEvent
     | ToolCallDeltaEvent
     | ToolResultEvent
+    | ToolArgumentPreviewDeltaEvent
     | MessageStopEvent
     | MessageFinalizedEvent
 )

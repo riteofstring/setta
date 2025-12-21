@@ -46,7 +46,5 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <IframeSettings sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
       return <ChatAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.MetaControl:
-      return null;
   }
 }

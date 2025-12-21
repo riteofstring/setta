@@ -13,6 +13,7 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
+  useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
@@ -34,11 +35,13 @@ import {
   CodeObjType,
   Core,
   ImplArgsBundleMap,
+  isBaseChildlessCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
+  SectionTypeEnum,
   Variant,
   Viewport,
 } from "utils/generatedTypes";
@@ -424,6 +427,77 @@ export function processProjectStateUpdateFromBackend(
 
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
+  clearToolArgumentPreviewForProjectState(
+    projectConfigId,
+    useProjectState.getState(),
+  );
+}
+
+function clearToolArgumentPreviewForProjectState(
+  projectConfigId: string,
+  projectState: ZustandProjectState,
+) {
+  useToolArgumentPreview.setState((state) => {
+    const previewState = state.byProjectConfigId[projectConfigId];
+    if (!previewState) {
+      return;
+    }
+    for (const [sectionId, entry] of Object.entries(
+      previewState.previewCodeBySectionId,
+    )) {
+      const impl = getCurrEffectiveSectionImplOfType(
+        projectState,
+        sectionId,
+        SectionTypeEnum.Code,
+      );
+      if (impl.code === entry.value) {
+        delete previewState.previewCodeBySectionId[sectionId];
+      }
+    }
+    for (const [sectionId, entry] of Object.entries(
+      previewState.previewCallableNameBySectionId,
+    )) {
+      const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+        projectState,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const { callable } = sectionImpl;
+      let canonicalName = "";
+      if (callable) {
+        const codeObj = getCodeObjCore(projectState, callable);
+        canonicalName = codeObj.name;
+      }
+      if (canonicalName === entry.value) {
+        delete previewState.previewCallableNameBySectionId[sectionId];
+      }
+    }
+    for (const [sectionId, paramEntries] of Object.entries(
+      previewState.previewParamValueBySectionAndParamId,
+    )) {
+      for (const [paramInfoId, entry] of Object.entries(paramEntries)) {
+        const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+          projectState,
+          sectionId,
+          paramInfoId,
+          isBaseChildlessCodeObjImpl,
+        );
+        if (impl.value === entry.value) {
+          delete paramEntries[paramInfoId];
+        }
+      }
+      if (Object.keys(paramEntries).length === 0) {
+        delete previewState.previewParamValueBySectionAndParamId[sectionId];
+      }
+    }
+    if (
+      Object.keys(previewState.previewCodeBySectionId).length === 0 &&
+      Object.keys(previewState.previewCallableNameBySectionId).length === 0 &&
+      Object.keys(previewState.previewParamValueBySectionAndParamId).length === 0
+    ) {
+      delete state.byProjectConfigId[projectConfigId];
+    }
+  });
 }
 
 function updateProjectState({

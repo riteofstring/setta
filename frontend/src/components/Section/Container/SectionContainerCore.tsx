@@ -45,7 +45,6 @@ function _SectionContainerCore({
     : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
-  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
 
   // const boxShadow = !positionAndSizeLocked
   //   ? isActiveSection
@@ -63,22 +62,12 @@ function _SectionContainerCore({
     isInOtherProjectConfigs,
     // jsonSourceMissing,
   });
-  const containerBgClass = isMetaControl
-    ? "bg-transparent dark:bg-transparent"
-    : "bg-white dark:bg-setta-925";
-  const containerBorderClass = isMetaControl
-    ? "!border-transparent dark:!border-transparent"
-    : "";
-  const outlineClassName = isMetaControl
-    ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
-    : outlineColor;
-  const outlineSizeClassName = isMetaControl ? "outline-2" : "outline-4";
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} $  dndline  w-min border bg-white outline outline-4 dark:bg-setta-925 ${aiHighlightClassName} ${outlineColor}`}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >

@@ -42,23 +42,12 @@ class SettingsFile:
         logger.debug("Loading settings")
         paths = self.get_settings_paths()
         path_set = set(paths.values())
-        contents: dict[Path, dict] = {}
+        contents = {}
         for p in path_set:
             contents[p] = self.dbe.read_json(p)
-        defaults = SettingsState().model_dump(mode="json")
         output = {}
-        paths_to_update: set[Path] = set()
         for settings_slice, path in paths.items():
-            slice_contents = contents[path]
-            if settings_slice in slice_contents:
-                output[settings_slice] = slice_contents[settings_slice]
-                continue
-            output[settings_slice] = defaults[settings_slice]
-            slice_contents[settings_slice] = defaults[settings_slice]
-            paths_to_update.add(path)
-
-        for path in paths_to_update:
-            self.dbe.write_json(path, contents[path])
+            output[settings_slice] = contents[path][settings_slice]
 
         self.settings = SettingsState.model_validate(output)
         return self.settings
