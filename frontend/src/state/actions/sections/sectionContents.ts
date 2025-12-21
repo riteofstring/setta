@@ -39,12 +39,10 @@ export function getAllVisibleParamsInSection(
   }
 
   const pinnedIds = Object.keys(shown.pinned.requiredParamIdsToPaths);
-  pinnedIds.reverse();
 
   let unpinnedIds: Array<string> = [];
   if (!impl.hideUnpinnedParams) {
     unpinnedIds = Object.keys(shown.unpinned.requiredParamIdsToPaths);
-    unpinnedIds.reverse();
   }
 
   return [...pinnedIds, ...unpinnedIds];
