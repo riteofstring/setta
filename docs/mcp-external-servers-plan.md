@@ -119,7 +119,7 @@ Move aggregated search into the chat manager:
 - Consider masking secrets in logs.
 
 ## Scope and Phasing
-1) Add data models + config parsing + example file updates.
+1) Add data models + config parsing + example file updates. (done)
 2) Implement `MultiMCPClient` with SSE support (namespaced tool caches).
 3) Add stdio transport support.
 4) Integrate into `LLMChatManager` and replace the single client.
