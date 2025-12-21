@@ -12,6 +12,7 @@ import {
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import _ from "lodash";
+import { hasSectionIdForChat } from "state/aiFollowUtils";
 import {
   useAIFollow,
   useAIStore,
@@ -124,50 +125,18 @@ export function useAiSectionHighlight(
   const activeChatId = useAIStore((state) => state.activeChatId);
   const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
     (state) => {
-      const getSectionIds = (
-        idsByType: Record<string, Array<string>> | undefined,
-      ): Array<string> => idsByType?.section ?? [];
-
-      let isAiWorkingOnSection = false;
-      const toolArgumentEntries =
-        state.toolArgumentsIdsByProjectConfigId[projectConfigId];
-      if (toolArgumentEntries) {
-        if (activeChatId) {
-          const activeSectionIds = getSectionIds(
-            toolArgumentEntries[activeChatId],
-          );
-          isAiWorkingOnSection = activeSectionIds.includes(sectionId);
-        } else {
-          for (const idsByType of Object.values(toolArgumentEntries)) {
-            const sectionIds = getSectionIds(idsByType);
-            if (sectionIds.includes(sectionId)) {
-              isAiWorkingOnSection = true;
-              break;
-            }
-          }
-        }
-      }
-
-      let isToolResultHighlight = false;
-      const toolResultEntries =
-        state.toolResultIdsByProjectConfigId[projectConfigId];
-      if (toolResultEntries) {
-        if (activeChatId) {
-          const activeSectionIds = getSectionIds(
-            toolResultEntries[activeChatId],
-          );
-          isToolResultHighlight = activeSectionIds.includes(sectionId);
-        } else {
-          for (const sectionIdsByType of Object.values(toolResultEntries)) {
-            const sectionIds = getSectionIds(sectionIdsByType);
-            if (sectionIds.includes(sectionId)) {
-              isToolResultHighlight = true;
-              break;
-            }
-          }
-        }
-      }
-
+      const isAiWorkingOnSection = hasSectionIdForChat(
+        state.toolArgumentsIdsByProjectConfigId,
+        projectConfigId,
+        sectionId,
+        activeChatId,
+      );
+      const isToolResultHighlight = hasSectionIdForChat(
+        state.toolResultIdsByProjectConfigId,
+        projectConfigId,
+        sectionId,
+        activeChatId,
+      );
       return { isAiWorkingOnSection, isToolResultHighlight };
     },
     _.isEqual,

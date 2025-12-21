@@ -9,6 +9,11 @@ import {
 const TOOL_RESULT_HIGHLIGHT_TIMEOUT_MS = 2000;
 const toolResultTimeouts = new Map<string, number>();
 
+type AIFollowIdsByProjectConfig = Record<
+  string,
+  Record<string, Record<string, Array<string>>>
+>;
+
 function buildTimeoutKey(
   projectConfigId: string,
   chatId: string,
@@ -18,21 +23,67 @@ function buildTimeoutKey(
   return `${projectConfigId}:${chatId}:${idType}:${id}`;
 }
 
+function deleteChatEntry(
+  idsByProjectConfigId: AIFollowIdsByProjectConfig,
+  projectConfigId: string,
+  chatId: string,
+): void {
+  const projectEntries = idsByProjectConfigId[projectConfigId];
+  if (!projectEntries) {
+    return;
+  }
+  delete projectEntries[chatId];
+  if (Object.keys(projectEntries).length === 0) {
+    delete idsByProjectConfigId[projectConfigId];
+  }
+}
+
+function deleteIdEntry(
+  idsByProjectConfigId: AIFollowIdsByProjectConfig,
+  projectConfigId: string,
+  chatId: string,
+  idType: string,
+  id: string,
+): void {
+  const projectEntries = idsByProjectConfigId[projectConfigId];
+  if (!projectEntries) {
+    return;
+  }
+  const chatEntries = projectEntries[chatId];
+  if (!chatEntries) {
+    return;
+  }
+  const storedIds = chatEntries[idType];
+  if (!storedIds) {
+    return;
+  }
+  const nextIds = storedIds.filter((entry) => entry !== id);
+  if (nextIds.length > 0) {
+    chatEntries[idType] = nextIds;
+    return;
+  }
+  delete chatEntries[idType];
+  if (Object.keys(chatEntries).length === 0) {
+    deleteChatEntry(idsByProjectConfigId, projectConfigId, chatId);
+  }
+}
+
 export function receiveAIFollowToolArgumentsUpdate(
   payload: AIFollowToolArgumentsUpdateContent,
 ): void {
   const { projectConfigId, chatId, idsByType } = payload;
   useAIFollow.setState((state) => {
+    if (Object.keys(idsByType).length === 0) {
+      deleteChatEntry(
+        state.toolArgumentsIdsByProjectConfigId,
+        projectConfigId,
+        chatId,
+      );
+      return;
+    }
     const projectEntries =
       state.toolArgumentsIdsByProjectConfigId[projectConfigId] ??
       (state.toolArgumentsIdsByProjectConfigId[projectConfigId] = {});
-    if (Object.keys(idsByType).length === 0) {
-      delete projectEntries[chatId];
-      if (Object.keys(projectEntries).length === 0) {
-        delete state.toolArgumentsIdsByProjectConfigId[projectConfigId];
-      }
-      return;
-    }
     projectEntries[chatId] = idsByType;
   });
 }
@@ -70,31 +121,13 @@ export function receiveAIFollowToolResultUpdate(
 
       const timeoutId = window.setTimeout(() => {
         useAIFollow.setState((state) => {
-          const projectEntries =
-            state.toolResultIdsByProjectConfigId[projectConfigId];
-          if (!projectEntries) {
-            return;
-          }
-          const chatEntries = projectEntries[chatId];
-          if (!chatEntries) {
-            return;
-          }
-          const storedIds = chatEntries[idType];
-          if (!storedIds) {
-            return;
-          }
-          const nextIds = storedIds.filter((entry) => entry !== id);
-          if (nextIds.length > 0) {
-            chatEntries[idType] = nextIds;
-          } else {
-            delete chatEntries[idType];
-          }
-          if (Object.keys(chatEntries).length === 0) {
-            delete projectEntries[chatId];
-          }
-          if (Object.keys(projectEntries).length === 0) {
-            delete state.toolResultIdsByProjectConfigId[projectConfigId];
-          }
+          deleteIdEntry(
+            state.toolResultIdsByProjectConfigId,
+            projectConfigId,
+            chatId,
+            idType,
+            id,
+          );
         });
         toolResultTimeouts.delete(key);
       }, TOOL_RESULT_HIGHLIGHT_TIMEOUT_MS);

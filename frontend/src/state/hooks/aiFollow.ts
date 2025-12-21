@@ -7,6 +7,7 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getSectionIdsForChat } from "state/aiFollowUtils";
 import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
@@ -26,35 +27,27 @@ export function useAIFollowViewport(): void {
   );
   const { enabled, sectionIds, toolResultSectionIds } = useAIFollow(
     (state) => {
-      const getSectionIds = (
-        idsByType: Record<string, Array<string>> | undefined,
-      ): Array<string> => idsByType?.section ?? [];
-
-      const toolArgumentsEntries =
-        state.toolArgumentsIdsByProjectConfigId[projectConfigId];
-      const sectionIds = activeChatId
-        ? getSectionIds(toolArgumentsEntries?.[activeChatId])
-        : [];
-
-      const toolResultEntries =
-        state.toolResultIdsByProjectConfigId[projectConfigId];
-      const toolResultSectionIds = activeChatId
-        ? getSectionIds(toolResultEntries?.[activeChatId])
-        : [];
-
       return {
         enabled: state.enabled,
-        sectionIds,
-        toolResultSectionIds,
+        sectionIds: getSectionIdsForChat(
+          state.toolArgumentsIdsByProjectConfigId,
+          projectConfigId,
+          activeChatId,
+        ),
+        toolResultSectionIds: getSectionIdsForChat(
+          state.toolResultIdsByProjectConfigId,
+          projectConfigId,
+          activeChatId,
+        ),
       };
     },
     _.isEqual,
   );
-  const toolResultSectionIdsKey = toolResultSectionIds.join("|");
   const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] = useState<
     string[]
   >([]);
   const toolResultGroupTimeout = useRef<number | null>(null);
+  const toolResultSectionIdsKey = toolResultSectionIds.join("|");
 
   useEffect(() => {
     if (toolResultGroupTimeout.current !== null) {
@@ -75,11 +68,7 @@ export function useAIFollowViewport(): void {
         toolResultGroupTimeout.current = null;
       }
     };
-  }, [
-    activeChatId,
-    projectConfigId,
-    toolResultSectionIdsKey,
-  ]);
+  }, [activeChatId, projectConfigId, toolResultSectionIdsKey]);
 
   const combinedSectionIds = useMemo(() => {
     if (sectionIds.length === 0) {
