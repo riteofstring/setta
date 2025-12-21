@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable
 import mcp.types as types
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import Tool
 
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
@@ -27,15 +28,30 @@ class MCPServerClient:
         *,
         on_tools_updated: Callable[[], None] | None = None,
     ) -> None:
-        if config.transport != "sse":
+        self.server_id = server_id
+        self._transport = config.transport
+        self._url: str | None = None
+        self._headers: dict[str, str] = {}
+        self._command: str | None = None
+        self._args: list[str] = []
+        self._env: dict[str, str] = {}
+        self._cwd: str | None = None
+        if config.transport == "sse":
+            if not config.url:
+                raise ValueError(f"MCP server '{server_id}' requires a url")
+            self._url = config.url
+            self._headers = dict(config.headers)
+        elif config.transport == "stdio":
+            if not config.command:
+                raise ValueError(f"MCP server '{server_id}' requires a command")
+            self._command = config.command
+            self._args = list(config.args)
+            self._env = dict(config.env)
+            self._cwd = config.cwd
+        else:
             raise ValueError(
                 f"MCP server '{server_id}' uses unsupported transport '{config.transport}'"
             )
-        if not config.url:
-            raise ValueError(f"MCP server '{server_id}' requires a url")
-        self.server_id = server_id
-        self._url = config.url
-        self._headers = dict(config.headers)
         self._on_tools_updated = on_tools_updated
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
@@ -44,25 +60,38 @@ class MCPServerClient:
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
 
     async def connect_to_server(self, retry_delay: int = 1) -> None:
-        """Connect to the MCP server over SSE and maintain tool caches."""
+        """Connect to the MCP server and maintain tool caches."""
 
-        url = self._url
-        logger.info("Starting MCP client connection to %s (%s)", self.server_id, url)
+        target = self._url if self._transport == "sse" else self._command
+        logger.info(
+            "Starting MCP client connection to %s (%s)", self.server_id, target
+        )
 
         while True:
             try:
                 logger.info(
-                    "Attempting to connect to %s (%s)", self.server_id, url
+                    "Attempting to connect to %s (%s)", self.server_id, target
                 )
-                stdio_transport = await self.exit_stack.enter_async_context(
-                    sse_client(url=url, headers=self._headers or None)
-                )
-                self.read, self.write = stdio_transport
+                if self._transport == "sse":
+                    transport = await self.exit_stack.enter_async_context(
+                        sse_client(url=self._url, headers=self._headers or None)
+                    )
+                else:
+                    server_params = StdioServerParameters(
+                        command=self._command,
+                        args=list(self._args),
+                        env=self._env or None,
+                        cwd=self._cwd,
+                    )
+                    transport = await self.exit_stack.enter_async_context(
+                        stdio_client(server_params)
+                    )
+                self.read, self.write = transport
                 self.session = await self.exit_stack.enter_async_context(
                     ClientSession(self.read, self.write)
                 )
                 await self.session.initialize()
-                logger.info("Connected to %s (%s)", self.server_id, url)
+                logger.info("Connected to %s (%s)", self.server_id, target)
                 response = await self.session.list_tools()
                 self._update_tool_cache(list(response.tools))
                 if self._on_tools_updated:
