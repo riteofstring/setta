@@ -10,12 +10,12 @@ Make meta controls drive arbitrary UI behavior by routing their value changes th
 - Dependency graph and codegen exclude MetaControl sections.
 
 ## Plan (Minimal Integration, Listener-First)
-### 1) Persist meta control values in project state
+### 1) Persist meta control values in project state (done)
 - Add a `metaControlValue` field to `MetaControlSectionImpl` (string).
 - Store raw strings in state (no Python quoting).
 - Ensure it is persisted in project state, included in snapshots, and broadcast like other section impl fields.
 
-### 2) Export meta controls as dependencies
+### 2) Export meta controls as dependencies (done)
 - Update `DependencyGraph` to include `SectionType.MetaControl`.
 - Export a `SectionNode` with a literal value sourced from `metaControlValue`.
 - This enables listener deps like `@listener.listen(deps=["my_meta_control"])`.
