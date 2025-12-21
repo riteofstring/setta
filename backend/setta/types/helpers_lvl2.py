@@ -97,7 +97,6 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
-    MetaControlSectionImpl,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,

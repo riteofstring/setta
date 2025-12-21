@@ -143,9 +143,7 @@ class PythonValueCodec:
             )
         meta_control_type = node.meta_control_type
         if meta_control_type is None:
-            raise ValueError(
-                f"Missing meta control type for {node.full_path_name}"
-            )
+            raise ValueError(f"Missing meta control type for {node.full_path_name}")
         literal_value = node.value.payload
         if meta_control_type in (MetaControlType.slider, MetaControlType.rotary):
             return literal_value

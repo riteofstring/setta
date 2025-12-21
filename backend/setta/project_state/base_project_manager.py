@@ -509,6 +509,25 @@ class BaseProjectManager(ABC):
             return
         self._pending_ops_idle.set()
 
+    def _flush_code_files(
+        self, projectConfigId: ID
+    ) -> tuple[
+        ProjectGenPythonCode | None,
+        dict[ID, ProjectPythonCode | ProjectBashCode],
+    ]:
+        gen_code = self.gen_code.get(projectConfigId)
+        if gen_code is None:
+            return None, {}
+        gen_code.write_to_disk(gen_code.code)
+        code_entries = self.code_dict.get(projectConfigId, {})
+        for code_entry in code_entries.values():
+            code_entry.write_to_disk(code_entry.code)
+        return gen_code, code_entries
+
+    def _flush_code_files_for_all_configs(self) -> None:
+        for project_config_id in self.project_state_backend.projectConfigs.keys():
+            self._flush_code_files(project_config_id)
+
     @enqueue_method
     async def create_run_command(
         self,
@@ -516,13 +535,16 @@ class BaseProjectManager(ABC):
         sectionId: ID | None,
     ):
         async with self._project_state_lock.read_lock():
+            gen_code, code_entries = self._flush_code_files(projectConfigId)
+            if gen_code is None:
+                raise KeyError(
+                    f"Missing generated code for project config {projectConfigId}"
+                )
             target_folder = create_timestamped_folder(C.CODE_FOLDER)
-            gen_code = self.gen_code[projectConfigId]
             gen_code_path = gen_code.write_to_folder(target_folder)
 
-            code_dict = self.code_dict[projectConfigId]
             code_paths = {}
-            for sid, c in code_dict.items():
+            for sid, c in code_entries.items():
                 code_paths[sid] = c.write_to_folder(target_folder)
 
             if not sectionId:
@@ -531,7 +553,7 @@ class BaseProjectManager(ABC):
                 ].entryCodeBlockId
 
             if sectionId:
-                return code_dict[sectionId].get_run_command(code_paths[sectionId])
+                return code_entries[sectionId].get_run_command(code_paths[sectionId])
             return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
@@ -635,7 +657,9 @@ class BaseProjectManager(ABC):
                 dep_graph,
                 code_generator,
             )
-            await new_gen_code.update_file()
+            if not new_gen_code.binding.canonical_path.exists():
+                new_gen_code.write_to_disk(new_gen_code.code)
+            await new_gen_code.sync_lsp(new_gen_code.code)
             maybe_update_gen_python_code_section(
                 projectState, new_gen_code.generated_code
             )
@@ -657,7 +681,9 @@ class BaseProjectManager(ABC):
                     if not section_code:
                         continue
 
-                    await section_code.update_file()
+                    if not section_code.binding.canonical_path.exists():
+                        section_code.write_to_disk(section_code.code)
+                    await section_code.sync_lsp(section_code.code)
                     self.code_dict[projectConfigId][sectionId] = section_code
 
             self.project_state_backend = self.get_new_project_state_backend(
