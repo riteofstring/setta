@@ -1,9 +1,9 @@
-export type AIFollowIdsByProject = Record<
+type AIFollowIdsByProject = Record<
   string,
   Record<string, Record<string, Array<string>>>
 >;
 
-export function getSectionIdsFromIdsByType(
+function getSectionIdsFromIdsByType(
   idsByType: Record<string, Array<string>> | undefined,
 ): Array<string> {
   return idsByType?.section ?? [];

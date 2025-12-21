@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
+import { useEffect, useState } from "react";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
@@ -11,7 +12,6 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import _ from "lodash";
 import { hasSectionIdForChat } from "state/aiFollowUtils";
 import {
   useAIFollow,

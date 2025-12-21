@@ -25,27 +25,23 @@ export function useAIFollowViewport(): void {
     }),
     shallow,
   );
-  const { enabled, sectionIds, toolResultSectionIds } = useAIFollow(
-    (state) => {
-      return {
-        enabled: state.enabled,
-        sectionIds: getSectionIdsForChat(
-          state.toolArgumentsIdsByProjectConfigId,
-          projectConfigId,
-          activeChatId,
-        ),
-        toolResultSectionIds: getSectionIdsForChat(
-          state.toolResultIdsByProjectConfigId,
-          projectConfigId,
-          activeChatId,
-        ),
-      };
-    },
-    _.isEqual,
-  );
-  const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] = useState<
-    string[]
-  >([]);
+  const { enabled, sectionIds, toolResultSectionIds } = useAIFollow((state) => {
+    return {
+      enabled: state.enabled,
+      sectionIds: getSectionIdsForChat(
+        state.toolArgumentsIdsByProjectConfigId,
+        projectConfigId,
+        activeChatId,
+      ),
+      toolResultSectionIds: getSectionIdsForChat(
+        state.toolResultIdsByProjectConfigId,
+        projectConfigId,
+        activeChatId,
+      ),
+    };
+  }, _.isEqual);
+  const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] =
+    useState<string[]>([]);
   const toolResultGroupTimeout = useRef<number | null>(null);
   const toolResultSectionIdsKey = toolResultSectionIds.join("|");
 
@@ -77,9 +73,7 @@ export function useAIFollowViewport(): void {
     if (groupedToolResultSectionIds.length === 0) {
       return sectionIds;
     }
-    return Array.from(
-      new Set([...sectionIds, ...groupedToolResultSectionIds]),
-    );
+    return Array.from(new Set([...sectionIds, ...groupedToolResultSectionIds]));
   }, [sectionIds, groupedToolResultSectionIds]);
 
   const sectionIdsKey = useMemo(

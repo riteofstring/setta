@@ -40,9 +40,9 @@ import {
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
+  receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
-import { receiveAIFollowToolResultUpdate } from "./aiFollow";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,

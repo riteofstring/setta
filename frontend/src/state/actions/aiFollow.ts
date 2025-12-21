@@ -96,8 +96,7 @@ export function receiveAIFollowToolResultUpdate(
     const projectEntries =
       state.toolResultIdsByProjectConfigId[projectConfigId] ??
       (state.toolResultIdsByProjectConfigId[projectConfigId] = {});
-    const chatEntries =
-      projectEntries[chatId] ?? (projectEntries[chatId] = {});
+    const chatEntries = projectEntries[chatId] ?? (projectEntries[chatId] = {});
     for (const [idType, ids] of Object.entries(idsByType)) {
       if (!chatEntries[idType]) {
         chatEntries[idType] = [];
