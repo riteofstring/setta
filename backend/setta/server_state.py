@@ -13,6 +13,7 @@ from setta.llm.llm_chat_manager import LLMChatManager
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MCPClient
+from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
@@ -189,6 +190,7 @@ class SettaFastAPIState:
 
             self.init_status.record("Booting MCP and chat managers")
             await self._maybe_delay()
+            apply_fastmcp_preparse_patch()
             self.mcp_server = SettaFastMCP(
                 app,
                 self,

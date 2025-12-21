@@ -85,9 +85,16 @@ export const StreamingEventTypeEnum = {
   MESSAGE_START: "message_start",
   DELTA: "delta",
   TOOL_CALL_DELTA: "tool_call_delta",
+  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
   TOOL_RESULT: "tool_result",
   MESSAGE_STOP: "message_stop",
   MESSAGE_FINALIZED: "message_finalized",
+} as const;
+
+const ToolArgumentPreviewKindEnum = {
+  code: "code",
+  paramValue: "paramValue",
+  callableName: "callableName",
 } as const;
 
 export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
@@ -860,6 +867,26 @@ const ToolResultEventSchema = z.object({
 });
 
 export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
+
+const ToolArgumentPreviewDeltaEventSchema = z.object({
+  type: z
+    .literal("tool_argument_preview_delta")
+    .default(StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA),
+  message_id: z.string(),
+  tool_call_id: z.string(),
+  tool_name: z.string(),
+  arguments_delta: z.string(),
+  preview_kind: z.enum(ToolArgumentPreviewKindEnum),
+  target_ids_by_type: z.record(
+    z.literal(["section", "codeObj"]),
+    z.array(IDSchema),
+  ),
+  preview_value_delta: z.string(),
+});
+
+export type ToolArgumentPreviewDeltaEvent = z.infer<
+  typeof ToolArgumentPreviewDeltaEventSchema
+>;
 
 const MessageStopEventSchema = z.object({
   type: z.literal("message_stop").default(StreamingEventTypeEnum.MESSAGE_STOP),
@@ -2542,6 +2569,7 @@ const LLMStreamingResponseSchema = z.object({
     MessageDeltaEventSchema,
     ToolCallDeltaEventSchema,
     ToolResultEventSchema,
+    ToolArgumentPreviewDeltaEventSchema,
     MessageStopEventSchema,
     MessageFinalizedEventSchema,
   ]),

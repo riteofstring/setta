@@ -37,6 +37,8 @@ from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
     SettaToolType,
+    ToolArgumentPreviewKind,
+    ToolArgumentPreviewMetadata,
 )
 from setta.mcp.tools.project_state_registry import project_state_tool
 from setta.project_state.artifacts import Artifacts
@@ -687,7 +689,12 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        )
+        ),
+        tool_argument_preview=ToolArgumentPreviewMetadata(
+            targetIdPathsByType={"section": ["sectionId"]},
+            previewValuePath="callableName",
+            previewKind=ToolArgumentPreviewKind.callableName,
+        ),
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
@@ -746,7 +753,12 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
-        )
+        ),
+        tool_argument_preview=ToolArgumentPreviewMetadata(
+            targetIdPathsByType={"section": ["sectionId"], "codeObj": ["paramInfoId"]},
+            previewValuePath="value",
+            previewKind=ToolArgumentPreviewKind.paramValue,
+        ),
     )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
@@ -812,7 +824,12 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        )
+        ),
+        tool_argument_preview=ToolArgumentPreviewMetadata(
+            targetIdPathsByType={"section": ["sectionId"]},
+            previewValuePath="code",
+            previewKind=ToolArgumentPreviewKind.code,
+        ),
     )
     async def set_code(self, x: SetCodeRequest):
         """Persist inline code edits for the requested section if edits are allowed."""
