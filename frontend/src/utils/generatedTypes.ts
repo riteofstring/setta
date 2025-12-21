@@ -2740,7 +2740,7 @@ const ProjectConfigSchema = z.object({
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
   genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
+  genCodeSuffix: z.string().default("s = S()" as const),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
