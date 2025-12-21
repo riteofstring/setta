@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
@@ -11,7 +10,7 @@ import {
   getHighestAncestor,
 } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useAIFollow, useAIStore, useMisc, useProjectState } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -109,44 +108,4 @@ export function getOnSectionClick(sectionId, isActiveSection) {
 
 export function useHasTempNested(sectionId: string) {
   return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
-}
-
-export function useAiSectionHighlight(
-  sectionId: string,
-  projectConfigId: string,
-): boolean {
-  const activeChatId = useAIStore((state) => state.activeChatId);
-  const isAiWorkingOnSection = useAIFollow((state) => {
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    if (activeChatId) {
-      const activeSectionIds = projectEntries[activeChatId] ?? [];
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIds of Object.values(projectEntries)) {
-      if (sectionIds.includes(sectionId)) {
-        return true;
-      }
-    }
-    return false;
-  });
-  const [showAiHighlight, setShowAiHighlight] = useState(false);
-  useEffect(() => {
-    if (isAiWorkingOnSection) {
-      setShowAiHighlight(true);
-      return;
-    }
-    if (!showAiHighlight) {
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      setShowAiHighlight(false);
-    }, 650);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [isAiWorkingOnSection, showAiHighlight]);
-  return showAiHighlight;
 }

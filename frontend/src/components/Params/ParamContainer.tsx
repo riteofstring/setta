@@ -1,14 +1,14 @@
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import {
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSectionColumnWidth } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
 
@@ -42,10 +42,7 @@ function _ParamContainer({
     _.isEqual,
   );
 
-  const { childlessRef, childlessNameRef, parentRef } = useColumnWidth(
-    sectionId,
-    isNestedParam,
-  );
+  const columnWidth = "var(--param-column-width, 200px)";
 
   // TODO: fix quick hacky solution below. shouldn't use !important everywhere.
   const tooltipContentArray = maybeErrorMessage
@@ -68,12 +65,17 @@ function _ParamContainer({
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
         className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${bg} ${border} `}
+        style={{
+          gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        }}
         {...getFloatingBoxHandlers(...tooltipContentArray)}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-        ref={childlessRef}
       >
         {!isKwarg ? (
-          <div className="section-key overflow-hidden" ref={childlessNameRef}>
+          <div
+            className="section-key overflow-hidden"
+            style={{ width: columnWidth }}
+          >
             {children}
           </div>
         ) : (
@@ -93,7 +95,9 @@ function _ParamContainer({
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""}`}
       {...getFloatingBoxHandlers(...tooltipContentArray)}
-      ref={parentRef}
+      style={{
+        gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+      }}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">
@@ -110,32 +114,6 @@ function _ParamContainer({
 }
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
-
-function useColumnWidth(sectionId, isNestedParam) {
-  const childlessRef = useRef();
-  const childlessNameRef = useRef();
-  const parentRef = useRef();
-  useEffect(() => {
-    return useSectionColumnWidth.subscribe(
-      (state) => state[sectionId],
-      (columnWidth) => {
-        if (childlessRef.current) {
-          // Use a CSS calc() function to provide a fallback
-          childlessRef.current.style.gridTemplateColumns = `minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (parentRef.current) {
-          parentRef.current.style.gridTemplateColumns = `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}px) [c3] 0.75rem [c4] 1fr [c5]`;
-        }
-        if (childlessNameRef.current) {
-          childlessNameRef.current.style.width = `${columnWidth}px`;
-        }
-      },
-      { fireImmediately: true },
-    );
-  }, [isNestedParam]); // have to update the subscriber when parameter becomes a parent or child
-
-  return { childlessRef, childlessNameRef, parentRef };
-}
 
 function ErrorSection({ paramInfoId }) {
   function onContextMenu(e) {
