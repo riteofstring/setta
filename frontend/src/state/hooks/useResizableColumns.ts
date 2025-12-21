@@ -1,59 +1,27 @@
-import { useCallback, useEffect, useRef } from "react";
-import { useSectionColumnWidth } from "state/definitions";
+import { useCallback, useEffect, useRef, type MouseEventHandler } from "react";
 
-export function useResizableColumn(sectionId, options = {}) {
-  // Default options
-  const {
-    minWidth = 100,
-    maxWidth = 500,
-    defaultWidth = 200,
-    persistOnUnmount = true,
-  } = options;
+type ResizableColumnOptions = {
+  minWidth?: number;
+  maxWidth?: number;
+  defaultWidth?: number;
+};
 
-  // Refs for header and content elements
-  const headerRef = useRef();
-  const contentRef = useRef();
+export function useResizableColumn(
+  sectionId: string,
+  options: ResizableColumnOptions = {},
+) {
+  const { minWidth = 100, maxWidth = 500, defaultWidth = 200 } = options;
 
-  useEffect(() => {
-    // Initialize the store with default width if not already set
-    if (useSectionColumnWidth.getState()[sectionId] === undefined) {
-      useSectionColumnWidth.setState((state) => ({
-        ...state,
-        [sectionId]: defaultWidth,
-      }));
-    }
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const widthRef = useRef<number>(defaultWidth);
+  const rafRef = useRef<number | null>(null);
 
-    // Subscribe to store changes
-    return useSectionColumnWidth.subscribe(
-      (state) => state[sectionId],
-      (columnWidth) => {
-        applyColumnWidth(columnWidth);
-      },
-      { fireImmediately: true },
-    );
-  }, [sectionId, defaultWidth]);
-
-  // Clean up the store entry if needed
-  useEffect(() => {
-    return () => {
-      if (!persistOnUnmount) {
-        useSectionColumnWidth.setState((state) => {
-          const newState = { ...state };
-          delete newState[sectionId];
-          return newState;
-        });
-      }
-    };
-  }, [sectionId, persistOnUnmount]);
-
-  // Apply column width to elements
-  const applyColumnWidth = useCallback((width) => {
-    // Apply to header if ref exists
+  const applyColumnWidth = useCallback((width: number) => {
     if (headerRef.current) {
       headerRef.current.style.gridTemplateColumns = `minmax(min-content, ${width}px) 1fr`;
     }
 
-    // Apply to all child rows if content ref exists
     if (contentRef.current) {
       const rows = contentRef.current.querySelectorAll("[data-resizable-row]");
       rows.forEach((row) => {
@@ -62,61 +30,69 @@ export function useResizableColumn(sectionId, options = {}) {
     }
   }, []);
 
-  // Handle resize
-  const handleResize = useCallback(
-    (e) => {
-      e.preventDefault();
+  useEffect(() => {
+    widthRef.current = defaultWidth;
+    applyColumnWidth(defaultWidth);
+  }, [applyColumnWidth, defaultWidth, sectionId]);
 
-      const startX = e.clientX;
-      const startWidth =
-        useSectionColumnWidth.getState()[sectionId] || defaultWidth;
-
-      function onMouseMove(e) {
-        const delta = e.clientX - startX;
-        const newWidth = Math.max(
-          minWidth,
-          Math.min(maxWidth, startWidth + delta),
-        );
-
-        // Update the store with new width
-        useSectionColumnWidth.setState((state) => ({
-          ...state,
-          [sectionId]: newWidth,
-        }));
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
       }
+    };
+  }, []);
 
-      function onMouseUp() {
+  const handleResize: MouseEventHandler<HTMLDivElement> = useCallback(
+    (event) => {
+      event.preventDefault();
+
+      const startX = event.clientX;
+      const startWidth = widthRef.current;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+        }
+        rafRef.current = requestAnimationFrame(() => {
+          const delta = moveEvent.clientX - startX;
+          const nextWidth = Math.max(
+            minWidth,
+            Math.min(maxWidth, startWidth + delta),
+          );
+          widthRef.current = nextWidth;
+          applyColumnWidth(nextWidth);
+          rafRef.current = null;
+        });
+      };
+
+      const onMouseUp = () => {
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
-      }
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+      };
 
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },
-    [sectionId, minWidth, maxWidth, defaultWidth],
+    [applyColumnWidth, maxWidth, minWidth],
   );
 
   return {
     headerRef,
     contentRef,
     handleResize,
-
-    // Helper for marking rows as resizable
     getRowProps: () => ({
       "data-resizable-row": true,
     }),
-
-    // Get the current width (useful for controlled components)
-    getCurrentWidth: () =>
-      useSectionColumnWidth.getState()[sectionId] || defaultWidth,
-
-    // Manually set the width (useful for control outside resize handle)
-    setColumnWidth: (width) => {
+    getCurrentWidth: () => widthRef.current,
+    setColumnWidth: (width: number) => {
       const newWidth = Math.max(minWidth, Math.min(maxWidth, width));
-      useSectionColumnWidth.setState((state) => ({
-        ...state,
-        [sectionId]: newWidth,
-      }));
+      widthRef.current = newWidth;
+      applyColumnWidth(newWidth);
     },
   };
 }

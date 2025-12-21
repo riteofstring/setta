@@ -465,6 +465,10 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
 
 
+class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
+    columnWidth: float | None
+
+
 class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithSection):
     viewMode: BrowserAreaViewMode
 

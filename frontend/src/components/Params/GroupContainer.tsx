@@ -2,7 +2,7 @@ import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScal
 import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
-import { useColumnResizer } from "state/actions/sectionColumnWidth";
+import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
@@ -19,17 +19,17 @@ import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
-  const outerRef = useRef(null);
+  const outerRef = useRef<HTMLDivElement | null>(null);
   const [maxNestedDepth, setMaxNestedDepth] = useState({
     pinned: 1,
     unpinned: 1,
   });
 
-  const handleColumnResizeStart = useColumnResizer(
+  const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
     outerRef,
-    Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
-  );
+    maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
+  });
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
 

@@ -1,11 +1,9 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import {
   useAllProjectMetadata,
   useNodeInternals,
   useProjectState,
-  useSectionColumnWidth,
 } from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
@@ -47,7 +45,6 @@ async function loadProjectState(p: ProjectStateSingleConfig) {
     });
   }
   useProjectState.setState(p);
-  useSectionColumnWidth.setState(_.mapValues(p.sections, (x) => x.columnWidth));
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
       useProjectState.getState(),

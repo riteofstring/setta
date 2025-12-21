@@ -1087,6 +1087,16 @@ def set_section_hide_unpinned_params(
     )
 
 
+def set_section_column_width(
+    p: "ProjectStateSingleConfig", sectionId: ID, columnWidth: float | None
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(columnWidth=columnWidth),
+    )
+
+
 def set_browser_area_view_mode(
     p: "ProjectStateSingleConfig",
     sectionId: ID,

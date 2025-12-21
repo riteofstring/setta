@@ -312,6 +312,7 @@ export const RouteEnum = {
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
+  SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
@@ -4925,6 +4926,17 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
+>;
+
+const SetSectionColumnWidthRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  columnWidth: z.union([z.number(), z.null()]),
+});
+
+export type SetSectionColumnWidthRequestInput = z.input<
+  typeof SetSectionColumnWidthRequestSchema
 >;
 
 const SetSectionHideUnpinnedParamsRequestSchema = z.object({

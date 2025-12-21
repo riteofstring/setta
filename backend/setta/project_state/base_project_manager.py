@@ -105,6 +105,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
+    SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
@@ -180,6 +181,7 @@ from setta.types.helpers_lvl2 import (
     set_image_area_image_path,
     set_param_entered_value,
     set_project_config_name,
+    set_section_column_width,
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
@@ -1336,6 +1338,12 @@ class BaseProjectManager(ABC):
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_column_width(project_state, x.sectionId, x.columnWidth)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
