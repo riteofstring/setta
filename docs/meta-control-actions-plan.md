@@ -68,16 +68,11 @@ async def on_change(s, ctx):
    - Keep `emit_to_frontend` as a convenience helper. (done)
    - Keep non-backward compatible changes; allow breakage during refactor. (done)
 
-4) Frontend meta control behavior (in progress)
-   - Treat button meta controls as action-only (no state write to `metaControlValue`). (done)
-   - Emit a `MetaControlActionEvent` on click using the websocket helper. (done)
-   - Keep existing Run button wired directly, unchanged. (pending)
-
-5) Regenerate and test (pending)
+4) Regenerate and test (pending)
    - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates.
    - Regenerate websocket unions + listener endpoint stubs. (done)
-   - Add backend tests for action dispatch + typed project manager calls.
-   - Add tests for router endpoint call allowlist + serialization of results/errors.
+   - Add backend tests for action dispatch + typed project manager calls. (done)
+   - Add tests for router endpoint call allowlist + serialization of results/errors. (done)
 
 ## Notes
 - Action events are transient by design; they should never be written into project state.
