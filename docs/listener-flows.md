@@ -1,56 +1,82 @@
 # Meta Control + Listener Flows (Current)
 
-This describes the current control flow for meta control changes, listener updates,
-and when disk writes happen. It also lists debounce/throttle timing.
+This page describes how meta control UI changes, realtime listener traffic, and
+listener-driven updates move through the system, plus when disk writes happen.
 
-## Flow A: Meta Control -> Project State -> LSP
+## Flow A: Meta control realtime -> listeners
 ```
 UI change
-  -> send realtime delta (immediate)
-  -> debounced /setMetaControlValue (50ms)
-      -> project manager update()
-          -> rebuild dependency graph + codegen
-          -> sync LSP text
-          -> write canonical file only if missing
-      -> broadcast project state
+  -> if meta control is a button:
+       send RealtimeActionEvent (always)
+     else:
+       update local pending value
+       send RealtimeUIChange (only if listener coverage matches)
+  -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
+      -> WMHPythonScriptSender fan-out to matching listener sockets
+  -> SettaListener applies delta/action, schedules callbacks (debounce/throttle)
 ```
 
 Key paths:
-- Frontend meta control handler: `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
-- Realtime delta: `frontend/src/state/actions/websocketReceive.ts`
-- Persisted value route: `backend/setta/routers/project_manager.py`
-- Update + LSP sync: `backend/setta/project_state/base_project_manager.py`
-- Disk writes and LSP hooks: `backend/setta/project_state/code.py`
+- Meta control UI + realtime emit: `frontend/src/components/Section/Layouts/MetaControlArea.tsx`,
+  `frontend/src/state/actions/websocketReceive.ts`
+- Listener coverage gating: `frontend/src/state/actions/listenerCoverage.ts`,
+  `backend/setta/websockets/listener_coverage.py`,
+  `backend/setta/websockets/msg_handlers/python_script_receiver.py`
+- Frontend websocket receiver: `backend/setta/websockets/msg_handlers/frontend_receiver.py`
+- Realtime sequencing + fan-out: `backend/setta/websockets/realtime_event_hub.py`,
+  `backend/setta/websockets/msg_handlers/python_script_sender.py`
+- Listener realtime/action handling: `backend/setta/api/listener.py`
 
-## Flow B: Listener -> emit_to_frontend -> Project State (All Dependencies)
+## Flow B: Meta control persistence -> project state
 ```
 UI change
-  -> send realtime delta (immediate)
-      -> listener websocket realtime event
-          -> listener callback (optional debounce/throttle)
-              -> emit_to_frontend
-                  -> apply listener updates
-                      -> project manager update()
-                          -> rebuild dependency graph + codegen
-                          -> sync LSP text
-                          -> write canonical file only if missing
-                  -> broadcast project state
+  -> debounced route_set_meta_control_value (50ms)
+      -> project manager set_meta_control_value()
+          -> add history entry (autosave debounce)
+          -> update_and_broadcast_project_state()
+              -> update(): validate, rebuild DependencyGraph, codegen
+                 -> write canonical files only if missing
+                 -> sync LSP text
+              -> broadcast project state snapshot
 ```
 
 Key paths:
-- Realtime event hub: `backend/setta/websockets/realtime_event_hub.py`
-- Listener callbacks: `backend/setta/api/listener.py`
-- Emit resolver + apply: `backend/setta/websockets/msg_handlers/python_script_receiver.py`,
-  `backend/setta/project_state/listener_dependency_updates.py`
-- Update + LSP sync: `backend/setta/project_state/base_project_manager.py`
+- Frontend optimistic update + route: `frontend/src/components/Section/Layouts/MetaControlArea.tsx`,
+  `frontend/src/state/actions/sectionInfos.ts`,
+  `frontend/src/utils/generatedEndpoints.ts`
+- Backend route + handler: `backend/setta/routers/project_manager.py`,
+  `backend/setta/project_state/base_project_manager.py`,
+  `backend/setta/types/helpers_lvl2.py`
+
+## Flow C: Listener callback -> emit_to_frontend -> project state + artifacts
+```
+Listener callback
+  -> emit_to_frontend()
+      -> python_script_receiver resolves deps/artifacts
+          -> apply_listener_dependency_updates / apply_listener_artifact_updates
+      -> if dependency updates:
+           update_and_broadcast_project_state()
+      -> if artifact updates:
+           broadcast_artifacts_update()
+```
+
+Key paths:
+- Listener emit helper: `backend/setta/api/listener.py`
+- WebSocket handler + resolver: `backend/setta/websockets/msg_handlers/python_script_receiver.py`,
+  `backend/setta/listeners/listener_frontend_emit_resolver.py`
+- Apply updates: `backend/setta/project_state/listener_dependency_updates.py`,
+  `backend/setta/project_state/listener_artifact_updates.py`
+- Broadcasts: `backend/setta/project_state/base_project_manager.py`,
+  `backend/setta/websockets/msg_handlers/frontend_sender.py`
 
 Notes:
-- This flow applies to any listener dependency exported in the dependency graph
-  (params, TextBlock, MetaControl, etc.), not just meta controls.
+- Realtime dependency deltas are gated by listener coverage snapshots; action events are not.
+- Dependency updates from emit_to_frontend are currently limited to section params and TextBlock sections.
 
 ## Disk Writes
-- Canonical files are created on first use if missing during `update()`.
-- Full disk flush happens on save (manual + autosave) and on run.
+- `update()` only writes canonical code files if they are missing; it always syncs LSP.
+- Manual save + autosave flush all code files, JSON sources, and artifacts.
+- `create_run_command` flushes current code files and writes a run snapshot into a timestamped folder.
 
 ## Debounce / Throttle
 - Meta control persistence: 50ms debounce
