@@ -25,6 +25,8 @@ import {
   route_ungroup_groups,
   route_unselect_all_params,
 } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   AllProjectMetadata,
   BaseCodeObjImplUnion,
@@ -696,6 +698,34 @@ function addPendingOp(apply: (x: ZustandProjectState) => void) {
   return opId;
 }
 
+function acknowledgePendingOp(opId: string) {
+  // Mark as acknowledged so stale optimistic ops don't override later backend syncs.
+  usePendingOperations.setState((state) => {
+    const index = state.pending.findIndex((opInfo) => opInfo.opId === opId);
+    if (index < 0 || state.pending[index].acknowledged) {
+      return state;
+    }
+    const nextPending = [...state.pending];
+    nextPending[index] = {
+      ...nextPending[index],
+      acknowledged: true,
+    };
+    return { pending: nextPending };
+  });
+}
+
+function isResponseDataAndStatus(
+  value: unknown,
+): value is ResponseDataAndStatus<unknown> {
+  // Narrow unknown send results without relying on try/catch for control flow.
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "status" in value &&
+    "hasResponse" in value
+  );
+}
+
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
@@ -705,7 +735,15 @@ export function dispatchOptimisticProjectStateUpdate({
 }) {
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
-  void send(opId);
+  const result = send(opId);
+  if (result instanceof Promise) {
+    void result.then((res) => {
+      // A 200 response means the backend accepted the op; don't keep reapplying it.
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        acknowledgePendingOp(opId);
+      }
+    });
+  }
   return opId;
 }
 
