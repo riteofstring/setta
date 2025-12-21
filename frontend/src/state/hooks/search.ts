@@ -17,6 +17,7 @@ import {
   ZustandProjectSearch,
   ZustandProjectState,
 } from "state/definitions";
+import { clamp } from "utils/utils";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
@@ -122,13 +123,104 @@ function goToSearchResult(
     console.error("goToSearchResult element not found");
     return;
   }
-  const { x: _x, y: _y, width, height } = element.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition({
-    x: _x + width / 2,
-    y: _y + height / 2,
-  });
-  const zoom = useSettings.getState().gui.defaultZoomLevel;
-  setCenter(x, y, { zoom });
+  const shouldDelay = scrollParamIntoView(element);
+  const centerOnElement = () => {
+    const { x: _x, y: _y, width, height } = element.getBoundingClientRect();
+    const { x, y } = screenToFlowPosition({
+      x: _x + width / 2,
+      y: _y + height / 2,
+    });
+    const zoom = useSettings.getState().gui.defaultZoomLevel;
+    setCenter(x, y, { zoom });
+  };
+
+  if (shouldDelay) {
+    requestAnimationFrame(centerOnElement);
+  } else {
+    centerOnElement();
+  }
+}
+
+function scrollParamIntoView(element: HTMLElement): boolean {
+  const scrollParent = findScrollableAncestor(element);
+  if (!scrollParent) {
+    return false;
+  }
+
+  const parentRect = scrollParent.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+  const maxScrollTop = scrollParent.scrollHeight - scrollParent.clientHeight;
+  const maxScrollLeft = scrollParent.scrollWidth - scrollParent.clientWidth;
+  let nextScrollTop = scrollParent.scrollTop;
+  let nextScrollLeft = scrollParent.scrollLeft;
+
+  if (maxScrollTop > 0) {
+    const targetRatio = 0.3;
+    const elementOffsetTop =
+      elementRect.top - parentRect.top + scrollParent.scrollTop;
+    const desiredScrollTop =
+      elementOffsetTop +
+      elementRect.height / 2 -
+      scrollParent.clientHeight * targetRatio;
+    nextScrollTop = clamp(desiredScrollTop, 0, maxScrollTop);
+  }
+
+  if (maxScrollLeft > 0) {
+    const elementOffsetLeft =
+      elementRect.left - parentRect.left + scrollParent.scrollLeft;
+    const elementRight = elementOffsetLeft + elementRect.width;
+    const viewLeft = scrollParent.scrollLeft;
+    const viewRight = scrollParent.scrollLeft + scrollParent.clientWidth;
+
+    if (elementOffsetLeft < viewLeft) {
+      nextScrollLeft = elementOffsetLeft;
+    } else if (elementRight > viewRight) {
+      nextScrollLeft = elementRight - scrollParent.clientWidth;
+    }
+
+    nextScrollLeft = clamp(nextScrollLeft, 0, maxScrollLeft);
+  }
+
+  const shouldScroll =
+    nextScrollTop !== scrollParent.scrollTop ||
+    nextScrollLeft !== scrollParent.scrollLeft;
+
+  if (shouldScroll) {
+    scrollParent.scrollTop = nextScrollTop;
+    scrollParent.scrollLeft = nextScrollLeft;
+  }
+
+  return shouldScroll;
+}
+
+function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
+  let current = element.parentElement;
+  while (current && current !== document.body) {
+    if (isScrollableElement(current)) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function isScrollableElement(element: HTMLElement): boolean {
+  const style = window.getComputedStyle(element);
+  const overflowY = style.overflowY;
+  const overflowX = style.overflowX;
+  const scrollableY =
+    (overflowY === "auto" ||
+      overflowY === "scroll" ||
+      overflowY === "overlay") &&
+    element.scrollHeight > element.clientHeight;
+  const scrollableX =
+    (overflowX === "auto" ||
+      overflowX === "scroll" ||
+      overflowX === "overlay") &&
+    element.scrollWidth > element.clientWidth;
+
+  return scrollableY || scrollableX;
 }
 
 function updateSearch(
