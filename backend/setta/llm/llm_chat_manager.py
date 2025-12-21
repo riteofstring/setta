@@ -5,10 +5,9 @@ import logging
 import string
 import time
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field, is_dataclass
-from enum import Enum
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Literal, TypeVar, cast
+from typing import Any, AsyncIterator, Iterator, Literal, TypeVar, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -16,12 +15,10 @@ from litellm.types.llms.openai import ChatCompletionToolParam
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from mcp.types import CallToolResult, TextContent
-from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
-from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
@@ -44,10 +41,6 @@ from setta.project_state.chats.save import (
 from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
-from setta.project_state.project_manager_types import (
-    GetLatestProjectStateSummaryRequest,
-)
-from setta.project_state.project_state_summary_types import ProjectStateSummary
 from setta.types.chat import APIKeys, Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -78,8 +71,6 @@ from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
-if TYPE_CHECKING:
-    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 
@@ -174,13 +165,10 @@ class LLMChatManager:
         dbe: DBE,
         mcp_client: MCPClient,
         websocket_msg_handler: WMHFrontendSender,
-        project_manager_switcher: "ProjectManagerSwitcher",
     ) -> None:
         self.dbe = dbe
         self.mcp_client = mcp_client
-        self.tool_preunlocker = ToolPreunlocker(self.mcp_client)
         self.websocket_msg_handler = websocket_msg_handler
-        self.project_manager_switcher = project_manager_switcher
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
         self._raw_env_vars: APIKeys = {}
@@ -288,7 +276,7 @@ class LLMChatManager:
 
     async def process_query(self, chat: Chat, deepThink: bool):
         while True:
-            payload = await self._build_llm_request_payload(chat, deepThink)
+            payload = self._build_llm_request_payload(chat, deepThink)
 
             assistant_message = AssistantChatMessage(
                 content=[],
@@ -442,7 +430,7 @@ class LLMChatManager:
             return []
         return [session.assistant_message.model_copy(deep=True)]
 
-    async def _build_llm_request_payload(
+    def _build_llm_request_payload(
         self,
         chat: Chat,
         deep_think: bool,
@@ -453,11 +441,8 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
-        system_prompt, project_summary = await self._build_system_prompt_with_summary(
-            chat
-        )
         system_message = SystemChatMessage(
-            content=[MessageTextContent(text=system_prompt)],
+            content=[MessageTextContent(text=self._build_system_prompt(chat))],
         ).to_openai_format()
         messages: list[dict[str, Any]] = [system_message]
         for message in chat.messages:
@@ -471,7 +456,6 @@ class LLMChatManager:
 
         request["messages"] = messages
         self._maybe_apply_cache_prompting(request, messages)
-        self._preunlock_tools(chat, project_summary)
         tools = self._build_tool_definitions(chat)
         if tools:
             request["tools"] = tools
@@ -483,88 +467,36 @@ class LLMChatManager:
 
         return request
 
-    async def _build_system_prompt_with_summary(
-        self, chat: Chat
-    ) -> tuple[str, ProjectStateSummary]:
+    def _build_system_prompt(self, chat: Chat) -> str:
         project_config_id = chat.projectConfigId
-        (
-            temporary_project_config_id,
-            project_summary,
-            summary_payload,
-        ) = await self._build_project_summary(project_config_id)
-        prompt = (
+        temporary_project_config_id = self._get_temporary_project_config_id(
+            project_config_id
+        )
+        return (
             f"{self.system_prompt}\n\n"
             "## Active project config\n"
-            f"- id: {temporary_project_config_id}\n\n"
-            "## Project summary\n"
-            "(Injected at request start; call get_latest_project_state_summary only to"
-            " refresh after edits.)\n"
-            f"{project_summary}"
+            f"- id: {temporary_project_config_id}"
         )
-        return prompt, summary_payload
 
-    async def _build_project_summary(
-        self, project_config_id: ID
-    ) -> tuple[ID, str, ProjectStateSummary]:
-        project_manager = self.project_manager_switcher.get(project_config_id)
-        summary = await project_manager.get_latest_project_state_summary(
-            GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
-        )
+    def _get_temporary_project_config_id(self, project_config_id: ID) -> ID:
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
         )
-        map_size_before = len(canonical_to_temporary)
-        converted_summary = convert_canonical_ids_to_temporary(
-            summary,
+        should_write = project_config_id not in canonical_to_temporary
+        temporary_project_config_id = convert_canonical_ids_to_temporary(
+            project_config_id,
             canonical_to_temporary,
             temporary_to_canonical,
         )
-        if len(canonical_to_temporary) != map_size_before:
+        if should_write:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-
-        temporary_project_config_id = converted_summary.projectConfig.id
-        summary_text = self._serialize_prompt_payload(converted_summary)
-        summary_block = f"```json\n{summary_text}\n```"
-        return temporary_project_config_id, summary_block, converted_summary
-
-    @staticmethod
-    def _serialize_prompt_payload(payload: Any) -> str:
-        def default(obj: Any):
-            if is_dataclass(obj):
-                return asdict(obj)
-            if isinstance(obj, BaseModel):
-                return obj.model_dump(mode="json")
-            if isinstance(obj, Enum):
-                return obj.value
-            if isinstance(obj, Path):
-                return str(obj)
-            return str(obj)
-
-        return json.dumps(payload, indent=2, default=default)
+        return temporary_project_config_id
 
     def _build_tool_definitions(self, chat: Chat) -> list[ChatCompletionToolParam]:
         state = self._get_or_create_chat_tool_state(chat.id)
         if not state.init_tools and self.mcp_client.init_tool_definitions:
             state.init_tools = dict(self.mcp_client.init_tool_definitions)
         return state.build_payload()
-
-    def _preunlock_tools(
-        self,
-        chat: Chat,
-        project_summary: ProjectStateSummary,
-    ) -> None:
-        definitions = self.tool_preunlocker.select_tools(chat, project_summary)
-        if not definitions:
-            return
-        state = self._get_or_create_chat_tool_state(chat.id)
-        added_tool_names = state.unlock_tools(definitions)
-        if logger.isEnabledFor(logging.DEBUG) and added_tool_names:
-            logger.debug(
-                "[chat %s] pre-unlocked %s tools: %s",
-                chat.id,
-                len(added_tool_names),
-                added_tool_names,
-            )
 
     def _maybe_apply_cache_prompting(
         self,
@@ -1729,9 +1661,7 @@ class LLMChatManager:
             completed_at=completed_at,
         )
 
-    def _parse_search_tool_results(
-        self, call_result: CallToolResult
-    ) -> list[dict[str, str | None]]:
+    def _parse_search_tool_results(self, call_result: CallToolResult) -> list[str]:
         entry = call_result.content[0] if call_result.content else None
         if not isinstance(entry, TextContent):
             return []
@@ -1746,41 +1676,15 @@ class LLMChatManager:
             logger.debug("Failed to parse search tool payload", exc_info=True)
             return []
 
-        if not isinstance(payload, list):
-            return []
-
-        results: list[dict[str, str | None]] = []
-        for item in payload:
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name")
-            if not isinstance(name, str) or not name.strip():
-                continue
-            description = item.get("description")
-            if not isinstance(description, str):
-                description = ""
-            category = item.get("category")
-            if not isinstance(category, str) or not category.strip():
-                category = None
-            results.append(
-                {
-                    "name": name,
-                    "description": description,
-                    "category": category,
-                }
-            )
-        return results
+        return payload if isinstance(payload, list) else []
 
     def _build_tool_definitions_from_search_results(
         self,
-        search_results: list[dict[str, str | None]],
+        tool_names: list[str],
     ) -> dict[str, ChatCompletionToolParam]:
         definitions: dict[str, ChatCompletionToolParam] = {}
         available = self.mcp_client.discoverable_tool_definitions
-        for result in search_results:
-            name = result.get("name")
-            if not name:
-                continue
+        for name in tool_names:
             definition = available.get(name)
             if not definition:
                 if logger.isEnabledFor(logging.DEBUG):
