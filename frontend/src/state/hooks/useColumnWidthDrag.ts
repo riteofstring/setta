@@ -56,7 +56,11 @@ export function useColumnWidthDrag({
 
   const defaultGetBoundedWidth = useCallback(
     (rawWidth: number, containerWidth: number) =>
-      calculateBoundedWidth(rawWidth, containerWidth, maxNestedDepthRef.current),
+      calculateBoundedWidth(
+        rawWidth,
+        containerWidth,
+        maxNestedDepthRef.current,
+      ),
     [maxNestedDepthRef],
   );
   const getBoundedWidth = getBoundedWidthOverride ?? defaultGetBoundedWidth;
@@ -69,7 +73,8 @@ export function useColumnWidthDrag({
       const boundedWidth = getBoundedWidth(rawWidth, containerWidth);
       widthRef.current.currentWidth = boundedWidth;
       widthRef.current.containerWidth = containerWidth;
-      widthRef.current.currentPercentage = (boundedWidth / containerWidth) * 100;
+      widthRef.current.currentPercentage =
+        (boundedWidth / containerWidth) * 100;
       applyWidth(boundedWidth);
     },
     [applyWidth, getBoundedWidth],
