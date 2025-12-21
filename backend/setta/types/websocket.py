@@ -15,6 +15,7 @@ from setta.types.chat_stream_events import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.listener import (
+    ListenerActionEventContent,
     ListenerCoverageSnapshot,
     ListenerErrorContent,
     ListenerForceRefreshContent,
@@ -23,6 +24,7 @@ from setta.types.listener import (
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
     ListenerRegisterContent,
+    RealtimeActionEventContent,
     RealtimeUIChangeContent,
 )
 from setta.types.llm_config import AllLLMConfigs
@@ -55,6 +57,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
 class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     RealtimeUIChange = "RealtimeUIChange"
+    RealtimeActionEvent = "RealtimeActionEvent"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -62,6 +65,7 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerRegister = "ListenerRegister"
     ListenerRegisterAck = "ListenerRegisterAck"
     ListenerRealtimeEvent = "ListenerRealtimeEvent"
+    ListenerActionEvent = "ListenerActionEvent"
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
     ListenerFrontendEmit = "ListenerFrontendEmit"
@@ -241,6 +245,13 @@ class WebsocketMsgRealtimeUIChange(BackendWebsocketMsg):
     )
 
 
+class WebsocketMsgRealtimeActionEvent(BackendWebsocketMsg):
+    content: RealtimeActionEventContent
+    messageType: Literal[WebsocketMsgTypeForBackend.RealtimeActionEvent] = (
+        WebsocketMsgTypeForBackend.RealtimeActionEvent
+    )
+
+
 class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
@@ -252,6 +263,13 @@ class WebsocketMsgListenerRealtimeEvent(PythonScriptWebsocketMsg):
     content: ListenerRealtimeEventContent
     messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent] = (
         WebsocketMsgTypeForPythonScript.ListenerRealtimeEvent
+    )
+
+
+class WebsocketMsgListenerActionEvent(PythonScriptWebsocketMsg):
+    content: ListenerActionEventContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerActionEvent] = (
+        WebsocketMsgTypeForPythonScript.ListenerActionEvent
     )
 
 

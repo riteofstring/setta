@@ -79,6 +79,7 @@ class SharedModifier(TypedDict):
     layers: NotRequired[list[DrawAreaLayer]]
     max: NotRequired[int]
     metaControlType: NotRequired[MetaControlType]
+    metaControlValue: NotRequired[str]
     min: NotRequired[int]
     name: NotRequired[str]
     paramFilter: NotRequired[str]

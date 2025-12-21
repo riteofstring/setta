@@ -132,13 +132,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 limit=2,
                 setta_state=setta_state,
             )
-            search_result_names = [result.name for result in search_results.root]
-            print("Search results:", search_result_names)
-            self.assertIn("set_section_sizes", search_result_names)
-            self.assertNotIn(
-                "search_and_unlock_mcp_tools",
-                search_result_names,
-            )
+            print("Search results:", search_results.root)
+            self.assertIn("set_section_sizes", search_results.root)
+            self.assertNotIn("search_and_unlock_mcp_tools", search_results.root)
 
             search_tool = next(
                 tool
@@ -153,13 +149,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 context=None,
             )
             parsed_results = results_via_tool_run.root
-            parsed_result_names = [result.name for result in parsed_results]
-            print("Search results via tool run:", parsed_result_names)
-            self.assertIn("set_section_sizes", parsed_result_names)
-            self.assertNotIn(
-                "search_and_unlock_mcp_tools",
-                parsed_result_names,
-            )
+            print("Search results via tool run:", parsed_results)
+            self.assertIn("set_section_sizes", parsed_results)
+            self.assertNotIn("search_and_unlock_mcp_tools", parsed_results)
 
     async def test_search_finds_create_top_level_section(self) -> None:
         async with real_project_manager() as fixture:
@@ -187,10 +179,9 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     limit=limit,
                     setta_state=setta_state,
                 )
-                result_names = [result.name for result in results.root]
                 self.assertIn(
                     "create_top_level_section",
-                    result_names,
+                    results.root,
                     msg=(
                         f"search results for '{query}' did not include "
                         "create_top_level_section"
@@ -256,12 +247,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
 
             tool_message = await chat_manager._dispatch_tool_call(chat, tool_call)
 
-            search_result_names = [
-                entry.get("name")
-                for entry in tool_message.result.get("searchResults", [])
-                if isinstance(entry, dict)
-            ]
-            self.assertIn("set_section_sizes", search_result_names)
+            self.assertIn("set_section_sizes", tool_message.result["searchResults"])
             chat_state = chat_manager._get_or_create_chat_tool_state(chat.id)
             self.assertIn("set_section_sizes", chat_state.unlocked_tools)
 

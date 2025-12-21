@@ -132,7 +132,7 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(results.root), 1)
-        self.assertEqual(results.root[0].name, "read_file_range")
+        self.assertEqual(results.root[0], "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_and_unlock_mcp_tools(

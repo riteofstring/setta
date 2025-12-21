@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Literal
 
 from mcp.types import ToolAnnotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class SettaToolType(str, Enum):
@@ -28,8 +28,6 @@ class AIFollowToolResultMetadata(BaseModel):
 AI_FOLLOW_TOOL_RESULT_ATTR = "_setta_ai_follow_tool_result"
 AI_FOLLOW_TOOL_ARGUMENTS_ATTR = "_setta_ai_follow_tool_arguments"
 TOOL_ARGUMENT_PREVIEW_ATTR = "_setta_tool_argument_preview"
-TOOL_SEARCH_TAGS_ATTR = "_setta_tool_search_tags"
-TOOL_SEARCH_CATEGORY_ATTR = "_setta_tool_search_category"
 
 
 def attach_ai_follow_tool_result(
@@ -87,36 +85,8 @@ def get_tool_argument_preview(
     return getattr(fn, TOOL_ARGUMENT_PREVIEW_ATTR, None)
 
 
-def attach_tool_search_tags(
-    fn: Callable[..., Any],
-    tags: list[str] | None,
-) -> None:
-    if tags is None:
-        return
-    setattr(fn, TOOL_SEARCH_TAGS_ATTR, tags)
-
-
-def get_tool_search_tags(fn: Callable[..., Any]) -> list[str] | None:
-    return getattr(fn, TOOL_SEARCH_TAGS_ATTR, None)
-
-
-def attach_tool_search_category(
-    fn: Callable[..., Any],
-    category: str | None,
-) -> None:
-    if category is None:
-        return
-    setattr(fn, TOOL_SEARCH_CATEGORY_ATTR, category)
-
-
-def get_tool_search_category(fn: Callable[..., Any]) -> str | None:
-    return getattr(fn, TOOL_SEARCH_CATEGORY_ATTR, None)
-
-
 class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
     aiFollowToolResult: AIFollowToolResultMetadata | None = None
     aiFollowToolArguments: AIFollowToolArgumentsMetadata | None = None
     toolArgumentPreview: ToolArgumentPreviewMetadata | None = None
-    searchTags: list[str] = Field(default_factory=list)
-    searchCategory: str | None = None
