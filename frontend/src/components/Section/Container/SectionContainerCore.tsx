@@ -1,12 +1,16 @@
 import _ from "lodash";
 import React from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { getOnSectionClick, getOutlineColor } from "./utils";
+import {
+  getOnSectionClick,
+  getOutlineColor,
+  useAiSectionHighlight,
+} from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -35,41 +39,9 @@ function _SectionContainerCore({
       projectConfigId: x.projectConfig.id,
     };
   }, _.isEqual);
-  const activeChatId = useAIStore((state) => state.activeChatId);
-  const isAiWorkingOnSection = useAIFollow((state) => {
-    const projectEntries = state.sectionIdsByProjectConfigId[projectConfigId];
-    if (!projectEntries) {
-      return false;
-    }
-    if (activeChatId) {
-      const activeSectionIds = projectEntries[activeChatId] ?? [];
-      return activeSectionIds.includes(sectionId);
-    }
-    for (const sectionIds of Object.values(projectEntries)) {
-      if (sectionIds.includes(sectionId)) {
-        return true;
-      }
-    }
-    return false;
-  });
-  const [showAiHighlight, setShowAiHighlight] = React.useState(false);
-  React.useEffect(() => {
-    if (isAiWorkingOnSection) {
-      setShowAiHighlight(true);
-      return;
-    }
-    if (!showAiHighlight) {
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      setShowAiHighlight(false);
-    }, 650);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [isAiWorkingOnSection, showAiHighlight]);
+  const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
-    ? "setta-ai-gradient-border-active"
+    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
     : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
@@ -95,7 +67,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`setta-ai-gradient-border group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} $  dndline  w-min border bg-white outline outline-4 dark:bg-setta-925 ${aiHighlightClassName} ${outlineColor}`}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} $  dndline  w-min border bg-white outline outline-4 dark:bg-setta-925 ${aiHighlightClassName} ${outlineColor}`}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >
