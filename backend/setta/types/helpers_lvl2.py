@@ -48,7 +48,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
-    MetaControlSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
@@ -304,18 +303,6 @@ def set_param_entered_value(
 ):
     set_curr_effective_code_obj_impl_value(
         p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
-    )
-
-
-def set_meta_control_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    value: str,
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        MetaControlSectionImplArgsWithCallable(metaControlValue=value),
     )
 
 

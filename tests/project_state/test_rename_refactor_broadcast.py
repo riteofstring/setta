@@ -3,7 +3,7 @@ import unittest
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
-from setta.code_gen.utils import sanitize_name
+from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME, sanitize_name
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     DeclineRenameRefactorRequest,
@@ -133,7 +133,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(impl_before.value, str)
             original_param_value = impl_before.value
 
-            old_token = f"s.{sanitize_name(current_name)}"
+            old_token = f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(current_name)}"
             await self.manager.set_param_entered_value(
                 SetParamEnteredValueRequest(
                     frontendOpId="set-param-always-ask",
@@ -269,7 +269,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                     "Expected section and parameter ids to exercise rename acceptance."
                 )
 
-            old_token = f"s.{sanitize_name(original_name)}"
+            old_token = f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(original_name)}"
             await self.manager.set_param_entered_value(
                 SetParamEnteredValueRequest(
                     frontendOpId="set-param-accept",
@@ -345,7 +345,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(impl_after.value, str)
             self.assertEqual(
                 impl_after.value,
-                f"s.{sanitize_name(new_name)}",
+                f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(new_name)}",
                 "Acceptance should update dependent values to the renamed token.",
             )
         finally:
@@ -394,7 +394,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                     "Expected section and parameter ids to exercise rename decline."
                 )
 
-            old_token = f"s.{sanitize_name(original_name)}"
+            old_token = f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(original_name)}"
             await self.manager.set_param_entered_value(
                 SetParamEnteredValueRequest(
                     frontendOpId="set-param-decline",
@@ -518,7 +518,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
                     "Expected to locate a section/parameter pair for rename auto-apply test."
                 )
 
-            old_token = f"s.{sanitize_name(original_name)}"
+            old_token = f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(original_name)}"
             await self.manager.set_param_entered_value(
                 SetParamEnteredValueRequest(
                     frontendOpId="set-param-auto",
@@ -570,7 +570,7 @@ class RenameRefactorBroadcastTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(impl.value, str)
             self.assertEqual(
                 impl.value,
-                f"s.{sanitize_name(new_name)}",
+                f"{GEN_CODE_INSTANCE_NAME}.{sanitize_name(new_name)}",
                 "Auto-rename should update dependent parameter value to the new token.",
             )
         finally:

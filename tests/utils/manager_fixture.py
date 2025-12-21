@@ -331,12 +331,13 @@ REQUIRED_SAMPLE_FILES = (
 )
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"
 DEFAULT_SAMPLE_PROJECT_CONFIG_ID = ID("sample-project-config")
-DEFAULT_SETTA_GEN_CONTENT = """class S:
+DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
     def __init__(self) -> None:
-        self.placeholder = "Sample project placeholder"
+        state = self
+        state.placeholder = "Sample project placeholder"
 
 
-s = S()
+state = SettaState()
 """
 
 

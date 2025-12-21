@@ -11,7 +11,7 @@ from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.dependency_value import DependencyValueType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
-from setta.types.section_impls import MetaControlType, SectionType
+from setta.types.section_impls import SectionType
 
 VarLookup = Callable[[BaseDependencyKeyUnion], str]
 
@@ -95,8 +95,6 @@ class PythonValueCodec:
                 return self.format_list(node.deps)
             case SectionType.Group | SectionType.Dict:
                 return self.format_dict(node.deps)
-            case SectionType.MetaControl:
-                return self._format_meta_control_section(node)
             case SectionType.TextBlock:
                 if node.value:
                     return repr(node.value.payload)
@@ -135,32 +133,6 @@ class PythonValueCodec:
             return "None"
         callable_name = node.value.payload
         return self._construct_callable(callable_name, node.deps)
-
-    def _format_meta_control_section(self, node: SectionNode) -> str:
-        if node.value is None or node.value.type is not DependencyValueType.Literal:
-            raise ValueError(
-                f"Unsupported dependency value kind {node.value} for meta control {node.full_path_name}"
-            )
-        meta_control_type = node.meta_control_type
-        if meta_control_type is None:
-            raise ValueError(f"Missing meta control type for {node.full_path_name}")
-        literal_value = node.value.payload
-        if meta_control_type in (MetaControlType.slider, MetaControlType.rotary):
-            sanitized = literal_value.strip()
-            return sanitized if sanitized else "0"
-        if meta_control_type is MetaControlType.switch:
-            return "True" if literal_value == "true" else "False"
-        if meta_control_type in (
-            MetaControlType.textInput,
-            MetaControlType.textArea,
-            MetaControlType.password,
-            MetaControlType.dropdown,
-            MetaControlType.color,
-            MetaControlType.button,
-        ):
-            return repr(literal_value)
-
-        raise ValueError(f"Unsupported MetaControlType {meta_control_type}")
 
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]
