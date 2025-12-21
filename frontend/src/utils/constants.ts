@@ -87,7 +87,6 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.InfoConfig,
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
-  [SectionTypeEnum.MetaControl]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Terminal]: [UIEditorTabNameEnum.SectionConfig],

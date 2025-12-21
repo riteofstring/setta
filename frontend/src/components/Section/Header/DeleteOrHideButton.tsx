@@ -20,15 +20,6 @@ type DeleteOrHideButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   color?: string;
   rounded?: string;
   grid?: boolean;
-  render?: (state: DeleteOrHideButtonRenderState) => ReactNode;
-};
-
-type DeleteOrHideButtonRenderState = {
-  isEditingViewMode: boolean;
-  visibility: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
 };
 
 // absolute top-1 right-1
@@ -75,24 +66,8 @@ export function DeleteOrHideButton({
     rounded,
     grid,
     onClick: onClickOverride,
-    render,
     ...buttonProps
   } = props;
-
-  const label = getDeleteOrHideLabel(isEditingViewMode, visibility);
-  const defaultIcon = getDeleteOrHideIcon(isEditingViewMode, visibility);
-  const resolvedOnClick = onClickOverride ?? onClick;
-  const resolvedIcon = icon ?? defaultIcon;
-
-  if (render) {
-    return render({
-      isEditingViewMode,
-      visibility,
-      icon: resolvedIcon,
-      label,
-      onClick: resolvedOnClick,
-    });
-  }
 
   return (
     <button
@@ -104,31 +79,18 @@ export function DeleteOrHideButton({
         rounded ?? "rounded-full"
       } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${twClasses ?? ""}`}
       {...buttonProps}
-      onClick={resolvedOnClick}
+      onClick={onClickOverride ?? onClick}
     >
-      {resolvedIcon}
+      {icon ?? getIcon(isEditingViewMode, visibility)}
       {children}
     </button>
   );
   // return <button onClick={onClick} className="gg-close" />;
 }
 
-function getDeleteOrHideIcon(isEditingViewMode: boolean, visibility: boolean) {
+function getIcon(isEditingViewMode: boolean, visibility: boolean) {
   if (isEditingViewMode) {
-    if (visibility) {
-      return <BiShow />;
-    }
-    return <BiHide />;
+    return visibility ? <BiShow /> : <BiHide />;
   }
   return <i className="gg-close" />;
-}
-
-function getDeleteOrHideLabel(isEditingViewMode: boolean, visibility: boolean) {
-  if (isEditingViewMode) {
-    if (visibility) {
-      return "Hide";
-    }
-    return "Show";
-  }
-  return "Close";
 }

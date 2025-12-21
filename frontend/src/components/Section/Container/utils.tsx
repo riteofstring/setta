@@ -32,8 +32,6 @@ export function getBgColor(sectionTypeName: SectionTypeEnum) {
       return "@container/multipane";
     case SectionTypeEnum.GlobalVariables:
       return "bg-white dark:bg-black";
-    case SectionTypeEnum.MetaControl:
-      return "bg-transparent";
     default:
       return "bg-setta-50 dark:bg-setta-860";
   }
