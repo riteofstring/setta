@@ -9,12 +9,11 @@ from setta.types.websocket import (
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
-    WebsocketMsgListenerProjectManagerCall,
-    WebsocketMsgListenerProjectManagerResult,
-    WebsocketMsgListenerProjectOps,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgListenerRouterEndpointCall,
+    WebsocketMsgListenerRouterEndpointResult,
     WebsocketMsgRealtimeActionEvent,
     WebsocketMsgRealtimeUIChange,
 )
@@ -37,9 +36,8 @@ PythonScriptWebsocketMsgUnion = (
     | WebsocketMsgListenerForceRefresh
     | WebsocketMsgListenerError
     | WebsocketMsgListenerFrontendEmit
-    | WebsocketMsgListenerProjectOps
-    | WebsocketMsgListenerProjectManagerCall
-    | WebsocketMsgListenerProjectManagerResult
+    | WebsocketMsgListenerRouterEndpointCall
+    | WebsocketMsgListenerRouterEndpointResult
     | WebsocketMsgListenerRegister
     | WebsocketMsgListenerRegisterAck
     | WebsocketMsgListenerInit

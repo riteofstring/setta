@@ -11,7 +11,6 @@ from setta.types.generated.dependency_values import (
 )
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
-from setta.types.project_ops import ProjectOp
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import MetaControlType
 
@@ -82,19 +81,14 @@ class ListenerFrontendEmitRawContent(BaseModel):
     )
 
 
-class ListenerProjectOpsContent(BaseModel):
-    projectConfigId: ID
-    projectOps: list[ProjectOp]
-
-
-class ListenerProjectManagerCallContent(BaseModel):
+class ListenerRouterEndpointCallContent(BaseModel):
     projectConfigId: ID
     callId: str
-    operation: str
+    endpointName: str
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
-class ListenerProjectManagerResultContent(BaseModel):
+class ListenerRouterEndpointResultContent(BaseModel):
     projectConfigId: ID
     callId: str
     ok: bool

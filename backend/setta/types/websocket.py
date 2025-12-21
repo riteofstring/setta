@@ -21,12 +21,11 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
-    ListenerProjectManagerCallContent,
-    ListenerProjectManagerResultContent,
-    ListenerProjectOpsContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckContent,
     ListenerRegisterContent,
+    ListenerRouterEndpointCallContent,
+    ListenerRouterEndpointResultContent,
     RealtimeActionEventContent,
     RealtimeUIChangeContent,
 )
@@ -72,9 +71,8 @@ class WebsocketMsgTypeForPythonScript(str, Enum):
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
     ListenerFrontendEmit = "ListenerFrontendEmit"
-    ListenerProjectOps = "ListenerProjectOps"
-    ListenerProjectManagerCall = "ListenerProjectManagerCall"
-    ListenerProjectManagerResult = "ListenerProjectManagerResult"
+    ListenerRouterEndpointCall = "ListenerRouterEndpointCall"
+    ListenerRouterEndpointResult = "ListenerRouterEndpointResult"
 
 
 class WebsocketConnectionType(str, Enum):
@@ -300,25 +298,18 @@ class WebsocketMsgListenerFrontendEmit(PythonScriptWebsocketMsg):
     )
 
 
-class WebsocketMsgListenerProjectOps(PythonScriptWebsocketMsg):
-    content: ListenerProjectOpsContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerProjectOps] = (
-        WebsocketMsgTypeForPythonScript.ListenerProjectOps
+class WebsocketMsgListenerRouterEndpointCall(PythonScriptWebsocketMsg):
+    content: ListenerRouterEndpointCallContent
+    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerRouterEndpointCall] = (
+        WebsocketMsgTypeForPythonScript.ListenerRouterEndpointCall
     )
 
 
-class WebsocketMsgListenerProjectManagerCall(PythonScriptWebsocketMsg):
-    content: ListenerProjectManagerCallContent
-    messageType: Literal[WebsocketMsgTypeForPythonScript.ListenerProjectManagerCall] = (
-        WebsocketMsgTypeForPythonScript.ListenerProjectManagerCall
-    )
-
-
-class WebsocketMsgListenerProjectManagerResult(PythonScriptWebsocketMsg):
-    content: ListenerProjectManagerResultContent
+class WebsocketMsgListenerRouterEndpointResult(PythonScriptWebsocketMsg):
+    content: ListenerRouterEndpointResultContent
     messageType: Literal[
-        WebsocketMsgTypeForPythonScript.ListenerProjectManagerResult
-    ] = WebsocketMsgTypeForPythonScript.ListenerProjectManagerResult
+        WebsocketMsgTypeForPythonScript.ListenerRouterEndpointResult
+    ] = WebsocketMsgTypeForPythonScript.ListenerRouterEndpointResult
 
 
 class WebsocketMsgListenerRegister(PythonScriptWebsocketMsg):

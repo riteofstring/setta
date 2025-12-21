@@ -58,15 +58,15 @@ async def on_change(s, ctx):
    - Support action wildcards with `actions=[]` while `actions=None` means no action subscription. (done)
    - Ensure action events do not persist to project state. (done)
 
-3) Replace project ops with typed router endpoint calls (pending)
-   - Remove `ProjectOp` union + `emit_project_ops` and any websocket messages/handlers.
-   - Replace string-based calls with a typed listener API generated from router endpoints:
-     - Emit a listener-side `RouterEndpointAPI` with method stubs + typed payloads.
-     - Use an allowlist so only safe/desired endpoints are exposed.
-     - Prefer project-config–scoped endpoints; avoid CLI/WS-only endpoints.
-     - Auto-inject `projectConfigId` when the request model defines it.
-   - Keep `emit_to_frontend` as a convenience helper.
-   - Keep non-backward compatible changes; allow breakage during refactor.
+3) Replace project ops with typed router endpoint calls (done)
+   - Remove `ProjectOp` union + `emit_project_ops` and any websocket messages/handlers. (done)
+   - Replace string-based calls with a typed listener API generated from router endpoints: (done)
+     - Emit a listener-side `RouterEndpointAPI` with method stubs + typed payloads. (done)
+     - Use an allowlist so only safe/desired endpoints are exposed. (done)
+     - Prefer project-config–scoped endpoints; avoid CLI/WS-only endpoints. (done)
+     - Auto-inject `projectConfigId` for listener payloads that omit it. (done)
+   - Keep `emit_to_frontend` as a convenience helper. (done)
+   - Keep non-backward compatible changes; allow breakage during refactor. (done)
 
 4) Frontend meta control behavior (in progress)
    - Treat button meta controls as action-only (no state write to `metaControlValue`). (done)
@@ -82,6 +82,7 @@ async def on_change(s, ctx):
 
 6) Regenerate and test (pending)
    - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates.
+   - Regenerate websocket unions + listener endpoint stubs. (done)
    - Add backend tests for action dispatch + typed project manager calls.
    - Add tests for router endpoint call allowlist + serialization of results/errors.
 

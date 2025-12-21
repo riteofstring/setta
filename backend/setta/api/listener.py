@@ -17,9 +17,10 @@ from typing import (
 from uuid import uuid4
 
 import websockets
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
+from setta.api.generated_listener_endpoints import RouterEndpointAPI
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
@@ -44,15 +45,13 @@ from setta.types.listener import (
     ListenerForceRefreshContent,
     ListenerFrontendEmitRawContent,
     ListenerInitContent,
-    ListenerProjectManagerCallContent,
-    ListenerProjectOpsContent,
     ListenerRealtimeEventContent,
     ListenerRegisterAckStatus,
     ListenerRegisterCallback,
     ListenerRegisterContent,
+    ListenerRouterEndpointCallContent,
     MetaControlActionEvent,
 )
-from setta.types.project_ops import ProjectOp, ProjectOpTypeAdapter
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.websocket import (
@@ -61,12 +60,11 @@ from setta.types.websocket import (
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
-    WebsocketMsgListenerProjectManagerCall,
-    WebsocketMsgListenerProjectManagerResult,
-    WebsocketMsgListenerProjectOps,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgListenerRouterEndpointCall,
+    WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.utils.constants import C
 
@@ -121,8 +119,7 @@ class ListenerCallbackContext:
     actions: list[MetaControlActionEvent]
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
-    emit_project_ops: Callable[..., Awaitable[None]]
-    call_project_manager: Callable[..., Awaitable[Any]]
+    project_manager: RouterEndpointAPI
 
 
 @dataclass(slots=True)
@@ -161,7 +158,8 @@ class SettaListener:
         self._send_lock = asyncio.Lock()
         self._callback_lock = asyncio.Lock()
         self._latest_persisted_snapshot: ProjectStateSingleConfig | None = None
-        self._pending_project_manager_calls: dict[str, asyncio.Future[Any]] = {}
+        self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
+        self._router_endpoint_api: RouterEndpointAPI | None = None
         self._logging_configured = False
 
     @property
@@ -351,11 +349,11 @@ class SettaListener:
                     self._registration_pending = False
                     self._is_registered = False
                     self._expected_ack_callback_ids = set()
-                    if self._pending_project_manager_calls:
+                    if self._pending_router_endpoint_calls:
                         pending_calls = list(
-                            self._pending_project_manager_calls.items()
+                            self._pending_router_endpoint_calls.items()
                         )
-                        self._pending_project_manager_calls = {}
+                        self._pending_router_endpoint_calls = {}
                         for call_id, future in pending_calls:
                             if future.done():
                                 continue
@@ -399,8 +397,8 @@ class SettaListener:
         if isinstance(message, WebsocketMsgListenerError):
             self._handle_listener_error(message)
             return
-        if isinstance(message, WebsocketMsgListenerProjectManagerResult):
-            self._handle_project_manager_result(message)
+        if isinstance(message, WebsocketMsgListenerRouterEndpointResult):
+            self._handle_router_endpoint_result(message)
             return
         logger.debug(
             "Listener %s ignoring unsupported message type %s",
@@ -493,11 +491,11 @@ class SettaListener:
         )
         logger.error(text)
 
-    def _handle_project_manager_result(
-        self, message: WebsocketMsgListenerProjectManagerResult
+    def _handle_router_endpoint_result(
+        self, message: WebsocketMsgListenerRouterEndpointResult
     ) -> None:
         content = message.content
-        future = self._pending_project_manager_calls.get(content.callId)
+        future = self._pending_router_endpoint_calls.get(content.callId)
         if future is None:
             logger.warning(
                 "Listener %s received unknown call result %s",
@@ -1195,76 +1193,45 @@ class SettaListener:
         )
         await self._send_websocket_payload(message.model_dump_json())
 
-    async def emit_project_ops(
+    async def _call_router_endpoint(
         self,
-        *,
-        project_ops: Sequence[ProjectOp | dict[str, Any]],
-    ) -> None:
-        if self._runtime_state is None:
-            raise RuntimeError(
-                "Listener project state is unavailable; wait for bootstrap before emitting"
-            )
-        if not self._is_registered and not self._registration_pending:
-            raise RuntimeError(
-                "Listener is not registered with the server; wait for registration to complete before emitting"
-            )
-        serialized_ops = self._serialize_project_ops(project_ops)
-        if not serialized_ops:
-            raise ValueError("emit_project_ops requires at least one project op")
-        project_config_id = self._require_project_id()
-        message = WebsocketMsgListenerProjectOps(
-            content=ListenerProjectOpsContent(
-                projectConfigId=project_config_id,
-                projectOps=serialized_ops,
-            )
-        )
-        logger.debug(
-            "Listener %s emitting project ops %s",
-            self._log_identifier,
-            ", ".join(op.type for op in serialized_ops) or "-",
-        )
-        await self._send_websocket_payload(message.model_dump_json())
-
-    async def call_project_manager(
-        self,
-        *,
-        operation: str,
-        payload: dict[str, Any] | None = None,
+        endpoint_name: str,
+        payload: BaseModel | dict[str, object] | None = None,
     ) -> Any:
         if self._runtime_state is None:
             raise RuntimeError(
-                "Listener project state is unavailable; wait for bootstrap before calling project manager"
+                "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
             )
         if not self._is_registered and not self._registration_pending:
             raise RuntimeError(
-                "Listener is not registered with the server; wait for registration to complete before calling project manager"
+                "Listener is not registered with the server; wait for registration to complete before calling router endpoints"
             )
-        if not operation:
-            raise ValueError("call_project_manager requires a non-empty operation")
+        if not endpoint_name:
+            raise ValueError("router endpoint call requires a non-empty endpoint name")
         call_id = uuid4().hex
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
-        self._pending_project_manager_calls[call_id] = future
+        self._pending_router_endpoint_calls[call_id] = future
         project_config_id = self._require_project_id()
-        message = WebsocketMsgListenerProjectManagerCall(
-            content=ListenerProjectManagerCallContent(
+        message = WebsocketMsgListenerRouterEndpointCall(
+            content=ListenerRouterEndpointCallContent(
                 projectConfigId=project_config_id,
                 callId=call_id,
-                operation=operation,
-                payload=payload or {},
+                endpointName=endpoint_name,
+                payload=self._serialize_router_endpoint_payload(payload),
             )
         )
         logger.debug(
-            "Listener %s calling project manager op %s (callId=%s)",
+            "Listener %s calling router endpoint %s (callId=%s)",
             self._log_identifier,
-            operation,
+            endpoint_name,
             call_id,
         )
         await self._send_websocket_payload(message.model_dump_json())
         try:
             return await future
         finally:
-            self._pending_project_manager_calls.pop(call_id, None)
+            self._pending_router_endpoint_calls.pop(call_id, None)
 
     def _serialize_listener_artifact_updates(
         self,
@@ -1286,13 +1253,17 @@ class SettaListener:
                 ) from exc
         return serialized
 
-    def _serialize_project_ops(
+    def _serialize_router_endpoint_payload(
         self,
-        project_ops: Sequence[ProjectOp | dict[str, Any]],
-    ) -> list[ProjectOp]:
-        if not project_ops:
-            return []
-        return [ProjectOpTypeAdapter.validate_python(op) for op in project_ops]
+        payload: BaseModel | dict[str, object] | None,
+    ) -> dict[str, object]:
+        if payload is None:
+            return {}
+        if isinstance(payload, BaseModel):
+            return payload.model_dump()
+        if isinstance(payload, dict):
+            return dict(payload)
+        raise ValueError("router endpoint payload must be a dict or pydantic model")
 
     def _set_dependency_value(
         self,
@@ -1380,9 +1351,13 @@ class SettaListener:
             actions=actions,
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
-            emit_project_ops=self.emit_project_ops,
-            call_project_manager=self.call_project_manager,
+            project_manager=self._get_router_endpoint_api(),
         )
+
+    def _get_router_endpoint_api(self) -> RouterEndpointAPI:
+        if self._router_endpoint_api is None:
+            self._router_endpoint_api = RouterEndpointAPI(self._call_router_endpoint)
+        return self._router_endpoint_api
 
     async def _send_websocket_payload(self, payload: str) -> None:
         websocket = self._websocket
