@@ -21,7 +21,7 @@ from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
 from setta.logging.config import configure_logging
-from setta.mcp.tool_metadata import SettaToolType
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
         self.init_tool_definitions: dict[str, ChatCompletionToolParam] = {}
         self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
+        self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
 
     async def connect_to_server(self, retry_delay: int = 1) -> None:
         """Connect to the MCP server over SSE and maintain tool caches."""
@@ -129,16 +130,24 @@ class MCPClient:
     def _update_tool_cache(self, tools: list[Tool]) -> None:
         init_tools: dict[str, ChatCompletionToolParam] = {}
         discoverable_tools: dict[str, ChatCompletionToolParam] = {}
+        tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
         for tool in tools:
-            tool_type = SettaToolType(tool.annotations.settaToolType)  # type: ignore[attr-defined]
+            if tool.annotations is None:
+                raise ValueError(f"MCP tool {tool.name} is missing annotations")
+            annotations = SettaToolAnnotations.model_validate(
+                tool.annotations.model_dump()
+            )
+            tool_type = SettaToolType(annotations.settaToolType)
             definition = self._convert_tool_to_llm_definition(tool)
             if tool_type == SettaToolType.init:
                 init_tools[tool.name] = definition
             else:
                 discoverable_tools[tool.name] = definition
+            tool_annotations_by_name[tool.name] = annotations
 
         self.init_tool_definitions = init_tools
         self.discoverable_tool_definitions = discoverable_tools
+        self.tool_annotations_by_name = tool_annotations_by_name
 
     @staticmethod
     def _convert_tool_to_llm_definition(tool: Tool) -> ChatCompletionToolParam:

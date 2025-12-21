@@ -390,6 +390,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMConfigUpdated: "LLMConfigUpdated",
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowUpdate: "AIFollowUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -3847,6 +3848,24 @@ const WebsocketMsgAIFollowUpdateSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.AIFollowUpdate),
 });
 
+const AIFollowToolResultUpdateContentSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: IDSchema,
+  idsByType: z.record(z.literal(["section", "codeObj"]), z.array(IDSchema)),
+});
+
+export type AIFollowToolResultUpdateContent = z.infer<
+  typeof AIFollowToolResultUpdateContentSchema
+>;
+
+const WebsocketMsgAIFollowToolResultUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AIFollowToolResultUpdateContentSchema,
+  messageType: z
+    .literal("AIFollowToolResultUpdate")
+    .default(WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate),
+});
+
 const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -3863,6 +3882,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLLMConfigUpdatedSchema,
   WebsocketMsgLLMApiKeysUpdatedSchema,
   WebsocketMsgAIFollowUpdateSchema,
+  WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<

@@ -7,7 +7,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator, Literal
+from typing import Any, AsyncIterator, Iterator, Literal, cast
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -21,6 +21,7 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MCPClient
+from setta.mcp.tool_metadata import AIFollowToolResultMetadata
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
@@ -1116,6 +1117,12 @@ class LLMChatManager:
                 result=tool_chat_message,
             ),
         )
+        await self._maybe_broadcast_ai_follow_tool_result_update(
+            tool_name,
+            call_result,
+            chat.projectConfigId,
+            chat_id,
+        )
         return tool_chat_message
 
     def _sanitize_tool_arguments(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1236,6 +1243,80 @@ class LLMChatManager:
             )
             return {}
 
+    def _select_tool_result_values(self, payload: Any, path: str) -> list[Any]:
+        if path == "$":
+            return [payload]
+        segments = [segment for segment in path.split(".") if segment]
+        current: list[Any] = [payload]
+        for segment in segments:
+            key = segment
+            next_values: list[Any] = []
+            for item in current:
+                if not isinstance(item, dict):
+                    continue
+                if key not in item:
+                    continue
+                value = item[key]
+                next_values.append(value)
+            current = next_values
+            if not current:
+                break
+        return current
+
+    def _extract_ai_follow_tool_result_ids(
+        self,
+        payload: Any,
+        metadata: AIFollowToolResultMetadata,
+    ) -> dict[str, list[ID]]:
+        ids_by_type: dict[str, set[ID]] = {}
+        for id_type, paths in metadata.pathsByIdType.items():
+            values: list[Any] = []
+            for path in paths:
+                values.extend(self._select_tool_result_values(payload, path))
+            if not values:
+                continue
+            for value in values:
+                ids = self._coerce_id_list(value)
+                if ids:
+                    ids_by_type.setdefault(id_type, set()).update(ids)
+        return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
+
+    async def _maybe_broadcast_ai_follow_tool_result_update(
+        self,
+        tool_name: str,
+        call_result: CallToolResult,
+        project_config_id: ID,
+        chat_id: ID,
+    ) -> None:
+        if call_result.isError:
+            return
+        annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
+        if not annotations or not annotations.aiFollowToolResult:
+            return
+        metadata = annotations.aiFollowToolResult
+        text_entry = cast("TextContent", call_result.content[0])
+        text = (text_entry.text or "").strip()
+        payload: Any
+        if all(
+            path == "$" for paths in metadata.pathsByIdType.values() for path in paths
+        ):
+            payload = text
+        else:
+            payload = json.loads(text)
+        ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
+        if not ids_by_type:
+            return
+        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
+        canonical_ids_by_type = convert_temporary_ids_to_canonical(
+            ids_by_type,
+            temporary_to_canonical,
+        )
+        await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
+            project_config_id,
+            chat_id,
+            canonical_ids_by_type,
+        )
+
     async def _broadcast_ai_follow_update(
         self,
         project_config_id: ID,
@@ -1315,12 +1396,12 @@ class LLMChatManager:
         self, arguments: dict[str, Any]
     ) -> list[ID] | None:
         if "sectionIds" in arguments:
-            return self._coerce_section_id_list(arguments["sectionIds"])
+            return self._coerce_id_list(arguments["sectionIds"])
         if "sectionId" in arguments:
-            return self._coerce_section_id_list(arguments["sectionId"])
+            return self._coerce_id_list(arguments["sectionId"])
         return None
 
-    def _coerce_section_id_list(self, raw_value: Any) -> list[ID] | None:
+    def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
         if isinstance(raw_value, list):
             return [
                 ID(value) for value in raw_value if isinstance(value, str) and value
