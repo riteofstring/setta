@@ -96,14 +96,14 @@ Create a callable section + set params:
 getProjectConfigNamesAndIds {}
 get_latest_project_state_summary {"projectConfigId":"<config_id>"}
 create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable","position":{"x":80,"y":120}}
-set_section_name {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","name":"Load Data"}
-set_callable {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","callableName":"my_pkg.load_data","refetchParams":true}
-set_param_entered_value {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","paramInfoId":"<param_id>","value":"state.config__path"}
+set_section_name {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","name":"Load Data"}
+set_callable {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","callableName":"my_pkg.load_data","refetchParams":true}
+set_param_entered_value {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","paramInfoId":"<param_id>","value":"state.config__path"}
 ```
 
 Edit a Code section:
 ```
-set_code {"projectConfigId":"<config_id>","sectionId":"<code_section_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
+set_code {"sectionId":"<code_section_id>","projectConfigId":"<config_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
 ```
 
 Add a prefix import for generated expressions:
