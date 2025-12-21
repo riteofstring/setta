@@ -13,6 +13,17 @@ export function calculateBoundedWidth(
   return clamp(width, marginPx, containerWidth - marginPx);
 }
 
+export function calculateBoundedWidthWithMinRemainingWidth(
+  width: number,
+  containerWidth: number,
+  maxNestedDepth: number,
+  minRemainingWidth: number,
+): number {
+  const marginPx = getMarginPx(maxNestedDepth);
+  const maxWidth = Math.max(marginPx, containerWidth - minRemainingWidth);
+  return clamp(width, marginPx, maxWidth);
+}
+
 export function getDefaultColumnWidth(containerWidth: number): number {
   return containerWidth / 2;
 }

@@ -29,6 +29,7 @@ type UseColumnWidthDragArgs = {
   maxNestedDepthRef: MutableRefObject<number>;
   applyWidth: (width: number) => void;
   persistWidth: (width: number) => void;
+  getBoundedWidth?: (width: number, containerWidth: number) => number;
 };
 
 type UseColumnWidthDragResult = {
@@ -42,6 +43,7 @@ export function useColumnWidthDrag({
   maxNestedDepthRef,
   applyWidth,
   persistWidth,
+  getBoundedWidth: getBoundedWidthOverride,
 }: UseColumnWidthDragArgs): UseColumnWidthDragResult {
   const widthRef = useRef<ColumnWidthState>({
     currentWidth: 0,
@@ -52,11 +54,12 @@ export function useColumnWidthDrag({
   const rafRef = useRef<number | null>(null);
   const dragListenersRef = useRef<DragListeners>({ move: null, up: null });
 
-  const getBoundedWidth = useCallback(
+  const defaultGetBoundedWidth = useCallback(
     (rawWidth: number, containerWidth: number) =>
       calculateBoundedWidth(rawWidth, containerWidth, maxNestedDepthRef.current),
     [maxNestedDepthRef],
   );
+  const getBoundedWidth = getBoundedWidthOverride ?? defaultGetBoundedWidth;
 
   const setNewWidth = useCallback(
     (containerWidth: number, rawWidth: number) => {

@@ -12,12 +12,16 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
+import {
+  calculateBoundedWidthWithMinRemainingWidth,
+  getDefaultColumnWidth,
+} from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
 import { route_set_section_column_width } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 
 const CENTER_OFFSET = 18;
+const MIN_PARAM_VALUE_COLUMN_WIDTH = 100;
 
 type UseParamColumnWidthArgs = {
   sectionId: string;
@@ -69,11 +73,23 @@ export function useParamColumnWidth({
     [sectionId],
   );
 
+  const getBoundedWidth = useCallback(
+    (rawWidth: number, containerWidth: number) =>
+      calculateBoundedWidthWithMinRemainingWidth(
+        rawWidth,
+        containerWidth,
+        maxNestedDepthRef.current,
+        MIN_PARAM_VALUE_COLUMN_WIDTH,
+      ),
+    [maxNestedDepthRef],
+  );
+
   const { handleResizeStart, setNewWidth, widthRef } = useColumnWidthDrag({
     outerRef,
     maxNestedDepthRef,
     applyWidth,
     persistWidth,
+    getBoundedWidth,
   });
 
   useEffect(() => {
