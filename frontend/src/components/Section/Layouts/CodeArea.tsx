@@ -1,9 +1,8 @@
-import { Annotation, EditorState, Transaction } from "@codemirror/state";
+import { EditorState, Transaction } from "@codemirror/state";
 import {
   Decoration,
   DecorationSet,
   EditorView,
-  ViewUpdate,
   ViewPlugin,
   WidgetType,
 } from "@codemirror/view";
@@ -190,56 +189,6 @@ const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
   suffixBoundaryLength: 0,
 };
 
-const REMOTE_UPDATE_ANNOTATION = Annotation.define<boolean>();
-
-function isRemoteViewUpdate(viewUpdate?: ViewUpdate) {
-  if (!viewUpdate) {
-    return false;
-  }
-  return viewUpdate.transactions.some((tr) =>
-    tr.annotation(REMOTE_UPDATE_ANNOTATION),
-  );
-}
-
-function computeDocChange(oldText: string, newText: string) {
-  const oldLength = oldText.length;
-  const newLength = newText.length;
-  let start = 0;
-  while (
-    start < oldLength &&
-    start < newLength &&
-    oldText[start] === newText[start]
-  ) {
-    start += 1;
-  }
-  let oldEnd = oldLength;
-  let newEnd = newLength;
-  while (
-    oldEnd > start &&
-    newEnd > start &&
-    oldText[oldEnd - 1] === newText[newEnd - 1]
-  ) {
-    oldEnd -= 1;
-    newEnd -= 1;
-  }
-  return {
-    from: start,
-    to: oldEnd,
-    insert: newText.slice(start, newEnd),
-  };
-}
-
-function applyDocUpdate(view: EditorView, nextDoc: string) {
-  const currentDoc = view.state.doc.toString();
-  if (currentDoc === nextDoc) {
-    return;
-  }
-  view.dispatch({
-    changes: computeDocChange(currentDoc, nextDoc),
-    annotations: [REMOTE_UPDATE_ANNOTATION.of(true)],
-  });
-}
-
 function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (!generated) {
     return INVALID_GEN_PYTHON_DOC_PARTS;
@@ -380,21 +329,14 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   });
 
   const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
-  const initialValueRef = useRef<string>(combinedDoc);
+  const [value, setValue] = useState<string>(combinedDoc);
   const [generatedCodeForValue, setGeneratedCodeForValue] =
     useState<string>(code);
-  const editorViewRef = useRef<EditorView | null>(null);
 
   useEffect(() => {
+    setValue(combinedDoc);
     setGeneratedCodeForValue(code);
-  }, [code]);
-
-  useEffect(() => {
-    if (!editorViewRef.current) {
-      return;
-    }
-    applyDocUpdate(editorViewRef.current, combinedDoc);
-  }, [combinedDoc]);
+  }, [combinedDoc, code]);
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
@@ -406,33 +348,19 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     [generatedCodeForValue],
   );
 
-  const handleCreateEditorWithRef = useCallback(
-    (view: EditorView) => {
-      editorViewRef.current = view;
-      handleCreateEditor(view);
-      applyDocUpdate(view, combinedDoc);
-    },
-    [combinedDoc, handleCreateEditor],
-  );
-
-  const onChange = useCallback(
-    (nextValue: string, viewUpdate: ViewUpdate) => {
-      if (isRemoteViewUpdate(viewUpdate)) {
-        return;
-      }
-      const nextParts = splitGenPythonDoc(nextValue, generatedCodeForValue);
-      if (!nextParts.isValid) {
-        return;
-      }
-      if (nextParts.prefix !== prefix) {
-        setGenCodePrefix(nextParts.prefix);
-      }
-      if (nextParts.suffix !== suffix) {
-        setGenCodeSuffix(nextParts.suffix);
-      }
-    },
-    [generatedCodeForValue, prefix, suffix],
-  );
+  function onChange(nextValue: string) {
+    setValue(nextValue);
+    const nextParts = splitGenPythonDoc(nextValue, generatedCodeForValue);
+    if (!nextParts.isValid) {
+      return;
+    }
+    if (nextParts.prefix !== prefix) {
+      debouncedSetGenCodePrefix(nextParts.prefix);
+    }
+    if (nextParts.suffix !== suffix) {
+      debouncedSetGenCodeSuffix(nextParts.suffix);
+    }
+  }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
@@ -536,11 +464,11 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={initialValueRef.current}
+        value={value}
         theme={theme}
         extensions={extensions}
         onChange={onChange}
-        onCreateEditor={handleCreateEditorWithRef}
+        onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
         basicSetup={{ tabSize: 4, drawSelection: false }}
       />
@@ -563,38 +491,14 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     };
   }, _.isEqual);
 
-  const initialValueRef = useRef<string>(value);
-  const editorViewRef = useRef<EditorView | null>(null);
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
 
-  const handleCreateEditorWithRef = useCallback(
-    (view: EditorView) => {
-      editorViewRef.current = view;
-      handleCreateEditor(view);
-      applyDocUpdate(view, value);
-    },
-    [handleCreateEditor, value],
-  );
-
-  useEffect(() => {
-    if (!editorViewRef.current) {
-      return;
-    }
-    applyDocUpdate(editorViewRef.current, value);
-  }, [value]);
-
-  const onChange = useCallback(
-    (nextValue: string, viewUpdate: ViewUpdate) => {
-      if (isRemoteViewUpdate(viewUpdate)) {
-        return;
-      }
-      debouncedSetCode(sectionId, nextValue);
-    },
-    [sectionId],
-  );
+  function onChange(v) {
+    debouncedSetCode(sectionId, v);
+  }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
@@ -620,11 +524,11 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={initialValueRef.current}
+        value={value}
         theme={theme}
         extensions={extensions}
         onChange={onChange}
-        onCreateEditor={handleCreateEditorWithRef}
+        onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
         basicSetup={{ tabSize: 4 }}
       />
@@ -778,7 +682,7 @@ const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
   });
 }, 200);
 
-function setGenCodePrefix(value: string) {
+const debouncedSetGenCodePrefix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectConfig.genCodePrefix = value;
@@ -790,9 +694,9 @@ function setGenCodePrefix(value: string) {
         frontendOpId,
       }),
   });
-}
+}, 50);
 
-function setGenCodeSuffix(value: string) {
+const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectConfig.genCodeSuffix = value;
@@ -804,7 +708,7 @@ function setGenCodeSuffix(value: string) {
         frontendOpId,
       }),
   });
-}
+}, 50);
 
 function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {

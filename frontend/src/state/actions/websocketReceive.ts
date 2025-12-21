@@ -55,18 +55,10 @@ import { updateSettings } from "./settings";
 
 let wss: WebSocket | null;
 let wasOpen = false;
-let connectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export const openWebSocket = _.debounce(
   (pathname) => {
-    if (wss || connectTimeoutId) {
-      return;
-    }
-    connectTimeoutId = setTimeout(() => {
-      connectTimeoutId = null;
-      if (wss) {
-        return;
-      }
+    if (!wss) {
       wss = new WebSocket(
         `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
       );
@@ -106,9 +98,11 @@ export const openWebSocket = _.debounce(
         }
         clearAllWebsocketConnections();
         // Attempt to reconnect
-        openWebSocket(pathname);
+        setTimeout(() => {
+          openWebSocket(pathname);
+        }, 3000);
       });
-    }, 3000);
+    }
   },
   1000,
   { leading: true },
