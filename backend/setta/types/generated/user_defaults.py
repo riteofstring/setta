@@ -115,7 +115,7 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    metaControlType: MetaControlType
+    metaControlType: MetaControlType = MetaControlType.button
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

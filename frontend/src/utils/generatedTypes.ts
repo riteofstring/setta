@@ -1384,7 +1384,9 @@ const MetaControlSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  metaControlType: z.enum(MetaControlTypeEnum),
+  metaControlType: z
+    .enum(MetaControlTypeEnum)
+    .default(MetaControlTypeEnum.button),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -3488,7 +3490,9 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  metaControlType: z.enum(MetaControlTypeEnum),
+  metaControlType: z
+    .enum(MetaControlTypeEnum)
+    .default(MetaControlTypeEnum.button),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
