@@ -1281,18 +1281,16 @@ class LLMChatManager:
                     ids_by_type.setdefault(id_type, set()).update(ids)
         return {id_type: list(ids) for id_type, ids in ids_by_type.items()}
 
-    async def _maybe_broadcast_ai_follow_tool_result_update(
+    def _build_ai_follow_tool_result_update(
         self,
         tool_name: str,
         call_result: CallToolResult,
-        project_config_id: ID,
-        chat_id: ID,
-    ) -> None:
+    ) -> dict[str, list[ID]] | None:
         if call_result.isError:
-            return
+            return None
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.aiFollowToolResult:
-            return
+            return None
         metadata = annotations.aiFollowToolResult
         text_entry = cast("TextContent", call_result.content[0])
         text = (text_entry.text or "").strip()
@@ -1305,12 +1303,26 @@ class LLMChatManager:
             payload = json.loads(text)
         ids_by_type = self._extract_ai_follow_tool_result_ids(payload, metadata)
         if not ids_by_type:
-            return
+            return None
         temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        canonical_ids_by_type = convert_temporary_ids_to_canonical(
+        return convert_temporary_ids_to_canonical(
             ids_by_type,
             temporary_to_canonical,
         )
+
+    async def _maybe_broadcast_ai_follow_tool_result_update(
+        self,
+        tool_name: str,
+        call_result: CallToolResult,
+        project_config_id: ID,
+        chat_id: ID,
+    ) -> None:
+        canonical_ids_by_type = self._build_ai_follow_tool_result_update(
+            tool_name,
+            call_result,
+        )
+        if canonical_ids_by_type is None:
+            return
         await self.websocket_msg_handler.broadcast_ai_follow_tool_result_update(
             project_config_id,
             chat_id,

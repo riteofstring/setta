@@ -8,7 +8,9 @@ from setta.mcp.tool_metadata import (
     AIFollowToolResultMetadata,
     SettaToolAnnotations,
     SettaToolType,
+    get_ai_follow_tool_result,
 )
+from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.project_state.project_manager_types import CreateTopLevelSectionRequest
 from setta.types.id import ID
@@ -23,6 +25,101 @@ from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
 from tests.utils.manager_fixture import real_project_manager
+
+
+def _build_tool_annotations_by_name() -> dict[str, SettaToolAnnotations]:
+    tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
+    for tool_fn in SETTA_INIT_MCP_TOOLS:
+        tool_annotations_by_name[tool_fn.__name__] = SettaToolAnnotations(
+            settaToolType=SettaToolType.init,
+            aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
+        )
+    for tool_fn in SETTA_MCP_TOOLS:
+        tool_annotations_by_name[tool_fn.__name__] = SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
+        )
+    return tool_annotations_by_name
+
+
+def _build_ids_by_type(
+    fixture,
+    id_types: set[str],
+) -> tuple[dict[str, ID], dict[str, ID]]:
+    canonical_ids_by_type: dict[str, ID] = {}
+    for id_type in id_types:
+        if id_type == "section":
+            sections = fixture.manager.project_state_backend.sections
+            if not sections:
+                raise AssertionError("No section IDs available for aiFollowToolResult")
+            canonical_ids_by_type[id_type] = next(iter(sections))
+        elif id_type == "codeObj":
+            code_objs = fixture.manager.project_state_backend.codeObjs
+            if not code_objs:
+                raise AssertionError("No codeObj IDs available for aiFollowToolResult")
+            canonical_ids_by_type[id_type] = next(iter(code_objs))
+        else:
+            raise AssertionError(f"Unexpected aiFollowToolResult id type: {id_type}")
+
+    temporary_to_canonical, canonical_to_temporary = fixture.dbe.read_temporary_id_map()
+    temporary_ids_by_type: dict[str, ID] = {}
+    for id_type, canonical_id in canonical_ids_by_type.items():
+        temporary_ids_by_type[id_type] = convert_canonical_ids_to_temporary(
+            canonical_id,
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+    fixture.dbe.write_temporary_id_map(canonical_to_temporary)
+    return canonical_ids_by_type, temporary_ids_by_type
+
+
+def _set_payload_value(payload: dict[str, object], path: str, value: str) -> None:
+    segments = [segment for segment in path.split(".") if segment]
+    if not segments:
+        return
+    current: dict[str, object] = payload
+    for segment in segments[:-1]:
+        next_value = current.get(segment)
+        if not isinstance(next_value, dict):
+            next_value = {}
+            current[segment] = next_value
+        current = next_value
+    current[segments[-1]] = value
+
+
+def _build_call_result_for_metadata(
+    metadata: AIFollowToolResultMetadata,
+    temporary_ids_by_type: dict[str, ID],
+) -> CallToolResult:
+    all_paths = [path for paths in metadata.pathsByIdType.values() for path in paths]
+    if all_paths and all(path == "$" for path in all_paths):
+        root_id_types = [
+            id_type
+            for id_type, paths in metadata.pathsByIdType.items()
+            if "$" in paths
+        ]
+        if len(root_id_types) != 1:
+            raise AssertionError(
+                "Expected exactly one aiFollowToolResult root id type"
+            )
+        root_id_type = root_id_types[0]
+        text_payload = str(temporary_ids_by_type[root_id_type])
+    else:
+        payload: dict[str, object] = {}
+        for id_type, paths in metadata.pathsByIdType.items():
+            if id_type not in temporary_ids_by_type:
+                raise AssertionError(
+                    f"Missing temporary id for aiFollowToolResult type {id_type}"
+                )
+            for path in paths:
+                if path == "$":
+                    continue
+                _set_payload_value(payload, path, str(temporary_ids_by_type[id_type]))
+        text_payload = json.dumps(payload)
+    return CallToolResult(
+        content=[TextContent(type="text", text=text_payload)],
+        isError=False,
+    )
 
 
 class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
@@ -134,6 +231,68 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             finally:
                 websocket_manager.sockets.pop(websocket_id, None)
                 await websocket.close()
+
+    async def test_ai_follow_tool_result_update_for_registered_tools(self) -> None:
+        async with real_project_manager() as fixture:
+            websocket_manager = fixture.websocket_manager
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            mcp_client = MCPClient("http://localhost")
+            chat_manager = LLMChatManager(
+                fixture.dbe,
+                mcp_client,
+                frontend_sender,
+            )
+
+            tool_annotations_by_name = _build_tool_annotations_by_name()
+            self.assertTrue(tool_annotations_by_name)
+            mcp_client.tool_annotations_by_name = tool_annotations_by_name
+
+            id_types: set[str] = set()
+            for annotations in tool_annotations_by_name.values():
+                if annotations.aiFollowToolResult:
+                    id_types.update(annotations.aiFollowToolResult.pathsByIdType.keys())
+
+            canonical_ids_by_type, temporary_ids_by_type = _build_ids_by_type(
+                fixture,
+                id_types,
+            )
+
+            default_call_result = CallToolResult(
+                content=[TextContent(type="text", text="")],
+                isError=False,
+            )
+
+            for tool_name, annotations in tool_annotations_by_name.items():
+                metadata = annotations.aiFollowToolResult
+                if metadata is None:
+                    result = chat_manager._build_ai_follow_tool_result_update(
+                        tool_name,
+                        default_call_result,
+                    )
+                    self.assertIsNone(result, tool_name)
+                    continue
+
+                call_result = _build_call_result_for_metadata(
+                    metadata,
+                    temporary_ids_by_type,
+                )
+                result = chat_manager._build_ai_follow_tool_result_update(
+                    tool_name,
+                    call_result,
+                )
+                self.assertIsInstance(result, dict, tool_name)
+                for id_type, id_list in result.items():
+                    self.assertIsInstance(id_list, list, tool_name)
+                    self.assertTrue(
+                        all(isinstance(item, ID) for item in id_list),
+                        tool_name,
+                    )
+                    if id_type in canonical_ids_by_type:
+                        self.assertIn(
+                            canonical_ids_by_type[id_type],
+                            id_list,
+                            tool_name,
+                        )
 
 
 if __name__ == "__main__":
