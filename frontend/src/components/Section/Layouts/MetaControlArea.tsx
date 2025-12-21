@@ -15,7 +15,7 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
   });
 
   return (
-    <div className="section-row-main section-w-full flex h-full w-full items-stretch px-2 pb-2 pt-6">
+    <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
       <MetaControlContent metaControlType={metaControlType} />
     </div>
   );
