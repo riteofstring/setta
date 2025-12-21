@@ -149,6 +149,7 @@ function SectionSearchCore({
   function onTab(value: string, completionResult: boolean) {
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
+      clearApplyIndicator();
       onEnter(value);
     }
   }
@@ -158,25 +159,27 @@ function SectionSearchCore({
     setValueAndCheckConsistency(value);
   }
 
-  function _onEnter(value: string) {
-    onEnter(value);
-  }
-
-  function _onShiftEnter(value: string) {
-    onShiftEnter(value);
+  function clearApplyIndicator() {
+    debouncedSetValueNameInconsistent.cancel();
+    setValueNameInconsistent(false);
   }
 
   const keyComboActions = {
-    Enter: _onEnter,
-    "Alt-Enter": _onShiftEnter,
+    Enter: (value: string) => {
+      clearApplyIndicator();
+      onEnter(value);
+    },
+    "Alt-Enter": (value: string) => {
+      clearApplyIndicator();
+      onShiftEnter(value);
+    },
   };
 
   // TODO: Shouldn't use important for this, but ok for now. FIX.
   const valueNameInconsistentStyle = valueNameInconsistent
     ? "setta-callable-ready"
     : "";
-  const showApplyHint = valueNameInconsistent;
-  const showRightIndicator = showApplyHint || waitingForResult;
+  const showRightIndicator = valueNameInconsistent || waitingForResult;
 
   const displayedCallableName =
     draftCallableName !== null ? draftCallableName : codeInfoName;
@@ -203,15 +206,19 @@ function SectionSearchCore({
         isDisabled={isDisabled}
       />
       {showRightIndicator && (
-        <div className="single-cell-child pointer-events-none mr-2 flex items-center justify-self-end gap-1.5 self-center">
-          {showApplyHint && (
-            <span className="setta-callable-ready-icon">
-              <i className="gg-corner-right-down" />
-            </span>
-          )}
-          {waitingForResult && (
-            <i className="gg-spinner text-blue-500/70" />
-          )}
+        <div className="single-cell-child pointer-events-none mr-2 flex items-center justify-self-end self-center">
+          <span className="relative grid h-[22px] w-[22px] place-items-center">
+            {valueNameInconsistent && (
+              <span className="setta-callable-ready-icon">
+                <i className="gg-corner-right-down" />
+              </span>
+            )}
+            {waitingForResult && (
+              <span className="absolute inset-0 grid place-items-center rounded bg-white dark:bg-setta-950">
+                <i className="gg-spinner text-blue-500/70" />
+              </span>
+            )}
+          </span>
         </div>
       )}
     </search>
