@@ -11,6 +11,7 @@ from mcp.types import Tool
 
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
+from setta.utils.constants import C
 
 if TYPE_CHECKING:
     from litellm.types.llms.openai import ChatCompletionToolParam
@@ -63,15 +64,11 @@ class MCPServerClient:
         """Connect to the MCP server and maintain tool caches."""
 
         target = self._url if self._transport == "sse" else self._command
-        logger.info(
-            "Starting MCP client connection to %s (%s)", self.server_id, target
-        )
+        logger.info("Starting MCP client connection to %s (%s)", self.server_id, target)
 
         while True:
             try:
-                logger.info(
-                    "Attempting to connect to %s (%s)", self.server_id, target
-                )
+                logger.info("Attempting to connect to %s (%s)", self.server_id, target)
                 if self._transport == "sse":
                     transport = await self.exit_stack.enter_async_context(
                         sse_client(url=self._url, headers=self._headers or None)
@@ -186,6 +183,7 @@ class MultiMCPClient:
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
         self._tool_cache_version = 0
         for server_id, config in server_configs.items():
+            self._validate_server_id(server_id)
             self._server_clients[server_id] = MCPServerClient(
                 server_id,
                 config,
@@ -227,9 +225,7 @@ class MultiMCPClient:
         tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
         for server_id, client in self._server_clients.items():
             for tool_name, definition in client.init_tool_definitions.items():
-                namespaced_name = self._build_namespaced_tool_name(
-                    server_id, tool_name
-                )
+                namespaced_name = self._build_namespaced_tool_name(server_id, tool_name)
                 if tool_name not in client.tool_annotations_by_name:
                     raise KeyError(
                         f"MCP server '{server_id}' missing annotations for '{tool_name}'"
@@ -241,9 +237,7 @@ class MultiMCPClient:
                     client.tool_annotations_by_name[tool_name]
                 )
             for tool_name, definition in client.discoverable_tool_definitions.items():
-                namespaced_name = self._build_namespaced_tool_name(
-                    server_id, tool_name
-                )
+                namespaced_name = self._build_namespaced_tool_name(server_id, tool_name)
                 if tool_name not in client.tool_annotations_by_name:
                     raise KeyError(
                         f"MCP server '{server_id}' missing annotations for '{tool_name}'"
@@ -262,7 +256,8 @@ class MultiMCPClient:
 
     @staticmethod
     def _build_namespaced_tool_name(server_id: str, tool_name: str) -> str:
-        return f"{server_id}.{tool_name}"
+        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
+        return f"{server_id}{separator}{tool_name}"
 
     @staticmethod
     def _namespace_tool_definition(
@@ -286,13 +281,30 @@ class MultiMCPClient:
 
     @staticmethod
     def _split_namespaced_tool_name(namespaced_tool_name: str) -> tuple[str, str]:
-        if "." not in namespaced_tool_name:
+        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
+        if separator not in namespaced_tool_name:
             raise ValueError(
-                "Tool name must be namespaced as '<server_id>.<tool_name>'"
+                f"Tool name must be namespaced as '<server_id>{separator}<tool_name>'"
             )
-        server_id, tool_name = namespaced_tool_name.split(".", 1)
+        server_id, tool_name = namespaced_tool_name.split(separator, 1)
         if not server_id:
             raise ValueError("Tool name is missing server id")
         if not tool_name:
             raise ValueError("Tool name is missing tool name")
         return server_id, tool_name
+
+    @staticmethod
+    def _validate_server_id(server_id: str) -> None:
+        if not server_id:
+            raise ValueError("MCP server id must not be empty")
+        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
+        if separator in server_id:
+            raise ValueError(
+                f"MCP server id '{server_id}' cannot include '{separator}'"
+            )
+        for char in server_id:
+            if char.isalnum() or char in "_-":
+                continue
+            raise ValueError(
+                f"MCP server id '{server_id}' must use letters, numbers, '_' or '-'"
+            )

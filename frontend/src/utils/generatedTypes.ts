@@ -3928,9 +3928,21 @@ const LLMConfigSchema = z.object({
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+const MCPServerConfigSchema = z.object({
+  label: z.union([z.string(), z.null()]).default(null),
+  transport: z.literal(["sse", "stdio"]),
+  url: z.union([z.string(), z.null()]).default(null),
+  headers: z.record(z.string(), z.string()).default({}),
+  command: z.union([z.string(), z.null()]).default(null),
+  args: z.array(z.string()).default([]),
+  env: z.record(z.string(), z.string()).default({}),
+  cwd: z.union([z.string(), z.null()]).default(null),
+});
+
 const AllLLMConfigsSchema = z.object({
   configs: z.record(z.string(), LLMConfigSchema).default({}),
   default_config_id: z.union([z.string(), z.null()]).default(null),
+  mcp_servers: z.record(z.string(), MCPServerConfigSchema).default({}),
 });
 
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;

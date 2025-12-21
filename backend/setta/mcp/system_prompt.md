@@ -65,11 +65,11 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Use `set_callable` + `set_param_entered_value` to wire callables and args; do not
   hand-edit code objects. Use `set_param_name_and_value` when you need to set both
   a param name and value.
-- MCP tools are namespaced as `<server_id>.<tool_name>` (including Setta); tools can
+- MCP tools are namespaced as `<server_id>__<tool_name>` (including Setta); tools can
   live on multiple servers.
-- Use `setta.search_and_unlock_mcp_tools` when you do not know the tool name; fall
-  back to `setta.list_mcp_tools` only if search fails.
-- `setta.search_and_unlock_mcp_tools` returns entries with namespaced `name`,
+- Use `setta__search_and_unlock_mcp_tools` when you do not know the tool name; fall
+  back to `setta__list_mcp_tools` only if search fails.
+- `setta__search_and_unlock_mcp_tools` returns entries with namespaced `name`,
   `description`, and `category`; always use the `name` field when calling a tool.
 
 ## Don't-do list

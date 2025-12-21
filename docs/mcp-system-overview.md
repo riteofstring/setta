@@ -12,7 +12,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 
 ## Tool decorators (`backend/setta/mcp/tool_setup.py` and friends)
 - `@setta_tool` stores the decorated callable in the `SETTA_MCP_TOOLS` list. Use it for discoverable tools that the chat manager will unlock via search.
-- `@setta_init_tool` stores the callable in `SETTA_INIT_MCP_TOOLS`. These tools (for example `setta.read_file_range`, `setta.list_mcp_tools`, and `setta.search_and_unlock_mcp_tools`) are seeded into every chat session automatically; the chat manager intercepts the search tool call to run aggregated search across servers.
+- `@setta_init_tool` stores the callable in `SETTA_INIT_MCP_TOOLS`. These tools (for example `setta__read_file_range`, `setta__list_mcp_tools`, and `setta__search_and_unlock_mcp_tools`) are seeded into every chat session automatically; the chat manager intercepts the search tool call to run aggregated search across servers.
 - `project_state_registry.project_state_tool` lets any `BaseProjectManager` coroutine become an MCP tool. The decorator inspects the method's Pydantic request model, builds a standalone async function whose signature mirrors that schema (minus any fields tagged with `json_schema_extra[settaMcpHidden]`), and routes calls back through the correct project manager instance. This keeps project-specific tools consistent with the rest of our MCP surface.
 - All tool decorators preserve docstrings, so investing in clear docblocks pays off twice: parameter descriptions show up in the MCP schema, and the BM25 index becomes more accurate.
 
@@ -26,7 +26,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 ## Multi-server MCP client (`backend/setta/mcp/multi_client.py`)
 - `MultiMCPClient` owns one `MCPServerClient` per server id from `mcp_servers` in `setta_files/llm_config.json`.
 - Each server client connects via SSE (`mcp.client.sse.sse_client`) or stdio (`mcp.client.stdio.stdio_client`), initializes the session, and caches `init` vs `discoverable` tool definitions plus normalized annotations.
-- The aggregated tool cache is namespaced as `<server_id>.<tool_name>` for both definitions and annotations; `tool_cache_version` increments whenever caches are rebuilt so the chat manager can refresh its search index.
+- The aggregated tool cache is namespaced as `<server_id>__<tool_name>` for both definitions and annotations; `tool_cache_version` increments whenever caches are rebuilt so the chat manager can refresh its search index.
 - `call_tool(namespaced_name, args)` splits the namespace and routes the call to the correct server client.
 
 ## Stdio bridge (`backend/setta/mcp/client.py`)
@@ -36,8 +36,8 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 
 ## LLM chat manager (`backend/setta/llm/llm_chat_manager.py`)
 - `LLMChatManager` is the orchestrator that the FastAPI routes invoke. It persists chats, streams litellm responses, manages `deepThink` overrides, and communicates back to the UI via `WMHFrontendSender`.
-- Every chat keeps a `ChatToolState`. When a chat starts we seed it with namespaced `MultiMCPClient.init_tool_definitions` so the LLM always sees `<server_id>.<tool_name>` functions.
-- `search_and_unlock_mcp_tools` is handled directly in `LLMChatManager` when the tool name is namespaced (for example `setta.search_and_unlock_mcp_tools`). It builds a BM25 index across the merged discoverable tools (names, descriptions, tags, categories), returns namespaced results, and unlocks the selected tool schemas in the chat state.
+- Every chat keeps a `ChatToolState`. When a chat starts we seed it with namespaced `MultiMCPClient.init_tool_definitions` so the LLM always sees `<server_id>__<tool_name>` functions.
+- `search_and_unlock_mcp_tools` is handled directly in `LLMChatManager` when the tool name is namespaced (for example `setta__search_and_unlock_mcp_tools`). It builds a BM25 index across the merged discoverable tools (names, descriptions, tags, categories), returns namespaced results, and unlocks the selected tool schemas in the chat state.
 - `ToolPreunlocker` scores discoverable tools using the latest user message plus section categories from the project summary, then pre-unlocks the top matches (currently up to 2) so common workflows do not need a search round-trip.
 - When the LLM emits a tool call, `_dispatch_tool_call` routes it through `MultiMCPClient.call_tool` after validating the namespaced tool name. The aggregated search tool is intercepted locally; other calls are forwarded to the owning server. Follow/preview behavior only runs when tool annotations include those metadata (Setta tools).
 - Streaming deltas (`MessageStartEvent`, `MessageDeltaEvent`, `ToolCallDeltaEvent`, etc.) are forwarded to the websocket handler so the frontend can animate assistant text, thinking traces, and tool execution progress in real time.

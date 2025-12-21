@@ -1643,8 +1643,10 @@ class LLMChatManager:
             )
         arguments = dict(tool_call.function.arguments or {})
         if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME:
+            separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
             raise ValueError(
-                "Tool name must be namespaced as '<server_id>.search_and_unlock_mcp_tools'"
+                "Tool name must be namespaced as "
+                f"'<server_id>{separator}search_and_unlock_mcp_tools'"
             )
         started_at = get_now_timestamp()
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
@@ -1714,9 +1716,10 @@ class LLMChatManager:
 
     @staticmethod
     def _is_namespaced_search_tool(tool_name: str) -> bool:
-        if "." not in tool_name:
+        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
+        if separator not in tool_name:
             return False
-        server_id, base_name = tool_name.split(".", 1)
+        server_id, base_name = tool_name.split(separator, 1)
         if not server_id:
             raise ValueError("Tool name is missing server id")
         return base_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
@@ -1803,10 +1806,11 @@ class LLMChatManager:
         category: str | None,
     ) -> str:
         parts: list[str] = [name]
-        if "_" in name or "." in name:
-            parts.append(name.replace("_", " ").replace(".", " "))
-        if "." in name:
-            _, base_name = name.split(".", 1)
+        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
+        if "_" in name or separator in name:
+            parts.append(name.replace("_", " ").replace(separator, " "))
+        if separator in name:
+            _, base_name = name.split(separator, 1)
             parts.append(base_name)
             if "_" in base_name:
                 parts.append(base_name.replace("_", " "))

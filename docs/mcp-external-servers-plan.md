@@ -56,7 +56,7 @@ Notes:
 - Avoid embedding API keys directly; reference `.env` values with `${VAR}` or
   `api_key_env` style fields.
 - All tools are accessed via namespaced names (including Setta), using the
-  server id as the prefix (for example `setta.read_file_range`).
+  server id as the prefix (for example `setta__read_file_range`).
 
 ## Data Model Changes
 - Add `MCPServerConfig` and `MCPServersConfig` models in
@@ -78,7 +78,7 @@ Add a new client that manages multiple MCP connections:
 - Each server client caches tool definitions and annotations when connected.
 - Expose a merged view:
   - `init_tool_definitions`, `discoverable_tool_definitions` are keyed by
-    namespaced tool name: `<server_id>.<tool_name>`.
+    namespaced tool name: `<server_id>__<tool_name>`.
   - `tool_annotations_by_name` is also keyed by namespaced name. For tools
     without `SettaToolAnnotations`, default to:
     - `settaToolType = discoverable`
