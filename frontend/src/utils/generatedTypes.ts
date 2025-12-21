@@ -258,7 +258,6 @@ export const RouteEnum = {
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
   GET_LLM_CHAT: "/getLLMChat",
-  GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
   RUN_CODE: "/runCode",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
@@ -4305,14 +4304,6 @@ const DeleteLLMChatRequestSchema = z.object({
 
 export type DeleteLLMChatRequestInput = z.input<
   typeof DeleteLLMChatRequestSchema
->;
-
-const GetAIFollowSnapshotRequestSchema = z.object({
-  projectConfigId: IDSchema,
-});
-
-export type GetAIFollowSnapshotRequestInput = z.input<
-  typeof GetAIFollowSnapshotRequestSchema
 >;
 
 const GetLLMChatRequestSchema = z.object({
