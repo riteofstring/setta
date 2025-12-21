@@ -132,6 +132,7 @@ export const SectionTypeEnum = {
   Chart: "Chart",
   Draw: "Draw",
   TextBlock: "TextBlock",
+  MetaControl: "MetaControl",
   Social: "Social",
   GlobalVariables: "GlobalVariables",
   Code: "Code",
@@ -166,6 +167,21 @@ export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
+
+export const MetaControlTypeEnum = {
+  button: "button",
+  dropdown: "dropdown",
+  slider: "slider",
+  switch: "switch",
+  rotary: "rotary",
+  textInput: "textInput",
+  textArea: "textArea",
+  password: "password",
+  color: "color",
+  dropzone: "dropzone",
+} as const;
+
+export type MetaControlType = ObjectValues<typeof MetaControlTypeEnum>;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
@@ -1066,6 +1082,7 @@ const SharedModifierSchema = z.object({
   jsonSourceMissing: z.boolean().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.int().optional(),
+  metaControlType: z.enum(MetaControlTypeEnum).optional(),
   min: z.int().optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -1150,6 +1167,7 @@ const CoreSchema = z.object({
         "jsonSourceMissing",
         "layers",
         "max",
+        "metaControlType",
         "min",
         "name",
         "paramFilter",
@@ -1381,6 +1399,26 @@ const TextBlockSectionImplSchema = z.object({
 });
 
 type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
+
+const MetaControlSectionImplSchema = z.object({
+  type: z.literal("MetaControl").default(SectionTypeEnum.MetaControl),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  metaControlType: z
+    .enum(MetaControlTypeEnum)
+    .default(MetaControlTypeEnum.button),
+});
+
+type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
 
 const SocialSectionImplSchema = z.object({
   type: z.literal("Social").default(SectionTypeEnum.Social),
@@ -1737,6 +1775,7 @@ const ProjectStateCoreSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
+        MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
@@ -1922,6 +1961,7 @@ const BaseSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
   TextBlockSectionImplSchema,
+  MetaControlSectionImplSchema,
   SocialSectionImplSchema,
   GlobalVariablesSectionImplSchema,
   CodeSectionImplSchema,
@@ -2353,6 +2393,26 @@ const TextBlockSectionImplArgsSchema = z.object({
 
 type TextBlockSectionImplArgs = z.infer<typeof TextBlockSectionImplArgsSchema>;
 
+const MetaControlSectionImplArgsSchema = z.object({
+  type: z.literal("MetaControl").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  metaControlType: z.enum(MetaControlTypeEnum).optional(),
+});
+
+type MetaControlSectionImplArgs = z.infer<
+  typeof MetaControlSectionImplArgsSchema
+>;
+
 const SocialSectionImplArgsSchema = z.object({
   type: z.literal("Social").optional(),
   id: IDSchema.optional(),
@@ -2740,6 +2800,7 @@ const ProjectStateSingleConfigSchema = z.object({
         ChartSectionImplSchema,
         DrawSectionImplSchema,
         TextBlockSectionImplSchema,
+        MetaControlSectionImplSchema,
         SocialSectionImplSchema,
         GlobalVariablesSectionImplSchema,
         CodeSectionImplSchema,
@@ -3030,6 +3091,14 @@ const SectionSizingPolicyByTypeSchema = z.object({
   TextBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 98.0,
+      maxHeight: 100000.0,
+      minWidth: 200.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  MetaControl: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 20.0,
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
@@ -3445,6 +3514,27 @@ function createUserDefaultListRootSectionImpl(
   return UserDefaultListRootSectionImplSchema.parse(options);
 }
 
+const UserDefaultMetaControlSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  metaControlType: z
+    .enum(MetaControlTypeEnum)
+    .default(MetaControlTypeEnum.button),
+});
+
+type UserDefaultMetaControlSectionImpl = z.infer<
+  typeof UserDefaultMetaControlSectionImplSchema
+>;
+
+function createUserDefaultMetaControlSectionImpl(
+  options: Partial<UserDefaultMetaControlSectionImpl> = {},
+): UserDefaultMetaControlSectionImpl {
+  return UserDefaultMetaControlSectionImplSchema.parse(options);
+}
+
 const UserDefaultSocialSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
@@ -3707,6 +3797,9 @@ const SettingsStateSchema = z.object({
   ),
   listRootSectionDefault: UserDefaultListRootSectionImplSchema.default(
     createUserDefaultListRootSectionImpl,
+  ),
+  metaControlSectionDefault: UserDefaultMetaControlSectionImplSchema.default(
+    createUserDefaultMetaControlSectionImpl,
   ),
   socialSectionDefault: UserDefaultSocialSectionImplSchema.default(
     createUserDefaultSocialSectionImpl,
@@ -4600,6 +4693,7 @@ const CreateTopLevelSectionRequestSchema = z.object({
         ChartSectionImplArgsSchema,
         DrawSectionImplArgsSchema,
         TextBlockSectionImplArgsSchema,
+        MetaControlSectionImplArgsSchema,
         SocialSectionImplArgsSchema,
         GlobalVariablesSectionImplArgsSchema,
         CodeSectionImplArgsSchema,
@@ -5581,6 +5675,14 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       TextBlockSectionImplArgs,
       TextBlockSectionImpl
+    >;
+  };
+
+  MetaControlSection: {
+    impl: MetaControlSectionImpl;
+    args: ImplArgsBundleWithUpdaters<
+      MetaControlSectionImplArgs,
+      MetaControlSectionImpl
     >;
   };
 

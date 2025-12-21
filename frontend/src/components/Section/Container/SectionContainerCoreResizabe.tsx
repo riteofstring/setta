@@ -15,11 +15,13 @@ import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
+import { MetaControlArea } from "../Layouts/MetaControlArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
+import { MetaControlMenuButton } from "./MetaControlMenuButton";
 import { getBgColor } from "./utils";
 
 type SectionContainerCoreResizableProps = {
@@ -48,8 +50,16 @@ export function SectionContainerCoreResizable({
     };
   }, _.isEqual);
 
+  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
+  const shouldRenderMetaMenu = isMetaControl && !isUserView;
+  const metaControlFrameClassName = isMetaControl
+    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
+    : undefined;
+  const metaControlLayoutClassName = isMetaControl
+    ? "grid-cols-1 grid-rows-1"
+    : undefined;
 
   return (
     <CustomResizable
@@ -58,15 +68,31 @@ export function SectionContainerCoreResizable({
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
       positionAndSizeLocked={positionAndSizeLocked}
+      frameClassName={metaControlFrameClassName}
+      layoutClassName={metaControlLayoutClassName}
     >
-      <SectionHeader
-        sectionId={sectionId}
-        isActiveSection={isActiveSection}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        isUserView={isUserView}
-        isRoot={isRoot}
-      />
+      {isMetaControl ? (
+        shouldRenderMetaMenu && (
+          <div className="absolute left-0 top-1/2 z-30 -translate-y-1/2">
+            <div className="flex h-12 w-10 -translate-x-full items-center justify-end">
+              <MetaControlMenuButton
+                sectionId={sectionId}
+                sectionTypeName={sectionTypeName}
+                isInOtherProjectConfigs={isInOtherProjectConfigs}
+              />
+            </div>
+          </div>
+        )
+      ) : (
+        <SectionHeader
+          sectionId={sectionId}
+          isActiveSection={isActiveSection}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          isUserView={isUserView}
+          isRoot={isRoot}
+        />
+      )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       {!isMinimized && (
         <AreaSwitch
@@ -103,6 +129,8 @@ function AreaSwitch({
       return <SocialArea sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
       return <TextBlock sectionId={sectionId} />;
+    case SectionTypeEnum.MetaControl:
+      return <MetaControlArea sectionId={sectionId} />;
     case SectionTypeEnum.GlobalVariables:
       return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Code:
