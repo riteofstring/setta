@@ -1,3 +1,4 @@
+import dataclasses
 import inspect
 import types
 from collections.abc import Sequence as ABCSequence
@@ -13,10 +14,12 @@ from typing import (
     get_args,
     get_origin,
     get_type_hints,
+    is_typeddict,
 )
 
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
 from setta.server import app
 from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
@@ -91,13 +94,28 @@ def create_args(inputs):
     for name, type in inputs.items():
         if type is SettaFastAPIState:
             continue
-        type_annotation = python_type_to_ts(type, {}, set())
+        type_annotation = python_type_to_ts(type, {}, set(), use_input_types=True)
         args.append(name)
         args_with_annotations.append(f"{name}:{type_annotation}")
     return args, args_with_annotations
 
 
-def python_type_to_ts(python_type, type_definitions: dict, processed_types: set):
+def is_zod_schema_type(python_type) -> bool:
+    if not inspect.isclass(python_type):
+        return False
+    if issubclass(python_type, BaseModel):
+        return True
+    if dataclasses.is_dataclass(python_type):
+        return True
+    return is_typeddict(python_type)
+
+
+def python_type_to_ts(
+    python_type,
+    type_definitions: dict,
+    processed_types: set,
+    use_input_types: bool = False,
+):
     # Handle None type
     if python_type is type(None):
         return "null"
@@ -116,7 +134,12 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         args = get_args(python_type)
         if args:
             # The first argument is the actual type, rest are annotations
-            return python_type_to_ts(args[0], type_definitions, processed_types)
+            return python_type_to_ts(
+                args[0],
+                type_definitions,
+                processed_types,
+                use_input_types=use_input_types,
+            )
         return "any"
 
     # Handle Literal types
@@ -139,7 +162,10 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         args = get_args(python_type)
         # Check if it's Optional (Union with None)
         ts_types = [
-            python_type_to_ts(t, type_definitions, processed_types) for t in args
+            python_type_to_ts(
+                t, type_definitions, processed_types, use_input_types=use_input_types
+            )
+            for t in args
         ]
         return " | ".join(ts_types)
 
@@ -148,7 +174,10 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         args = get_args(python_type)
         if args:
             element_ts_type = python_type_to_ts(
-                args[0], type_definitions, processed_types
+                args[0],
+                type_definitions,
+                processed_types,
+                use_input_types=use_input_types,
             )
             return f"Array<{element_ts_type}>"
         return "Array<any>"
@@ -157,10 +186,18 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
     if origin in (dict, Dict):
         args = get_args(python_type)
         if args and len(args) >= 2:
-            key_ts_type = python_type_to_ts(args[0], type_definitions, processed_types)
+            key_ts_type = python_type_to_ts(
+                args[0],
+                type_definitions,
+                processed_types,
+                use_input_types=use_input_types,
+            )
             key_ts_type = key_ts_type.replace("null,", "").replace(", null", "")
             value_ts_type = python_type_to_ts(
-                args[1], type_definitions, processed_types
+                args[1],
+                type_definitions,
+                processed_types,
+                use_input_types=use_input_types,
             )
             return f"Record<{key_ts_type}, {value_ts_type}>"
         return "Record<string, any>"
@@ -170,7 +207,10 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         args = get_args(python_type)
         if args:
             element_ts_type = python_type_to_ts(
-                args[0], type_definitions, processed_types
+                args[0],
+                type_definitions,
+                processed_types,
+                use_input_types=use_input_types,
             )
             return f"Set<{element_ts_type}>"
         return "Set<any>"
@@ -179,7 +219,10 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
     if origin in (tuple, Tuple):
         args = get_args(python_type)
         ts_types = [
-            python_type_to_ts(t, type_definitions, processed_types) for t in args
+            python_type_to_ts(
+                t, type_definitions, processed_types, use_input_types=use_input_types
+            )
+            for t in args
         ]
         return f"[{', '.join(ts_types)}]"
 
@@ -187,7 +230,10 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         return basic_type_map[python_type]
 
     if hasattr(python_type, "__name__"):
-        return f"{GENERATED_TYPE_ALIAS}.{python_type.__name__}"
+        type_name = python_type.__name__
+        if use_input_types and is_zod_schema_type(python_type):
+            return f"{GENERATED_TYPE_ALIAS}.{type_name}Input"
+        return f"{GENERATED_TYPE_ALIAS}.{type_name}"
     return "any"
 
 

@@ -40,7 +40,6 @@ export function VariantList({ sectionId }) {
     route_create_new_section_variant({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
-      frontendOpId: null,
     });
   }
 
@@ -331,7 +330,6 @@ function OneVariantEditing({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId: id,
-      frontendOpId: null,
     });
     if (res200(res) && res.data) {
       openDeleteJSONSourceFileModal({

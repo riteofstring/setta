@@ -3802,6 +3802,8 @@ const AllLLMConfigsSchema = z.object({
 
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
 
+export type AllLLMConfigsInput = z.input<typeof AllLLMConfigsSchema>;
+
 const WebsocketMsgLLMConfigUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: AllLLMConfigsSchema,
@@ -4266,7 +4268,7 @@ const ListenerCoverageRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type ListenerCoverageRequest = z.infer<
+export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
 >;
 
@@ -4290,14 +4292,16 @@ const DeleteLLMChatRequestSchema = z.object({
   chatId: IDSchema,
 });
 
-export type DeleteLLMChatRequest = z.infer<typeof DeleteLLMChatRequestSchema>;
+export type DeleteLLMChatRequestInput = z.input<
+  typeof DeleteLLMChatRequestSchema
+>;
 
 const GetLLMChatRequestSchema = z.object({
   chatId: IDSchema,
   projectConfigId: z.union([IDSchema, z.null()]),
 });
 
-export type GetLLMChatRequest = z.infer<typeof GetLLMChatRequestSchema>;
+export type GetLLMChatRequestInput = z.input<typeof GetLLMChatRequestSchema>;
 
 const GetLLMChatRequestResponseSchema = z.object({
   messages: z.array(
@@ -4329,13 +4333,15 @@ const GetLLMResponseRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;
+export type GetLLMResponseRequestInput = z.input<
+  typeof GetLLMResponseRequestSchema
+>;
 
 const StopLLMChatRequestSchema = z.object({
   chatId: IDSchema,
 });
 
-export type StopLLMChatRequest = z.infer<typeof StopLLMChatRequestSchema>;
+export type StopLLMChatRequestInput = z.input<typeof StopLLMChatRequestSchema>;
 
 const ArtifactSaveResultSchema = z.object({
   id: z.string(),
@@ -4351,7 +4357,7 @@ const CheckIfFileExistsRequestsSchema = z.object({
   filepath: z.string(),
 });
 
-export type CheckIfFileExistsRequests = z.infer<
+export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
@@ -4359,7 +4365,7 @@ const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
 });
 
-export type GetFolderContentsRequest = z.infer<
+export type GetFolderContentsRequestInput = z.input<
   typeof GetFolderContentsRequestSchema
 >;
 
@@ -4367,7 +4373,7 @@ const LoadCachedPathsRequestSchema = z.object({
   paths: z.array(z.string()),
 });
 
-export type LoadCachedPathsRequest = z.infer<
+export type LoadCachedPathsRequestInput = z.input<
   typeof LoadCachedPathsRequestSchema
 >;
 
@@ -4385,7 +4391,7 @@ const UpdateArtifactsRequestSchema = z.object({
     .default(null),
 });
 
-export type UpdateArtifactsRequest = z.infer<
+export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
 >;
 
@@ -4393,7 +4399,7 @@ const DocstringToMarkdownRequestSchema = z.object({
   docstring: z.string(),
 });
 
-export type DocstringToMarkdownRequest = z.infer<
+export type DocstringToMarkdownRequestInput = z.input<
   typeof DocstringToMarkdownRequestSchema
 >;
 
@@ -4401,20 +4407,22 @@ const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
 
-export type UpdateAPIKeysRequest = z.infer<typeof UpdateAPIKeysRequestSchema>;
+export type UpdateAPIKeysRequestInput = z.input<
+  typeof UpdateAPIKeysRequestSchema
+>;
 
 const TypeCheckRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type TypeCheckRequest = z.infer<typeof TypeCheckRequestSchema>;
+export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
 
 const AcceptRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
-export type AcceptRenameRefactorRequest = z.infer<
+export type AcceptRenameRefactorRequestInput = z.input<
   typeof AcceptRenameRefactorRequestSchema
 >;
 
@@ -4424,7 +4432,7 @@ const AddKwargRequestSchema = z.object({
   sectionId: IDSchema,
 });
 
-export type AddKwargRequest = z.infer<typeof AddKwargRequestSchema>;
+export type AddKwargRequestInput = z.input<typeof AddKwargRequestSchema>;
 
 const AppendDrawAreaLayerItemRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4434,7 +4442,7 @@ const AppendDrawAreaLayerItemRequestSchema = z.object({
   element: DrawAreaLayerItemSchema,
 });
 
-export type AppendDrawAreaLayerItemRequest = z.infer<
+export type AppendDrawAreaLayerItemRequestInput = z.input<
   typeof AppendDrawAreaLayerItemRequestSchema
 >;
 
@@ -4446,7 +4454,7 @@ const ChangeParamImplRequestSchema = z.object({
   selectedId: IDSchema,
 });
 
-export type ChangeParamImplRequest = z.infer<
+export type ChangeParamImplRequestInput = z.input<
   typeof ChangeParamImplRequestSchema
 >;
 
@@ -4457,7 +4465,7 @@ const ClearTextFieldCompletionRequestSchema = z.object({
   paramInfoId: z.union([IDSchema, z.null()]),
 });
 
-export type ClearTextFieldCompletionRequest = z.infer<
+export type ClearTextFieldCompletionRequestInput = z.input<
   typeof ClearTextFieldCompletionRequestSchema
 >;
 
@@ -4469,7 +4477,7 @@ const CodeAreaCompletionRequestSchema = z.object({
   position: z.int(),
 });
 
-export type CodeAreaCompletionRequest = z.infer<
+export type CodeAreaCompletionRequestInput = z.input<
   typeof CodeAreaCompletionRequestSchema
 >;
 
@@ -4482,7 +4490,7 @@ const CreateChildSectionsRequestSchema = z.object({
   startIdx: z.union([z.int(), z.null()]),
 });
 
-export type CreateChildSectionsRequest = z.infer<
+export type CreateChildSectionsRequestInput = z.input<
   typeof CreateChildSectionsRequestSchema
 >;
 
@@ -4494,7 +4502,7 @@ const CreateChildSectionsViaIncrementerRequestSchema = z.object({
   implType: z.enum(SectionTypeEnum),
 });
 
-export type CreateChildSectionsViaIncrementerRequest = z.infer<
+export type CreateChildSectionsViaIncrementerRequestInput = z.input<
   typeof CreateChildSectionsViaIncrementerRequestSchema
 >;
 
@@ -4504,7 +4512,7 @@ const CreateNewSectionVariantRequestSchema = z.object({
   sectionId: IDSchema,
 });
 
-export type CreateNewSectionVariantRequest = z.infer<
+export type CreateNewSectionVariantRequestInput = z.input<
   typeof CreateNewSectionVariantRequestSchema
 >;
 
@@ -4538,7 +4546,7 @@ const CreateTopLevelSectionRequestSchema = z.object({
   position: PositionSchema,
 });
 
-export type CreateTopLevelSectionRequest = z.infer<
+export type CreateTopLevelSectionRequestInput = z.input<
   typeof CreateTopLevelSectionRequestSchema
 >;
 
@@ -4547,14 +4555,16 @@ const CreateViewModeRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type CreateViewModeRequest = z.infer<typeof CreateViewModeRequestSchema>;
+export type CreateViewModeRequestInput = z.input<
+  typeof CreateViewModeRequestSchema
+>;
 
 const DeclineRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
-export type DeclineRenameRefactorRequest = z.infer<
+export type DeclineRenameRefactorRequestInput = z.input<
   typeof DeclineRenameRefactorRequestSchema
 >;
 
@@ -4565,7 +4575,7 @@ const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
   numChildren: z.int(),
 });
 
-export type DeleteChildSectionsViaDecrementerRequest = z.infer<
+export type DeleteChildSectionsViaDecrementerRequestInput = z.input<
   typeof DeleteChildSectionsViaDecrementerRequestSchema
 >;
 
@@ -4577,7 +4587,7 @@ const DeleteJSONSourceFileAndVariantRequestSchema = z.object({
   filepath: z.string(),
 });
 
-export type DeleteJSONSourceFileAndVariantRequest = z.infer<
+export type DeleteJSONSourceFileAndVariantRequestInput = z.input<
   typeof DeleteJSONSourceFileAndVariantRequestSchema
 >;
 
@@ -4587,7 +4597,7 @@ const DeleteKwargRequestSchema = z.object({
   sectionId: IDSchema,
 });
 
-export type DeleteKwargRequest = z.infer<typeof DeleteKwargRequestSchema>;
+export type DeleteKwargRequestInput = z.input<typeof DeleteKwargRequestSchema>;
 
 const DeleteSectionVariantOrAskRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4596,7 +4606,7 @@ const DeleteSectionVariantOrAskRequestSchema = z.object({
   variantId: IDSchema,
 });
 
-export type DeleteSectionVariantOrAskRequest = z.infer<
+export type DeleteSectionVariantOrAskRequestInput = z.input<
   typeof DeleteSectionVariantOrAskRequestSchema
 >;
 
@@ -4606,7 +4616,9 @@ const DeleteSectionsRequestSchema = z.object({
   sectionIds: z.array(IDSchema),
 });
 
-export type DeleteSectionsRequest = z.infer<typeof DeleteSectionsRequestSchema>;
+export type DeleteSectionsRequestInput = z.input<
+  typeof DeleteSectionsRequestSchema
+>;
 
 const DeleteViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4614,14 +4626,16 @@ const DeleteViewModeRequestSchema = z.object({
   viewModeId: IDSchema,
 });
 
-export type DeleteViewModeRequest = z.infer<typeof DeleteViewModeRequestSchema>;
+export type DeleteViewModeRequestInput = z.input<
+  typeof DeleteViewModeRequestSchema
+>;
 
 const ForceRefreshProjectRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
-export type ForceRefreshProjectRequest = z.infer<
+export type ForceRefreshProjectRequestInput = z.input<
   typeof ForceRefreshProjectRequestSchema
 >;
 
@@ -4632,7 +4646,7 @@ const GenCodePrefixCompletionRequestSchema = z.object({
   position: z.int(),
 });
 
-export type GenCodePrefixCompletionRequest = z.infer<
+export type GenCodePrefixCompletionRequestInput = z.input<
   typeof GenCodePrefixCompletionRequestSchema
 >;
 
@@ -4643,7 +4657,7 @@ const GenCodeSuffixCompletionRequestSchema = z.object({
   position: z.int(),
 });
 
-export type GenCodeSuffixCompletionRequest = z.infer<
+export type GenCodeSuffixCompletionRequestInput = z.input<
   typeof GenCodeSuffixCompletionRequestSchema
 >;
 
@@ -4652,7 +4666,7 @@ const GetLatestProjectStateRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type GetLatestProjectStateRequest = z.infer<
+export type GetLatestProjectStateRequestInput = z.input<
   typeof GetLatestProjectStateRequestSchema
 >;
 
@@ -4662,7 +4676,9 @@ const GroupSectionsRequestSchema = z.object({
   sectionIds: z.array(IDSchema),
 });
 
-export type GroupSectionsRequest = z.infer<typeof GroupSectionsRequestSchema>;
+export type GroupSectionsRequestInput = z.input<
+  typeof GroupSectionsRequestSchema
+>;
 
 const MoveSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4673,7 +4689,7 @@ const MoveSectionRequestSchema = z.object({
   position: z.union([PositionSchema, z.null()]),
 });
 
-export type MoveSectionRequest = z.infer<typeof MoveSectionRequestSchema>;
+export type MoveSectionRequestInput = z.input<typeof MoveSectionRequestSchema>;
 
 const PasteSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4683,7 +4699,9 @@ const PasteSectionsRequestSchema = z.object({
   asRef: z.boolean(),
 });
 
-export type PasteSectionsRequest = z.infer<typeof PasteSectionsRequestSchema>;
+export type PasteSectionsRequestInput = z.input<
+  typeof PasteSectionsRequestSchema
+>;
 
 const PrepareSectionsForCopyRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4691,7 +4709,7 @@ const PrepareSectionsForCopyRequestSchema = z.object({
   sectionIds: z.array(IDSchema),
 });
 
-export type PrepareSectionsForCopyRequest = z.infer<
+export type PrepareSectionsForCopyRequestInput = z.input<
   typeof PrepareSectionsForCopyRequestSchema
 >;
 
@@ -4701,7 +4719,7 @@ const RedoRequestSchema = z.object({
   steps: z.int(),
 });
 
-export type RedoRequest = z.infer<typeof RedoRequestSchema>;
+export type RedoRequestInput = z.input<typeof RedoRequestSchema>;
 
 const SetActiveIdsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4709,7 +4727,9 @@ const SetActiveIdsRequestSchema = z.object({
   activeIds: z.array(IDSchema),
 });
 
-export type SetActiveIdsRequest = z.infer<typeof SetActiveIdsRequestSchema>;
+export type SetActiveIdsRequestInput = z.input<
+  typeof SetActiveIdsRequestSchema
+>;
 
 const SetActiveViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4717,7 +4737,7 @@ const SetActiveViewModeRequestSchema = z.object({
   activeViewModeId: IDSchema,
 });
 
-export type SetActiveViewModeRequest = z.infer<
+export type SetActiveViewModeRequestInput = z.input<
   typeof SetActiveViewModeRequestSchema
 >;
 
@@ -4728,7 +4748,7 @@ const SetBrowserAreaViewModeRequestSchema = z.object({
   viewMode: z.enum(BrowserAreaViewModeEnum),
 });
 
-export type SetBrowserAreaViewModeRequest = z.infer<
+export type SetBrowserAreaViewModeRequestInput = z.input<
   typeof SetBrowserAreaViewModeRequestSchema
 >;
 
@@ -4739,7 +4759,7 @@ const SetBrowserHideColumnRequestSchema = z.object({
   hideColumn: z.boolean(),
 });
 
-export type SetBrowserHideColumnRequest = z.infer<
+export type SetBrowserHideColumnRequestInput = z.input<
   typeof SetBrowserHideColumnRequestSchema
 >;
 
@@ -4750,7 +4770,7 @@ const SetCallableHideParamsRequestSchema = z.object({
   hideParams: z.boolean(),
 });
 
-export type SetCallableHideParamsRequest = z.infer<
+export type SetCallableHideParamsRequestInput = z.input<
   typeof SetCallableHideParamsRequestSchema
 >;
 
@@ -4762,7 +4782,7 @@ const SetCallableRequestSchema = z.object({
   refetchParams: z.boolean(),
 });
 
-export type SetCallableRequest = z.infer<typeof SetCallableRequestSchema>;
+export type SetCallableRequestInput = z.input<typeof SetCallableRequestSchema>;
 
 const SetCallableChildCodeObjSchema = z.object({
   codeObjId: IDSchema,
@@ -4790,7 +4810,7 @@ const SetChartAreaDataPathRequestSchema = z.object({
   dataPath: z.string(),
 });
 
-export type SetChartAreaDataPathRequest = z.infer<
+export type SetChartAreaDataPathRequestInput = z.input<
   typeof SetChartAreaDataPathRequestSchema
 >;
 
@@ -4802,7 +4822,7 @@ const SetChartSettingsRequestSchema = z.object({
   changedSettings: z.array(z.string()),
 });
 
-export type SetChartSettingsRequest = z.infer<
+export type SetChartSettingsRequestInput = z.input<
   typeof SetChartSettingsRequestSchema
 >;
 
@@ -4813,7 +4833,9 @@ const SetChartTypeRequestSchema = z.object({
   chartType: z.enum(ChartTypeEnum),
 });
 
-export type SetChartTypeRequest = z.infer<typeof SetChartTypeRequestSchema>;
+export type SetChartTypeRequestInput = z.input<
+  typeof SetChartTypeRequestSchema
+>;
 
 const CodeFileBindingUpdateSchema = z.object({
   canonical_path: z.string(),
@@ -4827,7 +4849,7 @@ const SetCodeFileBindingRequestSchema = z.object({
   binding: CodeFileBindingUpdateSchema,
 });
 
-export type SetCodeFileBindingRequest = z.infer<
+export type SetCodeFileBindingRequestInput = z.input<
   typeof SetCodeFileBindingRequestSchema
 >;
 
@@ -4838,7 +4860,9 @@ const SetCodeObjNameRequestSchema = z.object({
   name: z.string(),
 });
 
-export type SetCodeObjNameRequest = z.infer<typeof SetCodeObjNameRequestSchema>;
+export type SetCodeObjNameRequestInput = z.input<
+  typeof SetCodeObjNameRequestSchema
+>;
 
 const SetCodeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4847,7 +4871,7 @@ const SetCodeRequestSchema = z.object({
   code: z.string(),
 });
 
-export type SetCodeRequest = z.infer<typeof SetCodeRequestSchema>;
+export type SetCodeRequestInput = z.input<typeof SetCodeRequestSchema>;
 
 const SetDefaultSectionVariantRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4856,7 +4880,7 @@ const SetDefaultSectionVariantRequestSchema = z.object({
   variantId: IDSchema,
 });
 
-export type SetDefaultSectionVariantRequest = z.infer<
+export type SetDefaultSectionVariantRequestInput = z.input<
   typeof SetDefaultSectionVariantRequestSchema
 >;
 
@@ -4866,7 +4890,7 @@ const SetGenCodePrefixRequestSchema = z.object({
   genCodePrefix: z.string(),
 });
 
-export type SetGenCodePrefixRequest = z.infer<
+export type SetGenCodePrefixRequestInput = z.input<
   typeof SetGenCodePrefixRequestSchema
 >;
 
@@ -4876,7 +4900,7 @@ const SetGenCodeSuffixRequestSchema = z.object({
   genCodeSuffix: z.string(),
 });
 
-export type SetGenCodeSuffixRequest = z.infer<
+export type SetGenCodeSuffixRequestInput = z.input<
   typeof SetGenCodeSuffixRequestSchema
 >;
 
@@ -4887,7 +4911,7 @@ const SetImageAreaImagePathRequestSchema = z.object({
   imagePath: z.string(),
 });
 
-export type SetImageAreaImagePathRequest = z.infer<
+export type SetImageAreaImagePathRequestInput = z.input<
   typeof SetImageAreaImagePathRequestSchema
 >;
 
@@ -4899,7 +4923,7 @@ const SetParamEnteredValueRequestSchema = z.object({
   value: z.string(),
 });
 
-export type SetParamEnteredValueRequest = z.infer<
+export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
 >;
 
@@ -4910,7 +4934,7 @@ const SetSectionHideUnpinnedParamsRequestSchema = z.object({
   hideUnpinnedParams: z.boolean(),
 });
 
-export type SetSectionHideUnpinnedParamsRequest = z.infer<
+export type SetSectionHideUnpinnedParamsRequestInput = z.input<
   typeof SetSectionHideUnpinnedParamsRequestSchema
 >;
 
@@ -4921,7 +4945,9 @@ const SetSectionNameRequestSchema = z.object({
   name: z.string(),
 });
 
-export type SetSectionNameRequest = z.infer<typeof SetSectionNameRequestSchema>;
+export type SetSectionNameRequestInput = z.input<
+  typeof SetSectionNameRequestSchema
+>;
 
 const SetSectionParamFilterRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4930,7 +4956,7 @@ const SetSectionParamFilterRequestSchema = z.object({
   value: z.string(),
 });
 
-export type SetSectionParamFilterRequest = z.infer<
+export type SetSectionParamFilterRequestInput = z.input<
   typeof SetSectionParamFilterRequestSchema
 >;
 
@@ -4940,7 +4966,7 @@ const SetSectionSizesRequestSchema = z.object({
   sectionSizes: z.record(IDSchema, SectionSizeSchema),
 });
 
-export type SetSectionSizesRequest = z.infer<
+export type SetSectionSizesRequestInput = z.input<
   typeof SetSectionSizesRequestSchema
 >;
 
@@ -4951,7 +4977,7 @@ const SetSectionVariantNameRequestSchema = z.object({
   name: z.string(),
 });
 
-export type SetSectionVariantNameRequest = z.infer<
+export type SetSectionVariantNameRequestInput = z.input<
   typeof SetSectionVariantNameRequestSchema
 >;
 
@@ -4962,7 +4988,7 @@ const SetSectionVariantRequestSchema = z.object({
   variantId: IDSchema,
 });
 
-export type SetSectionVariantRequest = z.infer<
+export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
 >;
 
@@ -4973,7 +4999,7 @@ const SetSectionWithParamsDisplayModeRequestSchema = z.object({
   displayMode: z.enum(SectionWithParamsDisplayModeEnum),
 });
 
-export type SetSectionWithParamsDisplayModeRequest = z.infer<
+export type SetSectionWithParamsDisplayModeRequestInput = z.input<
   typeof SetSectionWithParamsDisplayModeRequestSchema
 >;
 
@@ -4984,7 +5010,9 @@ const SetSocialUrlRequestSchema = z.object({
   url: z.string(),
 });
 
-export type SetSocialUrlRequest = z.infer<typeof SetSocialUrlRequestSchema>;
+export type SetSocialUrlRequestInput = z.input<
+  typeof SetSocialUrlRequestSchema
+>;
 
 const SetTextBlockDisplayModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -4993,7 +5021,7 @@ const SetTextBlockDisplayModeRequestSchema = z.object({
   textDisplayMode: z.enum(TextBlockDisplayModeEnum),
 });
 
-export type SetTextBlockDisplayModeRequest = z.infer<
+export type SetTextBlockDisplayModeRequestInput = z.input<
   typeof SetTextBlockDisplayModeRequestSchema
 >;
 
@@ -5004,7 +5032,7 @@ const SetTextBlockFormatRequestSchema = z.object({
   format: z.enum(TextBlockFormatEnum),
 });
 
-export type SetTextBlockFormatRequest = z.infer<
+export type SetTextBlockFormatRequestInput = z.input<
   typeof SetTextBlockFormatRequestSchema
 >;
 
@@ -5015,7 +5043,7 @@ const SetTextBlockTextRequestSchema = z.object({
   text: z.string(),
 });
 
-export type SetTextBlockTextRequest = z.infer<
+export type SetTextBlockTextRequestInput = z.input<
   typeof SetTextBlockTextRequestSchema
 >;
 
@@ -5025,7 +5053,7 @@ const SetTopLevelSectionLayoutRequestSchema = z.object({
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema),
 });
 
-export type SetTopLevelSectionLayoutRequest = z.infer<
+export type SetTopLevelSectionLayoutRequestInput = z.input<
   typeof SetTopLevelSectionLayoutRequestSchema
 >;
 
@@ -5036,7 +5064,7 @@ const SetViewModeNameRequestSchema = z.object({
   name: z.string(),
 });
 
-export type SetViewModeNameRequest = z.infer<
+export type SetViewModeNameRequestInput = z.input<
   typeof SetViewModeNameRequestSchema
 >;
 
@@ -5046,7 +5074,7 @@ const SetViewportRequestSchema = z.object({
   viewport: z.union([ViewportSchema, z.null()]),
 });
 
-export type SetViewportRequest = z.infer<typeof SetViewportRequestSchema>;
+export type SetViewportRequestInput = z.input<typeof SetViewportRequestSchema>;
 
 const TextFieldCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -5057,7 +5085,7 @@ const TextFieldCompletionRequestSchema = z.object({
   position: z.int(),
 });
 
-export type TextFieldCompletionRequest = z.infer<
+export type TextFieldCompletionRequestInput = z.input<
   typeof TextFieldCompletionRequestSchema
 >;
 
@@ -5066,7 +5094,7 @@ const ToggleIsEditingViewModeRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type ToggleIsEditingViewModeRequest = z.infer<
+export type ToggleIsEditingViewModeRequestInput = z.input<
   typeof ToggleIsEditingViewModeRequestSchema
 >;
 
@@ -5076,7 +5104,7 @@ const ToggleMinimizedRequestSchema = z.object({
   sectionId: IDSchema,
 });
 
-export type ToggleMinimizedRequest = z.infer<
+export type ToggleMinimizedRequestInput = z.input<
   typeof ToggleMinimizedRequestSchema
 >;
 
@@ -5087,7 +5115,7 @@ const ToggleParamSelectedRequestSchema = z.object({
   paramInfoId: IDSchema,
 });
 
-export type ToggleParamSelectedRequest = z.infer<
+export type ToggleParamSelectedRequestInput = z.input<
   typeof ToggleParamSelectedRequestSchema
 >;
 
@@ -5097,7 +5125,7 @@ const TogglePositionLockRequestSchema = z.object({
   sectionId: IDSchema,
 });
 
-export type TogglePositionLockRequest = z.infer<
+export type TogglePositionLockRequestInput = z.input<
   typeof TogglePositionLockRequestSchema
 >;
 
@@ -5107,7 +5135,7 @@ const ToggleSectionVisibilityRequestSchema = z.object({
   sectionIds: z.array(IDSchema),
 });
 
-export type ToggleSectionVisibilityRequest = z.infer<
+export type ToggleSectionVisibilityRequestInput = z.input<
   typeof ToggleSectionVisibilityRequestSchema
 >;
 
@@ -5117,7 +5145,7 @@ const ToggleVariantFrozenRequestSchema = z.object({
   variantId: IDSchema,
 });
 
-export type ToggleVariantFrozenRequest = z.infer<
+export type ToggleVariantFrozenRequestInput = z.input<
   typeof ToggleVariantFrozenRequestSchema
 >;
 
@@ -5128,7 +5156,7 @@ const ToggleVariantJSONSourceRequestSchema = z.object({
   variantId: IDSchema,
 });
 
-export type ToggleVariantJSONSourceRequest = z.infer<
+export type ToggleVariantJSONSourceRequestInput = z.input<
   typeof ToggleVariantJSONSourceRequestSchema
 >;
 
@@ -5138,7 +5166,7 @@ const ToggleViewModeUserFacingRequestSchema = z.object({
   viewModeId: IDSchema,
 });
 
-export type ToggleViewModeUserFacingRequest = z.infer<
+export type ToggleViewModeUserFacingRequestInput = z.input<
   typeof ToggleViewModeUserFacingRequestSchema
 >;
 
@@ -5148,7 +5176,7 @@ const UndoRequestSchema = z.object({
   steps: z.int(),
 });
 
-export type UndoRequest = z.infer<typeof UndoRequestSchema>;
+export type UndoRequestInput = z.input<typeof UndoRequestSchema>;
 
 const UngroupGroupsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -5156,14 +5184,16 @@ const UngroupGroupsRequestSchema = z.object({
   groupIds: z.array(IDSchema),
 });
 
-export type UngroupGroupsRequest = z.infer<typeof UngroupGroupsRequestSchema>;
+export type UngroupGroupsRequestInput = z.input<
+  typeof UngroupGroupsRequestSchema
+>;
 
 const UnselectAllParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
 });
 
-export type UnselectAllParamsRequest = z.infer<
+export type UnselectAllParamsRequestInput = z.input<
   typeof UnselectAllParamsRequestSchema
 >;
 
@@ -5175,7 +5205,7 @@ const UpdateParamImplConfigRequestSchema = z.object({
   newConfig: z.record(z.string(), z.any()),
 });
 
-export type UpdateParamImplConfigRequest = z.infer<
+export type UpdateParamImplConfigRequestInput = z.input<
   typeof UpdateParamImplConfigRequestSchema
 >;
 
@@ -5183,7 +5213,7 @@ const CreateProjectConfigRequestSchema = z.object({
   previewImgColor: z.string(),
 });
 
-export type CreateProjectConfigRequest = z.infer<
+export type CreateProjectConfigRequestInput = z.input<
   typeof CreateProjectConfigRequestSchema
 >;
 
@@ -5191,7 +5221,7 @@ const DeleteNotificationRequestSchema = z.object({
   notificationId: IDSchema,
 });
 
-export type DeleteNotificationRequest = z.infer<
+export type DeleteNotificationRequestInput = z.input<
   typeof DeleteNotificationRequestSchema
 >;
 
@@ -5199,7 +5229,7 @@ const DeleteProjectConfigsRequestSchema = z.object({
   ids: z.array(IDSchema),
 });
 
-export type DeleteProjectConfigsRequest = z.infer<
+export type DeleteProjectConfigsRequestInput = z.input<
   typeof DeleteProjectConfigsRequestSchema
 >;
 
@@ -5207,7 +5237,7 @@ const GetNotificationsRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type GetNotificationsRequest = z.infer<
+export type GetNotificationsRequestInput = z.input<
   typeof GetNotificationsRequestSchema
 >;
 
@@ -5215,13 +5245,13 @@ const ManualSaveRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type ManualSaveRequest = z.infer<typeof ManualSaveRequestSchema>;
+export type ManualSaveRequestInput = z.input<typeof ManualSaveRequestSchema>;
 
 const ProjectLoadRequestSchema = z.object({
   projectConfigName: z.string(),
 });
 
-export type ProjectLoadRequest = z.infer<typeof ProjectLoadRequestSchema>;
+export type ProjectLoadRequestInput = z.input<typeof ProjectLoadRequestSchema>;
 
 const SaveAsNewProjectConfigRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -5230,7 +5260,7 @@ const SaveAsNewProjectConfigRequestSchema = z.object({
   withRefs: z.boolean(),
 });
 
-export type SaveAsNewProjectConfigRequest = z.infer<
+export type SaveAsNewProjectConfigRequestInput = z.input<
   typeof SaveAsNewProjectConfigRequestSchema
 >;
 
@@ -5238,7 +5268,7 @@ const SetAsDefaultProjectRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type SetAsDefaultProjectRequest = z.infer<
+export type SetAsDefaultProjectRequestInput = z.input<
   typeof SetAsDefaultProjectRequestSchema
 >;
 
@@ -5247,7 +5277,7 @@ const SetProjectConfigNameRequestSchema = z.object({
   newName: z.string(),
 });
 
-export type SetProjectConfigNameRequest = z.infer<
+export type SetProjectConfigNameRequestInput = z.input<
   typeof SetProjectConfigNameRequestSchema
 >;
 
@@ -5255,13 +5285,13 @@ const CreateFileRequestSchema = z.object({
   filepath: z.string(),
 });
 
-export type CreateFileRequest = z.infer<typeof CreateFileRequestSchema>;
+export type CreateFileRequestInput = z.input<typeof CreateFileRequestSchema>;
 
 const GetJSONSourcePathToBeDeletedSchema = z.object({
   variantName: z.string(),
 });
 
-export type GetJSONSourcePathToBeDeleted = z.infer<
+export type GetJSONSourcePathToBeDeletedInput = z.input<
   typeof GetJSONSourcePathToBeDeletedSchema
 >;
 
@@ -5269,7 +5299,7 @@ const NewJSONVersionNameRequestSchema = z.object({
   filename: z.string(),
 });
 
-export type NewJSONVersionNameRequest = z.infer<
+export type NewJSONVersionNameRequestInput = z.input<
   typeof NewJSONVersionNameRequestSchema
 >;
 
@@ -5277,7 +5307,9 @@ const SaveSettingsRequestSchema = z.object({
   settings: SettingsStateSchema,
 });
 
-export type SaveSettingsRequest = z.infer<typeof SaveSettingsRequestSchema>;
+export type SaveSettingsRequestInput = z.input<
+  typeof SaveSettingsRequestSchema
+>;
 
 const BackendInitEventSchema = z.object({
   message: z.string(),
@@ -5298,7 +5330,7 @@ const DeleteTerminalsRequestSchema = z.object({
   sectionIds: z.array(IDSchema),
 });
 
-export type DeleteTerminalsRequest = z.infer<
+export type DeleteTerminalsRequestInput = z.input<
   typeof DeleteTerminalsRequestSchema
 >;
 
@@ -5306,7 +5338,7 @@ const KillSubprocessesRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
 
-export type KillSubprocessesRequest = z.infer<
+export type KillSubprocessesRequestInput = z.input<
   typeof KillSubprocessesRequestSchema
 >;
 
@@ -5316,7 +5348,7 @@ const RunCodeRequestSchema = z.object({
   cliId: z.union([z.string(), z.null()]).default(null),
 });
 
-export type RunCodeRequest = z.infer<typeof RunCodeRequestSchema>;
+export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;
 
 const CodeMirrorCompletionSchema = z.object({
   label: z.string(),

@@ -16,6 +16,8 @@ import {
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
   route_group_sections,
@@ -25,8 +27,6 @@ import {
   route_ungroup_groups,
   route_unselect_all_params,
 } from "utils/generatedEndpoints";
-import { res200 } from "utils/endpointUtils";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   AllProjectMetadata,
   BaseCodeObjImplUnion,

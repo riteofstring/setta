@@ -226,7 +226,6 @@ async function setCallable(
     sectionId,
     callableName,
     refetchParams,
-    frontendOpId: null,
   });
   if (res200(res)) {
     // state update occurs by websocket

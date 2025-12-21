@@ -151,6 +151,10 @@ def create_ts_type_line(name):
     return f"export type {name} = z.infer<typeof {name}Schema>;\n\n"
 
 
+def create_ts_input_type_line(name):
+    return f"export type {name}Input = z.input<typeof {name}Schema>;\n\n"
+
+
 def create_creation_fn_line(name, is_impl_class=False):
     if is_impl_class:
         # For impl classes, take user defaults as first parameter
@@ -222,6 +226,7 @@ def alias_to_zod(name: str, alias_type, processed_types: set):
         dependency_zod
         + f"export const {name}Schema = {zod_schema}\n\n"
         + create_ts_type_line(name)
+        + create_ts_input_type_line(name)
     )
 
     if zod_schema.startswith("z.discriminatedUnion"):
@@ -477,6 +482,7 @@ def typeddict_to_zod(typed_dict: type, processed_types: set):
 {fields_str}
 }});\n\n"""
         + create_ts_type_line(name)
+        + create_ts_input_type_line(name)
         + create_creation_fn_line(name)
     )
 
@@ -585,6 +591,7 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
 {fields_str}
 }});\n\n"""
         + create_ts_type_line(name)
+        + create_ts_input_type_line(name)
         + create_creation_fn_line(name, is_impl_class)
     )
 
@@ -652,6 +659,7 @@ def dataclass_to_zod(model: type, processed_types: set):
 {fields_str}
 }});\n\n"""
         + create_ts_type_line(name)
+        + create_ts_input_type_line(name)
         + create_creation_fn_line(name)
     )
 

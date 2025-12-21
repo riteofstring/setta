@@ -11,7 +11,10 @@ import {
   route_delete_kwarg,
   route_set_section_param_filter,
 } from "utils/generatedEndpoints";
-import { isBaseSectionWithParamsImpl, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 
 type KwargsControlsProps = {
