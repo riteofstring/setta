@@ -28,7 +28,7 @@ class DBE:
         self.chats = self.path / "chats"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
-        self.dot_env = self.path / ".env"
+        self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):

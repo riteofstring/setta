@@ -8,28 +8,9 @@ DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
     configs={
         "claude-sonnet": LLMConfig(
             id="claude-sonnet",
-            model="claude-3-5-sonnet-20240620",
+            model="claude-sonnet-4-5-20250929",
             provider="anthropic",
             api_key_env="ANTHROPIC_API_KEY",
-        ),
-        "openai-compatible": LLMConfig(
-            id="openai-compatible",
-            model="gpt-4o-mini",
-            provider="openai",
-            api_key_env="OPENAI_API_KEY",
-        ),
-        "litellm-router": LLMConfig(
-            id="litellm-router",
-            model="claude-3-5-sonnet-20240620",
-            provider="litellm",
-            base_url="https://litellm-router.example.com",
-            api_key_env="LITELLM_ROUTER_KEY",
-            other_params={
-                "timeout": 30,
-                "metadata": {
-                    "workspace": "setta",
-                },
-            },
         ),
     },
     default_config_id="claude-sonnet",
