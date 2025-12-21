@@ -88,7 +88,7 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     "--gen-code-selection-bg": "hsl(246, 98%, 23%)",
   },
   ".cm-gen-code-readonly-line": {
-    cursor: "text",
+    cursor: "not-allowed",
     position: "relative",
     zIndex: "0",
   },
@@ -147,7 +147,7 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     backgroundColor: "var(--gen-code-label-bg)",
     color: "var(--gen-code-label-text)",
     fontSize: "8px",
-    letterSpacing: "0.1em",
+    // letterSpacing: "0.1em",
     lineHeight: "1.3",
     textTransform: "uppercase",
     pointerEvents: "none",
