@@ -1083,7 +1083,6 @@ const SharedModifierSchema = z.object({
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.int().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
-  metaControlValue: z.string().optional(),
   min: z.int().optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -1169,7 +1168,6 @@ const CoreSchema = z.object({
         "layers",
         "max",
         "metaControlType",
-        "metaControlValue",
         "min",
         "name",
         "paramFilter",
@@ -1418,7 +1416,6 @@ const MetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
-  metaControlValue: z.string().default("" as const),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -2410,7 +2407,6 @@ const MetaControlSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
-  metaControlValue: z.string().optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -3527,7 +3523,6 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
-  metaControlValue: z.string().default("" as const),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<

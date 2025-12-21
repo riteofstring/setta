@@ -41,7 +41,6 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
     DrawSectionImpl,
-    MetaControlSectionImpl,
     SectionType,
     TextBlockSectionImpl,
 )
@@ -116,7 +115,6 @@ class DependencyGraph:
             SectionType.GlobalVariables: self._export_global_variables_section,
             SectionType.TextBlock: self._export_text_block_section,
             SectionType.Draw: self._export_draw_section,
-            SectionType.MetaControl: self._export_meta_control_section,
         }
         self.construct_graph(p)
 
@@ -268,21 +266,6 @@ class DependencyGraph:
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
             value=dependency_value,
-            deps={},
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_meta_control_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, MetaControlSectionImpl):
-            return
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(section_impl.metaControlValue),
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)

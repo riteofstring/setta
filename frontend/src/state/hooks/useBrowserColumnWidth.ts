@@ -91,9 +91,6 @@ export function useBrowserColumnWidth({
   useEffect(() => {
     return useProjectState.subscribe(
       (state) => {
-        if (!(sectionId in state.sections)) {
-          return { columnWidth: null, typesColumnWidth: null };
-        }
         const impl = getCurrEffectiveSectionImplOfType(
           state,
           sectionId,

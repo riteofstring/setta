@@ -49,7 +49,6 @@ AllImplFields = Literal[
     "layers",
     "max",
     "metaControlType",
-    "metaControlValue",
     "min",
     "name",
     "paramFilter",
