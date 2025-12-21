@@ -6,7 +6,6 @@ from typing import Literal
 from setta.logging.context import LoggingContextInput, logging_context
 from setta.logging.errors import log_failure
 from setta.logging.levels import parse_log_level
-from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
@@ -36,11 +35,9 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
-    AIFollowToolArgumentsUpdateContent,
-    AIFollowToolResultUpdateContent,
+    AIFollowUpdateContent,
     WebsocketConnectionType,
-    WebsocketMsgAIFollowToolArgumentsUpdate,
-    WebsocketMsgAIFollowToolResultUpdate,
+    WebsocketMsgAIFollowUpdate,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgBackendLogEvent,
     WebsocketMsgListenerCoverageSnapshot,
@@ -269,35 +266,18 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_ai_follow_tool_arguments_update(
+    async def broadcast_ai_follow_update(
         self,
         projectConfigId: ID,
         chatId: ID,
-        idsByType: dict[FollowIdType, list[ID]],
+        sectionIds: list[ID],
     ):
         await self.websocket_manager.broadcast(
-            WebsocketMsgAIFollowToolArgumentsUpdate(
-                content=AIFollowToolArgumentsUpdateContent(
+            WebsocketMsgAIFollowUpdate(
+                content=AIFollowUpdateContent(
                     projectConfigId=projectConfigId,
                     chatId=chatId,
-                    idsByType=idsByType,
-                )
-            ),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def broadcast_ai_follow_tool_result_update(
-        self,
-        projectConfigId: ID,
-        chatId: ID,
-        idsByType: dict[FollowIdType, list[ID]],
-    ):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgAIFollowToolResultUpdate(
-                content=AIFollowToolResultUpdateContent(
-                    projectConfigId=projectConfigId,
-                    chatId=chatId,
-                    idsByType=idsByType,
+                    sectionIds=sectionIds,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,

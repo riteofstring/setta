@@ -4,7 +4,6 @@ from typing import Any, Literal
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
-from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
@@ -48,8 +47,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
     LLMConfigUpdated = "LLMConfigUpdated"
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
-    AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
-    AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
+    AIFollowUpdate = "AIFollowUpdate"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -208,29 +206,16 @@ class WebsocketMsgLLMApiKeysUpdated(FrontendWebsocketMsg):
     )
 
 
-class AIFollowToolArgumentsUpdateContent(BaseModel):
+class AIFollowUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
-    idsByType: dict[FollowIdType, list[ID]]
+    sectionIds: list[ID]
 
 
-class WebsocketMsgAIFollowToolArgumentsUpdate(FrontendWebsocketMsg):
-    content: AIFollowToolArgumentsUpdateContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate] = (
-        WebsocketMsgTypeForFrontend.AIFollowToolArgumentsUpdate
-    )
-
-
-class AIFollowToolResultUpdateContent(BaseModel):
-    projectConfigId: ID
-    chatId: ID
-    idsByType: dict[FollowIdType, list[ID]]
-
-
-class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
-    content: AIFollowToolResultUpdateContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate] = (
-        WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate
+class WebsocketMsgAIFollowUpdate(FrontendWebsocketMsg):
+    content: AIFollowUpdateContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowUpdate] = (
+        WebsocketMsgTypeForFrontend.AIFollowUpdate
     )
 
 
