@@ -15,7 +15,6 @@ from setta.api.listener import (
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.code_gen.value_codec import PythonValueCodec
-from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -441,9 +440,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         dep_graph = cast("DependencyGraph", SimpleNamespace(graph=graph))
         value_codec = PythonValueCodec(
             dep_graph,
-            lambda key: (
-                f"{GEN_CODE_INSTANCE_NAME}.{dep_graph.graph[key].full_path_name}"
-            ),
+            lambda key: f"s.{dep_graph.graph[key].full_path_name}",
         )
 
         code_generator = cast(
@@ -602,9 +599,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
+        listener._instantiate_s = MagicMock(side_effect=ValueError("math domain error"))
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(project_state)

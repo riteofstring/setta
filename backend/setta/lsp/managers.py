@@ -1,5 +1,4 @@
 from setta.logging.tasks import spawn_background_task
-from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.utils.constants import CWD
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -40,18 +39,10 @@ class LSPReaders:
         server_name = servers.full.name
 
         def initialization_callback():
-            async def broadcast_started() -> None:
-                await websocket_msg_handler.log_and_broadcast_backend_log_event(
-                    "Language Server Started"
-                )
-                notification = SettaNotification(
-                    message="Language Server Started",
-                    type=SettaNotificationType.info,
-                )
-                await websocket_msg_handler.broadcast_notification(notification)
-
             spawn_background_task(
-                broadcast_started(),
+                websocket_msg_handler.log_and_broadcast_backend_log_event(
+                    "Language Server Started"
+                ),
                 label="lsp-init-notification",
                 extra_values={"lsp_server": server_name},
             )

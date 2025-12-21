@@ -318,6 +318,7 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_META_CONTROL_VALUE: "/setMetaControlValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_CODE: "/setCode",
@@ -395,6 +396,7 @@ export const WebsocketConnectionTypeEnum = {
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
+  RealtimeActionEvent: "RealtimeActionEvent",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -1083,6 +1085,7 @@ const SharedModifierSchema = z.object({
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.int().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
+  metaControlValue: z.string().optional(),
   min: z.int().optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -1168,6 +1171,7 @@ const CoreSchema = z.object({
         "layers",
         "max",
         "metaControlType",
+        "metaControlValue",
         "min",
         "name",
         "paramFilter",
@@ -1416,6 +1420,7 @@ const MetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
+  metaControlValue: z.string().default("" as const),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -2407,6 +2412,7 @@ const MetaControlSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
+  metaControlValue: z.string().optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -2527,6 +2533,35 @@ const WebsocketMsgRealtimeUIChangeSchema = z.object({
 
 export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
+>;
+
+const MetaControlActionEventSchema = z.object({
+  controlName: z.string(),
+  actionId: z.string(),
+  metaControlType: z.enum(MetaControlTypeEnum),
+  payload: z.union([z.string(), z.null()]).default(null),
+  timestampMs: z.int(),
+});
+
+export type MetaControlActionEvent = z.infer<
+  typeof MetaControlActionEventSchema
+>;
+
+const RealtimeActionEventContentSchema = z.object({
+  projectConfigId: IDSchema,
+  actionEvent: MetaControlActionEventSchema,
+});
+
+const WebsocketMsgRealtimeActionEventSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: RealtimeActionEventContentSchema,
+  messageType: z
+    .literal("RealtimeActionEvent")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeActionEvent),
+});
+
+export type WebsocketMsgRealtimeActionEvent = z.infer<
+  typeof WebsocketMsgRealtimeActionEventSchema
 >;
 
 const WebsocketMsgCurrentAddressUpdateSchema = z.object({
@@ -2740,7 +2775,7 @@ const ProjectConfigSchema = z.object({
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
   genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("state = SettaState()" as const),
+  genCodeSuffix: z.string().default("s = S()" as const),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
@@ -3523,6 +3558,7 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
+  metaControlValue: z.string().default("" as const),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
@@ -5088,6 +5124,17 @@ const SetImageAreaImagePathRequestSchema = z.object({
 
 export type SetImageAreaImagePathRequestInput = z.input<
   typeof SetImageAreaImagePathRequestSchema
+>;
+
+const SetMetaControlValueRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  value: z.string(),
+});
+
+export type SetMetaControlValueRequestInput = z.input<
+  typeof SetMetaControlValueRequestSchema
 >;
 
 const SetParamEnteredValueRequestSchema = z.object({
