@@ -185,8 +185,6 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.wmh_python_script_sender,
                 self.project_manager_switcher,
-                self.terminals,
-                self.wmh_cli_sender,
             )
             self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
 
@@ -203,7 +201,10 @@ class SettaFastAPIState:
             )
             self.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
             self.chat_manager = LLMChatManager(
-                self.dbe, self.mcp_client, self.wmh_frontend_sender
+                self.dbe,
+                self.mcp_client,
+                self.wmh_frontend_sender,
+                self.project_manager_switcher,
             )
             self.dotenv_watcher = DotEnvWatcher(
                 self.specific_file_watcher,
