@@ -3,6 +3,7 @@ import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
+import { unstable_batchedUpdates } from "react-dom";
 import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
@@ -461,19 +462,18 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  usePendingOperations.setState({ pending: nextPending });
-  useProjectState.setState(() => {
-    for (const opInfo of nextPending) {
-      opInfo.apply(x.projectState);
-    }
-    return x.projectState;
+  for (const opInfo of nextPending) {
+    opInfo.apply(x.projectState);
+  }
+  const nextNodesMap = createNodesMapFromProjectConfigChildren(
+    x.projectState,
+    useNodeInternals.getState().x,
+  );
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+    useNodeInternals.setState({ x: nextNodesMap });
+    useProjectState.setState(() => x.projectState);
   });
-  useNodeInternals.setState((state) => ({
-    x: createNodesMapFromProjectConfigChildren(
-      useProjectState.getState(),
-      state.x,
-    ),
-  }));
 
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
