@@ -6,7 +6,11 @@ import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { getOnSectionClick, getOutlineColor } from "./utils";
+import {
+  getOnSectionClick,
+  getOutlineColor,
+  useAiSectionHighlight,
+} from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -23,6 +27,7 @@ function _SectionContainerCore({
     // jsonSourceMissing,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
+    projectConfigId,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
@@ -31,8 +36,13 @@ function _SectionContainerCore({
       // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      projectConfigId: x.projectConfig.id,
     };
   }, _.isEqual);
+  const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
+  const aiHighlightClassName = showAiHighlight
+    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
+    : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
 
@@ -57,7 +67,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} $  dndline  w-min border bg-white outline outline-4 dark:bg-setta-925 ${outlineColor}`}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} $  dndline  w-min border bg-white outline outline-4 dark:bg-setta-925 ${aiHighlightClassName} ${outlineColor}`}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >
