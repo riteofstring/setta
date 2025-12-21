@@ -73,14 +73,7 @@ async def on_change(s, ctx):
    - Emit a `MetaControlActionEvent` on click using the websocket helper. (done)
    - Keep existing Run button wired directly, unchanged. (pending)
 
-5) Make actions extensible beyond buttons (pending)
-   - Extend the meta control config with an action mode:
-     - `action_id` (required when action mode is on)
-     - `emit_action_on_change` (opt-in for other controls)
-     - Optional `payload` mapping (e.g., current value as string)
-   - UI can emit both: value updates (stateful controls) and action events (when enabled).
-
-6) Regenerate and test (pending)
+5) Regenerate and test (pending)
    - Run `source activate.sh && cd frontend && pnpm generate` after backend type/router updates.
    - Regenerate websocket unions + listener endpoint stubs. (done)
    - Add backend tests for action dispatch + typed project manager calls.
