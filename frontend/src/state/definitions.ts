@@ -439,6 +439,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
 
 type AIFollowState = {
   enabled: boolean;
+  isFollowTransitioning: boolean;
   toolArgumentsIdsByProjectConfigId: Record<
     string,
     Record<string, Record<string, Array<string>>>
@@ -454,6 +455,7 @@ export const useAIFollow = withProjectState(
     immer(
       withResetFn<AIFollowState>(() => ({
         enabled: false,
+        isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
       })),

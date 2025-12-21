@@ -43,7 +43,17 @@ export function useAIFollowViewport(): void {
   const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] =
     useState<string[]>([]);
   const toolResultGroupTimeout = useRef<number | null>(null);
+  const followTransitionId = useRef(0);
   const toolResultSectionIdsKey = toolResultSectionIds.join("|");
+
+  useEffect(() => {
+    if (enabled) {
+      return;
+    }
+    useAIFollow.setState((state) => {
+      state.isFollowTransitioning = false;
+    });
+  }, [enabled]);
 
   useEffect(() => {
     if (toolResultGroupTimeout.current !== null) {
@@ -117,7 +127,23 @@ export function useAIFollowViewport(): void {
     // const duration = useSettings.getState().gui.transitionDuration;
     const duration = 500;
     const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
-    d3Zoom.transform(getD3Transition(d3Selection, duration), nextTransform);
+    const transitionId = followTransitionId.current + 1;
+    followTransitionId.current = transitionId;
+    useAIFollow.setState((state) => {
+      state.isFollowTransitioning = true;
+    });
+    const transition = getD3Transition(d3Selection, duration);
+    const clearTransitionLock = () => {
+      if (followTransitionId.current !== transitionId) {
+        return;
+      }
+      useAIFollow.setState((state) => {
+        state.isFollowTransitioning = false;
+      });
+    };
+    transition.on("end", clearTransitionLock);
+    transition.on("interrupt", clearTransitionLock);
+    d3Zoom.transform(transition, nextTransform);
   }, [
     activeChatId,
     d3Selection,
