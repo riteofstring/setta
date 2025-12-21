@@ -569,18 +569,6 @@ export async function route_set_section_hide_unpinned_params(
   return await post("/setSectionHideUnpinnedParams", x);
 }
 
-export async function route_set_section_column_width(
-  x: gt.SetSectionColumnWidthRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionColumnWidth", x);
-}
-
-export async function route_set_browser_column_widths(
-  x: gt.SetBrowserColumnWidthsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setBrowserColumnWidths", x);
-}
-
 export async function route_set_browser_area_view_mode(
   x: gt.SetBrowserAreaViewModeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

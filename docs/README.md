@@ -1,7 +1,6 @@
 # Docs Overview
 
 - `code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
-- `column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.

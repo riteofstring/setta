@@ -266,6 +266,4 @@ class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
     folder: str = ""
     hideColumn: bool = False
-    columnWidth: float | None = None
-    typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
