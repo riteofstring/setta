@@ -120,7 +120,7 @@ Move aggregated search into the chat manager:
 
 ## Scope and Phasing
 1) Add data models + config parsing + example file updates. (done)
-2) Implement `MultiMCPClient` with SSE support (namespaced tool caches).
+2) Implement `MultiMCPClient` with SSE support (namespaced tool caches). (done)
 3) Add stdio transport support.
 4) Integrate into `LLMChatManager` and replace the single client.
 5) Add aggregated search/unlock and update the system prompt.
