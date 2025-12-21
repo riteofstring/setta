@@ -212,7 +212,7 @@ class SectionSizingPolicyByType(BaseModel):
     )
     MetaControl: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=90,
+            minHeight=20,
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,

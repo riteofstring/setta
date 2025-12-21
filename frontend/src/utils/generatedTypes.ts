@@ -1384,9 +1384,7 @@ const MetaControlSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  metaControlType: z
-    .enum(MetaControlTypeEnum)
-    .default(MetaControlTypeEnum.button),
+  metaControlType: z.enum(MetaControlTypeEnum),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -3068,7 +3066,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
   ),
   MetaControl: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 90.0,
+      minHeight: 20.0,
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
@@ -3490,9 +3488,7 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  metaControlType: z
-    .enum(MetaControlTypeEnum)
-    .default(MetaControlTypeEnum.button),
+  metaControlType: z.enum(MetaControlTypeEnum),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
