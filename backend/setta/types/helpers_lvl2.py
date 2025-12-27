@@ -50,6 +50,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
+    CodeParamCodeObjImplArgs,
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
@@ -57,7 +58,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
-    TextParamCodeObjImplArgs,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -906,9 +906,9 @@ def create_kwarg_objs(
     settings: SettingsState, p: "ProjectStateSingleConfig", sectionIds: list[ID]
 ):
     newImpl = create_code_obj_impl(
-        CodeObjType.TextParam,
-        settings.textParamCodeObjDefault,
-        TextParamCodeObjImplArgs(coreNameEditable=True),
+        CodeObjType.CodeParam,
+        settings.codeParamCodeObjDefault,
+        CodeParamCodeObjImplArgs(coreNameEditable=True),
     )
     newCore = Core(name="")
 
