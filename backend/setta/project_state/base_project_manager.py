@@ -113,6 +113,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
+    SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
@@ -808,6 +809,43 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"], "codeObj": ["codeObjId"]}
+        ),
+        tool_argument_preview=ToolArgumentPreviewMetadata(
+            targetIdPathsByType={"section": ["sectionId"], "codeObj": ["codeObjId"]},
+            previewValuePath="value",
+            previewKind=ToolArgumentPreviewKind.paramValue,
+        ),
+    )
+    async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
+        """Set a parameter's name and value in one step."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.codeObjs[x.codeObjId].name = x.name
+        set_param_entered_value(
+            project_state,
+            x.sectionId,
+            x.codeObjId,
+            x.value,
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_meta_control_value(self, x: SetMetaControlValueRequest):
+        """Write a new manual value for the targeted meta control."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_meta_control_value(project_state, x.sectionId, x.value)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

@@ -20,6 +20,8 @@ from watchfiles import Change
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 class _StubWebsocket:
     def __init__(self) -> None:
@@ -89,6 +91,14 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         )
         self._bump_mtime(module_path, self._mtime_offset)
         self._mtime_offset += 1.0
+        importlib.invalidate_caches()
+
+    @staticmethod
+    def _prepare_package_dir(tmp_dir: str) -> Path:
+        module_dir = Path(tmp_dir)
+        (module_dir / "__init__.py").write_text("")
+        importlib.invalidate_caches()
+        return module_dir
 
     @staticmethod
     def _extract_callback_id(payload: str) -> str:
@@ -105,13 +115,15 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         websocket = _StubWebsocket()
         listener._websocket = cast("ClientConnection", websocket)
 
-        module_name = "hot_reload_listener_module"
         register_ids: list[str] = []
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            module_dir = Path(tmp_dir)
-            module_path = module_dir / f"{module_name}.py"
-            sys.path.insert(0, tmp_dir)
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            module_dir = self._prepare_package_dir(tmp_dir)
+            module_name = f"{module_dir.name}.hot_reload_listener_module"
+            module_path = module_dir / "hot_reload_listener_module.py"
             try:
                 self._write_listener_module(module_path, "v1")
                 module = importlib.import_module(module_name)
@@ -138,8 +150,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 )
             finally:
                 sys.modules.pop(module_name, None)
-                if tmp_dir in sys.path:
-                    sys.path.remove(tmp_dir)
+                sys.modules.pop(module_dir.name, None)
 
         self.assertEqual(len(register_ids), 3)
         self.assertEqual(len(set(register_ids)), 3)
@@ -153,16 +164,19 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
 
         module_name = "hot_reload_package_listener"
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            module_dir = Path(tmp_dir) / module_name
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            root_dir = self._prepare_package_dir(tmp_dir)
+            module_dir = root_dir / module_name
             module_dir.mkdir()
             module_path = module_dir / "__init__.py"
             extra_path = module_dir / "builder_helpers.py"
             extra_path.write_text("# helper module\n")
-            sys.path.insert(0, tmp_dir)
             try:
                 self._write_listener_module(module_path, "pkg")
-                module = importlib.import_module(module_name)
+                module = importlib.import_module(f"{root_dir.name}.{module_name}")
                 reloader = ListenerHotReloader(
                     listener=listener,
                     builder=module.build_callbacks,
@@ -173,16 +187,18 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(module_dir.resolve(), inferred_paths)
                 self.assertIn(extra_path.resolve(), inferred_paths)
             finally:
-                sys.modules.pop(module_name, None)
-                if tmp_dir in sys.path:
-                    sys.path.remove(tmp_dir)
+                sys.modules.pop(f"{root_dir.name}.{module_name}", None)
+                sys.modules.pop(root_dir.name, None)
 
     async def test_reloader_supports_glob_paths_and_ignore_patterns(self) -> None:
         listener = SettaListener(project_name="Demo Project")
         module_name = "hot_reload_glob_listener"
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            module_dir = Path(tmp_dir)
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            module_dir = self._prepare_package_dir(tmp_dir)
             module_path = module_dir / f"{module_name}.py"
             callbacks_dir = module_dir / "callbacks"
             callbacks_dir.mkdir()
@@ -190,10 +206,9 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
             nested_dir.mkdir()
             nested_module = nested_dir / "extra.py"
             nested_module.write_text("# sample nested module\n")
-            sys.path.insert(0, tmp_dir)
             try:
                 self._write_listener_module(module_path, "glob")
-                module = importlib.import_module(module_name)
+                module = importlib.import_module(f"{module_dir.name}.{module_name}")
                 glob_pattern = str((callbacks_dir / "**" / "*.py"))
                 reloader = ListenerHotReloader(
                     listener=listener,
@@ -225,9 +240,8 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                     filtered_reloader._watch_filter(Change.modified, str(allowed_path))
                 )
             finally:
-                sys.modules.pop(module_name, None)
-                if tmp_dir in sys.path:
-                    sys.path.remove(tmp_dir)
+                sys.modules.pop(f"{module_dir.name}.{module_name}", None)
+                sys.modules.pop(module_dir.name, None)
 
     async def test_start_hot_reload_convenience_path(self) -> None:
         listener = SettaListener(project_name="Demo Project")
