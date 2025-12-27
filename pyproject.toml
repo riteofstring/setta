@@ -35,7 +35,6 @@ dependencies = [
     "lsprotocol==2023.0.1",
     "watchfiles==0.24.0",
     "bm25s==0.2.14",
-    "rectangle-packer==2.0.5"
 ]
 
 [project.urls]
