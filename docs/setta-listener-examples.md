@@ -2,8 +2,19 @@
 
 These snippets assume the Setta backend is running and you know the project name. Dependency strings are the same attribute names you read from the generated `state` object (the sanitized names in the project graph).
 
+Dependency name construction (from `DependencyGraph.create_full_path_name`):
+- Names are sanitized with `sanitize_name` (spaces/quotes/brackets -> `_`, consecutive `_` collapse, trim leading/trailing `_`).
+- `__` appears only for hierarchy joins:
+  - `ParentSection__ChildSection` when a section sits inside a Group/Dict/Callable.
+  - `ParentSection__ParamName` for params under Callable/Dict sections.
+  - `ParentParam__ChildParam` for NestedParam groups.
+  - `ListSection__0` for ListRoot children (index-based).
+- Meta Control values use the section name (sanitized) as the dependency. The control param name is not included.
+- Global Variables params are top-level (just the sanitized param name).
+- Duplicate sanitized names get `_2`, `_3`, etc for uniqueness.
+
 ## Basic dependency listener (sync)
-Strings: `Demo Project` is the project name; `hiding_river__x` is a sanitized section-param dependency (often `sectionName__paramName`, e.g., a Meta Control param); `groups=%s` and `changed=%s` are log message templates.
+Strings: `Demo Project` is the project name; `hiding_river__x` is a param dependency (section `hiding_river` + param `x`, joined with `__`); `groups=%s` and `changed=%s` are log message templates.
 ```python
 from setta.api import SettaListener
 
@@ -20,7 +31,7 @@ listener.start()
 ```
 
 ## Async callback + run_on_refresh
-Strings: `Demo Project` is the project name; `alpha__score` is a sanitized section-param dependency (for example, a numeric or text param you want to store).
+Strings: `Demo Project` is the project name; `alpha__score` is a param dependency (section `alpha` + param `score`).
 ```python
 from setta.api import SettaListener
 
@@ -55,7 +66,7 @@ listener.start()
 ```
 
 ## Refresh-only callback for expensive work
-Strings: `Demo Project` is the project name; `model_config__version` is a sanitized dependency (often a section param or computed value) you want to read on refresh; `refreshing models with version=%s` is a log message template.
+Strings: `Demo Project` is the project name; `model_config__version` is a param dependency (section `model_config` + param `version`); `refreshing models with version=%s` is a log message template.
 ```python
 from setta.api import SettaListener
 from setta.types.listener import ListenerDependencyMode
@@ -75,7 +86,7 @@ listener.start()
 ```
 
 ## Action events (specific and wildcard)
-Strings: `Demo Project` is the project name; `run-analysis` is an `actionId` emitted by a Meta Control action (button) you want to handle; `action=%s payload=%s` and `received %d action(s)` are log message templates.
+Strings: `Demo Project` is the project name; `run-analysis` is an `actionId` emitted by a Meta Control action (button) you want to handle (Meta Control buttons send their section name as `actionId`); `action=%s payload=%s` and `received %d action(s)` are log message templates.
 ```python
 from setta.api import SettaListener
 
@@ -97,7 +108,7 @@ listener.start()
 ```
 
 ## Actions + dependencies in the same callback
-Strings: `Demo Project` is the project name; `filters__active` is a sanitized section-param dependency (for example, a toggle or dropdown); `apply-filters` is an action `actionId` from a Meta Control button; `apply-filters clicked` and `filters changed: %s` are log message text.
+Strings: `Demo Project` is the project name; `filters__active` is a param dependency (section `filters` + param `active`); `apply-filters` is an action `actionId` from a Meta Control button; `apply-filters clicked` and `filters changed: %s` are log message text.
 ```python
 from setta.api import SettaListener
 
@@ -116,7 +127,7 @@ listener.start()
 ```
 
 ## Debounce and throttle
-Strings: `Demo Project` is the project name; `stream__value` is a sanitized section-param dependency (for example, a slider or numeric input) you want to debounce/throttle; `stream value=%s` is a log message template.
+Strings: `Demo Project` is the project name; `stream__value` is a param dependency (section `stream` + param `value`) you want to debounce/throttle; `stream value=%s` is a log message template.
 ```python
 from setta.api import SettaListener
 
@@ -132,7 +143,7 @@ listener.start()
 ```
 
 ## Emit dependency values back to the frontend
-Strings: `Demo Project` is the project name; `controls__threshold` is a sanitized section-param dependency you read; `ui__threshold` is another section-param dependency you want to update.
+Strings: `Demo Project` is the project name; `controls__threshold` is a param dependency (section `controls` + param `threshold`) you read; `ui__threshold` is another param dependency you want to update.
 ```python
 from setta.api import SettaListener
 
@@ -152,7 +163,7 @@ listener.start()
 ```
 
 ## Emit artifact updates (example: image)
-Strings: `Demo Project` is the project name; `input_image` is a sanitized section dependency for an Image/Draw value (base64); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
+Strings: `Demo Project` is the project name; `input_image` is a section dependency (for example, a Draw section name whose rendered value is base64, or a Meta Control section value); `artifacts/mirrored.png` is the artifact id/path you want to update (match the path stored in the target Image/Draw section).
 ```python
 from setta.api import SettaListener
 from setta.types.artifact import ImageArtifact
@@ -176,7 +187,7 @@ listener.start()
 ```
 
 ## Router endpoint calls via ctx.project_manager
-Strings: `Demo Project` is the project name; `controls__title` is a sanitized section-param dependency; payload keys like `sectionId`, `paramInfoId`, and `value` are the request field names for the router endpoint; response keys like `projectState` and `sections` are read from the returned dict; `project has %d sections` is a log message template.
+Strings: `Demo Project` is the project name; `controls__title` is a param dependency (section `controls` + param `title`); payload keys like `sectionId`, `paramInfoId`, and `value` are the request field names for the router endpoint; response keys like `projectState` and `sections` are read from the returned dict; `project has %d sections` is a log message template.
 Endpoint results arrive as JSON-compatible dicts, so access fields with dict keys.
 ```python
 from setta.api import SettaListener
@@ -204,7 +215,7 @@ listener.start()
 ```
 
 ## Async entrypoint with run_forever
-Strings: `Demo Project` is the project name; `metrics__count` is a sanitized dependency (often a section param or computed value) you want to read; `count=%s` is a log message template; `__main__` is standard Python entrypoint boilerplate.
+Strings: `Demo Project` is the project name; `metrics__count` is a param dependency (section `metrics` + param `count`) you want to read; `count=%s` is a log message template; `__main__` is standard Python entrypoint boilerplate.
 ```python
 import asyncio
 
@@ -226,7 +237,7 @@ if __name__ == "__main__":
 ```
 
 ## Hot reload with a callback builder
-Strings: `Demo Project` is the project name; `hiding_river__x` is a sanitized section-param dependency; `callbacks/**/*.py` is a glob of extra watch paths; `tests/**` is an ignore glob; `groups=%s` is a log message template.
+Strings: `Demo Project` is the project name; `hiding_river__x` is a param dependency (section `hiding_river` + param `x`); `callbacks/**/*.py` is a glob of extra watch paths; `tests/**` is an ignore glob; `groups=%s` is a log message template.
 ```python
 from setta.api import SettaListener
 
