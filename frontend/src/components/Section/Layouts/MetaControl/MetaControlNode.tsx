@@ -13,6 +13,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
@@ -204,11 +205,11 @@ function SliderControl({
   onValueChange: ParamValueChange;
 }) {
   const sliderRootClassName =
-    "SliderRoot relative flex w-full flex-1 touch-none select-none items-center";
+    `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
   const sliderTrackClassName =
-    "relative flex-grow rounded-full bg-setta-200 h-[3px] dark:bg-setta-700";
+    `${NO_DRAG_CLASS_NAME} relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700 cursor-pointer`;
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
-  const sliderThumbClassName = `${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
+  const sliderThumbClassName = `${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
 
   return (
     <ConfiguredSliderInput
@@ -216,7 +217,7 @@ function SliderControl({
       paramInfoId={controlParamId}
       value={value}
       onChange={onValueChange}
-      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} flex w-full min-w-0 items-center gap-2`}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`}
       sliderRootClassName={sliderRootClassName}
       sliderTrackClassName={sliderTrackClassName}
       sliderRangeClassName={sliderRangeClassName}
