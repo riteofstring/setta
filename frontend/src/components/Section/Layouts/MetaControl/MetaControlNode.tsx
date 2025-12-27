@@ -63,7 +63,6 @@ export function MetaControlContent(props: MetaControlContentProps) {
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
-    case CodeObjTypeEnum.TextParam:
       return (
         <TextInputControl
           sectionId={sectionId}
@@ -73,6 +72,18 @@ export function MetaControlContent(props: MetaControlContentProps) {
           onValueChange={onValueChange}
           language="python"
           singleLine={true}
+        />
+      );
+    case CodeObjTypeEnum.TextParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          value={value}
+          defaultVal={defaultVal}
+          onValueChange={onValueChange}
+          language="python"
+          singleLine={false}
         />
       );
     case CodeObjTypeEnum.TextAreaParam:
