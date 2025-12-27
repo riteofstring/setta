@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from inspect import isclass
 from pathlib import Path
@@ -24,6 +25,7 @@ from setta.types.project_config import (
     ViewModeConfig,
 )
 from setta.types.project_state import (
+    ProjectStateCore,
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
@@ -33,6 +35,105 @@ from setta.types.section_impls import (
 )
 from setta.utils.utils import normalize_path
 
+_CAMEL_CASE_PATTERN = re.compile(r"[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|[0-9]+")
+_ACRONYM_TOKENS = {
+    "API",
+    "CPU",
+    "CSS",
+    "CSV",
+    "DB",
+    "GPU",
+    "GUI",
+    "HTML",
+    "HTTP",
+    "HTTPS",
+    "ID",
+    "IO",
+    "JSON",
+    "JS",
+    "LSP",
+    "PDF",
+    "SQL",
+    "SVG",
+    "UI",
+    "URL",
+    "XML",
+    "YAML",
+}
+
+
+def _split_identifier(identifier: str) -> list[str]:
+    tokens: list[str] = []
+    for chunk in identifier.replace("-", "_").split("_"):
+        if not chunk:
+            continue
+        tokens.extend(_CAMEL_CASE_PATTERN.findall(chunk))
+    return tokens
+
+
+def _merge_display_name_tokens(tokens: list[str]) -> list[str]:
+    merged: list[str] = []
+    idx = 0
+    while idx < len(tokens):
+        token = tokens[idx]
+        next_token = tokens[idx + 1] if idx + 1 < len(tokens) else None
+        if next_token and token.lower() == "i" and next_token.lower() == "frame":
+            merged.append("IFrame")
+            idx += 2
+            continue
+        if next_token and len(token) == 1 and token.isalpha() and next_token.isdigit():
+            merged.append(f"{token.upper()}{next_token}")
+            idx += 2
+            continue
+        if token.lower() == "autobackup":
+            merged.extend(["Auto", "Backup"])
+            idx += 1
+            continue
+        if token.lower() == "gen":
+            merged.append("Generated")
+            idx += 1
+            continue
+        merged.append(token)
+        idx += 1
+    return merged
+
+
+def humanize_settings_identifier(identifier: str) -> str:
+    if not identifier:
+        return ""
+    tokens = _split_identifier(identifier)
+    if not tokens:
+        return identifier
+    merged = _merge_display_name_tokens(tokens)
+    output: list[str] = []
+    for token in merged:
+        if token.isdigit():
+            output.append(token)
+            continue
+        upper_token = token.upper()
+        if upper_token in _ACRONYM_TOKENS:
+            output.append(upper_token)
+            continue
+        if len(token) == 1 and token.isalpha():
+            output.append(token.upper())
+            continue
+        output.append(token[0].upper() + token[1:])
+    return " ".join(output)
+
+
+def apply_settings_display_names(
+    project_state: ProjectStateCore,
+    existing_code_obj_ids: set[ID] | None = None,
+) -> None:
+    for code_obj_id, code_obj in project_state.codeObjs.items():
+        if existing_code_obj_ids is not None and code_obj_id in existing_code_obj_ids:
+            continue
+        if code_obj.displayName.strip():
+            continue
+        if not code_obj.name:
+            continue
+        code_obj.displayName = humanize_settings_identifier(code_obj.name)
+
 
 def add_code_obj_details(
     codeObjName: str,
@@ -40,6 +141,7 @@ def add_code_obj_details(
     codeObjs: dict[ID, Core],
     codeObjImpls: dict[ID, BaseCodeObjImplUnion],
     codeObjVariants: dict[ID, Variant],
+    display_name: str | None = None,
 ):
     codeObjVariant = Variant(
         impl=codeObjImpl.id,
@@ -50,6 +152,7 @@ def add_code_obj_details(
 
     codeObj = Core(
         name=codeObjName,
+        displayName=display_name if display_name is not None else "",
         variants=[codeObjVariant.id],
         defaultVariant=codeObjVariant.id,
     )
@@ -103,7 +206,12 @@ def process_model_fields(
 
         if codeObjName and codeObjImpl:
             codeObjId, codeObjVariantId = add_code_obj_details(
-                codeObjName, codeObjImpl, codeObjs, codeObjImpls, codeObjVariants
+                codeObjName,
+                codeObjImpl,
+                codeObjs,
+                codeObjImpls,
+                codeObjVariants,
+                display_name=humanize_settings_identifier(codeObjName),
             )
             child_ids.append(codeObjId)
             codeObjVariantMap[codeObjId] = codeObjVariantId
@@ -136,7 +244,12 @@ def create_settings_code_objs(section_names):
 
         topLevelParamImpl = NestedParamCodeObjImpl(children=children)
         codeObjId, codeObjVariantId = add_code_obj_details(
-            s, topLevelParamImpl, codeObjs, codeObjImpls, codeObjVariants
+            s,
+            topLevelParamImpl,
+            codeObjs,
+            codeObjImpls,
+            codeObjVariants,
+            display_name=humanize_settings_identifier(s),
         )
         codeObjVariantMaps[s][codeObjId] = codeObjVariantId
         sectionToTopLevelId[s] = codeObjId
@@ -195,6 +308,7 @@ def create_settings_project_state(settings_path: Path):
     }
     projectConfig = ProjectConfig(
         name="settings",
+        showParamDisplayNames=True,
         topLevelSections=projectConfigChildren,
         sectionVariantMap=sectionVariantMap,
         viewport=None,

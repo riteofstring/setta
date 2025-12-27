@@ -457,6 +457,12 @@ export async function route_set_gen_code_suffix(
   return await post("/setGenCodeSuffix", x);
 }
 
+export async function route_set_show_param_display_names(
+  x: gt.SetShowParamDisplayNamesRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setShowParamDisplayNames", x);
+}
+
 export async function route_set_param_entered_value(
   x: gt.SetParamEnteredValueRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -473,6 +479,12 @@ export async function route_set_code_obj_name(
   x: gt.SetCodeObjNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCodeObjName", x);
+}
+
+export async function route_set_code_obj_display_name(
+  x: gt.SetCodeObjDisplayNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeObjDisplayName", x);
 }
 
 export async function route_set_code_file_binding(
