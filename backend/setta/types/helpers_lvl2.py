@@ -611,15 +611,9 @@ def _resolve_new_section_dimensions(
 def _build_top_level_layout_rects(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
-    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+    _layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
 ) -> list[LayoutRect]:
-    if layout_snapshot is None:
-        layout_by_id = p.projectConfig.topLevelSections
-    else:
-        layout_by_id = {
-            **p.projectConfig.topLevelSections,
-            **layout_snapshot,
-        }
+    layout_by_id = p.projectConfig.topLevelSections
     rects: list[LayoutRect] = []
     for section_id, layout in layout_by_id.items():
         if section_id not in p.sections:

@@ -13,6 +13,7 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
+    apply_top_level_section_layout_snapshot,
     change_param_impl,
     compute_smart_top_level_section_position,
     create_top_level_section,
@@ -228,13 +229,14 @@ class SmartLayoutTests(unittest.TestCase):
         layout_snapshot = {
             section_id: TopLevelSectionLayout(x=300, y=0, w=200, h=200)
         }
+        apply_top_level_section_layout_snapshot(self.project_state, layout_snapshot)
 
         position, pan_to = compute_smart_top_level_section_position(
             self.settings,
             self.project_state,
             SectionType.TextBlock,
             overrides,
-            layout_snapshot,
+            None,
             viewport_bounds,
         )
 
