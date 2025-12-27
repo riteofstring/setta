@@ -15,6 +15,8 @@
 - Backend now runs as an agent-only app: no static UI mounting and no HTML serving.
 - Startup paths no longer open a browser or require bundled frontend assets (CLI + background launcher).
 - Auth is now token-gated across HTTP, websockets, and MCP SSE; the backend requires a token file and websocket clients send the token.
+- Agent startup now requires `--session-id` + `--token-file` and writes `~/.setta/run/<session>/` metadata (pid, logs, session.json).
+- Agent startup supports `--uds` and `--session-root`, and updates session metadata once the server is bound.
 
 ## User Experience
 - `setta connect user@host [--project /path]` starts or reuses a remote session and opens the local UI.
@@ -109,8 +111,8 @@
 
 ### Phase 1: Remote Agent Core
 - DONE: Add auth middleware and websocket auth checks.
-- Add agent startup options for token file, UDS or loopback, and session metadata.
-- Add basic session directory creation and metadata writing.
+- DONE: Add agent startup options for token file, UDS or loopback, and session metadata.
+- DONE: Add basic session directory creation, pid/log file creation, and metadata writing.
 
 ### Phase 2: Local Client and SSH Bootstrap
 - Build `setta connect`:
