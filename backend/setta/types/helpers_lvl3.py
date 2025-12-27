@@ -16,7 +16,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.helpers_lvl2 import get_meta_control_param_id, get_top_level_param_ids
+from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
@@ -230,12 +230,6 @@ def build_project_state_summary(
                 impl,
                 shown_param_visibility.get(variant_id, set()),
             )
-        elif isinstance(impl, MetaControlSectionImpl):
-            parameters = _build_meta_control_param_summaries(
-                project_state,
-                section_id,
-                impl,
-            )
 
         child_section_ids: list[ID] = []
         if isinstance(impl, BaseParentSectionImpl):
@@ -323,37 +317,6 @@ def _build_section_param_summaries(
             )
         )
     return summaries
-
-
-def _build_meta_control_param_summaries(
-    project_state: ProjectStateSingleConfig,
-    section_id: ID,
-    section_impl: MetaControlSectionImpl,
-) -> list[ProjectStateSummaryParam]:
-    param_id = get_meta_control_param_id(project_state, section_id)
-    variant_id = section_impl.codeObjVariantMap[param_id]
-    code_obj = project_state.codeObjs[param_id]
-    _, _, param_impl = get_variant_base_and_effective_code_obj_impl(
-        project_state,
-        code_obj,
-        variant_id,
-    )
-    return [
-        ProjectStateSummaryParam(
-            paramId=param_id,
-            name=code_obj.name,
-            type=param_impl.type,
-            passingStyle=getattr(
-                param_impl, "passingStyle", ParameterPassingStyle.DEFAULT
-            ),
-            isPinned=False,
-            isSelected=False,
-            isHidden=False,
-            valuePreview=_truncate_value_preview(
-                getattr(param_impl, "value", None)
-            ),
-        )
-    ]
 
 
 def _collect_visible_top_level_param_ids(shown_ids: ShownParamIds) -> set[ID]:

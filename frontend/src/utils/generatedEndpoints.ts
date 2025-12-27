@@ -295,7 +295,7 @@ export async function route_update_param_impl_config(
 
 export async function route_create_top_level_section(
   x: gt.CreateTopLevelSectionRequestInput,
-): Promise<ResponseDataAndStatus<string>> {
+): Promise<ResponseDataAndStatus<gt.CreateTopLevelSectionResponse>> {
   return await post("/createTopLevelSection", x);
 }
 
