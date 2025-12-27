@@ -168,4 +168,4 @@ class PythonValueCodecTest(TestCase):
             control_code_obj_type=CodeObjType.TextAreaParam,
         )
         rendered = codec.format_section(section_node)
-        self.assertEqual(rendered, \"'secret'\")
+        self.assertEqual(rendered, "'secret'")
