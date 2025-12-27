@@ -284,6 +284,10 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
     """Request a lightweight summary snapshot of the specified project config."""
 
 
+class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
+    """Request the latest parsed LSP diagnostics for generated code."""
+
+
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
     pass
 

@@ -85,6 +85,7 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
@@ -234,6 +235,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
+from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     CodeFileAccessMode,
@@ -1808,6 +1810,19 @@ class BaseProjectManager(ABC):
             self.project_state_backend, x.projectConfigId
         )
         return build_project_state_summary(project_state)
+
+    @enqueue_method(require_serialization=False)
+    @project_state_tool(tool_type=SettaToolType.init)
+    async def get_latest_lsp_diagnostics(
+        self, x: GetLatestLspDiagnosticsRequest
+    ) -> SettaProjectConfigDiagnostics:
+        """Return the latest parsed LSP diagnostics for generated code."""
+        async with self._project_state_lock.read_lock():
+            if x.projectConfigId not in self.gen_code:
+                raise KeyError(
+                    f"Missing generated code for project config {x.projectConfigId}"
+                )
+            return self.gen_code[x.projectConfigId].latest_diagnostics
 
     @enqueue_method
     async def autosave(self):

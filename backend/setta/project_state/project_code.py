@@ -78,6 +78,11 @@ class ProjectGenPythonCode(PythonCode):
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
+        self.latest_diagnostics = SettaProjectConfigDiagnostics(
+            projectConfigId=project_config_id,
+            diagnostics=[],
+            isGenCode=True,
+        )
         code_files.register_binding(
             binding.canonical_path,
             RegisteredCodeFileBinding(
@@ -361,6 +366,7 @@ class ProjectGenPythonCode(PythonCode):
             isGenCode=True,
         )
 
+        self.latest_diagnostics = content
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
     def get_gen_python_code_path(self):
