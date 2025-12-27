@@ -702,15 +702,90 @@ def _find_position_adjacent_to_bounds(
     )
 
 
+def _get_layout_bounds(rects: list[_LayoutRect]) -> _LayoutRect | None:
+    if not rects:
+        return None
+    min_x = min(rect.x for rect in rects)
+    min_y = min(rect.y for rect in rects)
+    max_x = max(rect.x + rect.w for rect in rects)
+    max_y = max(rect.y + rect.h for rect in rects)
+    return _LayoutRect(x=min_x, y=min_y, w=max_x - min_x, h=max_y - min_y)
+
+
 def _find_position_after_existing(
     rects: list[_LayoutRect],
+    new_width: float,
+    new_height: float,
     padding: float,
+    step: float,
 ) -> Position:
     if not rects:
         return Position(x=padding, y=padding)
-    max_x = max(rect.x + rect.w for rect in rects)
-    min_y = min(rect.y for rect in rects)
-    return Position(x=max_x + padding, y=min_y)
+    bounds = _get_layout_bounds(rects)
+    if bounds is None:
+        return Position(x=padding, y=padding)
+
+    interior_bounds = _LayoutRect(
+        x=bounds.x - padding,
+        y=bounds.y - padding,
+        w=bounds.w + padding * 2,
+        h=bounds.h + padding * 2,
+    )
+    position = _find_position_in_bounds(
+        interior_bounds, new_width, new_height, rects, padding, step
+    )
+    if position is not None:
+        return position
+
+    right_bounds = _LayoutRect(
+        x=bounds.x + bounds.w,
+        y=bounds.y - padding,
+        w=new_width + padding * 2,
+        h=bounds.h + padding * 2,
+    )
+    bottom_bounds = _LayoutRect(
+        x=bounds.x - padding,
+        y=bounds.y + bounds.h,
+        w=bounds.w + padding * 2,
+        h=new_height + padding * 2,
+    )
+
+    right_position = _find_position_in_bounds(
+        right_bounds, new_width, new_height, rects, padding, step
+    )
+    bottom_position = _find_position_in_bounds(
+        bottom_bounds, new_width, new_height, rects, padding, step
+    )
+
+    if right_position is None and bottom_position is None:
+        max_x = max(rect.x + rect.w for rect in rects)
+        min_y = min(rect.y for rect in rects)
+        return Position(x=max_x + padding, y=min_y)
+    if right_position is None:
+        return bottom_position
+    if bottom_position is None:
+        return right_position
+
+    def score_position(candidate: Position) -> float:
+        min_x = min(bounds.x, candidate.x)
+        min_y = min(bounds.y, candidate.y)
+        max_x = max(bounds.x + bounds.w, candidate.x + new_width)
+        max_y = max(bounds.y + bounds.h, candidate.y + new_height)
+        width = max_x - min_x
+        height = max_y - min_y
+        if width <= 0 or height <= 0:
+            return float("inf")
+        return max(width, height) / min(width, height)
+
+    right_score = score_position(right_position)
+    bottom_score = score_position(bottom_position)
+    if bottom_score < right_score:
+        return bottom_position
+    if right_score < bottom_score:
+        return right_position
+    if bounds.w <= bounds.h:
+        return right_position
+    return bottom_position
 
 
 def compute_smart_top_level_section_position(
@@ -743,14 +818,64 @@ def compute_smart_top_level_section_position(
             bounds_rect, new_width, new_height, rects, padding, step
         )
         if position is None:
-            position = _find_position_after_existing(rects, padding)
+            position = _find_position_after_existing(
+                rects, new_width, new_height, padding, step
+            )
         pan_to = Position(
             x=position.x + new_width / 2,
             y=position.y + new_height / 2,
         )
         return position, pan_to
-    position = _find_position_after_existing(rects, padding)
+    position = _find_position_after_existing(
+        rects, new_width, new_height, padding, step
+    )
     return position, None
+
+
+def resolve_top_level_section_position_and_pan(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    impl_type: SectionType,
+    position: Position | None,
+    impl_overrides: BaseSectionImplArgsUnion | None,
+    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+    viewport_bounds: ViewportBounds | None,
+) -> tuple[Position, Position | None]:
+    if position is not None:
+        return position, None
+    return compute_smart_top_level_section_position(
+        settings,
+        p,
+        impl_type,
+        impl_overrides,
+        layout_snapshot,
+        viewport_bounds,
+    )
+
+
+def apply_top_level_section_layout_snapshot(
+    p: "ProjectStateSingleConfig",
+    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+) -> None:
+    if layout_snapshot is None:
+        return
+    for section_id, layout in layout_snapshot.items():
+        if section_id not in p.sections:
+            continue
+        parent_id = p.parentSectionMap[section_id]
+        if parent_id:
+            continue
+        if section_id not in p.projectConfig.topLevelSections:
+            p.projectConfig.topLevelSections[section_id] = layout
+            continue
+        existing_layout = p.projectConfig.topLevelSections[section_id]
+        existing_layout.x = layout.x
+        existing_layout.y = layout.y
+        existing_layout.zIndex = layout.zIndex
+        if layout.w is not None:
+            existing_layout.w = layout.w
+        if layout.h is not None:
+            existing_layout.h = layout.h
 
 
 def create_top_level_section(

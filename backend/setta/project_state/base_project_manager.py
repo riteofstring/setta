@@ -166,10 +166,10 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
+    apply_top_level_section_layout_snapshot,
     auto_layout_top_level_sections,
     change_param_impl,
     collect_ignore_type_errors_by_section,
-    compute_smart_top_level_section_position,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_new_section_variant,
@@ -184,6 +184,7 @@ from setta.types.helpers_lvl2 import (
     maybe_update_gen_python_code_section,
     move_section_to_pane,
     move_section_to_parent_section,
+    resolve_top_level_section_position_and_pan,
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
@@ -1010,39 +1011,20 @@ class BaseProjectManager(ABC):
         """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        if x.topLevelSections is not None:
-            for section_id, layout in x.topLevelSections.items():
-                if section_id not in project_state.sections:
-                    continue
-                parent_id = project_state.parentSectionMap[section_id]
-                if parent_id:
-                    continue
-                if section_id not in project_state.projectConfig.topLevelSections:
-                    project_state.projectConfig.topLevelSections[section_id] = layout
-                    continue
-                existing_layout = project_state.projectConfig.topLevelSections[
-                    section_id
-                ]
-                existing_layout.x = layout.x
-                existing_layout.y = layout.y
-                existing_layout.zIndex = layout.zIndex
-                if layout.w is not None:
-                    existing_layout.w = layout.w
-                if layout.h is not None:
-                    existing_layout.h = layout.h
+        apply_top_level_section_layout_snapshot(
+            project_state,
+            x.topLevelSections,
+        )
 
-        if x.position is None:
-            position, pan_to = compute_smart_top_level_section_position(
-                self.settings_file.settings,
-                project_state,
-                x.implType,
-                x.implOverrides,
-                x.topLevelSections,
-                x.viewportBounds,
-            )
-        else:
-            position = x.position
-            pan_to = None
+        position, pan_to = resolve_top_level_section_position_and_pan(
+            self.settings_file.settings,
+            project_state,
+            x.implType,
+            x.position,
+            x.implOverrides,
+            x.topLevelSections,
+            x.viewportBounds,
+        )
         sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
