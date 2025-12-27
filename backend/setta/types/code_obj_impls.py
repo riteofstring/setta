@@ -20,6 +20,7 @@ class CodeObjType(str, Enum):
     CodeCallable = "CodeCallable"
     CodeParam = "CodeParam"
     TextParam = "TextParam"
+    ButtonParam = "ButtonParam"
     SliderParam = "SliderParam"
     RotaryParam = "RotaryParam"
     SwitchParam = "SwitchParam"
@@ -76,6 +77,11 @@ class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
 
 
+class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.ButtonParam] = CodeObjType.ButtonParam
+    label: str = "Trigger"
+
+
 class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     min: int = 0
@@ -128,6 +134,7 @@ ControlCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
+        CodeObjType.ButtonParam,
         CodeObjType.TextAreaParam,
         CodeObjType.SliderParam,
         CodeObjType.RotaryParam,
@@ -136,5 +143,21 @@ ControlCodeObjTypeSet = frozenset(
         CodeObjType.DropdownParam,
         CodeObjType.PasswordParam,
         CodeObjType.DropzoneParam,
+    }
+)
+
+SectionParamCodeObjTypeSet = frozenset(
+    {
+        CodeObjType.CodeParam,
+        CodeObjType.TextParam,
+        CodeObjType.TextAreaParam,
+        CodeObjType.SliderParam,
+        CodeObjType.RotaryParam,
+        CodeObjType.SwitchParam,
+        CodeObjType.ColorPickerParam,
+        CodeObjType.DropdownParam,
+        CodeObjType.PasswordParam,
+        CodeObjType.DropzoneParam,
+        CodeObjType.NestedParam,
     }
 )

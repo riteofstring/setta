@@ -21,7 +21,6 @@ from setta.types.project_config import (
     Viewport,
 )
 from setta.types.section_impls import (
-    ActionControlType,
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
@@ -44,7 +43,6 @@ class CoreArgs(TypedDict):
     unsharedKeys: NotRequired[
         list[
             Literal[
-                "actionControlType",
                 "activeLayerIdx",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
@@ -65,8 +63,6 @@ class CoreArgs(TypedDict):
                 "colorChoices",
                 "columnWidth",
                 "configLanguage",
-                "controlCodeObjVariantMap",
-                "controlParamId",
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
@@ -92,8 +88,10 @@ class CoreArgs(TypedDict):
                 "isPreset",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
+                "label",
                 "layers",
                 "max",
+                "metaControlParamId",
                 "min",
                 "name",
                 "paramFilter",
@@ -406,9 +404,8 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
-    controlParamId: NotRequired[ID | None]
-    controlCodeObjVariantMap: NotRequired[dict[ID, ID]]
-    actionControlType: NotRequired[ActionControlType | None]
+    metaControlParamId: NotRequired[ID | None]
+    codeObjVariantMap: NotRequired[dict[ID, ID]]
 
 
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -416,14 +413,9 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.MetaControl]
         | Callable[[Literal[SectionType.MetaControl]], Literal[SectionType.MetaControl]]
     ]
-    controlParamId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    controlCodeObjVariantMap: NotRequired[
+    metaControlParamId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    codeObjVariantMap: NotRequired[
         dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
-    ]
-    actionControlType: NotRequired[
-        ActionControlType
-        | None
-        | Callable[[ActionControlType | None], ActionControlType | None]
     ]
 
 
@@ -622,6 +614,19 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
         Literal[CodeObjType.TextParam]
         | Callable[[Literal[CodeObjType.TextParam]], Literal[CodeObjType.TextParam]]
     ]
+
+
+class ButtonParamCodeObjImplArgs(BaseParamCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.ButtonParam]]
+    label: NotRequired[str]
+
+
+class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
+    type: NotRequired[
+        Literal[CodeObjType.ButtonParam]
+        | Callable[[Literal[CodeObjType.ButtonParam]], Literal[CodeObjType.ButtonParam]]
+    ]
+    label: NotRequired[str | Callable[[str], str]]
 
 
 class SliderParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):

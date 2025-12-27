@@ -17,7 +17,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import (
-    ActionControlType,
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
@@ -34,7 +33,6 @@ class SharedModifier(TypedDict):
     # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
-    actionControlType: NotRequired[ActionControlType | None]
     activeLayerIdx: NotRequired[int]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
@@ -55,8 +53,6 @@ class SharedModifier(TypedDict):
     colorChoices: NotRequired[list[ColorPickerChoice]]
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
-    controlCodeObjVariantMap: NotRequired[dict[ID, ID]]
-    controlParamId: NotRequired[ID | None]
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
     dataPath: NotRequired[str]
@@ -82,8 +78,10 @@ class SharedModifier(TypedDict):
     isPreset: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
+    label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
     max: NotRequired[float | int]
+    metaControlParamId: NotRequired[ID | None]
     min: NotRequired[float | int]
     name: NotRequired[str]
     paramFilter: NotRequired[str]

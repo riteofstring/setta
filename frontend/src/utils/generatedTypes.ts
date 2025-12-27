@@ -28,6 +28,7 @@ const BaseChildlessCodeObjImplTypeSet = new Set([
 const BaseDictSectionImplTypeSet = new Set(["Dict", "GlobalVariables"]);
 
 export const BaseParamCodeObjImplTypeSet = new Set([
+  "ButtonParam",
   "CodeParam",
   "ColorPickerParam",
   "DropdownParam",
@@ -109,6 +110,7 @@ export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
   CodeParam: "CodeParam",
   TextParam: "TextParam",
+  ButtonParam: "ButtonParam",
   SliderParam: "SliderParam",
   RotaryParam: "RotaryParam",
   SwitchParam: "SwitchParam",
@@ -164,10 +166,6 @@ export const DependencyValueTypeEnum = {
   Base64: "Base64",
   FileRead: "FileRead",
 } as const;
-
-export const ActionControlTypeEnum = { button: "button" } as const;
-
-export type ActionControlType = ObjectValues<typeof ActionControlTypeEnum>;
 
 export const BrowserAreaViewModeEnum = {
   list: "list",
@@ -1033,9 +1031,6 @@ export function createSectionSize(
 }
 
 const SharedModifierSchema = z.object({
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .optional(),
   activeLayerIdx: z.int().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -1058,8 +1053,6 @@ const SharedModifierSchema = z.object({
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
-  controlCodeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
-  controlParamId: z.union([IDSchema, z.null()]).optional(),
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
@@ -1085,8 +1078,10 @@ const SharedModifierSchema = z.object({
   isPreset: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
   jsonSourceMissing: z.boolean().optional(),
+  label: z.string().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.union([z.number(), z.int()]).optional(),
+  metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   min: z.union([z.number(), z.int()]).optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -1124,7 +1119,6 @@ const CoreSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "actionControlType",
         "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -1145,8 +1139,6 @@ const CoreSchema = z.object({
         "colorChoices",
         "columnWidth",
         "configLanguage",
-        "controlCodeObjVariantMap",
-        "controlParamId",
         "coreNameEditable",
         "coreNameType",
         "dataPath",
@@ -1172,8 +1164,10 @@ const CoreSchema = z.object({
         "isPreset",
         "jsonSourceKeys",
         "jsonSourceMissing",
+        "label",
         "layers",
         "max",
+        "metaControlParamId",
         "min",
         "name",
         "paramFilter",
@@ -1198,8 +1192,7 @@ const CoreSchema = z.object({
     .default(() => [
       "callable" as const,
       "codeObjVariantMap" as const,
-      "controlParamId" as const,
-      "controlCodeObjVariantMap" as const,
+      "metaControlParamId" as const,
       "topLevelParamId" as const,
       "value" as const,
       "layers" as const,
@@ -1421,11 +1414,8 @@ const MetaControlSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  controlParamId: z.union([IDSchema, z.null()]).default(null),
-  controlCodeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .default(ActionControlTypeEnum.button),
+  metaControlParamId: z.union([IDSchema, z.null()]).default(null),
+  codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -1659,6 +1649,24 @@ const TextParamCodeObjImplSchema = z.object({
 
 type TextParamCodeObjImpl = z.infer<typeof TextParamCodeObjImplSchema>;
 
+const ButtonParamCodeObjImplSchema = z.object({
+  type: z.literal("ButtonParam").default(CodeObjTypeEnum.ButtonParam),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  description: z.string().default("" as const),
+  isPreset: z.boolean().default(false),
+  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
+  coreNameEditable: z.boolean().default(false),
+  passingStyle: z
+    .enum(ParameterPassingStyleEnum)
+    .default(ParameterPassingStyleEnum.DEFAULT),
+  label: z.string().default("Trigger" as const),
+});
+
+export type ButtonParamCodeObjImpl = z.infer<
+  typeof ButtonParamCodeObjImplSchema
+>;
+
 const SliderParamCodeObjImplSchema = z.object({
   type: z.literal("SliderParam").default(CodeObjTypeEnum.SliderParam),
   id: IDSchema.default(create_new_id),
@@ -1862,6 +1870,7 @@ const ProjectStateCoreSchema = z.object({
         CodeCallableCodeObjImplSchema,
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
+        ButtonParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
         RotaryParamCodeObjImplSchema,
         SwitchParamCodeObjImplSchema,
@@ -1974,6 +1983,7 @@ const BaseCodeObjImplUnionSchema = z.union([
   CodeCallableCodeObjImplSchema,
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
+  ButtonParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
   RotaryParamCodeObjImplSchema,
   SwitchParamCodeObjImplSchema,
@@ -1997,6 +2007,7 @@ type BaseDictSectionImplUnion = z.infer<typeof BaseDictSectionImplUnionSchema>;
 const BaseParamCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
+  ButtonParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
   RotaryParamCodeObjImplSchema,
   SwitchParamCodeObjImplSchema,
@@ -2299,6 +2310,22 @@ type CodeCallableCodeObjImplArgs = z.infer<
   typeof CodeCallableCodeObjImplArgsSchema
 >;
 
+const ButtonParamCodeObjImplArgsSchema = z.object({
+  type: z.literal("ButtonParam").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  isPreset: z.boolean().optional(),
+  coreNameType: z.enum(ParamNameTypeEnum).optional(),
+  coreNameEditable: z.boolean().optional(),
+  passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  label: z.string().optional(),
+});
+
+type ButtonParamCodeObjImplArgs = z.infer<
+  typeof ButtonParamCodeObjImplArgsSchema
+>;
+
 const NestedParamCodeObjImplArgsSchema = z.object({
   type: z.literal("NestedParam").optional(),
   id: IDSchema.optional(),
@@ -2538,11 +2565,8 @@ const MetaControlSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  controlParamId: z.union([IDSchema, z.null()]).optional(),
-  controlCodeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .optional(),
+  metaControlParamId: z.union([IDSchema, z.null()]).optional(),
+  codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -2668,7 +2692,7 @@ export type WebsocketMsgRealtimeUIChange = z.infer<
 const ControlActionEventSchema = z.object({
   controlName: z.string(),
   actionId: z.string(),
-  actionControlType: z.enum(ActionControlTypeEnum),
+  actionControlType: z.enum(CodeObjTypeEnum),
   payload: z.union([z.string(), z.null()]).default(null),
   timestampMs: z.int(),
 });
@@ -2984,6 +3008,7 @@ const ProjectStateSingleConfigSchema = z.object({
         CodeCallableCodeObjImplSchema,
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
+        ButtonParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
         RotaryParamCodeObjImplSchema,
         SwitchParamCodeObjImplSchema,
@@ -3686,9 +3711,6 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .default(ActionControlTypeEnum.button),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
@@ -3762,6 +3784,22 @@ function createUserDefaultTextBlockSectionImpl(
   options: Partial<UserDefaultTextBlockSectionImpl> = {},
 ): UserDefaultTextBlockSectionImpl {
   return UserDefaultTextBlockSectionImplSchema.parse(options);
+}
+
+const UserDefaultButtonParamCodeObjImplSchema = z.object({
+  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
+  coreNameEditable: z.boolean().default(false),
+  label: z.string().default("Trigger" as const),
+});
+
+type UserDefaultButtonParamCodeObjImpl = z.infer<
+  typeof UserDefaultButtonParamCodeObjImplSchema
+>;
+
+function createUserDefaultButtonParamCodeObjImpl(
+  options: Partial<UserDefaultButtonParamCodeObjImpl> = {},
+): UserDefaultButtonParamCodeObjImpl {
+  return UserDefaultButtonParamCodeObjImplSchema.parse(options);
 }
 
 const UserDefaultCodeCallableCodeObjImplSchema = z.object({});
@@ -4029,6 +4067,9 @@ const SettingsStateSchema = z.object({
   ),
   textBlockSectionDefault: UserDefaultTextBlockSectionImplSchema.default(
     createUserDefaultTextBlockSectionImpl,
+  ),
+  buttonParamCodeObjDefault: UserDefaultButtonParamCodeObjImplSchema.default(
+    createUserDefaultButtonParamCodeObjImpl,
   ),
   codeCallableCodeObjDefault: UserDefaultCodeCallableCodeObjImplSchema.default(
     createUserDefaultCodeCallableCodeObjImpl,
@@ -6032,6 +6073,14 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       TextParamCodeObjImplArgs,
       TextParamCodeObjImpl
+    >;
+  };
+
+  ButtonParamCodeObj: {
+    impl: ButtonParamCodeObjImpl;
+    args: ImplArgsBundleWithUpdaters<
+      ButtonParamCodeObjImplArgs,
+      ButtonParamCodeObjImpl
     >;
   };
 

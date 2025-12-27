@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 # Import all UserDefault classes
 from setta.types.generated.user_defaults import (
     UserDefaultBrowserSectionImpl,
+    UserDefaultButtonParamCodeObjImpl,
     UserDefaultCallableSectionImpl,
     UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
@@ -105,6 +106,9 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     textBlockSectionDefault: UserDefaultTextBlockSectionImpl = Field(
         default_factory=UserDefaultTextBlockSectionImpl
+    )
+    buttonParamCodeObjDefault: UserDefaultButtonParamCodeObjImpl = Field(
+        default_factory=UserDefaultButtonParamCodeObjImpl
     )
     codeCallableCodeObjDefault: UserDefaultCodeCallableCodeObjImpl = Field(
         default_factory=UserDefaultCodeCallableCodeObjImpl
@@ -212,6 +216,9 @@ def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeO
 
         case CodeObjType.TextParam:
             return settings.textParamCodeObjDefault
+
+        case CodeObjType.ButtonParam:
+            return settings.buttonParamCodeObjDefault
 
         case CodeObjType.SliderParam:
             return settings.sliderParamCodeObjDefault

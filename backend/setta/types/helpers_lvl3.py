@@ -134,8 +134,8 @@ def prepare_sections_for_copy(
             elif isinstance(effective_impl, BaseSectionWithParamsImpl):
                 code_objs_to_process.update(effective_impl.codeObjVariantMap)
             elif isinstance(effective_impl, MetaControlSectionImpl):
-                if effective_impl.controlParamId is not None:
-                    code_objs_to_process.add(effective_impl.controlParamId)
+                if effective_impl.metaControlParamId is not None:
+                    code_objs_to_process.add(effective_impl.metaControlParamId)
 
     # Process code_objs recursively
     while code_objs_to_process:

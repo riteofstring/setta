@@ -12,7 +12,7 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     ListenerRealtimeDelta,
 )
-from setta.types.section_impls import ActionControlType
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
@@ -150,7 +150,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         action_event = ControlActionEvent(
             controlName="Run",
             actionId="inspect_state",
-            actionControlType=ActionControlType.button,
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=123,
         )
@@ -209,7 +209,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         action_event = ControlActionEvent(
             controlName="Run",
             actionId="inspect_state",
-            actionControlType=ActionControlType.button,
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=123,
         )
@@ -268,7 +268,7 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
         action_event = ControlActionEvent(
             controlName="Run",
             actionId="inspect_state",
-            actionControlType=ActionControlType.button,
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=321,
         )

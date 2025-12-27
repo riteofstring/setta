@@ -1,9 +1,10 @@
+import { UIConfigDropdownAndFields } from "components/Panes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import {
   ComboboxItemArrayType,
   OnSelectedItemChangeFnType,
 } from "components/Utils/Combobox/ComboboxStateReducer";
-import { UIConfigDropdownAndFields } from "components/Panes/UiEditor/UIConfig/UIConfigDropdownAndFields";
 import _ from "lodash";
+import type { ReactNode } from "react";
 import {
   getCodeObjCore,
   getCurrCodeObjVariant,
@@ -13,7 +14,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { route_change_param_impl } from "utils/generatedEndpoints";
 import {
-  ActionControlType,
   CodeObjType,
   CodeObjTypeEnum,
   SectionTypeEnum,
@@ -21,7 +21,6 @@ import {
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 
 type MetaControlConfigState = {
-  actionControlType: ActionControlType | null;
   controlParamId: string | null;
   baseImplId: string | null;
   paramName: string;
@@ -30,6 +29,7 @@ type MetaControlConfigState = {
 const CONTROL_CODE_OBJ_TYPES: Array<CodeObjType> = [
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.SliderParam,
   CodeObjTypeEnum.RotaryParam,
@@ -44,36 +44,30 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
   const presetCodeObjImpls = useProjectState((x) => {
     const output: ComboboxItemArrayType<string> = [];
     for (const c of Object.values(x.codeObjImpls)) {
-      if (c.isPreset) {
-        output.push({
-          id: c.id,
-          name: `${c.name} - (${c.type})`,
-        });
+      if (!c.isPreset) {
+        continue;
       }
+      if (!CONTROL_CODE_OBJ_TYPES.includes(c.type)) {
+        continue;
+      }
+      output.push({
+        id: c.id,
+        name: `${c.name} - (${c.type})`,
+      });
     }
     return output;
   }, _.isEqual);
 
-  const { actionControlType, controlParamId, baseImplId, paramName } =
-    useProjectState((x): MetaControlConfigState => {
+  const { controlParamId, baseImplId, paramName } = useProjectState(
+    (x): MetaControlConfigState => {
       const impl = getCurrEffectiveSectionImplOfType(
         x,
         sectionId,
         SectionTypeEnum.MetaControl,
       );
-      if (impl.actionControlType !== null) {
-        return {
-          actionControlType: impl.actionControlType,
-          controlParamId: null,
-          baseImplId: null,
-          paramName: "",
-        };
-      }
-
-      const controlParamId = impl.controlParamId;
+      const controlParamId = impl.metaControlParamId;
       if (!controlParamId) {
         return {
-          actionControlType: impl.actionControlType,
           controlParamId: null,
           baseImplId: null,
           paramName: "",
@@ -83,18 +77,16 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
       const variant = getCurrCodeObjVariant(x, sectionId, controlParamId);
       const paramName = getCodeObjCore(x, controlParamId).name;
       return {
-        actionControlType: impl.actionControlType,
         controlParamId,
         baseImplId: variant.impl,
         paramName,
       };
-    }, _.isEqual);
+    },
+    _.isEqual,
+  );
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
-    if (!selectedId) {
-      throw new Error();
-    }
-    if (!controlParamId) {
+    if (!selectedId || !controlParamId) {
       throw new Error();
     }
     route_change_param_impl({
@@ -105,28 +97,47 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
     });
   };
 
-  if (actionControlType !== null || !controlParamId || !baseImplId) {
+  if (!controlParamId || !baseImplId) {
     return null;
   }
 
+  const containerClassName =
+    "flex flex-1 flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]";
+
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
+    <div className={containerClassName}>
+      <MetaControlConfigCard title={paramName}>
+        <UIConfigDropdownAndFields
+          sectionId={sectionId}
+          paramInfoId={controlParamId}
+          baseImplId={baseImplId}
+          presetCodeObjImpls={presetCodeObjImpls}
+          allowedImplTypes={CONTROL_CODE_OBJ_TYPES}
+          onDropdownSelect={onSelect}
+        />
+      </MetaControlConfigCard>
+    </div>
+  );
+}
+
+function MetaControlConfigCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200">
       <div className="flex items-center justify-between">
         <p className="uicfg-title truncate text-xs font-semibold text-setta-500">
-          {paramName}
+          {title}
         </p>
         <div className="flex gap-[0.1rem] place-self-end">
           <SaveUITypeConfig />
         </div>
       </div>
-      <UIConfigDropdownAndFields
-        sectionId={sectionId}
-        paramInfoId={controlParamId}
-        baseImplId={baseImplId}
-        presetCodeObjImpls={presetCodeObjImpls}
-        onDropdownSelect={onSelect}
-        allowedImplTypes={CONTROL_CODE_OBJ_TYPES}
-      />
+      {children}
     </div>
   );
 }

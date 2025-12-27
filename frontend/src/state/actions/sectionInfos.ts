@@ -86,13 +86,13 @@ function getEffectiveCodeObjImplIfPresent(
     if (sectionImpl.type !== SectionTypeEnum.MetaControl) {
       return null;
     }
-    if (!sectionImpl.controlParamId) {
+    if (!sectionImpl.metaControlParamId) {
       return null;
     }
-    if (sectionImpl.controlParamId !== codeObjId) {
+    if (sectionImpl.metaControlParamId !== codeObjId) {
       return null;
     }
-    const variantId = sectionImpl.controlCodeObjVariantMap[codeObjId];
+    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
       return null;
     }
@@ -224,14 +224,14 @@ export function getCurrCodeObjVariant(
     return getCodeObjVariant(p, variantId);
   }
   if (sectionImpl.type === SectionTypeEnum.MetaControl) {
-    const controlParamId = sectionImpl.controlParamId;
+    const controlParamId = sectionImpl.metaControlParamId;
     if (!controlParamId) {
       throw new Error();
     }
     if (controlParamId !== codeObjId) {
       throw new Error();
     }
-    const variantId = sectionImpl.controlCodeObjVariantMap[codeObjId];
+    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
       throw new Error();
     }

@@ -14,7 +14,6 @@ from setta.types.code_obj_impls import (
     ParamNameType,
 )
 from setta.types.section_impls import (
-    ActionControlType,
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
@@ -115,7 +114,7 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    actionControlType: ActionControlType | None = ActionControlType.button
+    pass
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -198,6 +197,12 @@ class UserDefaultTextParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
     pass
+
+
+class UserDefaultButtonParamCodeObjImpl(
+    UserDefaultBaseParamCodeObjImpl, extra="forbid"
+):
+    label: str = "Trigger"
 
 
 class UserDefaultSliderParamCodeObjImpl(

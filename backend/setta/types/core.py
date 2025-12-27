@@ -19,8 +19,7 @@ class Core(BaseModel, extra="forbid"):
         default_factory=lambda: [
             "callable",
             "codeObjVariantMap",
-            "controlParamId",
-            "controlCodeObjVariantMap",
+            "metaControlParamId",
             "topLevelParamId",
             "value",
             "layers",

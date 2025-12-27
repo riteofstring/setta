@@ -15,6 +15,7 @@ import {
   UIEditorTabNameEnum,
 } from "utils/constants";
 import {
+  ButtonParamCodeObjImpl,
   CodeObjType,
   CodeObjTypeEnum,
   ColorPickerParamCodeObjImpl,
@@ -113,6 +114,8 @@ export type ColorPickerConfigForFrontend = Pick<
   "colorChoices"
 >;
 
+type ButtonConfigForFrontend = Pick<ButtonParamCodeObjImpl, "label">;
+
 const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.SliderParam]: (
     obj: SliderParamCodeObjImpl,
@@ -137,6 +140,11 @@ const UI_CONFIG_EXTRACTORS = {
     obj: ColorPickerParamCodeObjImpl,
   ): ColorPickerConfigForFrontend => ({
     colorChoices: obj.colorChoices,
+  }),
+  [CodeObjTypeEnum.ButtonParam]: (
+    obj: ButtonParamCodeObjImpl,
+  ): ButtonConfigForFrontend => ({
+    label: obj.label,
   }),
 } as const;
 

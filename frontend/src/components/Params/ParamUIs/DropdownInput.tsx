@@ -1,5 +1,5 @@
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import type { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
   dispatchOptimisticProjectStateUpdate,

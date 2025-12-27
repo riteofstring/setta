@@ -67,6 +67,7 @@ from typing import Annotated
 from pydantic import Field
 
 from setta.types.code_obj_impls import (
+    ButtonParamCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -85,6 +86,7 @@ BaseCodeObjImplUnion = (
     CodeCallableCodeObjImpl
     | CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
@@ -103,6 +105,7 @@ BaseCodeObjImplUnionWithDiscriminator = Annotated[
 BaseParamCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl

@@ -3,6 +3,7 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
@@ -17,39 +18,59 @@ import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import {
-  ActionControlType,
+  ButtonParamCodeObjImpl,
   CodeObjType,
+  CodeObjTypeEnum,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
-  const { controlParamId, actionControlType, sectionName } = useProjectState(
-    (x) => {
+  const { controlParamId, controlCodeObjType, buttonLabel, sectionName } =
+    useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplOfType(
         x,
         sectionId,
         SectionTypeEnum.MetaControl,
       );
+      const controlParamId = impl.metaControlParamId;
+      if (!controlParamId) {
+        return {
+          controlParamId: null,
+          controlCodeObjType: null,
+          buttonLabel: "",
+          sectionName: getSectionCore(x, sectionId).name,
+        };
+      }
+      const controlImpl = getCurrEffectiveCodeObjImpl(
+        x,
+        sectionId,
+        controlParamId,
+      );
+      const controlCodeObjType = controlImpl.type;
+      const buttonLabel =
+        controlCodeObjType === CodeObjTypeEnum.ButtonParam
+          ? (controlImpl as ButtonParamCodeObjImpl).label
+          : "";
       return {
-        controlParamId: impl.controlParamId,
-        actionControlType: impl.actionControlType,
+        controlParamId,
+        controlCodeObjType,
+        buttonLabel,
         sectionName: getSectionCore(x, sectionId).name,
       };
-    },
-  );
+    }, _.isEqual);
 
-  if (actionControlType) {
-    return (
-      <MetaControlActionArea
-        sectionName={sectionName}
-        actionControlType={actionControlType}
-      />
-    );
+  if (!controlParamId || !controlCodeObjType) {
+    return null;
   }
 
-  if (!controlParamId) {
-    return null;
+  if (controlCodeObjType === CodeObjTypeEnum.ButtonParam) {
+    return (
+      <MetaControlButtonArea
+        sectionName={sectionName}
+        buttonLabel={buttonLabel}
+      />
+    );
   }
 
   return (
@@ -120,21 +141,23 @@ function MetaControlValueArea({
   );
 }
 
-function MetaControlActionArea({
+function MetaControlButtonArea({
   sectionName,
-  actionControlType,
+  buttonLabel,
 }: {
   sectionName: string;
-  actionControlType: ActionControlType;
+  buttonLabel: string;
 }) {
   function handleAction() {
     sendRealtimeControlAction({
       controlName: sectionName,
       actionId: sectionName,
-      actionControlType,
+      actionControlType: CodeObjTypeEnum.ButtonParam,
       payload: null,
     });
   }
+
+  const resolvedLabel = buttonLabel.trim() === "" ? "Trigger" : buttonLabel;
 
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-center justify-center p-0">
@@ -143,7 +166,7 @@ function MetaControlActionArea({
         className="flex h-8 min-w-[120px] items-center justify-center rounded-lg bg-setta-200/30 px-3 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-300 dark:hover:bg-setta-900"
         onClick={handleAction}
       >
-        Trigger
+        {resolvedLabel}
       </button>
     </div>
   );

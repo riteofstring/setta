@@ -10,6 +10,7 @@ from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
+    ButtonParamCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -36,6 +37,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     BrowserSectionImplArgsWithCallable,
+    ButtonParamCodeObjImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
     ChatSectionImplArgsWithCallable,
@@ -256,6 +258,13 @@ def set_effective_impl_value(
     variant: Variant,
     args: TextParamCodeObjImplArgsWithCallable,
 ) -> TextParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: ButtonParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: ButtonParamCodeObjImplArgsWithCallable,
+) -> ButtonParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: SliderParamCodeObjImpl,

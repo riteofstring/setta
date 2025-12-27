@@ -40,10 +40,6 @@ class SectionType(str, Enum):
     Browser = "Browser"
 
 
-class ActionControlType(str, Enum):
-    button = "button"
-
-
 class SectionSizeMode(str, Enum):
     auto = "auto"
 
@@ -230,9 +226,8 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
-    controlParamId: ID | None = None
-    controlCodeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
-    actionControlType: ActionControlType | None = ActionControlType.button
+    metaControlParamId: ID | None = None
+    codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
 
 
 class SocialSectionImpl(BaseSectionImpl):

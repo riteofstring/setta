@@ -8,8 +8,8 @@ import {
   getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
 import type { CodeObjType } from "utils/generatedTypes";
+import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
 import { IdNameCombobox } from "../../../Utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({
@@ -82,7 +82,8 @@ function useNonPresetImplsForParam(
     }
 
     const output: ComboboxItemArrayType<string> = [];
-    const typeList = allowedImplTypes ?? Array.from(BaseParamCodeObjImplTypeSet);
+    const typeList =
+      allowedImplTypes ?? Array.from(BaseParamCodeObjImplTypeSet);
     for (const c of typeList) {
       if (prevImpls[c]) {
         output.push({

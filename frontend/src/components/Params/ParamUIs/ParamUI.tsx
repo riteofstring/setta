@@ -18,6 +18,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
+import { ButtonInputConfigForParam } from "./ButtonInput";
 import {
   ColorPickerInput,
   ColorPickerInputConfigForParam,
@@ -56,6 +57,13 @@ export function ParamUIConfig({
     case CodeObjTypeEnum.DropdownParam:
       return (
         <DropdownInputConfigForParam
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+        />
+      );
+    case CodeObjTypeEnum.ButtonParam:
+      return (
+        <ButtonInputConfigForParam
           sectionId={sectionId}
           paramInfoId={paramInfoId}
         />
@@ -204,6 +212,8 @@ export function ParamUI({
           isSelectingParams={isSelectingParams}
         />
       );
+    case CodeObjTypeEnum.ButtonParam:
+      return null;
     default:
       return codeObjType satisfies never;
   }

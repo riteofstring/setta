@@ -4,6 +4,7 @@
 from typing import Any, Literal, overload
 
 from setta.types.code_obj_impls import (
+    ButtonParamCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
     CodeParamCodeObjImpl,
@@ -20,6 +21,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
+    ButtonParamCodeObjImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
@@ -53,6 +55,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 # Import user default classes
 from setta.types.generated.user_defaults import (
     UserDefaultBrowserSectionImpl,
+    UserDefaultButtonParamCodeObjImpl,
     UserDefaultCallableSectionImpl,
     UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
@@ -268,6 +271,14 @@ def create_code_obj_impl(
 
 @overload
 def create_code_obj_impl(
+    type: Literal[CodeObjType.ButtonParam],
+    defaults: UserDefaultButtonParamCodeObjImpl,
+    overrides: ButtonParamCodeObjImplArgs | None = None,
+) -> ButtonParamCodeObjImpl: ...
+
+
+@overload
+def create_code_obj_impl(
     type: Literal[CodeObjType.SliderParam],
     defaults: UserDefaultSliderParamCodeObjImpl,
     overrides: SliderParamCodeObjImplArgs | None = None,
@@ -442,6 +453,11 @@ def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None
             if overrides is None:
                 overrides = {}
             return TextParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.ButtonParam:
+            if overrides is None:
+                overrides = {}
+            return ButtonParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
         case CodeObjType.SliderParam:
             if overrides is None:

@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
-  ActionControlTypeEnum,
   BaseSectionImplUnion,
   CodeLanguageEnum,
   CodeObjTypeEnum,
@@ -150,8 +149,8 @@ export function useCreateSectionsList() {
       name: "Button",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        actionControlType: ActionControlTypeEnum.button,
       },
+      controlCodeObjType: CodeObjTypeEnum.ButtonParam,
     },
     {
       name: "Rotary Encoder",

@@ -15,10 +15,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
-  ActionControlType,
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
+  CodeObjType,
   ControlActionEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -203,7 +203,7 @@ function emitRealtimeDependencyValue(
 type ControlActionEventInput = {
   controlName: string;
   actionId: string;
-  actionControlType: ActionControlType;
+  actionControlType: CodeObjType;
   payload?: string | null;
 };
 
