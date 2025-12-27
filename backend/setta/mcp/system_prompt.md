@@ -9,6 +9,16 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - No backward compatibility. Do not keep legacy code just to keep things running during refactors.
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
 
+## Listener scripts
+- Listener scripts are standalone Python processes that connect to the Setta backend,
+  receive project snapshots and realtime deltas, and run callbacks when dependencies
+  change or actions fire.
+- Use them to integrate Setta projects with external systems (APIs, databases, model
+  runs), to keep long-lived services reacting to UI changes, to build interactive
+  applications where frontend actions trigger listener work that updates the UI, or
+  to push values/artifacts back into the frontend via `emit_to_frontend`.
+- If asked to write or explain Setta listener scripts, call `get_setta_listener_api_docs` first.
+
 ## Where code goes (map)
 - Section params -> configuration values in the dependency graph.
 - Code sections (SectionType.Code) -> imperative logic, helpers, listeners; update with `set_code`.
