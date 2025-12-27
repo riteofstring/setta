@@ -45,6 +45,7 @@ class SettingsProjectManager(BaseProjectManager):
     async def save_as_new_project_config(self, _x: SaveAsNewProjectConfigRequest):
         raise ValueError
 
+    @BaseProjectManager.enqueue_method
     async def load_json_sources(
         self,
         json_sources: dict[Path, Any],
