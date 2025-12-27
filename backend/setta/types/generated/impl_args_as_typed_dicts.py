@@ -38,6 +38,7 @@ from setta.types.section_impls import (
 class CoreArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
+    displayName: NotRequired[str]
     variants: NotRequired[list[ID]]
     defaultVariant: NotRequired[ID | None]
     sharedModifier: NotRequired[SharedModifier]
@@ -120,6 +121,7 @@ class CoreArgs(TypedDict):
 class ProjectConfigArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
+    showParamDisplayNames: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]

@@ -1,9 +1,6 @@
-import tempfile
 import unittest
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from setta.database.db_objs import DBE
 from setta.types.dependency_key import (
     SectionParamDependencyKey,
     create_dep_key,
@@ -32,68 +29,6 @@ class _StubWebsocketManager:
 
 
 class WMHPythonScriptSenderRealtimeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_send_realtime_update_converts_to_temporary_ids(self):
-        websocket_manager = _StubWebsocketManager()
-        listener_registry = ListenerRegistry()
-        with tempfile.TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            dbe.write_temporary_id_map(
-                {
-                    ID("proj-1"): ID("101"),
-                    ID("section-A"): ID("102"),
-                    ID("param-1"): ID("103"),
-                }
-            )
-            sender = WMHPythonScriptSender(
-                cast("WebsocketManager", websocket_manager), listener_registry, dbe
-            )
-
-            listener_registry.record_bootstrap(
-                websocket_id="socket-1",
-                project_config_id=ID("proj-1"),
-                use_temporary_ids=True,
-            )
-            listener_registry.upsert_registration(
-                websocket_id="socket-1",
-                project_config_id=ID("proj-1"),
-                callbacks={
-                    "cb-specific": ListenerRegisterCallback(
-                        dependencies=[
-                            create_dep_key(
-                                sectionId=ID("section-A"),
-                                codeObjId=ID("param-1"),
-                            )
-                        ],
-                        dependencyMode=ListenerDependencyMode.SPECIFIC,
-                    ),
-                },
-            )
-
-            await sender.send_realtime_update(
-                projectConfigId=ID("proj-1"),
-                deltas=[
-                    ListenerRealtimeDelta(
-                        dependency=create_dep_key(
-                            sectionId=ID("section-A"),
-                            codeObjId=ID("param-1"),
-                        ),
-                        value=LiteralDependencyValue("value-a"),
-                    )
-                ],
-                sequence=1,
-            )
-
-            self.assertEqual(1, len(websocket_manager.sent_messages))
-            message = cast(
-                "WebsocketMsgListenerRealtimeEvent",
-                websocket_manager.sent_messages[0][0],
-            )
-            self.assertEqual(ID("101"), message.content.projectConfigId)
-            delta = message.content.deltas[0]
-            dependency = delta.dependency
-            self.assertEqual(ID("102"), dependency.sectionId)
-            self.assertEqual(ID("103"), dependency.codeObjId)
-
     async def test_send_realtime_update_filters_and_respects_modes(self):
         websocket_manager = _StubWebsocketManager()
         listener_registry = ListenerRegistry()

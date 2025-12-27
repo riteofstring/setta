@@ -41,7 +41,6 @@ from setta.types.generated.unions import (
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
-from setta.types.helpers_lvl2 import get_meta_control_param_id
 from setta.types.listener import (
     ControlActionEvent,
     ListenerActionEventContent,
@@ -141,13 +140,8 @@ class ListenerParamIds:
 
 
 class ListenerDependencyIds:
-    def __init__(
-        self,
-        dependency_graph: DependencyGraph,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
+    def __init__(self, dependency_graph: DependencyGraph) -> None:
         self._dependency_graph = dependency_graph
-        self._project_state = project_state
 
     def dependency_key(self, name: str) -> BaseDependencyKeyUnion:
         if not name:
@@ -179,36 +173,18 @@ class ListenerDependencyIds:
             paramInfoId=dep_key.codeObjId,
         )
 
-    def meta_control_param_ids(self, dependency_name: str) -> ListenerParamIds:
-        section_id = self.section_id(dependency_name)
-        param_id = get_meta_control_param_id(self._project_state, section_id)
-        return ListenerParamIds(
-            sectionId=section_id,
-            paramInfoId=param_id,
-        )
-
 
 class SettaListener:
     def __init__(
         self,
         *,
-        project_name: str | None = None,
-        project_config_id: "ID | None" = None,
-        use_temporary_ids: bool = False,
-        refresh_concurrency: int = 8,
+        project_name: str,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
     ) -> None:
-        if project_name is None and project_config_id is None:
-            raise ValueError("SettaListener requires project_name or project_config_id")
-        if refresh_concurrency < 1:
-            raise ValueError("refresh_concurrency must be >= 1")
         self._project_name = project_name
-        self._project_config_id: "ID | None" = project_config_id
-        self._use_temporary_ids = use_temporary_ids
-        self._refresh_concurrency = refresh_concurrency
-        self._refresh_callback_semaphore = asyncio.Semaphore(refresh_concurrency)
+        self._project_config_id: "ID | None" = None
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
@@ -736,7 +712,6 @@ class SettaListener:
         content = ListenerInitContent(
             projectConfigId=self._project_config_id,
             projectName=self._project_name,
-            useTemporaryIds=self._use_temporary_ids,
         )
         message = WebsocketMsgListenerInit(content=content)
         payload = message.model_dump_json()
@@ -914,14 +889,7 @@ class SettaListener:
 
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed, [])
-            spawn_background_task(
-                self._invoke_refresh_callback(spec, runtime_state.s_instance, ctx),
-                label="listener-refresh-callback",
-                extra_values={
-                    "callback_id": spec.callback_id,
-                    "refresh_kind": refresh_kind,
-                },
-            )
+            await self._invoke_callback(spec, runtime_state.s_instance, ctx)
 
     def _build_runtime_state(
         self, project_state: ProjectStateSingleConfig
@@ -1012,15 +980,6 @@ class SettaListener:
         result = spec.function(state, ctx)
         if inspect.isawaitable(result):
             await result
-
-    async def _invoke_refresh_callback(
-        self,
-        spec: ListenerCallbackSpec,
-        state: Any,
-        ctx: ListenerCallbackContext,
-    ) -> None:
-        async with self._refresh_callback_semaphore:
-            await self._invoke_callback(spec, state, ctx)
 
     async def _handle_realtime_event(
         self, content: ListenerRealtimeEventContent
@@ -1445,9 +1404,7 @@ class SettaListener:
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
             project_manager=project_manager,
-            ids=ListenerDependencyIds(
-                runtime_state.dependency_graph, runtime_state.project_state
-            ),
+            ids=ListenerDependencyIds(runtime_state.dependency_graph),
         )
 
     def _get_router_endpoint_api(self) -> RouterEndpointAPI:

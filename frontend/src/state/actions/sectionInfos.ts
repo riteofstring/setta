@@ -391,6 +391,28 @@ export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
   return codeObj;
 }
 
+export function getParamDisplayName(
+  state: ZustandProjectState,
+  codeObjId: string,
+) {
+  const codeObj = getCodeObjCore(state, codeObjId);
+  if (!state.projectConfig.showParamDisplayNames) {
+    return codeObj.name;
+  }
+  if (codeObj.displayName) {
+    return codeObj.displayName;
+  }
+  return codeObj.name;
+}
+
+export function getParamTrueName(
+  state: ZustandProjectState,
+  codeObjId: string,
+) {
+  const codeObj = getCodeObjCore(state, codeObjId);
+  return codeObj.name;
+}
+
 export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   const impl = p.codeObjImpls[implId];
   if (!impl) {
