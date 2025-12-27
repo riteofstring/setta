@@ -21,6 +21,7 @@ import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
 type MetaControlContentButtonProps = {
   sectionId: string;
   controlParamId: string;
+  sectionName: string;
   codeObjType: CodeObjTypeEnum.ButtonParam;
   onAction: () => void;
 };
@@ -28,6 +29,7 @@ type MetaControlContentButtonProps = {
 type MetaControlContentValueProps = {
   sectionId: string;
   controlParamId: string;
+  sectionName: string;
   codeObjType: Exclude<CodeObjType, CodeObjTypeEnum.ButtonParam>;
   value: string;
   defaultVal: string;
@@ -53,6 +55,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
     sectionId,
     controlParamId,
     codeObjType,
+    sectionName,
     value,
     defaultVal,
     onValueChange,
@@ -104,7 +107,13 @@ export function MetaControlContent(props: MetaControlContentProps) {
         />
       );
     case CodeObjTypeEnum.SwitchParam:
-      return <SwitchControl value={value} onValueChange={onValueChange} />;
+      return (
+        <SwitchControl
+          sectionName={sectionName}
+          value={value}
+          onValueChange={onValueChange}
+        />
+      );
     case CodeObjTypeEnum.ColorPickerParam:
       return (
         <ColorControl
@@ -249,9 +258,11 @@ function RotaryControl({
 }
 
 function SwitchControl({
+  sectionName,
   value,
   onValueChange,
 }: {
+  sectionName: string;
   value: string;
   onValueChange: ParamValueChange;
 }) {
@@ -261,7 +272,7 @@ function SwitchControl({
     <div className="flex w-full items-center justify-between gap-3">
       <div className="flex flex-col">
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
-          Enabled
+          {sectionName}
         </span>
         <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
           {isOn ? "On" : "Off"}
