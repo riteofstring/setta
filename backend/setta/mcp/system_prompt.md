@@ -17,6 +17,15 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   runs), to keep long-lived services reacting to UI changes, to build interactive
   applications where frontend actions trigger listener work that updates the UI, or
   to push values/artifacts back into the frontend via `emit_to_frontend`.
+- Always import `SettaListener` from `setta.api`
+  (`from setta.api import SettaListener`). There is no `setta_listener` module.
+- Use `@listener.listen(...)` for callbacks and `listener.start()` or
+  `await listener.run_forever()` to run; do not invent methods like
+  `listener.on_change` or `listener.run`.
+- For interactive control-to-control wiring, always use a listener script and update
+  the target control via `set_param_entered_value` (param id) or `emit_to_frontend`
+  with a param dependency key. Do not set MetaControl values to `state.*` or other
+  expressions expecting reactivity.
 - If asked to write or explain Setta listener scripts, call `get_setta_docs` first.
 - `get_setta_docs` can also return other docs from `/docs`; pass `doc_ids`
   from `available_docs` (use `meta_controls` for meta control details).
@@ -61,6 +70,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - In `get_latest_project_state_summary`, MetaControl sections list the control param as the
   single entry in `parameters`; use its `paramId` for `set_param_entered_value`,
   `change_param_impl`, or `set_code_obj_name`.
+- MetaControl values are literals only; do not set them to `state.*` expressions.
 
 ## Naming rules for `state.<path>`
 - Names are sanitized: spaces and []"' become underscores; consecutive underscores

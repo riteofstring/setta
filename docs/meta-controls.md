@@ -38,6 +38,10 @@ their values/actions propagate, and how they appear in generated code and listen
   control param value as the section value.
 - In generated code, `state.<path>` reads the control value; button controls
   evaluate to `None`.
+- MetaControl values are literals; they do not evaluate `state.*` expressions.
+  For control-to-control wiring, use a listener script and update the target
+  control via `set_param_entered_value` or `emit_to_frontend` with the control
+  param id.
 - Literal formatting uses the control type (for example,
   `SwitchParam` -> `True`/`False`, `ColorPickerParam` -> quoted string,
   `TextAreaParam`/`PasswordParam`/`DropzoneParam` -> `repr(...)`).
