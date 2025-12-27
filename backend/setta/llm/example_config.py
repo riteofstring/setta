@@ -2,6 +2,7 @@
 
 from setta.database.db_objs import DBE
 from setta.llm.config import save_llm_config
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.utils.constants import C
 
@@ -15,7 +16,7 @@ DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
         ),
     },
     mcpServers={
-        "setta": MCPServerConfig(
+        SETTA_MCP_SERVER_ID: MCPServerConfig(
             transport="sse",
             url=f"{C.BACKEND}/mcp",
         ),

@@ -28,7 +28,11 @@ from setta.mcp.local_tool_search import (
     build_local_tool_search_index,
     search_local_tool_index,
 )
-from setta.mcp.namespacing import build_local_tool_name
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    build_local_tool_name,
+    split_namespaced_tool_name,
+)
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -1045,7 +1049,7 @@ class LLMChatManager:
             tokens: list[_PartialJsonStringToken] | None = None
             buffer = tool_call_state.argument_buffers.get(entry.index, "")
             tool_name = tool_call_event.tool_name or ""
-            if buffer and tool_name:
+            if buffer and tool_name and self._is_setta_tool_name(tool_name):
                 annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
                 if annotations and (
                     annotations.toolArgumentPreview or annotations.aiFollowToolArguments
@@ -1143,6 +1147,8 @@ class LLMChatManager:
         tool_call = tool_calls[tool_call_index]
         tool_name = tool_call.function.name.strip()
         if not tool_name:
+            return None
+        if not self._is_setta_tool_name(tool_name):
             return None
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.toolArgumentPreview:
@@ -1269,6 +1275,8 @@ class LLMChatManager:
         tool_name: str,
         tokens: list[_PartialJsonStringToken] | None = None,
     ) -> dict[FollowIdType, set[ID]]:
+        if not self._is_setta_tool_name(tool_name):
+            return {}
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.aiFollowToolArguments:
             return {}
@@ -2050,6 +2058,8 @@ class LLMChatManager:
     ) -> dict[FollowIdType, list[ID]] | None:
         if call_result.isError:
             return None
+        if not self._is_setta_tool_name(tool_name):
+            return None
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.aiFollowToolResult:
             return None
@@ -2202,6 +2212,8 @@ class LLMChatManager:
         tool_name: str,
         arguments: dict[str, Any],
     ) -> dict[FollowIdType, list[ID]] | None:
+        if not self._is_setta_tool_name(tool_name):
+            return None
         annotations = self.mcp_client.tool_annotations_by_name.get(tool_name)
         if not annotations or not annotations.aiFollowToolArguments:
             return None
@@ -2209,6 +2221,11 @@ class LLMChatManager:
             arguments,
             annotations.aiFollowToolArguments,
         )
+
+    @staticmethod
+    def _is_setta_tool_name(tool_name: str) -> bool:
+        server_id, _ = split_namespaced_tool_name(tool_name)
+        return server_id == SETTA_MCP_SERVER_ID
 
     def _coerce_id_list(self, raw_value: Any) -> list[ID] | None:
         if isinstance(raw_value, list):

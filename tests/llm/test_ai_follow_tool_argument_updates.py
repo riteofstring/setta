@@ -2,7 +2,7 @@ import unittest
 
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import build_namespaced_tool_name
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -132,7 +132,9 @@ class AIFollowToolArgumentExtractionTests(unittest.IsolatedAsyncioTestCase):
                 project_manager_switcher,
             )
 
-            tool_annotations_by_name = _build_tool_annotations_by_name("setta")
+            tool_annotations_by_name = _build_tool_annotations_by_name(
+                SETTA_MCP_SERVER_ID
+            )
             self.assertTrue(tool_annotations_by_name)
             mcp_client.tool_annotations_by_name = tool_annotations_by_name
 

@@ -3,6 +3,7 @@ import unittest
 from mcp.types import Tool, ToolAnnotations
 
 from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.utils.constants import C
 
@@ -37,34 +38,45 @@ class MultiMCPClientToolCacheTests(unittest.TestCase):
             description="List projects",
         )
 
-        client._update_tool_cache_for_server("setta", [init_tool, no_annotation_tool])
-
-        self.assertIn("setta__read_file_range", client.init_tool_definitions)
-        self.assertIn("setta__list_projects", client.discoverable_tool_definitions)
-        self.assertEqual(
-            client.routing["setta__read_file_range"], ("setta", "read_file_range")
+        client._update_tool_cache_for_server(
+            SETTA_MCP_SERVER_ID, [init_tool, no_annotation_tool]
         )
-        self.assertIsNone(client.tool_annotations_by_name["setta__list_projects"])
+
+        self.assertIn(
+            f"{SETTA_MCP_SERVER_ID}__read_file_range", client.init_tool_definitions
+        )
+        self.assertIn(
+            f"{SETTA_MCP_SERVER_ID}__list_projects",
+            client.discoverable_tool_definitions,
+        )
+        self.assertEqual(
+            client.routing[f"{SETTA_MCP_SERVER_ID}__read_file_range"],
+            (SETTA_MCP_SERVER_ID, "read_file_range"),
+        )
+        self.assertIsNone(
+            client.tool_annotations_by_name[f"{SETTA_MCP_SERVER_ID}__list_projects"]
+        )
 
     def test_filters_tools_by_server(self) -> None:
         client = MultiMCPClient({})
         setta_tool = _build_tool(name="read_file_range")
         github_tool = _build_tool(name="search_repo")
 
-        client._update_tool_cache_for_server("setta", [setta_tool])
+        client._update_tool_cache_for_server(SETTA_MCP_SERVER_ID, [setta_tool])
         client._update_tool_cache_for_server("github", [github_tool])
 
         filtered = client.discoverable_tool_definitions_for_servers({"github"})
 
         self.assertIn("github__search_repo", filtered)
-        self.assertNotIn("setta__read_file_range", filtered)
+        self.assertNotIn(f"{SETTA_MCP_SERVER_ID}__read_file_range", filtered)
 
     def test_skips_search_and_unlock_tool(self) -> None:
         client = MultiMCPClient({})
         search_tool = _build_tool(name=C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME)
 
-        client._update_tool_cache_for_server("setta", [search_tool])
+        client._update_tool_cache_for_server(SETTA_MCP_SERVER_ID, [search_tool])
 
         self.assertNotIn(
-            "setta__search_and_unlock_mcp_tools", client.discoverable_tool_definitions
+            f"{SETTA_MCP_SERVER_ID}__search_and_unlock_mcp_tools",
+            client.discoverable_tool_definitions,
         )

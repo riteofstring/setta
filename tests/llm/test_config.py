@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
 from setta.llm.example_config import seed_llm_config_example_file
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat import ChatMetadata
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
@@ -136,7 +137,7 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
                         }
                     },
                     "mcpServers": {
-                        "setta": {
+                        SETTA_MCP_SERVER_ID: {
                             "transport": "sse",
                             "url": "http://localhost:8000/mcp",
                         }
@@ -148,7 +149,7 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
 class MCPServerSelectionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.mcp_servers = {
-            "setta": MCPServerConfig(
+            SETTA_MCP_SERVER_ID: MCPServerConfig(
                 transport="sse",
                 url="http://localhost:8000/mcp",
             ),
@@ -171,7 +172,7 @@ class MCPServerSelectionTests(unittest.TestCase):
 
         resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
 
-        self.assertEqual(resolved, ["setta", "github"])
+        self.assertEqual(resolved, [SETTA_MCP_SERVER_ID, "github"])
 
     def test_resolves_default_mcp_server_ids(self) -> None:
         configs = AllLLMConfigs(
@@ -182,12 +183,12 @@ class MCPServerSelectionTests(unittest.TestCase):
                 )
             },
             mcpServers=self.mcp_servers,
-            defaultMcpServerIds=["setta"],
+            defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
         )
 
         resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
 
-        self.assertEqual(resolved, ["setta"])
+        self.assertEqual(resolved, [SETTA_MCP_SERVER_ID])
 
     def test_resolves_empty_mcp_server_ids(self) -> None:
         configs = AllLLMConfigs(
@@ -199,7 +200,7 @@ class MCPServerSelectionTests(unittest.TestCase):
                 )
             },
             mcpServers=self.mcp_servers,
-            defaultMcpServerIds=["setta"],
+            defaultMcpServerIds=[SETTA_MCP_SERVER_ID],
         )
 
         resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])

@@ -4,7 +4,7 @@ import unittest
 from mcp.types import CallToolResult, TextContent
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import build_namespaced_tool_name
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
     AIFollowToolResultMetadata,
     SettaToolAnnotations,
@@ -211,7 +211,8 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 namespaced_tool_name = build_namespaced_tool_name(
-                    "setta", "create_top_level_section"
+                    SETTA_MCP_SERVER_ID,
+                    "create_top_level_section",
                 )
                 mcp_client.tool_annotations_by_name[
                     namespaced_tool_name
@@ -264,7 +265,9 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                 project_manager_switcher,
             )
 
-            tool_annotations_by_name = _build_tool_annotations_by_name("setta")
+            tool_annotations_by_name = _build_tool_annotations_by_name(
+                SETTA_MCP_SERVER_ID
+            )
             self.assertTrue(tool_annotations_by_name)
             mcp_client.tool_annotations_by_name = tool_annotations_by_name
 
@@ -314,6 +317,41 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                             id_list,
                             tool_name,
                         )
+
+    async def test_ignores_non_setta_tool_result_updates(self) -> None:
+        async with real_project_manager() as fixture:
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+            mcp_client = MultiMCPClient({})
+            project_manager_switcher = ProjectManagerSwitcher(
+                fixture.manager,
+                fixture.manager,
+            )
+            chat_manager = LLMChatManager(
+                fixture.dbe,
+                mcp_client,
+                frontend_sender,
+                project_manager_switcher,
+            )
+
+            tool_name = build_namespaced_tool_name("context7", "create_top_level_section")
+            mcp_client.tool_annotations_by_name[tool_name] = SettaToolAnnotations(
+                settaToolType=SettaToolType.discoverable,
+                aiFollowToolResult=AIFollowToolResultMetadata(
+                    pathsByIdType={"section": ["$"]},
+                ),
+            )
+
+            call_result = CallToolResult(
+                content=[TextContent(type="text", text="section-1")],
+                isError=False,
+            )
+
+            result = chat_manager._build_ai_follow_tool_result_update(
+                tool_name,
+                call_result,
+            )
+
+            self.assertIsNone(result)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from typing import Any, Iterable
 from setta.database.db_objs import DBE
 from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 
@@ -68,7 +69,7 @@ def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
 def _build_default_llm_config() -> AllLLMConfigs:
     return AllLLMConfigs(
         mcpServers={
-            "setta": MCPServerConfig(
+            SETTA_MCP_SERVER_ID: MCPServerConfig(
                 transport="sse",
                 url=f"{constants.C.BACKEND}/mcp",
             )

@@ -12,7 +12,7 @@ from litellm.types.utils import (
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager, ToolCallStreamState
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import build_namespaced_tool_name
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -46,7 +46,10 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
             self.frontend_sender,
             project_manager_switcher,
         )
-        namespaced_tool_name = build_namespaced_tool_name("setta", "follow_tool")
+        namespaced_tool_name = build_namespaced_tool_name(
+            SETTA_MCP_SERVER_ID,
+            "follow_tool",
+        )
         self.mcp_client.tool_annotations_by_name = {
             namespaced_tool_name: SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
