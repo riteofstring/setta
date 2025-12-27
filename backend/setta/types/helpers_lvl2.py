@@ -3,8 +3,6 @@ import math
 import re
 from typing import TYPE_CHECKING, assert_never
 
-import rpack
-
 from setta.database.utils import create_new_id
 from setta.types.artifact import (
     ChartType,
@@ -50,7 +48,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
-    MetaControlSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
@@ -100,7 +97,6 @@ from setta.types.section_impls import (
     GroupSectionImpl,
     ListRootSectionImpl,
     SectionSize,
-    SectionSizeMode,
     SectionType,
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
@@ -307,18 +303,6 @@ def set_param_entered_value(
 ):
     set_curr_effective_code_obj_impl_value(
         p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
-    )
-
-
-def set_meta_control_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    value: str,
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        MetaControlSectionImplArgsWithCallable(metaControlValue=value),
     )
 
 
@@ -1236,90 +1220,6 @@ def move_section_to_pane(
         # it's already on the pane, so just adjust its position
         p.projectConfig.topLevelSections[sectionId].x = position.x
         p.projectConfig.topLevelSections[sectionId].y = position.y
-
-
-def _resolve_layout_dimension(
-    sectionId: ID,
-    dimension: str,
-    layout_value: float | None,
-    size_value: float | SectionSizeMode,
-):
-    if layout_value is not None:
-        return layout_value
-    if size_value == SectionSizeMode.auto:
-        raise ValueError(
-            f"Missing {dimension} for section {sectionId} in top-level layout."
-        )
-    return float(size_value)
-
-
-def auto_layout_top_level_sections(p: "ProjectStateSingleConfig", margin: int = 50):
-    top_level_sections = p.projectConfig.topLevelSections
-    if not top_level_sections:
-        return
-
-    if margin < 0:
-        raise ValueError("Auto layout margin must be non-negative.")
-
-    layouts: list[tuple[ID, TopLevelSectionLayout, float, float]] = []
-    min_x = None
-    min_y = None
-
-    for section_id, layout in top_level_sections.items():
-        if section_id not in p.sections:
-            raise KeyError(f"Missing section {section_id} in project state.")
-        impl = get_curr_effective_section_impl(p, section_id)
-        width = _resolve_layout_dimension(
-            section_id, "width", layout.w, impl.size.width
-        )
-        height = _resolve_layout_dimension(
-            section_id, "height", layout.h, impl.size.height
-        )
-        if width <= 0 or height <= 0:
-            raise ValueError(
-                f"Section {section_id} has non-positive dimensions ({width}, {height})."
-            )
-        layouts.append((section_id, layout, width, height))
-        if min_x is None or layout.x < min_x:
-            min_x = layout.x
-        if min_y is None or layout.y < min_y:
-            min_y = layout.y
-
-    sizes: list[tuple[int, int]] = []
-    for _, _, width, height in layouts:
-        padded_width = math.ceil(width + margin)
-        padded_height = math.ceil(height + margin)
-        if padded_width <= 0 or padded_height <= 0:
-            raise ValueError(
-                "Auto layout expects positive integer dimensions for packing."
-            )
-        sizes.append((padded_width, padded_height))
-
-    positions = rpack.pack(sizes)
-    max_y_plus_h = max(pos[1] + size[1] for pos, size in zip(positions, sizes))
-
-    new_min_x = None
-    new_min_y = None
-    next_positions: list[tuple[TopLevelSectionLayout, float, float]] = []
-    for (_, layout, _, _), pos, size in zip(layouts, positions, sizes):
-        # rpack returns lower-left coordinates; convert to top-left for our system.
-        x = pos[0]
-        y = max_y_plus_h - (pos[1] + size[1])
-        next_positions.append((layout, x, y))
-        if new_min_x is None or x < new_min_x:
-            new_min_x = x
-        if new_min_y is None or y < new_min_y:
-            new_min_y = y
-
-    if min_x is None or min_y is None or new_min_x is None or new_min_y is None:
-        return
-
-    shift_x = min_x - new_min_x
-    shift_y = min_y - new_min_y
-
-    for layout, x, y in next_positions:
-        layout.x = x + shift_x
-        layout.y = y + shift_y
 
 
 def move_section_to_parent_section(

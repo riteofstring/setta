@@ -1,7 +1,6 @@
 import unittest
 
 from setta.llm.tool_preunlocker import ToolPreunlocker
-from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.project_state.project_state_summary_types import (
     ProjectStateSummary,
@@ -43,7 +42,8 @@ def _build_summary(section_type: SectionType) -> ProjectStateSummary:
 
 
 def _register_tool(
-    mcp_client: MCPClient,
+    available_tools: dict[str, dict[str, dict]],
+    annotations_by_name: dict[str, SettaToolAnnotations],
     *,
     name: str,
     description: str,
@@ -58,8 +58,8 @@ def _register_tool(
             "parameters": {},
         },
     }
-    mcp_client.discoverable_tool_definitions[name] = definition
-    mcp_client.tool_annotations_by_name[name] = SettaToolAnnotations(
+    available_tools[name] = definition
+    annotations_by_name[name] = SettaToolAnnotations(
         settaToolType=SettaToolType.discoverable,
         searchTags=tags,
         searchCategory=category,
@@ -68,60 +68,72 @@ def _register_tool(
 
 class ToolPreunlockerTests(unittest.TestCase):
     def test_selects_tool_based_on_message_tokens(self) -> None:
-        mcp_client = MCPClient("http://localhost")
-        mcp_client.discoverable_tool_definitions = {}
-        mcp_client.tool_annotations_by_name = {}
+        available_tools: dict[str, dict[str, dict]] = {}
+        annotations_by_name: dict[str, SettaToolAnnotations] = {}
         _register_tool(
-            mcp_client,
-            name="read_file_range",
+            available_tools,
+            annotations_by_name,
+            name="setta__read_file_range",
             description="Read file contents",
             tags=["read", "file"],
             category="files",
         )
         _register_tool(
-            mcp_client,
-            name="set_section_sizes",
+            available_tools,
+            annotations_by_name,
+            name="setta__set_section_sizes",
             description="Update layout sizes",
             tags=["section", "layout"],
             category="sections",
         )
 
-        preunlocker = ToolPreunlocker(mcp_client)
+        preunlocker = ToolPreunlocker()
         summary = _build_summary(SectionType.Code)
         chat = _build_chat("Read the file range")
 
-        selected = preunlocker.select_tools(chat, summary)
+        selected = preunlocker.select_tools(
+            chat,
+            summary,
+            available_tools=available_tools,
+            annotations_by_name=annotations_by_name,
+        )
 
-        self.assertIn("read_file_range", selected)
-        self.assertNotIn("set_section_sizes", selected)
+        self.assertIn("setta__read_file_range", selected)
+        self.assertNotIn("setta__set_section_sizes", selected)
 
     def test_selects_tool_from_section_category_when_message_empty(self) -> None:
-        mcp_client = MCPClient("http://localhost")
-        mcp_client.discoverable_tool_definitions = {}
-        mcp_client.tool_annotations_by_name = {}
+        available_tools: dict[str, dict[str, dict]] = {}
+        annotations_by_name: dict[str, SettaToolAnnotations] = {}
         _register_tool(
-            mcp_client,
-            name="list_terminals",
+            available_tools,
+            annotations_by_name,
+            name="setta__list_terminals",
             description="Return terminal sessions",
             tags=["terminal"],
             category="terminal",
         )
         _register_tool(
-            mcp_client,
-            name="list_projects",
+            available_tools,
+            annotations_by_name,
+            name="setta__list_projects",
             description="Return project configs",
             tags=["project"],
             category="project",
         )
 
-        preunlocker = ToolPreunlocker(mcp_client)
+        preunlocker = ToolPreunlocker()
         summary = _build_summary(SectionType.Terminal)
         chat = _build_chat(" ")
 
-        selected = preunlocker.select_tools(chat, summary)
+        selected = preunlocker.select_tools(
+            chat,
+            summary,
+            available_tools=available_tools,
+            annotations_by_name=annotations_by_name,
+        )
 
-        self.assertIn("list_terminals", selected)
-        self.assertNotIn("list_projects", selected)
+        self.assertIn("setta__list_terminals", selected)
+        self.assertNotIn("setta__list_projects", selected)
 
 
 if __name__ == "__main__":
