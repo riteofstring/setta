@@ -755,6 +755,7 @@ const TextContentSchema = z.object({
   type: z.literal("text"),
   text: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const ImageContentSchema = z.object({
@@ -762,17 +763,20 @@ const ImageContentSchema = z.object({
   data: z.string(),
   mimeType: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const TextResourceContentsSchema = z.object({
   uri: z.url(),
   mimeType: z.union([z.string(), z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   text: z.string(),
 });
 
 const BlobResourceContentsSchema = z.object({
   uri: z.url(),
   mimeType: z.union([z.string(), z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   blob: z.string(),
 });
 
@@ -780,6 +784,7 @@ const EmbeddedResourceSchema = z.object({
   type: z.literal("resource"),
   resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const ToolChatMessageSchema = z.object({
@@ -3960,13 +3965,29 @@ const LLMConfigSchema = z.object({
   other_params: z
     .union([z.record(z.string(), z.any()), z.null()])
     .default(null),
+  mcpServerIds: z.union([z.array(z.string()), z.null()]).default(null),
   temporary: z.boolean().default(false),
 });
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+const MCPServerConfigSchema = z.object({
+  transport: z.literal(["sse", "streamable_http", "stdio"]),
+  url: z.union([z.string(), z.null()]).default(null),
+  command: z.union([z.string(), z.null()]).default(null),
+  args: z.array(z.string()).default([]),
+  env: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
+  cwd: z.union([z.string(), z.null()]).default(null),
+  encoding: z.string().default("utf-8" as const),
+  encoding_error_handler: z
+    .literal(["strict", "ignore", "replace"])
+    .default("strict" as const),
+});
+
 const AllLLMConfigsSchema = z.object({
   configs: z.record(z.string(), LLMConfigSchema).default({}),
+  mcpServers: z.record(z.string(), MCPServerConfigSchema).default({}),
+  defaultMcpServerIds: z.array(z.string()).default([]),
   default_config_id: z.union([z.string(), z.null()]).default(null),
 });
 
