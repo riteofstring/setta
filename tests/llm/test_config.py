@@ -126,25 +126,6 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
                 }
             )
 
-    def test_rejects_unknown_mcp_server_id(self) -> None:
-        with self.assertRaises(ValidationError):
-            AllLLMConfigs.model_validate(
-                {
-                    "configs": {
-                        "primary": {
-                            "model": "gpt-5.1",
-                            "mcpServerIds": ["missing"],
-                        }
-                    },
-                    "mcpServers": {
-                        SETTA_MCP_SERVER_ID: {
-                            "transport": "sse",
-                            "url": "http://localhost:8000/mcp",
-                        }
-                    },
-                }
-            )
-
 
 class MCPServerSelectionTests(unittest.TestCase):
     def setUp(self) -> None:

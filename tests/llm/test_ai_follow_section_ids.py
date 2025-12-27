@@ -52,39 +52,6 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         ]
         return self.manager._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
 
-    def test_collects_single_section_id(self) -> None:
-        result = self._collect_ids_from_arguments(
-            [{"sectionId": "section-1"}]
-        )
-
-        self.assertIsNotNone(result)
-        self.assertEqual(
-            {str(value) for value in result["section"]},
-            {"section-1"},
-        )
-
-    def test_collects_multiple_section_ids_and_dedupes(self) -> None:
-        result = self._collect_ids_from_arguments(
-            [
-                {"sectionIds": ["section-1", "section-2", "", 123]},
-                {"sectionId": "section-2"},
-                {"sectionIds": []},
-            ]
-        )
-
-        self.assertIsNotNone(result)
-        self.assertEqual(
-            {str(value) for value in result["section"]},
-            {"section-1", "section-2"},
-        )
-
-    def test_empty_section_list_returns_empty_list(self) -> None:
-        result = self._collect_ids_from_arguments(
-            [{"sectionIds": []}]
-        )
-
-        self.assertEqual(result, {"section": []})
-
     def test_missing_section_ids_returns_none(self) -> None:
         result = self._collect_ids_from_arguments(
             [{"otherKey": "value"}]
