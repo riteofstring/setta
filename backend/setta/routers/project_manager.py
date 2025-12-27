@@ -5,6 +5,7 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
+    AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -326,6 +327,15 @@ async def route_set_top_level_section_layout(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_top_level_section_layout(x)
+
+
+@router.post(Route.AUTO_LAYOUT_TOP_LEVEL_SECTIONS)
+async def route_auto_layout_top_level_sections(
+    x: AutoLayoutTopLevelSectionsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).auto_layout_top_level_sections(x)
 
 
 @router.post(Route.ADD_KWARG)

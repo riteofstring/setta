@@ -88,9 +88,6 @@ class ProjectGenPythonCode(PythonCode):
             ),
         )
 
-    async def update_file(self):
-        await super().update_file(self.code)
-
     def _clone_generator(self) -> PythonCodeGenerator:
         dep_graph_copy = copy.deepcopy(self.dep_graph)
         generator_copy = PythonCodeGenerator(
@@ -138,7 +135,7 @@ class ProjectGenPythonCode(PythonCode):
     ) -> tuple[int, int] | None:
         dep_key = create_dep_key(sectionId, paramInfoId)
         start = self.code_generator.change_value(dep_key, fullText)
-        await self.update_file()
+        await self.sync_lsp(self.code)
         if start is None:
             return None
         absolute_position = position + start
@@ -416,9 +413,6 @@ class ProjectPythonCode(PythonCode):
             ),
         )
 
-    async def update_file(self):
-        await super().update_file(self.code)
-
     async def handle_external_reload(self, new_code: str) -> None:
         await super().handle_external_reload(new_code)
         await self.send_document_open_request(new_code)
@@ -481,9 +475,6 @@ class ProjectBashCode(BashCode):
                 access_mode=binding.access_mode,
             ),
         )
-
-    async def update_file(self):
-        super().update_file(self.code)
 
     def write_to_folder(self, folder):
         return super().write_to_folder(self.code, folder)

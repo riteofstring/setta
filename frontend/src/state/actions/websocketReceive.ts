@@ -15,9 +15,11 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
+  ActionControlType,
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
+  ControlActionEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
@@ -27,6 +29,7 @@ import {
   SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
+  WebsocketMsgRealtimeActionEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
@@ -192,6 +195,39 @@ function emitRealtimeDependencyValue(
       projectConfigId,
       dependencyKey,
       value,
+    },
+  };
+  sendMessage(message);
+}
+
+type ControlActionEventInput = {
+  controlName: string;
+  actionId: string;
+  actionControlType: ActionControlType;
+  payload?: string | null;
+};
+
+export function sendRealtimeControlAction(
+  action: ControlActionEventInput,
+): void {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+
+  const actionEvent: ControlActionEvent = {
+    controlName: action.controlName,
+    actionId: action.actionId,
+    actionControlType: action.actionControlType,
+    payload: action.payload ?? null,
+    timestampMs: Date.now(),
+  };
+  const message: WebsocketMsgRealtimeActionEvent = {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.RealtimeActionEvent,
+    content: {
+      projectConfigId,
+      actionEvent,
     },
   };
   sendMessage(message);
