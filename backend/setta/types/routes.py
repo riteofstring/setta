@@ -85,6 +85,7 @@ class Route(str, Enum):
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
     FORCE_REFRESH_LISTENER = "/forceRefreshListener"
     SET_TOP_LEVEL_SECTION_LAYOUT = "/setTopLevelSectionLayout"
+    AUTO_LAYOUT_TOP_LEVEL_SECTIONS = "/autoLayoutTopLevelSections"
     ADD_KWARG = "/addKwarg"
     DELETE_KWARG = "/deleteKwarg"
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"

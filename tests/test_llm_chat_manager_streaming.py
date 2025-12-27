@@ -9,7 +9,7 @@ from unittest.mock import patch
 from litellm.types.utils import Delta
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager, StreamContentEntry
-from setta.mcp.client import MultiMCPClient
+from setta.mcp.client import MCPClient
 from setta.types.chat import Chat
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -31,7 +31,7 @@ def _manager_context() -> Iterator[LLMChatManager]:
         dbe = DBE(Path(temp_dir))
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
-        mcp_client = MultiMCPClient({})
+        mcp_client = MCPClient("http://localhost")
         project_manager_switcher = build_project_summary_switcher(ID("project-uuid"))
         manager = LLMChatManager(
             dbe,
@@ -51,7 +51,7 @@ def _build_manager_and_chat(
         dbe = DBE(Path(temp_dir))
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
-        mcp_client = MultiMCPClient({})
+        mcp_client = MCPClient("http://localhost")
         project_config_id = ID("project-uuid")
         project_manager_switcher = build_project_summary_switcher(project_config_id)
         manager = LLMChatManager(

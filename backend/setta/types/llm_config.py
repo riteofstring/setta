@@ -1,41 +1,6 @@
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-
-class MCPServerConfig(BaseModel):
-    transport: Literal["sse", "streamable_http", "stdio"]
-    url: str | None = None
-    command: str | None = None
-    args: list[str] = Field(default_factory=list)
-    env: dict[str, str] | None = None
-    cwd: str | None = None
-    encoding: str = "utf-8"
-    encoding_error_handler: Literal["strict", "ignore", "replace"] = "strict"
-
-    model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="after")
-    def _validate_transport(self) -> "MCPServerConfig":
-        normalized_url = self.url.strip() if isinstance(self.url, str) else ""
-        normalized_command = (
-            self.command.strip() if isinstance(self.command, str) else ""
-        )
-        if self.transport in {"sse", "streamable_http"}:
-            if not normalized_url:
-                raise ValueError(
-                    f"MCP server transport '{self.transport}' requires a url"
-                )
-            if normalized_command:
-                raise ValueError(
-                    f"MCP server transport '{self.transport}' cannot declare command"
-                )
-        if self.transport == "stdio":
-            if not normalized_command:
-                raise ValueError("MCP stdio transport requires a command")
-            if normalized_url:
-                raise ValueError("MCP stdio transport cannot declare a url")
-        return self
 
 
 class LLMConfig(BaseModel):
@@ -47,7 +12,6 @@ class LLMConfig(BaseModel):
     base_url: str | None = None
     api_key_env: str | None = None
     other_params: dict[str, Any] | None = None
-    mcpServerIds: list[str] | None = None
     temporary: bool = False
 
     model_config = ConfigDict(extra="forbid")
@@ -57,8 +21,6 @@ class AllLLMConfigs(BaseModel):
     """Top-level structure persisted in ``setta_files/llm_config.json``."""
 
     configs: dict[str, LLMConfig] = Field(default_factory=dict)
-    mcpServers: dict[str, MCPServerConfig] = Field(default_factory=dict)
-    defaultMcpServerIds: list[str] = Field(default_factory=list)
     default_config_id: str | None = None
 
     model_config = ConfigDict(extra="forbid")
@@ -100,39 +62,7 @@ class AllLLMConfigs(BaseModel):
         self.configs = normalized
         if self.default_config_id and self.default_config_id not in normalized:
             self.default_config_id = None
-        for server_id in self.mcpServers.keys():
-            if "__" in server_id:
-                raise ValueError(
-                    f"MCP server id '{server_id}' cannot include '__' separators"
-                )
-        self._validate_mcp_server_ids(self.defaultMcpServerIds, "defaultMcpServerIds")
-        for config in self.configs.values():
-            if config.mcpServerIds is None:
-                continue
-            self._validate_mcp_server_ids(
-                config.mcpServerIds,
-                f"LLM config '{config.id}' mcpServerIds",
-            )
         return self
-
-    def resolve_mcp_server_ids(self, llm_config: LLMConfig) -> list[str]:
-        server_ids = llm_config.mcpServerIds
-        if server_ids is None:
-            if self.defaultMcpServerIds:
-                server_ids = self.defaultMcpServerIds
-            else:
-                server_ids = list(self.mcpServers.keys())
-        self._validate_mcp_server_ids(server_ids, f"LLM config '{llm_config.id}'")
-        return list(server_ids)
-
-    def _validate_mcp_server_ids(self, server_ids: list[str], label: str) -> None:
-        seen: set[str] = set()
-        for server_id in server_ids:
-            if server_id in seen:
-                raise ValueError(f"{label} includes duplicate server id '{server_id}'")
-            seen.add(server_id)
-            if server_id not in self.mcpServers:
-                raise KeyError(f"{label} references unknown MCP server '{server_id}'")
 
     def resolve_config(
         self,

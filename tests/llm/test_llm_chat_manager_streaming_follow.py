@@ -11,8 +11,7 @@ from litellm.types.utils import (
 )
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager, ToolCallStreamState
-from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import build_namespaced_tool_name
+from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -38,7 +37,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.dbe = DBE(Path(self.temp_dir.name))
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.mcp_client = MultiMCPClient({})
+        self.mcp_client = MCPClient("http://localhost")
         project_manager_switcher = build_project_summary_switcher(ID("project-1"))
         self.manager = LLMChatManager(
             self.dbe,
@@ -46,16 +45,14 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
             self.frontend_sender,
             project_manager_switcher,
         )
-        namespaced_tool_name = build_namespaced_tool_name("setta", "follow_tool")
         self.mcp_client.tool_annotations_by_name = {
-            namespaced_tool_name: SettaToolAnnotations(
+            "follow_tool": SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
                 aiFollowToolArguments=AIFollowToolArgumentsMetadata(
                     pathsByIdType={"section": ["sectionId", "sectionIds"]},
                 ),
             )
         }
-        self._namespaced_tool_name = namespaced_tool_name
         self.websocket_id = "stream-follow-socket"
         self._sent_messages: list[Message] = []
         self._receive_counter = 0
@@ -172,9 +169,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
                     index=0,
                     id="tool-call-1",
                     type="function",
-                    function=Function(
-                        name=self._namespaced_tool_name, arguments=arguments_delta
-                    ),
+                    function=Function(name="follow_tool", arguments=arguments_delta),
                 )
             ]
         )
