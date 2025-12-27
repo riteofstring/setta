@@ -393,6 +393,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
         createTopLevelSection({
           implType: SectionTypeEnum.TextBlock,
           implOverrides: {
+            type: SectionTypeEnum.TextBlock,
             size: { width: 300, height: 300 },
             format: renderMarkdown
               ? TextBlockFormatEnum.Markdown
