@@ -167,7 +167,7 @@ function ButtonControl({
       paramInfoId={controlParamId}
       onClick={onAction}
       wrapperClassName="flex w-full items-center justify-center"
-      buttonClassName="flex h-8 min-w-[120px] items-center justify-center rounded-lg bg-setta-200/30 px-3 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-300 dark:hover:bg-setta-900"
+      buttonClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex h-8 min-w-[120px] items-center justify-center rounded-lg border border-setta-600 bg-setta-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:border-setta-700 hover:bg-setta-700 active:translate-y-[2px] active:scale-[0.96] active:bg-setta-700 active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-setta-500 dark:bg-setta-700 dark:text-setta-50 dark:hover:border-setta-400 dark:hover:bg-setta-600 dark:active:bg-setta-600 cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60`}
     />
   );
 }
