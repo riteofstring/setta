@@ -3,10 +3,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import (
-    BaseModel,
-    Field,
-)
+from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
 from setta.types.artifact import (
@@ -43,19 +40,6 @@ class SectionType(str, Enum):
     Browser = "Browser"
 
 
-class MetaControlType(str, Enum):
-    button = "button"
-    dropdown = "dropdown"
-    slider = "slider"
-    switch = "switch"
-    rotary = "rotary"
-    textInput = "textInput"
-    textArea = "textArea"
-    password = "password"
-    color = "color"
-    dropzone = "dropzone"
-
-
 class SectionSizeMode(str, Enum):
     auto = "auto"
 
@@ -86,11 +70,6 @@ class ConfigLanguage(str, Enum):
 class SectionWithParamsDisplayMode(str, Enum):
     Gui = "Gui"
     Yaml = "Yaml"
-
-
-class TypeErrorIgnoreState(BaseModel, extra="forbid"):
-    callable: bool = False
-    params: dict[ID, bool] = Field(default_factory=dict)
 
 
 class TextBlockDisplayMode(str, Enum):
@@ -148,7 +127,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedParams: list[ID] = Field(default_factory=list)
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
-    ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
+    ignoreTypeErrors: dict[ID, bool] = Field(default_factory=dict)
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 
@@ -247,8 +226,8 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
-    metaControlType: MetaControlType = MetaControlType.button
-    metaControlValue: str = ""
+    metaControlParamId: ID | None = None
+    codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
 
 
 class SocialSectionImpl(BaseSectionImpl):

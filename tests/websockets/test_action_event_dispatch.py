@@ -7,12 +7,12 @@ from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.id import ID
 from setta.types.listener import (
+    ControlActionEvent,
     ListenerDependencyMode,
     ListenerRegisterCallback,
     ListenerRealtimeDelta,
-    MetaControlActionEvent,
 )
-from setta.types.section_impls import MetaControlType
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.websocket import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
@@ -147,10 +147,10 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-        action_event = MetaControlActionEvent(
+        action_event = ControlActionEvent(
             controlName="Run",
             actionId="inspect_state",
-            metaControlType=MetaControlType.button,
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=123,
         )
@@ -206,10 +206,10 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-        action_event = MetaControlActionEvent(
+        action_event = ControlActionEvent(
             controlName="Run",
             actionId="inspect_state",
-            metaControlType=MetaControlType.button,
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=123,
         )
@@ -265,10 +265,10 @@ class ActionEventDispatchTests(unittest.IsolatedAsyncioTestCase):
             deltas=[delta],
         )
 
-        action_event = MetaControlActionEvent(
+        action_event = ControlActionEvent(
             controlName="Run",
             actionId="inspect_state",
-            metaControlType=MetaControlType.button,
+            actionControlType=CodeObjType.ButtonParam,
             payload=None,
             timestampMs=321,
         )
