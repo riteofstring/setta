@@ -29,6 +29,11 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   `listener.on_change` or `listener.run`.
 - Always call `@listener.listen` with keyword arguments (for example,
   `deps=[...]`, `actions=[...]`, `dependency_mode=...`); do not pass positional args.
+- Listener scripts should not hardcode IDs from chat (those are temporary). Prefer
+  `project_name` and `ctx.ids` helpers to resolve IDs at runtime (use
+  `ctx.ids.param_ids(...)` or `ctx.ids.meta_control_param_ids(...)`).
+- If you only have temporary IDs from chat, pass `use_temporary_ids=True` to
+  `SettaListener` so snapshots and `ctx.ids` use the same ID format.
 - For interactive control-to-control wiring, always use a listener script and update
   the target control via `set_param_entered_value` (param id) or `emit_to_frontend`
   with a param dependency key. Do not set MetaControl values to `state.*` or other

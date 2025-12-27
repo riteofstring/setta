@@ -2,7 +2,7 @@
 
 These snippets assume the Setta backend is running and you know the project name. Dependency strings are the same attribute names you read from the generated `state` object (the sanitized names in the project graph).
 
-Import note: always use `from setta.api import SettaListener`. There is no `setta_listener` module. `SettaListener` accepts either `project_name` or `project_config_id`.
+Import note: always use `from setta.api import SettaListener`. There is no `setta_listener` module. `SettaListener` accepts either `project_name` or `project_config_id`. If you only have temporary IDs from chat, pass `use_temporary_ids=True` and use `ctx.ids` helpers instead of hardcoding ids.
 
 Dependency name construction (from `DependencyGraph.create_full_path_name`):
 - Names are sanitized with `sanitize_name` (spaces/quotes/brackets -> `_`, consecutive `_` collapse, trim leading/trailing `_`).
@@ -165,7 +165,7 @@ listener.start()
 ```
 
 ## Meta control to meta control (slider drives color picker)
-Strings: `Demo Project` is the project name; `Hue Slider` is the slider section name (dependency `Hue_Slider`); `Color Display` is the color picker section name you want to update.
+Strings: `Demo Project` is the project name; `Hue Slider` is the slider section name (dependency `Hue_Slider`); `Color Display` is the color picker section name (dependency `Color_Display`) you want to update.
 ```python
 from colorsys import hsv_to_rgb
 
@@ -174,73 +174,20 @@ from setta.api import SettaListener
 listener = SettaListener(project_name="Demo Project")
 
 
-def require_key(data: dict, key: str, label: str):
-    if key not in data:
-        raise KeyError(f"{label} missing {key!r}")
-    return data[key]
-
-
-def find_meta_control_param_id(
-    project_state: dict, section_name: str
-) -> tuple[str, str]:
-    sections = require_key(project_state, "sections", "projectState")
-    for section in sections.values():
-        name = require_key(section, "name", "section")
-        if name != section_name:
-            continue
-
-        section_id = require_key(section, "id", "section")
-
-        project_config = require_key(project_state, "projectConfig", "projectState")
-        variant_map = require_key(
-            project_config, "sectionVariantMap", "projectConfig"
-        )
-        if section_id not in variant_map:
-            raise KeyError(f"Missing sectionVariantMap for {section_id}")
-
-        variant_id = variant_map[section_id]
-        section_variants = require_key(project_state, "sectionVariants", "projectState")
-        if variant_id not in section_variants:
-            raise KeyError(f"Missing section variant {variant_id}")
-
-        variant = section_variants[variant_id]
-        impl_id = require_key(variant, "impl", "sectionVariant")
-
-        section_impls = require_key(project_state, "sectionImpls", "projectState")
-        if impl_id not in section_impls:
-            raise KeyError(f"Missing section impl {impl_id}")
-
-        section_impl = section_impls[impl_id]
-        if "metaControlParamId" not in section_impl:
-            raise KeyError(f"Missing metaControlParamId for {impl_id}")
-
-        param_id = section_impl["metaControlParamId"]
-        if param_id is None:
-            raise KeyError(f"metaControlParamId is None for {impl_id}")
-
-        return section_id, param_id
-
-    raise KeyError(f"Missing section {section_name!r}")
-
-
 def hue_to_hex(hue: float) -> str:
     r, g, b = hsv_to_rgb(hue / 360.0, 1.0, 1.0)
     return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
 
 
-target_ids = {"section_id": None, "param_id": None}
+target_ids = {"section": None, "param": None}
 
 
 @listener.listen(deps=["Hue_Slider"], run_on_refresh=True)
 async def sync_color(state, ctx) -> None:
-    if target_ids["section_id"] is None:
-        latest = await ctx.project_manager.get_latest_project_state({})
-        project_state = require_key(latest, "projectState", "response")
-        section_id, param_id = find_meta_control_param_id(
-            project_state, "Color Display"
-        )
-        target_ids["section_id"] = section_id
-        target_ids["param_id"] = param_id
+    if target_ids["section"] is None:
+        ids = ctx.ids.meta_control_param_ids("Color_Display")
+        target_ids["section"] = ids.sectionId
+        target_ids["param"] = ids.paramInfoId
 
     hue = state.Hue_Slider
     if hue is None:
@@ -248,8 +195,8 @@ async def sync_color(state, ctx) -> None:
 
     await ctx.project_manager.set_param_entered_value(
         {
-            "sectionId": target_ids["section_id"],
-            "paramInfoId": target_ids["param_id"],
+            "sectionId": target_ids["section"],
+            "paramInfoId": target_ids["param"],
             "value": hue_to_hex(float(hue)),
         }
     )
