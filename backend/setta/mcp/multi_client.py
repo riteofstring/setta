@@ -30,6 +30,7 @@ class MCPServerClient:
         on_tools_updated: Callable[[], None] | None = None,
     ) -> None:
         self.server_id = server_id
+        self._config = config
         self._transport = config.transport
         self._url: str | None = None
         self._headers: dict[str, str] = {}
@@ -37,6 +38,7 @@ class MCPServerClient:
         self._args: list[str] = []
         self._env: dict[str, str] = {}
         self._cwd: str | None = None
+        self._stop_event = asyncio.Event()
         if config.transport == "sse":
             if not config.url:
                 raise ValueError(f"MCP server '{server_id}' requires a url")
@@ -66,7 +68,7 @@ class MCPServerClient:
         target = self._url if self._transport == "sse" else self._command
         logger.info("Starting MCP client connection to %s (%s)", self.server_id, target)
 
-        while True:
+        while not self._stop_event.is_set():
             try:
                 logger.info("Attempting to connect to %s (%s)", self.server_id, target)
                 if self._transport == "sse":
@@ -110,14 +112,18 @@ class MCPServerClient:
             await self.exit_stack.aclose()
             self.session = None
             self.exit_stack = AsyncExitStack()
+            if self._stop_event.is_set():
+                break
             await asyncio.sleep(retry_delay)
 
     async def _keep_alive(self) -> None:
         if not self.session:
             raise ValueError("MCP session must be initialized before keep-alive")
 
-        while True:
+        while not self._stop_event.is_set():
             await asyncio.sleep(10)
+            if self._stop_event.is_set():
+                break
             await self.session.send_ping()
 
     async def call_tool(
@@ -129,8 +135,13 @@ class MCPServerClient:
         return await self.session.call_tool(tool_name, tool_args)
 
     async def stop(self) -> None:
+        self._stop_event.set()
         await self.exit_stack.aclose()
+        self.session = None
         logger.info("MCP client resources cleaned up for %s", self.server_id)
+
+    def matches_config(self, config: MCPServerConfig) -> bool:
+        return self._config.model_dump() == config.model_dump()
 
     def _update_tool_cache(self, tools: list[Tool]) -> None:
         init_tools: dict[str, "ChatCompletionToolParam"] = {}
@@ -178,6 +189,8 @@ class MultiMCPClient:
 
     def __init__(self, server_configs: dict[str, MCPServerConfig]) -> None:
         self._server_clients: dict[str, MCPServerClient] = {}
+        self._connect_tasks: dict[str, asyncio.Task[None]] = {}
+        self._connect_lock = asyncio.Lock()
         self.init_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
         self.discoverable_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
@@ -198,9 +211,56 @@ class MultiMCPClient:
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if not self._server_clients:
             return
-        async with asyncio.TaskGroup() as tg:
-            for client in self._server_clients.values():
-                tg.create_task(client.connect_to_server(retry_delay=retry_delay))
+        async with self._connect_lock:
+            for server_id, client in self._server_clients.items():
+                self._ensure_connect_task(server_id, client, retry_delay)
+
+    async def update_server_configs(
+        self,
+        server_configs: dict[str, MCPServerConfig],
+        retry_delay: int = 1,
+    ) -> None:
+        stop_clients: list[MCPServerClient] = []
+        cancel_tasks: list[asyncio.Task[None]] = []
+        async with self._connect_lock:
+            current_ids = set(self._server_clients)
+            new_ids = set(server_configs)
+            removed_ids = current_ids - new_ids
+            added_ids = new_ids - current_ids
+            updated_ids: set[str] = set()
+            for server_id in current_ids & new_ids:
+                client = self._server_clients[server_id]
+                if not client.matches_config(server_configs[server_id]):
+                    updated_ids.add(server_id)
+
+            for server_id in removed_ids | updated_ids:
+                client = self._server_clients.pop(server_id, None)
+                if client:
+                    stop_clients.append(client)
+                task = self._connect_tasks.pop(server_id, None)
+                if task:
+                    cancel_tasks.append(task)
+
+            for server_id in added_ids | updated_ids:
+                self._validate_server_id(server_id)
+                client = MCPServerClient(
+                    server_id,
+                    server_configs[server_id],
+                    on_tools_updated=self._rebuild_tool_cache,
+                )
+                self._server_clients[server_id] = client
+                self._ensure_connect_task(server_id, client, retry_delay)
+
+            for server_id, client in self._server_clients.items():
+                self._ensure_connect_task(server_id, client, retry_delay)
+
+            if removed_ids or added_ids or updated_ids:
+                self._rebuild_tool_cache()
+
+        for task in cancel_tasks:
+            task.cancel()
+        if stop_clients:
+            await asyncio.gather(*(client.stop() for client in stop_clients))
 
     async def call_tool(
         self, namespaced_tool_name: str, tool_args: dict[str, object]
@@ -210,6 +270,11 @@ class MultiMCPClient:
         return await server_client.call_tool(tool_name, tool_args)
 
     async def stop(self) -> None:
+        async with self._connect_lock:
+            tasks = list(self._connect_tasks.values())
+            self._connect_tasks = {}
+        for task in tasks:
+            task.cancel()
         async with asyncio.TaskGroup() as tg:
             for client in self._server_clients.values():
                 tg.create_task(client.stop())
@@ -218,6 +283,20 @@ class MultiMCPClient:
         if server_id not in self._server_clients:
             raise KeyError(f"MCP server '{server_id}' is not registered")
         return self._server_clients[server_id]
+
+    def _ensure_connect_task(
+        self,
+        server_id: str,
+        client: MCPServerClient,
+        retry_delay: int,
+    ) -> None:
+        task = self._connect_tasks.get(server_id)
+        if task is not None and not task.done():
+            return
+        self._connect_tasks[server_id] = asyncio.create_task(
+            client.connect_to_server(retry_delay=retry_delay),
+            name=f"mcp-client-{server_id}",
+        )
 
     def _rebuild_tool_cache(self) -> None:
         init_tools: dict[str, "ChatCompletionToolParam"] = {}

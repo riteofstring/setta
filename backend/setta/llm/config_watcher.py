@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config
 from setta.llm.llm_chat_manager import LLMChatManager
+from setta.mcp.multi_client import MultiMCPClient
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.utils import normalize_path
@@ -29,11 +30,13 @@ class LLMConfigWatcher:
         self,
         specific_file_watcher: "SpecificFileWatcher",
         chat_manager: LLMChatManager,
+        mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
         dbe: DBE,
     ) -> None:
         self.specific_file_watcher = specific_file_watcher
         self.chat_manager = chat_manager
+        self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
         self.dbe = dbe
 
@@ -65,6 +68,7 @@ class LLMConfigWatcher:
             return
 
         self.chat_manager.update_config(config)
+        await self.mcp_client.update_server_configs(config.mcp_servers)
         logger.info(
             "Reloaded LLM config with %s providers",
             len(self.chat_manager.config.configs),

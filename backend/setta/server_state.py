@@ -219,6 +219,7 @@ class SettaFastAPIState:
             self.llm_config_watcher = LLMConfigWatcher(
                 self.specific_file_watcher,
                 self.chat_manager,
+                self.mcp_client,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
