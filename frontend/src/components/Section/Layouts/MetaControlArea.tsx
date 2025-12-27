@@ -157,8 +157,6 @@ function MetaControlButtonArea({
     });
   }
 
-  const resolvedLabel = buttonLabel.trim() === "" ? "Trigger" : buttonLabel;
-
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-center justify-center p-0">
       <button
@@ -166,7 +164,7 @@ function MetaControlButtonArea({
         className="flex h-8 min-w-[120px] items-center justify-center rounded-lg bg-setta-200/30 px-3 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-300 dark:hover:bg-setta-900"
         onClick={handleAction}
       >
-        {resolvedLabel}
+        {buttonLabel}
       </button>
     </div>
   );
