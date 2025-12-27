@@ -310,6 +310,7 @@ export const RouteEnum = {
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
   FORCE_REFRESH_LISTENER: "/forceRefreshListener",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
+  AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
@@ -318,6 +319,7 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_META_CONTROL_VALUE: "/setMetaControlValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_CODE: "/setCode",
@@ -395,6 +397,7 @@ export const WebsocketConnectionTypeEnum = {
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
+  RealtimeActionEvent: "RealtimeActionEvent",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -752,7 +755,6 @@ const TextContentSchema = z.object({
   type: z.literal("text"),
   text: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const ImageContentSchema = z.object({
@@ -760,20 +762,17 @@ const ImageContentSchema = z.object({
   data: z.string(),
   mimeType: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const TextResourceContentsSchema = z.object({
   uri: z.url(),
   mimeType: z.union([z.string(), z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   text: z.string(),
 });
 
 const BlobResourceContentsSchema = z.object({
   uri: z.url(),
   mimeType: z.union([z.string(), z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   blob: z.string(),
 });
 
@@ -781,7 +780,6 @@ const EmbeddedResourceSchema = z.object({
   type: z.literal("resource"),
   resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
-  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const ToolChatMessageSchema = z.object({
@@ -1088,6 +1086,7 @@ const SharedModifierSchema = z.object({
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.int().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
+  metaControlValue: z.string().optional(),
   min: z.int().optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -1173,6 +1172,7 @@ const CoreSchema = z.object({
         "layers",
         "max",
         "metaControlType",
+        "metaControlValue",
         "min",
         "name",
         "paramFilter",
@@ -1421,6 +1421,7 @@ const MetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
+  metaControlValue: z.string().default("" as const),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -2412,6 +2413,7 @@ const MetaControlSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   metaControlType: z.enum(MetaControlTypeEnum).optional(),
+  metaControlValue: z.string().optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -2532,6 +2534,35 @@ const WebsocketMsgRealtimeUIChangeSchema = z.object({
 
 export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
+>;
+
+const MetaControlActionEventSchema = z.object({
+  controlName: z.string(),
+  actionId: z.string(),
+  metaControlType: z.enum(MetaControlTypeEnum),
+  payload: z.union([z.string(), z.null()]).default(null),
+  timestampMs: z.int(),
+});
+
+export type MetaControlActionEvent = z.infer<
+  typeof MetaControlActionEventSchema
+>;
+
+const RealtimeActionEventContentSchema = z.object({
+  projectConfigId: IDSchema,
+  actionEvent: MetaControlActionEventSchema,
+});
+
+const WebsocketMsgRealtimeActionEventSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: RealtimeActionEventContentSchema,
+  messageType: z
+    .literal("RealtimeActionEvent")
+    .default(WebsocketMsgTypeForBackendEnum.RealtimeActionEvent),
+});
+
+export type WebsocketMsgRealtimeActionEvent = z.infer<
+  typeof WebsocketMsgRealtimeActionEventSchema
 >;
 
 const WebsocketMsgCurrentAddressUpdateSchema = z.object({
@@ -3528,6 +3559,7 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   metaControlType: z
     .enum(MetaControlTypeEnum)
     .default(MetaControlTypeEnum.button),
+  metaControlValue: z.string().default("" as const),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
@@ -3928,29 +3960,13 @@ const LLMConfigSchema = z.object({
   other_params: z
     .union([z.record(z.string(), z.any()), z.null()])
     .default(null),
-  mcpServerIds: z.union([z.array(z.string()), z.null()]).default(null),
   temporary: z.boolean().default(false),
 });
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
-const MCPServerConfigSchema = z.object({
-  transport: z.literal(["sse", "streamable_http", "stdio"]),
-  url: z.union([z.string(), z.null()]).default(null),
-  command: z.union([z.string(), z.null()]).default(null),
-  args: z.array(z.string()).default([]),
-  env: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
-  cwd: z.union([z.string(), z.null()]).default(null),
-  encoding: z.string().default("utf-8" as const),
-  encoding_error_handler: z
-    .literal(["strict", "ignore", "replace"])
-    .default("strict" as const),
-});
-
 const AllLLMConfigsSchema = z.object({
   configs: z.record(z.string(), LLMConfigSchema).default({}),
-  mcpServers: z.record(z.string(), MCPServerConfigSchema).default({}),
-  defaultMcpServerIds: z.array(z.string()).default([]),
   default_config_id: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -4629,6 +4645,16 @@ export type AppendDrawAreaLayerItemRequestInput = z.input<
   typeof AppendDrawAreaLayerItemRequestSchema
 >;
 
+const AutoLayoutTopLevelSectionsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  margin: z.int().default(50),
+});
+
+export type AutoLayoutTopLevelSectionsRequestInput = z.input<
+  typeof AutoLayoutTopLevelSectionsRequestSchema
+>;
+
 const ChangeParamImplRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5109,6 +5135,17 @@ const SetImageAreaImagePathRequestSchema = z.object({
 
 export type SetImageAreaImagePathRequestInput = z.input<
   typeof SetImageAreaImagePathRequestSchema
+>;
+
+const SetMetaControlValueRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  value: z.string(),
+});
+
+export type SetMetaControlValueRequestInput = z.input<
+  typeof SetMetaControlValueRequestSchema
 >;
 
 const SetParamEnteredValueRequestSchema = z.object({
