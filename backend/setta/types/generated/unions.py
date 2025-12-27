@@ -67,18 +67,14 @@ from typing import Annotated
 from pydantic import Field
 
 from setta.types.code_obj_impls import (
-    ButtonParamCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
-    DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
     PasswordParamCodeObjImpl,
-    RotaryParamCodeObjImpl,
     SliderParamCodeObjImpl,
     SwitchParamCodeObjImpl,
-    TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
 
@@ -86,15 +82,11 @@ BaseCodeObjImplUnion = (
     CodeCallableCodeObjImpl
     | CodeParamCodeObjImpl
     | TextParamCodeObjImpl
-    | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
-    | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
     | ColorPickerParamCodeObjImpl
     | DropdownParamCodeObjImpl
     | PasswordParamCodeObjImpl
-    | TextAreaParamCodeObjImpl
-    | DropzoneParamCodeObjImpl
     | NestedParamCodeObjImpl
 )
 
@@ -105,15 +97,11 @@ BaseCodeObjImplUnionWithDiscriminator = Annotated[
 BaseParamCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
-    | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
-    | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
     | ColorPickerParamCodeObjImpl
     | DropdownParamCodeObjImpl
     | PasswordParamCodeObjImpl
-    | TextAreaParamCodeObjImpl
-    | DropzoneParamCodeObjImpl
     | NestedParamCodeObjImpl
 )
 
@@ -121,13 +109,10 @@ BaseChildlessCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
     | SliderParamCodeObjImpl
-    | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
     | ColorPickerParamCodeObjImpl
     | DropdownParamCodeObjImpl
     | PasswordParamCodeObjImpl
-    | TextAreaParamCodeObjImpl
-    | DropzoneParamCodeObjImpl
 )
 
 BaseParentCodeObjImplUnion = CodeCallableCodeObjImpl | NestedParamCodeObjImpl

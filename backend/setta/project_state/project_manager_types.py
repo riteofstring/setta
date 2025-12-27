@@ -6,7 +6,6 @@ from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
@@ -162,10 +161,6 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     implType: SectionType = Field(
         description="Section implementation type to instantiate.",
     )
-    controlCodeObjType: CodeObjType | None = Field(
-        default=None,
-        description="Optional meta control code obj type to instantiate.",
-    )
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator | None = Field(
         default=None,
         description="Implementation-specific overrides applied during creation.",
@@ -289,6 +284,10 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
     """Request a lightweight summary snapshot of the specified project config."""
 
 
+class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
+    """Request the latest parsed LSP diagnostics for generated code."""
+
+
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
     pass
 
@@ -355,6 +354,14 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
 
     value: str = Field(
         description="Raw text value to persist for the parameter.",
+    )
+
+
+class SetParamIgnoreTypeErrorsRequest(ProjectManagerRequestWithSectionParam):
+    """Toggle ignoring type errors for a parameter within a section."""
+
+    ignoreTypeErrors: bool = Field(
+        description="Whether to hide type errors for the targeted parameter.",
     )
 
 

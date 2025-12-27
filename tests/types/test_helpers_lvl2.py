@@ -1,11 +1,6 @@
 import unittest
 
-from setta.types.code_obj_impls import (
-    CodeObjType,
-    DropdownParamCodeObjImpl,
-    NestedParamCodeObjImpl,
-    TextParamCodeObjImpl,
-)
+from setta.types.code_obj_impls import NestedParamCodeObjImpl, TextParamCodeObjImpl
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -13,10 +8,9 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
-    change_param_impl,
     create_top_level_section,
-    delete_sections,
     get_curr_top_level_param_ids,
+    delete_sections,
 )
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
@@ -95,69 +89,6 @@ class DeleteSectionsTests(unittest.TestCase):
         self.assertNotIn(section_id, self.project_state.sections)
         self.assertNotIn(section_id, self.project_state.projectConfig.sectionVariantMap)
         self.project_state.validate_code_file_bindings()
-
-
-class ChangeParamImplTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_change_param_impl_preserves_kwarg_editability(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Dict,
-            Position(),
-        )
-
-        add_kwarg(self.settings, self.project_state, section_id)
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            BaseDictSectionImpl,
-        )
-        self.assertIsNotNone(section_impl.topLevelParamId)
-        assert section_impl.topLevelParamId is not None
-
-        top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            section_impl.topLevelParamId,
-            NestedParamCodeObjImpl,
-        )
-        self.assertEqual(len(top_level_impl.children), 1)
-        kwarg_id = top_level_impl.children[0]
-
-        kwarg_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            kwarg_id,
-            TextParamCodeObjImpl,
-        )
-        self.assertTrue(kwarg_impl.coreNameEditable)
-        old_core_name_type = kwarg_impl.coreNameType
-        old_passing_style = kwarg_impl.passingStyle
-
-        change_param_impl(
-            self.settings,
-            self.project_state,
-            section_id,
-            kwarg_id,
-            CodeObjType.DropdownParam.name,
-        )
-
-        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            kwarg_id,
-            DropdownParamCodeObjImpl,
-        )
-        self.assertTrue(updated_impl.coreNameEditable)
-        self.assertEqual(updated_impl.coreNameType, old_core_name_type)
-        self.assertEqual(updated_impl.passingStyle, old_passing_style)
 
 
 if __name__ == "__main__":  # pragma: no cover
