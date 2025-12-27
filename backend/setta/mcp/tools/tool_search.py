@@ -1,15 +1,15 @@
 import bm25s
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
 
+from mcp.server.fastmcp.server import Context
 from setta.mcp.tool_setup import setta_init_tool
-from setta.server_state import SettaFastAPIState
 from setta.utils.constants import C
 
 SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
 
 
-class MCPToolNameList(RootModel[list[str]]):
-    pass
+class MCPToolNameList(BaseModel):
+    tools: list[str]
 
 
 class MCPToolSearchResult(BaseModel):
@@ -18,17 +18,17 @@ class MCPToolSearchResult(BaseModel):
     category: str | None = None
 
 
-class MCPToolSearchResults(RootModel[list[MCPToolSearchResult]]):
-    pass
+class MCPToolSearchResults(BaseModel):
+    results: list[MCPToolSearchResult]
 
 
 @setta_init_tool
-def list_mcp_tools(*, setta_state: SettaFastAPIState) -> MCPToolNameList:
+def list_mcp_tools(*, ctx: Context) -> MCPToolNameList:
     """Return every registered MCP tool name without schemas or descriptions."""
 
-    tools = setta_state.mcp_server.list_registered_tools()
+    tools = ctx.fastmcp.list_registered_tools()
     names = sorted(tool.name for tool in tools)
-    return MCPToolNameList(root=names)
+    return MCPToolNameList(tools=names)
 
 
 @setta_init_tool
@@ -36,7 +36,7 @@ def search_and_unlock_mcp_tools(
     *,
     query: str,
     limit: int = 2,
-    setta_state: SettaFastAPIState,
+    ctx: Context,
 ) -> MCPToolSearchResults:
     """Return the MCP tools that best match a natural-language query.
 
@@ -56,9 +56,9 @@ def search_and_unlock_mcp_tools(
     if normalized_query == "":
         raise ValueError("query must not be empty")
 
-    index = setta_state.mcp_server.tool_search_index
+    index = ctx.fastmcp.tool_search_index
     if index is None:
-        return MCPToolSearchResults(root=[])
+        return MCPToolSearchResults(results=[])
 
     tools = index.tools
     normalized_limit = limit if limit > 0 else 5
@@ -82,7 +82,7 @@ def search_and_unlock_mcp_tools(
             )
         )
 
-    return MCPToolSearchResults(root=ranked_results)
+    return MCPToolSearchResults(results=ranked_results)
 
 
 def _get_tool_search_category(tool) -> str | None:
