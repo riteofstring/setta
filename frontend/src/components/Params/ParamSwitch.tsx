@@ -25,7 +25,7 @@ function _ParamSwitch(props) {
   const { sectionId, paramInfoId } = props;
 
   const maybeErrorMessage = useTypeErrors(
-    (x) => x.errors[sectionId]?.[paramInfoId],
+    (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
 
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {

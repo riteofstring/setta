@@ -15,12 +15,10 @@ import {
   UIEditorTabNameEnum,
 } from "utils/constants";
 import {
-  ButtonParamCodeObjImpl,
   CodeObjType,
   CodeObjTypeEnum,
   ColorPickerParamCodeObjImpl,
   DropdownParamCodeObjImpl,
-  RotaryParamCodeObjImpl,
   SectionType,
   SectionTypeEnum,
   SliderParamCodeObjImpl,
@@ -99,34 +97,17 @@ export type SliderConfigForFrontend = Pick<
   "min" | "max" | "step"
 >;
 
-type RotaryConfigForFrontend = Pick<
-  RotaryParamCodeObjImpl,
-  "min" | "max" | "step"
->;
-
-export type DropdownConfigForFrontend = Pick<
-  DropdownParamCodeObjImpl,
-  "choices"
->;
+type DropdownConfigForFrontend = Pick<DropdownParamCodeObjImpl, "choices">;
 
 export type ColorPickerConfigForFrontend = Pick<
   ColorPickerParamCodeObjImpl,
   "colorChoices"
 >;
 
-type ButtonConfigForFrontend = Pick<ButtonParamCodeObjImpl, "label">;
-
 const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.SliderParam]: (
     obj: SliderParamCodeObjImpl,
   ): SliderConfigForFrontend => ({
-    min: obj.min,
-    max: obj.max,
-    step: obj.step,
-  }),
-  [CodeObjTypeEnum.RotaryParam]: (
-    obj: RotaryParamCodeObjImpl,
-  ): RotaryConfigForFrontend => ({
     min: obj.min,
     max: obj.max,
     step: obj.step,
@@ -140,11 +121,6 @@ const UI_CONFIG_EXTRACTORS = {
     obj: ColorPickerParamCodeObjImpl,
   ): ColorPickerConfigForFrontend => ({
     colorChoices: obj.colorChoices,
-  }),
-  [CodeObjTypeEnum.ButtonParam]: (
-    obj: ButtonParamCodeObjImpl,
-  ): ButtonConfigForFrontend => ({
-    label: obj.label,
   }),
 } as const;
 
