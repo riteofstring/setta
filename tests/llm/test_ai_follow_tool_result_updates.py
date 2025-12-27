@@ -191,14 +191,13 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                     implType=SectionType.Dict,
                     position=Position(),
                 )
-                response = await fixture.manager.create_top_level_section(request)
-                section_id = response.sectionId
+                section_id = await fixture.manager.create_top_level_section(request)
 
                 temporary_to_canonical, canonical_to_temporary = (
                     fixture.dbe.read_temporary_id_map()
                 )
-                temporary_response = convert_canonical_ids_to_temporary(
-                    response,
+                temporary_section_id = convert_canonical_ids_to_temporary(
+                    section_id,
                     canonical_to_temporary,
                     temporary_to_canonical,
                 )
@@ -206,10 +205,7 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
 
                 call_result = CallToolResult(
                     content=[
-                        TextContent(
-                            type="text",
-                            text=temporary_response.model_dump_json(),
-                        )
+                        TextContent(type="text", text=str(temporary_section_id))
                     ],
                     isError=False,
                 )
@@ -223,7 +219,7 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                 ] = SettaToolAnnotations(
                     settaToolType=SettaToolType.discoverable,
                     aiFollowToolResult=AIFollowToolResultMetadata(
-                        pathsByIdType={"section": ["sectionId"]},
+                        pathsByIdType={"section": ["$"]},
                     ),
                 )
 

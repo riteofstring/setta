@@ -3,35 +3,25 @@ import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
-  getParamDisplayName,
-  getParamTrueName,
 } from "../sectionInfos";
 
-export type ParamNameSource = "display" | "true";
-
 export function paramNameFromPathArray(
-  state: ZustandProjectState,
-  sectionId: string,
+  codeObjs: ZustandProjectState["codeObjs"],
   currPath: Array<string>,
-  nameSource: ParamNameSource = "display",
 ) {
-  let getNameForId = getParamDisplayName;
-  if (nameSource === "true") {
-    getNameForId = getParamTrueName;
-  }
   if (currPath.length === 1) {
-    return getNameForId(state, sectionId, currPath[0]);
-  }
-  let name = "";
-  for (const [pathIdx, currId] of currPath.entries()) {
-    const displayName = getNameForId(state, sectionId, currId);
-    if (pathIdx === 0) {
-      name = displayName;
-    } else {
-      name += `["${displayName}"]`;
+    return codeObjs[currPath[0]].name;
+  } else {
+    let name = "";
+    for (const [pathIdx, currId] of currPath.entries()) {
+      if (pathIdx === 0) {
+        name = codeObjs[currId].name;
+      } else {
+        name += `["${codeObjs[currId].name}"]`;
+      }
     }
+    return name;
   }
-  return name;
 }
 
 export function getAllVisibleParamsInSection(

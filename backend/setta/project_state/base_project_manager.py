@@ -75,7 +75,6 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
-    CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -108,7 +107,6 @@ from setta.project_state.project_manager_types import (
     SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeFileBindingRequest,
-    SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -125,7 +123,6 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionWithParamsDisplayModeRequest,
-    SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -168,7 +165,6 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
-    apply_top_level_section_layout_snapshot,
     auto_layout_top_level_sections,
     change_param_impl,
     collect_ignore_type_errors_by_section,
@@ -186,7 +182,6 @@ from setta.types.helpers_lvl2 import (
     maybe_update_gen_python_code_section,
     move_section_to_pane,
     move_section_to_parent_section,
-    resolve_top_level_section_position_and_pan,
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
@@ -803,14 +798,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
-    async def set_show_param_display_names(self, x: SetShowParamDisplayNamesRequest):
-        """Toggle whether parameter display names are shown in the UI."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -882,18 +869,6 @@ class BaseProjectManager(ABC):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"codeObj": ["codeObjId"]}
-        )
-    )
-    async def set_code_obj_display_name(self, x: SetCodeObjDisplayNameRequest):
-        """Update the user-facing display name for the requested code object."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.codeObjs[x.codeObjId].displayName = x.displayName
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1021,7 +996,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_result=AIFollowToolResultMetadata(
             pathsByIdType={
-                "section": ["sectionId"],
+                "section": ["$"],
             },
         )
     )
@@ -1029,34 +1004,20 @@ class BaseProjectManager(ABC):
         """Create a root-level section for the requested implementation.
 
         Returns:
-            CreateTopLevelSectionResponse: Identifier and optional viewport pan hint.
+            ID: Identifier for the newly created top-level section so follow-up edits can target it.
         """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        apply_top_level_section_layout_snapshot(
-            project_state,
-            x.topLevelSections,
-        )
-
-        position, pan_to = resolve_top_level_section_position_and_pan(
+        sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
             x.implType,
             x.position,
             x.implOverrides,
-            x.topLevelSections,
-            x.viewportBounds,
-        )
-        sectionId = create_top_level_section(
-            self.settings_file.settings,
-            project_state,
-            x.implType,
-            position,
-            x.implOverrides,
             control_code_obj_type=x.controlCodeObjType,
         )
         await self.update_and_broadcast_project_state(project_state)
-        return CreateTopLevelSectionResponse(sectionId=sectionId, panTo=pan_to)
+        return sectionId
 
     @enqueue_method
     @project_state_tool(
@@ -1329,9 +1290,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
-        new_project_config = ProjectConfig(
-            previewImgColor=previewImgColor, viewport=None
-        )
+        new_project_config = ProjectConfig(previewImgColor=previewImgColor)
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         create_top_level_section(
             self.settings_file.settings,

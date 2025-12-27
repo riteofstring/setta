@@ -3,20 +3,13 @@ import _ from "lodash";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCodeObjCore,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
-import {
-  route_set_code_obj_display_name,
-  route_set_code_obj_name,
-} from "utils/generatedEndpoints";
-import {
-  isBaseParamCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-} from "utils/generatedTypes";
+import { route_set_code_obj_name } from "utils/generatedEndpoints";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 
 export function ParamNameInput({
@@ -29,10 +22,7 @@ export function ParamNameInput({
 }) {
   const {
     configLanguage,
-    displayName,
-    name,
-    isKwarg,
-    showParamDisplayNames,
+    name: value,
     // variantIsFrozen,
   } = useProjectState((x) => {
     // const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
@@ -41,32 +31,14 @@ export function ParamNameInput({
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseParamCodeObjImpl,
-    );
-    const codeObjCore = getCodeObjCore(x, paramInfoId);
     return {
       // variantIsFrozen: isFrozen,
       configLanguage: impl.configLanguage,
-      displayName: codeObjCore.displayName,
-      name: codeObjCore.name,
-      isKwarg: codeObjImpl.coreNameEditable,
-      showParamDisplayNames: x.projectConfig.showParamDisplayNames,
+      name: getCodeObjCore(x, paramInfoId).name,
     };
   }, _.isEqual);
 
-  const hasDisplayName = displayName.trim().length > 0;
-  const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
-  const value = useDisplayName ? displayName : name;
-
   function onChange(v: string) {
-    if (showParamDisplayNames && !isKwarg) {
-      debouncedSetParamDisplayName(paramInfoId, v);
-      return;
-    }
     debouncedSetParamName(paramInfoId, v);
   }
 
@@ -105,7 +77,7 @@ export function ParamNameInput({
   );
 }
 
-const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
+const debouncedSetParamName = _.debounce((codeObjId, name) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const codeObj = state.codeObjs[codeObjId];
@@ -123,29 +95,3 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
       }),
   });
 }, 200);
-
-const debouncedSetParamDisplayName = _.debounce(
-  (codeObjId: string, displayName: string) => {
-    let nextDisplayName = displayName;
-    if (displayName.trim().length === 0) {
-      nextDisplayName = "";
-    }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const codeObj = state.codeObjs[codeObjId];
-        if (!codeObj) {
-          return;
-        }
-        codeObj.displayName = nextDisplayName;
-      },
-      send: (frontendOpId) =>
-        route_set_code_obj_display_name({
-          projectConfigId: getCurrProjectConfigId(),
-          codeObjId,
-          displayName: nextDisplayName,
-          frontendOpId,
-        }),
-    });
-  },
-  200,
-);

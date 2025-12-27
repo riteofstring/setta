@@ -3,10 +3,10 @@ import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxSt
 import _ from "lodash";
 import type { ReactNode } from "react";
 import {
+  getCodeObjCore,
   getCurrCodeObjVariant,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_change_param_impl } from "utils/generatedEndpoints";
@@ -37,7 +37,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
       }
 
       const variant = getCurrCodeObjVariant(x, sectionId, controlParamId);
-      const paramName = getParamDisplayName(x, sectionId, controlParamId);
+      const paramName = getCodeObjCore(x, controlParamId).name;
       return {
         controlParamId,
         baseImplId: variant.impl,
