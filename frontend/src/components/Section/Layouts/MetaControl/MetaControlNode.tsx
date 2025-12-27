@@ -180,11 +180,15 @@ function TextInputControl({
   singleLine: boolean;
   minHeightClassName?: string;
 }) {
-  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200`;
+  const wrapperClassName =
+    `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-container w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200`;
   const sizeClassName = minHeightClassName ? ` ${minHeightClassName}` : "";
-
+  const inputClassName =
+    `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child section-value block w-full min-w-0 break-words px-3 py-2 leading-[1.4] cursor-text select-text${sizeClassName}`;
+  const realInputClassName =
+    `${inputClassName} [&_*]:!outline-0 [&_.cm-content]:!px-0 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0`;
   return (
-    <div className={`${wrapperClassName}${sizeClassName}`}>
+    <div className={wrapperClassName}>
       <TextInputCodeMirror
         dummyDivId={`${sectionId}-${controlParamId}-MetaControl`}
         sectionId={sectionId}
@@ -192,8 +196,8 @@ function TextInputControl({
         value={value}
         defaultVal={defaultVal}
         onChange={onValueChange}
-        dummyCodeClassName="section-value w-full min-w-0 break-words"
-        realCodeClassName="section-value w-full min-w-0 break-words"
+        dummyCodeClassName={inputClassName}
+        realCodeClassName={realInputClassName}
         language={language}
         singleLine={singleLine}
         autocomplete={false}
