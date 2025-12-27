@@ -57,11 +57,12 @@ export function getViewport() {
 export function setCenter(x: number, y: number, options) {
   const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
   const { maxZoom } = useSettings.getState().gui;
+  const { overviewTrueWidth } = useLocalStorage.getState();
 
   const nextZoom =
     typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
-  const centerX =
-    width / 2 - x * nextZoom + useLocalStorage.getState().overviewTrueWidth;
+  const visibleCenterX = width / 2 + overviewTrueWidth;
+  const centerX = visibleCenterX - x * nextZoom;
   const centerY = height / 2 - y * nextZoom;
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
