@@ -505,23 +505,23 @@ def append_draw_area_layer_item(
 
 
 @dataclass(frozen=True)
-class _LayoutRect:
+class LayoutRect:
     x: float
     y: float
     w: float
     h: float
 
 
-def _rects_intersect(a: _LayoutRect, b: _LayoutRect) -> bool:
+def _rects_intersect(a: LayoutRect, b: LayoutRect) -> bool:
     return not (
         a.x + a.w <= b.x or a.x >= b.x + b.w or a.y + a.h <= b.y or a.y >= b.y + b.h
     )
 
 
-def _expand_rect(rect: _LayoutRect, padding: float) -> _LayoutRect:
+def _expand_rect(rect: LayoutRect, padding: float) -> LayoutRect:
     if padding <= 0:
         return rect
-    return _LayoutRect(
+    return LayoutRect(
         x=rect.x - padding,
         y=rect.y - padding,
         w=rect.w + padding * 2,
@@ -612,7 +612,7 @@ def _build_top_level_layout_rects(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
     layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
-) -> list[_LayoutRect]:
+) -> list[LayoutRect]:
     if layout_snapshot is None:
         layout_by_id = p.projectConfig.topLevelSections
     else:
@@ -620,7 +620,7 @@ def _build_top_level_layout_rects(
             **p.projectConfig.topLevelSections,
             **layout_snapshot,
         }
-    rects: list[_LayoutRect] = []
+    rects: list[LayoutRect] = []
     for section_id, layout in layout_by_id.items():
         if section_id not in p.sections:
             continue
@@ -634,7 +634,7 @@ def _build_top_level_layout_rects(
         height = _resolve_layout_dimension_with_fallback(
             settings, impl.type, layout.h, impl.size.height, "height"
         )
-        rects.append(_LayoutRect(layout.x, layout.y, width, height))
+        rects.append(LayoutRect(layout.x, layout.y, width, height))
     return rects
 
 
@@ -644,10 +644,10 @@ def _get_grid_step(width: float, height: float) -> float:
 
 
 def _find_position_in_bounds(
-    bounds: _LayoutRect,
+    bounds: LayoutRect,
     new_width: float,
     new_height: float,
-    rects: list[_LayoutRect],
+    rects: list[LayoutRect],
     padding: float,
     step: float,
 ) -> Position | None:
@@ -664,7 +664,7 @@ def _find_position_in_bounds(
     while y <= end_y:
         x = start_x
         while x <= end_x:
-            candidate = _LayoutRect(x, y, new_width, new_height)
+            candidate = LayoutRect(x, y, new_width, new_height)
             if not any(_rects_intersect(candidate, rect) for rect in expanded):
                 return Position(x=x, y=y)
             x += step
@@ -673,14 +673,14 @@ def _find_position_in_bounds(
 
 
 def _find_position_adjacent_to_bounds(
-    bounds: _LayoutRect,
+    bounds: LayoutRect,
     new_width: float,
     new_height: float,
-    rects: list[_LayoutRect],
+    rects: list[LayoutRect],
     padding: float,
     step: float,
 ) -> Position | None:
-    right_bounds = _LayoutRect(
+    right_bounds = LayoutRect(
         x=bounds.x + bounds.w,
         y=bounds.y,
         w=new_width + padding * 2,
@@ -691,7 +691,7 @@ def _find_position_adjacent_to_bounds(
     )
     if position is not None:
         return position
-    bottom_bounds = _LayoutRect(
+    bottom_bounds = LayoutRect(
         x=bounds.x,
         y=bounds.y + bounds.h,
         w=bounds.w,
@@ -702,18 +702,18 @@ def _find_position_adjacent_to_bounds(
     )
 
 
-def _get_layout_bounds(rects: list[_LayoutRect]) -> _LayoutRect | None:
+def _get_layout_bounds(rects: list[LayoutRect]) -> LayoutRect | None:
     if not rects:
         return None
     min_x = min(rect.x for rect in rects)
     min_y = min(rect.y for rect in rects)
     max_x = max(rect.x + rect.w for rect in rects)
     max_y = max(rect.y + rect.h for rect in rects)
-    return _LayoutRect(x=min_x, y=min_y, w=max_x - min_x, h=max_y - min_y)
+    return LayoutRect(x=min_x, y=min_y, w=max_x - min_x, h=max_y - min_y)
 
 
 def _find_position_after_existing(
-    rects: list[_LayoutRect],
+    rects: list[LayoutRect],
     new_width: float,
     new_height: float,
     padding: float,
@@ -725,7 +725,7 @@ def _find_position_after_existing(
     if bounds is None:
         return Position(x=padding, y=padding)
 
-    interior_bounds = _LayoutRect(
+    interior_bounds = LayoutRect(
         x=bounds.x - padding,
         y=bounds.y - padding,
         w=bounds.w + padding * 2,
@@ -737,13 +737,13 @@ def _find_position_after_existing(
     if position is not None:
         return position
 
-    right_bounds = _LayoutRect(
+    right_bounds = LayoutRect(
         x=bounds.x + bounds.w,
         y=bounds.y - padding,
         w=new_width + padding * 2,
         h=bounds.h + padding * 2,
     )
-    bottom_bounds = _LayoutRect(
+    bottom_bounds = LayoutRect(
         x=bounds.x - padding,
         y=bounds.y + bounds.h,
         w=bounds.w + padding * 2,
@@ -803,7 +803,7 @@ def compute_smart_top_level_section_position(
     padding = 24.0
     step = _get_grid_step(new_width, new_height)
     if viewport_bounds is not None and viewport_bounds.w > 0 and viewport_bounds.h > 0:
-        bounds_rect = _LayoutRect(
+        bounds_rect = LayoutRect(
             x=viewport_bounds.x,
             y=viewport_bounds.y,
             w=viewport_bounds.w,

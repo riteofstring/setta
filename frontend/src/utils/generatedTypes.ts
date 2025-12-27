@@ -5927,17 +5927,6 @@ const RunCodeRequestSchema = z.object({
 
 export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;
 
-const _LayoutRectSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  w: z.number(),
-  h: z.number(),
-});
-
-type _LayoutRect = z.infer<typeof _LayoutRectSchema>;
-
-type _LayoutRectInput = z.input<typeof _LayoutRectSchema>;
-
 const CodeMirrorCompletionSchema = z.object({
   label: z.string(),
   type: z.string(),
