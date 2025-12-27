@@ -4,27 +4,19 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
   getParamDisplayName,
-  getParamTrueName,
 } from "../sectionInfos";
-
-export type ParamNameSource = "display" | "true";
 
 export function paramNameFromPathArray(
   state: ZustandProjectState,
   sectionId: string,
   currPath: Array<string>,
-  nameSource: ParamNameSource = "display",
 ) {
-  let getNameForId = getParamDisplayName;
-  if (nameSource === "true") {
-    getNameForId = getParamTrueName;
-  }
   if (currPath.length === 1) {
-    return getNameForId(state, sectionId, currPath[0]);
+    return getParamDisplayName(state, sectionId, currPath[0]);
   }
   let name = "";
   for (const [pathIdx, currId] of currPath.entries()) {
-    const displayName = getNameForId(state, sectionId, currId);
+    const displayName = getParamDisplayName(state, sectionId, currId);
     if (pathIdx === 0) {
       name = displayName;
     } else {

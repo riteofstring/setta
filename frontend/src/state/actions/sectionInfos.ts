@@ -412,15 +412,6 @@ export function getParamDisplayName(
   return codeObj.name;
 }
 
-export function getParamTrueName(
-  state: ZustandProjectState,
-  _sectionId: string,
-  codeObjId: string,
-) {
-  const codeObj = getCodeObjCore(state, codeObjId);
-  return codeObj.name;
-}
-
 export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   const impl = p.codeObjImpls[implId];
   if (!impl) {

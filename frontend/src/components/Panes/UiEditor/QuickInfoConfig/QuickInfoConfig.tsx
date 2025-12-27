@@ -35,6 +35,9 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
   const showParamDisplayNames = useProjectState(
     (x) => x.projectConfig.showParamDisplayNames,
   );
+  const filterPlaceholder = showParamDisplayNames
+    ? "Filter by display name"
+    : "Filter parameter names";
   const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
     ["name"],
@@ -77,7 +80,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
       <StandardSearch
         inputStyles={inputStyles}
         // leftElementStyles="pl-1"
-        placeholder="Filter"
+        placeholder={filterPlaceholder}
         leftElement={
           <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
         }
