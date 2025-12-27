@@ -33,23 +33,3 @@ export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
   useTypeErrors.getState().reset();
   useTypeErrors.setState({ errors });
 }
-
-type TypeErrorsState = ReturnType<typeof useTypeErrors.getState>;
-
-export function removeTypeErrorsForTarget(
-  sectionId: string,
-  paramInfoId: string | null,
-  state: TypeErrorsState,
-) {
-  const section = state.errors[sectionId];
-  if (!section) {
-    return;
-  }
-  if (paramInfoId === null) {
-    section.callable = [];
-    return;
-  }
-  if (paramInfoId in section.params) {
-    delete section.params[paramInfoId];
-  }
-}

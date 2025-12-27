@@ -5,12 +5,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { removeTypeErrorsForTarget } from "state/actions/typeCheck";
-import {
-  useContextMenus,
-  useProjectState,
-  useTypeErrors,
-} from "state/definitions";
+import { useContextMenus, useProjectState } from "state/definitions";
 import { route_set_type_error_ignore } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -49,11 +44,6 @@ export function TypeErrorContextMenu() {
       paramInfoId,
       ignoreTypeErrors,
     });
-    if (ignoreTypeErrors) {
-      useTypeErrors.setState((state) => {
-        removeTypeErrorsForTarget(sectionId, paramInfoId, state);
-      });
-    }
 
     closeAllContextMenus();
   }

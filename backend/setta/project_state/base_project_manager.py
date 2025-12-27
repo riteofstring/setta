@@ -168,6 +168,7 @@ from setta.types.helpers_lvl2 import (
     append_draw_area_layer_item,
     auto_layout_top_level_sections,
     change_param_impl,
+    collect_ignore_type_errors_by_section,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_new_section_variant,
@@ -240,13 +241,11 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    BaseSectionWithParamsImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
-    TypeErrorIgnoreState,
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -662,22 +661,9 @@ class BaseProjectManager(ABC):
                 value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
             code_generator.generate_code()
-            ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
-            for section_id in projectState.sections.keys():
-                section_impl = get_curr_effective_section_impl(projectState, section_id)
-                if not isinstance(section_impl, BaseSectionWithParamsImpl):
-                    continue
-                ignore_state = section_impl.ignoreTypeErrors
-                ignored_params = {
-                    param_id: True
-                    for param_id, is_ignored in ignore_state.params.items()
-                    if is_ignored
-                }
-                if ignore_state.callable or ignored_params:
-                    ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
-                        callable=ignore_state.callable,
-                        params=ignored_params,
-                    )
+            ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
+                projectState
+            )
 
             gen_code_binding = projectState.genCodeBinding
             if gen_code_binding is None:

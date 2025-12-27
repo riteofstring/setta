@@ -156,6 +156,28 @@ def get_curr_top_level_param_ids(
     return get_top_level_param_ids(p, section_impl)
 
 
+def collect_ignore_type_errors_by_section(
+    p: "ProjectStateSingleConfig",
+) -> dict[ID, TypeErrorIgnoreState]:
+    ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
+    for section_id in p.sections.keys():
+        section_impl = get_curr_effective_section_impl(p, section_id)
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            continue
+        ignore_state = section_impl.ignoreTypeErrors
+        ignored_params = {
+            param_id: True
+            for param_id, is_ignored in ignore_state.params.items()
+            if is_ignored
+        }
+        if ignore_state.callable or ignored_params:
+            ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
+                callable=ignore_state.callable,
+                params=ignored_params,
+            )
+    return ignore_type_errors_by_section
+
+
 def get_top_level_param_ids(
     p: "ProjectStateCore", section_impl: BaseSectionWithParamsImpl
 ) -> list[ID]:
