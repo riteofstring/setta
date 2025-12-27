@@ -212,8 +212,6 @@ export function ParamUI({
           isSelectingParams={isSelectingParams}
         />
       );
-    case CodeObjTypeEnum.ButtonParam:
-      return null;
     default:
       return codeObjType satisfies never;
   }
