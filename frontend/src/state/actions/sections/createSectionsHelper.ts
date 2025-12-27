@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
@@ -7,7 +8,7 @@ import {
   Position,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { createTopLevelSection } from "./createSections";
+import { getCurrProjectConfigId } from "../sectionInfos";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
@@ -193,9 +194,10 @@ export function useCreateSectionsList() {
 
 export function createTopLevelSectionFromImplSpecs(
   menuItem: CreateSectionsContextMenuInfo,
-  position: Position | null = null,
+  position: Position,
 ) {
-  createTopLevelSection({
+  route_create_top_level_section({
+    projectConfigId: getCurrProjectConfigId(),
     implType: menuItem.implSpecs.type,
     controlCodeObjType: menuItem.controlCodeObjType,
     implOverrides: menuItem.implSpecs,

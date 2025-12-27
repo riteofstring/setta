@@ -2966,8 +2966,6 @@ const TopLevelSectionLayoutSchema = z.object({
   h: z.union([z.number(), z.null()]).default(null),
 });
 
-export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
-
 const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -4762,15 +4760,6 @@ const PositionSchema = z.object({
 
 export type Position = z.infer<typeof PositionSchema>;
 
-const ViewportBoundsSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  w: z.number().default(0),
-  h: z.number().default(0),
-});
-
-export type ViewportBounds = z.infer<typeof ViewportBoundsSchema>;
-
 const ListenerCoverageRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
@@ -5072,24 +5061,11 @@ const CreateTopLevelSectionRequestSchema = z.object({
       z.null(),
     ])
     .default(null),
-  position: z.union([PositionSchema, z.null()]).default(null),
-  topLevelSections: z
-    .union([z.record(IDSchema, TopLevelSectionLayoutSchema), z.null()])
-    .default(null),
-  viewportBounds: z.union([ViewportBoundsSchema, z.null()]).default(null),
+  position: PositionSchema,
 });
 
 export type CreateTopLevelSectionRequestInput = z.input<
   typeof CreateTopLevelSectionRequestSchema
->;
-
-const CreateTopLevelSectionResponseSchema = z.object({
-  sectionId: IDSchema,
-  panTo: z.union([PositionSchema, z.null()]).default(null),
-});
-
-export type CreateTopLevelSectionResponse = z.infer<
-  typeof CreateTopLevelSectionResponseSchema
 >;
 
 const CreateViewModeRequestSchema = z.object({
@@ -5926,17 +5902,6 @@ const RunCodeRequestSchema = z.object({
 });
 
 export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;
-
-const _LayoutRectSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  w: z.number(),
-  h: z.number(),
-});
-
-type _LayoutRect = z.infer<typeof _LayoutRectSchema>;
-
-type _LayoutRectInput = z.input<typeof _LayoutRectSchema>;
 
 const CodeMirrorCompletionSchema = z.object({
   label: z.string(),
