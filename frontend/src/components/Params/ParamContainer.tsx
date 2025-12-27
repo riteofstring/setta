@@ -36,7 +36,7 @@ function _ParamContainer({
       );
       return {
         description: codeObjImpl.description,
-        name: getParamDisplayName(x, paramInfoId),
+        name: getParamDisplayName(x, sectionId, paramInfoId),
       };
     },
     _.isEqual,

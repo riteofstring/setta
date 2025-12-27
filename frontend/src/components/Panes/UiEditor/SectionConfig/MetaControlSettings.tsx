@@ -37,7 +37,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
       }
 
       const variant = getCurrCodeObjVariant(x, sectionId, controlParamId);
-      const paramName = getParamDisplayName(x, controlParamId);
+      const paramName = getParamDisplayName(x, sectionId, controlParamId);
       return {
         controlParamId,
         baseImplId: variant.impl,

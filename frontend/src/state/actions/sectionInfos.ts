@@ -37,6 +37,7 @@ import {
   Core,
   ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
+  isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
@@ -393,13 +394,19 @@ export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
 
 export function getParamDisplayName(
   state: ZustandProjectState,
+  sectionId: string,
   codeObjId: string,
 ) {
   const codeObj = getCodeObjCore(state, codeObjId);
   if (!state.projectConfig.showParamDisplayNames) {
     return codeObj.name;
   }
-  if (codeObj.displayName) {
+  const impl = getCurrEffectiveCodeObjImpl(state, sectionId, codeObjId);
+  if (isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
+    return codeObj.name;
+  }
+  const trimmedDisplayName = codeObj.displayName.trim();
+  if (trimmedDisplayName.length > 0) {
     return codeObj.displayName;
   }
   return codeObj.name;
@@ -407,6 +414,7 @@ export function getParamDisplayName(
 
 export function getParamTrueName(
   state: ZustandProjectState,
+  _sectionId: string,
   codeObjId: string,
 ) {
   const codeObj = getCodeObjCore(state, codeObjId);

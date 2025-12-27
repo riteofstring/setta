@@ -35,7 +35,7 @@ export function GetParamSwitch({
         requiredParamIdsToPaths,
       ).map((id) => ({
         id,
-        name: getParamDisplayName(x, id),
+        name: getParamDisplayName(x, sectionId, id),
       }));
 
       matches = matchSorter(requiredParamIdsWithNames, impl.paramFilter, {

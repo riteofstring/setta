@@ -19,6 +19,7 @@ import {
   route_set_show_param_display_names,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
@@ -99,26 +100,26 @@ function _UIElement({
   paramInfo: { id: string; name: string };
 }) {
   const { id, name } = paramInfo;
-  const { description, displayName, trueName } = useProjectState((x) => {
-    const codeObj = x.codeObjs[id];
-    if (!codeObj) {
+  const { description, displayName, trueName, isKwarg } = useProjectState(
+    (x) => {
+      const codeObj = x.codeObjs[id];
+      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, id);
       return {
-        description: "",
-        displayName: "",
-        trueName: "",
+        description: impl.description,
+        displayName: codeObj.displayName,
+        trueName: codeObj.name,
+        isKwarg: isBaseParamCodeObjImpl(impl) && impl.coreNameEditable,
       };
-    }
-    const impl = getCurrEffectiveCodeObjImpl(x, sectionId, id);
-    return {
-      description: impl.description,
-      displayName: codeObj.displayName,
-      trueName: codeObj.name,
-    };
-  }, _.isEqual);
+    },
+    _.isEqual,
+  );
   const [localDescription, setLocalDescription] = useLocalValue(description);
 
   function onDisplayNameChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const nextValue = e.target.value;
+    let nextValue = e.target.value;
+    if (nextValue.trim().length === 0) {
+      nextValue = "";
+    }
     useProjectState.setState((state) => {
       const codeObj = state.codeObjs[id];
       if (!codeObj) {
@@ -136,18 +137,24 @@ function _UIElement({
   }
 
   const title = trueName || name;
+  let displayNameValue = displayName;
+  if (displayNameValue.trim().length === 0) {
+    displayNameValue = "";
+  }
 
   return (
     <div className="flex flex-col gap-2 self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200">
       <p className="uicfg-title truncate text-xs font-semibold text-setta-500">
         {title}
       </p>
-      <input
-        className="mx-[2px] h-7 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
-        placeholder={trueName}
-        value={displayName}
-        onChange={onDisplayNameChange}
-      />
+      {!isKwarg && (
+        <input
+          className="mx-[2px] h-7 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
+          placeholder={trueName}
+          value={displayNameValue}
+          onChange={onDisplayNameChange}
+        />
+      )}
       <textarea
         className="mx-[2px] mb-4 h-12 min-w-0 flex-grow cursor-auto rounded-lg border border-solid border-setta-100 bg-white px-2 py-1 font-mono text-xs font-medium text-setta-600 outline-0 placeholder:text-setta-200 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300 dark:placeholder:text-setta-700 dark:focus-visible:border-setta-900"
         value={localDescription}

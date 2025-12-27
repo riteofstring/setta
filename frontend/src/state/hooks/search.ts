@@ -107,7 +107,7 @@ function getParamsAndAddToSearchResults(
     output.push({
       sectionId,
       paramInfoId: p,
-      name: getParamDisplayName(state, p),
+      name: getParamDisplayName(state, sectionId, p),
     });
   }
 }

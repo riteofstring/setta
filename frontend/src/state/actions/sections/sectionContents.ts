@@ -11,6 +11,7 @@ export type ParamNameSource = "display" | "true";
 
 export function paramNameFromPathArray(
   state: ZustandProjectState,
+  sectionId: string,
   currPath: Array<string>,
   nameSource: ParamNameSource = "display",
 ) {
@@ -19,11 +20,11 @@ export function paramNameFromPathArray(
     getNameForId = getParamTrueName;
   }
   if (currPath.length === 1) {
-    return getNameForId(state, currPath[0]);
+    return getNameForId(state, sectionId, currPath[0]);
   }
   let name = "";
   for (const [pathIdx, currId] of currPath.entries()) {
-    const displayName = getNameForId(state, currId);
+    const displayName = getNameForId(state, sectionId, currId);
     if (pathIdx === 0) {
       name = displayName;
     } else {
