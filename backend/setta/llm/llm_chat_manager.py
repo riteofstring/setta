@@ -1684,9 +1684,7 @@ class LLMChatManager:
                         raise ValueError("serverIds must be non-empty strings.")
                     normalized_server_ids.append(normalized)
                 unknown = [
-                    entry
-                    for entry in normalized_server_ids
-                    if entry not in server_ids
+                    entry for entry in normalized_server_ids if entry not in server_ids
                 ]
                 if unknown:
                     raise ValueError(
