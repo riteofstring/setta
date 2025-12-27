@@ -51,6 +51,7 @@ from setta.project_state.project_manager_types import (
     SetImageAreaImagePathRequest,
     SetMetaControlValueRequest,
     SetParamEnteredValueRequest,
+    SetParamIgnoreTypeErrorsRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
@@ -406,6 +407,15 @@ async def route_set_param_entered_value(
     await state.project_manager_switcher.get(x.projectConfigId).set_param_entered_value(
         x
     )
+
+
+@router.post(Route.SET_PARAM_IGNORE_TYPE_ERRORS)
+async def route_set_param_ignore_type_errors(
+    x: SetParamIgnoreTypeErrorsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_param_ignore_type_errors(x)
 
 
 @router.post(Route.SET_META_CONTROL_VALUE)

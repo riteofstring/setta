@@ -2,6 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BiError } from "react-icons/bi";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getCodeObjCore,
@@ -9,7 +10,11 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState, useToolArgumentPreview } from "state/definitions";
+import {
+  useProjectState,
+  useToolArgumentPreview,
+  useTypeErrors,
+} from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
@@ -109,6 +114,11 @@ function SectionSearchCore({
     sectionId,
     paramInfoId: null,
   });
+  const callableErrorMessages = useTypeErrors(
+    (state) => state.errors[sectionId]?.callable,
+  );
+  const callableErrorMessage = callableErrorMessages?.join("\n") ?? "";
+  const hasCallableError = callableErrorMessage.length > 0;
 
   const debouncedSetValueNameInconsistent = useCallback(
     _.debounce((isInconsistent: boolean) => {
@@ -186,18 +196,32 @@ function SectionSearchCore({
   };
 
   // TODO: Shouldn't use important for this, but ok for now. FIX.
-  const valueNameInconsistentStyle = valueNameInconsistent
-    ? "setta-callable-ready"
+  const valueNameInconsistentStyle =
+    valueNameInconsistent && !hasCallableError ? "setta-callable-ready" : "";
+  const callableErrorStyle = hasCallableError
+    ? "!border-red-500 dark:!border-red-600 !outline !outline-2 !outline-red-500 dark:!outline-red-700"
     : "";
-  const showRightIndicator = valueNameInconsistent || waitingForResult;
+  const showStatusIndicator = valueNameInconsistent || waitingForResult;
+  const showRightIndicator = showStatusIndicator || hasCallableError;
 
   const displayedCallableName =
     draftCallableName !== null ? draftCallableName : codeInfoName;
+  const tooltipContentArray = hasCallableError
+    ? [
+        {
+          content: callableErrorMessage,
+          wrapperClassName:
+            "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
+          contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
+        },
+        { title: codeInfoName, content: description },
+      ]
+    : [{ title: codeInfoName, content: description }];
 
   return (
     <search
       className="section-search single-cell-container relative w-full"
-      {...getFloatingBoxHandlers({ title: codeInfoName, content: description })}
+      {...getFloatingBoxHandlers(...tooltipContentArray)}
     >
       <TextInputCodeMirror
         dummyDivId={divId}
@@ -206,8 +230,8 @@ function SectionSearchCore({
         value={displayedCallableName}
         onBlur={onBlur}
         onChange={onChange}
-        dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle}`}
-        realCodeClassName={`${realCodeClassName} ${valueNameInconsistentStyle}`}
+        dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle} ${callableErrorStyle}`}
+        realCodeClassName={`${realCodeClassName} ${valueNameInconsistentStyle} ${callableErrorStyle}`}
         singleLine={true}
         keyComboActions={keyComboActions}
         onTab={onTab}
@@ -216,19 +240,26 @@ function SectionSearchCore({
         isDisabled={isDisabled}
       />
       {showRightIndicator && (
-        <div className="single-cell-child pointer-events-none mr-2 flex items-center self-center justify-self-end">
-          <span className="relative grid h-[22px] w-[22px] place-items-center">
-            {valueNameInconsistent && (
-              <span className="setta-callable-ready-icon">
-                <i className="gg-corner-right-down" />
-              </span>
-            )}
-            {waitingForResult && (
-              <span className="absolute inset-0 grid place-items-center rounded bg-white dark:bg-setta-950">
-                <i className="gg-spinner text-blue-500/70" />
-              </span>
-            )}
-          </span>
+        <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
+          {hasCallableError && (
+            <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white">
+              <BiError className="h-[14px] w-[14px]" />
+            </span>
+          )}
+          {showStatusIndicator && (
+            <span className="relative grid h-[22px] w-[22px] place-items-center">
+              {valueNameInconsistent && (
+                <span className="setta-callable-ready-icon">
+                  <i className="gg-corner-right-down" />
+                </span>
+              )}
+              {waitingForResult && (
+                <span className="absolute inset-0 grid place-items-center rounded bg-white dark:bg-setta-950">
+                  <i className="gg-spinner text-blue-500/70" />
+                </span>
+              )}
+            </span>
+          )}
         </div>
       )}
     </search>

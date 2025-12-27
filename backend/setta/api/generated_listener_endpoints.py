@@ -402,6 +402,14 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     value: str
 
 
+class ListenerSetParamIgnoreTypeErrorsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoId: ID
+    ignoreTypeErrors: bool
+
+
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -832,6 +840,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
+
+    async def set_param_ignore_type_errors(
+        self, payload: ListenerSetParamIgnoreTypeErrorsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_param_ignore_type_errors", payload)
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload

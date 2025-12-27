@@ -357,6 +357,14 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
+class SetParamIgnoreTypeErrorsRequest(ProjectManagerRequestWithSectionParam):
+    """Toggle ignoring type errors for a parameter within a section."""
+
+    ignoreTypeErrors: bool = Field(
+        description="Whether to hide type errors for the targeted parameter.",
+    )
+
+
 class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     """Set a parameter's name and value in one step."""
 

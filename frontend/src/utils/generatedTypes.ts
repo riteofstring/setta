@@ -319,6 +319,7 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_PARAM_IGNORE_TYPE_ERRORS: "/setParamIgnoreTypeErrors",
   SET_META_CONTROL_VALUE: "/setMetaControlValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
@@ -2686,15 +2687,14 @@ const WebsocketMsgLLMStreamingResponseSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse),
 });
 
-const SettaGenCodeDiagnosticSchema = z.object({
-  sectionId: IDSchema,
-  paramInfoId: z.union([IDSchema, z.null()]),
-  message: z.string(),
+const SettaSectionTypeErrorsSchema = z.object({
+  callable: z.array(z.string()).default([]),
+  params: z.record(IDSchema, z.array(z.string())).default({}),
 });
 
 const SettaProjectConfigDiagnosticsSchema = z.object({
   projectConfigId: IDSchema,
-  diagnostics: z.array(SettaGenCodeDiagnosticSchema),
+  errors: z.record(IDSchema, SettaSectionTypeErrorsSchema).default({}),
   isGenCode: z.boolean(),
 });
 
@@ -5179,6 +5179,18 @@ const SetParamEnteredValueRequestSchema = z.object({
 
 export type SetParamEnteredValueRequestInput = z.input<
   typeof SetParamEnteredValueRequestSchema
+>;
+
+const SetParamIgnoreTypeErrorsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramInfoId: IDSchema,
+  ignoreTypeErrors: z.boolean(),
+});
+
+export type SetParamIgnoreTypeErrorsRequestInput = z.input<
+  typeof SetParamIgnoreTypeErrorsRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({

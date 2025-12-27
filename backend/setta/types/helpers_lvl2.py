@@ -1436,6 +1436,31 @@ def toggle_param_selected(
     )
 
 
+def set_param_ignore_type_errors(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    paramInfoId: ID,
+    ignoreTypeErrors: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+
+    def update(curr: dict[ID, bool]):
+        next_map = dict(curr)
+        if ignoreTypeErrors:
+            next_map[paramInfoId] = True
+        elif paramInfoId in next_map:
+            del next_map[paramInfoId]
+        return next_map
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(ignoreTypeErrors=update),
+    )
+
+
 def unselect_all_params(p: "ProjectStateSingleConfig"):
     for s in p.sections.keys():
         impl = get_curr_effective_section_impl(p, s)
