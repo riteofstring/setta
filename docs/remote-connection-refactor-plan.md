@@ -4,8 +4,9 @@ This document summarizes the current architecture and the refactoring work neede
 to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 
 ## Current Architecture Notes
-- CLI entry point `setta.start:cli` starts a single FastAPI server that also serves
-  the UI bundle in non-dev mode (`backend/setta/start.py`, `backend/setta/server.py`).
+- CLI entry point `setta.start:cli` starts an agent-only FastAPI server with no
+  static UI serving and no browser launch (`backend/setta/start.py`,
+  `backend/setta/server.py`, `backend/setta/backend_launcher.py`).
 - The backend is monolithic: all HTTP routes, websockets, MCP SSE endpoints, LSP,
   terminals, and project state live under one app instance (`backend/setta/server.py`).
 - No auth layer exists; HTTP routes, websockets, and MCP SSE are open by default
@@ -25,13 +26,12 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 
 ## Refactor Workstreams
 ### 1) Split local UI server vs. remote agent
-- Introduce an explicit "agent" app that serves only API + websockets (no static UI),
-  or add a mode switch to `backend/setta/server.py` to disable UI mounting.
+- DONE: Backend app serves only API + websockets (static UI mounting removed).
 - Add a small local UI server (or proxy) that serves the bundled frontend and provides
   a local config endpoint (base URL + token). This keeps the UI local while talking
   to the remote agent.
-- Update `backend/setta/backend_launcher.py` and `backend/setta/start.py` to support
-  the new modes and to avoid auto-opening browsers for remote agent starts.
+- DONE: `backend/setta/backend_launcher.py` and `backend/setta/start.py` no longer
+  open browsers or check for frontend bundles.
 
 ### 2) Add session + auth plumbing
 - Add a session bootstrap layer that creates `~/.setta/run/<session>/` metadata
@@ -88,4 +88,3 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - Token-gated HTTP, websocket, and MCP SSE routes.
 - Runtime-configurable frontend networking + interpreter selection UX.
 - Session metadata on both local and remote sides.
-

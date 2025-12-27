@@ -11,6 +11,10 @@
 - Replacing SSH with a new transport.
 - Maintaining backward compatibility with the current remote UI workflow.
 
+## Progress (Done)
+- Backend now runs as an agent-only app: no static UI mounting and no HTML serving.
+- Startup paths no longer open a browser or require bundled frontend assets (CLI + background launcher).
+
 ## User Experience
 - `setta connect user@host [--project /path]` starts or reuses a remote session and opens the local UI.
 - `setta disconnect` tears down the tunnel and asks the agent to exit.

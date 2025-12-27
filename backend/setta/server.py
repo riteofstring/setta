@@ -1,24 +1,16 @@
-import asyncio
 import logging
-import time
-import webbrowser
 from contextlib import asynccontextmanager
-from pathlib import Path
-from urllib.error import URLError
-from urllib.request import urlopen
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 import setta.mcp.tools  # noqa: F401
 from setta.logging.context import get_logging_context
 from setta.logging.context_sources import ensure_request_context
 from setta.logging.errors import log_failure
-from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import (
     stop_file_watcher,
     stop_lsps,
@@ -47,8 +39,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
-from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.utils import get_absolute_path
+from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 
@@ -57,37 +48,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     app.state.setta = SettaFastAPIState(app)
 
-    if not IS_DEV_MODE:
-        # Mount the 'frontend/dist' directory at '/static'
-        frontend_folder = Path("static/frontend")
-        dist_path = get_absolute_path(__file__, frontend_folder)
-        app.mount(
-            "/static",
-            StaticFiles(directory=dist_path, html=True),
-            name="static",
-        )
-
-        # {full_path:path} is to catch all paths not explicitly covered here
-        @app.get("/{full_path:path}", response_class=HTMLResponse)
-        async def read_root(_full_path: str):
-            with open(dist_path / "index.html") as f:
-                content = f.read()
-            return content
-
     logger.info("Ready: %s", C.BACKEND)
-    browser_task: asyncio.Task[None] | None = None
-    if C.OPEN_BROWSER_ON_START:
-        C.OPEN_BROWSER_ON_START = False
-        browser_task = spawn_background_task(
-            _open_browser_after_startup(C.BACKEND),
-            label="open-browser",
-            extra_values={"backend_url": C.BACKEND},
-        )
     try:
         yield
     finally:
-        if browser_task is not None:
-            await browser_task
         if app.state.setta.specific_file_watcher:
             app.state.setta.specific_file_watcher.stop()
         if app.state.setta.mcp_client:
@@ -133,26 +97,6 @@ app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
-
-
-async def _open_browser_after_startup(url: str) -> None:
-    await asyncio.to_thread(_wait_for_backend, url)
-    webbrowser.open(url, new=0)
-
-
-def _wait_for_backend(
-    url: str, timeout: float = 5.0, poll_interval: float = 0.05
-) -> None:
-    deadline = time.monotonic() + timeout
-    while True:
-        try:
-            with urlopen(url, timeout=timeout):
-                return
-        except URLError:
-            if time.monotonic() >= deadline:
-                logger.warning("Timed out waiting for %s to become reachable.", url)
-                return
-            time.sleep(poll_interval)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

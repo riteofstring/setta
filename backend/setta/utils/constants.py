@@ -29,7 +29,6 @@ class C:
     DEV_MODE_FRONTEND_PORT = 3000
     SETTINGS_PROJECT_NAME = "settings"
     BACKEND_INIT_DELAY_SECONDS = BACKEND_INIT_DELAY_SECONDS
-    OPEN_BROWSER_ON_START: bool = False
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST

@@ -1,15 +1,12 @@
 import logging
-import os
 import threading
 import time
-import webbrowser
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import uvicorn
 
 from setta.logging.config import configure_logging
-from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.constants import C
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -79,7 +76,6 @@ def start_backend(
     log_level: str | int | None = None,
     wait_for_ready: bool = True,
     ready_timeout: float = _DEFAULT_READY_TIMEOUT_SECONDS,
-    open_browser: bool | str = False,
 ) -> BackendServerHandle:
     """Start the packaged FastAPI backend in a background thread.
 
@@ -93,11 +89,7 @@ def start_backend(
         When True, block until the server reports startup finished.
     ready_timeout:
         Maximum seconds to wait for readiness when wait_for_ready is True.
-    open_browser:
-        When True open the root frontend URL; when a string, open that URL.
     """
-
-    _ensure_frontend_bundle_available()
 
     resolved_host = host or C.DEFAULT_HOST
     resolved_port = port or C.DEFAULT_PORT
@@ -134,38 +126,4 @@ def start_backend(
                 f"Setta backend did not become ready within {ready_timeout} seconds."
             )
 
-    target_url = _resolve_frontend_url(open_browser, resolved_host, resolved_port)
-    if target_url:
-        webbrowser.open(target_url)
-
     return handle
-
-
-def _resolve_frontend_url(
-    open_browser: bool | str,
-    host: str,
-    port: int,
-) -> str | None:
-    if isinstance(open_browser, str):
-        return open_browser
-    if open_browser:
-        return f"http://{host}:{port}"
-    return None
-
-
-def _ensure_frontend_bundle_available() -> None:
-    if IS_DEV_MODE:
-        return
-
-    static_dir = Path(__file__).resolve().parent / "static" / "frontend"
-    if static_dir.exists():
-        return
-    env_hint = os.environ.get("SETTA_DEV_MODE")
-    msg = (
-        "Compiled frontend assets are missing at "
-        f"{static_dir}. Run `./build.sh` to bundle the UI "
-        "or set SETTA_DEV_MODE=true before importing Setta."
-    )
-    if env_hint:
-        msg += f" (SETTA_DEV_MODE={env_hint!r})"
-    raise RuntimeError(msg)

@@ -8,10 +8,8 @@ import uvicorn
 
 from . import __version__
 from .logging.config import configure_logging
-from .utils.constants import IS_DEV_MODE, C
+from .utils.constants import C
 from .websockets.connect import connect as _connect
-
-CLI_OPEN_BROWSER_DEFAULT = not bool(IS_DEV_MODE)
 
 
 @click.command()
@@ -60,13 +58,8 @@ def export_db(readable, readable_with_variants):
     default=None,
     help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
 )
-@click.option(
-    "--open-browser/--no-open-browser",
-    default=CLI_OPEN_BROWSER_DEFAULT,
-    help="Open the default browser to http://<host>:<port> (disabled in dev mode)",
-)
 @click.pass_context
-def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
+def cli(ctx, reload, host: str, port: int, log_level):
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
     if ctx.invoked_subcommand is None:
@@ -74,7 +67,6 @@ def cli(ctx, reload, host: str, port: int, log_level, open_browser: bool):
 
         C.HOST = host
         C.PORT = port
-        C.OPEN_BROWSER_ON_START = open_browser
 
         sys.path.append(str(Path(__file__).resolve().parent))
 
