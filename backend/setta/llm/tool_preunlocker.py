@@ -81,24 +81,25 @@ class ToolPreunlocker:
     ) -> dict[str, int]:
         scores: dict[str, int] = {}
         for name, definition in available.items():
-            annotations = annotations_by_name.get(name)
-            if not annotations:
-                continue
             function_payload = definition.get("function")
             description = ""
             if isinstance(function_payload, dict):
                 raw_description = function_payload.get("description")
                 if isinstance(raw_description, str):
                     description = raw_description
+            annotations = annotations_by_name.get(name)
             score = 0
             if message_tokens:
+                server_id, tool_basename = self._split_server_prefix(name)
+                tags = annotations.searchTags if annotations else []
                 score += self._score_tool_relevance(
-                    self._strip_server_prefix(name),
+                    tool_basename,
                     description,
-                    annotations.searchTags,
+                    tags,
                     message_tokens,
+                    server_id=server_id,
                 )
-            category = annotations.searchCategory
+            category = annotations.searchCategory if annotations else None
             if category and category in category_weights:
                 score += category_weights[category]
             if score <= 0:
@@ -112,15 +113,21 @@ class ToolPreunlocker:
         description: str,
         tags: list[str],
         message_tokens: set[str],
+        *,
+        server_id: str | None,
     ) -> int:
         name_tokens = set(self._tokenize_text(tool_name))
         description_tokens = set(self._tokenize_text(description))
         tag_tokens = {tag.lower() for tag in tags if isinstance(tag, str)}
-        return (
+        score = (
             3 * len(message_tokens.intersection(name_tokens))
             + 2 * len(message_tokens.intersection(tag_tokens))
             + len(message_tokens.intersection(description_tokens))
         )
+        if server_id:
+            server_tokens = set(self._tokenize_text(server_id))
+            score += 3 * len(message_tokens.intersection(server_tokens))
+        return score
 
     def _extract_latest_user_text(self, chat: "Chat") -> str:
         for message in reversed(chat.messages):
@@ -151,7 +158,8 @@ class ToolPreunlocker:
         return str(section_type)
 
     @staticmethod
-    def _strip_server_prefix(tool_name: str) -> str:
+    def _split_server_prefix(tool_name: str) -> tuple[str | None, str]:
         if "__" in tool_name:
-            return tool_name.split("__", 1)[1]
-        return tool_name
+            server_id, tool_basename = tool_name.split("__", 1)
+            return server_id, tool_basename
+        return None, tool_name

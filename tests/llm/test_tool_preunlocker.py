@@ -43,7 +43,7 @@ def _build_summary(section_type: SectionType) -> ProjectStateSummary:
 
 def _register_tool(
     available_tools: dict[str, dict[str, dict]],
-    annotations_by_name: dict[str, SettaToolAnnotations],
+    annotations_by_name: dict[str, SettaToolAnnotations | None],
     *,
     name: str,
     description: str,
@@ -66,10 +66,27 @@ def _register_tool(
     )
 
 
+def _register_tool_without_annotations(
+    available_tools: dict[str, dict[str, dict]],
+    *,
+    name: str,
+    description: str,
+) -> None:
+    definition = {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": {},
+        },
+    }
+    available_tools[name] = definition
+
+
 class ToolPreunlockerTests(unittest.TestCase):
     def test_selects_tool_based_on_message_tokens(self) -> None:
         available_tools: dict[str, dict[str, dict]] = {}
-        annotations_by_name: dict[str, SettaToolAnnotations] = {}
+        annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         _register_tool(
             available_tools,
             annotations_by_name,
@@ -103,7 +120,7 @@ class ToolPreunlockerTests(unittest.TestCase):
 
     def test_selects_tool_from_section_category_when_message_empty(self) -> None:
         available_tools: dict[str, dict[str, dict]] = {}
-        annotations_by_name: dict[str, SettaToolAnnotations] = {}
+        annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         _register_tool(
             available_tools,
             annotations_by_name,
@@ -134,6 +151,36 @@ class ToolPreunlockerTests(unittest.TestCase):
 
         self.assertIn("setta__list_terminals", selected)
         self.assertNotIn("setta__list_projects", selected)
+
+    def test_selects_tool_with_server_id_even_without_annotations(self) -> None:
+        available_tools: dict[str, dict[str, dict]] = {}
+        annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
+        _register_tool_without_annotations(
+            available_tools,
+            name="context7__get-library-docs",
+            description="Fetch docs for a library.",
+        )
+        _register_tool(
+            available_tools,
+            annotations_by_name,
+            name="setta__read_file_range",
+            description="Read file contents",
+            tags=["read", "file"],
+            category="files",
+        )
+
+        preunlocker = ToolPreunlocker()
+        summary = _build_summary(SectionType.Code)
+        chat = _build_chat("Use context7 to read docs")
+
+        selected = preunlocker.select_tools(
+            chat,
+            summary,
+            available_tools=available_tools,
+            annotations_by_name=annotations_by_name,
+        )
+
+        self.assertIn("context7__get-library-docs", selected)
 
 
 if __name__ == "__main__":
