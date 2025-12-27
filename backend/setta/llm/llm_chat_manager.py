@@ -24,20 +24,15 @@ from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.local_tool_search import (
-    build_local_tool_search_index,
-    search_local_tool_index,
-)
 from setta.mcp.namespacing import (
     SETTA_MCP_SERVER_ID,
-    build_local_tool_name,
+    build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
     FollowIdType,
-    SettaToolAnnotations,
     ToolArgumentPreviewIdType,
     ToolArgumentPreviewMetadata,
 )
@@ -199,11 +194,8 @@ class LLMChatManager:
         self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._chat_tool_states: dict[str, ChatToolState] = {}
         self._ai_follow_state: dict[ID, AIFollowState] = {}
-        self._local_search_tool_name = build_local_tool_name(
-            C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
-        )
-        self._local_search_tool_definition = self._build_local_search_tool_definition(
-            self._local_search_tool_name
+        self._search_tool_name = build_namespaced_tool_name(
+            SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
@@ -571,9 +563,6 @@ class LLMChatManager:
         if not state.init_tools:
             init_tools = self.mcp_client.init_tool_definitions_for_servers(
                 set(server_ids)
-            )
-            init_tools[self._local_search_tool_name] = (
-                self._local_search_tool_definition
             )
             state.init_tools = init_tools
         return state.build_payload()
@@ -1675,35 +1664,51 @@ class LLMChatManager:
         arguments = dict(tool_call.function.arguments or {})
         server_ids = self._resolve_mcp_server_ids(chat.llmConfig)
         available_tools = {}
-        annotations_by_name = {}
         if server_ids:
             available_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
                 set(server_ids)
             )
-            annotations_by_name = self.mcp_client.tool_annotations_for_servers(
-                set(server_ids)
-            )
+        if tool_name == self._search_tool_name:
+            if not server_ids:
+                raise ValueError("Search tool requires configured MCP server IDs.")
+            provided_server_ids = arguments.get("serverIds")
+            if provided_server_ids is not None:
+                if not isinstance(provided_server_ids, list):
+                    raise ValueError("serverIds must be a list of strings.")
+                normalized_server_ids: list[str] = []
+                for entry in provided_server_ids:
+                    if not isinstance(entry, str):
+                        raise ValueError("serverIds must be a list of strings.")
+                    normalized = entry.strip()
+                    if not normalized:
+                        raise ValueError("serverIds must be non-empty strings.")
+                    normalized_server_ids.append(normalized)
+                unknown = [
+                    entry
+                    for entry in normalized_server_ids
+                    if entry not in server_ids
+                ]
+                if unknown:
+                    raise ValueError(
+                        f"serverIds contain unknown MCP servers: {unknown}"
+                    )
+                arguments["serverIds"] = normalized_server_ids
+            else:
+                arguments["serverIds"] = list(server_ids)
         started_at = get_now_timestamp()
-        if tool_name == self._local_search_tool_name:
-            call_result = self._run_local_search_tool(
-                arguments,
-                available_tools,
-                annotations_by_name,
+        try:
+            call_result = await self.mcp_client.call_tool(tool_name, arguments)
+        except Exception:
+            logger.exception(
+                "MCP tool invocation failed for chat %s (tool=%s)",
+                chat_id,
+                tool_name,
             )
-        else:
-            try:
-                call_result = await self.mcp_client.call_tool(tool_name, arguments)
-            except Exception:
-                logger.exception(
-                    "MCP tool invocation failed for chat %s (tool=%s)",
-                    chat_id,
-                    tool_name,
-                )
-                raise
+            raise
         completed_at = get_now_timestamp()
 
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
-        if tool_name == self._local_search_tool_name and not call_result.isError:
+        if tool_name == self._search_tool_name and not call_result.isError:
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
                 tool_name,
@@ -1748,66 +1753,6 @@ class LLMChatManager:
             canonical_to_temporary,
         )
         return json.loads(json.dumps(converted))
-
-    @staticmethod
-    def _build_local_search_tool_definition(
-        tool_name: str,
-    ) -> ChatCompletionToolParam:
-        function_payload = {
-            "name": tool_name,
-            "description": (
-                "Search available MCP tools by natural language and unlock the best matches."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "The capability you are looking for.",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of tools to return.",
-                        "default": 2,
-                    },
-                },
-                "required": ["query"],
-            },
-        }
-        return {"type": "function", "function": function_payload}
-
-    def _run_local_search_tool(
-        self,
-        arguments: dict[str, Any],
-        available_tools: dict[str, ChatCompletionToolParam],
-        annotations_by_name: dict[str, SettaToolAnnotations | None],
-    ) -> CallToolResult:
-        query_value = arguments.get("query")
-        if not isinstance(query_value, str):
-            raise ValueError("query must be a string")
-        normalized_query = query_value.strip()
-        if normalized_query == "":
-            raise ValueError("query must not be empty")
-
-        limit_value = arguments.get("limit", 2)
-        if limit_value is None:
-            limit = 2
-        elif isinstance(limit_value, int):
-            limit = limit_value
-        else:
-            raise ValueError("limit must be an integer")
-
-        index = build_local_tool_search_index(available_tools, annotations_by_name)
-        if index is None:
-            results: list[dict[str, str | None]] = []
-        else:
-            results = search_local_tool_index(index, normalized_query, limit)
-
-        payload = json.dumps(results)
-        return CallToolResult(
-            content=[TextContent(type="text", text=payload)],
-            isError=False,
-        )
 
     def _build_search_tool_chat_message(
         self,
@@ -1864,36 +1809,27 @@ class LLMChatManager:
     def _parse_search_tool_results(
         self, call_result: CallToolResult
     ) -> list[dict[str, str | None]]:
-        entry = call_result.content[0] if call_result.content else None
-        if not isinstance(entry, TextContent):
-            return []
+        payload = call_result.structuredContent
+        if not isinstance(payload, dict):
+            raise ValueError("Search tool must return structured content.")
 
-        text = (entry.text or "").strip()
-        if not text:
-            return []
-
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError:
-            logger.debug("Failed to parse search tool payload", exc_info=True)
-            return []
-
-        if not isinstance(payload, list):
-            return []
+        results_payload = payload.get("results")
+        if not isinstance(results_payload, list):
+            raise ValueError("Search tool structured content must include results.")
 
         results: list[dict[str, str | None]] = []
-        for item in payload:
+        for item in results_payload:
             if not isinstance(item, dict):
-                continue
+                raise ValueError("Search tool results must be objects.")
             name = item.get("name")
             if not isinstance(name, str) or not name.strip():
-                continue
+                raise ValueError("Search tool result name must be a non-empty string.")
             description = item.get("description")
             if not isinstance(description, str):
-                description = ""
+                raise ValueError("Search tool result description must be a string.")
             category = item.get("category")
-            if not isinstance(category, str) or not category.strip():
-                category = None
+            if category is not None and not isinstance(category, str):
+                raise ValueError("Search tool result category must be a string.")
             results.append(
                 {
                     "name": name,

@@ -4,90 +4,103 @@ from typing import TYPE_CHECKING, Any
 import bm25s
 from mcp.types import ToolAnnotations
 
-from setta.mcp.tool_metadata import SettaToolAnnotations
-
 if TYPE_CHECKING:
     from litellm.types.llms.openai import ChatCompletionToolParam
+    from mcp.types import Tool
 
 
-@dataclass
-class LocalToolSearchEntry:
+@dataclass(frozen=True)
+class ToolSearchEntry:
+    name: str
+    description: str
+    parameters: dict[str, Any]
+    annotations: ToolAnnotations | None
+
+
+@dataclass(frozen=True)
+class ToolSearchResult:
     name: str
     description: str
     category: str | None
 
 
 @dataclass
-class LocalToolSearchIndex:
+class ToolSearchIndex:
     retriever: bm25s.BM25
-    tools: list[LocalToolSearchEntry]
+    entries: list[ToolSearchEntry]
+
+    @classmethod
+    def build(cls, entries: list[ToolSearchEntry]) -> "ToolSearchIndex | None":
+        if not entries:
+            return None
+        documents = [_build_tool_document_text(entry) for entry in entries]
+        retriever = bm25s.BM25()
+        corpus_tokens = bm25s.tokenize(documents, stopwords="en")
+        retriever.index(corpus_tokens)
+        return cls(retriever=retriever, entries=entries)
+
+    def search(self, query: str, limit: int) -> list[ToolSearchResult]:
+        normalized_query = query.strip()
+        if normalized_query == "":
+            raise ValueError("query must not be empty")
+
+        query_tokens = bm25s.tokenize([normalized_query], stopwords="en")
+        if not query_tokens or not any(query_tokens[0]):
+            raise ValueError("query must include at least one searchable token")
+
+        normalized_limit = limit if limit > 0 else 5
+        max_results = min(normalized_limit, len(self.entries))
+        doc_ids, scores = self.retriever.retrieve(query_tokens, k=max_results)
+        results: list[ToolSearchResult] = []
+        for doc_index, _ in zip(doc_ids[0], scores[0]):
+            if doc_index < 0 or doc_index >= len(self.entries):
+                continue
+            entry = self.entries[doc_index]
+            results.append(
+                ToolSearchResult(
+                    name=entry.name,
+                    description=entry.description,
+                    category=_extract_tool_category(entry.annotations),
+                )
+            )
+        return results
 
 
-def build_local_tool_search_index(
+def build_tool_search_entries_from_llm_definitions(
     definitions: dict[str, "ChatCompletionToolParam"],
-    annotations_by_name: dict[str, SettaToolAnnotations | None],
-) -> LocalToolSearchIndex | None:
-    if not definitions:
-        return None
-    tools: list[LocalToolSearchEntry] = []
-    documents: list[str] = []
+    annotations_by_name: dict[str, ToolAnnotations | None],
+) -> list[ToolSearchEntry]:
+    entries: list[ToolSearchEntry] = []
     for name, definition in definitions.items():
-        description = _extract_tool_description(definition)
-        annotations = annotations_by_name.get(name)
-        category = _extract_tool_category(annotations)
-        parameters = _extract_tool_parameters(definition)
-        document_text = _build_tool_document_text(
-            tool_name=name,
-            description=description,
-            parameters=parameters,
-            annotations=annotations,
-        )
-        tools.append(
-            LocalToolSearchEntry(
+        annotations = annotations_by_name[name] if name in annotations_by_name else None
+        entries.append(
+            ToolSearchEntry(
                 name=name,
-                description=description,
-                category=category,
+                description=_extract_llm_tool_description(definition),
+                parameters=_extract_llm_tool_parameters(definition),
+                annotations=annotations,
             )
         )
-        documents.append(document_text)
-    retriever = bm25s.BM25()
-    corpus_tokens = bm25s.tokenize(documents, stopwords="en")
-    retriever.index(corpus_tokens)
-    return LocalToolSearchIndex(retriever=retriever, tools=tools)
+    return entries
 
 
-def search_local_tool_index(
-    index: LocalToolSearchIndex,
-    query: str,
-    limit: int,
-) -> list[dict[str, str | None]]:
-    normalized_query = query.strip()
-    if normalized_query == "":
-        raise ValueError("query must not be empty")
-
-    query_tokens = bm25s.tokenize([normalized_query], stopwords="en")
-    if not query_tokens or not any(query_tokens[0]):
-        raise ValueError("query must include at least one searchable token")
-
-    normalized_limit = limit if limit > 0 else 5
-    max_results = min(normalized_limit, len(index.tools))
-    doc_ids, scores = index.retriever.retrieve(query_tokens, k=max_results)
-    ranked_results: list[dict[str, str | None]] = []
-    for doc_index, _ in zip(doc_ids[0], scores[0]):
-        if doc_index < 0 or doc_index >= len(index.tools):
-            continue
-        tool = index.tools[doc_index]
-        ranked_results.append(
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "category": tool.category,
-            }
+def build_tool_search_entries_from_mcp_tools(
+    tools: list["Tool"],
+) -> list[ToolSearchEntry]:
+    entries: list[ToolSearchEntry] = []
+    for tool in tools:
+        entries.append(
+            ToolSearchEntry(
+                name=tool.name,
+                description=tool.description or "",
+                parameters=tool.parameters or {},
+                annotations=tool.annotations,
+            )
         )
-    return ranked_results
+    return entries
 
 
-def _extract_tool_description(definition: "ChatCompletionToolParam") -> str:
+def _extract_llm_tool_description(definition: "ChatCompletionToolParam") -> str:
     function_payload = definition.get("function")
     if isinstance(function_payload, dict):
         description = function_payload.get("description")
@@ -96,7 +109,9 @@ def _extract_tool_description(definition: "ChatCompletionToolParam") -> str:
     return ""
 
 
-def _extract_tool_parameters(definition: "ChatCompletionToolParam") -> dict[str, Any]:
+def _extract_llm_tool_parameters(
+    definition: "ChatCompletionToolParam",
+) -> dict[str, Any]:
     function_payload = definition.get("function")
     if isinstance(function_payload, dict):
         parameters = function_payload.get("parameters")
@@ -105,30 +120,26 @@ def _extract_tool_parameters(definition: "ChatCompletionToolParam") -> dict[str,
     return {}
 
 
-def _extract_tool_category(annotations: SettaToolAnnotations | None) -> str | None:
+def _extract_tool_category(annotations: ToolAnnotations | None) -> str | None:
     if annotations is None:
         return None
-    category = annotations.searchCategory
+    payload = annotations.model_dump()
+    category = payload.get("searchCategory")
     if isinstance(category, str) and category.strip():
         return category
     return None
 
 
-def _build_tool_document_text(
-    tool_name: str,
-    description: str,
-    parameters: dict[str, Any],
-    annotations: ToolAnnotations | None,
-) -> str:
-    parameter_text = _build_parameter_text(parameters)
-    parts = [tool_name]
-    if "_" in tool_name:
-        parts.append(tool_name.replace("_", " "))
+def _build_tool_document_text(entry: ToolSearchEntry) -> str:
+    parameter_text = _build_parameter_text(entry.parameters)
+    parts = [entry.name]
+    if "_" in entry.name:
+        parts.append(entry.name.replace("_", " "))
     parts.extend(
         [
-            description,
+            entry.description,
             parameter_text,
-            _build_tool_search_metadata_text(annotations),
+            _build_tool_search_metadata_text(entry.annotations),
         ]
     )
     return " ".join(part for part in parts if part)

@@ -25,7 +25,7 @@ from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
 from setta.logging.config import configure_logging
-from setta.mcp.namespacing import LOCAL_SEARCH_TOOL_NAME, build_namespaced_tool_name
+from setta.mcp.namespacing import build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
 from setta.utils.constants import C
@@ -293,8 +293,6 @@ class MultiMCPClient:
         annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         routing: dict[str, tuple[str, str]] = {}
         for tool in tools:
-            if tool.name == LOCAL_SEARCH_TOOL_NAME:
-                continue
             annotations: SettaToolAnnotations | None = None
             tool_type = SettaToolType.discoverable
             if tool.annotations is not None:

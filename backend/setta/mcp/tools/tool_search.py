@@ -1,11 +1,11 @@
-import bm25s
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
+from setta.mcp.tool_search_index import (
+    ToolSearchIndex,
+    build_tool_search_entries_from_llm_definitions,
+)
 from setta.mcp.tool_setup import setta_init_tool
-from setta.utils.constants import C
-
-SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
 
 
 class MCPToolNameList(BaseModel):
@@ -36,6 +36,7 @@ def search_and_unlock_mcp_tools(
     *,
     query: str,
     limit: int = 2,
+    serverIds: list[str] | None = None,
     ctx: Context,
 ) -> MCPToolSearchResults:
     """Return the MCP tools that best match a natural-language query.
@@ -48,6 +49,7 @@ def search_and_unlock_mcp_tools(
             is rejected after trimming whitespace.
         limit: Maximum number of matching tools to return; values <= 0
             revert to the default size.
+        serverIds: MCP server IDs to scope search results.
     Returns:
         MCPToolSearchResults: Entries with the tool name, description, and category.
     """
@@ -56,41 +58,52 @@ def search_and_unlock_mcp_tools(
     if normalized_query == "":
         raise ValueError("query must not be empty")
 
-    index = ctx.fastmcp.tool_search_index
+    mcp_client = ctx.fastmcp.state.mcp_client
+    if not mcp_client:
+        return MCPToolSearchResults(results=[])
+
+    filtered_server_ids = _normalize_server_ids(serverIds)
+    if filtered_server_ids:
+        server_id_set = set(filtered_server_ids)
+        definitions = mcp_client.discoverable_tool_definitions_for_servers(
+            server_id_set
+        )
+        annotations_by_name = mcp_client.tool_annotations_for_servers(server_id_set)
+    else:
+        definitions = mcp_client.discoverable_tool_definitions
+        annotations_by_name = mcp_client.tool_annotations_by_name
+
+    entries = build_tool_search_entries_from_llm_definitions(
+        definitions, annotations_by_name
+    )
+    index = ToolSearchIndex.build(entries)
     if index is None:
         return MCPToolSearchResults(results=[])
 
-    tools = index.tools
-    normalized_limit = limit if limit > 0 else 5
-    retriever = index.retriever
-    query_tokens = bm25s.tokenize([normalized_query], stopwords="en")
-    if not query_tokens or not any(query_tokens[0]):
-        raise ValueError("query must include at least one searchable token")
-
-    max_results = min(normalized_limit, len(tools))
-    doc_ids, scores = retriever.retrieve(query_tokens, k=max_results)
     ranked_results: list[MCPToolSearchResult] = []
-    for doc_index, _ in zip(doc_ids[0], scores[0]):
-        if doc_index < 0 or doc_index >= len(tools):
-            continue
-        tool = tools[doc_index]
+    for result in index.search(normalized_query, limit):
         ranked_results.append(
             MCPToolSearchResult(
-                name=tool.name,
-                description=tool.description or "",
-                category=_get_tool_search_category(tool),
+                name=result.name,
+                description=result.description,
+                category=result.category,
             )
         )
 
     return MCPToolSearchResults(results=ranked_results)
 
 
-def _get_tool_search_category(tool) -> str | None:
-    annotations = tool.annotations
-    if annotations is None:
-        return None
-    payload = annotations.model_dump()
-    category = payload.get("searchCategory")
-    if isinstance(category, str) and category.strip():
-        return category
-    return None
+def _normalize_server_ids(server_ids: list[str] | None) -> list[str]:
+    if server_ids is None:
+        raise ValueError("serverIds must be provided.")
+    if not server_ids:
+        raise ValueError("serverIds must not be empty.")
+    filtered: list[str] = []
+    for server_id in server_ids:
+        if not isinstance(server_id, str):
+            raise ValueError("serverIds must be strings.")
+        normalized = server_id.strip()
+        if not normalized:
+            raise ValueError("serverIds must be non-empty strings.")
+        filtered.append(normalized)
+    return filtered
