@@ -133,15 +133,15 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
             ctx=self.ctx,
         )
 
-        self.assertEqual(len(results.root), 1)
-        self.assertEqual(results.root[0].name, "read_file_range")
+        self.assertEqual(len(results.results), 1)
+        self.assertEqual(results.results[0].name, "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_and_unlock_mcp_tools(
             query="search project", limit=0, ctx=self.ctx
         )
 
-        self.assertEqual(len(results.root), len(self.tool_specs))
+        self.assertEqual(len(results.results), len(self.tool_specs))
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
@@ -153,7 +153,7 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
 
         results = search_and_unlock_mcp_tools(query="read", ctx=empty_ctx)
 
-        self.assertEqual(results.root, [])
+        self.assertEqual(results.results, [])
 
 
 class ListMCPToolsTest(unittest.TestCase):
@@ -177,7 +177,7 @@ class ListMCPToolsTest(unittest.TestCase):
         self.ctx = Context(fastmcp=self.setta_state.mcp_server)
 
     def test_returns_sorted_registered_tool_names(self) -> None:
-        results = list_mcp_tools(ctx=self.ctx).root
+        results = list_mcp_tools(ctx=self.ctx).tools
 
         self.assertEqual(results, sorted(self.tool_names))
 
@@ -185,7 +185,7 @@ class ListMCPToolsTest(unittest.TestCase):
         empty_state = StubSettaState(index=None, tools=[])
         empty_ctx = Context(fastmcp=empty_state.mcp_server)
 
-        self.assertEqual(list_mcp_tools(ctx=empty_ctx).root, [])
+        self.assertEqual(list_mcp_tools(ctx=empty_ctx).tools, [])
 
 
 class BuildParameterTextTest(unittest.TestCase):

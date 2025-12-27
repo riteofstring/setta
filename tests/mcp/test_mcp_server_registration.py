@@ -135,7 +135,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 limit=2,
                 ctx=ctx,
             )
-            search_result_names = [result.name for result in search_results.root]
+            search_result_names = [result.name for result in search_results.results]
             print("Search results:", search_result_names)
             self.assertIn("set_section_sizes", search_result_names)
             self.assertNotIn(
@@ -155,7 +155,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 },
                 context=ctx,
             )
-            parsed_results = results_via_tool_run.root
+            parsed_results = results_via_tool_run.results
             parsed_result_names = [result.name for result in parsed_results]
             print("Search results via tool run:", parsed_result_names)
             self.assertIn("set_section_sizes", parsed_result_names)
@@ -191,7 +191,7 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                     limit=limit,
                     ctx=ctx,
                 )
-                result_names = [result.name for result in results.root]
+                result_names = [result.name for result in results.results]
                 self.assertIn(
                     "create_top_level_section",
                     result_names,

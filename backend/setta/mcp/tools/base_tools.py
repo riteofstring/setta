@@ -1,6 +1,6 @@
 import importlib.metadata
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
 
 from mcp.server.fastmcp.server import Context
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
@@ -12,12 +12,12 @@ class ProjectConfigNamesAndIdsEntry(BaseModel):
     id: ID
 
 
-class ProjectConfigNamesAndIdsList(RootModel[list[ProjectConfigNamesAndIdsEntry]]):
-    pass
+class ProjectConfigNamesAndIdsList(BaseModel):
+    projectConfigs: list[ProjectConfigNamesAndIdsEntry]
 
 
-class InstalledPythonPackageList(RootModel[list[str]]):
-    pass
+class InstalledPythonPackageList(BaseModel):
+    packages: list[str]
 
 
 @setta_tool
@@ -31,7 +31,7 @@ def getInstalledPythonPackages():
         version = distribution.version
         packages.append(f"{name}={version}")
     packages.sort(key=lambda entry: entry.lower())
-    return InstalledPythonPackageList(root=packages)
+    return InstalledPythonPackageList(packages=packages)
 
 
 @setta_tool
@@ -51,4 +51,4 @@ def getProjectConfigNamesAndIds(ctx: Context):
     """
     _, metadata = ctx.fastmcp.state.project_manager_switcher.main.get_all_project_metadata()
     entries = [ProjectConfigNamesAndIdsEntry(name=m.name, id=m.id) for m in metadata]
-    return ProjectConfigNamesAndIdsList(root=entries)
+    return ProjectConfigNamesAndIdsList(projectConfigs=entries)

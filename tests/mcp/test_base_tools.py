@@ -35,7 +35,10 @@ class GetProjectConfigNamesAndIdsTests(unittest.IsolatedAsyncioTestCase):
                 expected = [
                     {"id": str(entry.id), "name": entry.name} for entry in metadata
                 ]
-                self.assertEqual(response.model_dump(), expected)
+                self.assertEqual(
+                    response.model_dump().get("projectConfigs"),
+                    expected,
+                )
         except RuntimeError as exc:
             self.skipTest(str(exc))
 
@@ -43,7 +46,7 @@ class GetProjectConfigNamesAndIdsTests(unittest.IsolatedAsyncioTestCase):
 class GetInstalledPythonPackagesTests(unittest.TestCase):
     def test_returns_sorted_package_strings(self) -> None:
         response = getInstalledPythonPackages()
-        packages = response.root
+        packages = response.packages
         self.assertIsInstance(packages, list)
         self.assertGreater(len(packages), 0)
 
