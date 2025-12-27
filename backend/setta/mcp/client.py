@@ -5,7 +5,7 @@ import os
 import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Sequence
+from typing import Sequence
 
 import mcp.types as types
 from anyio.streams.memory import (
@@ -25,34 +25,23 @@ from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
 from setta.logging.config import configure_logging
-from setta.logging.errors import log_failure
 from setta.mcp.namespacing import build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
-from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.utils.constants import C
-
-if TYPE_CHECKING:  # pragma: no cover
-    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
 _ENV_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
-class MissingMCPEnvVarError(ValueError):
-    def __init__(self, var_name: str) -> None:
-        super().__init__(
-            f"MCP config references missing environment variable '{var_name}'"
-        )
-        self.var_name = var_name
-
-
 def _resolve_env_placeholders(value: str) -> str:
     def replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
         if var_name not in os.environ:
-            raise MissingMCPEnvVarError(var_name)
+            raise ValueError(
+                f"MCP config references missing environment variable '{var_name}'"
+            )
         return os.environ[var_name]
 
     if "${" not in value:
@@ -114,13 +103,8 @@ class _ServerToolCache:
 class MultiMCPClient:
     """Unified interface for multi-server MCP access."""
 
-    def __init__(
-        self,
-        server_configs: dict[str, MCPServerConfig],
-        frontend_sender: "WMHFrontendSender | None" = None,
-    ):
+    def __init__(self, server_configs: dict[str, MCPServerConfig]):
         self.server_configs = dict(server_configs)
-        self.frontend_sender = frontend_sender
         self._sessions: dict[str, ClientSession] = {}
         self._exit_stacks: dict[str, AsyncExitStack] = {}
         self._connection_tasks: dict[str, asyncio.Task[None]] = {}
@@ -213,41 +197,6 @@ class MultiMCPClient:
             return False
         return route[0] in server_ids
 
-    async def _report_connection_failure(
-        self,
-        server_id: str,
-        config: MCPServerConfig,
-        exc: BaseException,
-        *,
-        label: str,
-        message: str,
-        handled: bool,
-    ) -> None:
-        context = {
-            "mcp_server_id": server_id,
-            "mcp_transport": config.transport,
-        }
-        if isinstance(exc, MissingMCPEnvVarError):
-            context["missing_env_var"] = exc.var_name
-        if self.frontend_sender:
-            await self.frontend_sender.log_failure_and_broadcast_backend_log_event(
-                exc,
-                label=label,
-                message=message,
-                severity=SettaBackendLogEventSeverity.error,
-                handled=handled,
-                logger=logger,
-                context=context,
-            )
-            return
-        log_failure(
-            exc,
-            label=label,
-            logger=logger,
-            handled=handled,
-            context=context,
-        )
-
     async def _connect_server_loop(
         self,
         server_id: str,
@@ -265,19 +214,6 @@ class MultiMCPClient:
                     "Connection to %s timed out; retrying in %s seconds",
                     server_id,
                     retry_delay,
-                )
-            except MissingMCPEnvVarError as exc:
-                message = (
-                    f"MCP server '{server_id}' is missing required environment variable "
-                    f"'{exc.var_name}'. Add it to .env to enable this server."
-                )
-                await self._report_connection_failure(
-                    server_id,
-                    config,
-                    exc,
-                    label="mcp-client-missing-env",
-                    message=message,
-                    handled=True,
                 )
             except Exception:
                 logger.exception(
