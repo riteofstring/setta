@@ -35,8 +35,12 @@ class ToolSearchIndex:
             return None
         documents = [_build_tool_document_text(entry) for entry in entries]
         retriever = bm25s.BM25()
-        corpus_tokens = bm25s.tokenize(documents, stopwords="en")
-        retriever.index(corpus_tokens)
+        corpus_tokens = bm25s.tokenize(
+            documents,
+            stopwords="en",
+            show_progress=False,
+        )
+        retriever.index(corpus_tokens, show_progress=False)
         return cls(retriever=retriever, entries=entries)
 
     def search(self, query: str, limit: int) -> list[ToolSearchResult]:
@@ -44,13 +48,21 @@ class ToolSearchIndex:
         if normalized_query == "":
             raise ValueError("query must not be empty")
 
-        query_tokens = bm25s.tokenize([normalized_query], stopwords="en")
+        query_tokens = bm25s.tokenize(
+            [normalized_query],
+            stopwords="en",
+            show_progress=False,
+        )
         if not query_tokens or not any(query_tokens[0]):
             raise ValueError("query must include at least one searchable token")
 
         normalized_limit = limit if limit > 0 else 5
         max_results = min(normalized_limit, len(self.entries))
-        doc_ids, scores = self.retriever.retrieve(query_tokens, k=max_results)
+        doc_ids, scores = self.retriever.retrieve(
+            query_tokens,
+            k=max_results,
+            show_progress=False,
+        )
         results: list[ToolSearchResult] = []
         for doc_index, _ in zip(doc_ids[0], scores[0]):
             if doc_index < 0 or doc_index >= len(self.entries):

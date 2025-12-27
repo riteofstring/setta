@@ -164,7 +164,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             registered_tool_names = sorted(
                 tool.name for tool in mcp_server.list_registered_tools()
             )
-            print("Registered MCP tools:", registered_tool_names)
 
             self.assertGreater(len(registered_tool_names), 0)
             self.assertIn("read_file_range", registered_tool_names)
@@ -176,7 +175,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 ctx=ctx,
             )
             search_result_names = [result.name for result in search_results.results]
-            print("Search results:", search_result_names)
             self.assertIn(
                 build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
                 search_result_names,
@@ -203,7 +201,6 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             )
             parsed_results = results_via_tool_run.results
             parsed_result_names = [result.name for result in parsed_results]
-            print("Search results via tool run:", parsed_result_names)
             self.assertIn(
                 build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
                 parsed_result_names,

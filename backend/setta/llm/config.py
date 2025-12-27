@@ -13,7 +13,6 @@ from setta.utils.generate_memorable_string import generate_memorable_available_s
 
 def load_llm_config(dbe: DBE) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
-    print("\n\n\n\nraw", raw)
     if constants.IS_DEV_MODE and (
         not raw or raw == {"configs": {}, "default_config_id": None}
     ):

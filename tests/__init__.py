@@ -1,4 +1,5 @@
 import logging
+import os
 
 
 class _IgnoreAsyncioSlowCallback(logging.Filter):
@@ -8,4 +9,37 @@ class _IgnoreAsyncioSlowCallback(logging.Filter):
         return "Executing <Task" not in record.getMessage()
 
 
+_TEST_LOG_LEVEL_ENV = "SETTA_TEST_LOG_LEVEL"
+_DEFAULT_TEST_LOG_LEVEL = "CRITICAL"
+_test_log_level_name = os.environ.get(
+    _TEST_LOG_LEVEL_ENV, _DEFAULT_TEST_LOG_LEVEL
+).upper()
+_test_log_level = logging.getLevelName(_test_log_level_name)
+if not isinstance(_test_log_level, int):
+    _test_log_level = logging.ERROR
+
+os.environ.setdefault("SETTA_LOG_LEVEL", _test_log_level_name)
+os.environ.setdefault("SETTA_LISTENER_LOG_LEVEL", _test_log_level_name)
+os.environ.setdefault("SETTA_UI_LOG_LEVEL", "ERROR")
+_suppress_output = _test_log_level >= logging.ERROR
+
+
+def _silence_logger(name: str) -> None:
+    logger = logging.getLogger(name)
+    logger.setLevel(_test_log_level)
+    if _suppress_output:
+        logger.propagate = False
+        if not logger.handlers:
+            logger.addHandler(logging.NullHandler())
+
+
+_silence_logger("bm25s")
+_silence_logger("setta")
+_silence_logger("tests.logging.errors")
+
+logging.getLogger().setLevel(_test_log_level)
 logging.getLogger("asyncio").addFilter(_IgnoreAsyncioSlowCallback())
+logging.getLogger("asyncio").setLevel(_test_log_level)
+
+if _suppress_output and logging.lastResort is not None:
+    logging.lastResort.setLevel(_test_log_level)
