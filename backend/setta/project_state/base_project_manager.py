@@ -75,7 +75,6 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
-    CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -169,7 +168,6 @@ from setta.types.helpers_lvl2 import (
     auto_layout_top_level_sections,
     change_param_impl,
     collect_ignore_type_errors_by_section,
-    compute_smart_top_level_section_position,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_new_section_variant,
@@ -998,7 +996,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_result=AIFollowToolResultMetadata(
             pathsByIdType={
-                "section": ["sectionId"],
+                "section": ["$"],
             },
         )
     )
@@ -1006,53 +1004,20 @@ class BaseProjectManager(ABC):
         """Create a root-level section for the requested implementation.
 
         Returns:
-            CreateTopLevelSectionResponse: Identifier and optional viewport pan hint.
+            ID: Identifier for the newly created top-level section so follow-up edits can target it.
         """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        if x.topLevelSections is not None:
-            for section_id, layout in x.topLevelSections.items():
-                if section_id not in project_state.sections:
-                    continue
-                parent_id = project_state.parentSectionMap[section_id]
-                if parent_id:
-                    continue
-                if section_id not in project_state.projectConfig.topLevelSections:
-                    project_state.projectConfig.topLevelSections[section_id] = layout
-                    continue
-                existing_layout = project_state.projectConfig.topLevelSections[
-                    section_id
-                ]
-                existing_layout.x = layout.x
-                existing_layout.y = layout.y
-                existing_layout.zIndex = layout.zIndex
-                if layout.w is not None:
-                    existing_layout.w = layout.w
-                if layout.h is not None:
-                    existing_layout.h = layout.h
-
-        if x.position is None:
-            position, pan_to = compute_smart_top_level_section_position(
-                self.settings_file.settings,
-                project_state,
-                x.implType,
-                x.implOverrides,
-                x.topLevelSections,
-                x.viewportBounds,
-            )
-        else:
-            position = x.position
-            pan_to = None
         sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
             x.implType,
-            position,
+            x.position,
             x.implOverrides,
             control_code_obj_type=x.controlCodeObjType,
         )
         await self.update_and_broadcast_project_state(project_state)
-        return CreateTopLevelSectionResponse(sectionId=sectionId, panTo=pan_to)
+        return sectionId
 
     @enqueue_method
     @project_state_tool(
@@ -1325,9 +1290,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
-        new_project_config = ProjectConfig(
-            previewImgColor=previewImgColor, viewport=None
-        )
+        new_project_config = ProjectConfig(previewImgColor=previewImgColor)
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         create_top_level_section(
             self.settings_file.settings,
