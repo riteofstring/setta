@@ -1,9 +1,14 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useContextMenus } from "state/definitions";
-import { route_set_type_error_ignore } from "utils/generatedEndpoints";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { removeTypeErrorsForParam } from "state/actions/typeCheck";
+import {
+  useContextMenus,
+  useProjectState,
+  useTypeErrors,
+} from "state/definitions";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function TypeErrorContextMenu() {
@@ -12,22 +17,35 @@ export function TypeErrorContextMenu() {
     _.isEqual,
   );
 
-  function onClick() {
-    if (!sectionId) {
-      closeAllContextMenus();
-      return;
+  const currIgnoreTypeErrors = useProjectState((x) => {
+    if (!sectionId || !paramInfoId) {
+      return false;
     }
-    route_set_type_error_ignore({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      ignoreTypeErrors: true,
+    const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
+    if (isBaseSectionWithParamsImpl(sectionImpl)) {
+      return Boolean(sectionImpl.ignoreTypeErrors[paramInfoId]);
+    }
+    return false;
+  });
+
+  function onClick() {
+    let ignoreTypeErrors;
+    useProjectState.setState((state) => {
+      ignoreTypeErrors = !currIgnoreTypeErrors;
+      state.codeInfo[paramInfoId].ignoreTypeErrors = ignoreTypeErrors;
     });
+    if (ignoreTypeErrors) {
+      useTypeErrors.setState((state) => {
+        removeTypeErrorsForParam(paramInfoId, state);
+      });
+    }
 
     closeAllContextMenus();
   }
 
-  const itemText = "Ignore Type Errors";
+  const itemText = currIgnoreTypeErrors
+    ? "Enable Type Errors"
+    : "Ignore Type Errors";
 
   return (
     <ContextMenuCore

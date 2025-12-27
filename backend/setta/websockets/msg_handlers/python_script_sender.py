@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, Iterable
 
 from setta.types.id import ID
 from setta.types.listener import (
-    ControlActionEvent,
     ListenerActionEventContent,
     ListenerForceRefreshContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
+    MetaControlActionEvent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
@@ -84,7 +84,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         *,
         projectConfigId: ID,
-        actionEvents: list[ControlActionEvent],
+        actionEvents: list[MetaControlActionEvent],
         sequence: int,
     ):
         if not actionEvents:

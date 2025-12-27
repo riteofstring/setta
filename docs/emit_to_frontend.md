@@ -3,16 +3,15 @@
 ## Purpose
 `emit_to_frontend` lets listener callbacks push dependency values or artifact updates
 back through the backend so the UI receives the same canonical broadcasts as any
-other project-state mutation. It is available as `SettaListener.emit_to_frontend`
-and as `ctx.emit_to_frontend` inside callbacks.
+other project-state mutation.
 
 ## Preconditions + payload shape
 - The listener must be bootstrapped (`_runtime_state` is set) and registered (or
   registration is pending).
 - At least one of `dependency_values` or `artifact_updates` is required.
-- `dependency_values` uses sanitized dependency names (the same strings used in
-  `@listener.listen` and the generated `state` attributes).
-- `artifact_updates` entries must validate against `BaseArtifactTypeAdapter` (type/id/value).
+- `dependency_values` uses sanitized dependency names (the same strings passed to
+  `@listener.listen`).
+- `artifact_updates` entries must validate against `BaseArtifactTypeAdapter`.
 
 ## Step-by-step pipeline
 1. **Listener helper (`backend/setta/api/listener.py`)**
@@ -74,7 +73,6 @@ and as `ctx.emit_to_frontend` inside callbacks.
 - Use the sanitized dependency strings from `@listener.listen`; unresolved names
   fail fast.
 - Dependency updates are intentionally narrow today (params + TextBlock only).
-- Use artifact updates for Draw/Image payloads instead of dependency updates.
 - Artifact updates stay in memory until a save writes them to disk.
 - Tests covering this path live in `tests/websockets/test_python_script_receiver.py`,
   `tests/project_state/test_listener_emit_updates.py`, and
