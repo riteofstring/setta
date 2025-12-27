@@ -10,11 +10,14 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
-import { useLocalValue, useMatchSorterFilterWithDelay } from "state/hooks/utils";
+import {
+  useLocalValue,
+  useMatchSorterFilterWithDelay,
+} from "state/hooks/utils";
 import {
   route_set_code_obj_display_name,
-  route_update_param_impl_config,
   route_set_show_param_display_names,
+  route_update_param_impl_config,
 } from "utils/generatedEndpoints";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
