@@ -10,11 +10,11 @@ from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
 import bm25s
 import docstring_parser
 from fastapi import FastAPI, Request
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Icon
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool, ToolManager
-from mcp.server.fastmcp.tools.base import _is_async_callable
+from mcp.server.fastmcp.tools.base import UrlElicitationRequiredError, _is_async_callable
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from mcp.server.session import ServerSessionT
 from mcp.server.sse import SseServerTransport
@@ -206,9 +206,13 @@ class SettaTool(Tool):
         cls,
         fn: Callable[..., Any],
         name: str | None = None,
+        title: str | None = None,
         description: str | None = None,
         context_kwarg: str | None = None,
         annotations: ToolAnnotations | None = None,
+        icons: list[Icon] | None = None,
+        meta: dict[str, Any] | None = None,
+        structured_output: bool | None = None,
     ) -> "SettaTool":
         """Create a Tool from a function."""
         from mcp.server.fastmcp.server import Context
@@ -236,10 +240,11 @@ class SettaTool(Tool):
         func_arg_metadata = func_metadata(
             fn,
             skip_names=skip_names,
+            structured_output=structured_output,
         )
-        parameters = func_arg_metadata.arg_model.model_json_schema()
+        parameters = func_arg_metadata.arg_model.model_json_schema(by_alias=True)
 
-        description, param_descriptions = extract_tool_docstrings(fn)
+        doc_description, param_descriptions = extract_tool_docstrings(fn)
         for arg_name, arg_metadata in parameters["properties"].items():
             if "description" in arg_metadata:
                 continue
@@ -247,36 +252,46 @@ class SettaTool(Tool):
             if param_description:
                 arg_metadata["description"] = param_description
 
+        tool_description = description or doc_description or ""
         return cls(
             fn=fn,
             name=func_name,
-            description=description or "",
+            title=title,
+            description=tool_description,
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,
             context_kwarg=context_kwarg,
             annotations=annotations,
+            icons=icons,
+            meta=meta,
         )
 
     async def run(
         self,
         arguments: dict[str, Any],
         context: Context[ServerSessionT, LifespanContextT] | None = None,
+        convert_result: bool = False,
     ) -> Any:
         """Run the tool with arguments."""
         try:
-            pass_directly = {}
+            pass_directly: dict[str, Any] = {}
             if self.context_kwarg is not None:
                 pass_directly[self.context_kwarg] = context
             for k, v in arguments.items():
                 if k in C.SETTA_MCP_PARAM_NAMES:
                     pass_directly[k] = v
-            return await self.fn_metadata.call_fn_with_arg_validation(
+            result = await self.fn_metadata.call_fn_with_arg_validation(
                 self.fn,
                 self.is_async,
                 arguments,
                 pass_directly,
             )
+            if convert_result:
+                result = self.fn_metadata.convert_result(result)
+            return result
+        except UrlElicitationRequiredError:
+            raise
         except ToolError:
             raise
         except Exception as e:
@@ -288,12 +303,23 @@ class SettaToolManager(ToolManager):
         self,
         fn: Callable[..., Any],
         name: str | None = None,
+        title: str | None = None,
         description: str | None = None,
         annotations: ToolAnnotations | None = None,
+        icons: list[Icon] | None = None,
+        meta: dict[str, Any] | None = None,
+        structured_output: bool | None = None,
     ) -> SettaTool:
         """Add a tool to the server."""
         tool = SettaTool.from_function(
-            fn, name=name, description=description, annotations=annotations
+            fn,
+            name=name,
+            title=title,
+            description=description,
+            annotations=annotations,
+            icons=icons,
+            meta=meta,
+            structured_output=structured_output,
         )
         existing = self._tools.get(tool.name)
         if existing:

@@ -5,7 +5,7 @@ from typing import Any, Iterable
 
 from setta.database.db_objs import DBE
 from setta.types.chat import ChatMetadata
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 
@@ -22,7 +22,7 @@ def load_llm_config(dbe: DBE) -> AllLLMConfigs:
             save_llm_config(config, dbe)
             return config
     if not raw:
-        config = AllLLMConfigs()
+        config = _build_default_llm_config()
         save_llm_config(config, dbe)
         return config
     return AllLLMConfigs.model_validate(raw)
@@ -62,6 +62,18 @@ def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
         mcpServers=config.mcpServers,
         defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=default_config_id,
+    )
+
+
+def _build_default_llm_config() -> AllLLMConfigs:
+    return AllLLMConfigs(
+        mcpServers={
+            "setta": MCPServerConfig(
+                transport="sse",
+                url=f"{constants.C.BACKEND}/mcp",
+            )
+        },
+        defaultMcpServerIds=["setta"],
     )
 
 
