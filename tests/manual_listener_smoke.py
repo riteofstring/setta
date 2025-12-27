@@ -9,19 +9,8 @@ import argparse
 import importlib
 import json
 import logging
-import sys
 from pathlib import Path
 from typing import Any, Callable
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-BACKEND_DIR = ROOT_DIR / "backend"
-BACKEND_PATH = str(BACKEND_DIR)
-if BACKEND_PATH in sys.path:
-    sys.path.remove(BACKEND_PATH)
-ROOT_PATH = str(ROOT_DIR)
-if ROOT_PATH not in sys.path:
-    sys.path.insert(0, ROOT_PATH)
-sys.path.insert(0, BACKEND_PATH)
 
 from setta.api import SettaListener
 from setta.api.listener import ListenerCallbackBuilder

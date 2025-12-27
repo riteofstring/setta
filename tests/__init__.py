@@ -1,5 +1,12 @@
+from pathlib import Path
 import logging
 import os
+import sys
+
+_ROOT_DIR = Path(__file__).resolve().parents[1]
+_BACKEND_PATH = str(_ROOT_DIR / "backend")
+if _BACKEND_PATH not in sys.path:
+    sys.path.insert(0, _BACKEND_PATH)
 
 
 class _IgnoreAsyncioSlowCallback(logging.Filter):
