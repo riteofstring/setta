@@ -18,6 +18,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
+import { ButtonInputConfigForParam } from "./ButtonInput";
 import {
   ColorPickerInput,
   ColorPickerInputConfigForParam,
@@ -56,6 +57,13 @@ export function ParamUIConfig({
     case CodeObjTypeEnum.DropdownParam:
       return (
         <DropdownInputConfigForParam
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+        />
+      );
+    case CodeObjTypeEnum.ButtonParam:
+      return (
+        <ButtonInputConfigForParam
           sectionId={sectionId}
           paramInfoId={paramInfoId}
         />
@@ -135,6 +143,17 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <SliderParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+        />
+      );
     case CodeObjTypeEnum.SwitchParam:
       return (
         <SwitchParamConfigured
@@ -176,6 +195,25 @@ export function ParamUI({
           isSelectingParams={isSelectingParams}
         />
       );
+    case CodeObjTypeEnum.TextAreaParam:
+    case CodeObjTypeEnum.DropzoneParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+        />
+      );
+    case CodeObjTypeEnum.ButtonParam:
+      return null;
     default:
       return codeObjType satisfies never;
   }

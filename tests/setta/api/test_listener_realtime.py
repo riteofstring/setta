@@ -528,31 +528,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         root_logger = logging.getLogger()
         module_logger = logging.getLogger("setta.api.listener")
-        setta_logger = logging.getLogger("setta")
 
         root_handlers = list(root_logger.handlers)
         module_handlers = list(module_logger.handlers)
-        setta_handlers = list(setta_logger.handlers)
         original_propagate = module_logger.propagate
-        original_module_level = module_logger.level
-        original_setta_propagate = setta_logger.propagate
-        original_setta_level = setta_logger.level
-        last_resort = logging.lastResort
-        last_resort_level = last_resort.level if last_resort is not None else None
 
         for handler in module_handlers:
             module_logger.removeHandler(handler)
         for handler in root_handlers:
             root_logger.removeHandler(handler)
-        for handler in setta_handlers:
-            setta_logger.removeHandler(handler)
-
-        module_logger.setLevel(logging.ERROR)
-        module_logger.propagate = True
-        setta_logger.setLevel(logging.ERROR)
-        setta_logger.propagate = True
-        if last_resort is not None:
-            last_resort.setLevel(logging.ERROR)
 
         stream = io.StringIO()
         try:
@@ -562,15 +546,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             for handler in module_handlers:
                 module_logger.addHandler(handler)
             module_logger.propagate = original_propagate
-            module_logger.setLevel(original_module_level)
-            for handler in setta_handlers:
-                setta_logger.addHandler(handler)
-            setta_logger.propagate = original_setta_propagate
-            setta_logger.setLevel(original_setta_level)
             for handler in root_handlers:
                 root_logger.addHandler(handler)
-            if last_resort is not None and last_resort_level is not None:
-                last_resort.setLevel(last_resort_level)
 
         output = stream.getvalue()
         self.assertIn(

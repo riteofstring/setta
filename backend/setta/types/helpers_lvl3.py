@@ -36,6 +36,7 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DrawSectionImpl,
+    MetaControlSectionImpl,
 )
 from setta.types.shown_params import ShownParamIds
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -132,6 +133,9 @@ def prepare_sections_for_copy(
                 sections_to_process.update(effective_impl.children)
             elif isinstance(effective_impl, BaseSectionWithParamsImpl):
                 code_objs_to_process.update(effective_impl.codeObjVariantMap)
+            elif isinstance(effective_impl, MetaControlSectionImpl):
+                if effective_impl.metaControlParamId is not None:
+                    code_objs_to_process.add(effective_impl.metaControlParamId)
 
     # Process code_objs recursively
     while code_objs_to_process:

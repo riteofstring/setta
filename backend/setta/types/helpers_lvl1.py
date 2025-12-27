@@ -11,7 +11,11 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgsWithCallable,
 )
 from setta.types.id import ID
-from setta.types.section_impls import BaseSectionImpl, BaseSectionWithParamsImpl
+from setta.types.section_impls import (
+    BaseSectionImpl,
+    BaseSectionWithParamsImpl,
+    MetaControlSectionImpl,
+)
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateCore, ProjectStateSingleConfig
@@ -92,11 +96,24 @@ def get_variant_base_and_effective_section_impl_with_type_guard(
 def get_curr_code_obj_variant(
     p: "ProjectStateSingleConfig", sectionId: ID, codeObjId: ID
 ):
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    variant_id = section_impl.codeObjVariantMap[codeObjId]
-    return p.codeObjVariants[variant_id]
+    section_impl = get_curr_effective_section_impl(p, sectionId)
+    if isinstance(section_impl, BaseSectionWithParamsImpl):
+        variant_id = section_impl.codeObjVariantMap[codeObjId]
+        return p.codeObjVariants[variant_id]
+    if isinstance(section_impl, MetaControlSectionImpl):
+        if section_impl.metaControlParamId is None:
+            raise KeyError(f"Meta control {sectionId} has no control param id.")
+        if section_impl.metaControlParamId != codeObjId:
+            raise KeyError(
+                f"Meta control {sectionId} uses different control param {section_impl.metaControlParamId}."
+            )
+        if codeObjId not in section_impl.codeObjVariantMap:
+            raise KeyError(
+                f"Meta control {sectionId} missing variant map for control param."
+            )
+        variant_id = section_impl.codeObjVariantMap[codeObjId]
+        return p.codeObjVariants[variant_id]
+    raise TypeError(f"Section {sectionId} does not support code obj variants.")
 
 
 def get_curr_effective_code_obj_impl(
