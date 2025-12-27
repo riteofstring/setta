@@ -18,7 +18,7 @@ export function useParamIdsAndNamesForSidePane(sectionId: string) {
     for (const [s, idPath] of Object.entries(allIdPaths)) {
       output.push({
         id: s,
-        name: paramNameFromPathArray(x, sectionId, idPath),
+        name: paramNameFromPathArray(x.codeObjs, idPath),
       });
     }
     return output;

@@ -341,11 +341,9 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
-  SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
-  SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_CODE: "/setCode",
   TOGGLE_POSITION_LOCK: "/togglePositionLock",
@@ -1161,7 +1159,6 @@ function createSharedModifier(
 const CoreSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  displayName: z.string().default("" as const),
   variants: z.array(IDSchema).default([]),
   defaultVariant: z.union([IDSchema, z.null()]).default(null),
   sharedModifier: SharedModifierSchema.default(createSharedModifier),
@@ -2974,7 +2971,6 @@ export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
 const ProjectConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  showParamDisplayNames: z.boolean().default(false),
   previewImgColor: z
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
@@ -5411,17 +5407,6 @@ export type SetCodeFileBindingRequestInput = z.input<
   typeof SetCodeFileBindingRequestSchema
 >;
 
-const SetCodeObjDisplayNameRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  codeObjId: IDSchema,
-  displayName: z.string(),
-});
-
-export type SetCodeObjDisplayNameRequestInput = z.input<
-  typeof SetCodeObjDisplayNameRequestSchema
->;
-
 const SetCodeObjNameRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5581,16 +5566,6 @@ const SetSectionWithParamsDisplayModeRequestSchema = z.object({
 
 export type SetSectionWithParamsDisplayModeRequestInput = z.input<
   typeof SetSectionWithParamsDisplayModeRequestSchema
->;
-
-const SetShowParamDisplayNamesRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  showParamDisplayNames: z.boolean(),
-});
-
-export type SetShowParamDisplayNamesRequestInput = z.input<
-  typeof SetShowParamDisplayNamesRequestSchema
 >;
 
 const SetSocialUrlRequestSchema = z.object({

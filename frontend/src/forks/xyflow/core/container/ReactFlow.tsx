@@ -13,6 +13,7 @@ const wrapperStyle: CSSProperties = {
   overflow: "hidden",
   position: "relative",
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
+  overflowAnchor: "none",
 };
 
 const SCROLL_INIT = 5000;

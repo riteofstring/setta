@@ -60,14 +60,15 @@ class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
+        self.dbe = DBE(C.SETTA_FILES_FOLDER)
+        seed_llm_config_example_file(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
+            self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        self.dbe = DBE(C.SETTA_FILES_FOLDER)
-        seed_llm_config_example_file(self.dbe)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
@@ -186,6 +187,7 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.wmh_python_script_sender,
                 self.project_manager_switcher,
+                self.dbe,
             )
             self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
 

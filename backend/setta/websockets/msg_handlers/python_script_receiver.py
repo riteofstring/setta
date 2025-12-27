@@ -3,6 +3,7 @@ import logging
 
 from pydantic import ValidationError
 
+from setta.database.db_objs import DBE
 from setta.listeners.listener_frontend_emit_resolver import (
     InvalidListenerArtifactUpdateError,
     InvalidListenerDependencyValueError,
@@ -14,6 +15,11 @@ from setta.listeners.listener_frontend_emit_resolver import (
 )
 from setta.listeners.listener_router_endpoint_registry import (
     get_listener_router_endpoint_specs,
+)
+from setta.mcp.utils import (
+    IDDoesNotExist,
+    convert_canonical_ids_to_temporary,
+    convert_temporary_ids_to_canonical,
 )
 from setta.project_state.listener_artifact_updates import (
     ListenerArtifactUpdateError,
@@ -27,7 +33,11 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgUnion,
 )
 from setta.types.helpers_lvl2 import ProjectNotFound
-from setta.types.id import ID
+from setta.types.id import (
+    ID,
+    CanonicalToTemporaryIDMap,
+    TemporaryToCanonicalIDMap,
+)
 from setta.types.listener import (
     ListenerErrorContent,
     ListenerRegisterAckContent,
@@ -61,14 +71,19 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         frontend_sender: WMHFrontendSender,
         python_script_sender: WMHPythonScriptSender,
         project_manager_switcher: ProjectManagerSwitcher,
+        dbe: DBE,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
         self.frontend_sender = frontend_sender
         self.python_script_sender = python_script_sender
         self.project_manager_switcher = project_manager_switcher
+        self.dbe = dbe
         self.listener_coverage_tracker = ListenerCoverageTracker()
         self.listener_frontend_emit_resolver = ListenerFrontendEmitResolver()
+        self._temporary_id_map_mtime_ns: int | None = None
+        self._temporary_to_canonical: TemporaryToCanonicalIDMap = {}
+        self._canonical_to_temporary: CanonicalToTemporaryIDMap = {}
 
     @staticmethod
     def _format_listener_error_message(
@@ -97,10 +112,11 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         project_config_id: ID | None = None,
         severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.error,
     ) -> None:
+        content = ListenerErrorContent(error=error, details=details)
+        if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+            content = self._convert_outgoing_payload(content)
         await self.websocket_manager.send_message(
-            WebsocketMsgListenerError(
-                content=ListenerErrorContent(error=error, details=details)
-            ),
+            WebsocketMsgListenerError(content=content),
             websocket_id,
         )
         message = self._format_listener_error_message(
@@ -140,6 +156,22 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
     ) -> None:
         project_config_id = message.content.projectConfigId
         project_name = message.content.projectName
+        use_temporary_ids = message.content.useTemporaryIds
+        if project_config_id is not None and use_temporary_ids:
+            try:
+                project_config_id = self._convert_incoming_payload(project_config_id)
+            except IDDoesNotExist as exc:
+                logger.warning(
+                    "listener websocket %s provided unknown temporary id %s",
+                    websocket_id,
+                    project_config_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_invalid_id",
+                    details={"message": str(exc)},
+                )
+                return
 
         if project_config_id is None:
             if project_name is None:
@@ -195,7 +227,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     )
 
         self.listener_registry.record_bootstrap(
-            websocket_id=websocket_id, project_config_id=project_config_id
+            websocket_id=websocket_id,
+            project_config_id=project_config_id,
+            use_temporary_ids=use_temporary_ids,
         )
         logger.debug(
             "recorded listener bootstrap for websocket %s (project %s)",
@@ -228,10 +262,25 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self, message: WebsocketMsgListenerRegister, websocket_id: str
     ) -> None:
         previous_registration = self.listener_registry.get_registration(websocket_id)
+        content = message.content
+        if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+            try:
+                content = self._convert_incoming_payload(content)
+            except IDDoesNotExist as exc:
+                logger.warning(
+                    "listener websocket %s register payload had unknown temporary id",
+                    websocket_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_invalid_id",
+                    details={"message": str(exc)},
+                )
+                return
         registration = self.listener_registry.upsert_registration(
             websocket_id=websocket_id,
-            project_config_id=message.content.projectConfigId,
-            callbacks=message.content.callbacks,
+            project_config_id=content.projectConfigId,
+            callbacks=content.callbacks,
         )
         bootstrap_project = self.listener_registry.get_bootstrap_project_config(
             websocket_id
@@ -250,12 +299,14 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
         ack_statuses = {
             callback_id: ListenerRegisterAckStatus(status="accepted")
-            for callback_id in message.content.callbacks
+            for callback_id in content.callbacks
         }
         ack_content = ListenerRegisterAckContent(
             projectConfigId=registration.project_config_id,
             callbacks=ack_statuses,
         )
+        if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+            ack_content = self._convert_outgoing_payload(ack_content)
         ack_message = WebsocketMsgListenerRegisterAck(content=ack_content)
         await self.websocket_manager.send_message(ack_message, websocket_id)
         await self._sync_listener_coverage(registration.project_config_id)
@@ -281,8 +332,23 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 details={"websocketId": websocket_id},
             )
             return
+        content = message.content
+        if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+            try:
+                content = self._convert_incoming_payload(content)
+            except IDDoesNotExist as exc:
+                logger.warning(
+                    "listener websocket %s emit payload had unknown temporary id",
+                    websocket_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_invalid_id",
+                    details={"message": str(exc)},
+                )
+                return
         expected_project_config_id = registration.project_config_id
-        project_config_id = message.content.projectConfigId
+        project_config_id = content.projectConfigId
         if project_config_id != expected_project_config_id:
             logger.warning(
                 (
@@ -305,8 +371,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             return
 
         manager = self.project_manager_switcher.get(project_config_id)
-        dependency_values = message.content.dependencyValues
-        artifact_updates = message.content.artifactUpdates
+        dependency_values = content.dependencyValues
+        artifact_updates = content.artifactUpdates
         if not dependency_values and not artifact_updates:
             logger.warning(
                 "listener emit rejected due to empty dependency/artifact payload"
@@ -473,8 +539,30 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 details={"websocketId": websocket_id},
             )
             return
+        content = message.content
+        raw_project_config_id = content.projectConfigId
+        use_temporary_ids = self.listener_registry.use_temporary_ids_for_socket(
+            websocket_id
+        )
+        if use_temporary_ids:
+            try:
+                content = self._convert_incoming_payload(content)
+            except IDDoesNotExist as exc:
+                logger.warning(
+                    "listener websocket %s call payload had unknown temporary id",
+                    websocket_id,
+                )
+                await self._send_router_endpoint_result(
+                    websocket_id,
+                    project_config_id=registration.project_config_id,
+                    call_id=message.content.callId,
+                    ok=False,
+                    error="listener_invalid_id",
+                    details={"message": str(exc)},
+                )
+                return
         expected_project_config_id = registration.project_config_id
-        project_config_id = message.content.projectConfigId
+        project_config_id = content.projectConfigId
         if project_config_id != expected_project_config_id:
             logger.warning(
                 (
@@ -488,7 +576,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self._send_router_endpoint_result(
                 websocket_id,
                 project_config_id=expected_project_config_id,
-                call_id=message.content.callId,
+                call_id=content.callId,
                 ok=False,
                 error="project_config_mismatch",
                 details={
@@ -498,33 +586,19 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             return
 
-        endpoint_name = message.content.endpointName
+        endpoint_name = content.endpointName
         if not endpoint_name:
             await self._send_router_endpoint_result(
                 websocket_id,
                 project_config_id=project_config_id,
-                call_id=message.content.callId,
+                call_id=content.callId,
                 ok=False,
                 error="listener_call_invalid_operation",
                 details={"message": "endpointName must be non-empty"},
             )
             return
 
-        payload = message.content.payload
-        if "projectConfigId" in payload:
-            if payload["projectConfigId"] != project_config_id:
-                await self._send_router_endpoint_result(
-                    websocket_id,
-                    project_config_id=project_config_id,
-                    call_id=message.content.callId,
-                    ok=False,
-                    error="project_config_mismatch",
-                    details={
-                        "expectedProjectConfigId": project_config_id,
-                        "receivedProjectConfigId": payload["projectConfigId"],
-                    },
-                )
-                return
+        payload = content.payload
 
         try:
             result = await self._dispatch_listener_router_endpoint_call(
@@ -532,24 +606,42 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 endpoint_name=endpoint_name,
                 payload=payload,
                 websocket_id=websocket_id,
+                temporary_project_config_id=(
+                    raw_project_config_id if use_temporary_ids else None
+                ),
             )
+        except IDDoesNotExist as exc:
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=project_config_id,
+                call_id=content.callId,
+                ok=False,
+                error="listener_invalid_id",
+                details={"message": str(exc)},
+            )
+            return
         except ValidationError as exc:
             await self._send_router_endpoint_result(
                 websocket_id,
                 project_config_id=project_config_id,
-                call_id=message.content.callId,
+                call_id=content.callId,
                 ok=False,
                 error="listener_call_invalid_payload",
                 details={"message": str(exc)},
             )
             return
         except ValueError as exc:
+            error_code = (
+                "project_config_mismatch"
+                if str(exc) == "project_config_mismatch"
+                else "listener_call_failed"
+            )
             await self._send_router_endpoint_result(
                 websocket_id,
                 project_config_id=project_config_id,
-                call_id=message.content.callId,
+                call_id=content.callId,
                 ok=False,
-                error="listener_call_failed",
+                error=error_code,
                 details={"message": str(exc)},
             )
             return
@@ -558,7 +650,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self._send_router_endpoint_result(
                 websocket_id,
                 project_config_id=project_config_id,
-                call_id=message.content.callId,
+                call_id=content.callId,
                 ok=False,
                 error="listener_call_failed",
                 details={"message": str(exc)},
@@ -568,7 +660,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         await self._send_router_endpoint_result(
             websocket_id,
             project_config_id=project_config_id,
-            call_id=message.content.callId,
+            call_id=content.callId,
             ok=True,
             result=result,
         )
@@ -580,6 +672,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         endpoint_name: str,
         payload: dict[str, object],
         websocket_id: str,
+        temporary_project_config_id: ID | None = None,
     ) -> object:
         specs = get_listener_router_endpoint_specs()
         if endpoint_name not in specs:
@@ -588,16 +681,28 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         state = self._get_listener_state(websocket_id)
         await state.wait_until_ready()
 
+        use_temporary_ids = self.listener_registry.use_temporary_ids_for_socket(
+            websocket_id
+        )
         payload_data = dict(payload)
-        if "projectConfigId" in payload_data:
-            if payload_data["projectConfigId"] != project_config_id:
-                raise ValueError("project_config_mismatch")
-        elif "projectConfigId" in spec.request_model.model_fields:
-            payload_data["projectConfigId"] = project_config_id
+        if "projectConfigId" not in payload_data and (
+            "projectConfigId" in spec.request_model.model_fields
+        ):
+            if use_temporary_ids:
+                if temporary_project_config_id is None:
+                    raise ValueError("project_config_mismatch")
+                payload_data["projectConfigId"] = temporary_project_config_id
+            else:
+                payload_data["projectConfigId"] = project_config_id
 
-        kwargs: dict[str, object] = {
-            spec.request_param_name: spec.request_model(**payload_data)
-        }
+        request_model = spec.request_model(**payload_data)
+        if use_temporary_ids:
+            request_model = self._convert_incoming_payload(request_model)
+
+        if request_model.projectConfigId != project_config_id:
+            raise ValueError("project_config_mismatch")
+
+        kwargs: dict[str, object] = {spec.request_param_name: request_model}
         if spec.state_param_name is not None:
             kwargs[spec.state_param_name] = state
 
@@ -631,10 +736,42 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             error=error,
             details=details or {},
         )
+        if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+            content = self._convert_outgoing_payload(content)
         await self.websocket_manager.send_message(
             WebsocketMsgListenerRouterEndpointResult(content=content),
             websocket_id,
         )
+
+    def _convert_incoming_payload(self, payload):
+        self._refresh_temporary_id_map_if_needed()
+        return convert_temporary_ids_to_canonical(payload, self._temporary_to_canonical)
+
+    def _convert_outgoing_payload(self, payload):
+        self._refresh_temporary_id_map_if_needed()
+        map_size_before = len(self._canonical_to_temporary)
+        converted = convert_canonical_ids_to_temporary(
+            payload,
+            self._canonical_to_temporary,
+            self._temporary_to_canonical,
+        )
+        if len(self._canonical_to_temporary) != map_size_before:
+            self.dbe.write_temporary_id_map(self._canonical_to_temporary)
+            self._temporary_id_map_mtime_ns = (
+                self.dbe.temporary_id_map.stat().st_mtime_ns
+            )
+        return converted
+
+    def _refresh_temporary_id_map_if_needed(self) -> None:
+        path = self.dbe.temporary_id_map
+        mtime_ns = path.stat().st_mtime_ns if path.exists() else None
+        if mtime_ns == self._temporary_id_map_mtime_ns:
+            return
+        (
+            self._temporary_to_canonical,
+            self._canonical_to_temporary,
+        ) = self.dbe.read_temporary_id_map()
+        self._temporary_id_map_mtime_ns = mtime_ns
 
     async def _sync_listener_coverage(self, project_config_id: ID) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(

@@ -24,6 +24,7 @@ class ListenerDependencyMode(str, Enum):
 class ListenerInitContent(BaseModel):
     projectConfigId: ID | None = None
     projectName: str | None = None
+    useTemporaryIds: bool = False
 
     @model_validator(mode="after")
     def _validate_identifier(self):
