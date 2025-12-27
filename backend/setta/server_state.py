@@ -201,7 +201,10 @@ class SettaFastAPIState:
                 self.dbe,
             )
             llm_config = load_llm_config(self.dbe)
-            self.mcp_client = MultiMCPClient(llm_config.mcpServers)
+            self.mcp_client = MultiMCPClient(
+                llm_config.mcpServers,
+                frontend_sender=self.wmh_frontend_sender,
+            )
             self.chat_manager = LLMChatManager(
                 self.dbe,
                 self.mcp_client,
