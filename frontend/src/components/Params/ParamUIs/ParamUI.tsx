@@ -6,7 +6,6 @@ import {
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
-import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -20,14 +19,19 @@ import {
 import { focusOnSection } from "utils/tabbingLogic";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import {
-  ColorPickerInput,
   ColorPickerInputConfigForParam,
 } from "./ColorPickerInput";
-import { DropdownInput, DropdownInputConfigForParam } from "./DropdownInput";
+import { DropdownInputConfigForParam } from "./DropdownInput";
+import {
+  ConfiguredColorPickerInput,
+  ConfiguredDropdownInput,
+  ConfiguredRotaryInput,
+  ConfiguredSliderInput,
+  ParamValueChange,
+} from "./ConfiguredParamInputs";
 import { DropzoneInput } from "./DropzoneInput";
 import { PasswordInput } from "./PasswordInput";
-import { RotaryInput } from "./RotaryInput";
-import { SliderInput, SliderInputConfigForParam } from "./SliderInput";
+import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
 
 export function ParamUIConfig({
@@ -276,20 +280,13 @@ function SliderParamConfigured({
   onEscape,
   isDisabled,
 }) {
-  const { min, max, step } = useParamCodeObjUIConfig(
-    sectionId,
-    paramInfoId,
-    CodeObjTypeEnum.SliderParam,
-  );
-
   return (
-    <SliderInput
+    <ConfiguredSliderInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      min={min}
-      max={max}
-      step={step}
       isDisabled={isDisabled}
       wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
       sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
@@ -313,24 +310,17 @@ function RotaryParamConfigured({
   sectionId: string;
   paramInfoId: string;
   value: string;
-  onChange: (value: string | number) => void;
+  onChange: ParamValueChange;
   onEscape: () => void;
   isDisabled: boolean;
 }) {
-  const { min, max, step } = useParamCodeObjUIConfig(
-    sectionId,
-    paramInfoId,
-    CodeObjTypeEnum.RotaryParam,
-  );
-
   return (
-    <RotaryInput
+    <ConfiguredRotaryInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      min={min}
-      max={max}
-      step={step}
       isDisabled={isDisabled}
     />
   );
@@ -342,7 +332,7 @@ function DropzoneParamConfigured({
   isDisabled,
 }: {
   value: string;
-  onChange: (value: string) => void;
+  onChange: ParamValueChange;
   isDisabled: boolean;
 }) {
   return (
@@ -377,14 +367,10 @@ function ColorPickerParamConfigured({
   onEscape,
   isDisabled,
 }) {
-  const { colorChoices } = useParamCodeObjUIConfig(
-    sectionId,
-    paramInfoId,
-    CodeObjTypeEnum.ColorPickerParam,
-  );
   return (
-    <ColorPickerInput
-      colorChoices={colorChoices}
+    <ConfiguredColorPickerInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
       onEscape={onEscape}
@@ -402,14 +388,10 @@ function DropdownParamConfigured({
   onChange,
   isDisabled,
 }) {
-  const { choices } = useParamCodeObjUIConfig(
-    sectionId,
-    paramInfoId,
-    CodeObjTypeEnum.DropdownParam,
-  );
   return (
-    <DropdownInput
-      choices={choices}
+    <ConfiguredDropdownInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
       outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"

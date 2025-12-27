@@ -1,12 +1,14 @@
-import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
-import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
+import {
+  ConfiguredColorPickerInput,
+  ConfiguredDropdownInput,
+  ConfiguredRotaryInput,
+  ConfiguredSliderInput,
+  ParamValueChange,
+} from "components/Params/ParamUIs/ConfiguredParamInputs";
 import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
-import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
-import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
@@ -27,7 +29,7 @@ export function MetaControlContent({
   codeObjType: CodeObjType;
   value: string;
   defaultVal: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
@@ -117,7 +119,7 @@ function TextInputControl({
   controlParamId: string;
   value: string;
   defaultVal: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
   language: "python" | "markdown";
   singleLine: boolean;
   minHeightClassName?: string;
@@ -153,13 +155,8 @@ function SliderControl({
   sectionId: string;
   controlParamId: string;
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
-  const { min, max, step } = useParamCodeObjUIConfig(
-    sectionId,
-    controlParamId,
-    CodeObjTypeEnum.SliderParam,
-  );
   const sliderRootClassName =
     "SliderRoot relative flex w-full flex-1 touch-none select-none items-center";
   const sliderTrackClassName =
@@ -167,17 +164,12 @@ function SliderControl({
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName = `${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
 
-  function handleChange(nextValue: number) {
-    onValueChange(String(nextValue));
-  }
-
   return (
-    <SliderInput
+    <ConfiguredSliderInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
       value={value}
-      min={min}
-      max={max}
-      step={step}
-      onChange={handleChange}
+      onChange={onValueChange}
       wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} flex w-full min-w-0 items-center gap-2`}
       sliderRootClassName={sliderRootClassName}
       sliderTrackClassName={sliderTrackClassName}
@@ -197,25 +189,14 @@ function RotaryControl({
   sectionId: string;
   controlParamId: string;
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
-  const { min, max, step } = useParamCodeObjUIConfig(
-    sectionId,
-    controlParamId,
-    CodeObjTypeEnum.RotaryParam,
-  );
-
-  function handleChange(nextValue: number) {
-    onValueChange(String(nextValue));
-  }
-
   return (
-    <RotaryInput
+    <ConfiguredRotaryInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
       value={value}
-      onChange={handleChange}
-      min={min}
-      max={max}
-      step={step}
+      onChange={onValueChange}
     />
   );
 }
@@ -225,13 +206,9 @@ function SwitchControl({
   onValueChange,
 }: {
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
   const isOn = value === "true";
-
-  function handleChange(nextValue: boolean) {
-    onValueChange(String(nextValue));
-  }
 
   return (
     <div className="flex w-full items-center justify-between gap-3">
@@ -244,8 +221,8 @@ function SwitchControl({
         </span>
       </div>
       <SwitchInput
-        value={isOn}
-        onChange={handleChange}
+        value={value}
+        onChange={onValueChange}
         outerDivClassName={`${NO_DRAG_CLASS_NAME} section-value flex justify-self-start self-center`}
       />
     </div>
@@ -261,17 +238,12 @@ function ColorControl({
   sectionId: string;
   controlParamId: string;
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
-  const { colorChoices } = useParamCodeObjUIConfig(
-    sectionId,
-    controlParamId,
-    CodeObjTypeEnum.ColorPickerParam,
-  );
-
   return (
-    <ColorPickerInput
-      colorChoices={colorChoices}
+    <ConfiguredColorPickerInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
       value={value}
       onChange={onValueChange}
       wrapperClassName={`${NO_DRAG_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
@@ -289,26 +261,14 @@ function DropdownControl({
   sectionId: string;
   controlParamId: string;
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
-  const { choices } = useParamCodeObjUIConfig(
-    sectionId,
-    controlParamId,
-    CodeObjTypeEnum.DropdownParam,
-  );
-
-  function handleChange(nextValue: string | null) {
-    if (nextValue === null) {
-      return;
-    }
-    onValueChange(nextValue);
-  }
-
   return (
-    <DropdownInput
-      choices={choices}
+    <ConfiguredDropdownInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
       value={value}
-      onChange={handleChange}
+      onChange={onValueChange}
       outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center [&_search]:my-auto`}
       placeholder="Choose"
     />
@@ -320,7 +280,7 @@ function PasswordControl({
   onValueChange,
 }: {
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: ParamValueChange;
 }) {
   return (
     <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">

@@ -24,6 +24,7 @@ import {
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import type { ParamValueChange } from "components/Params/ParamUIs/ConfiguredParamInputs";
 
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
   const { controlParamId, controlCodeObjType, buttonLabel, sectionName } =
@@ -118,14 +119,17 @@ function MetaControlValueArea({
     },
   );
 
-  function handleValueChange(nextValue: string) {
+  const handleValueChange: ParamValueChange = (nextValue) => {
+    if (nextValue === null) {
+      return;
+    }
     const valueStr = _.toString(nextValue);
     setPendingValue(valueStr);
     if (value !== valueStr) {
       sendRealtimeSectionParamLiteral(sectionId, controlParamId, valueStr);
     }
     debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
-  }
+  };
 
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
