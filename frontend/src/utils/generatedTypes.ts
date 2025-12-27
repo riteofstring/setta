@@ -319,6 +319,7 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_META_CONTROL_VALUE: "/setMetaControlValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
@@ -992,6 +993,19 @@ const ColorPickerChoiceSchema = z.object({
   description: z.string(),
 });
 
+const TypeErrorIgnoreStateSchema = z.object({
+  callable: z.boolean().default(false),
+  params: z.record(IDSchema, z.boolean()).default({}),
+});
+
+type TypeErrorIgnoreState = z.infer<typeof TypeErrorIgnoreStateSchema>;
+
+function createTypeErrorIgnoreState(
+  options: Partial<TypeErrorIgnoreState> = {},
+): TypeErrorIgnoreState {
+  return TypeErrorIgnoreStateSchema.parse(options);
+}
+
 const DrawAreaLayerItemSchema = z.object({
   type: z
     .literal(["Image", "BrushStroke"])
@@ -1078,7 +1092,7 @@ const SharedModifierSchema = z.object({
   hideParams: z.boolean().optional(),
   hideUnpinnedParams: z.boolean().optional(),
   id: IDSchema.optional(),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).optional(),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   imagePath: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isHorizontalOrientation: z.boolean().optional(),
@@ -1233,7 +1247,9 @@ const CallableSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).default({}),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
+    createTypeErrorIgnoreState,
+  ),
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
@@ -1266,7 +1282,9 @@ const DictSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).default({}),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
+    createTypeErrorIgnoreState,
+  ),
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
@@ -1472,7 +1490,9 @@ const GlobalVariablesSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).default({}),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
+    createTypeErrorIgnoreState,
+  ),
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
@@ -2256,7 +2276,7 @@ const DictSectionImplArgsSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).optional(),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
@@ -2287,7 +2307,7 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).optional(),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
@@ -2357,7 +2377,7 @@ const CallableSectionImplArgsSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).optional(),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
   hideParams: z.boolean().optional(),
@@ -2686,15 +2706,14 @@ const WebsocketMsgLLMStreamingResponseSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse),
 });
 
-const SettaGenCodeDiagnosticSchema = z.object({
-  sectionId: IDSchema,
-  paramInfoId: z.union([IDSchema, z.null()]),
-  message: z.string(),
+const SettaSectionTypeErrorsSchema = z.object({
+  callable: z.array(z.string()).default([]),
+  params: z.record(IDSchema, z.array(z.string())).default({}),
 });
 
 const SettaProjectConfigDiagnosticsSchema = z.object({
   projectConfigId: IDSchema,
-  diagnostics: z.array(SettaGenCodeDiagnosticSchema),
+  errors: z.record(IDSchema, SettaSectionTypeErrorsSchema).default({}),
   isGenCode: z.boolean(),
 });
 
@@ -4157,7 +4176,7 @@ const BaseDictSectionImplArgsSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).optional(),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
@@ -4251,7 +4270,7 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).optional(),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
 });
 
@@ -4406,7 +4425,9 @@ const BaseDictSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).default({}),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
+    createTypeErrorIgnoreState,
+  ),
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
@@ -4459,7 +4480,9 @@ const BaseSectionWithParamsImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
-  ignoreTypeErrors: z.record(IDSchema, z.boolean()).default({}),
+  ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
+    createTypeErrorIgnoreState,
+  ),
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
@@ -5320,6 +5343,18 @@ const SetTopLevelSectionLayoutRequestSchema = z.object({
 
 export type SetTopLevelSectionLayoutRequestInput = z.input<
   typeof SetTopLevelSectionLayoutRequestSchema
+>;
+
+const SetTypeErrorIgnoreRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  paramInfoId: z.union([IDSchema, z.null()]),
+  ignoreTypeErrors: z.boolean(),
+});
+
+export type SetTypeErrorIgnoreRequestInput = z.input<
+  typeof SetTypeErrorIgnoreRequestSchema
 >;
 
 const SetViewModeNameRequestSchema = z.object({

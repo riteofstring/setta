@@ -1,19 +1,18 @@
 from dataclasses import dataclass
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from setta.types.id import ID
 
 
-class SettaGenCodeDiagnostic(BaseModel):
-    sectionId: ID
-    paramInfoId: ID | None
-    message: str
+class SettaSectionTypeErrors(BaseModel):
+    callable: list[str] = Field(default_factory=list)
+    params: dict[ID, list[str]] = Field(default_factory=dict)
 
 
 class SettaProjectConfigDiagnostics(BaseModel):
     projectConfigId: ID
-    diagnostics: list[SettaGenCodeDiagnostic]
+    errors: dict[ID, SettaSectionTypeErrors] = Field(default_factory=dict)
     isGenCode: bool
 
 
