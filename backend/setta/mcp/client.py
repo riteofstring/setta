@@ -404,14 +404,22 @@ async def _forward_stdio_to_backend(
 
 def main(argv: Sequence[str] | None = None) -> int:
     config = parse_args(argv)
-    level_override = "DEBUG" if config.verbose else None
-    configure_logging(level_override=level_override)
+    configure_stdio_bridge_logging(config.verbose)
     try:
         asyncio.run(run_stdio_bridge(config))
     except KeyboardInterrupt:
         logger.info("Bridge interrupted, shutting down")
         return 130
     return 0
+
+
+def configure_stdio_bridge_logging(verbose: bool) -> int:
+    level_override = "DEBUG" if verbose else None
+    return configure_logging(
+        level_override=level_override,
+        stream="stderr",
+        force=True,
+    )
 
 
 if __name__ == "__main__":

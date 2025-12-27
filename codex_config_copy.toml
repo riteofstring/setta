@@ -13,8 +13,11 @@ args = [
 ]
 
 [mcp_servers.setta]
-command = "/Users/kevin/Documents/AppDevelopment/setta/.venv/bin/python"
-args = ["-m", "setta.mcp.client", "--backend", "http://127.0.0.1:8000/mcp"]
+command = "bash"
+args = [
+"-lc",
+"source /Users/kevin/Documents/AppDevelopment/setta.ai-improvements-3/activate.sh && python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp"
+]
 
 [projects."/Users/kevin/Documents/AppDevelopment/setta"]
 trust_level = "trusted"
