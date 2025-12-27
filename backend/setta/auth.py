@@ -2,8 +2,6 @@ import os
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from setta.utils.constants import C
-
 AUTH_BEARER_PREFIX = "Bearer "
 AUTH_TOKEN_ENV_VAR = "SETTA_AUTH_TOKEN"
 WEBSOCKET_PROTOCOL_PREFIX = "setta.token."
@@ -19,16 +17,13 @@ def load_auth_token_from_file(token_file: Path) -> str:
 def configure_auth_token(token: str) -> None:
     if not token:
         raise ValueError("Auth token must be non-empty")
-    C.AUTH_TOKEN = token
     os.environ[AUTH_TOKEN_ENV_VAR] = token
 
 
 def get_configured_auth_token() -> str:
-    token = C.AUTH_TOKEN or os.environ.get(AUTH_TOKEN_ENV_VAR)
+    token = os.environ.get(AUTH_TOKEN_ENV_VAR)
     if not token:
         raise RuntimeError("Auth token is required; start with --token-file.")
-    if not C.AUTH_TOKEN:
-        C.AUTH_TOKEN = token
     return token
 
 

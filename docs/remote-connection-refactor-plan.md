@@ -37,7 +37,7 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - Add a session bootstrap layer that creates `~/.setta/run/<session>/` metadata
   (token, socket/port, pid, logs) on the remote host.
 - DONE: Implement token-gated auth for all HTTP routes, websockets, and MCP SSE endpoints.
-- DONE: Require a token file at backend startup; no unauthenticated fallbacks.
+- DONE: Require a token file at backend startup; no unauthenticated fallbacks (token stored in `SETTA_AUTH_TOKEN` env var).
 - DONE: CLI and listener websocket clients now send the token via `Sec-WebSocket-Protocol`.
 
 ### 3) CLI refactor for remote connect flows
