@@ -1290,7 +1290,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
-        new_project_config = ProjectConfig(previewImgColor=previewImgColor)
+        new_project_config = ProjectConfig(previewImgColor=previewImgColor, viewport=None)
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         create_top_level_section(
             self.settings_file.settings,
