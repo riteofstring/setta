@@ -51,25 +51,18 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Use `state.<path>` inside param values to reference other sections or params.
 - If you need a string literal, include quotes inside the value (example: `"'data.csv'"`).
 - The dependency graph infers connections by scanning for `state` references.
-- Param names and values are separate. For GlobalVariables, Dict sections, and
-  add_kwarg params on Callables, set the name with `set_param_name_and_value`
-  (or `set_code_obj_name` + `set_param_entered_value`). Do not put `name=value`
-  inside the value field.
 
 ## Tooling flow
-- MCP tool names are always namespaced as `<serverId>__<toolName>`.
 - Start with `getProjectConfigNamesAndIds`, then call `get_latest_project_state_summary`
   with the chosen `projectConfigId`.
 - Use IDs from the summary only; re-fetch the summary after creating/deleting sections.
 - Summary `sections[].sectionId` -> tool arg `sectionId`; summary `parameters[].paramId`
-  -> tool arg `paramInfoId` or `codeObjId` (the paramId is the code object id).
+  -> tool arg `paramInfoId`.
 - Use `set_callable` + `set_param_entered_value` to wire callables and args; do not
-  hand-edit code objects. Use `set_param_name_and_value` when you need to set both
-  a param name and value.
-- For type errors, call `get_latest_lsp_diagnostics` to get parsed diagnostics with
-  `sectionId`/`paramInfoId` instead of line/col data from generated code.
-- Use `setta__search_and_unlock_mcp_tools` when you do not know the tool name.
-- `setta__search_and_unlock_mcp_tools` returns entries with `name`, `description`, and
+  hand-edit code objects.
+- Use `search_and_unlock_mcp_tools` when you do not know the tool name; fall back to
+  `list_mcp_tools` only if search fails.
+- `search_and_unlock_mcp_tools` returns entries with `name`, `description`, and
   `category`; always use the `name` field when calling a tool.
 
 ## Don't-do list
@@ -87,10 +80,6 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   4) `set_section_name` (optional)
   5) `set_callable` (callableName: `pkg.module.fn`, refetchParams: `true`)
   6) `set_param_entered_value` for each param
-- Add or rename a param and set its value (GlobalVariables, Dict, add_kwarg):
-  1) `add_kwarg` (or create/locate the param)
-  2) `get_latest_project_state_summary`
-  3) `set_param_name_and_value`
 - Update a parameter value:
   1) `get_latest_project_state_summary`
   2) `set_param_entered_value`
@@ -107,19 +96,14 @@ Create a callable section + set params:
 getProjectConfigNamesAndIds {}
 get_latest_project_state_summary {"projectConfigId":"<config_id>"}
 create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable","position":{"x":80,"y":120}}
-set_section_name {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","name":"Load Data"}
-set_callable {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","callableName":"my_pkg.load_data","refetchParams":true}
-set_param_entered_value {"sectionId":"<new_section_id>","paramInfoId":"<param_id>","projectConfigId":"<config_id>","value":"state.config__path"}
-```
-
-Set a param name + value in one step:
-```
-set_param_name_and_value {"sectionId":"<section_id>","codeObjId":"<param_id>","projectConfigId":"<config_id>","name":"batch_size","value":"64"}
+set_section_name {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","name":"Load Data"}
+set_callable {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","callableName":"my_pkg.load_data","refetchParams":true}
+set_param_entered_value {"projectConfigId":"<config_id>","sectionId":"<new_section_id>","paramInfoId":"<param_id>","value":"state.config__path"}
 ```
 
 Edit a Code section:
 ```
-set_code {"sectionId":"<code_section_id>","projectConfigId":"<config_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
+set_code {"projectConfigId":"<config_id>","sectionId":"<code_section_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
 ```
 
 Add a prefix import for generated expressions:

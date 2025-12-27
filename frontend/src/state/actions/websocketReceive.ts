@@ -18,12 +18,12 @@ import {
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
+  CodeObjType,
+  ControlActionEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
-  MetaControlActionEvent,
-  MetaControlType,
   RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
@@ -200,25 +200,25 @@ function emitRealtimeDependencyValue(
   sendMessage(message);
 }
 
-type MetaControlActionEventInput = {
+type ControlActionEventInput = {
   controlName: string;
   actionId: string;
-  metaControlType: MetaControlType;
+  actionControlType: CodeObjType;
   payload?: string | null;
 };
 
-export function sendRealtimeMetaControlAction(
-  action: MetaControlActionEventInput,
+export function sendRealtimeControlAction(
+  action: ControlActionEventInput,
 ): void {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
 
-  const actionEvent: MetaControlActionEvent = {
+  const actionEvent: ControlActionEvent = {
     controlName: action.controlName,
     actionId: action.actionId,
-    metaControlType: action.metaControlType,
+    actionControlType: action.actionControlType,
     payload: action.payload ?? null,
     timestampMs: Date.now(),
   };
@@ -242,21 +242,6 @@ export function sendRealtimeSectionParamLiteral(
     type: DependencyKeyTypeEnum.SectionParam,
     sectionId,
     codeObjId,
-  };
-  const dependencyValue: LiteralDependencyValue = {
-    payload: value,
-    type: DependencyValueTypeEnum.Literal,
-  };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
-}
-
-export function sendRealtimeMetaControlLiteral(
-  sectionId: string,
-  value: string,
-) {
-  const dependencyKey: SectionDependencyKey = {
-    type: DependencyKeyTypeEnum.Section,
-    sectionId,
   };
   const dependencyValue: LiteralDependencyValue = {
     payload: value,

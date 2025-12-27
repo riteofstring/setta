@@ -1,11 +1,9 @@
 import argparse
 import asyncio
 import logging
-import os
-import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Sequence
+from typing import Sequence
 
 import mcp.types as types
 from anyio.streams.memory import (
@@ -18,56 +16,15 @@ from litellm.types.llms.openai import (
 )
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from mcp.client.stdio import StdioServerParameters, stdio_client
-from mcp.client.streamable_http import streamable_http_client
 from mcp.server.stdio import stdio_server
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
 from setta.logging.config import configure_logging
-from setta.logging.errors import log_failure
-from setta.mcp.namespacing import build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.types.llm_config import MCPServerConfig
-from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.utils.constants import C
 
-if TYPE_CHECKING:  # pragma: no cover
-    from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-
 logger = logging.getLogger(__name__)
-
-_ENV_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
-
-
-class MissingMCPEnvVarError(ValueError):
-    def __init__(self, var_name: str) -> None:
-        super().__init__(
-            f"MCP config references missing environment variable '{var_name}'"
-        )
-        self.var_name = var_name
-
-
-def _resolve_env_placeholders(value: str) -> str:
-    def replace(match: re.Match[str]) -> str:
-        var_name = match.group(1)
-        if var_name not in os.environ:
-            raise MissingMCPEnvVarError(var_name)
-        return os.environ[var_name]
-
-    if "${" not in value:
-        return value
-    return _ENV_PLACEHOLDER.sub(replace, value)
-
-
-def _resolve_env_args(args: list[str]) -> list[str]:
-    return [_resolve_env_placeholders(arg) for arg in args]
-
-
-def _resolve_env_mapping(env: dict[str, str] | None) -> dict[str, str] | None:
-    if env is None:
-        return None
-    return {key: _resolve_env_placeholders(value) for key, value in env.items()}
 
 
 @dataclass
@@ -103,312 +60,107 @@ def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
     )
 
 
-@dataclass
-class _ServerToolCache:
-    init_tools: dict[str, ChatCompletionToolParam]
-    discoverable_tools: dict[str, ChatCompletionToolParam]
-    annotations: dict[str, SettaToolAnnotations | None]
-    routing: dict[str, tuple[str, str]]
+class MCPClient:
+    """Unified interface for Setta MCP access."""
 
-
-class MultiMCPClient:
-    """Unified interface for multi-server MCP access."""
-
-    def __init__(
-        self,
-        server_configs: dict[str, MCPServerConfig],
-        frontend_sender: "WMHFrontendSender | None" = None,
-    ):
-        self.server_configs = dict(server_configs)
-        self.frontend_sender = frontend_sender
-        self._sessions: dict[str, ClientSession] = {}
-        self._exit_stacks: dict[str, AsyncExitStack] = {}
-        self._connection_tasks: dict[str, asyncio.Task[None]] = {}
-        self._server_tool_cache: dict[str, _ServerToolCache] = {}
+    def __init__(self, server_url: str):
+        self.server_url = server_url
+        self.session: ClientSession | None = None
+        self.exit_stack = AsyncExitStack()
         self.init_tool_definitions: dict[str, ChatCompletionToolParam] = {}
         self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
-        self.tool_annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
-        self.routing: dict[str, tuple[str, str]] = {}
+        self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
 
-    async def connect_to_servers(self, retry_delay: int = 1) -> None:
-        if self._connection_tasks:
-            logger.warning("MCP client already running; skipping duplicate start")
-            return
-        if not self.server_configs:
-            logger.warning("No MCP servers configured; skipping connections")
-            return
-        tasks: list[asyncio.Task[None]] = []
-        for server_id, config in self.server_configs.items():
-            task = asyncio.create_task(
-                self._connect_server_loop(server_id, config, retry_delay)
-            )
-            self._connection_tasks[server_id] = task
-            tasks.append(task)
-        await asyncio.gather(*tasks)
+    async def connect_to_server(self, retry_delay: int = 1) -> None:
+        """Connect to the MCP server over SSE and maintain tool caches."""
 
-    async def call_tool(self, tool_name: str, tool_args: dict) -> types.CallToolResult:
-        route = self.routing.get(tool_name)
-        if not route:
-            raise KeyError(f"MCP tool '{tool_name}' is not registered")
-        server_id, tool_id = route
-        session = self._sessions.get(server_id)
-        if not session:
-            raise ValueError(f"MCP session for server '{server_id}' is not initialized")
-        return await session.call_tool(tool_id, tool_args)
-
-    async def stop(self) -> None:
-        for task in self._connection_tasks.values():
-            task.cancel()
-        self._connection_tasks.clear()
-        for exit_stack in self._exit_stacks.values():
-            await exit_stack.aclose()
-        self._exit_stacks.clear()
-        self._sessions.clear()
-        self._server_tool_cache.clear()
-        self._rebuild_tool_cache()
-        logger.info("MCP client resources cleaned up successfully")
-
-    def init_tool_definitions_for_servers(
-        self, server_ids: set[str]
-    ) -> dict[str, ChatCompletionToolParam]:
-        return self._filter_tool_definitions(self.init_tool_definitions, server_ids)
-
-    def discoverable_tool_definitions_for_servers(
-        self, server_ids: set[str]
-    ) -> dict[str, ChatCompletionToolParam]:
-        return self._filter_tool_definitions(
-            self.discoverable_tool_definitions, server_ids
-        )
-
-    def tool_annotations_for_servers(
-        self, server_ids: set[str]
-    ) -> dict[str, SettaToolAnnotations | None]:
-        return self._filter_tool_annotations(self.tool_annotations_by_name, server_ids)
-
-    def _filter_tool_definitions(
-        self,
-        definitions: dict[str, ChatCompletionToolParam],
-        server_ids: set[str],
-    ) -> dict[str, ChatCompletionToolParam]:
-        return {
-            name: payload
-            for name, payload in definitions.items()
-            if self._tool_belongs_to_server(name, server_ids)
-        }
-
-    def _filter_tool_annotations(
-        self,
-        annotations: dict[str, SettaToolAnnotations | None],
-        server_ids: set[str],
-    ) -> dict[str, SettaToolAnnotations | None]:
-        return {
-            name: payload
-            for name, payload in annotations.items()
-            if self._tool_belongs_to_server(name, server_ids)
-        }
-
-    def _tool_belongs_to_server(self, name: str, server_ids: set[str]) -> bool:
-        route = self.routing.get(name)
-        if not route:
-            return False
-        return route[0] in server_ids
-
-    async def _report_connection_failure(
-        self,
-        server_id: str,
-        config: MCPServerConfig,
-        exc: BaseException,
-        *,
-        label: str,
-        message: str,
-        handled: bool,
-    ) -> None:
-        context = {
-            "mcp_server_id": server_id,
-            "mcp_transport": config.transport,
-        }
-        if isinstance(exc, MissingMCPEnvVarError):
-            context["missing_env_var"] = exc.var_name
-        if self.frontend_sender:
-            await self.frontend_sender.log_failure_and_broadcast_backend_log_event(
-                exc,
-                label=label,
-                message=message,
-                severity=SettaBackendLogEventSeverity.error,
-                handled=handled,
-                logger=logger,
-                context=context,
-            )
-            return
-        log_failure(
-            exc,
-            label=label,
-            logger=logger,
-            handled=handled,
-            context=context,
-        )
-
-    async def _connect_server_loop(
-        self,
-        server_id: str,
-        config: MCPServerConfig,
-        retry_delay: int,
-    ) -> None:
-        logger.info("Starting MCP client connection to %s (%s)", server_id, config)
+        url = self.server_url
+        logger.info("Starting MCP client connection to %s", url)
 
         while True:
             try:
-                logger.info("Attempting to connect to %s", server_id)
-                await self._connect_server_once(server_id, config)
+                logger.info("Attempting to connect to %s", url)
+                stdio_transport = await self.exit_stack.enter_async_context(
+                    sse_client(url=url)
+                )
+                self.read, self.write = stdio_transport
+                self.session = await self.exit_stack.enter_async_context(
+                    ClientSession(self.read, self.write)
+                )
+                await self.session.initialize()
+                logger.info("Connected to %s", url)
+                response = await self.session.list_tools()
+                self._update_tool_cache(list(response.tools))
+                await self._keep_alive()
             except asyncio.TimeoutError:
                 logger.warning(
                     "Connection to %s timed out; retrying in %s seconds",
-                    server_id,
+                    url,
                     retry_delay,
-                )
-            except MissingMCPEnvVarError as exc:
-                message = (
-                    f"MCP server '{server_id}' is missing required environment variable "
-                    f"'{exc.var_name}'. Add it to .env to enable this server."
-                )
-                await self._report_connection_failure(
-                    server_id,
-                    config,
-                    exc,
-                    label="mcp-client-missing-env",
-                    message=message,
-                    handled=True,
                 )
             except Exception:
                 logger.exception(
                     "Connection to %s failed; retrying in %s seconds",
-                    server_id,
+                    url,
                     retry_delay,
                 )
 
-            await self._cleanup_server(server_id)
+            await self.exit_stack.aclose()
+            self.exit_stack = AsyncExitStack()
             await asyncio.sleep(retry_delay)
 
-    async def _connect_server_once(
-        self, server_id: str, config: MCPServerConfig
-    ) -> None:
-        exit_stack = AsyncExitStack()
-        self._exit_stacks[server_id] = exit_stack
-        read_stream, write_stream = await self._open_transport(exit_stack, config)
-        session = await exit_stack.enter_async_context(
-            ClientSession(read_stream, write_stream)
-        )
-        self._sessions[server_id] = session
-        await session.initialize()
-        logger.info("Connected to %s", server_id)
-        response = await session.list_tools()
-        self._update_tool_cache_for_server(server_id, list(response.tools))
-        await self._keep_alive(server_id)
-
-    async def _open_transport(
-        self,
-        exit_stack: AsyncExitStack,
-        config: MCPServerConfig,
-    ):
-        if config.transport == "sse":
-            read_stream, write_stream = await exit_stack.enter_async_context(
-                sse_client(url=config.url or "")
-            )
-            return read_stream, write_stream
-        if config.transport == "streamable_http":
-            read_stream, write_stream, _ = await exit_stack.enter_async_context(
-                streamable_http_client(url=config.url or "")
-            )
-            return read_stream, write_stream
-        params = StdioServerParameters(
-            command=config.command or "",
-            args=_resolve_env_args(list(config.args)),
-            env=_resolve_env_mapping(config.env),
-            cwd=config.cwd,
-            encoding=config.encoding,
-            encoding_error_handler=config.encoding_error_handler,
-        )
-        read_stream, write_stream = await exit_stack.enter_async_context(
-            stdio_client(params)
-        )
-        return read_stream, write_stream
-
-    async def _keep_alive(self, server_id: str) -> None:
-        session = self._sessions.get(server_id)
-        if not session:
+    async def _keep_alive(self) -> None:
+        if not self.session:
             raise ValueError("MCP session must be initialized before keep-alive")
 
         while True:
             await asyncio.sleep(10)
-            await session.send_ping()
+            await self.session.send_ping()
 
-    async def _cleanup_server(self, server_id: str) -> None:
-        exit_stack = self._exit_stacks.pop(server_id, None)
-        if exit_stack is None:
-            return
-        await exit_stack.aclose()
-        self._sessions.pop(server_id, None)
-        self._server_tool_cache.pop(server_id, None)
-        self._rebuild_tool_cache()
+    async def call_tool(self, tool_name: str, tool_args: dict) -> types.CallToolResult:
+        if not self.session:
+            raise ValueError("MCP session must be initialized before calling tools")
 
-    def _update_tool_cache_for_server(self, server_id: str, tools: list[Tool]) -> None:
+        return await self.session.call_tool(tool_name, tool_args)
+
+    async def stop(self) -> None:
+        await self.exit_stack.aclose()
+        logger.info("MCP client resources cleaned up successfully")
+
+    def _update_tool_cache(self, tools: list[Tool]) -> None:
         init_tools: dict[str, ChatCompletionToolParam] = {}
         discoverable_tools: dict[str, ChatCompletionToolParam] = {}
-        annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
-        routing: dict[str, tuple[str, str]] = {}
+        tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
         for tool in tools:
-            annotations: SettaToolAnnotations | None = None
-            tool_type = SettaToolType.discoverable
-            if tool.annotations is not None:
-                raw_annotations = tool.annotations.model_dump()
-                if "settaToolType" in raw_annotations:
-                    annotations = SettaToolAnnotations.model_validate(raw_annotations)
-                    tool_type = SettaToolType(annotations.settaToolType)
-            namespaced_name = build_namespaced_tool_name(server_id, tool.name)
-            definition = self._convert_tool_to_llm_definition(
-                tool, namespaced_name=namespaced_name
+            if tool.annotations is None:
+                raise ValueError(f"MCP tool {tool.name} is missing annotations")
+            annotations = SettaToolAnnotations.model_validate(
+                tool.annotations.model_dump()
             )
+            tool_type = SettaToolType(annotations.settaToolType)
+            definition = self._convert_tool_to_llm_definition(tool)
             if tool_type == SettaToolType.init:
-                init_tools[namespaced_name] = definition
+                init_tools[tool.name] = definition
             else:
-                discoverable_tools[namespaced_name] = definition
-            annotations_by_name[namespaced_name] = annotations
-            routing[namespaced_name] = (server_id, tool.name)
-
-        self._server_tool_cache[server_id] = _ServerToolCache(
-            init_tools=init_tools,
-            discoverable_tools=discoverable_tools,
-            annotations=annotations_by_name,
-            routing=routing,
-        )
-        self._rebuild_tool_cache()
-
-    def _rebuild_tool_cache(self) -> None:
-        init_tools: dict[str, ChatCompletionToolParam] = {}
-        discoverable_tools: dict[str, ChatCompletionToolParam] = {}
-        annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
-        routing: dict[str, tuple[str, str]] = {}
-        for cache in self._server_tool_cache.values():
-            init_tools.update(cache.init_tools)
-            discoverable_tools.update(cache.discoverable_tools)
-            annotations_by_name.update(cache.annotations)
-            routing.update(cache.routing)
+                discoverable_tools[tool.name] = definition
+            tool_annotations_by_name[tool.name] = annotations
 
         self.init_tool_definitions = init_tools
         self.discoverable_tool_definitions = discoverable_tools
-        self.tool_annotations_by_name = annotations_by_name
-        self.routing = routing
+        self.tool_annotations_by_name = tool_annotations_by_name
 
     @staticmethod
-    def _convert_tool_to_llm_definition(
-        tool: Tool, *, namespaced_name: str
-    ) -> ChatCompletionToolParam:
+    def _convert_tool_to_llm_definition(tool: Tool) -> ChatCompletionToolParam:
         function_payload: ChatCompletionToolParamFunctionChunk = {
-            "name": namespaced_name,
+            "name": tool.name,
             "description": tool.description or "",
             "parameters": tool.inputSchema or {},
         }
         return {"type": "function", "function": function_payload}
+
+    async def run_stdio_bridge(self, verbose: bool = False) -> None:
+        config = BridgeConfig(backend_url=self.server_url, verbose=verbose)
+        await run_stdio_bridge(config)
 
 
 async def run_stdio_bridge(config: BridgeConfig) -> None:
@@ -466,22 +218,15 @@ async def _forward_stdio_to_backend(
 
 def main(argv: Sequence[str] | None = None) -> int:
     config = parse_args(argv)
-    configure_stdio_bridge_logging(config.verbose)
+    level_override = "DEBUG" if config.verbose else None
+    configure_logging(level_override=level_override)
+    client = MCPClient(config.backend_url)
     try:
-        asyncio.run(run_stdio_bridge(config))
+        asyncio.run(client.run_stdio_bridge(verbose=config.verbose))
     except KeyboardInterrupt:
         logger.info("Bridge interrupted, shutting down")
         return 130
     return 0
-
-
-def configure_stdio_bridge_logging(verbose: bool) -> int:
-    level_override = "DEBUG" if verbose else None
-    return configure_logging(
-        level_override=level_override,
-        stream="stderr",
-        force=True,
-    )
 
 
 if __name__ == "__main__":

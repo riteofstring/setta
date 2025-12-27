@@ -21,7 +21,6 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -31,6 +30,9 @@ from setta.types.section_impls import (
 
 
 class SharedModifier(TypedDict):
+    # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     activeLayerIdx: NotRequired[int]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
@@ -76,11 +78,11 @@ class SharedModifier(TypedDict):
     isPreset: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
+    label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
-    max: NotRequired[int]
-    metaControlType: NotRequired[MetaControlType]
-    metaControlValue: NotRequired[str]
-    min: NotRequired[int]
+    max: NotRequired[float | int]
+    metaControlParamId: NotRequired[ID | None]
+    min: NotRequired[float | int]
     name: NotRequired[str]
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]
@@ -90,7 +92,7 @@ class SharedModifier(TypedDict):
     renderedValue: NotRequired[str | None]
     selectedParams: NotRequired[list[ID]]
     size: NotRequired[SectionSize]
-    step: NotRequired[int]
+    step: NotRequired[float | int]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     topLevelParamId: NotRequired[ID | None]
