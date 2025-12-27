@@ -6,6 +6,7 @@
 - `emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
+- `meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `mcp-system-overview.md` – explains the FastMCP server, client bridge, tool decorators, chat manager, and frontend chat loop (plus third-party access).
 - `listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.

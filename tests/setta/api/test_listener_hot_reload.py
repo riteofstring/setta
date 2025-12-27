@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 import json
 import os
@@ -134,6 +135,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
                 await reloader.reload_now(reload_module=False)
 
                 await listener._refresh_from_snapshot(project_state)
+                await asyncio.sleep(0)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
                 self.assertEqual(self._get_listener_invocations(listener), ["v1"])
 

@@ -1,7 +1,11 @@
+import tempfile
 import unittest
+import weakref
+from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, TypeVar, cast
 
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.database.db_objs import DBE
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
 from setta.types.artifact import ArtifactType, ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -98,6 +102,7 @@ def _get_primary_section_dependency_info(project_state: ProjectStateSingleConfig
 
 def _build_receiver_fixture(
     states: dict[ID, ProjectStateSingleConfig],
+    temporary_to_canonical: dict[ID, ID] | None = None,
 ) -> tuple[
     WMHPythonScriptReceiver,
     "_StubWebsocketManager",
@@ -110,13 +115,23 @@ def _build_receiver_fixture(
     frontend_sender = WMHFrontendSender(cast("WebsocketManager", websocket_manager))
     python_script_sender = _StubPythonScriptSender()
     project_manager_switcher = _StubProjectManagerSwitcher(states)
+    temp_dir = tempfile.TemporaryDirectory()
+    dbe = DBE(Path(temp_dir.name))
+    if temporary_to_canonical:
+        canonical_to_temporary = {
+            canonical: temporary
+            for temporary, canonical in temporary_to_canonical.items()
+        }
+        dbe.write_temporary_id_map(canonical_to_temporary)
     receiver = WMHPythonScriptReceiver(
         cast("WebsocketManager", websocket_manager),
         listener_registry,
         frontend_sender,
         cast("WMHPythonScriptSender", python_script_sender),
         cast("ProjectManagerSwitcher", project_manager_switcher),
+        dbe,
     )
+    weakref.finalize(receiver, temp_dir.cleanup)
     return (
         receiver,
         websocket_manager,
@@ -305,6 +320,63 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         await receiver.on_disconnect("socket-1")
         self.assertIsNone(listener_registry.get_registration("socket-1"))
 
+    async def test_listener_register_ack_uses_temporary_project_id(self):
+        project_state = _build_project_state(PROJECT_ID)
+        section_id = next(iter(project_state.sections.keys()))
+        temporary_project_id = ID("201")
+        temporary_section_id = ID("202")
+        (
+            receiver,
+            websocket_manager,
+            _,
+            _,
+            listener_registry,
+        ) = _build_receiver_fixture(
+            {PROJECT_ID: project_state},
+            temporary_to_canonical={
+                temporary_project_id: PROJECT_ID,
+                temporary_section_id: section_id,
+            },
+        )
+        init_message = WebsocketMsgListenerInit(
+            content=ListenerInitContent(
+                projectConfigId=temporary_project_id,
+                useTemporaryIds=True,
+            )
+        )
+        await receiver.process_json_str(
+            init_message.model_dump_json(),
+            fromWebsocketId="socket-temp",
+        )
+
+        callback = ListenerRegisterCallback(
+            dependencies=[create_dep_key(sectionId=temporary_section_id)],
+            dependencyMode=ListenerDependencyMode.SPECIFIC,
+        )
+        content = ListenerRegisterContent(
+            projectConfigId=temporary_project_id,
+            callbacks={"cb-temp": callback},
+        )
+        message = WebsocketMsgListenerRegister(content=content)
+
+        await receiver.process_json_str(
+            message.model_dump_json(),
+            fromWebsocketId="socket-temp",
+        )
+
+        registration = listener_registry.get_registration("socket-temp")
+        self.assertIsNotNone(registration)
+        assert registration is not None
+        self.assertEqual(PROJECT_ID, registration.project_config_id)
+
+        ack_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerRegisterAck
+        )
+        self.assertEqual("socket-temp", websocket_id)
+        self.assertEqual(
+            temporary_project_id, ack_message.content.projectConfigId
+        )
+
     async def test_listener_init_sends_bootstrap_snapshot(self):
         project_state = _build_project_state(PROJECT_INIT_ID)
         (
@@ -334,6 +406,42 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         self.assertIs(call["projectState"], project_state)
         self.assertIsNone(call["projectConfigId"])
         self.assertEqual(("socket-init",), call["targetWebsocketIds"])
+
+    async def test_listener_init_maps_temporary_project_id(self):
+        project_state = _build_project_state(PROJECT_INIT_ID)
+        temporary_project_id = ID("101")
+        (
+            receiver,
+            _,
+            python_script_sender,
+            _,
+            listener_registry,
+        ) = _build_receiver_fixture(
+            {PROJECT_INIT_ID: project_state},
+            temporary_to_canonical={temporary_project_id: PROJECT_INIT_ID},
+        )
+        init_message = WebsocketMsgListenerInit(
+            content=ListenerInitContent(
+                projectConfigId=temporary_project_id,
+                useTemporaryIds=True,
+            )
+        )
+
+        await receiver.process_json_str(
+            init_message.model_dump_json(),
+            fromWebsocketId="socket-temp",
+        )
+
+        self.assertEqual(
+            PROJECT_INIT_ID,
+            listener_registry.get_bootstrap_project_config("socket-temp"),
+        )
+        self.assertTrue(
+            listener_registry.use_temporary_ids_for_socket("socket-temp")
+        )
+        self.assertEqual(1, len(python_script_sender.force_refresh_calls))
+        call = python_script_sender.force_refresh_calls[0]
+        self.assertIs(call["projectState"], project_state)
 
     async def test_listener_init_sends_error_when_project_missing(self):
         (
