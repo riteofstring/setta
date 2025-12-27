@@ -463,6 +463,12 @@ export async function route_set_param_entered_value(
   return await post("/setParamEnteredValue", x);
 }
 
+export async function route_set_type_error_ignore(
+  x: gt.SetTypeErrorIgnoreRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTypeErrorIgnore", x);
+}
+
 export async function route_set_code_obj_name(
   x: gt.SetCodeObjNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

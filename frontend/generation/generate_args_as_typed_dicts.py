@@ -115,7 +115,8 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
-    CodeFileBinding
+    CodeFileBinding,
+    TypeErrorIgnoreState
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,

@@ -486,6 +486,14 @@ class ListenerSetTopLevelSectionLayoutRequestPayload(TypedDict):
     topLevelSections: dict[ID, TopLevelSectionLayout]
 
 
+class ListenerSetTypeErrorIgnoreRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoId: ID | None
+    ignoreTypeErrors: bool
+
+
 class ListenerSetViewModeNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -885,6 +893,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTopLevelSectionLayoutRequestPayload
     ) -> None:
         return await self._caller("route_set_top_level_section_layout", payload)
+
+    async def set_type_error_ignore(
+        self, payload: ListenerSetTypeErrorIgnoreRequestPayload
+    ) -> None:
+        return await self._caller("route_set_type_error_ignore", payload)
 
     async def set_view_mode_name(
         self, payload: ListenerSetViewModeNameRequestPayload

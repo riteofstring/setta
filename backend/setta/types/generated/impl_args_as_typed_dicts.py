@@ -31,6 +31,7 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
+    TypeErrorIgnoreState,
 )
 
 
@@ -172,7 +173,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedParams: NotRequired[list[ID]]
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
-    ignoreTypeErrors: NotRequired[dict[ID, bool]]
+    ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     displayMode: NotRequired[SectionWithParamsDisplayMode]
 
 
@@ -198,7 +199,7 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ]
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
-        dict[ID, bool] | Callable[[dict[ID, bool]], dict[ID, bool]]
+        TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
     ]
     displayMode: NotRequired[
         SectionWithParamsDisplayMode

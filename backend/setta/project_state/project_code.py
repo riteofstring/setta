@@ -59,7 +59,11 @@ from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeFileBinding, CodeSectionImpl
+from setta.types.section_impls import (
+    CodeFileBinding,
+    CodeSectionImpl,
+    TypeErrorIgnoreState,
+)
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -73,11 +77,18 @@ class ProjectGenPythonCode(PythonCode):
         project_config_id: ID,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
+        ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
+        self.ignored_type_errors_by_section = ignored_type_errors_by_section
+        self.latest_diagnostics = SettaProjectConfigDiagnostics(
+            projectConfigId=project_config_id,
+            errors={},
+            isGenCode=True,
+        )
         code_files.register_binding(
             binding.canonical_path,
             RegisteredCodeFileBinding(
@@ -229,15 +240,13 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         result = process_signature_help_response(settings, response)
-        if result is None:
-            return self._build_set_callable_response(
-                project_state,
-                sectionId,
-                current_callable_id,
-                SignatureHelpStatus.NO_MATCH,
-            )
-
-        documentation, codeObjs, codeObjImplMap = result
+        documentation = None
+        codeObjs: list[Core] = []
+        codeObjImplMap = {}
+        lsp_status = SignatureHelpStatus.NO_MATCH
+        if result is not None:
+            documentation, codeObjs, codeObjImplMap = result
+            lsp_status = SignatureHelpStatus.MATCHED
 
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(
@@ -262,16 +271,22 @@ class ProjectGenPythonCode(PythonCode):
         if not isinstance(callable_base_impl, CodeCallableCodeObjImpl):
             raise TypeError
 
-        set_effective_impl_value(
-            callable_base_impl,
-            callable_code_obj,
-            callable_code_obj_variant,
-            CodeCallableCodeObjImplArgsWithCallable(description=documentation),
-        )
+        if documentation is not None:
+            set_effective_impl_value(
+                callable_base_impl,
+                callable_code_obj,
+                callable_code_obj_variant,
+                CodeCallableCodeObjImplArgsWithCallable(description=documentation),
+            )
 
-        add_children_of_callable(
-            project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
-        )
+        if result is not None or not prev_selected:
+            add_children_of_callable(
+                project_state,
+                sectionId,
+                callable_code_obj.id,
+                codeObjs,
+                codeObjImplMap,
+            )
 
         set_curr_effective_section_impl_value(
             project_state,
@@ -285,7 +300,7 @@ class ProjectGenPythonCode(PythonCode):
             ),
         )
         return self._build_set_callable_response(
-            project_state, sectionId, callable_code_obj.id, SignatureHelpStatus.MATCHED
+            project_state, sectionId, callable_code_obj.id, lsp_status
         )
 
     def _build_set_callable_response(
@@ -350,17 +365,19 @@ class ProjectGenPythonCode(PythonCode):
         params = lsp_response.params
         if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
-        diagnostics = process_gen_code_diagnostics(
+        errors = process_gen_code_diagnostics(
             params.diagnostics,
             self.code_generator,
             self.dep_graph,
+            self.ignored_type_errors_by_section,
         )
         content = SettaProjectConfigDiagnostics(
             projectConfigId=self.project_config_id,
-            diagnostics=diagnostics,
+            errors=errors,
             isGenCode=True,
         )
 
+        self.latest_diagnostics = content
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
     def get_gen_python_code_path(self):

@@ -289,6 +289,10 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
     """Request a lightweight summary snapshot of the specified project config."""
 
 
+class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
+    """Request the latest parsed LSP diagnostics for generated code."""
+
+
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
     pass
 
@@ -355,6 +359,17 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
 
     value: str = Field(
         description="Raw text value to persist for the parameter.",
+    )
+
+
+class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
+    """Toggle ignoring type errors for a callable or parameter within a section."""
+
+    paramInfoId: ID | None = Field(
+        description="Parameter identifier to ignore, or None to target callable errors.",
+    )
+    ignoreTypeErrors: bool = Field(
+        description="Whether to hide type errors for the targeted entry.",
     )
 
 
