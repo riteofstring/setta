@@ -1,6 +1,7 @@
 import copy
 import math
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
 import rpack
@@ -90,7 +91,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, TopLevelSectionLayout
+from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
@@ -501,6 +502,255 @@ def append_draw_area_layer_item(
         sectionId,
         DrawSectionImplArgsWithCallable(layers=update_layers),
     )
+
+
+@dataclass(frozen=True)
+class _LayoutRect:
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+def _rects_intersect(a: _LayoutRect, b: _LayoutRect) -> bool:
+    return not (
+        a.x + a.w <= b.x or a.x >= b.x + b.w or a.y + a.h <= b.y or a.y >= b.y + b.h
+    )
+
+
+def _expand_rect(rect: _LayoutRect, padding: float) -> _LayoutRect:
+    if padding <= 0:
+        return rect
+    return _LayoutRect(
+        x=rect.x - padding,
+        y=rect.y - padding,
+        w=rect.w + padding * 2,
+        h=rect.h + padding * 2,
+    )
+
+
+def _get_min_section_dimensions(
+    settings: SettingsState, section_type: SectionType
+) -> tuple[float, float]:
+    sizing_policy = settings.sectionSizingPolicy.byType
+    entry = getattr(sizing_policy, section_type.value)
+    min_width = max(1.0, float(entry.minWidth))
+    min_height = max(1.0, float(entry.minHeight))
+    return min_width, min_height
+
+
+def _resolve_layout_dimension_with_fallback(
+    settings: SettingsState,
+    section_type: SectionType,
+    layout_value: float | None,
+    size_value: float | SectionSizeMode,
+    axis: str,
+) -> float:
+    if layout_value is not None:
+        return max(1.0, float(layout_value))
+    if size_value != SectionSizeMode.auto:
+        return max(1.0, float(size_value))
+    min_width, min_height = _get_min_section_dimensions(settings, section_type)
+    if axis == "width":
+        return min_width
+    if axis == "height":
+        return min_height
+    raise ValueError(f"Unexpected axis {axis} for layout resolution.")
+
+
+def _get_section_size_override_dict(
+    impl_overrides: BaseSectionImplArgsUnion | None,
+) -> dict[str, float | SectionSizeMode] | None:
+    if impl_overrides is None:
+        return None
+    if isinstance(impl_overrides, dict):
+        if "size" not in impl_overrides:
+            return None
+        size_override = impl_overrides["size"]
+    else:
+        if not hasattr(impl_overrides, "size"):
+            return None
+        size_override = impl_overrides.size
+    if size_override is None:
+        return None
+    if isinstance(size_override, SectionSize):
+        return size_override.model_dump()
+    if isinstance(size_override, dict):
+        return size_override
+    raise ValueError("Unsupported size override payload.")
+
+
+def _resolve_section_dimensions_from_size(
+    settings: SettingsState,
+    section_type: SectionType,
+    size: SectionSize,
+) -> tuple[float, float]:
+    width = _resolve_layout_dimension_with_fallback(
+        settings, section_type, None, size.width, "width"
+    )
+    height = _resolve_layout_dimension_with_fallback(
+        settings, section_type, None, size.height, "height"
+    )
+    return width, height
+
+
+def _resolve_new_section_dimensions(
+    settings: SettingsState,
+    section_type: SectionType,
+    impl_overrides: BaseSectionImplArgsUnion | None,
+) -> tuple[float, float]:
+    default_impl = get_user_default_section_from_settings(settings, section_type)
+    size_data = default_impl.size.model_dump()
+    override_data = _get_section_size_override_dict(impl_overrides)
+    if override_data is not None:
+        size_data.update(override_data)
+    size = SectionSize(**size_data)
+    return _resolve_section_dimensions_from_size(settings, section_type, size)
+
+
+def _build_top_level_layout_rects(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+) -> list[_LayoutRect]:
+    if layout_snapshot is None:
+        layout_by_id = p.projectConfig.topLevelSections
+    else:
+        layout_by_id = {
+            **p.projectConfig.topLevelSections,
+            **layout_snapshot,
+        }
+    rects: list[_LayoutRect] = []
+    for section_id, layout in layout_by_id.items():
+        if section_id not in p.sections:
+            continue
+        parent_id = p.parentSectionMap[section_id]
+        if parent_id:
+            continue
+        impl = get_curr_effective_section_impl(p, section_id)
+        width = _resolve_layout_dimension_with_fallback(
+            settings, impl.type, layout.w, impl.size.width, "width"
+        )
+        height = _resolve_layout_dimension_with_fallback(
+            settings, impl.type, layout.h, impl.size.height, "height"
+        )
+        rects.append(_LayoutRect(layout.x, layout.y, width, height))
+    return rects
+
+
+def _get_grid_step(width: float, height: float) -> float:
+    base = min(width, height) / 3
+    return max(20.0, min(80.0, base))
+
+
+def _find_position_in_bounds(
+    bounds: _LayoutRect,
+    new_width: float,
+    new_height: float,
+    rects: list[_LayoutRect],
+    padding: float,
+    step: float,
+) -> Position | None:
+    if bounds.w <= 0 or bounds.h <= 0:
+        return None
+    start_x = bounds.x + padding
+    start_y = bounds.y + padding
+    end_x = bounds.x + bounds.w - new_width - padding
+    end_y = bounds.y + bounds.h - new_height - padding
+    if end_x < start_x or end_y < start_y:
+        return None
+    expanded = [_expand_rect(rect, padding) for rect in rects]
+    y = start_y
+    while y <= end_y:
+        x = start_x
+        while x <= end_x:
+            candidate = _LayoutRect(x, y, new_width, new_height)
+            if not any(_rects_intersect(candidate, rect) for rect in expanded):
+                return Position(x=x, y=y)
+            x += step
+        y += step
+    return None
+
+
+def _find_position_adjacent_to_bounds(
+    bounds: _LayoutRect,
+    new_width: float,
+    new_height: float,
+    rects: list[_LayoutRect],
+    padding: float,
+    step: float,
+) -> Position | None:
+    right_bounds = _LayoutRect(
+        x=bounds.x + bounds.w,
+        y=bounds.y,
+        w=new_width + padding * 2,
+        h=bounds.h,
+    )
+    position = _find_position_in_bounds(
+        right_bounds, new_width, new_height, rects, padding, step
+    )
+    if position is not None:
+        return position
+    bottom_bounds = _LayoutRect(
+        x=bounds.x,
+        y=bounds.y + bounds.h,
+        w=bounds.w,
+        h=new_height + padding * 2,
+    )
+    return _find_position_in_bounds(
+        bottom_bounds, new_width, new_height, rects, padding, step
+    )
+
+
+def _find_position_after_existing(
+    rects: list[_LayoutRect],
+    padding: float,
+) -> Position:
+    if not rects:
+        return Position(x=padding, y=padding)
+    max_x = max(rect.x + rect.w for rect in rects)
+    min_y = min(rect.y for rect in rects)
+    return Position(x=max_x + padding, y=min_y)
+
+
+def compute_smart_top_level_section_position(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    impl_type: SectionType,
+    impl_overrides: BaseSectionImplArgsUnion | None,
+    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+    viewport_bounds: ViewportBounds | None,
+) -> tuple[Position, Position | None]:
+    rects = _build_top_level_layout_rects(settings, p, layout_snapshot)
+    new_width, new_height = _resolve_new_section_dimensions(
+        settings, impl_type, impl_overrides
+    )
+    padding = 24.0
+    step = _get_grid_step(new_width, new_height)
+    if viewport_bounds is not None and viewport_bounds.w > 0 and viewport_bounds.h > 0:
+        bounds_rect = _LayoutRect(
+            x=viewport_bounds.x,
+            y=viewport_bounds.y,
+            w=viewport_bounds.w,
+            h=viewport_bounds.h,
+        )
+        position = _find_position_in_bounds(
+            bounds_rect, new_width, new_height, rects, padding, step
+        )
+        if position is not None:
+            return position, None
+        position = _find_position_adjacent_to_bounds(
+            bounds_rect, new_width, new_height, rects, padding, step
+        )
+        if position is None:
+            position = _find_position_after_existing(rects, padding)
+        pan_to = Position(
+            x=position.x + new_width / 2,
+            y=position.y + new_height / 2,
+        )
+        return position, pan_to
+    position = _find_position_after_existing(rects, padding)
+    return position, None
 
 
 def create_top_level_section(
