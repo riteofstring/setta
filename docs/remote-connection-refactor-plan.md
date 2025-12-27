@@ -38,6 +38,7 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   (token, socket/port, pid, logs) on the remote host.
 - DONE: Implement token-gated auth for all HTTP routes, websockets, and MCP SSE endpoints.
 - DONE: Require a token file at backend startup; no unauthenticated fallbacks (token stored in `SETTA_AUTH_TOKEN` env var).
+- DONE: Resolve the auth token during app startup to avoid import-order coupling.
 - DONE: CLI and listener websocket clients now send the token via `Sec-WebSocket-Protocol`.
 - DONE: Agent startup requires `--session-id` + `--token-file`, supports `--uds`/`--session-root`, and writes `session.json`, `agent.pid`, and `logs/agent.log`.
 
@@ -46,6 +47,7 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   that handle SSH bootstrap + tunnel lifecycle.
 - Keep the existing websocket CLI (`setta connect` today) but rename or re-home it
   to avoid conflict with the new remote connect command.
+- DONE: Disable `--reload` for agent sessions to keep session metadata consistent.
 - Store local session metadata under `~/.setta/run/<session>/local.json` as described
   in the plan.
 
@@ -78,6 +80,7 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   local proxy/tunnel path.
 
 ### 8) Tests + docs scaffolding
+- DONE: Add session bootstrap test to verify session.json creation and starting status.
 - Add auth and tunnel smoke tests that exercise token-gated HTTP + websocket flows.
 - Document manual verification steps for remote connect and LSP interpreter
   selection (per repo test guidance).

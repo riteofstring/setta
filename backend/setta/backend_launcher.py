@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 import time
 from pathlib import Path
@@ -10,16 +9,8 @@ import uvicorn
 from setta.auth import configure_auth_token, load_auth_token_from_file
 from setta.logging.config import configure_logging
 from setta.session import (
-    SessionMetadataBase,
-    build_listen_info,
-    build_session_metadata,
-    current_timestamp,
-    ensure_log_file,
-    ensure_token_permissions,
-    prepare_session_layout,
-    resolve_listen_info_from_server,
-    write_pid_file,
-    write_session_metadata,
+    bootstrap_session,
+    update_session_metadata_when_ready,
 )
 from setta.utils.constants import C
 
@@ -35,30 +26,6 @@ def _resolve_version() -> str:
     from setta import __version__
 
     return __version__
-
-
-def _update_session_ready_metadata(
-    server: uvicorn.Server,
-    session_file: Path,
-    metadata_base: SessionMetadataBase,
-    fallback_listen: dict[str, str | int],
-) -> None:
-    while not server.started:
-        if server.should_exit:
-            return
-        time.sleep(_READY_POLL_INTERVAL_SECONDS)
-    listen_info = resolve_listen_info_from_server(server) or fallback_listen
-    if "host" in listen_info and "port" in listen_info:
-        C.HOST = str(listen_info["host"])
-        C.PORT = int(listen_info["port"])
-    write_session_metadata(
-        session_file,
-        build_session_metadata(
-            metadata_base,
-            status="ready",
-            listen_info=listen_info,
-        ),
-    )
 
 
 class BackendServerHandle:
@@ -154,55 +121,41 @@ def start_backend(
     resolved_port = C.DEFAULT_PORT if port is None else port
     C.HOST = resolved_host
     C.PORT = resolved_port
-    session_layout = prepare_session_layout(
-        session_id,
-        token_file,
-        uds,
+    session_bootstrap = bootstrap_session(
+        session_id=session_id,
+        token_file=token_file,
+        uds_path=uds,
         run_root=session_root,
-    )
-    ensure_token_permissions(session_layout.token_file)
-    ensure_log_file(session_layout.log_file)
-    pid = os.getpid()
-    write_pid_file(session_layout.pid_file, pid)
-    started_at = current_timestamp()
-    metadata_base = SessionMetadataBase(
-        session_id=session_layout.session_id,
+        host=resolved_host,
+        port=resolved_port,
         version=_resolve_version(),
-        pid=pid,
-        started_at=started_at,
-        token_file=session_layout.token_file,
-        log_file=session_layout.log_file,
-    )
-    listen_info = build_listen_info(
-        resolved_host,
-        resolved_port,
-        session_layout.uds_path,
-    )
-    write_session_metadata(
-        session_layout.session_file,
-        build_session_metadata(
-            metadata_base,
-            status="starting",
-            listen_info=listen_info,
-        ),
     )
 
-    configure_auth_token(load_auth_token_from_file(session_layout.token_file))
+    configure_auth_token(
+        load_auth_token_from_file(session_bootstrap.layout.token_file)
+    )
 
     resolved_level = configure_logging(
         level_override=log_level,
-        log_file=str(session_layout.log_file),
+        log_file=str(session_bootstrap.layout.log_file),
         force=True,
     )
     uvicorn_level = logging.getLevelName(resolved_level).lower()
 
-    if session_layout.uds_path and session_layout.uds_path.exists():
-        session_layout.uds_path.unlink()
+    if (
+        session_bootstrap.layout.uds_path
+        and session_bootstrap.layout.uds_path.exists()
+    ):
+        session_bootstrap.layout.uds_path.unlink()
     config = uvicorn.Config(
         "setta.server:app",
         host=resolved_host,
         port=resolved_port,
-        uds=str(session_layout.uds_path) if session_layout.uds_path else None,
+        uds=(
+            str(session_bootstrap.layout.uds_path)
+            if session_bootstrap.layout.uds_path
+            else None
+        ),
         log_level=uvicorn_level,
         log_config=None,
         timeout_graceful_shutdown=1,
@@ -225,20 +178,20 @@ def start_backend(
             raise TimeoutError(
                 f"Setta backend did not become ready within {ready_timeout} seconds."
             )
-        _update_session_ready_metadata(
+        update_session_metadata_when_ready(
             server,
-            session_layout.session_file,
-            metadata_base,
-            listen_info,
+            session_bootstrap.layout.session_file,
+            session_bootstrap.metadata_base,
+            session_bootstrap.listen_info,
         )
     else:
         monitor_thread = threading.Thread(
-            target=_update_session_ready_metadata,
+            target=update_session_metadata_when_ready,
             args=(
                 server,
-                session_layout.session_file,
-                metadata_base,
-                listen_info,
+                session_bootstrap.layout.session_file,
+                session_bootstrap.metadata_base,
+                session_bootstrap.listen_info,
             ),
             name="setta-session-metadata",
             daemon=True,

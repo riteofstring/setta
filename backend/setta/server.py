@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.auth_token = get_configured_auth_token()
     app.state.setta = SettaFastAPIState(app)
 
     logger.info("Ready: %s", C.BACKEND)
@@ -70,8 +71,6 @@ app = FastAPI(
     docs_url=f"{Route.PREFIX.value}{Route.SWAGGER_DOCS.value}",
     redoc_url=f"{Route.PREFIX.value}{Route.REDOC_DOCS.value}",
 )
-
-app.state.auth_token = get_configured_auth_token()
 
 app.add_middleware(AuthMiddleware)
 app.add_middleware(LoggingContextMiddleware)

@@ -17,6 +17,7 @@
 - Auth is now token-gated across HTTP, websockets, and MCP SSE; the backend requires a token file and websocket clients send the token.
 - Agent startup now requires `--session-id` + `--token-file` and writes `~/.setta/run/<session>/` metadata (pid, logs, session.json).
 - Agent startup supports `--uds` and `--session-root`, and updates session metadata once the server is bound.
+- Agent startup disables `--reload` to keep session metadata consistent.
 
 ## User Experience
 - `setta connect user@host [--project /path]` starts or reuses a remote session and opens the local UI.
@@ -141,6 +142,8 @@
   - Attempt to curl the remote loopback port without token, expect 401.
   - Open a websocket without token, expect refusal.
   - Restart the local client and reattach to an existing session.
+- Automated:
+  - Session bootstrap test verifies session.json creation and starting status.
 - Automated (later):
   - Integration test that boots an agent and verifies token-gated routes.
 
