@@ -103,7 +103,10 @@ type RotaryConfigForFrontend = Pick<
   "min" | "max" | "step"
 >;
 
-type DropdownConfigForFrontend = Pick<DropdownParamCodeObjImpl, "choices">;
+export type DropdownConfigForFrontend = Pick<
+  DropdownParamCodeObjImpl,
+  "choices"
+>;
 
 export type ColorPickerConfigForFrontend = Pick<
   ColorPickerParamCodeObjImpl,
