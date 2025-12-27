@@ -1781,38 +1781,6 @@ wheels = [
 ]
 
 [[package]]
-name = "rectangle-packer"
-version = "2.0.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c9/06/84541ab4e69447fdcaed9e899a53a512806b7bd7d805cb30ef8f7205059c/rectangle_packer-2.0.5.tar.gz", hash = "sha256:389f5d24af0d61daae0dac3f0493f9aff032557268ad88335f194c31c3f5dcc6", size = 99586, upload-time = "2025-11-07T18:54:25.388Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/06/fd38301926a3e708f87d858dff8cb7ff322b820b5899e1bcdb9d8cf5548e/rectangle_packer-2.0.5-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:86b15e7b1c6772d950be7b97176a3dbec9ab01488060db3d60750816faac7058", size = 68073, upload-time = "2025-11-07T18:53:41.104Z" },
-    { url = "https://files.pythonhosted.org/packages/c5/37/335b0d63d1d37af532b6f05df182fe5a864ba1e1ebb5b8f2b8a005b82066/rectangle_packer-2.0.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:e5f55903601b01d781ef935d34e19028984d88cf36de9857d3bf61e385b61cc6", size = 65008, upload-time = "2025-11-07T18:53:42.206Z" },
-    { url = "https://files.pythonhosted.org/packages/88/5b/6f4b0772d6b648c03420bad32cbdd354799816e84d0961c6f5435036e594/rectangle_packer-2.0.5-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:7083c4cbc90c5cac58673bfa51edf39e870eb582814c0dee9e96052a706d9a18", size = 366616, upload-time = "2025-11-07T18:53:43.36Z" },
-    { url = "https://files.pythonhosted.org/packages/05/dc/51b905c90167b25264067ef405a2831b6d2841cbbd26ea5414c2f56d8a46/rectangle_packer-2.0.5-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b3035e87d6ed1dfad024130ed0ab8deb5fec414855d8335e93e633d56877ec74", size = 364521, upload-time = "2025-11-07T18:53:44.664Z" },
-    { url = "https://files.pythonhosted.org/packages/3f/39/92e188892209c760507d1a10fe702ef4fbc1bf679aacd282ed7f8824ad2a/rectangle_packer-2.0.5-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:e8503b0e3ec25b3fb5c595c3dcf959520b91efbf32cc934cc477144458f90e01", size = 355986, upload-time = "2025-11-07T18:53:46.002Z" },
-    { url = "https://files.pythonhosted.org/packages/15/b4/2fa533ce8ec709d1a76121f273ab9ec5d75d37ecdac4f7df4ac975c8b7fd/rectangle_packer-2.0.5-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:0807deb90029b36d97c0f2b72142a06847b089d9db40dfe69c8014a8fb9ed27b", size = 365488, upload-time = "2025-11-07T18:53:47.351Z" },
-    { url = "https://files.pythonhosted.org/packages/92/67/16b9c96ce86ba1b7de098ffb36673ece16b46436a7f4972525b3ad225a5b/rectangle_packer-2.0.5-cp312-cp312-win32.whl", hash = "sha256:c3b3a89b141f75d1b753b9a49872160e9ad7ffe5c4ca52f822d48fd3b3179d14", size = 59748, upload-time = "2025-11-07T18:53:48.582Z" },
-    { url = "https://files.pythonhosted.org/packages/9d/c8/77fd2b29df75352e2b93009b2bb855a2d44aa1e1ee854863627738c940ec/rectangle_packer-2.0.5-cp312-cp312-win_amd64.whl", hash = "sha256:d7f748e33ca295b56a4e6160f6cb1a0cb4a64b3867003285ad9b59d64edb49eb", size = 67455, upload-time = "2025-11-07T18:53:50.123Z" },
-    { url = "https://files.pythonhosted.org/packages/22/23/7c397073b6f71f68935f34dcb68170483138fa5db68d0e618701130653ed/rectangle_packer-2.0.5-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:b8f957382b5934e260f76ffdc568356e13811517d6ba864c1ca634579eec5c76", size = 67363, upload-time = "2025-11-07T18:53:51.634Z" },
-    { url = "https://files.pythonhosted.org/packages/4c/2f/a2f2202c2e2777b7d2b4a93966c0050f43d5035567eda977f0710d0051db/rectangle_packer-2.0.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8dca65a12abb9e20f7eb7a3b796d55764fa426b8b109cf327f03464480041e69", size = 64318, upload-time = "2025-11-07T18:53:52.687Z" },
-    { url = "https://files.pythonhosted.org/packages/2a/06/30f0dba218cf1068fb64cfe759613ca1dd332b2dd89e6cd59c950f609574/rectangle_packer-2.0.5-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:2e9ee3ede924846feee20ee1afd8d81e93a326b4e331adb1ed2b5b2aee57ce19", size = 365021, upload-time = "2025-11-07T18:53:53.908Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/6f/848e6c0c58fcd45289891fd45c8d014bf3cb65829966a1f3201ea8fe9605/rectangle_packer-2.0.5-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:81923c810d8495242541628ebdc630a4d729eb07edabd15bc1687a03abeea981", size = 362185, upload-time = "2025-11-07T18:53:55.848Z" },
-    { url = "https://files.pythonhosted.org/packages/68/76/a022ba41e2064cb60af009d312720f2311b4433a271221a6ec2b0ec22bf2/rectangle_packer-2.0.5-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:975ac449573c716a49756263e796d30a748b6382e196d0b4c1fd6165b4e2077f", size = 354257, upload-time = "2025-11-07T18:53:57.737Z" },
-    { url = "https://files.pythonhosted.org/packages/63/c0/3e4cfcbe734aa9ca5ddc8fc1cd79d9c2279322dd34dda229c36df98204c0/rectangle_packer-2.0.5-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:7fd9da901571a778e180664396428d70edbd026761e9822d4e466e4c2a03828d", size = 362737, upload-time = "2025-11-07T18:53:59.776Z" },
-    { url = "https://files.pythonhosted.org/packages/b0/ba/260f71fe9dfdce196f5bbc21b4b4086785462f67b8cd41a01ce81f115f89/rectangle_packer-2.0.5-cp313-cp313-win32.whl", hash = "sha256:cbd36aab29260a22f8ae694272f74179f8b672ed8224c4ca1d1fe05916f4ef53", size = 59524, upload-time = "2025-11-07T18:54:01.077Z" },
-    { url = "https://files.pythonhosted.org/packages/43/a2/1def9bd173295275fa198e5a266fbb260de33e375f5e1832b374ff8fa2a8/rectangle_packer-2.0.5-cp313-cp313-win_amd64.whl", hash = "sha256:319201d2d41eca39077e7bc36429c141f81da15305c201e19de2731f70c88d02", size = 66859, upload-time = "2025-11-07T18:54:02.098Z" },
-    { url = "https://files.pythonhosted.org/packages/e7/4d/e43569e3901245c6ab854b89c86cd74b689325f57cb2199727b298617bd3/rectangle_packer-2.0.5-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:ac452b7a274a3c3b0f32c5e8aa0c41f425abf6464b62451a69dc8aec63c9ed38", size = 67409, upload-time = "2025-11-07T18:54:03.125Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/f8/fa746dd7606e5d0a12d94c1435721a54994247891f1153fecb1b6f8df0d5/rectangle_packer-2.0.5-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:7b1f32a96981820646ffc0e7c9d7328d0a0604aecee944d24795db06bd618bc8", size = 64366, upload-time = "2025-11-07T18:54:04.664Z" },
-    { url = "https://files.pythonhosted.org/packages/7d/1c/6a8fa25b55bb511124130c8fdf201d67139da44f92c80cf8200150dc9f16/rectangle_packer-2.0.5-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:e32657aec44ca0a80e6cddc9979563b12a015930588f9faa72a8f433298a770c", size = 357721, upload-time = "2025-11-07T18:54:05.819Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/44/8703d5e5d1bcbd939c1d5c4414c173152f0a54fee09414a6bde1ab40d259/rectangle_packer-2.0.5-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:eda697c14674875b11b4ba374416079f98142f2e96ee79f547b0337c7f8f3f4c", size = 359405, upload-time = "2025-11-07T18:54:07.444Z" },
-    { url = "https://files.pythonhosted.org/packages/8c/1e/57f5ffed179244672f132c519fd62ef7871436e773dcdf36a736c823393b/rectangle_packer-2.0.5-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:67690dc2ef1cfb0535d05ac279d7a841f0d878fee05673c43020cc94586fa175", size = 352256, upload-time = "2025-11-07T18:54:08.672Z" },
-    { url = "https://files.pythonhosted.org/packages/ac/2e/53a13e31d237f722adb4fce0e466632fc49df029b70f846f92237baf4035/rectangle_packer-2.0.5-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:9573169e05e0337ff4b9336bba75d17f77975545cf327c79c3b4f42c2cbb157b", size = 355615, upload-time = "2025-11-07T18:54:09.993Z" },
-    { url = "https://files.pythonhosted.org/packages/da/65/ea23ebc812e0d2f18e20a9158b07b856a8bf694330daabe437d7409037b8/rectangle_packer-2.0.5-cp314-cp314-win32.whl", hash = "sha256:32171ad7cf470fb5e8a34beb619280d7420b3253b4795c87698861848e9b351c", size = 61187, upload-time = "2025-11-07T18:54:11.418Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/12/d780d6a4e5d389b8168c6be10c0884645c3635bda440beb140c0d5ba381e/rectangle_packer-2.0.5-cp314-cp314-win_amd64.whl", hash = "sha256:d8d7a82dad306d675b224e8c49ebe5a32be0e33d628e47f7528e13cfc719ef17", size = 68242, upload-time = "2025-11-07T18:54:12.98Z" },
-]
-
-[[package]]
 name = "referencing"
 version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2131,7 +2099,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pywinpty", marker = "sys_platform == 'win32'" },
     { name = "pyyaml" },
-    { name = "rectangle-packer" },
     { name = "requests" },
     { name = "ruff" },
     { name = "uvicorn" },
@@ -2169,7 +2136,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = "==1.1.0" },
     { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = "==2.0.15" },
     { name = "pyyaml", specifier = "==6.0.2" },
-    { name = "rectangle-packer", specifier = "==2.0.5" },
     { name = "requests", specifier = "==2.32.4" },
     { name = "ruff", specifier = "==0.12.12" },
     { name = "uvicorn", specifier = "==0.34.3" },

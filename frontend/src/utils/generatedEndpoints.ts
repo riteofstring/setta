@@ -403,12 +403,6 @@ export async function route_set_top_level_section_layout(
   return await post("/setTopLevelSectionLayout", x);
 }
 
-export async function route_auto_layout_top_level_sections(
-  x: gt.AutoLayoutTopLevelSectionsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/autoLayoutTopLevelSections", x);
-}
-
 export async function route_add_kwarg(
   x: gt.AddKwargRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

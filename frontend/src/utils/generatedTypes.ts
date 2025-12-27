@@ -310,7 +310,6 @@ export const RouteEnum = {
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
   FORCE_REFRESH_LISTENER: "/forceRefreshListener",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
-  AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
@@ -4643,16 +4642,6 @@ const AppendDrawAreaLayerItemRequestSchema = z.object({
 
 export type AppendDrawAreaLayerItemRequestInput = z.input<
   typeof AppendDrawAreaLayerItemRequestSchema
->;
-
-const AutoLayoutTopLevelSectionsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  margin: z.int().default(50),
-});
-
-export type AutoLayoutTopLevelSectionsRequestInput = z.input<
-  typeof AutoLayoutTopLevelSectionsRequestSchema
 >;
 
 const ChangeParamImplRequestSchema = z.object({

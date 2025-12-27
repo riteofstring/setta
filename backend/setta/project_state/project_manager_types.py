@@ -296,15 +296,6 @@ class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class AutoLayoutTopLevelSectionsRequest(ProjectManagerRequestWithProjectConfig):
-    """Compute and apply an automatic layout for top-level sections."""
-
-    margin: int = Field(
-        default=50,
-        description="Padding applied around each section during packing.",
-    )
-
-
 class AddKwargRequest(ProjectManagerRequestWithSection):
     """Append a keyword argument entry to the callable section."""
 
