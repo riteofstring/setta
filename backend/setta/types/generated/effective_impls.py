@@ -14,10 +14,13 @@ from setta.types.code_obj_impls import (
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
+    DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
     PasswordParamCodeObjImpl,
+    RotaryParamCodeObjImpl,
     SliderParamCodeObjImpl,
     SwitchParamCodeObjImpl,
+    TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant
@@ -43,6 +46,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DictSectionImplArgsWithCallable,
     DrawSectionImplArgsWithCallable,
     DropdownParamCodeObjImplArgsWithCallable,
+    DropzoneParamCodeObjImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
     GlobalVariablesSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
@@ -52,10 +56,12 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgsWithCallable,
     NestedParamCodeObjImplArgsWithCallable,
     PasswordParamCodeObjImplArgsWithCallable,
+    RotaryParamCodeObjImplArgsWithCallable,
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     SwitchParamCodeObjImplArgsWithCallable,
     TerminalSectionImplArgsWithCallable,
+    TextAreaParamCodeObjImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgsWithCallable,
 )
@@ -259,6 +265,13 @@ def set_effective_impl_value(
 ) -> SliderParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
+    impl: RotaryParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: RotaryParamCodeObjImplArgsWithCallable,
+) -> RotaryParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
     impl: SwitchParamCodeObjImpl,
     core: Core,
     variant: Variant,
@@ -285,6 +298,20 @@ def set_effective_impl_value(
     variant: Variant,
     args: PasswordParamCodeObjImplArgsWithCallable,
 ) -> PasswordParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: TextAreaParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: TextAreaParamCodeObjImplArgsWithCallable,
+) -> TextAreaParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: DropzoneParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: DropzoneParamCodeObjImplArgsWithCallable,
+) -> DropzoneParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: NestedParamCodeObjImpl,

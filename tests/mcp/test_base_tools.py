@@ -1,7 +1,6 @@
 import unittest
 from types import SimpleNamespace
 
-from mcp.server.fastmcp.server import Context
 from setta.mcp.tools.base_tools import (
     getInstalledPythonPackages,
     getProjectConfigNamesAndIds,
@@ -26,9 +25,8 @@ class GetProjectConfigNamesAndIdsTests(unittest.IsolatedAsyncioTestCase):
                     settings_fixture.manager,
                 )
                 state = SimpleNamespace(project_manager_switcher=switcher)
-                ctx = Context(fastmcp=SimpleNamespace(state=state))
 
-                response = getProjectConfigNamesAndIds(ctx=ctx)
+                response = getProjectConfigNamesAndIds(setta_state=state)
                 _, metadata = project_fixture.manager.get_all_project_metadata()
                 self.assertGreater(len(metadata), 0)
 
