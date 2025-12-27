@@ -6,6 +6,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -17,21 +18,13 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
-import { ButtonInputConfigForParam } from "./ButtonInput";
 import {
+  ColorPickerInput,
   ColorPickerInputConfigForParam,
 } from "./ColorPickerInput";
-import { DropdownInputConfigForParam } from "./DropdownInput";
-import {
-  ConfiguredColorPickerInput,
-  ConfiguredDropdownInput,
-  ConfiguredRotaryInput,
-  ConfiguredSliderInput,
-  ParamValueChange,
-} from "./ConfiguredParamInputs";
-import { DropzoneInput } from "./DropzoneInput";
+import { DropdownInput, DropdownInputConfigForParam } from "./DropdownInput";
 import { PasswordInput } from "./PasswordInput";
-import { SliderInputConfigForParam } from "./SliderInput";
+import { SliderInput, SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
 
 export function ParamUIConfig({
@@ -63,13 +56,6 @@ export function ParamUIConfig({
     case CodeObjTypeEnum.DropdownParam:
       return (
         <DropdownInputConfigForParam
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-        />
-      );
-    case CodeObjTypeEnum.ButtonParam:
-      return (
-        <ButtonInputConfigForParam
           sectionId={sectionId}
           paramInfoId={paramInfoId}
         />
@@ -149,17 +135,6 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
-    case CodeObjTypeEnum.RotaryParam:
-      return (
-        <RotaryParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
     case CodeObjTypeEnum.SwitchParam:
       return (
         <SwitchParamConfigured
@@ -199,30 +174,6 @@ export function ParamUI({
           onEscape={onEscape}
           isDisabled={isDisabled}
           isSelectingParams={isSelectingParams}
-        />
-      );
-    case CodeObjTypeEnum.TextAreaParam:
-      return (
-        <TextParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          maybeErrorMessage={maybeErrorMessage}
-          isDisabled={isDisabled}
-          configLanguage={configLanguage}
-          waitingForResult={waitingForResult}
-          isSelectingParams={isSelectingParams}
-        />
-      );
-    case CodeObjTypeEnum.DropzoneParam:
-      return (
-        <DropzoneParamConfigured
-          value={value}
-          onChange={onChange}
-          isDisabled={isDisabled}
         />
       );
     default:
@@ -280,13 +231,20 @@ function SliderParamConfigured({
   onEscape,
   isDisabled,
 }) {
+  const { min, max, step } = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.SliderParam,
+  );
+
   return (
-    <ConfiguredSliderInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
+    <SliderInput
       value={value}
       onChange={onChange}
       onEscape={onEscape}
+      min={min}
+      max={max}
+      step={step}
       isDisabled={isDisabled}
       wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
       sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
@@ -296,47 +254,6 @@ function SliderParamConfigured({
       rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`}
       textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:block"
     />
-  );
-}
-
-function RotaryParamConfigured({
-  sectionId,
-  paramInfoId,
-  value,
-  onChange,
-  onEscape,
-  isDisabled,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-  onChange: ParamValueChange;
-  onEscape: () => void;
-  isDisabled: boolean;
-}) {
-  return (
-    <ConfiguredRotaryInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      value={value}
-      onChange={onChange}
-      onEscape={onEscape}
-      isDisabled={isDisabled}
-    />
-  );
-}
-
-function DropzoneParamConfigured({
-  value,
-  onChange,
-  isDisabled,
-}: {
-  value: string;
-  onChange: ParamValueChange;
-  isDisabled: boolean;
-}) {
-  return (
-    <DropzoneInput value={value} onChange={onChange} isDisabled={isDisabled} />
   );
 }
 
@@ -367,10 +284,14 @@ function ColorPickerParamConfigured({
   onEscape,
   isDisabled,
 }) {
+  const { colorChoices } = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.ColorPickerParam,
+  );
   return (
-    <ConfiguredColorPickerInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
+    <ColorPickerInput
+      colorChoices={colorChoices}
       value={value}
       onChange={onChange}
       onEscape={onEscape}
@@ -388,10 +309,14 @@ function DropdownParamConfigured({
   onChange,
   isDisabled,
 }) {
+  const { choices } = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.DropdownParam,
+  );
   return (
-    <ConfiguredDropdownInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
+    <DropdownInput
+      choices={choices}
       value={value}
       onChange={onChange}
       outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"

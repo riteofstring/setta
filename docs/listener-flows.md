@@ -6,12 +6,11 @@ listener-driven updates move through the system, plus when disk writes happen.
 ## Flow A: Meta control realtime -> listeners
 ```
 UI change
-  -> if meta control is an action control:
+  -> if meta control is a button:
        send RealtimeActionEvent (always)
      else:
-       update local pending value on the control param
-       send RealtimeUIChange for SectionParamDependencyKey
-         (only if listener coverage matches)
+       update local pending value
+       send RealtimeUIChange (only if listener coverage matches)
   -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
       -> WMHPythonScriptSender fan-out to matching listener sockets
   -> SettaListener applies delta/action, schedules callbacks (debounce/throttle)
@@ -31,8 +30,8 @@ Key paths:
 ## Flow B: Meta control persistence -> project state
 ```
 UI change
-  -> debounced route_set_param_entered_value (50ms)
-      -> project manager set_param_entered_value()
+  -> debounced route_set_meta_control_value (50ms)
+      -> project manager set_meta_control_value()
           -> add history entry (autosave debounce)
           -> update_and_broadcast_project_state()
               -> update(): validate, rebuild DependencyGraph, codegen
