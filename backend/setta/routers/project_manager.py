@@ -13,7 +13,6 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
-    CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -163,13 +162,13 @@ async def route_update_param_impl_config(
 @router.post(Route.CREATE_TOP_LEVEL_SECTION)
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, state: AppStateFromRequest
-) -> CreateTopLevelSectionResponse:
-    result = await state.project_manager_switcher.get(
+) -> str:
+    sectionId = await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_top_level_section(x)
     if x.implType == SectionType.Terminal:
-        state.terminals.new_terminal(x.projectConfigId, result.sectionId)
-    return result
+        state.terminals.new_terminal(x.projectConfigId, sectionId)
+    return sectionId
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS)
@@ -409,7 +408,6 @@ async def route_set_param_entered_value(
     )
 
 
-@router.post(Route.SET_TYPE_ERROR_IGNORE)
 async def route_set_type_error_ignore(
     x: SetTypeErrorIgnoreRequest, state: AppStateFromRequest
 ):
