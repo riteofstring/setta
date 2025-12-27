@@ -2,15 +2,10 @@ import unittest
 from dataclasses import dataclass
 from typing import Any
 
-import bm25s
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
-from setta.mcp.server import (
-    ToolSearchIndex,
-    _build_parameter_text,
-    _build_tool_document_text,
-)
+from setta.mcp.tool_search_index import _build_parameter_text
 from setta.mcp.tools.tool_search import list_mcp_tools, search_and_unlock_mcp_tools
 
 
@@ -21,31 +16,38 @@ class ToolSpec:
     parameters: dict[str, Any]
 
 
-class StubMCPServer:
+class StubMCPClient:
     def __init__(
         self,
-        index: ToolSearchIndex | None,
-        tools: list[Tool] | None = None,
+        definitions: dict[str, dict[str, Any]],
+        annotations_by_name: dict[str, Any],
     ):
-        self.tool_search_index = index
-        if tools is not None:
-            self._tools = list(tools)
-        elif index is not None:
-            self._tools = list(index.tools)
-        else:
-            self._tools = []
+        self.discoverable_tool_definitions = definitions
+        self.tool_annotations_by_name = annotations_by_name
 
-    def list_registered_tools(self) -> list[Tool]:
-        return list(self._tools)
+    def discoverable_tool_definitions_for_servers(
+        self, _server_ids: set[str]
+    ) -> dict[str, dict[str, Any]]:
+        return self.discoverable_tool_definitions
+
+    def tool_annotations_for_servers(
+        self, _server_ids: set[str]
+    ) -> dict[str, Any]:
+        return self.tool_annotations_by_name
 
 
 class StubSettaState:
-    def __init__(
-        self,
-        index: ToolSearchIndex | None,
-        tools: list[Tool] | None = None,
-    ):
-        self.mcp_server = StubMCPServer(index, tools)
+    def __init__(self, mcp_client: StubMCPClient | None = None):
+        self.mcp_client = mcp_client
+
+
+class StubFastMCP:
+    def __init__(self, tools: list[Tool], state: StubSettaState):
+        self._tools = list(tools)
+        self.state = state
+
+    def list_registered_tools(self) -> list[Tool]:
+        return list(self._tools)
 
 
 def _build_tool(spec: ToolSpec) -> Tool:
@@ -65,17 +67,20 @@ def _build_tool(spec: ToolSpec) -> Tool:
     )
 
 
-def build_search_index(tool_specs: list[ToolSpec]) -> ToolSearchIndex:
-    tools = [_build_tool(spec) for spec in tool_specs]
-    retriever = bm25s.BM25()
-    documents = [_build_tool_document_text(tool) for tool in tools]
-    corpus_tokens = bm25s.tokenize(documents, stopwords="en")
-    retriever.index(corpus_tokens)
-    return ToolSearchIndex(retriever=retriever, tools=tools)
+def _build_definition(spec: ToolSpec) -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": spec.name,
+            "description": spec.description,
+            "parameters": spec.parameters,
+        },
+    }
 
 
 class SearchAndUnlockMCPToolsTest(unittest.TestCase):
     def setUp(self) -> None:
+        self.server_ids = ["setta"]
         self.tool_specs = [
             ToolSpec(
                 name="read_file_range",
@@ -122,14 +127,19 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
                 },
             ),
         ]
-        index = build_search_index(self.tool_specs)
-        self.setta_state = StubSettaState(index)
-        self.ctx = Context(fastmcp=self.setta_state.mcp_server)
+        definitions = {
+            spec.name: _build_definition(spec) for spec in self.tool_specs
+        }
+        annotations = {spec.name: None for spec in self.tool_specs}
+        mcp_client = StubMCPClient(definitions, annotations)
+        setta_state = StubSettaState(mcp_client)
+        self.ctx = Context(fastmcp=StubFastMCP([], setta_state))
 
     def test_returns_ranked_results_for_query(self) -> None:
         results = search_and_unlock_mcp_tools(
             query="read specific file lines",
             limit=1,
+            serverIds=self.server_ids,
             ctx=self.ctx,
         )
 
@@ -138,20 +148,32 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_and_unlock_mcp_tools(
-            query="search project", limit=0, ctx=self.ctx
+            query="search project",
+            limit=0,
+            serverIds=self.server_ids,
+            ctx=self.ctx,
         )
 
         self.assertEqual(len(results.results), len(self.tool_specs))
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
-            search_and_unlock_mcp_tools(query="   ", ctx=self.ctx)
+            search_and_unlock_mcp_tools(
+                query="   ",
+                serverIds=self.server_ids,
+                ctx=self.ctx,
+            )
 
     def test_returns_empty_when_index_missing(self) -> None:
-        empty_state = StubSettaState(index=None)
-        empty_ctx = Context(fastmcp=empty_state.mcp_server)
+        empty_client = StubMCPClient({}, {})
+        empty_state = StubSettaState(empty_client)
+        empty_ctx = Context(fastmcp=StubFastMCP([], empty_state))
 
-        results = search_and_unlock_mcp_tools(query="read", ctx=empty_ctx)
+        results = search_and_unlock_mcp_tools(
+            query="read",
+            serverIds=self.server_ids,
+            ctx=empty_ctx,
+        )
 
         self.assertEqual(results.results, [])
 
@@ -173,8 +195,8 @@ class ListMCPToolsTest(unittest.TestCase):
         ]
         tools = [_build_tool(spec) for spec in specs]
         # Intentionally reverse to confirm sorting happens inside list_mcp_tools.
-        self.setta_state = StubSettaState(index=None, tools=list(reversed(tools)))
-        self.ctx = Context(fastmcp=self.setta_state.mcp_server)
+        setta_state = StubSettaState()
+        self.ctx = Context(fastmcp=StubFastMCP(list(reversed(tools)), setta_state))
 
     def test_returns_sorted_registered_tool_names(self) -> None:
         results = list_mcp_tools(ctx=self.ctx).tools
@@ -182,8 +204,8 @@ class ListMCPToolsTest(unittest.TestCase):
         self.assertEqual(results, sorted(self.tool_names))
 
     def test_returns_empty_list_when_no_tools_registered(self) -> None:
-        empty_state = StubSettaState(index=None, tools=[])
-        empty_ctx = Context(fastmcp=empty_state.mcp_server)
+        empty_state = StubSettaState()
+        empty_ctx = Context(fastmcp=StubFastMCP([], empty_state))
 
         self.assertEqual(list_mcp_tools(ctx=empty_ctx).tools, [])
 

@@ -72,11 +72,21 @@ class MultiMCPClientToolCacheTests(unittest.TestCase):
 
     def test_skips_search_and_unlock_tool(self) -> None:
         client = MultiMCPClient({})
-        search_tool = _build_tool(name=C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME)
+        init_annotations = ToolAnnotations.model_validate(
+            SettaToolAnnotations(settaToolType=SettaToolType.init).model_dump()
+        )
+        search_tool = _build_tool(
+            name=C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
+            annotations=init_annotations,
+        )
 
         client._update_tool_cache_for_server(SETTA_MCP_SERVER_ID, [search_tool])
 
         self.assertNotIn(
             f"{SETTA_MCP_SERVER_ID}__search_and_unlock_mcp_tools",
             client.discoverable_tool_definitions,
+        )
+        self.assertIn(
+            f"{SETTA_MCP_SERVER_ID}__search_and_unlock_mcp_tools",
+            client.init_tool_definitions,
         )
