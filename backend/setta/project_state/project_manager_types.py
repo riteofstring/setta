@@ -6,7 +6,6 @@ from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
@@ -161,10 +160,6 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
 
     implType: SectionType = Field(
         description="Section implementation type to instantiate.",
-    )
-    controlCodeObjType: CodeObjType | None = Field(
-        default=None,
-        description="Optional meta control code obj type to instantiate.",
     )
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator | None = Field(
         default=None,
@@ -384,6 +379,14 @@ class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     )
     value: str = Field(
         description="Raw text value to persist for the parameter.",
+    )
+
+
+class SetMetaControlValueRequest(ProjectManagerRequestWithSection):
+    """Assign a new manual value to a meta control section."""
+
+    value: str = Field(
+        description="Raw text value to persist for the meta control.",
     )
 
 

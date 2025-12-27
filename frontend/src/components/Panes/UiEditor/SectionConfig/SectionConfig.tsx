@@ -8,7 +8,6 @@ import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
-import { MetaControlSettings } from "./MetaControlSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
@@ -35,8 +34,6 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
       return <TextBlockSettings sectionId={sectionId} />;
-    case SectionTypeEnum.MetaControl:
-      return <MetaControlSettings sectionId={sectionId} />;
     case SectionTypeEnum.Draw:
       return <DrawAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Image:

@@ -95,6 +95,7 @@ class Route(str, Enum):
     SET_GEN_CODE_SUFFIX = "/setGenCodeSuffix"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_TYPE_ERROR_IGNORE = "/setTypeErrorIgnore"
+    SET_META_CONTROL_VALUE = "/setMetaControlValue"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"
     SET_CODE = "/setCode"
