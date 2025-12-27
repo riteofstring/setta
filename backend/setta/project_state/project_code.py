@@ -59,7 +59,11 @@ from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeFileBinding, CodeSectionImpl
+from setta.types.section_impls import (
+    CodeFileBinding,
+    CodeSectionImpl,
+    TypeErrorIgnoreState,
+)
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -73,13 +77,13 @@ class ProjectGenPythonCode(PythonCode):
         project_config_id: ID,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
-        ignored_param_ids_by_section: dict[ID, set[ID]],
+        ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState],
     ):
         super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
-        self.ignored_param_ids_by_section = ignored_param_ids_by_section
+        self.ignored_type_errors_by_section = ignored_type_errors_by_section
         self.latest_diagnostics = SettaProjectConfigDiagnostics(
             projectConfigId=project_config_id,
             errors={},
@@ -365,7 +369,7 @@ class ProjectGenPythonCode(PythonCode):
             params.diagnostics,
             self.code_generator,
             self.dep_graph,
-            self.ignored_param_ids_by_section,
+            self.ignored_type_errors_by_section,
         )
         content = SettaProjectConfigDiagnostics(
             projectConfigId=self.project_config_id,

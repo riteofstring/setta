@@ -36,7 +36,7 @@ export function openSelectionContextMenu(
 export function openTypeErrorContextMenu(
   e: ContextMenuEvent,
   sectionId: string,
-  paramInfoId: string,
+  paramInfoId: string | null,
 ) {
   openContextMenu(e, "typeError", { sectionId, paramInfoId });
 }

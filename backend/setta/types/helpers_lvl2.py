@@ -106,6 +106,7 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
+    TypeErrorIgnoreState,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
@@ -1436,23 +1437,28 @@ def toggle_param_selected(
     )
 
 
-def set_param_ignore_type_errors(
+def set_type_error_ignore(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
-    paramInfoId: ID,
+    paramInfoId: ID | None,
     ignoreTypeErrors: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
 
-    def update(curr: dict[ID, bool]):
-        next_map = dict(curr)
+    def update(curr: TypeErrorIgnoreState):
+        next_params = dict(curr.params)
+        if paramInfoId is None:
+            return TypeErrorIgnoreState(
+                callable=ignoreTypeErrors,
+                params=next_params,
+            )
         if ignoreTypeErrors:
-            next_map[paramInfoId] = True
-        elif paramInfoId in next_map:
-            del next_map[paramInfoId]
-        return next_map
+            next_params[paramInfoId] = True
+        elif paramInfoId in next_params:
+            del next_params[paramInfoId]
+        return TypeErrorIgnoreState(callable=curr.callable, params=next_params)
 
     set_curr_effective_section_impl_value(
         p,

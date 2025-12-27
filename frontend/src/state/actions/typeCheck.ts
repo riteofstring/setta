@@ -36,13 +36,20 @@ export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
 
 type TypeErrorsState = ReturnType<typeof useTypeErrors.getState>;
 
-export function removeTypeErrorsForParam(
-  paramInfoId: string,
+export function removeTypeErrorsForTarget(
+  sectionId: string,
+  paramInfoId: string | null,
   state: TypeErrorsState,
 ) {
-  for (const section of Object.values(state.errors)) {
-    if (paramInfoId in section.params) {
-      delete section.params[paramInfoId];
-    }
+  const section = state.errors[sectionId];
+  if (!section) {
+    return;
+  }
+  if (paramInfoId === null) {
+    section.callable = [];
+    return;
+  }
+  if (paramInfoId in section.params) {
+    delete section.params[paramInfoId];
   }
 }

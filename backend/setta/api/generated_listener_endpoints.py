@@ -402,14 +402,6 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     value: str
 
 
-class ListenerSetParamIgnoreTypeErrorsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    paramInfoId: ID
-    ignoreTypeErrors: bool
-
-
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -497,6 +489,14 @@ class ListenerSetTopLevelSectionLayoutRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     topLevelSections: dict[ID, TopLevelSectionLayout]
+
+
+class ListenerSetTypeErrorIgnoreRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoId: ID | None
+    ignoreTypeErrors: bool
 
 
 class ListenerSetViewModeNameRequestPayload(TypedDict):
@@ -841,11 +841,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
 
-    async def set_param_ignore_type_errors(
-        self, payload: ListenerSetParamIgnoreTypeErrorsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_param_ignore_type_errors", payload)
-
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
     ) -> None:
@@ -908,6 +903,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTopLevelSectionLayoutRequestPayload
     ) -> None:
         return await self._caller("route_set_top_level_section_layout", payload)
+
+    async def set_type_error_ignore(
+        self, payload: ListenerSetTypeErrorIgnoreRequestPayload
+    ) -> None:
+        return await self._caller("route_set_type_error_ignore", payload)
 
     async def set_view_mode_name(
         self, payload: ListenerSetViewModeNameRequestPayload

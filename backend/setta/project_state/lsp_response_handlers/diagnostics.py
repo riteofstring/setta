@@ -14,13 +14,14 @@ from setta.types.dependency_key import (
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.id import ID
 from setta.types.lsp import SettaLSPPosition, SettaSectionTypeErrors
+from setta.types.section_impls import TypeErrorIgnoreState
 
 
 def process_gen_code_diagnostics(
     diagnostics: list[LSPTypes.Diagnostic],
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
-    ignored_param_ids_by_section: dict[ID, set[ID]] | None = None,
+    ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None = None,
 ):
     positions = convert_diagnostic_line_cols_to_positions(
         code_generator.code, diagnostics
@@ -30,15 +31,31 @@ def process_gen_code_diagnostics(
         for section_id, param_id, message in process_gen_code_diagnostic(
             d, positions[i], code_generator, dep_graph
         ):
-            if (
-                param_id is not None
-                and ignored_param_ids_by_section is not None
-                and section_id in ignored_param_ids_by_section
-                and param_id in ignored_param_ids_by_section[section_id]
+            if should_ignore_type_error(
+                section_id,
+                param_id,
+                ignored_type_errors_by_section,
             ):
                 continue
             add_error_message(output, section_id, param_id, message)
     return output
+
+
+def should_ignore_type_error(
+    section_id: ID,
+    param_id: ID | None,
+    ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None,
+) -> bool:
+    if ignored_type_errors_by_section is None:
+        return False
+    if section_id not in ignored_type_errors_by_section:
+        return False
+    ignore_state = ignored_type_errors_by_section[section_id]
+    if param_id is None:
+        return ignore_state.callable
+    if param_id in ignore_state.params:
+        return ignore_state.params[param_id]
+    return False
 
 
 DiagnosticInfo = tuple[ID, ID | None, str]

@@ -1,8 +1,15 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { BiError } from "react-icons/bi";
+import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getCodeObjCore,
@@ -204,6 +211,10 @@ function SectionSearchCore({
   const showStatusIndicator = valueNameInconsistent || waitingForResult;
   const showRightIndicator = showStatusIndicator || hasCallableError;
 
+  function onCallableErrorContextMenu(e: MouseEvent<HTMLSpanElement>) {
+    openTypeErrorContextMenu(e, sectionId, null);
+  }
+
   const displayedCallableName =
     draftCallableName !== null ? draftCallableName : codeInfoName;
   const tooltipContentArray = hasCallableError
@@ -242,7 +253,10 @@ function SectionSearchCore({
       {showRightIndicator && (
         <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
           {hasCallableError && (
-            <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white">
+            <span
+              className="pointer-events-auto grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white"
+              onContextMenu={onCallableErrorContextMenu}
+            >
               <BiError className="h-[14px] w-[14px]" />
             </span>
           )}

@@ -115,7 +115,6 @@ from setta.project_state.project_manager_types import (
     SetImageAreaImagePathRequest,
     SetMetaControlValueRequest,
     SetParamEnteredValueRequest,
-    SetParamIgnoreTypeErrorsRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
@@ -130,6 +129,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetTypeErrorIgnoreRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -195,7 +195,6 @@ from setta.types.helpers_lvl2 import (
     set_image_area_image_path,
     set_meta_control_value,
     set_param_entered_value,
-    set_param_ignore_type_errors,
     set_project_config_name,
     set_section_column_width,
     set_section_hide_unpinned_params,
@@ -209,6 +208,7 @@ from setta.types.helpers_lvl2 import (
     set_text_block_display_mode,
     set_text_block_format,
     set_text_block_text,
+    set_type_error_ignore,
     toggle_minimized,
     toggle_param_selected,
     toggle_position_lock,
@@ -246,6 +246,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
+    TypeErrorIgnoreState,
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -661,18 +662,22 @@ class BaseProjectManager(ABC):
                 value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
             code_generator.generate_code()
-            ignore_type_errors_by_section: dict[ID, set[ID]] = {}
+            ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
             for section_id in projectState.sections.keys():
                 section_impl = get_curr_effective_section_impl(projectState, section_id)
                 if not isinstance(section_impl, BaseSectionWithParamsImpl):
                     continue
-                ignored_param_ids = {
-                    param_id
-                    for param_id, is_ignored in section_impl.ignoreTypeErrors.items()
+                ignore_state = section_impl.ignoreTypeErrors
+                ignored_params = {
+                    param_id: True
+                    for param_id, is_ignored in ignore_state.params.items()
                     if is_ignored
                 }
-                if ignored_param_ids:
-                    ignore_type_errors_by_section[section_id] = ignored_param_ids
+                if ignore_state.callable or ignored_params:
+                    ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
+                        callable=ignore_state.callable,
+                        params=ignored_params,
+                    )
 
             gen_code_binding = projectState.genCodeBinding
             if gen_code_binding is None:
@@ -837,11 +842,11 @@ class BaseProjectManager(ABC):
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
         )
     )
-    async def set_param_ignore_type_errors(self, x: SetParamIgnoreTypeErrorsRequest):
-        """Toggle ignoring type errors for the targeted section parameter."""
+    async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
+        """Toggle ignoring type errors for the targeted section entry."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_param_ignore_type_errors(
+        set_type_error_ignore(
             project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
         )
         await self.update_and_broadcast_project_state(project_state)

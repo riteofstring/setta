@@ -357,11 +357,14 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
-class SetParamIgnoreTypeErrorsRequest(ProjectManagerRequestWithSectionParam):
-    """Toggle ignoring type errors for a parameter within a section."""
+class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
+    """Toggle ignoring type errors for a callable or parameter within a section."""
 
+    paramInfoId: ID | None = Field(
+        description="Parameter identifier to ignore, or None to target callable errors.",
+    )
     ignoreTypeErrors: bool = Field(
-        description="Whether to hide type errors for the targeted parameter.",
+        description="Whether to hide type errors for the targeted entry.",
     )
 
 
