@@ -67,6 +67,7 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
+    AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -111,6 +112,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlValueRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
@@ -162,6 +164,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
+    auto_layout_top_level_sections,
     change_param_impl,
     create_child_sections,
     create_child_sections_via_incrementer,
@@ -188,6 +191,7 @@ from setta.types.helpers_lvl2 import (
     set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
+    set_meta_control_value,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -508,6 +512,25 @@ class BaseProjectManager(ABC):
             return
         self._pending_ops_idle.set()
 
+    def _flush_code_files(
+        self, projectConfigId: ID
+    ) -> tuple[
+        ProjectGenPythonCode | None,
+        dict[ID, ProjectPythonCode | ProjectBashCode],
+    ]:
+        gen_code = self.gen_code.get(projectConfigId)
+        if gen_code is None:
+            return None, {}
+        gen_code.write_to_disk(gen_code.code)
+        code_entries = self.code_dict.get(projectConfigId, {})
+        for code_entry in code_entries.values():
+            code_entry.write_to_disk(code_entry.code)
+        return gen_code, code_entries
+
+    def _flush_code_files_for_all_configs(self) -> None:
+        for project_config_id in self.project_state_backend.projectConfigs.keys():
+            self._flush_code_files(project_config_id)
+
     @enqueue_method
     async def create_run_command(
         self,
@@ -515,13 +538,16 @@ class BaseProjectManager(ABC):
         sectionId: ID | None,
     ):
         async with self._project_state_lock.read_lock():
+            gen_code, code_entries = self._flush_code_files(projectConfigId)
+            if gen_code is None:
+                raise KeyError(
+                    f"Missing generated code for project config {projectConfigId}"
+                )
             target_folder = create_timestamped_folder(C.CODE_FOLDER)
-            gen_code = self.gen_code[projectConfigId]
             gen_code_path = gen_code.write_to_folder(target_folder)
 
-            code_dict = self.code_dict[projectConfigId]
             code_paths = {}
-            for sid, c in code_dict.items():
+            for sid, c in code_entries.items():
                 code_paths[sid] = c.write_to_folder(target_folder)
 
             if not sectionId:
@@ -530,7 +556,7 @@ class BaseProjectManager(ABC):
                 ].entryCodeBlockId
 
             if sectionId:
-                return code_dict[sectionId].get_run_command(code_paths[sectionId])
+                return code_entries[sectionId].get_run_command(code_paths[sectionId])
             return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
@@ -558,6 +584,16 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
+
+    @enqueue_method
+    @project_state_tool()
+    async def auto_layout_top_level_sections(
+        self, x: AutoLayoutTopLevelSectionsRequest
+    ):
+        """Automatically arrange top-level sections using rectangle packing."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        auto_layout_top_level_sections(project_state, margin=x.margin)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -634,7 +670,9 @@ class BaseProjectManager(ABC):
                 dep_graph,
                 code_generator,
             )
-            await new_gen_code.update_file()
+            if not new_gen_code.binding.canonical_path.exists():
+                new_gen_code.write_to_disk(new_gen_code.code)
+            await new_gen_code.sync_lsp(new_gen_code.code)
             maybe_update_gen_python_code_section(
                 projectState, new_gen_code.generated_code
             )
@@ -656,7 +694,9 @@ class BaseProjectManager(ABC):
                     if not section_code:
                         continue
 
-                    await section_code.update_file()
+                    if not section_code.binding.canonical_path.exists():
+                        section_code.write_to_disk(section_code.code)
+                    await section_code.sync_lsp(section_code.code)
                     self.code_dict[projectConfigId][sectionId] = section_code
 
             self.project_state_backend = self.get_new_project_state_backend(
@@ -773,29 +813,42 @@ class BaseProjectManager(ABC):
         )
         await self.update_and_broadcast_project_state(project_state)
 
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"], "codeObj": ["codeObjId"]}
-        ),
-        tool_argument_preview=ToolArgumentPreviewMetadata(
-            targetIdPathsByType={"section": ["sectionId"], "codeObj": ["codeObjId"]},
-            previewValuePath="value",
-            previewKind=ToolArgumentPreviewKind.paramValue,
-        ),
-    )
-    async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
-        """Set a parameter's name and value in one step."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.codeObjs[x.codeObjId].name = x.name
-        set_param_entered_value(
-            project_state,
-            x.sectionId,
-            x.codeObjId,
-            x.value,
-        )
-        await self.update_and_broadcast_project_state(project_state)
+      @enqueue_method
+      @project_state_tool(
+          ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+              pathsByIdType={"section": ["sectionId"], "codeObj": ["codeObjId"]}
+          ),
+          tool_argument_preview=ToolArgumentPreviewMetadata(
+              targetIdPathsByType={"section": ["sectionId"], "codeObj": ["codeObjId"]},
+              previewValuePath="value",
+              previewKind=ToolArgumentPreviewKind.paramValue,
+          ),
+      )
+      async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
+          """Set a parameter's name and value in one step."""
+          self.add_new_history_entry()
+          project_state = self.get_single_config_state(x.projectConfigId)
+          project_state.codeObjs[x.codeObjId].name = x.name
+          set_param_entered_value(
+              project_state,
+              x.sectionId,
+              x.codeObjId,
+              x.value,
+          )
+          await self.update_and_broadcast_project_state(project_state)
+
+      @enqueue_method
+      @project_state_tool(
+          ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+              pathsByIdType={"section": ["sectionId"]}
+          )
+      )
+      async def set_meta_control_value(self, x: SetMetaControlValueRequest):
+          """Write a new manual value for the targeted meta control."""
+          self.add_new_history_entry()
+          project_state = self.get_single_config_state(x.projectConfigId)
+          set_meta_control_value(project_state, x.sectionId, x.value)
+          await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(

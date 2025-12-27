@@ -4,6 +4,7 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgListenerActionEvent,
     WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
@@ -11,11 +12,16 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgListenerRouterEndpointCall,
+    WebsocketMsgListenerRouterEndpointResult,
+    WebsocketMsgRealtimeActionEvent,
     WebsocketMsgRealtimeUIChange,
 )
 
 BackendWebsocketMsgUnion = (
-    WebsocketMsgRealtimeUIChange | WebsocketMsgCurrentAddressUpdate
+    WebsocketMsgRealtimeUIChange
+    | WebsocketMsgRealtimeActionEvent
+    | WebsocketMsgCurrentAddressUpdate
 )
 
 BackendWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -26,9 +32,12 @@ BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscrim
 
 PythonScriptWebsocketMsgUnion = (
     WebsocketMsgListenerRealtimeEvent
+    | WebsocketMsgListenerActionEvent
     | WebsocketMsgListenerForceRefresh
     | WebsocketMsgListenerError
     | WebsocketMsgListenerFrontendEmit
+    | WebsocketMsgListenerRouterEndpointCall
+    | WebsocketMsgListenerRouterEndpointResult
     | WebsocketMsgListenerRegister
     | WebsocketMsgListenerRegisterAck
     | WebsocketMsgListenerInit

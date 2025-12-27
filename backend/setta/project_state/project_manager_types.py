@@ -296,6 +296,15 @@ class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
+class AutoLayoutTopLevelSectionsRequest(ProjectManagerRequestWithProjectConfig):
+    """Compute and apply an automatic layout for top-level sections."""
+
+    margin: int = Field(
+        default=50,
+        description="Padding applied around each section during packing.",
+    )
+
+
 class AddKwargRequest(ProjectManagerRequestWithSection):
     """Append a keyword argument entry to the callable section."""
 
@@ -355,6 +364,14 @@ class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     )
     value: str = Field(
         description="Raw text value to persist for the parameter.",
+    )
+
+
+class SetMetaControlValueRequest(ProjectManagerRequestWithSection):
+    """Assign a new manual value to a meta control section."""
+
+    value: str = Field(
+        description="Raw text value to persist for the meta control.",
     )
 
 
