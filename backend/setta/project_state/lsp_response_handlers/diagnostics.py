@@ -1,4 +1,5 @@
 import re
+from bisect import bisect_right
 from typing import Callable
 
 from lsprotocol import types as LSPTypes
@@ -16,6 +17,8 @@ from setta.types.id import ID
 from setta.types.lsp import SettaLSPPosition, SettaSectionTypeErrors
 from setta.types.section_impls import TypeErrorIgnoreState
 
+RangeIndex = tuple[list[int], list[tuple[int, int, BaseDependencyKeyUnion]]]
+
 
 def process_gen_code_diagnostics(
     diagnostics: list[LSPTypes.Diagnostic],
@@ -26,10 +29,11 @@ def process_gen_code_diagnostics(
     positions = convert_diagnostic_line_cols_to_positions(
         code_generator.code, diagnostics
     )
+    range_index = build_dep_key_range_index(code_generator)
     output: dict[ID, SettaSectionTypeErrors] = {}
     for i, d in enumerate(diagnostics):
         for section_id, param_id, message in process_gen_code_diagnostic(
-            d, positions[i], code_generator, dep_graph
+            d, positions[i], code_generator, dep_graph, range_index
         ):
             if should_ignore_type_error(
                 section_id,
@@ -58,14 +62,12 @@ def should_ignore_type_error(
     return False
 
 
-DiagnosticInfo = tuple[ID, ID | None, str]
-
-
 def process_gen_code_diagnostic(
     d: LSPTypes.Diagnostic,
     position: SettaLSPPosition,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
+    range_index: RangeIndex,
 ):
     message = d.message
     if d.code == "reportArgumentType":
@@ -77,7 +79,7 @@ def process_gen_code_diagnostic(
             position.start, message, code_generator, dep_graph
         )
     elif is_undefined_symbol_diagnostic(d):
-        return process_undefined_symbol(position, message, code_generator)
+        return process_undefined_symbol(position, message, code_generator, range_index)
     return []
 
 
@@ -132,8 +134,9 @@ def process_undefined_symbol(
     position: SettaLSPPosition,
     message: str,
     code_generator: PythonCodeGenerator,
+    range_index: RangeIndex,
 ):
-    dep_key = find_dep_key_for_range(position, code_generator)
+    dep_key = find_dep_key_for_range(position, code_generator, range_index)
     if not dep_key:
         return []
     return [get_message_with_ids(message, dep_key)]
@@ -244,19 +247,38 @@ def add_error_message(
     section_errors.params[param_id].append(message)
 
 
-def find_dep_key_for_range(
-    position: SettaLSPPosition, code_generator: PythonCodeGenerator
-):
-    dep_key = code_generator.value_pos_start_to_dep_key.get(position.start)
-    if dep_key:
-        return dep_key
+def build_dep_key_range_index(
+    code_generator: PythonCodeGenerator,
+) -> RangeIndex:
+    ranges: list[tuple[int, int, BaseDependencyKeyUnion]] = []
     for key, line in code_generator.lines.items():
         if line.pos is None:
             continue
         value_start = line.pos + line.prefix_len
         value_end = value_start + line.value_len
-        if position.start < value_end and position.end > value_start:
-            return key
+        ranges.append((value_start, value_end, key))
+    ranges.sort(key=lambda entry: entry[0])
+    starts = [entry[0] for entry in ranges]
+    return starts, ranges
+
+
+def find_dep_key_for_range(
+    position: SettaLSPPosition,
+    code_generator: PythonCodeGenerator,
+    range_index: RangeIndex,
+):
+    dep_key = code_generator.value_pos_start_to_dep_key.get(position.start)
+    if dep_key:
+        return dep_key
+    starts, ranges = range_index
+    if not ranges:
+        return None
+    idx = bisect_right(starts, position.start) - 1
+    for candidate_idx in (idx, idx + 1):
+        if 0 <= candidate_idx < len(ranges):
+            value_start, value_end, key = ranges[candidate_idx]
+            if position.start < value_end and position.end > value_start:
+                return key
     return None
 
 

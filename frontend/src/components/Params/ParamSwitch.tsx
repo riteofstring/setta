@@ -24,9 +24,11 @@ import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 function _ParamSwitch(props) {
   const { sectionId, paramInfoId } = props;
 
-  const maybeErrorMessage = useTypeErrors(
+  const errorMessages = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
+  const maybeErrorMessage = errorMessages?.join("\n") ?? "";
+  const hasError = maybeErrorMessage.length > 0;
 
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
@@ -81,7 +83,7 @@ function _ParamSwitch(props) {
     : "transition-colors rounded-sm";
 
   // warnings should be AMBER
-  const border = maybeErrorMessage
+  const border = hasError
     ? "bg-red-200 dark:bg-red-800/30"
     : isFocusedSearchResult
       ? "outline outline-4 outline-green-500 dark:outline-green-500/80"
