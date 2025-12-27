@@ -14,6 +14,7 @@
 ## Progress (Done)
 - Backend now runs as an agent-only app: no static UI mounting and no HTML serving.
 - Startup paths no longer open a browser or require bundled frontend assets (CLI + background launcher).
+- Auth is now token-gated across HTTP, websockets, and MCP SSE; the backend requires a token file and websocket clients send the token.
 
 ## User Experience
 - `setta connect user@host [--project /path]` starts or reuses a remote session and opens the local UI.
@@ -107,7 +108,7 @@
 - Confirm how to package the local UI with the Python distribution.
 
 ### Phase 1: Remote Agent Core
-- Add auth middleware and websocket auth checks.
+- DONE: Add auth middleware and websocket auth checks.
 - Add agent startup options for token file, UDS or loopback, and session metadata.
 - Add basic session directory creation and metadata writing.
 

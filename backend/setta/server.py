@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import setta.mcp.tools  # noqa: F401
+from setta.auth import get_configured_auth_token
 from setta.logging.context import get_logging_context
 from setta.logging.context_sources import ensure_request_context
 from setta.logging.errors import log_failure
@@ -16,6 +17,7 @@ from setta.lsp.managers import (
     stop_lsps,
 )
 from setta.middleware import (
+    AuthMiddleware,
     LoggingContextMiddleware,
     bind_request_logging_context,
 )
@@ -69,6 +71,9 @@ app = FastAPI(
     redoc_url=f"{Route.PREFIX.value}{Route.REDOC_DOCS.value}",
 )
 
+app.state.auth_token = get_configured_auth_token()
+
+app.add_middleware(AuthMiddleware)
 app.add_middleware(LoggingContextMiddleware)
 app.add_middleware(
     CORSMiddleware,

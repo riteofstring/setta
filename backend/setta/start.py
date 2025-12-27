@@ -7,6 +7,7 @@ import click
 import uvicorn
 
 from . import __version__
+from .auth import configure_auth_token, load_auth_token_from_file
 from .logging.config import configure_logging
 from .utils.constants import C
 from .websockets.connect import connect as _connect
@@ -16,10 +17,17 @@ from .websockets.connect import connect as _connect
 @click.argument("websocket_id", required=False)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
-def connect(websocket_id, host, port):
+@click.option(
+    "--token-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Path to the auth token file",
+)
+def connect(websocket_id, host, port, token_file: Path):
     C.HOST = host
     C.PORT = port
-    asyncio.run(_connect(websocket_id))
+    token = load_auth_token_from_file(token_file)
+    asyncio.run(_connect(websocket_id, token))
 
 
 @click.command()
@@ -51,6 +59,12 @@ def export_db(readable, readable_with_variants):
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.option(
+    "--token-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to the auth token file",
+)
+@click.option(
     "--log-level",
     type=click.Choice(
         ["critical", "error", "warning", "info", "debug"], case_sensitive=False
@@ -59,7 +73,7 @@ def export_db(readable, readable_with_variants):
     help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
 )
 @click.pass_context
-def cli(ctx, reload, host: str, port: int, log_level):
+def cli(ctx, reload, host: str, port: int, token_file: Path | None, log_level):
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
     if ctx.invoked_subcommand is None:
@@ -67,6 +81,9 @@ def cli(ctx, reload, host: str, port: int, log_level):
 
         C.HOST = host
         C.PORT = port
+        if token_file is None:
+            raise click.UsageError("Missing required option: --token-file")
+        configure_auth_token(load_auth_token_from_file(token_file))
 
         sys.path.append(str(Path(__file__).resolve().parent))
 

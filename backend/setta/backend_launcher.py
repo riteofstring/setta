@@ -1,10 +1,12 @@
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import uvicorn
 
+from setta.auth import configure_auth_token, load_auth_token_from_file
 from setta.logging.config import configure_logging
 from setta.utils.constants import C
 
@@ -76,6 +78,7 @@ def start_backend(
     log_level: str | int | None = None,
     wait_for_ready: bool = True,
     ready_timeout: float = _DEFAULT_READY_TIMEOUT_SECONDS,
+    token_file: Path | None = None,
 ) -> BackendServerHandle:
     """Start the packaged FastAPI backend in a background thread.
 
@@ -95,6 +98,9 @@ def start_backend(
     resolved_port = port or C.DEFAULT_PORT
     C.HOST = resolved_host
     C.PORT = resolved_port
+    if token_file is None:
+        raise ValueError("token_file is required to start the backend")
+    configure_auth_token(load_auth_token_from_file(token_file))
 
     resolved_level = configure_logging(level_override=log_level)
     uvicorn_level = logging.getLevelName(resolved_level).lower()

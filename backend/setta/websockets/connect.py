@@ -4,6 +4,7 @@ import logging
 
 import websockets
 
+from setta.auth import WEBSOCKET_PROTOCOL_PREFIX
 from setta.logging.tasks import spawn_background_task
 from setta.types.routes import Route
 
@@ -12,7 +13,8 @@ from ..utils.constants import C
 logger = logging.getLogger(__name__)
 
 
-async def connect(websocket_id):
+async def connect(websocket_id, token: str):
+    protocol = f"{WEBSOCKET_PROTOCOL_PREFIX}{token}"
     while True:  # Add reconnection loop
         try:
             if websocket_id:
@@ -20,7 +22,10 @@ async def connect(websocket_id):
                 endpoint = endpoint.format(id=websocket_id)
             else:
                 endpoint = f"{C.WEBSOCKET}{Route.WEBSOCKET_CLI}"
-            async with websockets.connect(endpoint) as websocket:
+            async with websockets.connect(
+                endpoint,
+                subprotocols=[protocol],
+            ) as websocket:
                 logger.debug("Connected to websocket")
                 await consumer_handler(websocket, websocket_id)
         except websockets.ConnectionClosedError:
