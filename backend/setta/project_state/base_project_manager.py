@@ -67,6 +67,7 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
+    AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -162,6 +163,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
+    auto_layout_top_level_sections,
     change_param_impl,
     create_child_sections,
     create_child_sections_via_incrementer,
@@ -581,6 +583,16 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
+
+    @enqueue_method
+    @project_state_tool()
+    async def auto_layout_top_level_sections(
+        self, x: AutoLayoutTopLevelSectionsRequest
+    ):
+        """Automatically arrange top-level sections using rectangle packing."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        auto_layout_top_level_sections(project_state, margin=x.margin)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(

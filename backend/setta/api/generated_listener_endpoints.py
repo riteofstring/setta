@@ -67,6 +67,12 @@ class ListenerAppendDrawAreaLayerItemRequestPayload(TypedDict):
     element: DrawAreaLayerItem
 
 
+class ListenerAutoLayoutTopLevelSectionsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    margin: NotRequired[int]
+
+
 class ListenerChangeParamImplRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -601,6 +607,11 @@ class RouterEndpointAPI:
         self, payload: ListenerAppendDrawAreaLayerItemRequestPayload
     ) -> None:
         return await self._caller("route_append_draw_area_layer_item", payload)
+
+    async def auto_layout_top_level_sections(
+        self, payload: ListenerAutoLayoutTopLevelSectionsRequestPayload
+    ) -> None:
+        return await self._caller("route_auto_layout_top_level_sections", payload)
 
     async def change_param_impl(
         self, payload: ListenerChangeParamImplRequestPayload
