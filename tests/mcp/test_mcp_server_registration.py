@@ -1,16 +1,21 @@
 import json
 import unittest
+from types import SimpleNamespace
 
+import httpx
 import setta.file_watchers.lsp as lsp_file_watcher
 import setta.file_watchers.specific_file_watcher as specific_file_watcher
 import setta.mcp.tools  # noqa: F401
 from fastapi import FastAPI
+from mcp import ClientSession
+from mcp.client.sse import sse_client
 from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tools.tool_search import search_and_unlock_mcp_tools
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
@@ -27,6 +32,20 @@ from tests.utils.manager_fixture import real_project_manager
 
 specific_file_watcher.Observer = PollingObserver
 lsp_file_watcher.Observer = PollingObserver
+
+
+def _build_httpx_client_factory(app: FastAPI):
+    def factory(headers=None, timeout=None, auth=None):
+        return httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+            headers=headers,
+            timeout=timeout,
+            auth=auth,
+            follow_redirects=True,
+        )
+
+    return factory
 
 
 class _StubProjectManagerSwitcher:
@@ -163,6 +182,39 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 "search_and_unlock_mcp_tools",
                 parsed_result_names,
             )
+
+    async def test_external_sse_client_lists_tools(self) -> None:
+        async with real_project_manager() as fixture:
+            app = FastAPI()
+            project_manager_switcher = ProjectManagerSwitcher(
+                fixture.manager, fixture.manager
+            )
+            setta_state = SimpleNamespace(
+                dbe=fixture.dbe,
+                project_manager_switcher=project_manager_switcher,
+            )
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+
+            mcp_server = SettaFastMCP(
+                app,
+                setta_state,
+                "/mcp-test",
+                "Test MCP Server",
+                frontend_sender,
+                fixture.dbe,
+            )
+            setta_state.mcp_server = mcp_server
+
+            async with sse_client(
+                "http://testserver/mcp-test",
+                httpx_client_factory=_build_httpx_client_factory(app),
+            ) as (read_stream, write_stream):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    response = await session.list_tools()
+
+            tool_names = {tool.name for tool in response.tools}
+            self.assertIn("read_file_range", tool_names)
 
     async def test_search_finds_create_top_level_section(self) -> None:
         async with real_project_manager() as fixture:
