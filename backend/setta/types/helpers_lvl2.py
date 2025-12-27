@@ -13,9 +13,12 @@ from setta.types.artifact import (
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
+    BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
+    ControlCodeObjTypeSet,
+    SectionParamCodeObjTypeSet,
     TextParamCodeObjImpl,
 )
 from setta.types.core import (
@@ -37,6 +40,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseCodeObjImplArgs,
     BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
+    BaseParamCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
     BaseSectionImplArgs,
@@ -86,7 +90,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, TopLevelSectionLayout, ViewRect
+from setta.types.project_config import Position, TopLevelSectionLayout
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
@@ -99,6 +103,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
+    MetaControlSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -106,6 +111,7 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
+    TypeErrorIgnoreState,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
@@ -135,6 +141,41 @@ def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id
     return None
 
 
+def get_curr_meta_control_impl_with_type_guard(
+    p: "ProjectStateSingleConfig", section_id: ID
+) -> MetaControlSectionImpl:
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, section_id, MetaControlSectionImpl
+    )
+    if impl.metaControlParamId is None:
+        raise KeyError(f"Meta control {section_id} has no control param id.")
+    if impl.metaControlParamId not in impl.codeObjVariantMap:
+        raise KeyError(f"Meta control {section_id} missing code obj variant mapping.")
+    return impl
+
+
+def get_meta_control_param_id(p: "ProjectStateSingleConfig", section_id: ID) -> ID:
+    impl = get_curr_meta_control_impl_with_type_guard(p, section_id)
+    param_id = impl.metaControlParamId
+    if param_id not in p.codeObjs:
+        raise KeyError(f"Meta control {section_id} missing control code obj core.")
+    if param_id not in impl.codeObjVariantMap:
+        raise KeyError(
+            f"Meta control {section_id} missing variant map for control param."
+        )
+    variant_id = impl.codeObjVariantMap[param_id]
+    if variant_id not in p.codeObjVariants:
+        raise KeyError(
+            f"Meta control {section_id} missing variant for control param {param_id}."
+        )
+    code_obj_impl = p.codeObjImpls[p.codeObjVariants[variant_id].impl]
+    if code_obj_impl.type not in ControlCodeObjTypeSet:
+        raise TypeError(
+            f"Meta control {section_id} uses unsupported code obj type {code_obj_impl.type}."
+        )
+    return param_id
+
+
 def get_curr_section_children_ids(
     p: "ProjectStateSingleConfig",
     section_id: ID,
@@ -153,6 +194,28 @@ def get_curr_top_level_param_ids(
         p, section_id, BaseSectionWithParamsImpl
     )
     return get_top_level_param_ids(p, section_impl)
+
+
+def collect_ignore_type_errors_by_section(
+    p: "ProjectStateSingleConfig",
+) -> dict[ID, TypeErrorIgnoreState]:
+    ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
+    for section_id in p.sections.keys():
+        section_impl = get_curr_effective_section_impl(p, section_id)
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
+            continue
+        ignore_state = section_impl.ignoreTypeErrors
+        ignored_params = {
+            param_id: True
+            for param_id, is_ignored in ignore_state.params.items()
+            if is_ignored
+        }
+        if ignore_state.callable or ignored_params:
+            ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
+                callable=ignore_state.callable,
+                params=ignored_params,
+            )
+    return ignore_type_errors_by_section
 
 
 def get_top_level_param_ids(
@@ -254,6 +317,39 @@ def add_code_obj(
     return code_obj_variant
 
 
+def add_meta_control_code_obj(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    section_id: ID,
+    code_obj_type: CodeObjType,
+):
+    if code_obj_type not in ControlCodeObjTypeSet:
+        raise ValueError(f"Unsupported meta control type {code_obj_type}")
+    code_obj_impl = create_code_obj_impl(
+        type=code_obj_type,  # type: ignore
+        defaults=get_user_default_code_obj_from_settings(settings, code_obj_type),  # type: ignore
+    )
+    code_obj = Core()
+    code_obj_variant = Variant(
+        impl=code_obj_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
+    )
+    code_obj.variants.append(code_obj_variant.id)
+    if not code_obj.defaultVariant:
+        code_obj.defaultVariant = code_obj_variant.id
+    p.codeObjs[code_obj.id] = code_obj
+    p.codeObjImpls[code_obj_impl.id] = code_obj_impl
+    p.codeObjVariants[code_obj_variant.id] = code_obj_variant
+    set_curr_effective_section_impl_value(
+        p,
+        section_id,
+        MetaControlSectionImplArgsWithCallable(
+            metaControlParamId=code_obj.id,
+            codeObjVariantMap={code_obj.id: code_obj_variant.id},
+        ),
+    )
+
+
 def update_variant_impl_props(
     p: "ProjectStateSingleConfig", variant_ids: list[ID], new_impl: BaseCodeObjImpl
 ):
@@ -310,18 +406,6 @@ def set_param_entered_value(
     )
 
 
-def set_meta_control_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    value: str,
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        MetaControlSectionImplArgsWithCallable(metaControlValue=value),
-    )
-
-
 def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
     for projectConfigId, config in p.projectConfigs.items():
         if projectConfigName == config.name:
@@ -344,6 +428,7 @@ def create_section(
     impl_type: SectionType,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
+    control_code_obj_type: CodeObjType | None = None,
 ):
     impl = create_section_impl(  # type: ignore
         impl_type,  # type: ignore
@@ -366,297 +451,15 @@ def create_section(
     p.sectionImpls[impl.id] = impl
     p.sectionVariants[variant.id] = variant
 
+    if isinstance(impl, MetaControlSectionImpl):
+        control_type = (
+            control_code_obj_type
+            if control_code_obj_type is not None
+            else CodeObjType.SliderParam
+        )
+        add_meta_control_code_obj(settings, p, core.id, control_type)
+
     return core.id
-
-
-_SECTION_PLACEMENT_FALLBACK_WIDTH = 420.0
-_SECTION_PLACEMENT_FALLBACK_HEIGHT = 260.0
-_SECTION_PLACEMENT_PADDING = 16.0
-_SECTION_PLACEMENT_STEP = 40.0
-_SECTION_PLACEMENT_MIN_STEPS = 20
-_SECTION_PLACEMENT_MAX_STEPS = 240
-
-
-def get_smart_top_level_section_position(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    impl_type: SectionType,
-    impl_overrides: BaseSectionImplArgsUnion | None,
-    preferred_position: Position,
-    view_rect: ViewRect | None = None,
-) -> Position:
-    width, height = _resolve_section_placement_size(settings, impl_type, impl_overrides)
-    existing_rects = _get_top_level_section_rects(p)
-    clamped_position = (
-        _clamp_position_to_view_rect(preferred_position, width, height, view_rect)
-        if view_rect
-        else None
-    )
-    if not existing_rects:
-        return clamped_position or preferred_position
-
-    if view_rect:
-        if clamped_position and not _rect_overlaps_existing(
-            clamped_position, width, height, existing_rects
-        ):
-            return clamped_position
-        candidate = _find_non_overlapping_position_in_view_rect(
-            view_rect,
-            width,
-            height,
-            existing_rects,
-            preferred_position,
-        )
-        if candidate:
-            return candidate
-
-    candidate = _find_non_overlapping_position(
-        preferred_position,
-        width,
-        height,
-        existing_rects,
-    )
-    if candidate:
-        return candidate
-
-    return _get_fallback_position(
-        preferred_position,
-        width,
-        height,
-        existing_rects,
-    )
-
-
-def _resolve_section_placement_size(
-    settings: SettingsState,
-    impl_type: SectionType,
-    impl_overrides: BaseSectionImplArgsUnion | None,
-) -> tuple[float, float]:
-    base_impl = get_user_default_section_from_settings(settings, impl_type)
-    preview_impl = create_section_impl(impl_type, base_impl, impl_overrides)
-    width = _resolve_size_value(
-        preview_impl.size.width, _SECTION_PLACEMENT_FALLBACK_WIDTH
-    )
-    height = _resolve_size_value(
-        preview_impl.size.height, _SECTION_PLACEMENT_FALLBACK_HEIGHT
-    )
-    return width, height
-
-
-def _resolve_size_value(
-    value: float | SectionSizeMode,
-    fallback: float,
-) -> float:
-    if value == SectionSizeMode.auto:
-        return fallback
-    return float(value)
-
-
-def _get_top_level_section_rects(p: "ProjectStateSingleConfig"):
-    rects: list[tuple[float, float, float, float]] = []
-    for section_id, layout in p.projectConfig.topLevelSections.items():
-        impl = get_curr_effective_section_impl(p, section_id)
-        width = (
-            float(layout.w)
-            if layout.w is not None
-            else _resolve_size_value(impl.size.width, _SECTION_PLACEMENT_FALLBACK_WIDTH)
-        )
-        height = (
-            float(layout.h)
-            if layout.h is not None
-            else _resolve_size_value(
-                impl.size.height, _SECTION_PLACEMENT_FALLBACK_HEIGHT
-            )
-        )
-        rects.append((layout.x, layout.y, width, height))
-    return rects
-
-
-def _find_non_overlapping_position(
-    preferred_position: Position,
-    width: float,
-    height: float,
-    existing_rects: list[tuple[float, float, float, float]],
-) -> Position | None:
-    max_steps = _get_max_steps_for_search(
-        preferred_position,
-        width,
-        height,
-        existing_rects,
-    )
-    for step in range(max_steps + 1):
-        for dx in range(-step, step + 1):
-            for dy in range(-step, step + 1):
-                if max(abs(dx), abs(dy)) != step:
-                    continue
-                candidate = Position(
-                    x=preferred_position.x + dx * _SECTION_PLACEMENT_STEP,
-                    y=preferred_position.y + dy * _SECTION_PLACEMENT_STEP,
-                )
-                if not _rect_overlaps_existing(
-                    candidate, width, height, existing_rects
-                ):
-                    return candidate
-    return None
-
-
-def _find_non_overlapping_position_in_view_rect(
-    view_rect: ViewRect,
-    width: float,
-    height: float,
-    existing_rects: list[tuple[float, float, float, float]],
-    preferred_position: Position,
-) -> Position | None:
-    bounds = _get_view_rect_bounds(view_rect, width, height)
-    if not bounds:
-        return None
-    min_x, min_y, max_x, max_y = bounds
-    candidates: list[Position] = []
-    y = min_y
-    while y <= max_y:
-        x = min_x
-        while x <= max_x:
-            candidates.append(Position(x=x, y=y))
-            x += _SECTION_PLACEMENT_STEP
-        y += _SECTION_PLACEMENT_STEP
-
-    candidates.sort(
-        key=lambda candidate: _distance_squared(
-            candidate.x + width / 2,
-            candidate.y + height / 2,
-            preferred_position.x,
-            preferred_position.y,
-        )
-    )
-
-    for candidate in candidates:
-        if not _rect_overlaps_existing(candidate, width, height, existing_rects):
-            return candidate
-    return None
-
-
-def _rect_overlaps_existing(
-    candidate: Position,
-    width: float,
-    height: float,
-    existing_rects: list[tuple[float, float, float, float]],
-) -> bool:
-    for x, y, w, h in existing_rects:
-        if _rects_overlap_with_padding(
-            candidate.x,
-            candidate.y,
-            width,
-            height,
-            x,
-            y,
-            w,
-            h,
-        ):
-            return True
-    return False
-
-
-def _get_max_steps_for_search(
-    preferred_position: Position,
-    width: float,
-    height: float,
-    existing_rects: list[tuple[float, float, float, float]],
-) -> int:
-    if not existing_rects:
-        return _SECTION_PLACEMENT_MIN_STEPS
-    min_x = min(x for x, _, _, _ in existing_rects)
-    max_x = max(x + w for x, _, w, _ in existing_rects)
-    min_y = min(y for _, y, _, _ in existing_rects)
-    max_y = max(y + h for _, y, _, h in existing_rects)
-    max_dist = max(
-        abs(preferred_position.x - min_x),
-        abs(preferred_position.x - max_x),
-        abs(preferred_position.y - min_y),
-        abs(preferred_position.y - max_y),
-    )
-    max_dim = max(width, height)
-    steps = math.ceil((max_dist + max_dim) / _SECTION_PLACEMENT_STEP) + 2
-    steps = max(steps, _SECTION_PLACEMENT_MIN_STEPS)
-    return min(steps, _SECTION_PLACEMENT_MAX_STEPS)
-
-
-def _rects_overlap_with_padding(
-    ax: float,
-    ay: float,
-    aw: float,
-    ah: float,
-    bx: float,
-    by: float,
-    bw: float,
-    bh: float,
-) -> bool:
-    return (
-        ax < bx + bw + _SECTION_PLACEMENT_PADDING
-        and ax + aw > bx - _SECTION_PLACEMENT_PADDING
-        and ay < by + bh + _SECTION_PLACEMENT_PADDING
-        and ay + ah > by - _SECTION_PLACEMENT_PADDING
-    )
-
-
-def _get_fallback_position(
-    preferred_position: Position,
-    width: float,
-    height: float,
-    existing_rects: list[tuple[float, float, float, float]],
-) -> Position:
-    if not existing_rects:
-        return preferred_position
-    max_x = max(x + w for x, _, w, _ in existing_rects)
-    min_y = min(y for _, y, _, _ in existing_rects)
-    candidate = Position(
-        x=max_x + _SECTION_PLACEMENT_PADDING,
-        y=min_y,
-    )
-    if not _rect_overlaps_existing(candidate, width, height, existing_rects):
-        return candidate
-    return preferred_position
-
-
-def _clamp_position_to_view_rect(
-    preferred_position: Position,
-    width: float,
-    height: float,
-    view_rect: ViewRect | None,
-) -> Position | None:
-    if not view_rect:
-        return None
-    bounds = _get_view_rect_bounds(view_rect, width, height)
-    if not bounds:
-        return None
-    min_x, min_y, max_x, max_y = bounds
-    clamped_x = min(max(preferred_position.x, min_x), max_x)
-    clamped_y = min(max(preferred_position.y, min_y), max_y)
-    return Position(x=clamped_x, y=clamped_y)
-
-
-def _get_view_rect_bounds(
-    view_rect: ViewRect,
-    width: float,
-    height: float,
-) -> tuple[float, float, float, float] | None:
-    min_x = view_rect.x + _SECTION_PLACEMENT_PADDING
-    min_y = view_rect.y + _SECTION_PLACEMENT_PADDING
-    max_x = view_rect.x + view_rect.width - width - _SECTION_PLACEMENT_PADDING
-    max_y = view_rect.y + view_rect.height - height - _SECTION_PLACEMENT_PADDING
-    if max_x < min_x or max_y < min_y:
-        return None
-    return min_x, min_y, max_x, max_y
-
-
-def _distance_squared(
-    ax: float,
-    ay: float,
-    bx: float,
-    by: float,
-) -> float:
-    dx = ax - bx
-    dy = ay - by
-    return dx * dx + dy * dy
 
 
 def init_draw_section_layer(impl: DrawSectionImpl):
@@ -707,8 +510,16 @@ def create_top_level_section(
     position: Position,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
+    control_code_obj_type: CodeObjType | None = None,
 ):
-    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
+    sectionId = create_section(
+        settings,
+        p,
+        impl_type,
+        impl_overrides,
+        core_overrides,
+        control_code_obj_type=control_code_obj_type,
+    )
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )
@@ -949,19 +760,38 @@ def change_param_impl(
     paramInfoId: ID,
     selectedId: ID,
 ):
+    section_impl = get_curr_effective_section_impl(p, sectionId)
+    if isinstance(section_impl, MetaControlSectionImpl):
+        allowed_types = ControlCodeObjTypeSet
+    elif isinstance(section_impl, BaseSectionWithParamsImpl):
+        allowed_types = SectionParamCodeObjTypeSet
+    else:
+        raise TypeError(f"Section {sectionId} does not support params.")
+
     variant = get_curr_code_obj_variant(
         p,
         sectionId,
         paramInfoId,
     )
+    core = p.codeObjs[paramInfoId]
     old_impl = p.codeObjImpls[variant.impl]
-    impl = p.codeObjImpls.get(selectedId, None)
-    if not impl:
+    old_effective_impl = get_effective_impl(old_impl, core, variant)
+    impl = None
+    if selectedId in p.codeObjImpls:
+        impl = p.codeObjImpls[selectedId]
+    if impl is not None:
+        impl_type = impl.type
+    else:
         # selectedId will be the CodeObjType name
-        type = CodeObjType[selectedId]
+        impl_type = CodeObjType[selectedId]
+    if impl_type not in allowed_types:
+        raise ValueError(
+            f"Section {sectionId} does not allow code obj type {impl_type}."
+        )
+    if impl is None:
         impl = create_code_obj_impl(
-            type=type,  # type: ignore
-            defaults=get_user_default_code_obj_from_settings(settings, type),  # type: ignore
+            type=impl_type,  # type: ignore
+            defaults=get_user_default_code_obj_from_settings(settings, impl_type),  # type: ignore
         )
         p.codeObjImpls[impl.id] = impl
 
@@ -969,7 +799,21 @@ def change_param_impl(
     if not impl.isPreset and impl.id not in variant.nonPresetImpls:
         variant.nonPresetImpls.append(impl.id)
 
-    maybe_convert_code_obj_value(old_impl, impl, p.codeObjs[paramInfoId], variant)
+    if isinstance(old_effective_impl, BaseParamCodeObjImpl) and isinstance(
+        impl, BaseParamCodeObjImpl
+    ):
+        set_effective_impl_value(
+            impl,
+            core,
+            variant,
+            BaseParamCodeObjImplArgsWithCallable(
+                coreNameEditable=old_effective_impl.coreNameEditable,
+                coreNameType=old_effective_impl.coreNameType,
+                passingStyle=old_effective_impl.passingStyle,
+            ),
+        )
+
+    maybe_convert_code_obj_value(old_impl, impl, core, variant)
 
 
 def update_param_impl_config(
@@ -1011,9 +855,11 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
             | CodeObjType.TextParam
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
+            | CodeObjType.TextAreaParam
+            | CodeObjType.DropzoneParam
         ):
             return value
-        case CodeObjType.SliderParam:
+        case CodeObjType.SliderParam | CodeObjType.RotaryParam:
             try:
                 x = float(value)
                 if not math.isnan(x):
@@ -1723,6 +1569,36 @@ def toggle_param_selected(
             if paramInfoId in curr
             else [*curr, paramInfoId]
         ),
+    )
+
+
+def set_type_error_ignore(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    paramInfoId: ID | None,
+    ignoreTypeErrors: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+
+    def update(curr: TypeErrorIgnoreState):
+        next_params = dict(curr.params)
+        if paramInfoId is None:
+            return TypeErrorIgnoreState(
+                callable=ignoreTypeErrors,
+                params=next_params,
+            )
+        if ignoreTypeErrors:
+            next_params[paramInfoId] = True
+        elif paramInfoId in next_params:
+            del next_params[paramInfoId]
+        return TypeErrorIgnoreState(callable=curr.callable, params=next_params)
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(ignoreTypeErrors=update),
     )
 
 

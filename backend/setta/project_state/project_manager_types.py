@@ -6,6 +6,7 @@ from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
@@ -13,12 +14,7 @@ from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
 from setta.types.id import ID
-from setta.types.project_config import (
-    Position,
-    TopLevelSectionLayout,
-    Viewport,
-    ViewRect,
-)
+from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -166,6 +162,10 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     implType: SectionType = Field(
         description="Section implementation type to instantiate.",
     )
+    controlCodeObjType: CodeObjType | None = Field(
+        default=None,
+        description="Optional meta control code obj type to instantiate.",
+    )
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator | None = Field(
         default=None,
         description="Implementation-specific overrides applied during creation.",
@@ -173,10 +173,6 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     )
     position: Position = Field(
         description="Canvas coordinates where the section should be placed.",
-    )
-    viewRect: ViewRect | None = Field(
-        default=None,
-        description="Optional visible bounds used to keep placement within view.",
     )
 
 
@@ -293,6 +289,10 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
     """Request a lightweight summary snapshot of the specified project config."""
 
 
+class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
+    """Request the latest parsed LSP diagnostics for generated code."""
+
+
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
     pass
 
@@ -362,6 +362,17 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
+class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
+    """Toggle ignoring type errors for a callable or parameter within a section."""
+
+    paramInfoId: ID | None = Field(
+        description="Parameter identifier to ignore, or None to target callable errors.",
+    )
+    ignoreTypeErrors: bool = Field(
+        description="Whether to hide type errors for the targeted entry.",
+    )
+
+
 class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     """Set a parameter's name and value in one step."""
 
@@ -373,14 +384,6 @@ class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     )
     value: str = Field(
         description="Raw text value to persist for the parameter.",
-    )
-
-
-class SetMetaControlValueRequest(ProjectManagerRequestWithSection):
-    """Assign a new manual value to a meta control section."""
-
-    value: str = Field(
-        description="Raw text value to persist for the meta control.",
     )
 
 

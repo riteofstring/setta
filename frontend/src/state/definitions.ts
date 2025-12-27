@@ -329,7 +329,13 @@ export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
 
 type ZustandTypeErrors = {
   userRequested: boolean;
-  errors: Record<string, Record<string, string>>;
+  errors: Record<
+    string,
+    {
+      callable: Array<string>;
+      params: Record<string, Array<string>>;
+    }
+  >;
 };
 
 export const useTypeErrors = withProjectState(

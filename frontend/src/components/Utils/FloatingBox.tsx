@@ -4,12 +4,8 @@ import { Resizable, ResizeCallback } from "re-resizable";
 import React, { useEffect, useRef } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import {
-  getEmptySpacePlacement,
-  panToSectionIfNeeded,
-} from "state/actions/sections/createSections";
+import { getEmptySpacePosition } from "state/actions/sections/createSections";
 import { useLocalStorage, useSettings } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
@@ -385,7 +381,7 @@ export function disableFloatingBox() {
 }
 
 export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
-  return async () => {
+  return () => {
     const s = useFloatingBox.getState();
     const item = s.contentArray[s.idx];
     if (item) {
@@ -393,10 +389,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
         ? `## ${item.title}\n\n${item.content}`
         : item.content;
       if (content) {
-        const placement = getEmptySpacePlacement({
-          sizeHint: { width: 300, height: 300 },
-        });
-        const createPromise = route_create_top_level_section({
+        route_create_top_level_section({
           projectConfigId: getCurrProjectConfigId(),
           implType: SectionTypeEnum.TextBlock,
           implOverrides: {
@@ -406,15 +399,8 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
               : TextBlockFormatEnum.Plaintext,
             text: content,
           },
-          position: placement.position,
-          viewRect: placement.viewRect,
+          position: getEmptySpacePosition(),
         });
-        removeFrozenFloatingBox();
-        const res = await createPromise;
-        if (res200(res)) {
-          panToSectionIfNeeded(res.data);
-        }
-        return;
       }
     }
     // if converting a frozen floating box, then we need to remove it

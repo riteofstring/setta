@@ -1,21 +1,21 @@
-import { ParamConfigUITypeCombobox } from "components/Panes/UiEditor/UIConfig/UITypeCombobox";
-import { ParamUIConfig } from "components/Params/ParamUIs/ParamUI";
 import {
-  ComboboxItemArrayType,
-  OnSelectedItemChangeFnType,
-} from "components/Utils/Combobox/ComboboxStateReducer";
+  ParamConfigUITypeCombobox,
+  type CodeObjTypeFilterKey,
+} from "components/Panes/UiEditor/UIConfig/UITypeCombobox";
+import { ParamUIConfig } from "components/Params/ParamUIs/ParamUI";
+import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 
 export function UIConfigDropdownAndFields({
   sectionId,
   paramInfoId,
   baseImplId,
-  presetCodeObjImpls,
+  codeObjTypeFilterKey,
   onDropdownSelect,
 }: {
   sectionId: string;
   paramInfoId: string;
   baseImplId: string;
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
+  codeObjTypeFilterKey: CodeObjTypeFilterKey;
   onDropdownSelect: OnSelectedItemChangeFnType<string>;
 }) {
   return (
@@ -24,8 +24,8 @@ export function UIConfigDropdownAndFields({
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         onDropdownSelect={onDropdownSelect}
-        presetCodeObjImpls={presetCodeObjImpls}
         selectedBaseImplId={baseImplId}
+        codeObjTypeFilterKey={codeObjTypeFilterKey}
       />
       <ParamUIConfig
         sectionId={sectionId}

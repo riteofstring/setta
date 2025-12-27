@@ -1,6 +1,11 @@
 import unittest
 
-from setta.types.code_obj_impls import NestedParamCodeObjImpl, TextParamCodeObjImpl
+from setta.types.code_obj_impls import (
+    CodeObjType,
+    DropdownParamCodeObjImpl,
+    NestedParamCodeObjImpl,
+    TextParamCodeObjImpl,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -8,17 +13,12 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
+    change_param_impl,
     create_top_level_section,
-    get_curr_top_level_param_ids,
-    get_smart_top_level_section_position,
-    _get_top_level_section_rects,
-    _get_view_rect_bounds,
-    _rect_overlaps_existing,
-    _resolve_section_placement_size,
-    _SECTION_PLACEMENT_PADDING,
     delete_sections,
+    get_curr_top_level_param_ids,
 )
-from setta.types.project_config import Position, ProjectConfig, ViewRect
+from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, SectionType
 
@@ -97,93 +97,67 @@ class DeleteSectionsTests(unittest.TestCase):
         self.project_state.validate_code_file_bindings()
 
 
-class SmartPlacementTests(unittest.TestCase):
+class ChangeParamImplTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settings = SettingsState()
         self.project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
         )
 
-    def _create_section_with_layout(
-        self, position: Position, width: float, height: float
-    ) -> str:
+    def test_change_param_impl_preserves_kwarg_editability(self) -> None:
         section_id = create_top_level_section(
             self.settings,
             self.project_state,
-            SectionType.Callable,
-            position,
+            SectionType.Dict,
+            Position(),
         )
-        layout = self.project_state.projectConfig.topLevelSections[section_id]
-        layout.w = width
-        layout.h = height
-        return section_id
 
-    def test_smart_placement_clamps_to_view_rect_when_empty(self) -> None:
-        width, height = _resolve_section_placement_size(
-            self.settings, SectionType.Callable, None
+        add_kwarg(self.settings, self.project_state, section_id)
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseDictSectionImpl,
         )
-        view_rect = ViewRect(
-            x=0,
-            y=0,
-            width=width + _SECTION_PLACEMENT_PADDING * 4 + 100,
-            height=height + _SECTION_PLACEMENT_PADDING * 4 + 100,
+        self.assertIsNotNone(section_impl.topLevelParamId)
+        assert section_impl.topLevelParamId is not None
+
+        top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            section_impl.topLevelParamId,
+            NestedParamCodeObjImpl,
         )
-        preferred = Position(x=10_000, y=-10_000)
-        result = get_smart_top_level_section_position(
+        self.assertEqual(len(top_level_impl.children), 1)
+        kwarg_id = top_level_impl.children[0]
+
+        kwarg_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            kwarg_id,
+            TextParamCodeObjImpl,
+        )
+        self.assertTrue(kwarg_impl.coreNameEditable)
+        old_core_name_type = kwarg_impl.coreNameType
+        old_passing_style = kwarg_impl.passingStyle
+
+        change_param_impl(
             self.settings,
             self.project_state,
-            SectionType.Callable,
-            None,
-            preferred,
-            view_rect,
+            section_id,
+            kwarg_id,
+            CodeObjType.DropdownParam.name,
         )
 
-        bounds = _get_view_rect_bounds(view_rect, width, height)
-        self.assertIsNotNone(bounds)
-        assert bounds is not None
-        min_x, min_y, max_x, max_y = bounds
-        self.assertGreaterEqual(result.x, min_x)
-        self.assertLessEqual(result.x, max_x)
-        self.assertGreaterEqual(result.y, min_y)
-        self.assertLessEqual(result.y, max_y)
-
-    def test_smart_placement_prefers_view_rect_open_space(self) -> None:
-        width, height = _resolve_section_placement_size(
-            self.settings, SectionType.Callable, None
-        )
-        view_rect = ViewRect(
-            x=0,
-            y=0,
-            width=width * 4 + 200,
-            height=height * 3 + 200,
-        )
-        self._create_section_with_layout(Position(x=0, y=0), width, height)
-        self._create_section_with_layout(
-            Position(x=width + 40, y=0),
-            width,
-            height,
-        )
-        preferred = Position(x=10, y=10)
-        result = get_smart_top_level_section_position(
-            self.settings,
+        updated_impl = get_curr_effective_code_obj_impl_with_type_guard(
             self.project_state,
-            SectionType.Callable,
-            None,
-            preferred,
-            view_rect,
+            section_id,
+            kwarg_id,
+            DropdownParamCodeObjImpl,
         )
-
-        bounds = _get_view_rect_bounds(view_rect, width, height)
-        self.assertIsNotNone(bounds)
-        assert bounds is not None
-        min_x, min_y, max_x, max_y = bounds
-        self.assertGreaterEqual(result.x, min_x)
-        self.assertLessEqual(result.x, max_x)
-        self.assertGreaterEqual(result.y, min_y)
-        self.assertLessEqual(result.y, max_y)
-
-        existing_rects = _get_top_level_section_rects(self.project_state)
-        self.assertFalse(_rect_overlaps_existing(result, width, height, existing_rects))
+        self.assertTrue(updated_impl.coreNameEditable)
+        self.assertEqual(updated_impl.coreNameType, old_core_name_type)
+        self.assertEqual(updated_impl.passingStyle, old_passing_style)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -4,18 +4,17 @@ import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
-  MetaControlTypeEnum,
+  CodeObjTypeEnum,
   Position,
   SectionTypeEnum,
-  ViewRect,
 } from "utils/generatedTypes";
-import { getViewportRectForPlacement } from "./createSections";
 import { getCurrProjectConfigId } from "../sectionInfos";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
   implSpecs: Partial<BaseSectionImplUnion> &
     Required<Pick<BaseSectionImplUnion, "type">>;
+  controlCodeObjType?: CodeObjTypeEnum;
 };
 
 export function useCreateSectionsList() {
@@ -101,71 +100,71 @@ export function useCreateSectionsList() {
       name: "Dropdown",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.dropdown,
       },
+      controlCodeObjType: CodeObjTypeEnum.DropdownParam,
     },
     {
       name: "Slider",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.slider,
       },
+      controlCodeObjType: CodeObjTypeEnum.SliderParam,
     },
     {
       name: "Switch",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.switch,
       },
+      controlCodeObjType: CodeObjTypeEnum.SwitchParam,
     },
     {
       name: "Text Input",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.textInput,
       },
+      controlCodeObjType: CodeObjTypeEnum.TextParam,
     },
     {
       name: "Text Area",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.textArea,
       },
+      controlCodeObjType: CodeObjTypeEnum.TextAreaParam,
     },
     {
       name: "Password Field",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.password,
       },
+      controlCodeObjType: CodeObjTypeEnum.PasswordParam,
     },
     {
       name: "Color Picker",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.color,
       },
+      controlCodeObjType: CodeObjTypeEnum.ColorPickerParam,
     },
     {
       name: "Button",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.button,
       },
+      controlCodeObjType: CodeObjTypeEnum.ButtonParam,
     },
     {
       name: "Rotary Encoder",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.rotary,
       },
+      controlCodeObjType: CodeObjTypeEnum.RotaryParam,
     },
     {
       name: "Dropzone",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
-        metaControlType: MetaControlTypeEnum.dropzone,
       },
+      controlCodeObjType: CodeObjTypeEnum.DropzoneParam,
     },
   ];
 
@@ -194,16 +193,14 @@ export function useCreateSectionsList() {
 }
 
 export function createTopLevelSectionFromImplSpecs(
-  implSpecs: CreateSectionsContextMenuInfo["implSpecs"],
+  menuItem: CreateSectionsContextMenuInfo,
   position: Position,
-  viewRect?: ViewRect | null,
 ) {
-  const resolvedViewRect = viewRect ?? getViewportRectForPlacement();
-  return route_create_top_level_section({
+  route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),
-    implType: implSpecs.type,
-    implOverrides: implSpecs,
+    implType: menuItem.implSpecs.type,
+    controlCodeObjType: menuItem.controlCodeObjType,
+    implOverrides: menuItem.implSpecs,
     position,
-    viewRect: resolvedViewRect,
   });
 }

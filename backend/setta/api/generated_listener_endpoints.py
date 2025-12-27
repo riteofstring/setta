@@ -16,6 +16,7 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
@@ -37,12 +38,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
-from setta.types.project_config import (
-    Position,
-    TopLevelSectionLayout,
-    Viewport,
-    ViewRect,
-)
+from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     SectionSize,
@@ -128,6 +124,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     implType: SectionType
+    controlCodeObjType: NotRequired[CodeObjType | None]
     implOverrides: NotRequired[
         CallableSectionImplArgs
         | DictSectionImplArgs
@@ -149,7 +146,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | None
     ]
     position: Position
-    viewRect: NotRequired[ViewRect | None]
 
 
 class ListenerCreateViewModeRequestPayload(TypedDict):
@@ -393,13 +389,6 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     imagePath: str
 
 
-class ListenerSetMetaControlValueRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    value: str
-
-
 class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -495,6 +484,14 @@ class ListenerSetTopLevelSectionLayoutRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     topLevelSections: dict[ID, TopLevelSectionLayout]
+
+
+class ListenerSetTypeErrorIgnoreRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    paramInfoId: ID | None
+    ignoreTypeErrors: bool
 
 
 class ListenerSetViewModeNameRequestPayload(TypedDict):
@@ -829,11 +826,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
 
-    async def set_meta_control_value(
-        self, payload: ListenerSetMetaControlValueRequestPayload
-    ) -> None:
-        return await self._caller("route_set_meta_control_value", payload)
-
     async def set_param_entered_value(
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
@@ -901,6 +893,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTopLevelSectionLayoutRequestPayload
     ) -> None:
         return await self._caller("route_set_top_level_section_layout", payload)
+
+    async def set_type_error_ignore(
+        self, payload: ListenerSetTypeErrorIgnoreRequestPayload
+    ) -> None:
+        return await self._caller("route_set_type_error_ignore", payload)
 
     async def set_view_mode_name(
         self, payload: ListenerSetViewModeNameRequestPayload

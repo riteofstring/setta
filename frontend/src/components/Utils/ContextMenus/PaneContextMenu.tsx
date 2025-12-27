@@ -3,27 +3,22 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { panToSectionIfNeeded } from "state/actions/sections/createSections";
 import {
   CreateSectionsContextMenuInfo,
   createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
-  async function onClick(implSpecs: CreateSectionsContextMenuInfo["implSpecs"]) {
-    const res = await createTopLevelSectionFromImplSpecs(
-      implSpecs,
+  function onClick(menuItem: CreateSectionsContextMenuInfo) {
+    createTopLevelSectionFromImplSpecs(
+      menuItem,
       screenToFlowPosition({ x, y }),
     );
-    if (res200(res)) {
-      panToSectionIfNeeded(res.data);
-    }
     closeAllContextMenus();
   }
 
@@ -55,7 +50,7 @@ function DropdownGroup({
 }: {
   name: string;
   items: Array<CreateSectionsContextMenuInfo>;
-  onClick: (x: CreateSectionsContextMenuInfo["implSpecs"]) => void;
+  onClick: (x: CreateSectionsContextMenuInfo) => void;
 }) {
   return (
     <DropdownMenu.Group className="[&:not(:first-child)]:mt-1.5">
@@ -63,7 +58,7 @@ function DropdownGroup({
         {name}
       </DropdownMenu.Label>
       {items.map((e) => (
-        <Item key={e.name} onClick={() => onClick(e.implSpecs)}>
+        <Item key={e.name} onClick={() => onClick(e)}>
           {e.name}
         </Item>
       ))}
