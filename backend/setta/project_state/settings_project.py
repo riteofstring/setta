@@ -35,10 +35,7 @@ from setta.types.section_impls import (
 )
 from setta.utils.utils import normalize_path
 
-
-_CAMEL_CASE_PATTERN = re.compile(
-    r"[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|[0-9]+"
-)
+_CAMEL_CASE_PATTERN = re.compile(r"[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|[0-9]+")
 _ACRONYM_TOKENS = {
     "API",
     "CPU",
@@ -84,12 +81,7 @@ def _merge_display_name_tokens(tokens: list[str]) -> list[str]:
             merged.append("IFrame")
             idx += 2
             continue
-        if (
-            next_token
-            and len(token) == 1
-            and token.isalpha()
-            and next_token.isdigit()
-        ):
+        if next_token and len(token) == 1 and token.isalpha() and next_token.isdigit():
             merged.append(f"{token.upper()}{next_token}")
             idx += 2
             continue
