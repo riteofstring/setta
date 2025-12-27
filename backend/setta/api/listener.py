@@ -41,7 +41,6 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
 )
 from setta.types.listener import (
-    ControlActionEvent,
     ListenerActionEventContent,
     ListenerDependencyMode,
     ListenerForceRefreshContent,
@@ -52,6 +51,7 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     ListenerRegisterContent,
     ListenerRouterEndpointCallContent,
+    MetaControlActionEvent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
@@ -117,7 +117,7 @@ class ListenerCallbackSpec:
 @dataclass(slots=True)
 class ListenerCallbackContext:
     changed: dict[str, Any]
-    actions: list[ControlActionEvent]
+    actions: list[MetaControlActionEvent]
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
     project_manager: RouterEndpointAPI
@@ -1116,7 +1116,7 @@ class SettaListener:
             )
             return
 
-        callbacks_to_run: dict[str, list[ControlActionEvent]] = {}
+        callbacks_to_run: dict[str, list[MetaControlActionEvent]] = {}
         for event in content.actionEvents:
             for spec in self._callbacks.values():
                 declared_actions = spec.declared_actions
@@ -1310,7 +1310,7 @@ class SettaListener:
 
     def _register_scheduler_callback(self, spec: ListenerCallbackSpec) -> None:
         async def executor(
-            changed: dict[str, Any], actions: list[ControlActionEvent]
+            changed: dict[str, Any], actions: list[MetaControlActionEvent]
         ) -> None:
             runtime_state = self._runtime_state
             if runtime_state is None or runtime_state.s_instance is None:
@@ -1339,7 +1339,7 @@ class SettaListener:
         self,
         spec: ListenerCallbackSpec,
         changed: dict[str, Any],
-        actions: list[ControlActionEvent] | None = None,
+        actions: list[MetaControlActionEvent] | None = None,
     ) -> ListenerCallbackContext:
         spec_logger = spec.logger
         if spec_logger is None:

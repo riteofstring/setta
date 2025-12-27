@@ -4,21 +4,18 @@ import {
   ComboboxItemArrayType,
   OnSelectedItemChangeFnType,
 } from "components/Utils/Combobox/ComboboxStateReducer";
-import type { CodeObjType } from "utils/generatedTypes";
 
 export function UIConfigDropdownAndFields({
   sectionId,
   paramInfoId,
   baseImplId,
   presetCodeObjImpls,
-  allowedImplTypes,
   onDropdownSelect,
 }: {
   sectionId: string;
   paramInfoId: string;
   baseImplId: string;
   presetCodeObjImpls: ComboboxItemArrayType<string>;
-  allowedImplTypes?: Array<CodeObjType>;
   onDropdownSelect: OnSelectedItemChangeFnType<string>;
 }) {
   return (
@@ -29,7 +26,6 @@ export function UIConfigDropdownAndFields({
         onDropdownSelect={onDropdownSelect}
         presetCodeObjImpls={presetCodeObjImpls}
         selectedBaseImplId={baseImplId}
-        allowedImplTypes={allowedImplTypes}
       />
       <ParamUIConfig
         sectionId={sectionId}

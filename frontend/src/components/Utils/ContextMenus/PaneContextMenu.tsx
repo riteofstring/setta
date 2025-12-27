@@ -14,9 +14,9 @@ import { ContextMenuCore } from "./ContextMenuCore";
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
-  function onClick(menuItem: CreateSectionsContextMenuInfo) {
+  function onClick(implSpecs: CreateSectionsContextMenuInfo["implSpecs"]) {
     createTopLevelSectionFromImplSpecs(
-      menuItem,
+      implSpecs,
       screenToFlowPosition({ x, y }),
     );
     closeAllContextMenus();
@@ -50,7 +50,7 @@ function DropdownGroup({
 }: {
   name: string;
   items: Array<CreateSectionsContextMenuInfo>;
-  onClick: (x: CreateSectionsContextMenuInfo) => void;
+  onClick: (x: CreateSectionsContextMenuInfo["implSpecs"]) => void;
 }) {
   return (
     <DropdownMenu.Group className="[&:not(:first-child)]:mt-1.5">
@@ -58,7 +58,7 @@ function DropdownGroup({
         {name}
       </DropdownMenu.Label>
       {items.map((e) => (
-        <Item key={e.name} onClick={() => onClick(e)}>
+        <Item key={e.name} onClick={() => onClick(e.implSpecs)}>
           {e.name}
         </Item>
       ))}
