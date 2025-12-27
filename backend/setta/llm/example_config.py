@@ -2,7 +2,8 @@
 
 from setta.database.db_objs import DBE
 from setta.llm.config import save_llm_config
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
+from setta.utils.constants import C
 
 DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
     configs={
@@ -13,6 +14,13 @@ DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
             api_key_env="ANTHROPIC_API_KEY",
         ),
     },
+    mcpServers={
+        "setta": MCPServerConfig(
+            transport="sse",
+            url=f"{C.BACKEND}/mcp",
+        )
+    },
+    defaultMcpServerIds=["setta"],
     default_config_id="claude-sonnet",
 )
 

@@ -57,7 +57,12 @@ def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
     default_config_id = config.default_config_id
     if default_config_id and default_config_id not in persisted:
         default_config_id = None
-    return AllLLMConfigs(configs=persisted, default_config_id=default_config_id)
+    return AllLLMConfigs(
+        configs=persisted,
+        mcpServers=config.mcpServers,
+        defaultMcpServerIds=config.defaultMcpServerIds,
+        default_config_id=default_config_id,
+    )
 
 
 def merge_chat_llm_configs(
@@ -83,6 +88,8 @@ def merge_chat_llm_configs(
         seen_signatures[signature] = curr_config_id
     return AllLLMConfigs(
         configs=configs,
+        mcpServers=config.mcpServers,
+        defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=config.default_config_id,
     )
 

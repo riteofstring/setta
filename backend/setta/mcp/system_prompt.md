@@ -57,6 +57,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   inside the value field.
 
 ## Tooling flow
+- MCP tool names are always namespaced as `<serverId>__<toolName>`.
 - Start with `getProjectConfigNamesAndIds`, then call `get_latest_project_state_summary`
   with the chosen `projectConfigId`.
 - Use IDs from the summary only; re-fetch the summary after creating/deleting sections.
@@ -65,9 +66,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Use `set_callable` + `set_param_entered_value` to wire callables and args; do not
   hand-edit code objects. Use `set_param_name_and_value` when you need to set both
   a param name and value.
-- Use `search_and_unlock_mcp_tools` when you do not know the tool name; fall back to
-  `list_mcp_tools` only if search fails.
-- `search_and_unlock_mcp_tools` returns entries with `name`, `description`, and
+- Use `local__search_and_unlock_mcp_tools` when you do not know the tool name.
+- `local__search_and_unlock_mcp_tools` returns entries with `name`, `description`, and
   `category`; always use the `name` field when calling a tool.
 
 ## Don't-do list

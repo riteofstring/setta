@@ -9,7 +9,7 @@ from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_c
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.types.chat import ChatMetadata
 from setta.types.id import ID
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 
 DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
 
@@ -124,6 +124,72 @@ class AllLLMConfigsValidationTests(unittest.TestCase):
                     }
                 }
             )
+
+    def test_rejects_unknown_mcp_server_id(self) -> None:
+        with self.assertRaises(ValidationError):
+            AllLLMConfigs.model_validate(
+                {
+                    "configs": {
+                        "primary": {
+                            "model": "gpt-5.1",
+                            "mcpServerIds": ["missing"],
+                        }
+                    },
+                    "mcpServers": {
+                        "setta": {
+                            "transport": "sse",
+                            "url": "http://localhost:8000/mcp",
+                        }
+                    },
+                }
+            )
+
+
+class MCPServerSelectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mcp_servers = {
+            "setta": MCPServerConfig(
+                transport="sse",
+                url="http://localhost:8000/mcp",
+            ),
+            "github": MCPServerConfig(
+                transport="streamable_http",
+                url="http://localhost:9000/mcp",
+            ),
+        }
+
+    def test_resolves_default_mcp_server_ids(self) -> None:
+        configs = AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(
+                    id="primary",
+                    model="gpt-5.1",
+                )
+            },
+            mcpServers=self.mcp_servers,
+            defaultMcpServerIds=["setta"],
+        )
+
+        resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
+
+        self.assertEqual(resolved, ["setta"])
+
+    def test_resolves_empty_mcp_server_ids(self) -> None:
+        configs = AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(
+                    id="primary",
+                    model="gpt-5.1",
+                    mcpServerIds=[],
+                )
+            },
+            mcpServers=self.mcp_servers,
+            defaultMcpServerIds=["setta"],
+        )
+
+        resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
+
+        self.assertEqual(resolved, [])
 
 
 class LLMConfigPersistenceTests(unittest.TestCase):
