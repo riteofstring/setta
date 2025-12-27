@@ -158,6 +158,21 @@ class MCPServerSelectionTests(unittest.TestCase):
             ),
         }
 
+    def test_resolves_all_mcp_servers_when_defaults_unset(self) -> None:
+        configs = AllLLMConfigs(
+            configs={
+                "primary": LLMConfig(
+                    id="primary",
+                    model="gpt-5.1",
+                )
+            },
+            mcpServers=self.mcp_servers,
+        )
+
+        resolved = configs.resolve_mcp_server_ids(configs.configs["primary"])
+
+        self.assertEqual(resolved, ["setta", "github"])
+
     def test_resolves_default_mcp_server_ids(self) -> None:
         configs = AllLLMConfigs(
             configs={

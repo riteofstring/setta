@@ -73,7 +73,6 @@ def _build_default_llm_config() -> AllLLMConfigs:
                 url=f"{constants.C.BACKEND}/mcp",
             )
         },
-        defaultMcpServerIds=["setta"],
     )
 
 

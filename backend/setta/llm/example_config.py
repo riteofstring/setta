@@ -18,9 +18,18 @@ DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
         "setta": MCPServerConfig(
             transport="sse",
             url=f"{C.BACKEND}/mcp",
-        )
+        ),
+        "context7": MCPServerConfig(
+            transport="stdio",
+            command="npx",
+            args=[
+                "-y",
+                "@upstash/context7-mcp",
+                "--api-key",
+                "${CONTEXT7_API_KEY}",
+            ],
+        ),
     },
-    defaultMcpServerIds=["setta"],
     default_config_id="claude-sonnet",
 )
 

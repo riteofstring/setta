@@ -118,7 +118,10 @@ class AllLLMConfigs(BaseModel):
     def resolve_mcp_server_ids(self, llm_config: LLMConfig) -> list[str]:
         server_ids = llm_config.mcpServerIds
         if server_ids is None:
-            server_ids = self.defaultMcpServerIds
+            if self.defaultMcpServerIds:
+                server_ids = self.defaultMcpServerIds
+            else:
+                server_ids = list(self.mcpServers.keys())
         self._validate_mcp_server_ids(server_ids, f"LLM config '{llm_config.id}'")
         return list(server_ids)
 

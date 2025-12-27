@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import logging
+import os
+import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Sequence
@@ -29,6 +31,32 @@ from setta.types.llm_config import MCPServerConfig
 from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
+
+_ENV_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _resolve_env_placeholders(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        var_name = match.group(1)
+        if var_name not in os.environ:
+            raise ValueError(
+                f"MCP config references missing environment variable '{var_name}'"
+            )
+        return os.environ[var_name]
+
+    if "${" not in value:
+        return value
+    return _ENV_PLACEHOLDER.sub(replace, value)
+
+
+def _resolve_env_args(args: list[str]) -> list[str]:
+    return [_resolve_env_placeholders(arg) for arg in args]
+
+
+def _resolve_env_mapping(env: dict[str, str] | None) -> dict[str, str] | None:
+    if env is None:
+        return None
+    return {key: _resolve_env_placeholders(value) for key, value in env.items()}
 
 
 @dataclass
@@ -230,8 +258,8 @@ class MultiMCPClient:
             return read_stream, write_stream
         params = StdioServerParameters(
             command=config.command or "",
-            args=list(config.args),
-            env=config.env,
+            args=_resolve_env_args(list(config.args)),
+            env=_resolve_env_mapping(config.env),
             cwd=config.cwd,
             encoding=config.encoding,
             encoding_error_handler=config.encoding_error_handler,
