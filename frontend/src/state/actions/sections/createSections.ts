@@ -1,8 +1,6 @@
-import {
-  screenToFlowPosition,
-  setCenter,
-} from "forks/xyflow/core/hooks/useViewportHelper";
+import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { getPaneRect } from "forks/xyflow/core/utils/graph";
 import {
   useLocalStorage,
   useNodeInternals,
@@ -107,27 +105,22 @@ function getTopLevelSectionLayoutSnapshot() {
 }
 
 function getViewportBoundsForPlacement(): ViewportBounds | null {
-  const { domNode } = useReactFlow.getState();
-  if (!domNode) {
-    return null;
-  }
-  const rect = domNode.getBoundingClientRect();
-  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
-  const left = rect.left + overviewTrueWidth;
-  const right = rect.right - uiEditorTrueWidth;
-  if (right <= left) {
-    return null;
-  }
-  const top = rect.top;
-  const bottom = rect.bottom;
-  const topLeft = screenToFlowPosition({ x: left, y: top }, true);
-  const bottomRight = screenToFlowPosition({ x: right, y: bottom }, true);
-  const width = bottomRight.x - topLeft.x;
-  const height = bottomRight.y - topLeft.y;
+  const reactFlowState = useReactFlow.getState();
+  const { width, height } = reactFlowState;
   if (width <= 0 || height <= 0) {
     return null;
   }
-  return { x: topLeft.x, y: topLeft.y, w: width, h: height };
+  const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
+  const paneRect = getPaneRect(reactFlowState, overviewWidth);
+  if (paneRect.width <= 0 || paneRect.height <= 0) {
+    return null;
+  }
+  return {
+    x: paneRect.x,
+    y: paneRect.y,
+    w: paneRect.width,
+    h: paneRect.height,
+  };
 }
 
 function getSmartPlacementContext(): SmartPlacementContext {
