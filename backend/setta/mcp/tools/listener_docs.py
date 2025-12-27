@@ -11,6 +11,7 @@ _DOC_SOURCES = {
     "realtime_behavior": "setta-realtime-behavior.md",
     "listener_flows": "listener-flows.md",
     "logging_and_error_handling": "logging-and-error-handling.md",
+    "meta_controls": "meta-controls.md",
 }
 
 _DEFAULT_DOC_IDS = [
@@ -33,19 +34,20 @@ class ListenerDocsBundle(BaseModel):
 
 
 @setta_init_tool
-def get_setta_listener_api_docs(
+def get_setta_docs(
     *,
     doc_ids: list[str] | None = None,
 ) -> ListenerDocsBundle:
     """
-    Return docs relevant to writing Setta listener scripts.
+    Return docs from the Setta docs directory.
     Args:
-        doc_ids: Optional list of doc IDs to include; omit for the default set.
+        doc_ids: Optional list of doc IDs or doc-relative paths to include; omit for
+            the default listener-focused set.
     """
     docs_root = _resolve_docs_root()
     resolved_ids = doc_ids or _DEFAULT_DOC_IDS
     docs = [_load_doc(doc_id, docs_root) for doc_id in resolved_ids]
-    available_docs = sorted(_DOC_SOURCES.keys())
+    available_docs = _list_available_docs(docs_root)
     return ListenerDocsBundle(docs=docs, available_docs=available_docs)
 
 
@@ -53,16 +55,43 @@ def _resolve_docs_root() -> Path:
     for parent in Path(__file__).resolve().parents:
         candidate = parent / "docs"
         if candidate.is_dir():
-            return candidate
+            return candidate.resolve()
     raise FileNotFoundError("Setta docs directory not found")
 
 
 def _load_doc(doc_id: str, docs_root: Path) -> ListenerDocEntry:
-    if doc_id not in _DOC_SOURCES:
-        raise ValueError(f"Unknown listener doc id: {doc_id}")
-    relative_path = Path("docs") / _DOC_SOURCES[doc_id]
-    full_path = docs_root / _DOC_SOURCES[doc_id]
+    relative_path = _resolve_doc_relative_path(doc_id, docs_root)
+    full_path = docs_root / relative_path
     if not full_path.is_file():
         raise FileNotFoundError(f"Listener doc not found: {full_path}")
     content = full_path.read_text(encoding="utf-8")
-    return ListenerDocEntry(doc_id=doc_id, path=str(relative_path), content=content)
+    return ListenerDocEntry(
+        doc_id=doc_id,
+        path=str(Path("docs") / relative_path),
+        content=content,
+    )
+
+
+def _list_available_docs(docs_root: Path) -> list[str]:
+    doc_ids = set(_DOC_SOURCES.keys())
+    for doc_path in docs_root.rglob("*.md"):
+        if not doc_path.is_file():
+            continue
+        relative = doc_path.relative_to(docs_root)
+        doc_ids.add(str(relative.with_suffix("")))
+    return sorted(doc_ids)
+
+
+def _resolve_doc_relative_path(doc_id: str, docs_root: Path) -> Path:
+    if doc_id in _DOC_SOURCES:
+        return Path(_DOC_SOURCES[doc_id])
+
+    candidate = Path(doc_id)
+    if candidate.suffix == "":
+        candidate = candidate.with_suffix(".md")
+    if candidate.is_absolute():
+        raise ValueError(f"Doc id must be a relative path: {doc_id}")
+    resolved = (docs_root / candidate).resolve()
+    if docs_root not in resolved.parents:
+        raise ValueError(f"Doc id must resolve under docs/: {doc_id}")
+    return resolved.relative_to(docs_root)

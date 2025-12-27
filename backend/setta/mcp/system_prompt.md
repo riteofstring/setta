@@ -17,7 +17,9 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   runs), to keep long-lived services reacting to UI changes, to build interactive
   applications where frontend actions trigger listener work that updates the UI, or
   to push values/artifacts back into the frontend via `emit_to_frontend`.
-- If asked to write or explain Setta listener scripts, call `get_setta_listener_api_docs` first.
+- If asked to write or explain Setta listener scripts, call `get_setta_docs` first.
+- `get_setta_docs` can also return other docs from `/docs`; pass `doc_ids`
+  from `available_docs` (use `meta_controls` for meta control details).
 
 ## Where code goes (map)
 - Section params -> configuration values in the dependency graph.
@@ -45,9 +47,20 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Dict or Group sections -> `state.<path> = {"child": value, ...}`
 - ListRoot sections -> `state.<path> = [child_value0, child_value1, ...]` in order.
 - GlobalVariables section -> top-level params become `state.<param_name>`.
+- MetaControl sections -> `state.<path> = <literal>` from the single control param; `ButtonParam` yields `None`.
 - TextBlock -> `state.<path> = "<text>"`; Draw -> base64 payload or None.
 - Sections outside the dependency graph (Code, GenPythonCode, Image, Chart, Browser,
   Terminal, Chat, etc.) do not emit generated values.
+
+## Meta control sections
+- MetaControl sections contain exactly one control code object (`metaControlParamId`); they are not param lists.
+- Do not add control parameters or add_kwarg entries; create another MetaControl section for more controls.
+- Create them with `create_top_level_section` (implType: `MetaControl`) and optional `controlCodeObjType` (default: `SliderParam`).
+- To change the control type, use `change_param_impl` on the control param id; to persist a value, use `set_param_entered_value`.
+- Button controls emit action events (actionId == section name) and do not persist a value.
+- In `get_latest_project_state_summary`, MetaControl sections list the control param as the
+  single entry in `parameters`; use its `paramId` for `set_param_entered_value`,
+  `change_param_impl`, or `set_code_obj_name`.
 
 ## Naming rules for `state.<path>`
 - Names are sanitized: spaces and []"' become underscores; consecutive underscores
