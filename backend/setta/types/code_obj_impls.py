@@ -21,10 +21,13 @@ class CodeObjType(str, Enum):
     CodeParam = "CodeParam"
     TextParam = "TextParam"
     SliderParam = "SliderParam"
+    RotaryParam = "RotaryParam"
     SwitchParam = "SwitchParam"
     ColorPickerParam = "ColorPickerParam"
     DropdownParam = "DropdownParam"
     PasswordParam = "PasswordParam"
+    TextAreaParam = "TextAreaParam"
+    DropzoneParam = "DropzoneParam"
     NestedParam = "NestedParam"
 
 
@@ -81,6 +84,14 @@ class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
     value: str = "0"
 
 
+class RotaryParamCodeObjImpl(BaseChildlessCodeObjImpl):
+    type: Literal[CodeObjType.RotaryParam] = CodeObjType.RotaryParam
+    min: float = 0
+    max: float = 1
+    step: float = 0.1
+    value: str = "0"
+
+
 class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
     value: str = "false"
@@ -101,5 +112,29 @@ class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
 
 
+class TextAreaParamCodeObjImpl(BaseChildlessCodeObjImpl):
+    type: Literal[CodeObjType.TextAreaParam] = CodeObjType.TextAreaParam
+
+
+class DropzoneParamCodeObjImpl(BaseChildlessCodeObjImpl):
+    type: Literal[CodeObjType.DropzoneParam] = CodeObjType.DropzoneParam
+
+
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
+
+
+ControlCodeObjTypeSet = frozenset(
+    {
+        CodeObjType.CodeParam,
+        CodeObjType.TextParam,
+        CodeObjType.TextAreaParam,
+        CodeObjType.SliderParam,
+        CodeObjType.RotaryParam,
+        CodeObjType.SwitchParam,
+        CodeObjType.ColorPickerParam,
+        CodeObjType.DropdownParam,
+        CodeObjType.PasswordParam,
+        CodeObjType.DropzoneParam,
+    }
+)

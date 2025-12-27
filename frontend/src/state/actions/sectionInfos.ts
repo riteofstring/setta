@@ -83,7 +83,32 @@ function getEffectiveCodeObjImplIfPresent(
   codeObjId: string,
 ): BaseCodeObjImplUnion | null {
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
-    return null;
+    if (sectionImpl.type !== SectionTypeEnum.MetaControl) {
+      return null;
+    }
+    if (!sectionImpl.controlParamId) {
+      return null;
+    }
+    if (sectionImpl.controlParamId !== codeObjId) {
+      return null;
+    }
+    const variantId = sectionImpl.controlCodeObjVariantMap[codeObjId];
+    if (variantId === undefined) {
+      return null;
+    }
+    const variant = projectState.codeObjVariants[variantId];
+    if (!variant) {
+      return null;
+    }
+    const impl = projectState.codeObjImpls[variant.impl];
+    if (!impl) {
+      return null;
+    }
+    const core = projectState.codeObjs[codeObjId];
+    if (!core) {
+      return null;
+    }
+    return getEffectiveImpl(impl, core, variant);
   }
   const variantId = sectionImpl.codeObjVariantMap[codeObjId];
   if (variantId === undefined) {
@@ -190,18 +215,29 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
   preview = false,
 ) {
-  // Check if sectionId exists in the map
-  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
-    p,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-    preview,
-  );
-  const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-  if (variantId === undefined) {
-    throw new Error();
+  const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId, preview);
+  if (isBaseSectionWithParamsImpl(sectionImpl)) {
+    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
+    if (variantId === undefined) {
+      throw new Error();
+    }
+    return getCodeObjVariant(p, variantId);
   }
-  return getCodeObjVariant(p, variantId);
+  if (sectionImpl.type === SectionTypeEnum.MetaControl) {
+    const controlParamId = sectionImpl.controlParamId;
+    if (!controlParamId) {
+      throw new Error();
+    }
+    if (controlParamId !== codeObjId) {
+      throw new Error();
+    }
+    const variantId = sectionImpl.controlCodeObjVariantMap[codeObjId];
+    if (variantId === undefined) {
+      throw new Error();
+    }
+    return getCodeObjVariant(p, variantId);
+  }
+  throw new Error();
 }
 
 export function getCurrEffectiveCodeObjImpl(

@@ -71,10 +71,13 @@ from setta.types.code_obj_impls import (
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
+    DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
     PasswordParamCodeObjImpl,
+    RotaryParamCodeObjImpl,
     SliderParamCodeObjImpl,
     SwitchParamCodeObjImpl,
+    TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
 
@@ -83,10 +86,13 @@ BaseCodeObjImplUnion = (
     | CodeParamCodeObjImpl
     | TextParamCodeObjImpl
     | SliderParamCodeObjImpl
+    | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
     | ColorPickerParamCodeObjImpl
     | DropdownParamCodeObjImpl
     | PasswordParamCodeObjImpl
+    | TextAreaParamCodeObjImpl
+    | DropzoneParamCodeObjImpl
     | NestedParamCodeObjImpl
 )
 
@@ -98,10 +104,13 @@ BaseParamCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
     | SliderParamCodeObjImpl
+    | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
     | ColorPickerParamCodeObjImpl
     | DropdownParamCodeObjImpl
     | PasswordParamCodeObjImpl
+    | TextAreaParamCodeObjImpl
+    | DropzoneParamCodeObjImpl
     | NestedParamCodeObjImpl
 )
 
@@ -109,10 +118,13 @@ BaseChildlessCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
     | SliderParamCodeObjImpl
+    | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
     | ColorPickerParamCodeObjImpl
     | DropdownParamCodeObjImpl
     | PasswordParamCodeObjImpl
+    | TextAreaParamCodeObjImpl
+    | DropzoneParamCodeObjImpl
 )
 
 BaseParentCodeObjImplUnion = CodeCallableCodeObjImpl | NestedParamCodeObjImpl

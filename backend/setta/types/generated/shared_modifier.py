@@ -17,11 +17,11 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import (
+    ActionControlType,
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -31,6 +31,10 @@ from setta.types.section_impls import (
 
 
 class SharedModifier(TypedDict):
+    # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    actionControlType: NotRequired[ActionControlType | None]
     activeLayerIdx: NotRequired[int]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
@@ -51,6 +55,8 @@ class SharedModifier(TypedDict):
     colorChoices: NotRequired[list[ColorPickerChoice]]
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
+    controlCodeObjVariantMap: NotRequired[dict[ID, ID]]
+    controlParamId: NotRequired[ID | None]
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
     dataPath: NotRequired[str]
@@ -77,10 +83,8 @@ class SharedModifier(TypedDict):
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
     layers: NotRequired[list[DrawAreaLayer]]
-    max: NotRequired[int]
-    metaControlType: NotRequired[MetaControlType]
-    metaControlValue: NotRequired[str]
-    min: NotRequired[int]
+    max: NotRequired[float | int]
+    min: NotRequired[float | int]
     name: NotRequired[str]
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]
@@ -90,7 +94,7 @@ class SharedModifier(TypedDict):
     renderedValue: NotRequired[str | None]
     selectedParams: NotRequired[list[ID]]
     size: NotRequired[SectionSize]
-    step: NotRequired[int]
+    step: NotRequired[float | int]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     topLevelParamId: NotRequired[ID | None]

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import bm25s
-from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from setta.mcp.server import (
@@ -124,36 +123,34 @@ class SearchAndUnlockMCPToolsTest(unittest.TestCase):
         ]
         index = build_search_index(self.tool_specs)
         self.setta_state = StubSettaState(index)
-        self.ctx = Context(fastmcp=self.setta_state.mcp_server)
 
     def test_returns_ranked_results_for_query(self) -> None:
         results = search_and_unlock_mcp_tools(
             query="read specific file lines",
             limit=1,
-            ctx=self.ctx,
+            setta_state=self.setta_state,
         )
 
-        self.assertEqual(len(results.results), 1)
-        self.assertEqual(results.results[0].name, "read_file_range")
+        self.assertEqual(len(results.root), 1)
+        self.assertEqual(results.root[0].name, "read_file_range")
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_and_unlock_mcp_tools(
-            query="search project", limit=0, ctx=self.ctx
+            query="search project", limit=0, setta_state=self.setta_state
         )
 
-        self.assertEqual(len(results.results), len(self.tool_specs))
+        self.assertEqual(len(results.root), len(self.tool_specs))
 
     def test_raises_for_blank_query(self) -> None:
         with self.assertRaises(ValueError):
-            search_and_unlock_mcp_tools(query="   ", ctx=self.ctx)
+            search_and_unlock_mcp_tools(query="   ", setta_state=self.setta_state)
 
     def test_returns_empty_when_index_missing(self) -> None:
         empty_state = StubSettaState(index=None)
-        empty_ctx = Context(fastmcp=empty_state.mcp_server)
 
-        results = search_and_unlock_mcp_tools(query="read", ctx=empty_ctx)
+        results = search_and_unlock_mcp_tools(query="read", setta_state=empty_state)
 
-        self.assertEqual(results.results, [])
+        self.assertEqual(results.root, [])
 
 
 class ListMCPToolsTest(unittest.TestCase):
@@ -174,18 +171,16 @@ class ListMCPToolsTest(unittest.TestCase):
         tools = [_build_tool(spec) for spec in specs]
         # Intentionally reverse to confirm sorting happens inside list_mcp_tools.
         self.setta_state = StubSettaState(index=None, tools=list(reversed(tools)))
-        self.ctx = Context(fastmcp=self.setta_state.mcp_server)
 
     def test_returns_sorted_registered_tool_names(self) -> None:
-        results = list_mcp_tools(ctx=self.ctx).tools
+        results = list_mcp_tools(setta_state=self.setta_state).root
 
         self.assertEqual(results, sorted(self.tool_names))
 
     def test_returns_empty_list_when_no_tools_registered(self) -> None:
         empty_state = StubSettaState(index=None, tools=[])
-        empty_ctx = Context(fastmcp=empty_state.mcp_server)
 
-        self.assertEqual(list_mcp_tools(ctx=empty_ctx).tools, [])
+        self.assertEqual(list_mcp_tools(setta_state=empty_state).root, [])
 
 
 class BuildParameterTextTest(unittest.TestCase):
