@@ -28,10 +28,13 @@ from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
+    get_variant_base_and_effective_code_obj_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import (
+    get_curr_meta_control_impl_with_type_guard,
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
+    get_meta_control_param_id,
 )
 from setta.types.id import ID
 from setta.types.project_state import (
@@ -41,8 +44,6 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
     DrawSectionImpl,
-    MetaControlSectionImpl,
-    MetaControlType,
     SectionType,
     TextBlockSectionImpl,
 )
@@ -67,7 +68,7 @@ class Node(ABC):
 
 @dataclass
 class SectionNode(Node):
-    meta_control_type: MetaControlType | None = None
+    control_code_obj_type: CodeObjType | None = None
 
     @property
     def has_name_and_value(self) -> bool:
@@ -276,17 +277,30 @@ class DependencyGraph:
         self.add_to_graph(ctx.dep_key, node)
 
     def _export_meta_control_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, MetaControlSectionImpl):
-            return
+        section_impl = get_curr_meta_control_impl_with_type_guard(
+            ctx.project_state, ctx.section_id
+        )
+        control_param_id = get_meta_control_param_id(ctx.project_state, ctx.section_id)
+        variant_id = section_impl.codeObjVariantMap[control_param_id]
+        _, _, control_impl = (
+            get_variant_base_and_effective_code_obj_impl_with_type_guard(
+                ctx.project_state,
+                ctx.project_state.codeObjs[control_param_id],
+                variant_id,
+                BaseParamCodeObjImpl,
+            )
+        )
+        control_value = None
+        if isinstance(control_impl, BaseChildlessCodeObjImpl):
+            control_value = LiteralDependencyValue(control_impl.value)
         node = SectionNode(
             id=ctx.section_id,
             name=ctx.section_name,
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(section_impl.metaControlValue),
-            meta_control_type=section_impl.metaControlType,
+            value=control_value,
+            control_code_obj_type=control_impl.type,
             deps={},
         )
         self.add_to_graph(ctx.dep_key, node)

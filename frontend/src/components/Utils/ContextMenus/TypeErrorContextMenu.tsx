@@ -1,17 +1,13 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import {
-  getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
-import { removeTypeErrorsForTarget } from "state/actions/typeCheck";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { removeTypeErrorsForParam } from "state/actions/typeCheck";
 import {
   useContextMenus,
   useProjectState,
   useTypeErrors,
 } from "state/definitions";
-import { route_set_type_error_ignore } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -22,36 +18,25 @@ export function TypeErrorContextMenu() {
   );
 
   const currIgnoreTypeErrors = useProjectState((x) => {
-    if (!sectionId) {
+    if (!sectionId || !paramInfoId) {
       return false;
     }
     const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
     if (isBaseSectionWithParamsImpl(sectionImpl)) {
-      if (paramInfoId === null) {
-        return sectionImpl.ignoreTypeErrors.callable;
-      }
-      if (paramInfoId in sectionImpl.ignoreTypeErrors.params) {
-        return Boolean(sectionImpl.ignoreTypeErrors.params[paramInfoId]);
-      }
+      return Boolean(sectionImpl.ignoreTypeErrors[paramInfoId]);
     }
     return false;
   });
 
   function onClick() {
-    if (!sectionId) {
-      closeAllContextMenus();
-      return;
-    }
-    const ignoreTypeErrors = !currIgnoreTypeErrors;
-    route_set_type_error_ignore({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-      ignoreTypeErrors,
+    let ignoreTypeErrors;
+    useProjectState.setState((state) => {
+      ignoreTypeErrors = !currIgnoreTypeErrors;
+      state.codeInfo[paramInfoId].ignoreTypeErrors = ignoreTypeErrors;
     });
     if (ignoreTypeErrors) {
       useTypeErrors.setState((state) => {
-        removeTypeErrorsForTarget(sectionId, paramInfoId, state);
+        removeTypeErrorsForParam(paramInfoId, state);
       });
     }
 

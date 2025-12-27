@@ -6,14 +6,17 @@ listener-driven updates move through the system, plus when disk writes happen.
 ## Flow A: Meta control realtime -> listeners
 ```
 UI change
-  -> if meta control is a button:
+  -> if meta control is an action control:
        send RealtimeActionEvent (always)
      else:
-       update local pending value
-       send RealtimeUIChange (only if listener coverage matches)
+       update local pending value on the control param
+       send RealtimeUIChange for SectionParamDependencyKey
+         (only if listener coverage matches)
   -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
-      -> WMHPythonScriptSender fan-out to matching listener sockets
-  -> SettaListener applies delta/action, schedules callbacks (debounce/throttle)
+      -> WMHPythonScriptSender fan-out
+           - realtime deltas -> sockets with matching dependencies or realtime wildcard
+           - action events -> sockets with matching action ids or action wildcard
+  -> SettaListener applies deltas/actions, schedules callbacks (debounce/throttle)
 ```
 
 Key paths:
@@ -24,14 +27,15 @@ Key paths:
   `backend/setta/websockets/msg_handlers/python_script_receiver.py`
 - Frontend websocket receiver: `backend/setta/websockets/msg_handlers/frontend_receiver.py`
 - Realtime sequencing + fan-out: `backend/setta/websockets/realtime_event_hub.py`,
-  `backend/setta/websockets/msg_handlers/python_script_sender.py`
+  `backend/setta/websockets/msg_handlers/python_script_sender.py`,
+  `backend/setta/websockets/listener_registry.py`
 - Listener realtime/action handling: `backend/setta/api/listener.py`
 
 ## Flow B: Meta control persistence -> project state
 ```
 UI change
-  -> debounced route_set_meta_control_value (50ms)
-      -> project manager set_meta_control_value()
+  -> debounced route_set_param_entered_value (50ms)
+      -> project manager set_param_entered_value()
           -> add history entry (autosave debounce)
           -> update_and_broadcast_project_state()
               -> update(): validate, rebuild DependencyGraph, codegen
@@ -71,6 +75,7 @@ Key paths:
 
 Notes:
 - Realtime dependency deltas are gated by listener coverage snapshots; action events are not.
+- Action events share the same sequence counter as dependency deltas.
 - Dependency updates from emit_to_frontend are currently limited to section params and TextBlock sections.
 
 ## Disk Writes

@@ -85,7 +85,6 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
@@ -113,7 +112,6 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
-    SetMetaControlValueRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
@@ -129,7 +127,6 @@ from setta.project_state.project_manager_types import (
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
-    SetTypeErrorIgnoreRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -193,7 +190,6 @@ from setta.types.helpers_lvl2 import (
     set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
-    set_meta_control_value,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -208,7 +204,6 @@ from setta.types.helpers_lvl2 import (
     set_text_block_display_mode,
     set_text_block_format,
     set_text_block_text,
-    set_type_error_ignore,
     toggle_minimized,
     toggle_param_selected,
     toggle_position_lock,
@@ -227,7 +222,6 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.notifications import (
     SettaBackendLogEventSeverity,
     SettaNotification,
@@ -240,13 +234,11 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
-    BaseSectionWithParamsImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
     SectionType,
-    TypeErrorIgnoreState,
 )
 from setta.types.settings_state import RenameRefactorMode
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -662,22 +654,6 @@ class BaseProjectManager(ABC):
                 value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
             code_generator.generate_code()
-            ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
-            for section_id in projectState.sections.keys():
-                section_impl = get_curr_effective_section_impl(projectState, section_id)
-                if not isinstance(section_impl, BaseSectionWithParamsImpl):
-                    continue
-                ignore_state = section_impl.ignoreTypeErrors
-                ignored_params = {
-                    param_id: True
-                    for param_id, is_ignored in ignore_state.params.items()
-                    if is_ignored
-                }
-                if ignore_state.callable or ignored_params:
-                    ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
-                        callable=ignore_state.callable,
-                        params=ignored_params,
-                    )
 
             gen_code_binding = projectState.genCodeBinding
             if gen_code_binding is None:
@@ -691,7 +667,6 @@ class BaseProjectManager(ABC):
                 projectConfigId,
                 dep_graph,
                 code_generator,
-                ignore_type_errors_by_section,
             )
             if not new_gen_code.binding.canonical_path.exists():
                 new_gen_code.write_to_disk(new_gen_code.code)
@@ -839,21 +814,6 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
-        )
-    )
-    async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
-        """Toggle ignoring type errors for the targeted section entry."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_type_error_ignore(
-            project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["codeObjId"]}
         ),
         tool_argument_preview=ToolArgumentPreviewMetadata(
@@ -873,19 +833,6 @@ class BaseProjectManager(ABC):
             x.codeObjId,
             x.value,
         )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        )
-    )
-    async def set_meta_control_value(self, x: SetMetaControlValueRequest):
-        """Write a new manual value for the targeted meta control."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_meta_control_value(project_state, x.sectionId, x.value)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1043,6 +990,7 @@ class BaseProjectManager(ABC):
             x.implType,
             x.position,
             x.implOverrides,
+            control_code_obj_type=x.controlCodeObjType,
         )
         await self.update_and_broadcast_project_state(project_state)
         return sectionId
@@ -1846,19 +1794,6 @@ class BaseProjectManager(ABC):
             self.project_state_backend, x.projectConfigId
         )
         return build_project_state_summary(project_state)
-
-    @enqueue_method(require_serialization=False)
-    @project_state_tool(tool_type=SettaToolType.init)
-    async def get_latest_lsp_diagnostics(
-        self, x: GetLatestLspDiagnosticsRequest
-    ) -> SettaProjectConfigDiagnostics:
-        """Return the latest parsed LSP diagnostics for generated code."""
-        async with self._project_state_lock.read_lock():
-            if x.projectConfigId not in self.gen_code:
-                raise KeyError(
-                    f"Missing generated code for project config {x.projectConfigId}"
-                )
-            return self.gen_code[x.projectConfigId].latest_diagnostics
 
     @enqueue_method
     async def autosave(self):

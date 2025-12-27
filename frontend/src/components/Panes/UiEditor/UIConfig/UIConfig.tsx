@@ -13,22 +13,34 @@ import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 import { route_change_param_impl } from "utils/generatedEndpoints";
+import {
+  CodeObjTypeEnum,
+  SectionParamCodeObjTypeSet,
+} from "utils/generatedTypes";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
+
+const SECTION_PARAM_CODE_OBJ_TYPES = Object.values(CodeObjTypeEnum).filter(
+  (type) => SectionParamCodeObjTypeSet.has(type),
+);
 
 function _UIConfig({ sectionId }: { sectionId: string }) {
   const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
   const presetCodeObjImpls = useProjectState((x) => {
     const output: ComboboxItemArrayType<string> = [];
     for (const c of Object.values(x.codeObjImpls)) {
-      if (c.isPreset) {
-        output.push({
-          id: c.id,
-          name: `${c.name} - (${c.type})`,
-        });
+      if (!c.isPreset) {
+        continue;
       }
+      if (!SectionParamCodeObjTypeSet.has(c.type)) {
+        continue;
+      }
+      output.push({
+        id: c.id,
+        name: `${c.name} - (${c.type})`,
+      });
     }
     return output;
   }, _.isEqual);
@@ -130,6 +142,7 @@ function _UIElement({
         paramInfoId={paramInfoId}
         baseImplId={baseImplId}
         presetCodeObjImpls={presetCodeObjImpls}
+        allowedImplTypes={SECTION_PARAM_CODE_OBJ_TYPES}
         onDropdownSelect={onSelect}
       />
     </div>

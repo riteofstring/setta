@@ -1,10 +1,17 @@
+import _ from "lodash";
 import { useProjectState, useTypeErrors } from "state/definitions";
 import { route_type_check } from "utils/generatedEndpoints";
-import { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
+import {
+  isBaseSectionWithParamsImpl,
+  SettaProjectConfigDiagnostics,
+} from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
-import { getCurrProjectConfigId } from "./sectionInfos";
+import {
+  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
+} from "./sectionInfos";
 
-export async function requestTypeCheck(userRequested: boolean = false) {
+export async function requestTypeCheck(userRequested = false) {
   if (userRequested) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
@@ -15,41 +22,50 @@ export async function requestTypeCheck(userRequested: boolean = false) {
 
 export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
   const p = useProjectState.getState();
-  const { projectConfigId, errors } = content;
+  const { projectConfigId, diagnostics } = content;
   if (projectConfigId !== p.projectConfig.id) {
     return;
   }
 
+  const typeErrors = {};
+
+  for (const d of diagnostics) {
+    const { sectionId, paramInfoId, message } = d;
+    if (!paramInfoId) {
+      continue;
+    }
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      p,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    if (impl.ignoreTypeErrors[paramInfoId]) {
+      continue;
+    }
+    if (!(sectionId in typeErrors)) {
+      typeErrors[sectionId] = {};
+    }
+    if (!(paramInfoId in typeErrors[sectionId])) {
+      typeErrors[sectionId][paramInfoId] = [];
+    }
+    typeErrors[sectionId][paramInfoId].push(message);
+  }
+
   if (useTypeErrors.getState().userRequested) {
-    const totalErrors = Object.values(errors).reduce((sum, section) => {
-      const hasParamErrors = Object.keys(section.params).length > 0;
-      const hasCallableErrors = section.callable.length > 0;
-      return sum + (hasParamErrors ? 1 : 0) + (hasCallableErrors ? 1 : 0);
-    }, 0);
     addTemporaryNotification(
-      totalErrors === 0 ? "No type errors" : `Found ${totalErrors} type errors`,
+      _.size(typeErrors) === 0
+        ? "No type errors"
+        : `Found ${_.size(typeErrors)} type errors`,
     );
   }
   useTypeErrors.getState().reset();
-  useTypeErrors.setState({ errors });
+  useTypeErrors.setState({ errors: typeErrors });
 }
 
-type TypeErrorsState = ReturnType<typeof useTypeErrors.getState>;
-
-export function removeTypeErrorsForTarget(
-  sectionId: string,
-  paramInfoId: string | null,
-  state: TypeErrorsState,
-) {
-  const section = state.errors[sectionId];
-  if (!section) {
-    return;
-  }
-  if (paramInfoId === null) {
-    section.callable = [];
-    return;
-  }
-  if (paramInfoId in section.params) {
-    delete section.params[paramInfoId];
+export function removeTypeErrorsForParam(paramInfoId, state) {
+  for (const section of Object.values(state.errors)) {
+    if (paramInfoId in section) {
+      delete section[paramInfoId];
+    }
   }
 }
