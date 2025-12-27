@@ -16,7 +16,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
-    UserDefaultDropzoneParamCodeObjImpl,
     UserDefaultGenPythonCodeSectionImpl,
     UserDefaultGlobalVariablesSectionImpl,
     UserDefaultGroupSectionImpl,
@@ -26,12 +25,10 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
     UserDefaultTerminalSectionImpl,
-    UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
 )
@@ -118,26 +115,17 @@ class SettingsState(BaseModel, extra="forbid"):
     dropdownParamCodeObjDefault: UserDefaultDropdownParamCodeObjImpl = Field(
         default_factory=UserDefaultDropdownParamCodeObjImpl
     )
-    dropzoneParamCodeObjDefault: UserDefaultDropzoneParamCodeObjImpl = Field(
-        default_factory=UserDefaultDropzoneParamCodeObjImpl
-    )
     nestedParamCodeObjDefault: UserDefaultNestedParamCodeObjImpl = Field(
         default_factory=UserDefaultNestedParamCodeObjImpl
     )
     passwordParamCodeObjDefault: UserDefaultPasswordParamCodeObjImpl = Field(
         default_factory=UserDefaultPasswordParamCodeObjImpl
     )
-    rotaryParamCodeObjDefault: UserDefaultRotaryParamCodeObjImpl = Field(
-        default_factory=UserDefaultRotaryParamCodeObjImpl
-    )
     sliderParamCodeObjDefault: UserDefaultSliderParamCodeObjImpl = Field(
         default_factory=UserDefaultSliderParamCodeObjImpl
     )
     switchParamCodeObjDefault: UserDefaultSwitchParamCodeObjImpl = Field(
         default_factory=UserDefaultSwitchParamCodeObjImpl
-    )
-    textAreaParamCodeObjDefault: UserDefaultTextAreaParamCodeObjImpl = Field(
-        default_factory=UserDefaultTextAreaParamCodeObjImpl
     )
     textParamCodeObjDefault: UserDefaultTextParamCodeObjImpl = Field(
         default_factory=UserDefaultTextParamCodeObjImpl
@@ -216,9 +204,6 @@ def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeO
         case CodeObjType.SliderParam:
             return settings.sliderParamCodeObjDefault
 
-        case CodeObjType.RotaryParam:
-            return settings.rotaryParamCodeObjDefault
-
         case CodeObjType.SwitchParam:
             return settings.switchParamCodeObjDefault
 
@@ -230,12 +215,6 @@ def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeO
 
         case CodeObjType.PasswordParam:
             return settings.passwordParamCodeObjDefault
-
-        case CodeObjType.TextAreaParam:
-            return settings.textAreaParamCodeObjDefault
-
-        case CodeObjType.DropzoneParam:
-            return settings.dropzoneParamCodeObjDefault
 
         case CodeObjType.NestedParam:
             return settings.nestedParamCodeObjDefault

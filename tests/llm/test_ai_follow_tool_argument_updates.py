@@ -1,7 +1,8 @@
 import unittest
 
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.client import MCPClient
+from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -18,15 +19,21 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from tests.utils.manager_fixture import real_project_manager
 
 
-def _build_tool_annotations_by_name() -> dict[str, SettaToolAnnotations]:
+def _build_tool_annotations_by_name(
+    server_id: str,
+) -> dict[str, SettaToolAnnotations]:
     tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
     for tool_fn in SETTA_INIT_MCP_TOOLS:
-        tool_annotations_by_name[tool_fn.__name__] = SettaToolAnnotations(
+        tool_annotations_by_name[
+            build_namespaced_tool_name(server_id, tool_fn.__name__)
+        ] = SettaToolAnnotations(
             settaToolType=SettaToolType.init,
             aiFollowToolArguments=get_ai_follow_tool_arguments(tool_fn),
         )
     for tool_fn in SETTA_MCP_TOOLS:
-        tool_annotations_by_name[tool_fn.__name__] = SettaToolAnnotations(
+        tool_annotations_by_name[
+            build_namespaced_tool_name(server_id, tool_fn.__name__)
+        ] = SettaToolAnnotations(
             settaToolType=SettaToolType.discoverable,
             aiFollowToolArguments=get_ai_follow_tool_arguments(tool_fn),
         )
@@ -113,7 +120,7 @@ class AIFollowToolArgumentExtractionTests(unittest.IsolatedAsyncioTestCase):
     async def test_ai_follow_tool_argument_extraction_for_registered_tools(self) -> None:
         async with real_project_manager() as fixture:
             frontend_sender = WMHFrontendSender(fixture.websocket_manager)
-            mcp_client = MCPClient("http://localhost")
+            mcp_client = MultiMCPClient({})
             project_manager_switcher = ProjectManagerSwitcher(
                 fixture.manager,
                 fixture.manager,
@@ -125,7 +132,9 @@ class AIFollowToolArgumentExtractionTests(unittest.IsolatedAsyncioTestCase):
                 project_manager_switcher,
             )
 
-            tool_annotations_by_name = _build_tool_annotations_by_name()
+            tool_annotations_by_name = _build_tool_annotations_by_name(
+                SETTA_MCP_SERVER_ID
+            )
             self.assertTrue(tool_annotations_by_name)
             mcp_client.tool_annotations_by_name = tool_annotations_by_name
 

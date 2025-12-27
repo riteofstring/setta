@@ -5,20 +5,15 @@ import logging
 import re
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
+from typing import TYPE_CHECKING, Any, Callable
 
 import bm25s
 import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
-from mcp.server.fastmcp.tools import Tool, ToolManager
-from mcp.server.fastmcp.tools.base import _is_async_callable
-from mcp.server.fastmcp.utilities.func_metadata import func_metadata
-from mcp.server.session import ServerSessionT
+from mcp.server.fastmcp.tools import Tool
 from mcp.server.sse import SseServerTransport
-from mcp.shared.context import LifespanContextT
 from mcp.types import ToolAnnotations
 
 from setta.database.db_objs import DBE
@@ -34,11 +29,9 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
-    IDDoesNotExist,
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -66,14 +59,12 @@ class SettaFastMCP(FastMCP):
         **settings,
     ):
         super().__init__(name=name, instructions=instructions, **settings)
-        self._tool_manager = SettaToolManager()
         self.state = state
         self.dbe = dbe
         self._temporary_id_map_mtime_ns: int | None = None
         self.temporary_to_canonical = {}
         self.canonical_to_temporary = {}
         self._refresh_temporary_id_map_if_needed()
-        self.fn_param_docstrings = {}
         self.tool_search_index: ToolSearchIndex | None = None
         msg_path = f"{mount_path}/messages/"
         sse_transport = SseServerTransport(msg_path)
@@ -110,7 +101,6 @@ class SettaFastMCP(FastMCP):
     def _register_setta_tool(
         self, fn: Callable[..., Any], tool_type: SettaToolType
     ) -> None:
-        # Re-validate against the base class so Pydantic preserves custom fields
         ai_follow_tool_arguments = get_ai_follow_tool_arguments(fn)
         ai_follow_tool_result = get_ai_follow_tool_result(fn)
         tool_argument_preview = get_tool_argument_preview(fn)
@@ -129,39 +119,30 @@ class SettaFastMCP(FastMCP):
                 searchCategory=search_category,
             ).model_dump()
         )
-        self.add_tool(
+        doc_description, param_descriptions = extract_tool_docstrings(fn)
+        tool = self._tool_manager.add_tool(
             self.setta_id_transformer(fn),
             annotations=annotations,
+            description=doc_description or "",
         )
+        _apply_param_descriptions(tool.parameters, param_descriptions)
 
     def list_registered_tools(self):
-        return list(self._tool_manager._tools.values())
+        return self._tool_manager.list_tools()
 
     def setta_id_transformer(self, func):
-        setta_params: set[str] = set()
-        for param_name in inspect.signature(func).parameters.keys():
-            if param_name in C.SETTA_MCP_PARAM_NAMES:
-                setta_params.add(param_name)
         is_async = inspect.iscoroutinefunction(func)
 
         @wraps(func)
         async def wrapper(**kwargs):
             self._refresh_temporary_id_map_if_needed()
-            # Filter out unwanted params
-            kwargs = {
-                k: v
-                for k, v in kwargs.items()
-                if k not in C.SETTA_MCP_PARAM_NAMES or k in setta_params
-            }
-            if C.MCP_SETTA_STATE_ARG_NAME in setta_params:
-                kwargs[C.MCP_SETTA_STATE_ARG_NAME] = self.state
-            try:
-                kwargs = convert_temporary_ids_to_canonical(
-                    kwargs, self.temporary_to_canonical
-                )
-            except IDDoesNotExist as e:
-                raise ToolError(str(e)) from e
-            result = func(**kwargs)
+            context_kwargs = {k: v for k, v in kwargs.items() if isinstance(v, Context)}
+            for key in context_kwargs:
+                kwargs.pop(key)
+            kwargs = convert_temporary_ids_to_canonical(
+                kwargs, self.temporary_to_canonical
+            )
+            result = func(**kwargs, **context_kwargs)
             if is_async:
                 result = await result
             result = convert_canonical_ids_to_temporary(
@@ -169,7 +150,7 @@ class SettaFastMCP(FastMCP):
                 self.canonical_to_temporary,
                 self.temporary_to_canonical,
             )
-            self.state.dbe.write_temporary_id_map(self.canonical_to_temporary)
+            self.dbe.write_temporary_id_map(self.canonical_to_temporary)
             return result
 
         return wrapper
@@ -189,7 +170,9 @@ class SettaFastMCP(FastMCP):
         tools = [
             tool
             for tool in self.list_registered_tools()
-            if tool.annotations.settaToolType == SettaToolType.discoverable
+            if tool.annotations is not None
+            and getattr(tool.annotations, "settaToolType", None)
+            == SettaToolType.discoverable
         ]
         if not tools:
             return None
@@ -198,110 +181,6 @@ class SettaFastMCP(FastMCP):
         corpus_tokens = bm25s.tokenize(documents, stopwords="en")
         retriever.index(corpus_tokens)
         return ToolSearchIndex(retriever=retriever, tools=tools)
-
-
-class SettaTool(Tool):
-    @classmethod
-    def from_function(
-        cls,
-        fn: Callable[..., Any],
-        name: str | None = None,
-        description: str | None = None,
-        context_kwarg: str | None = None,
-        annotations: ToolAnnotations | None = None,
-    ) -> "SettaTool":
-        """Create a Tool from a function."""
-        from mcp.server.fastmcp.server import Context
-
-        func_name = name or fn.__name__
-
-        if func_name == "<lambda>":
-            raise ValueError("You must provide a name for lambda functions")
-
-        is_async = _is_async_callable(fn)
-
-        if context_kwarg is None:
-            sig = inspect.signature(fn)
-            for param_name, param in sig.parameters.items():
-                if get_origin(param.annotation) is not None:
-                    continue
-                if issubclass(param.annotation, Context):
-                    context_kwarg = param_name
-                    break
-
-        skip_names = [*C.SETTA_MCP_PARAM_NAMES]
-        if context_kwarg is not None:
-            skip_names.append(context_kwarg)
-
-        func_arg_metadata = func_metadata(
-            fn,
-            skip_names=skip_names,
-        )
-        parameters = func_arg_metadata.arg_model.model_json_schema()
-
-        description, param_descriptions = extract_tool_docstrings(fn)
-        for arg_name, arg_metadata in parameters["properties"].items():
-            if "description" in arg_metadata:
-                continue
-            param_description = param_descriptions.get(arg_name)
-            if param_description:
-                arg_metadata["description"] = param_description
-
-        return cls(
-            fn=fn,
-            name=func_name,
-            description=description or "",
-            parameters=parameters,
-            fn_metadata=func_arg_metadata,
-            is_async=is_async,
-            context_kwarg=context_kwarg,
-            annotations=annotations,
-        )
-
-    async def run(
-        self,
-        arguments: dict[str, Any],
-        context: Context[ServerSessionT, LifespanContextT] | None = None,
-    ) -> Any:
-        """Run the tool with arguments."""
-        try:
-            pass_directly = {}
-            if self.context_kwarg is not None:
-                pass_directly[self.context_kwarg] = context
-            for k, v in arguments.items():
-                if k in C.SETTA_MCP_PARAM_NAMES:
-                    pass_directly[k] = v
-            return await self.fn_metadata.call_fn_with_arg_validation(
-                self.fn,
-                self.is_async,
-                arguments,
-                pass_directly,
-            )
-        except ToolError:
-            raise
-        except Exception as e:
-            raise ToolError(f"Error executing tool {self.name}: {e}") from e
-
-
-class SettaToolManager(ToolManager):
-    def add_tool(
-        self,
-        fn: Callable[..., Any],
-        name: str | None = None,
-        description: str | None = None,
-        annotations: ToolAnnotations | None = None,
-    ) -> SettaTool:
-        """Add a tool to the server."""
-        tool = SettaTool.from_function(
-            fn, name=name, description=description, annotations=annotations
-        )
-        existing = self._tools.get(tool.name)
-        if existing:
-            if self.warn_on_duplicate_tools:
-                logger.warning("Tool already exists: %s", tool.name)
-            return cast("SettaTool", existing)
-        self._tools[tool.name] = tool
-        return tool
 
 
 def extract_tool_docstrings(func):
@@ -324,6 +203,24 @@ def extract_tool_docstrings(func):
             param_docs[param.arg_name] = param.description
 
     return parsed.description, param_docs
+
+
+def _apply_param_descriptions(
+    parameters: dict[str, Any], param_descriptions: dict[str, str]
+) -> None:
+    if not parameters or not param_descriptions:
+        return
+    properties = parameters.get("properties")
+    if not isinstance(properties, dict):
+        return
+    for arg_name, arg_metadata in properties.items():
+        if not isinstance(arg_metadata, dict):
+            continue
+        if "description" in arg_metadata:
+            continue
+        param_description = param_descriptions.get(arg_name)
+        if param_description:
+            arg_metadata["description"] = param_description
 
 
 _TOOL_SEARCH_SYNONYMS: dict[str, list[str]] = {

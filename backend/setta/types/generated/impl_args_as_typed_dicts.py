@@ -21,11 +21,11 @@ from setta.types.project_config import (
     Viewport,
 )
 from setta.types.section_impls import (
-    ActionControlType,
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
+    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -44,7 +44,6 @@ class CoreArgs(TypedDict):
     unsharedKeys: NotRequired[
         list[
             Literal[
-                "actionControlType",
                 "activeLayerIdx",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
@@ -65,8 +64,6 @@ class CoreArgs(TypedDict):
                 "colorChoices",
                 "columnWidth",
                 "configLanguage",
-                "controlCodeObjVariantMap",
-                "controlParamId",
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
@@ -94,6 +91,8 @@ class CoreArgs(TypedDict):
                 "jsonSourceMissing",
                 "layers",
                 "max",
+                "metaControlType",
+                "metaControlValue",
                 "min",
                 "name",
                 "paramFilter",
@@ -406,9 +405,8 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
-    controlParamId: NotRequired[ID | None]
-    controlCodeObjVariantMap: NotRequired[dict[ID, ID]]
-    actionControlType: NotRequired[ActionControlType | None]
+    metaControlType: NotRequired[MetaControlType]
+    metaControlValue: NotRequired[str]
 
 
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -416,15 +414,10 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.MetaControl]
         | Callable[[Literal[SectionType.MetaControl]], Literal[SectionType.MetaControl]]
     ]
-    controlParamId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-    controlCodeObjVariantMap: NotRequired[
-        dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
+    metaControlType: NotRequired[
+        MetaControlType | Callable[[MetaControlType], MetaControlType]
     ]
-    actionControlType: NotRequired[
-        ActionControlType
-        | None
-        | Callable[[ActionControlType | None], ActionControlType | None]
-    ]
+    metaControlValue: NotRequired[str | Callable[[str], str]]
 
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
@@ -641,23 +634,6 @@ class SliderParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
     step: NotRequired[int | Callable[[int], int]]
 
 
-class RotaryParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.RotaryParam]]
-    min: NotRequired[float]
-    max: NotRequired[float]
-    step: NotRequired[float]
-
-
-class RotaryParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
-    type: NotRequired[
-        Literal[CodeObjType.RotaryParam]
-        | Callable[[Literal[CodeObjType.RotaryParam]], Literal[CodeObjType.RotaryParam]]
-    ]
-    min: NotRequired[float | Callable[[float], float]]
-    max: NotRequired[float | Callable[[float], float]]
-    step: NotRequired[float | Callable[[float], float]]
-
-
 class SwitchParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.SwitchParam]]
 
@@ -718,36 +694,6 @@ class PasswordParamCodeObjImplArgsWithCallable(
         Literal[CodeObjType.PasswordParam]
         | Callable[
             [Literal[CodeObjType.PasswordParam]], Literal[CodeObjType.PasswordParam]
-        ]
-    ]
-
-
-class TextAreaParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.TextAreaParam]]
-
-
-class TextAreaParamCodeObjImplArgsWithCallable(
-    BaseChildlessCodeObjImplArgsWithCallable
-):
-    type: NotRequired[
-        Literal[CodeObjType.TextAreaParam]
-        | Callable[
-            [Literal[CodeObjType.TextAreaParam]], Literal[CodeObjType.TextAreaParam]
-        ]
-    ]
-
-
-class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.DropzoneParam]]
-
-
-class DropzoneParamCodeObjImplArgsWithCallable(
-    BaseChildlessCodeObjImplArgsWithCallable
-):
-    type: NotRequired[
-        Literal[CodeObjType.DropzoneParam]
-        | Callable[
-            [Literal[CodeObjType.DropzoneParam]], Literal[CodeObjType.DropzoneParam]
         ]
     ]
 
