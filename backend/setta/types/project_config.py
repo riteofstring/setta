@@ -28,6 +28,15 @@ class Viewport(BaseModel, extra="forbid"):
     )
 
 
+class ViewportBounds(BaseModel, extra="forbid"):
+    """Visible canvas bounds in flow coordinates."""
+
+    x: float = 0
+    y: float = 0
+    w: float = 0
+    h: float = 0
+
+
 class TopLevelSectionLayout(Position, extra="forbid"):
     zIndex: int = 0
     w: float | None = None
@@ -44,6 +53,7 @@ class ViewModeConfig(BaseModel, extra="forbid"):
 class ProjectConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
+    showParamDisplayNames: bool = False
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
     viewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)

@@ -13,6 +13,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
+    CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -43,6 +44,7 @@ from setta.project_state.project_manager_types import (
     SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeFileBindingRequest,
+    SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -58,6 +60,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionWithParamsDisplayModeRequest,
+    SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -162,13 +165,13 @@ async def route_update_param_impl_config(
 @router.post(Route.CREATE_TOP_LEVEL_SECTION)
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, state: AppStateFromRequest
-) -> str:
-    sectionId = await state.project_manager_switcher.get(
+) -> CreateTopLevelSectionResponse:
+    result = await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_top_level_section(x)
     if x.implType == SectionType.Terminal:
-        state.terminals.new_terminal(x.projectConfigId, sectionId)
-    return sectionId
+        state.terminals.new_terminal(x.projectConfigId, result.sectionId)
+    return result
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS)
@@ -399,6 +402,15 @@ async def route_set_gen_code_suffix(
     await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_suffix(x)
 
 
+@router.post(Route.SET_SHOW_PARAM_DISPLAY_NAMES)
+async def route_set_show_param_display_names(
+    x: SetShowParamDisplayNamesRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_show_param_display_names(x)
+
+
 @router.post(Route.SET_PARAM_ENTERED_VALUE)
 async def route_set_param_entered_value(
     x: SetParamEnteredValueRequest, state: AppStateFromRequest
@@ -408,6 +420,7 @@ async def route_set_param_entered_value(
     )
 
 
+@router.post(Route.SET_TYPE_ERROR_IGNORE)
 async def route_set_type_error_ignore(
     x: SetTypeErrorIgnoreRequest, state: AppStateFromRequest
 ):
@@ -417,6 +430,15 @@ async def route_set_type_error_ignore(
 @router.post(Route.SET_CODE_OBJ_NAME)
 async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_code_obj_name(x)
+
+
+@router.post(Route.SET_CODE_OBJ_DISPLAY_NAME)
+async def route_set_code_obj_display_name(
+    x: SetCodeObjDisplayNameRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_code_obj_display_name(x)
 
 
 @router.post(Route.SET_CODE_FILE_BINDING)

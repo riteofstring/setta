@@ -136,7 +136,6 @@ function MetaControlValueArea({
         <MetaControlContent
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           codeObjType={codeObjType}
           onAction={handleAction}
         />
@@ -144,7 +143,6 @@ function MetaControlValueArea({
         <MetaControlContent
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           codeObjType={codeObjType}
           value={value}
           defaultVal={defaultVal}
