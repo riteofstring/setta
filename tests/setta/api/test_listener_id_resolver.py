@@ -166,7 +166,9 @@ class ListenerDependencyIdsTests(unittest.TestCase):
     def setUp(self) -> None:
         project_state, ids = _build_project_state_with_duplicate_sections()
         runtime_state = _build_runtime_state(project_state)
-        self.ids_helper = ListenerDependencyIds(runtime_state.dependency_graph)
+        self.ids_helper = ListenerDependencyIds(
+            runtime_state.dependency_graph, runtime_state.project_state
+        )
         self.ids = ids
 
     def test_dependency_name_resolves_section(self) -> None:
@@ -185,7 +187,9 @@ class ListenerDependencyIdsTests(unittest.TestCase):
         dependency_name = _find_param_dependency_name(
             runtime_state.dependency_graph, kwarg_id
         )
-        ids_helper = ListenerDependencyIds(runtime_state.dependency_graph)
+        ids_helper = ListenerDependencyIds(
+            runtime_state.dependency_graph, runtime_state.project_state
+        )
         param_ids = ids_helper.param_ids(dependency_name)
         self.assertEqual(param_ids.sectionId, section_id)
         self.assertEqual(param_ids.paramInfoId, kwarg_id)

@@ -1,6 +1,8 @@
 import logging
 from typing import TYPE_CHECKING, Iterable
 
+from setta.database.db_objs import DBE
+from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.id import ID
 from setta.types.listener import (
     ControlActionEvent,
@@ -29,13 +31,29 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self,
         websocket_manager,
         listener_registry: ListenerRegistry,
+        dbe: DBE | None = None,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
+        self.dbe = dbe
         self._realtime_event_hub: "RealtimeEventHub | None" = None
 
     def register_realtime_event_hub(self, event_hub: "RealtimeEventHub") -> None:
         self._realtime_event_hub = event_hub
+
+    def _convert_outgoing_to_temporary(self, payload):
+        if self.dbe is None:
+            return payload
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
+        converted = convert_canonical_ids_to_temporary(
+            payload,
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+        self.dbe.write_temporary_id_map(canonical_to_temporary)
+        return converted
 
     async def send_realtime_update(
         self,
@@ -77,8 +95,19 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             return
 
         message = WebsocketMsgListenerRealtimeEvent(content=content)
+        temporary_message = None
         for websocket_id in sockets_to_notify:
-            await self.websocket_manager.send_message(message, websocket_id)
+            if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+                if temporary_message is None:
+                    temporary_content = self._convert_outgoing_to_temporary(content)
+                    temporary_message = WebsocketMsgListenerRealtimeEvent(
+                        content=temporary_content
+                    )
+                await self.websocket_manager.send_message(
+                    temporary_message, websocket_id
+                )
+            else:
+                await self.websocket_manager.send_message(message, websocket_id)
 
     async def send_action_event(
         self,
@@ -119,8 +148,19 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             return
 
         message = WebsocketMsgListenerActionEvent(content=content)
+        temporary_message = None
         for websocket_id in sockets_to_notify:
-            await self.websocket_manager.send_message(message, websocket_id)
+            if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+                if temporary_message is None:
+                    temporary_content = self._convert_outgoing_to_temporary(content)
+                    temporary_message = WebsocketMsgListenerActionEvent(
+                        content=temporary_content
+                    )
+                await self.websocket_manager.send_message(
+                    temporary_message, websocket_id
+                )
+            else:
+                await self.websocket_manager.send_message(message, websocket_id)
 
     async def send_force_refresh(
         self,
@@ -161,10 +201,21 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             projectState=projectState,
         )
         message = WebsocketMsgListenerForceRefresh(content=content)
+        temporary_message = None
         logger.debug(
             "sending listener force refresh for project config %s to %s socket(s)",
             project_config_id,
             len(socket_ids),
         )
         for websocket_id in socket_ids:
-            await self.websocket_manager.send_message(message, websocket_id)
+            if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
+                if temporary_message is None:
+                    temporary_content = self._convert_outgoing_to_temporary(content)
+                    temporary_message = WebsocketMsgListenerForceRefresh(
+                        content=temporary_content
+                    )
+                await self.websocket_manager.send_message(
+                    temporary_message, websocket_id
+                )
+            else:
+                await self.websocket_manager.send_message(message, websocket_id)

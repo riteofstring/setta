@@ -14,12 +14,7 @@ from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
 from setta.types.id import ID
-from setta.types.project_config import (
-    Position,
-    TopLevelSectionLayout,
-    Viewport,
-    ViewportBounds,
-)
+from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -176,29 +171,8 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
         description="Implementation-specific overrides applied during creation.",
         json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
     )
-    position: Position | None = Field(
-        default=None,
+    position: Position = Field(
         description="Canvas coordinates where the section should be placed.",
-    )
-    topLevelSections: dict[ID, TopLevelSectionLayout] | None = Field(
-        default=None,
-        description="Latest top-level section layout snapshot for smart placement.",
-        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
-    )
-    viewportBounds: ViewportBounds | None = Field(
-        default=None,
-        description="Visible canvas bounds for smart placement.",
-        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
-    )
-
-
-class CreateTopLevelSectionResponse(BaseModel):
-    sectionId: ID = Field(
-        description="Identifier for the newly created top-level section.",
-    )
-    panTo: Position | None = Field(
-        default=None,
-        description="Optional viewport center for panning to the new section.",
     )
 
 
@@ -380,14 +354,6 @@ class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class SetShowParamDisplayNamesRequest(ProjectManagerRequestWithProjectConfig):
-    """Toggle whether display names are used for parameters in the UI."""
-
-    showParamDisplayNames: bool = Field(
-        description="True to show display names for parameters, false to show canonical names.",
-    )
-
-
 class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     """Assign a new manual value to a parameter within a section."""
 
@@ -429,17 +395,6 @@ class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     )
     name: str = Field(
         description="New human-readable name to store on the code object.",
-    )
-
-
-class SetCodeObjDisplayNameRequest(ProjectManagerRequestWithProjectConfig):
-    """Set the user-facing display name for a code object."""
-
-    codeObjId: ID = Field(
-        description="Identifier of the code object whose display name should change.",
-    )
-    displayName: str = Field(
-        description="Optional user-facing display name for the code object.",
     )
 
 

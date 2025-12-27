@@ -5,8 +5,8 @@ import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import {
+  getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -36,7 +36,7 @@ function _ParamContainer({
       );
       return {
         description: codeObjImpl.description,
-        name: getParamDisplayName(x, paramInfoId),
+        name: getCodeObjCore(x, paramInfoId).name,
       };
     },
     _.isEqual,

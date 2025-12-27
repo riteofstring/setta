@@ -6,8 +6,8 @@ import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import {
+  getCodeObjCore,
   getDisplayedSectionIdToChildren,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
@@ -107,7 +107,7 @@ function getParamsAndAddToSearchResults(
     output.push({
       sectionId,
       paramInfoId: p,
-      name: getParamDisplayName(state, p),
+      name: getCodeObjCore(state, p).name,
     });
   }
 }
