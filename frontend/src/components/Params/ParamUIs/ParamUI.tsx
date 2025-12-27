@@ -18,10 +18,7 @@ import {
 } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 import { ButtonInputConfigForParam } from "./ButtonInput";
-import {
-  ColorPickerInputConfigForParam,
-} from "./ColorPickerInput";
-import { DropdownInputConfigForParam } from "./DropdownInput";
+import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
   ConfiguredColorPickerInput,
   ConfiguredDropdownInput,
@@ -29,6 +26,7 @@ import {
   ConfiguredSliderInput,
   ParamValueChange,
 } from "./ConfiguredParamInputs";
+import { DropdownInputConfigForParam } from "./DropdownInput";
 import { DropzoneInput } from "./DropzoneInput";
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";

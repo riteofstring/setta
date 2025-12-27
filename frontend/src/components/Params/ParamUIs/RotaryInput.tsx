@@ -1,5 +1,5 @@
-import { useRef } from "react";
 import type { KeyboardEvent, PointerEvent, WheelEvent } from "react";
+import { useRef } from "react";
 import {
   NO_DRAG_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -183,8 +183,7 @@ export function RotaryInput({
 }
 
 function parseValue(value: string | number, min: number, max: number): number {
-  const parsed =
-    typeof value === "number" ? value : Number.parseFloat(value);
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
   if (!Number.isFinite(parsed)) {
     return min;
   }

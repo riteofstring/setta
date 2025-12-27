@@ -358,7 +358,6 @@ class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     )
 
 
-
 class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     """Set a parameter's name and value in one step."""
 

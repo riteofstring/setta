@@ -1,3 +1,4 @@
+import type { ParamValueChange } from "components/Params/ParamUIs/ConfiguredParamInputs";
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
 import React from "react";
@@ -24,7 +25,6 @@ import {
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
-import type { ParamValueChange } from "components/Params/ParamUIs/ConfiguredParamInputs";
 
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
   const { controlParamId, controlCodeObjType, buttonLabel, sectionName } =

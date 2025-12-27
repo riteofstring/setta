@@ -5,7 +5,9 @@ import { DropdownInput } from "./DropdownInput";
 import { RotaryInput } from "./RotaryInput";
 import { SliderInput } from "./SliderInput";
 
-export type ParamValueChange = (value: string | number | boolean | null) => void;
+export type ParamValueChange = (
+  value: string | number | boolean | null,
+) => void;
 
 type ConfiguredSliderInputProps = {
   sectionId: string;
