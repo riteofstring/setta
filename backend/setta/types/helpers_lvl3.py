@@ -349,9 +349,7 @@ def _build_meta_control_param_summaries(
             isPinned=False,
             isSelected=False,
             isHidden=False,
-            valuePreview=_truncate_value_preview(
-                getattr(param_impl, "value", None)
-            ),
+            valuePreview=_truncate_value_preview(getattr(param_impl, "value", None)),
         )
     ]
 
