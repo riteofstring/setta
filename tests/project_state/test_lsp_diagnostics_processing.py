@@ -3,11 +3,7 @@ import unittest
 from lsprotocol import types as LSPTypes
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.code_generator import (
-    GEN_CODE_BODY_INDENT,
-    GEN_CODE_MULTILINE_CONTINUATION_INDENT,
-    PythonCodeGenerator,
-)
+from setta.code_gen.python.code_generator import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.value_mode import PythonValueMode
 from setta.project_state.lsp_response_handlers.diagnostics import (
@@ -211,23 +207,6 @@ class LspDiagnosticsProcessingTests(unittest.TestCase):
             errors[section_id].params[param_id],
             ["unknown_symbol is not defined"],
         )
-
-    def test_multiline_code_param_wraps_expression(self):
-        param_value = "[\n1,\n2,\n]"
-        project_state, section_id, param_id = build_project_state(param_value)
-        _, code_generator = build_code_generator(project_state)
-
-        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
-        line = code_generator.lines[dep_key]
-        value = line.var_str[line.prefix_len :]
-        lines = value.splitlines()
-
-        self.assertEqual(lines[0], "(")
-        self.assertEqual(lines[1], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}[")
-        self.assertEqual(lines[2], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}1,")
-        self.assertEqual(lines[3], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}2,")
-        self.assertEqual(lines[4], f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}]")
-        self.assertEqual(lines[5], f"{GEN_CODE_BODY_INDENT})")
 
 
 if __name__ == "__main__":

@@ -2,9 +2,9 @@ import unittest
 
 from setta.types.code_obj_impls import (
     CodeObjType,
-    CodeParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     NestedParamCodeObjImpl,
+    TextParamCodeObjImpl,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
@@ -72,7 +72,7 @@ class AddKwargTests(unittest.TestCase):
 
         kwarg_impl_id = self.project_state.codeObjVariants[kwarg_variant_id].impl
         kwarg_impl = self.project_state.codeObjImpls[kwarg_impl_id]
-        self.assertIsInstance(kwarg_impl, CodeParamCodeObjImpl)
+        self.assertIsInstance(kwarg_impl, TextParamCodeObjImpl)
 
         top_level_param_ids = get_curr_top_level_param_ids(
             self.project_state, section_id
@@ -142,7 +142,7 @@ class ChangeParamImplTests(unittest.TestCase):
             self.project_state,
             section_id,
             kwarg_id,
-            CodeParamCodeObjImpl,
+            TextParamCodeObjImpl,
         )
         self.assertTrue(kwarg_impl.coreNameEditable)
         old_core_name_type = kwarg_impl.coreNameType

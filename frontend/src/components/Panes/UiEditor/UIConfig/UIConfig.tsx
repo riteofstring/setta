@@ -61,12 +61,12 @@ function UIConfigCore({
         onChange={(e) => setFilter(e.target.value)}
       />
       <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
-        {filteredList.map((e, idx) => (
+        {filteredList.map((e) => (
           <UIElement
             sectionId={sectionId}
             paramInfo={e}
             codeObjTypeFilterKey={codeObjTypeFilterKey}
-            key={`${e.name}-${idx}`}
+            key={e.id}
           />
         ))}
       </div>

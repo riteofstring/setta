@@ -3,11 +3,15 @@ from pathlib import Path
 from typing import Any
 
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.jsonSource.load import (
+    load_json_sources_into_data_structures,
+)
 from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
+from setta.project_state.settings_project import apply_settings_display_names
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
@@ -21,6 +25,7 @@ class SettingsProjectManager(BaseProjectManager):
     def load_initial_state(self):
         logger.debug("Loading settings project")
         p = self.settings_file.load_settings_project()
+        apply_settings_display_names(p)
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):
@@ -46,5 +51,17 @@ class SettingsProjectManager(BaseProjectManager):
         json_sources: dict[Path, Any],
         section_variants_to_load: list[tuple[str, str]],
     ):
-        await super().load_json_sources(json_sources, section_variants_to_load)
+        p = self.project_state_backend
+        load_json_sources_into_data_structures(
+            p,
+            json_sources,
+            section_variants_to_load,
+        )
+        apply_settings_display_names(p)
+
+        for config_id in p.projectConfigs.keys():
+            single_config = convert_backend_to_single_config(p, config_id)
+            await self.update_and_broadcast_project_state(
+                single_config, updateFileWatcher=False
+            )
         await self.settings_file.load_and_broadcast_settings()
