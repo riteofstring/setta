@@ -125,8 +125,8 @@ def wrapper_parse_signature(
 
         # Append parsed information to list
         codeObjImpl = create_code_obj_impl(
-            CodeObjType.TextParam,
-            settings.textParamCodeObjDefault,
+            CodeObjType.CodeParam,
+            settings.codeParamCodeObjDefault,
             {
                 "defaultVal": default,
                 "description": description,
