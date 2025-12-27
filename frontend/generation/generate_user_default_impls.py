@@ -39,9 +39,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
-    "MetaControlSectionImpl": DEFAULT_EXCLUSIONS.union(
-        {"controlParamId", "controlCodeObjVariantMap"}
-    ),
+    "MetaControlSectionImpl": DEFAULT_EXCLUSIONS,
     "SocialSectionImpl": DEFAULT_EXCLUSIONS,
     "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,
     "CodeSectionImpl": DEFAULT_EXCLUSIONS,
@@ -63,13 +61,10 @@ CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
     "CodeParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "TextParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "SliderParamCodeObjImpl": DEFAULT_EXCLUSIONS,
-    "RotaryParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "SwitchParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "ColorPickerParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "DropdownParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "PasswordParamCodeObjImpl": DEFAULT_EXCLUSIONS,
-    "TextAreaParamCodeObjImpl": DEFAULT_EXCLUSIONS,
-    "DropzoneParamCodeObjImpl": DEFAULT_EXCLUSIONS,
     "NestedParamCodeObjImpl": DEFAULT_EXCLUSIONS,
 }
 
@@ -192,10 +187,10 @@ from pydantic import BaseModel, Field
 # Section type imports
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
-    ActionControlType,
     ChartSettings,
     CodeLanguage,
     ConfigLanguage,
+    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionType,

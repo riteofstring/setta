@@ -9,13 +9,10 @@ from setta.types.code_obj_impls import (
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
-    DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
     PasswordParamCodeObjImpl,
-    RotaryParamCodeObjImpl,
     SliderParamCodeObjImpl,
     SwitchParamCodeObjImpl,
-    TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -30,7 +27,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     DictSectionImplArgs,
     DrawSectionImplArgs,
     DropdownParamCodeObjImplArgs,
-    DropzoneParamCodeObjImplArgs,
     GenPythonCodeSectionImplArgs,
     GlobalVariablesSectionImplArgs,
     GroupSectionImplArgs,
@@ -40,12 +36,10 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
-    RotaryParamCodeObjImplArgs,
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
     SwitchParamCodeObjImplArgs,
     TerminalSectionImplArgs,
-    TextAreaParamCodeObjImplArgs,
     TextBlockSectionImplArgs,
     TextParamCodeObjImplArgs,
 )
@@ -63,7 +57,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
-    UserDefaultDropzoneParamCodeObjImpl,
     UserDefaultGenPythonCodeSectionImpl,
     UserDefaultGlobalVariablesSectionImpl,
     UserDefaultGroupSectionImpl,
@@ -73,12 +66,10 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
     UserDefaultTerminalSectionImpl,
-    UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
 )
@@ -276,14 +267,6 @@ def create_code_obj_impl(
 
 @overload
 def create_code_obj_impl(
-    type: Literal[CodeObjType.RotaryParam],
-    defaults: UserDefaultRotaryParamCodeObjImpl,
-    overrides: RotaryParamCodeObjImplArgs | None = None,
-) -> RotaryParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
     type: Literal[CodeObjType.SwitchParam],
     defaults: UserDefaultSwitchParamCodeObjImpl,
     overrides: SwitchParamCodeObjImplArgs | None = None,
@@ -312,22 +295,6 @@ def create_code_obj_impl(
     defaults: UserDefaultPasswordParamCodeObjImpl,
     overrides: PasswordParamCodeObjImplArgs | None = None,
 ) -> PasswordParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.TextAreaParam],
-    defaults: UserDefaultTextAreaParamCodeObjImpl,
-    overrides: TextAreaParamCodeObjImplArgs | None = None,
-) -> TextAreaParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.DropzoneParam],
-    defaults: UserDefaultDropzoneParamCodeObjImpl,
-    overrides: DropzoneParamCodeObjImplArgs | None = None,
-) -> DropzoneParamCodeObjImpl: ...
 
 
 @overload
@@ -448,11 +415,6 @@ def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None
                 overrides = {}
             return SliderParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
-        case CodeObjType.RotaryParam:
-            if overrides is None:
-                overrides = {}
-            return RotaryParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
-
         case CodeObjType.SwitchParam:
             if overrides is None:
                 overrides = {}
@@ -472,16 +434,6 @@ def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None
             if overrides is None:
                 overrides = {}
             return PasswordParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
-
-        case CodeObjType.TextAreaParam:
-            if overrides is None:
-                overrides = {}
-            return TextAreaParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
-
-        case CodeObjType.DropzoneParam:
-            if overrides is None:
-                overrides = {}
-            return DropzoneParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
         case CodeObjType.NestedParam:
             if overrides is None:

@@ -111,7 +111,7 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     SectionType,
-    ActionControlType,
+    MetaControlType,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
     BrowserAreaViewMode,

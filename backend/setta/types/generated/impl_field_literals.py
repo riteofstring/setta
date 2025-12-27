@@ -1,7 +1,6 @@
 from typing import Literal
 
 AllImplFields = Literal[
-    "actionControlType",
     "activeLayerIdx",
     "aspectRatio",
     "aspectRatioExtraHeight",
@@ -22,8 +21,6 @@ AllImplFields = Literal[
     "colorChoices",
     "columnWidth",
     "configLanguage",
-    "controlCodeObjVariantMap",
-    "controlParamId",
     "coreNameEditable",
     "coreNameType",
     "dataPath",
@@ -51,6 +48,7 @@ AllImplFields = Literal[
     "jsonSourceMissing",
     "layers",
     "max",
+    "metaControlType",
     "min",
     "name",
     "paramFilter",
