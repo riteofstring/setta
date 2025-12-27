@@ -1,7 +1,11 @@
+import tempfile
 import unittest
+import weakref
+from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, TypeVar, cast
 
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.database.db_objs import DBE
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
 from setta.types.artifact import ArtifactType, ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -111,7 +115,14 @@ def _build_receiver_fixture(
     frontend_sender = WMHFrontendSender(cast("WebsocketManager", websocket_manager))
     python_script_sender = _StubPythonScriptSender()
     project_manager_switcher = _StubProjectManagerSwitcher(states)
-    dbe = _StubDBE(temporary_to_canonical)
+    temp_dir = tempfile.TemporaryDirectory()
+    dbe = DBE(Path(temp_dir.name))
+    if temporary_to_canonical:
+        canonical_to_temporary = {
+            canonical: temporary
+            for temporary, canonical in temporary_to_canonical.items()
+        }
+        dbe.write_temporary_id_map(canonical_to_temporary)
     receiver = WMHPythonScriptReceiver(
         cast("WebsocketManager", websocket_manager),
         listener_registry,
@@ -120,6 +131,7 @@ def _build_receiver_fixture(
         cast("ProjectManagerSwitcher", project_manager_switcher),
         dbe,
     )
+    weakref.finalize(receiver, temp_dir.cleanup)
     return (
         receiver,
         websocket_manager,
@@ -152,27 +164,6 @@ class _StubPythonScriptSender:
                 else None,
             }
         )
-
-
-class _StubDBE:
-    def __init__(self, temporary_to_canonical: dict[ID, ID] | None = None) -> None:
-        if temporary_to_canonical is None:
-            temporary_to_canonical = {}
-        self._temporary_to_canonical = dict(temporary_to_canonical)
-        self._canonical_to_temporary = {
-            canonical: temporary
-            for temporary, canonical in self._temporary_to_canonical.items()
-        }
-
-    def read_temporary_id_map(self):
-        return self._temporary_to_canonical, self._canonical_to_temporary
-
-    def write_temporary_id_map(self, canonical_to_temporary):
-        self._canonical_to_temporary = dict(canonical_to_temporary)
-        self._temporary_to_canonical = {
-            temporary: canonical
-            for canonical, temporary in self._canonical_to_temporary.items()
-        }
 
 
 class _StubGenCode:

@@ -33,7 +33,11 @@ from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgUnion,
 )
 from setta.types.helpers_lvl2 import ProjectNotFound
-from setta.types.id import ID
+from setta.types.id import (
+    ID,
+    CanonicalToTemporaryIDMap,
+    TemporaryToCanonicalIDMap,
+)
 from setta.types.listener import (
     ListenerErrorContent,
     ListenerRegisterAckContent,
@@ -77,6 +81,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.dbe = dbe
         self.listener_coverage_tracker = ListenerCoverageTracker()
         self.listener_frontend_emit_resolver = ListenerFrontendEmitResolver()
+        self._temporary_id_map_mtime_ns: int | None = None
+        self._temporary_to_canonical: TemporaryToCanonicalIDMap = {}
+        self._canonical_to_temporary: CanonicalToTemporaryIDMap = {}
 
     @staticmethod
     def _format_listener_error_message(
@@ -737,20 +744,34 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         )
 
     def _convert_incoming_payload(self, payload):
-        temporary_to_canonical, _ = self.dbe.read_temporary_id_map()
-        return convert_temporary_ids_to_canonical(payload, temporary_to_canonical)
+        self._refresh_temporary_id_map_if_needed()
+        return convert_temporary_ids_to_canonical(payload, self._temporary_to_canonical)
 
     def _convert_outgoing_payload(self, payload):
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
+        self._refresh_temporary_id_map_if_needed()
+        map_size_before = len(self._canonical_to_temporary)
         converted = convert_canonical_ids_to_temporary(
             payload,
-            canonical_to_temporary,
-            temporary_to_canonical,
+            self._canonical_to_temporary,
+            self._temporary_to_canonical,
         )
-        self.dbe.write_temporary_id_map(canonical_to_temporary)
+        if len(self._canonical_to_temporary) != map_size_before:
+            self.dbe.write_temporary_id_map(self._canonical_to_temporary)
+            self._temporary_id_map_mtime_ns = (
+                self.dbe.temporary_id_map.stat().st_mtime_ns
+            )
         return converted
+
+    def _refresh_temporary_id_map_if_needed(self) -> None:
+        path = self.dbe.temporary_id_map
+        mtime_ns = path.stat().st_mtime_ns if path.exists() else None
+        if mtime_ns == self._temporary_id_map_mtime_ns:
+            return
+        (
+            self._temporary_to_canonical,
+            self._canonical_to_temporary,
+        ) = self.dbe.read_temporary_id_map()
+        self._temporary_id_map_mtime_ns = mtime_ns
 
     async def _sync_listener_coverage(self, project_config_id: ID) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(

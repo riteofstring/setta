@@ -3,7 +3,11 @@ from typing import TYPE_CHECKING, Iterable
 
 from setta.database.db_objs import DBE
 from setta.mcp.utils import convert_canonical_ids_to_temporary
-from setta.types.id import ID
+from setta.types.id import (
+    ID,
+    CanonicalToTemporaryIDMap,
+    TemporaryToCanonicalIDMap,
+)
 from setta.types.listener import (
     ControlActionEvent,
     ListenerActionEventContent,
@@ -37,22 +41,41 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         self.listener_registry = listener_registry
         self.dbe = dbe
         self._realtime_event_hub: "RealtimeEventHub | None" = None
+        self._temporary_id_map_mtime_ns: int | None = None
+        self._temporary_to_canonical: TemporaryToCanonicalIDMap = {}
+        self._canonical_to_temporary: CanonicalToTemporaryIDMap = {}
 
     def register_realtime_event_hub(self, event_hub: "RealtimeEventHub") -> None:
         self._realtime_event_hub = event_hub
 
+    def _refresh_temporary_id_map_if_needed(self) -> None:
+        if self.dbe is None:
+            return
+        path = self.dbe.temporary_id_map
+        mtime_ns = path.stat().st_mtime_ns if path.exists() else None
+        if mtime_ns == self._temporary_id_map_mtime_ns:
+            return
+        (
+            self._temporary_to_canonical,
+            self._canonical_to_temporary,
+        ) = self.dbe.read_temporary_id_map()
+        self._temporary_id_map_mtime_ns = mtime_ns
+
     def _convert_outgoing_to_temporary(self, payload):
         if self.dbe is None:
             return payload
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
+        self._refresh_temporary_id_map_if_needed()
+        map_size_before = len(self._canonical_to_temporary)
         converted = convert_canonical_ids_to_temporary(
             payload,
-            canonical_to_temporary,
-            temporary_to_canonical,
+            self._canonical_to_temporary,
+            self._temporary_to_canonical,
         )
-        self.dbe.write_temporary_id_map(canonical_to_temporary)
+        if len(self._canonical_to_temporary) != map_size_before:
+            self.dbe.write_temporary_id_map(self._canonical_to_temporary)
+            self._temporary_id_map_mtime_ns = (
+                self.dbe.temporary_id_map.stat().st_mtime_ns
+            )
         return converted
 
     async def send_realtime_update(
