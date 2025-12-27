@@ -195,15 +195,20 @@ class SettaListener:
         project_name: str | None = None,
         project_config_id: "ID | None" = None,
         use_temporary_ids: bool = False,
+        refresh_concurrency: int = 8,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
     ) -> None:
         if project_name is None and project_config_id is None:
             raise ValueError("SettaListener requires project_name or project_config_id")
+        if refresh_concurrency < 1:
+            raise ValueError("refresh_concurrency must be >= 1")
         self._project_name = project_name
         self._project_config_id: "ID | None" = project_config_id
         self._use_temporary_ids = use_temporary_ids
+        self._refresh_concurrency = refresh_concurrency
+        self._refresh_callback_semaphore = asyncio.Semaphore(refresh_concurrency)
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port
@@ -910,7 +915,7 @@ class SettaListener:
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed, [])
             spawn_background_task(
-                self._invoke_callback(spec, runtime_state.s_instance, ctx),
+                self._invoke_refresh_callback(spec, runtime_state.s_instance, ctx),
                 label="listener-refresh-callback",
                 extra_values={
                     "callback_id": spec.callback_id,
@@ -1007,6 +1012,15 @@ class SettaListener:
         result = spec.function(state, ctx)
         if inspect.isawaitable(result):
             await result
+
+    async def _invoke_refresh_callback(
+        self,
+        spec: ListenerCallbackSpec,
+        state: Any,
+        ctx: ListenerCallbackContext,
+    ) -> None:
+        async with self._refresh_callback_semaphore:
+            await self._invoke_callback(spec, state, ctx)
 
     async def _handle_realtime_event(
         self, content: ListenerRealtimeEventContent
