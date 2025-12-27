@@ -13,7 +13,7 @@ import {
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeControlAction,
-  sendRealtimeSectionParamLiteral,
+  sendRealtimeSectionLiteral,
 } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -126,7 +126,7 @@ function MetaControlValueArea({
     const valueStr = _.toString(nextValue);
     setPendingValue(valueStr);
     if (value !== valueStr) {
-      sendRealtimeSectionParamLiteral(sectionId, controlParamId, valueStr);
+      sendRealtimeSectionLiteral(sectionId, valueStr);
     }
     debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
   };

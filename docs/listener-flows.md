@@ -10,7 +10,7 @@ UI change
        send RealtimeActionEvent (always)
      else:
        update local pending value on the control param
-       send RealtimeUIChange for SectionParamDependencyKey
+       send RealtimeUIChange for SectionDependencyKey
          (only if listener coverage matches)
   -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
       -> WMHPythonScriptSender fan-out
