@@ -13,7 +13,6 @@ from setta.types.listener import (
 class ListenerRegistration:
     websocket_id: str
     project_config_id: ID
-    use_temporary_ids: bool = False
     callbacks: dict[str, ListenerRegisterCallback] = field(default_factory=dict)
     dependency_index: dict[BaseDependencyKeyUnion, set[str]] = field(
         default_factory=dict
@@ -29,7 +28,6 @@ class ListenerRegistration:
         websocket_id: str,
         project_config_id: ID,
         callbacks: dict[str, ListenerRegisterCallback],
-        use_temporary_ids: bool = False,
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
         dependency_index: dict[BaseDependencyKeyUnion, set[str]] = {}
@@ -56,7 +54,6 @@ class ListenerRegistration:
         return cls(
             websocket_id=websocket_id,
             project_config_id=project_config_id,
-            use_temporary_ids=use_temporary_ids,
             callbacks=callback_map,
             dependency_index=dependency_index,
             action_index=action_index,
@@ -68,20 +65,17 @@ class ListenerRegistration:
 class ListenerRegistry:
     def __init__(self) -> None:
         self._registrations: dict[str, ListenerRegistration] = {}
-        self._project_config_by_socket: dict[str, ID] = {}
-        self._use_temporary_ids_by_socket: dict[str, bool] = {}
+        self._project_config_by_socket: dict[str, str] = {}
 
     def record_bootstrap(
         self,
         *,
         websocket_id: str,
         project_config_id: ID,
-        use_temporary_ids: bool = False,
     ) -> None:
         self._project_config_by_socket[websocket_id] = project_config_id
-        self._use_temporary_ids_by_socket[websocket_id] = use_temporary_ids
 
-    def get_bootstrap_project_config(self, websocket_id: str) -> ID | None:
+    def get_bootstrap_project_config(self, websocket_id: str) -> str | None:
         return self._project_config_by_socket.get(websocket_id)
 
     def upsert_registration(
@@ -90,32 +84,21 @@ class ListenerRegistry:
         websocket_id: str,
         project_config_id: ID,
         callbacks: dict[str, ListenerRegisterCallback],
-        use_temporary_ids: bool | None = None,
     ) -> ListenerRegistration:
-        if use_temporary_ids is None:
-            use_temporary_ids = self._use_temporary_ids_by_socket.get(
-                websocket_id, False
-            )
         registration = ListenerRegistration.build_from_callbacks(
             websocket_id=websocket_id,
             project_config_id=project_config_id,
             callbacks=callbacks,
-            use_temporary_ids=use_temporary_ids,
         )
         self._registrations[websocket_id] = registration
-        self._use_temporary_ids_by_socket[websocket_id] = use_temporary_ids
         return registration
 
     def remove_registration(self, websocket_id: str) -> None:
         self._registrations.pop(websocket_id, None)
         self._project_config_by_socket.pop(websocket_id, None)
-        self._use_temporary_ids_by_socket.pop(websocket_id, None)
 
     def get_registration(self, websocket_id: str) -> ListenerRegistration | None:
         return self._registrations.get(websocket_id)
-
-    def use_temporary_ids_for_socket(self, websocket_id: str) -> bool:
-        return self._use_temporary_ids_by_socket.get(websocket_id, False)
 
     def iter_registrations_for_project(
         self, project_config_id: ID

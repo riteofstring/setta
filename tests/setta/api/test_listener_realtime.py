@@ -136,7 +136,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -209,7 +208,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(run_on_refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
@@ -248,7 +246,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
         )
-        await asyncio.sleep(0)
 
         self.assertIsNone(listener._last_realtime_sequence)
         self.assertEqual(
@@ -281,7 +278,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -319,7 +315,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
         )
-        await asyncio.sleep(0)
 
         self.assertEqual(
             refresh_calls,
@@ -348,7 +343,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(any_calls, [{}])
         self.assertEqual(specific_calls, [{"Welcome": "Hello"}])

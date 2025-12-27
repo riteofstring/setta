@@ -14,7 +14,12 @@ from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
+from setta.types.project_config import (
+    Position,
+    TopLevelSectionLayout,
+    Viewport,
+    ViewportBounds,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -171,8 +176,29 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
         description="Implementation-specific overrides applied during creation.",
         json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
     )
-    position: Position = Field(
+    position: Position | None = Field(
+        default=None,
         description="Canvas coordinates where the section should be placed.",
+    )
+    topLevelSections: dict[ID, TopLevelSectionLayout] | None = Field(
+        default=None,
+        description="Latest top-level section layout snapshot for smart placement.",
+        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
+    )
+    viewportBounds: ViewportBounds | None = Field(
+        default=None,
+        description="Visible canvas bounds for smart placement.",
+        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
+    )
+
+
+class CreateTopLevelSectionResponse(BaseModel):
+    sectionId: ID = Field(
+        description="Identifier for the newly created top-level section.",
+    )
+    panTo: Position | None = Field(
+        default=None,
+        description="Optional viewport center for panning to the new section.",
     )
 
 
