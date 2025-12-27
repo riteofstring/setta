@@ -11,6 +11,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import {
+  useLocalPendingValue,
   useLocalValue,
   useMatchSorterFilterWithDelay,
 } from "state/hooks/utils";
@@ -24,7 +25,7 @@ import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 function _QuickInfoConfig({ sectionId }) {
-  const paramInfos = useParamIdsAndNamesForSidePane(sectionId, "true");
+  const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
   return <QuickInfoConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
 }
 
@@ -84,7 +85,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
       />
       <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
         {sectionId &&
-          filteredList.map((e, idx) => (
+          filteredList.map((e) => (
             <UIElement sectionId={sectionId} paramInfo={e} key={e.id} />
           ))}
       </div>
@@ -113,31 +114,90 @@ function _UIElement({
     },
     _.isEqual,
   );
+  const [localDisplayName, setLocalDisplayName] = useLocalPendingValue(
+    displayName,
+    (pendingValue: string) => {
+      useProjectState.setState((state) => {
+        const codeObj = state.codeObjs[id];
+        if (!codeObj) {
+          return;
+        }
+        codeObj.displayName = pendingValue;
+      });
+    },
+  );
   const [localDescription, setLocalDescription] = useLocalValue(description);
+  const debouncedSetParamDisplayName = React.useMemo(
+    () =>
+      _.debounce((nextDisplayName: string) => {
+        dispatchOptimisticProjectStateUpdate({
+          apply: (state) => {
+            const codeObj = state.codeObjs[id];
+            if (!codeObj) {
+              return;
+            }
+            codeObj.displayName = nextDisplayName;
+          },
+          send: (frontendOpId) =>
+            route_set_code_obj_display_name({
+              projectConfigId: getCurrProjectConfigId(),
+              codeObjId: id,
+              displayName: nextDisplayName,
+              frontendOpId,
+            }),
+        });
+      }, 200),
+    [id],
+  );
+  const debouncedSetParamDescription = React.useMemo(
+    () =>
+      _.debounce((nextDescription: string) => {
+        dispatchOptimisticProjectStateUpdate({
+          apply: (state) => {
+            setCurrEffectiveCodeObjImplValue<"BaseCodeObj">(
+              state,
+              sectionId,
+              id,
+              { description: nextDescription },
+            );
+          },
+          send: (frontendOpId) =>
+            route_update_param_impl_config({
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId: id,
+              newConfig: { description: nextDescription },
+              frontendOpId,
+            }),
+        });
+      }, 200),
+    [id, sectionId],
+  );
+
+  React.useEffect(() => {
+    return () => {
+      debouncedSetParamDisplayName.cancel();
+      debouncedSetParamDescription.cancel();
+    };
+  }, [debouncedSetParamDisplayName, debouncedSetParamDescription]);
 
   function onDisplayNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     let nextValue = e.target.value;
     if (nextValue.trim().length === 0) {
       nextValue = "";
     }
-    useProjectState.setState((state) => {
-      const codeObj = state.codeObjs[id];
-      if (!codeObj) {
-        return;
-      }
-      codeObj.displayName = nextValue;
-    });
-    debouncedSetParamDisplayName(id, nextValue);
+    setLocalDisplayName(nextValue);
+    debouncedSetParamDisplayName(nextValue);
   }
 
   function onDescriptionChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const nextValue = e.target.value;
     setLocalDescription(nextValue);
-    debouncedSetParamDescription(sectionId, id, nextValue);
+    debouncedSetParamDescription(nextValue);
   }
 
   const title = trueName || name;
-  let displayNameValue = displayName;
+  let displayNameValue = localDisplayName;
   if (displayNameValue.trim().length === 0) {
     displayNameValue = "";
   }
@@ -163,49 +223,3 @@ function _UIElement({
     </div>
   );
 }
-
-const debouncedSetParamDisplayName = _.debounce(
-  (codeObjId: string, displayName: string) => {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const codeObj = state.codeObjs[codeObjId];
-        if (!codeObj) {
-          return;
-        }
-        codeObj.displayName = displayName;
-      },
-      send: (frontendOpId) =>
-        route_set_code_obj_display_name({
-          projectConfigId: getCurrProjectConfigId(),
-          codeObjId,
-          displayName,
-          frontendOpId,
-        }),
-    });
-  },
-  200,
-);
-
-const debouncedSetParamDescription = _.debounce(
-  (sectionId: string, codeObjId: string, description: string) => {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseCodeObj">(
-          state,
-          sectionId,
-          codeObjId,
-          { description },
-        );
-      },
-      send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId: codeObjId,
-          newConfig: { description },
-          frontendOpId,
-        }),
-    });
-  },
-  200,
-);
