@@ -83,7 +83,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Create a top-level callable section:
   1) `getProjectConfigNamesAndIds`
   2) `get_latest_project_state_summary`
-  3) `create_top_level_section` (implType: `Callable`, position: `{x, y}`)
+  3) `create_top_level_section` (implType: `Callable`, optional position/viewport)
   4) `set_section_name` (optional)
   5) `set_callable` (callableName: `pkg.module.fn`, refetchParams: `true`)
   6) `set_param_entered_value` for each param
@@ -106,7 +106,7 @@ Create a callable section + set params:
 ```
 getProjectConfigNamesAndIds {}
 get_latest_project_state_summary {"projectConfigId":"<config_id>"}
-create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable","position":{"x":80,"y":120}}
+create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable"}
 set_section_name {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","name":"Load Data"}
 set_callable {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","callableName":"my_pkg.load_data","refetchParams":true}
 set_param_entered_value {"sectionId":"<new_section_id>","paramInfoId":"<param_id>","projectConfigId":"<config_id>","value":"state.config__path"}

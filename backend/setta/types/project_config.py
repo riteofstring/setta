@@ -28,6 +28,15 @@ class Viewport(BaseModel, extra="forbid"):
     )
 
 
+class ViewportBounds(BaseModel, extra="forbid"):
+    """Visible canvas bounds in flow coordinates."""
+
+    x: float = 0
+    y: float = 0
+    w: float = 0
+    h: float = 0
+
+
 class TopLevelSectionLayout(Position, extra="forbid"):
     zIndex: int = 0
     w: float | None = None
