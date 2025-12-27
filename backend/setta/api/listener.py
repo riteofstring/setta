@@ -31,6 +31,7 @@ from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
+from setta.types.dependency_key import SectionDependencyKey, SectionParamDependencyKey
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -121,6 +122,7 @@ class ListenerCallbackContext:
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
     project_manager: RouterEndpointAPI
+    ids: "ListenerDependencyIds"
 
 
 @dataclass(slots=True)
@@ -129,6 +131,47 @@ class ListenerRuntimeState:
     dependency_graph: DependencyGraph
     code_generator: PythonCodeGenerator
     s_instance: Any | None
+
+
+@dataclass(frozen=True, slots=True)
+class ListenerParamIds:
+    sectionId: "ID"
+    paramInfoId: "ID"
+
+
+class ListenerDependencyIds:
+    def __init__(self, dependency_graph: DependencyGraph) -> None:
+        self._dependency_graph = dependency_graph
+
+    def dependency_key(self, name: str) -> BaseDependencyKeyUnion:
+        if not name:
+            raise ValueError("dependency name must be non-empty")
+        lookup = self._dependency_graph.full_path_name_to_dep_key
+        if name not in lookup:
+            raise KeyError(f"Unknown dependency name: {name}")
+        return lookup[name]
+
+    def section_id(self, dependency_name: str) -> "ID":
+        dep_key = self.dependency_key(dependency_name)
+        if not isinstance(dep_key, SectionDependencyKey):
+            raise ValueError(
+                f"Dependency {dependency_name!r} does not refer to a section"
+            )
+        return dep_key.sectionId
+
+    def section_ids(self, dependency_names: list[str]) -> list["ID"]:
+        return [self.section_id(name) for name in dependency_names]
+
+    def param_ids(self, dependency_name: str) -> ListenerParamIds:
+        dep_key = self.dependency_key(dependency_name)
+        if not isinstance(dep_key, SectionParamDependencyKey):
+            raise ValueError(
+                f"Dependency {dependency_name!r} does not refer to a param"
+            )
+        return ListenerParamIds(
+            sectionId=dep_key.sectionId,
+            paramInfoId=dep_key.codeObjId,
+        )
 
 
 class SettaListener:
@@ -1349,12 +1392,19 @@ class SettaListener:
         if actions is None:
             actions = []
 
+        project_manager = self._get_router_endpoint_api()
+        runtime_state = self._runtime_state
+        if runtime_state is None:
+            raise RuntimeError(
+                "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
+            )
         return ListenerCallbackContext(
             changed=changed,
             actions=actions,
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
-            project_manager=self._get_router_endpoint_api(),
+            project_manager=project_manager,
+            ids=ListenerDependencyIds(runtime_state.dependency_graph),
         )
 
     def _get_router_endpoint_api(self) -> RouterEndpointAPI:
