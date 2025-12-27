@@ -357,6 +357,13 @@ class ListenerSetCodeFileBindingRequestPayload(TypedDict):
     binding: CodeFileBindingUpdate
 
 
+class ListenerSetCodeObjDisplayNameRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    codeObjId: ID
+    displayName: str
+
+
 class ListenerSetCodeObjNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -458,6 +465,12 @@ class ListenerSetSectionWithParamsDisplayModeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     displayMode: SectionWithParamsDisplayMode
+
+
+class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    showParamDisplayNames: bool
 
 
 class ListenerSetSocialUrlRequestPayload(TypedDict):
@@ -809,6 +822,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_code_file_binding", payload)
 
+    async def set_code_obj_display_name(
+        self, payload: ListenerSetCodeObjDisplayNameRequestPayload
+    ) -> None:
+        return await self._caller("route_set_code_obj_display_name", payload)
+
     async def set_code_obj_name(
         self, payload: ListenerSetCodeObjNameRequestPayload
     ) -> None:
@@ -878,6 +896,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionWithParamsDisplayModeRequestPayload
     ) -> None:
         return await self._caller("route_set_section_with_params_display_mode", payload)
+
+    async def set_show_param_display_names(
+        self, payload: ListenerSetShowParamDisplayNamesRequestPayload
+    ) -> None:
+        return await self._caller("route_set_show_param_display_names", payload)
 
     async def set_social_url(self, payload: ListenerSetSocialUrlRequestPayload) -> None:
         return await self._caller("route_set_social_url", payload)

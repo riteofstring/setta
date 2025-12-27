@@ -108,6 +108,7 @@ from setta.project_state.project_manager_types import (
     SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeFileBindingRequest,
+    SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -124,6 +125,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionWithParamsDisplayModeRequest,
+    SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -801,6 +803,14 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool()
+    async def set_show_param_display_names(self, x: SetShowParamDisplayNamesRequest):
+        """Toggle whether parameter display names are shown in the UI."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -872,6 +882,18 @@ class BaseProjectManager(ABC):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"codeObj": ["codeObjId"]}
+        )
+    )
+    async def set_code_obj_display_name(self, x: SetCodeObjDisplayNameRequest):
+        """Update the user-facing display name for the requested code object."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.codeObjs[x.codeObjId].displayName = x.displayName
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

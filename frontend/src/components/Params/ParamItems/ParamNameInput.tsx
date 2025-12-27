@@ -8,7 +8,10 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
-import { route_set_code_obj_name } from "utils/generatedEndpoints";
+import {
+  route_set_code_obj_display_name,
+  route_set_code_obj_name,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -22,7 +25,9 @@ export function ParamNameInput({
 }) {
   const {
     configLanguage,
-    name: value,
+    displayName,
+    name,
+    showParamDisplayNames,
     // variantIsFrozen,
   } = useProjectState((x) => {
     // const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
@@ -31,14 +36,26 @@ export function ParamNameInput({
       sectionId,
       isBaseSectionWithParamsImpl,
     );
+    const codeObjCore = getCodeObjCore(x, paramInfoId);
     return {
       // variantIsFrozen: isFrozen,
       configLanguage: impl.configLanguage,
-      name: getCodeObjCore(x, paramInfoId).name,
+      displayName: codeObjCore.displayName,
+      name: codeObjCore.name,
+      showParamDisplayNames: x.projectConfig.showParamDisplayNames,
     };
   }, _.isEqual);
 
+  let value = name;
+  if (showParamDisplayNames && displayName) {
+    value = displayName;
+  }
+
   function onChange(v: string) {
+    if (showParamDisplayNames) {
+      debouncedSetParamDisplayName(paramInfoId, v);
+      return;
+    }
     debouncedSetParamName(paramInfoId, v);
   }
 
@@ -77,7 +94,7 @@ export function ParamNameInput({
   );
 }
 
-const debouncedSetParamName = _.debounce((codeObjId, name) => {
+const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       const codeObj = state.codeObjs[codeObjId];
@@ -95,3 +112,25 @@ const debouncedSetParamName = _.debounce((codeObjId, name) => {
       }),
   });
 }, 200);
+
+const debouncedSetParamDisplayName = _.debounce(
+  (codeObjId: string, displayName: string) => {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        const codeObj = state.codeObjs[codeObjId];
+        if (!codeObj) {
+          return;
+        }
+        codeObj.displayName = displayName;
+      },
+      send: (frontendOpId) =>
+        route_set_code_obj_display_name({
+          projectConfigId: getCurrProjectConfigId(),
+          codeObjId,
+          displayName,
+          frontendOpId,
+        }),
+    });
+  },
+  200,
+);

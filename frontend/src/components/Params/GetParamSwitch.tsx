@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplWithTypeGuard,
+  getParamDisplayName,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ParamSwitch } from "./ParamSwitch";
@@ -32,7 +35,7 @@ export function GetParamSwitch({
         requiredParamIdsToPaths,
       ).map((id) => ({
         id,
-        name: x.codeObjs[id].name,
+        name: getParamDisplayName(x, id),
       }));
 
       matches = matchSorter(requiredParamIdsWithNames, impl.paramFilter, {

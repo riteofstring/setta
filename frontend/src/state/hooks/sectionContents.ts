@@ -1,9 +1,15 @@
 import _ from "lodash";
 import { getCurrSectionVariantId } from "state/actions/sectionInfos";
-import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import {
+  paramNameFromPathArray,
+  type ParamNameSource,
+} from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
 
-export function useParamIdsAndNamesForSidePane(sectionId: string) {
+export function useParamIdsAndNamesForSidePane(
+  sectionId: string,
+  nameSource: ParamNameSource = "display",
+) {
   return useProjectState((x) => {
     const variantId = getCurrSectionVariantId(x, sectionId);
     const shown = x.shownParamIds[variantId];
@@ -18,7 +24,7 @@ export function useParamIdsAndNamesForSidePane(sectionId: string) {
     for (const [s, idPath] of Object.entries(allIdPaths)) {
       output.push({
         id: s,
-        name: paramNameFromPathArray(x.codeObjs, idPath),
+        name: paramNameFromPathArray(x, idPath, nameSource),
       });
     }
     return output;
