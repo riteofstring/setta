@@ -2,7 +2,7 @@
 
 These snippets assume the Setta backend is running and you know the project name. Dependency strings are the same attribute names you read from the generated `state` object (the sanitized names in the project graph).
 
-Import note: always use `from setta.api import SettaListener`. There is no `setta_listener` module.
+Import note: always use `from setta.api import SettaListener`. There is no `setta_listener` module. `SettaListener` accepts either `project_name` or `project_config_id`.
 
 Dependency name construction (from `DependencyGraph.create_full_path_name`):
 - Names are sanitized with `sanitize_name` (spaces/quotes/brackets -> `_`, consecutive `_` collapse, trim leading/trailing `_`).

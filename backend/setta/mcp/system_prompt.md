@@ -6,6 +6,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Sections are the configuration surface. Put every configurable value in sections or params.
 - Generated code is derived from sections; it is not hand-edited.
 - Control flow (if/for/while) belongs in Code sections as normal Python.
+- If you need to write any code, prefer a Code section and `set_code` over file edits.
 - No backward compatibility. Do not keep legacy code just to keep things running during refactors.
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
 
@@ -17,11 +18,17 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
   runs), to keep long-lived services reacting to UI changes, to build interactive
   applications where frontend actions trigger listener work that updates the UI, or
   to push values/artifacts back into the frontend via `emit_to_frontend`.
+- When asked to create a listener script inside Setta, write it in a Code section
+  using `set_code`. Do not create or edit files directly; avoid looking for file
+  system tools.
 - Always import `SettaListener` from `setta.api`
   (`from setta.api import SettaListener`). There is no `setta_listener` module.
+- `SettaListener` requires `project_name` or `project_config_id` (at least one).
 - Use `@listener.listen(...)` for callbacks and `listener.start()` or
   `await listener.run_forever()` to run; do not invent methods like
   `listener.on_change` or `listener.run`.
+- Always call `@listener.listen` with keyword arguments (for example,
+  `deps=[...]`, `actions=[...]`, `dependency_mode=...`); do not pass positional args.
 - For interactive control-to-control wiring, always use a listener script and update
   the target control via `set_param_entered_value` (param id) or `emit_to_frontend`
   with a param dependency key. Do not set MetaControl values to `state.*` or other
