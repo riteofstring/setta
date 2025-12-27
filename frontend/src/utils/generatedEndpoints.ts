@@ -403,12 +403,6 @@ export async function route_set_top_level_section_layout(
   return await post("/setTopLevelSectionLayout", x);
 }
 
-export async function route_auto_layout_top_level_sections(
-  x: gt.AutoLayoutTopLevelSectionsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/autoLayoutTopLevelSections", x);
-}
-
 export async function route_add_kwarg(
   x: gt.AddKwargRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -461,12 +455,6 @@ export async function route_set_param_entered_value(
   x: gt.SetParamEnteredValueRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setParamEnteredValue", x);
-}
-
-export async function route_set_meta_control_value(
-  x: gt.SetMetaControlValueRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setMetaControlValue", x);
 }
 
 export async function route_set_code_obj_name(
