@@ -8,6 +8,7 @@ import {
   getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import type { CodeObjType } from "utils/generatedTypes";
 import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
 import { IdNameCombobox } from "../../../Utils/Combobox/IdNameCombobox";
 
@@ -42,15 +43,21 @@ export function ParamConfigUITypeCombobox({
   paramInfoId,
   selectedBaseImplId,
   presetCodeObjImpls,
+  allowedImplTypes,
   onDropdownSelect,
 }: {
   sectionId: string;
   paramInfoId: string;
   selectedBaseImplId: string;
   presetCodeObjImpls: ComboboxItemArrayType<string>;
+  allowedImplTypes?: Array<CodeObjType>;
   onDropdownSelect: OnSelectedItemChangeFnType<string>;
 }) {
-  const nonPresetImpls = useNonPresetImplsForParam(sectionId, paramInfoId);
+  const nonPresetImpls = useNonPresetImplsForParam(
+    sectionId,
+    paramInfoId,
+    allowedImplTypes,
+  );
   return (
     <UITypeCombobox
       nonPresetImpls={nonPresetImpls}
@@ -61,7 +68,11 @@ export function ParamConfigUITypeCombobox({
   );
 }
 
-function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
+function useNonPresetImplsForParam(
+  sectionId: string,
+  paramInfoId: string,
+  allowedImplTypes?: Array<CodeObjType>,
+) {
   return useProjectState((x) => {
     const variant = getCurrCodeObjVariant(x, sectionId, paramInfoId);
     const prevImpls: Record<string, string> = {};
@@ -71,7 +82,9 @@ function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
     }
 
     const output: ComboboxItemArrayType<string> = [];
-    for (const c of BaseParamCodeObjImplTypeSet) {
+    const typeList =
+      allowedImplTypes ?? Array.from(BaseParamCodeObjImplTypeSet);
+    for (const c of typeList) {
       if (prevImpls[c]) {
         output.push({
           id: prevImpls[c],

@@ -1,19 +1,7 @@
 import { useContextMenus } from "state/definitions";
 import { NO_CONTEXT_MENU } from "utils/constants";
 
-type ContextMenuEvent = {
-  preventDefault: () => void;
-  clientX: number;
-  clientY: number;
-};
-
-type ContextMenuName = "pane" | "selection" | "typeError";
-
-function openContextMenu(
-  e: ContextMenuEvent,
-  name: ContextMenuName,
-  props: Record<string, unknown> = {},
-) {
+function openContextMenu(e, name, props) {
   if (NO_CONTEXT_MENU) {
     return;
   }
@@ -22,23 +10,16 @@ function openContextMenu(
   useContextMenus.setState((state) => ({ [name]: { ...state[name], ...val } }));
 }
 
-export function openPaneContextMenu(e: ContextMenuEvent) {
+export function openPaneContextMenu(e) {
   openContextMenu(e, "pane");
 }
 
-export function openSelectionContextMenu(
-  e: ContextMenuEvent,
-  nodeIds: Array<string>,
-) {
+export function openSelectionContextMenu(e, nodeIds) {
   openContextMenu(e, "selection", { nodeIds });
 }
 
-export function openTypeErrorContextMenu(
-  e: ContextMenuEvent,
-  sectionId: string,
-  paramInfoId: string,
-) {
-  openContextMenu(e, "typeError", { sectionId, paramInfoId });
+export function openTypeErrorContextMenu(e, paramInfoId) {
+  openContextMenu(e, "typeError", { paramInfoId });
 }
 
 export function closeAllContextMenus() {

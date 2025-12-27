@@ -4,15 +4,15 @@ import json
 from typing import Any, Iterable
 
 from setta.database.db_objs import DBE
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat import ChatMetadata
-from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
+from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 
 
 def load_llm_config(dbe: DBE) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
+    print("\n\n\n\nraw", raw)
     if constants.IS_DEV_MODE and (
         not raw or raw == {"configs": {}, "default_config_id": None}
     ):
@@ -22,7 +22,7 @@ def load_llm_config(dbe: DBE) -> AllLLMConfigs:
             save_llm_config(config, dbe)
             return config
     if not raw:
-        config = _build_default_llm_config()
+        config = AllLLMConfigs()
         save_llm_config(config, dbe)
         return config
     return AllLLMConfigs.model_validate(raw)
@@ -57,23 +57,7 @@ def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
     default_config_id = config.default_config_id
     if default_config_id and default_config_id not in persisted:
         default_config_id = None
-    return AllLLMConfigs(
-        configs=persisted,
-        mcpServers=config.mcpServers,
-        defaultMcpServerIds=config.defaultMcpServerIds,
-        default_config_id=default_config_id,
-    )
-
-
-def _build_default_llm_config() -> AllLLMConfigs:
-    return AllLLMConfigs(
-        mcpServers={
-            SETTA_MCP_SERVER_ID: MCPServerConfig(
-                transport="sse",
-                url=f"{constants.C.BACKEND}/mcp",
-            )
-        },
-    )
+    return AllLLMConfigs(configs=persisted, default_config_id=default_config_id)
 
 
 def merge_chat_llm_configs(
@@ -99,8 +83,6 @@ def merge_chat_llm_configs(
         seen_signatures[signature] = curr_config_id
     return AllLLMConfigs(
         configs=configs,
-        mcpServers=config.mcpServers,
-        defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=config.default_config_id,
     )
 
