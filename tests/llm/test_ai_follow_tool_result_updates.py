@@ -14,7 +14,10 @@ from setta.mcp.tool_metadata import (
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.project_manager_types import CreateTopLevelSectionRequest
+from setta.project_state.project_manager_types import (
+    AddKwargRequest,
+    CreateTopLevelSectionRequest,
+)
 from setta.types.id import ID
 from setta.types.project_config import Position
 from setta.types.section_impls import SectionType
@@ -279,6 +282,37 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             for annotations in tool_annotations_by_name.values():
                 if annotations.aiFollowToolResult:
                     id_types.update(annotations.aiFollowToolResult.pathsByIdType.keys())
+
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            section_id: ID | None = None
+            if "section" in id_types or "codeObj" in id_types:
+                sections = fixture.manager.project_state_backend.sections
+                if not sections:
+                    request = CreateTopLevelSectionRequest(
+                        projectConfigId=project_config_id,
+                        implType=SectionType.Dict,
+                        position=Position(),
+                    )
+                    response = await fixture.manager.create_top_level_section(request)
+                    section_id = response.sectionId
+                else:
+                    section_id = next(iter(sections))
+
+            if "codeObj" in id_types:
+                code_objs = fixture.manager.project_state_backend.codeObjs
+                if not code_objs:
+                    if section_id is None:
+                        raise AssertionError(
+                            "No section ID available to seed code objects"
+                        )
+                    await fixture.manager.add_kwarg(
+                        AddKwargRequest(
+                            projectConfigId=project_config_id,
+                            sectionId=section_id,
+                        )
+                    )
 
             canonical_ids_by_type, temporary_ids_by_type = _build_ids_by_type(
                 fixture,
