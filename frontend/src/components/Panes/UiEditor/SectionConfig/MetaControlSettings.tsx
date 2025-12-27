@@ -14,8 +14,8 @@ import {
 import { useProjectState } from "state/definitions";
 import { route_change_param_impl } from "utils/generatedEndpoints";
 import {
-  CodeObjType,
   CodeObjTypeEnum,
+  ControlCodeObjTypeSet,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
@@ -26,19 +26,9 @@ type MetaControlConfigState = {
   paramName: string;
 };
 
-const CONTROL_CODE_OBJ_TYPES: Array<CodeObjType> = [
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-];
+const CONTROL_CODE_OBJ_TYPES = Object.values(CodeObjTypeEnum).filter((type) =>
+  ControlCodeObjTypeSet.has(type),
+);
 
 export function MetaControlSettings({ sectionId }: { sectionId: string }) {
   const presetCodeObjImpls = useProjectState((x) => {
@@ -47,7 +37,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
       if (!c.isPreset) {
         continue;
       }
-      if (!CONTROL_CODE_OBJ_TYPES.includes(c.type)) {
+      if (!ControlCodeObjTypeSet.has(c.type)) {
         continue;
       }
       output.push({

@@ -11,6 +11,33 @@ import { z } from "zod";
 const IDSchema = z.string();
 
 export type ObjectValues<T> = T[keyof T];
+export const ControlCodeObjTypeSet = new Set([
+  "ButtonParam",
+  "CodeParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "DropzoneParam",
+  "PasswordParam",
+  "RotaryParam",
+  "SliderParam",
+  "SwitchParam",
+  "TextAreaParam",
+  "TextParam",
+]);
+
+export const SectionParamCodeObjTypeSet = new Set([
+  "CodeParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "DropzoneParam",
+  "NestedParam",
+  "PasswordParam",
+  "RotaryParam",
+  "SliderParam",
+  "SwitchParam",
+  "TextAreaParam",
+  "TextParam",
+]);
 
 const BaseChildlessCodeObjImplTypeSet = new Set([
   "CodeParam",
@@ -1192,7 +1219,6 @@ const CoreSchema = z.object({
     .default(() => [
       "callable" as const,
       "codeObjVariantMap" as const,
-      "metaControlParamId" as const,
       "topLevelParamId" as const,
       "value" as const,
       "layers" as const,

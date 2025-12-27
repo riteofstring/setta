@@ -13,25 +13,18 @@ import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 import { route_change_param_impl } from "utils/generatedEndpoints";
-import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
+import {
+  CodeObjTypeEnum,
+  SectionParamCodeObjTypeSet,
+} from "utils/generatedTypes";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
-const SECTION_PARAM_CODE_OBJ_TYPES: Array<CodeObjType> = [
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-];
+const SECTION_PARAM_CODE_OBJ_TYPES = Object.values(CodeObjTypeEnum).filter(
+  (type) => SectionParamCodeObjTypeSet.has(type),
+);
 
 function _UIConfig({ sectionId }: { sectionId: string }) {
   const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
@@ -41,7 +34,7 @@ function _UIConfig({ sectionId }: { sectionId: string }) {
       if (!c.isPreset) {
         continue;
       }
-      if (!SECTION_PARAM_CODE_OBJ_TYPES.includes(c.type)) {
+      if (!SectionParamCodeObjTypeSet.has(c.type)) {
         continue;
       }
       output.push({
