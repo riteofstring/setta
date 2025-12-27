@@ -6,13 +6,11 @@ import {
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
+import potpack from "potpack";
 import { useNodeInternals, useSettings } from "state/definitions";
-import { route_auto_layout_top_level_sections } from "utils/generatedEndpoints";
 import { setActiveSectionIds } from "../activeSections";
-import {
-  debounced_route_set_top_level_section_layout,
-  getCurrProjectConfigId,
-} from "../sectionInfos";
+import { getNewNodes } from "../nodeInternals";
+import { debounced_route_set_top_level_section_layout } from "../sectionInfos";
 
 export function setZIndices(
   sectionIds: Array<string>,
@@ -81,7 +79,35 @@ export function goToSection(sectionId: string) {
 }
 
 export function autoLayout() {
-  route_auto_layout_top_level_sections({
-    projectConfigId: getCurrProjectConfigId(),
+  const margin = 50;
+  const newNodes = getNewNodes();
+
+  let sizes = [];
+  newNodes.forEach((x) => {
+    sizes.push({
+      id: x.id,
+      w: x.width + margin,
+      h: x.height + margin,
+    });
   });
+
+  potpack(sizes); // mutates input
+  sizes = _.keyBy(sizes, "id");
+
+  let minX = Infinity;
+  let minY = Infinity;
+  newNodes.forEach((n) => {
+    minX = Math.min(minX, n.position.x);
+    minY = Math.min(minY, n.position.y);
+  });
+
+  newNodes.forEach((node, key) => {
+    node.position = {
+      x: sizes[node.id].x + minX,
+      y: sizes[node.id].y + minY,
+    };
+    newNodes.set(key, node);
+  });
+
+  useNodeInternals.setState({ x: newNodes });
 }

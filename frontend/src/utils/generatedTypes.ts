@@ -16,12 +16,9 @@ const BaseChildlessCodeObjImplTypeSet = new Set([
   "CodeParam",
   "ColorPickerParam",
   "DropdownParam",
-  "DropzoneParam",
   "PasswordParam",
-  "RotaryParam",
   "SliderParam",
   "SwitchParam",
-  "TextAreaParam",
   "TextParam",
 ]);
 
@@ -31,13 +28,10 @@ export const BaseParamCodeObjImplTypeSet = new Set([
   "CodeParam",
   "ColorPickerParam",
   "DropdownParam",
-  "DropzoneParam",
   "NestedParam",
   "PasswordParam",
-  "RotaryParam",
   "SliderParam",
   "SwitchParam",
-  "TextAreaParam",
   "TextParam",
 ]);
 
@@ -110,13 +104,10 @@ export const CodeObjTypeEnum = {
   CodeParam: "CodeParam",
   TextParam: "TextParam",
   SliderParam: "SliderParam",
-  RotaryParam: "RotaryParam",
   SwitchParam: "SwitchParam",
   ColorPickerParam: "ColorPickerParam",
   DropdownParam: "DropdownParam",
   PasswordParam: "PasswordParam",
-  TextAreaParam: "TextAreaParam",
-  DropzoneParam: "DropzoneParam",
   NestedParam: "NestedParam",
 } as const;
 
@@ -165,10 +156,6 @@ export const DependencyValueTypeEnum = {
   FileRead: "FileRead",
 } as const;
 
-export const ActionControlTypeEnum = { button: "button" } as const;
-
-export type ActionControlType = ObjectValues<typeof ActionControlTypeEnum>;
-
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -180,6 +167,21 @@ export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
+
+export const MetaControlTypeEnum = {
+  button: "button",
+  dropdown: "dropdown",
+  slider: "slider",
+  switch: "switch",
+  rotary: "rotary",
+  textInput: "textInput",
+  textArea: "textArea",
+  password: "password",
+  color: "color",
+  dropzone: "dropzone",
+} as const;
+
+export type MetaControlType = ObjectValues<typeof MetaControlTypeEnum>;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
@@ -308,7 +310,6 @@ export const RouteEnum = {
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
   FORCE_REFRESH_LISTENER: "/forceRefreshListener",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
-  AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
@@ -394,7 +395,6 @@ export const WebsocketConnectionTypeEnum = {
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
-  RealtimeActionEvent: "RealtimeActionEvent",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -752,6 +752,7 @@ const TextContentSchema = z.object({
   type: z.literal("text"),
   text: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const ImageContentSchema = z.object({
@@ -759,17 +760,20 @@ const ImageContentSchema = z.object({
   data: z.string(),
   mimeType: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const TextResourceContentsSchema = z.object({
   uri: z.url(),
   mimeType: z.union([z.string(), z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   text: z.string(),
 });
 
 const BlobResourceContentsSchema = z.object({
   uri: z.url(),
   mimeType: z.union([z.string(), z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   blob: z.string(),
 });
 
@@ -777,6 +781,7 @@ const EmbeddedResourceSchema = z.object({
   type: z.literal("resource"),
   resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
   annotations: z.union([AnnotationsSchema, z.null()]).default(null),
+  meta: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
 });
 
 const ToolChatMessageSchema = z.object({
@@ -1033,9 +1038,6 @@ export function createSectionSize(
 }
 
 const SharedModifierSchema = z.object({
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .optional(),
   activeLayerIdx: z.int().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -1058,8 +1060,6 @@ const SharedModifierSchema = z.object({
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
-  controlCodeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
-  controlParamId: z.union([IDSchema, z.null()]).optional(),
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
@@ -1086,8 +1086,9 @@ const SharedModifierSchema = z.object({
   jsonSourceKeys: z.array(z.string()).optional(),
   jsonSourceMissing: z.boolean().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
-  max: z.union([z.number(), z.int()]).optional(),
-  min: z.union([z.number(), z.int()]).optional(),
+  max: z.int().optional(),
+  metaControlType: z.enum(MetaControlTypeEnum).optional(),
+  min: z.int().optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
@@ -1097,7 +1098,7 @@ const SharedModifierSchema = z.object({
   renderedValue: z.union([z.string(), z.null()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   size: SectionSizeSchema.optional(),
-  step: z.union([z.number(), z.int()]).optional(),
+  step: z.int().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
@@ -1124,7 +1125,6 @@ const CoreSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "actionControlType",
         "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -1145,8 +1145,6 @@ const CoreSchema = z.object({
         "colorChoices",
         "columnWidth",
         "configLanguage",
-        "controlCodeObjVariantMap",
-        "controlParamId",
         "coreNameEditable",
         "coreNameType",
         "dataPath",
@@ -1174,6 +1172,7 @@ const CoreSchema = z.object({
         "jsonSourceMissing",
         "layers",
         "max",
+        "metaControlType",
         "min",
         "name",
         "paramFilter",
@@ -1198,8 +1197,6 @@ const CoreSchema = z.object({
     .default(() => [
       "callable" as const,
       "codeObjVariantMap" as const,
-      "controlParamId" as const,
-      "controlCodeObjVariantMap" as const,
       "topLevelParamId" as const,
       "value" as const,
       "layers" as const,
@@ -1421,11 +1418,9 @@ const MetaControlSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  controlParamId: z.union([IDSchema, z.null()]).default(null),
-  controlCodeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .default(ActionControlTypeEnum.button),
+  metaControlType: z
+    .enum(MetaControlTypeEnum)
+    .default(MetaControlTypeEnum.button),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -1681,28 +1676,6 @@ export type SliderParamCodeObjImpl = z.infer<
   typeof SliderParamCodeObjImplSchema
 >;
 
-const RotaryParamCodeObjImplSchema = z.object({
-  type: z.literal("RotaryParam").default(CodeObjTypeEnum.RotaryParam),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  description: z.string().default("" as const),
-  isPreset: z.boolean().default(false),
-  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
-  coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default("" as const),
-  value: z.string().default("0" as const),
-  min: z.number().default(0),
-  max: z.number().default(1),
-  step: z.number().default(0.1),
-});
-
-export type RotaryParamCodeObjImpl = z.infer<
-  typeof RotaryParamCodeObjImplSchema
->;
-
 const SwitchParamCodeObjImplSchema = z.object({
   type: z.literal("SwitchParam").default(CodeObjTypeEnum.SwitchParam),
   id: IDSchema.default(create_new_id),
@@ -1777,40 +1750,6 @@ const PasswordParamCodeObjImplSchema = z.object({
 
 type PasswordParamCodeObjImpl = z.infer<typeof PasswordParamCodeObjImplSchema>;
 
-const TextAreaParamCodeObjImplSchema = z.object({
-  type: z.literal("TextAreaParam").default(CodeObjTypeEnum.TextAreaParam),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  description: z.string().default("" as const),
-  isPreset: z.boolean().default(false),
-  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
-  coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
-});
-
-type TextAreaParamCodeObjImpl = z.infer<typeof TextAreaParamCodeObjImplSchema>;
-
-const DropzoneParamCodeObjImplSchema = z.object({
-  type: z.literal("DropzoneParam").default(CodeObjTypeEnum.DropzoneParam),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  description: z.string().default("" as const),
-  isPreset: z.boolean().default(false),
-  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
-  coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
-});
-
-type DropzoneParamCodeObjImpl = z.infer<typeof DropzoneParamCodeObjImplSchema>;
-
 const NestedParamCodeObjImplSchema = z.object({
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
   id: IDSchema.default(create_new_id),
@@ -1863,13 +1802,10 @@ const ProjectStateCoreSchema = z.object({
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
-        RotaryParamCodeObjImplSchema,
         SwitchParamCodeObjImplSchema,
         ColorPickerParamCodeObjImplSchema,
         DropdownParamCodeObjImplSchema,
         PasswordParamCodeObjImplSchema,
-        TextAreaParamCodeObjImplSchema,
-        DropzoneParamCodeObjImplSchema,
         NestedParamCodeObjImplSchema,
       ]),
     )
@@ -1957,13 +1893,10 @@ const BaseChildlessCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
-  RotaryParamCodeObjImplSchema,
   SwitchParamCodeObjImplSchema,
   ColorPickerParamCodeObjImplSchema,
   DropdownParamCodeObjImplSchema,
   PasswordParamCodeObjImplSchema,
-  TextAreaParamCodeObjImplSchema,
-  DropzoneParamCodeObjImplSchema,
 ]);
 
 type BaseChildlessCodeObjImplUnion = z.infer<
@@ -1975,13 +1908,10 @@ const BaseCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
-  RotaryParamCodeObjImplSchema,
   SwitchParamCodeObjImplSchema,
   ColorPickerParamCodeObjImplSchema,
   DropdownParamCodeObjImplSchema,
   PasswordParamCodeObjImplSchema,
-  TextAreaParamCodeObjImplSchema,
-  DropzoneParamCodeObjImplSchema,
   NestedParamCodeObjImplSchema,
 ]);
 
@@ -1998,13 +1928,10 @@ const BaseParamCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
-  RotaryParamCodeObjImplSchema,
   SwitchParamCodeObjImplSchema,
   ColorPickerParamCodeObjImplSchema,
   DropdownParamCodeObjImplSchema,
   PasswordParamCodeObjImplSchema,
-  TextAreaParamCodeObjImplSchema,
-  DropzoneParamCodeObjImplSchema,
   NestedParamCodeObjImplSchema,
 ]);
 
@@ -2162,26 +2089,6 @@ type SliderParamCodeObjImplArgs = z.infer<
   typeof SliderParamCodeObjImplArgsSchema
 >;
 
-const RotaryParamCodeObjImplArgsSchema = z.object({
-  type: z.literal("RotaryParam").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  isPreset: z.boolean().optional(),
-  coreNameType: z.enum(ParamNameTypeEnum).optional(),
-  coreNameEditable: z.boolean().optional(),
-  passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
-  defaultVal: z.string().optional(),
-  value: z.string().optional(),
-  min: z.number().optional(),
-  max: z.number().optional(),
-  step: z.number().optional(),
-});
-
-type RotaryParamCodeObjImplArgs = z.infer<
-  typeof RotaryParamCodeObjImplArgsSchema
->;
-
 const SwitchParamCodeObjImplArgsSchema = z.object({
   type: z.literal("SwitchParam").optional(),
   id: IDSchema.optional(),
@@ -2250,40 +2157,6 @@ const PasswordParamCodeObjImplArgsSchema = z.object({
 
 type PasswordParamCodeObjImplArgs = z.infer<
   typeof PasswordParamCodeObjImplArgsSchema
->;
-
-const TextAreaParamCodeObjImplArgsSchema = z.object({
-  type: z.literal("TextAreaParam").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  isPreset: z.boolean().optional(),
-  coreNameType: z.enum(ParamNameTypeEnum).optional(),
-  coreNameEditable: z.boolean().optional(),
-  passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
-  defaultVal: z.string().optional(),
-  value: z.string().optional(),
-});
-
-type TextAreaParamCodeObjImplArgs = z.infer<
-  typeof TextAreaParamCodeObjImplArgsSchema
->;
-
-const DropzoneParamCodeObjImplArgsSchema = z.object({
-  type: z.literal("DropzoneParam").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  isPreset: z.boolean().optional(),
-  coreNameType: z.enum(ParamNameTypeEnum).optional(),
-  coreNameEditable: z.boolean().optional(),
-  passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
-  defaultVal: z.string().optional(),
-  value: z.string().optional(),
-});
-
-type DropzoneParamCodeObjImplArgs = z.infer<
-  typeof DropzoneParamCodeObjImplArgsSchema
 >;
 
 const CodeCallableCodeObjImplArgsSchema = z.object({
@@ -2538,11 +2411,7 @@ const MetaControlSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  controlParamId: z.union([IDSchema, z.null()]).optional(),
-  controlCodeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .optional(),
+  metaControlType: z.enum(MetaControlTypeEnum).optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -2663,33 +2532,6 @@ const WebsocketMsgRealtimeUIChangeSchema = z.object({
 
 export type WebsocketMsgRealtimeUIChange = z.infer<
   typeof WebsocketMsgRealtimeUIChangeSchema
->;
-
-const ControlActionEventSchema = z.object({
-  controlName: z.string(),
-  actionId: z.string(),
-  actionControlType: z.enum(ActionControlTypeEnum),
-  payload: z.union([z.string(), z.null()]).default(null),
-  timestampMs: z.int(),
-});
-
-export type ControlActionEvent = z.infer<typeof ControlActionEventSchema>;
-
-const RealtimeActionEventContentSchema = z.object({
-  projectConfigId: IDSchema,
-  actionEvent: ControlActionEventSchema,
-});
-
-const WebsocketMsgRealtimeActionEventSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: RealtimeActionEventContentSchema,
-  messageType: z
-    .literal("RealtimeActionEvent")
-    .default(WebsocketMsgTypeForBackendEnum.RealtimeActionEvent),
-});
-
-export type WebsocketMsgRealtimeActionEvent = z.infer<
-  typeof WebsocketMsgRealtimeActionEventSchema
 >;
 
 const WebsocketMsgCurrentAddressUpdateSchema = z.object({
@@ -2985,13 +2827,10 @@ const ProjectStateSingleConfigSchema = z.object({
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
-        RotaryParamCodeObjImplSchema,
         SwitchParamCodeObjImplSchema,
         ColorPickerParamCodeObjImplSchema,
         DropdownParamCodeObjImplSchema,
         PasswordParamCodeObjImplSchema,
-        TextAreaParamCodeObjImplSchema,
-        DropzoneParamCodeObjImplSchema,
         NestedParamCodeObjImplSchema,
       ]),
     )
@@ -3686,9 +3525,9 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  actionControlType: z
-    .union([z.enum(ActionControlTypeEnum), z.null()])
-    .default(ActionControlTypeEnum.button),
+  metaControlType: z
+    .enum(MetaControlTypeEnum)
+    .default(MetaControlTypeEnum.button),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
@@ -3829,23 +3668,6 @@ function createUserDefaultDropdownParamCodeObjImpl(
   return UserDefaultDropdownParamCodeObjImplSchema.parse(options);
 }
 
-const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
-  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
-  coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
-});
-
-type UserDefaultDropzoneParamCodeObjImpl = z.infer<
-  typeof UserDefaultDropzoneParamCodeObjImplSchema
->;
-
-function createUserDefaultDropzoneParamCodeObjImpl(
-  options: Partial<UserDefaultDropzoneParamCodeObjImpl> = {},
-): UserDefaultDropzoneParamCodeObjImpl {
-  return UserDefaultDropzoneParamCodeObjImplSchema.parse(options);
-}
-
 const UserDefaultNestedParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -3876,26 +3698,6 @@ function createUserDefaultPasswordParamCodeObjImpl(
   options: Partial<UserDefaultPasswordParamCodeObjImpl> = {},
 ): UserDefaultPasswordParamCodeObjImpl {
   return UserDefaultPasswordParamCodeObjImplSchema.parse(options);
-}
-
-const UserDefaultRotaryParamCodeObjImplSchema = z.object({
-  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
-  coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default("" as const),
-  value: z.string().default("0" as const),
-  min: z.number().default(0),
-  max: z.number().default(1),
-  step: z.number().default(0.1),
-});
-
-type UserDefaultRotaryParamCodeObjImpl = z.infer<
-  typeof UserDefaultRotaryParamCodeObjImplSchema
->;
-
-function createUserDefaultRotaryParamCodeObjImpl(
-  options: Partial<UserDefaultRotaryParamCodeObjImpl> = {},
-): UserDefaultRotaryParamCodeObjImpl {
-  return UserDefaultRotaryParamCodeObjImplSchema.parse(options);
 }
 
 const UserDefaultSliderParamCodeObjImplSchema = z.object({
@@ -3933,23 +3735,6 @@ function createUserDefaultSwitchParamCodeObjImpl(
   options: Partial<UserDefaultSwitchParamCodeObjImpl> = {},
 ): UserDefaultSwitchParamCodeObjImpl {
   return UserDefaultSwitchParamCodeObjImplSchema.parse(options);
-}
-
-const UserDefaultTextAreaParamCodeObjImplSchema = z.object({
-  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
-  coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
-});
-
-type UserDefaultTextAreaParamCodeObjImpl = z.infer<
-  typeof UserDefaultTextAreaParamCodeObjImplSchema
->;
-
-function createUserDefaultTextAreaParamCodeObjImpl(
-  options: Partial<UserDefaultTextAreaParamCodeObjImpl> = {},
-): UserDefaultTextAreaParamCodeObjImpl {
-  return UserDefaultTextAreaParamCodeObjImplSchema.parse(options);
 }
 
 const UserDefaultTextParamCodeObjImplSchema = z.object({
@@ -4044,10 +3829,6 @@ const SettingsStateSchema = z.object({
     UserDefaultDropdownParamCodeObjImplSchema.default(
       createUserDefaultDropdownParamCodeObjImpl,
     ),
-  dropzoneParamCodeObjDefault:
-    UserDefaultDropzoneParamCodeObjImplSchema.default(
-      createUserDefaultDropzoneParamCodeObjImpl,
-    ),
   nestedParamCodeObjDefault: UserDefaultNestedParamCodeObjImplSchema.default(
     createUserDefaultNestedParamCodeObjImpl,
   ),
@@ -4055,19 +3836,12 @@ const SettingsStateSchema = z.object({
     UserDefaultPasswordParamCodeObjImplSchema.default(
       createUserDefaultPasswordParamCodeObjImpl,
     ),
-  rotaryParamCodeObjDefault: UserDefaultRotaryParamCodeObjImplSchema.default(
-    createUserDefaultRotaryParamCodeObjImpl,
-  ),
   sliderParamCodeObjDefault: UserDefaultSliderParamCodeObjImplSchema.default(
     createUserDefaultSliderParamCodeObjImpl,
   ),
   switchParamCodeObjDefault: UserDefaultSwitchParamCodeObjImplSchema.default(
     createUserDefaultSwitchParamCodeObjImpl,
   ),
-  textAreaParamCodeObjDefault:
-    UserDefaultTextAreaParamCodeObjImplSchema.default(
-      createUserDefaultTextAreaParamCodeObjImpl,
-    ),
   textParamCodeObjDefault: UserDefaultTextParamCodeObjImplSchema.default(
     createUserDefaultTextParamCodeObjImpl,
   ),
@@ -4154,13 +3928,29 @@ const LLMConfigSchema = z.object({
   other_params: z
     .union([z.record(z.string(), z.any()), z.null()])
     .default(null),
+  mcpServerIds: z.union([z.array(z.string()), z.null()]).default(null),
   temporary: z.boolean().default(false),
 });
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+const MCPServerConfigSchema = z.object({
+  transport: z.literal(["sse", "streamable_http", "stdio"]),
+  url: z.union([z.string(), z.null()]).default(null),
+  command: z.union([z.string(), z.null()]).default(null),
+  args: z.array(z.string()).default([]),
+  env: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
+  cwd: z.union([z.string(), z.null()]).default(null),
+  encoding: z.string().default("utf-8" as const),
+  encoding_error_handler: z
+    .literal(["strict", "ignore", "replace"])
+    .default("strict" as const),
+});
+
 const AllLLMConfigsSchema = z.object({
   configs: z.record(z.string(), LLMConfigSchema).default({}),
+  mcpServers: z.record(z.string(), MCPServerConfigSchema).default({}),
+  defaultMcpServerIds: z.array(z.string()).default([]),
   default_config_id: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -4839,16 +4629,6 @@ export type AppendDrawAreaLayerItemRequestInput = z.input<
   typeof AppendDrawAreaLayerItemRequestSchema
 >;
 
-const AutoLayoutTopLevelSectionsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  margin: z.int().default(50),
-});
-
-export type AutoLayoutTopLevelSectionsRequestInput = z.input<
-  typeof AutoLayoutTopLevelSectionsRequestSchema
->;
-
 const ChangeParamImplRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -4923,9 +4703,6 @@ const CreateTopLevelSectionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
   implType: z.enum(SectionTypeEnum),
-  controlCodeObjType: z
-    .union([z.enum(CodeObjTypeEnum), z.null()])
-    .default(null),
   implOverrides: z
     .union([
       z.discriminatedUnion("type", [
@@ -6043,14 +5820,6 @@ export type ImplArgsBundleMap = {
     >;
   };
 
-  RotaryParamCodeObj: {
-    impl: RotaryParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<
-      RotaryParamCodeObjImplArgs,
-      RotaryParamCodeObjImpl
-    >;
-  };
-
   SwitchParamCodeObj: {
     impl: SwitchParamCodeObjImpl;
     args: ImplArgsBundleWithUpdaters<
@@ -6080,22 +5849,6 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       PasswordParamCodeObjImplArgs,
       PasswordParamCodeObjImpl
-    >;
-  };
-
-  TextAreaParamCodeObj: {
-    impl: TextAreaParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<
-      TextAreaParamCodeObjImplArgs,
-      TextAreaParamCodeObjImpl
-    >;
-  };
-
-  DropzoneParamCodeObj: {
-    impl: DropzoneParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<
-      DropzoneParamCodeObjImplArgs,
-      DropzoneParamCodeObjImpl
     >;
   };
 

@@ -146,7 +146,10 @@ function ProjectPageCommandPalette() {
       return;
     }
 
-    createTopLevelSectionFromImplSpecs(match, getEmptySpacePosition());
+    createTopLevelSectionFromImplSpecs(
+      match.implSpecs,
+      getEmptySpacePosition(),
+    );
   };
 
   return (

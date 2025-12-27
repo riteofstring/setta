@@ -3,15 +3,12 @@ from typing import TYPE_CHECKING, Iterable
 
 from setta.types.id import ID
 from setta.types.listener import (
-    ControlActionEvent,
-    ListenerActionEventContent,
     ListenerForceRefreshContent,
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
 )
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
-    WebsocketMsgListenerActionEvent,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerRealtimeEvent,
 )
@@ -77,48 +74,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             return
 
         message = WebsocketMsgListenerRealtimeEvent(content=content)
-        for websocket_id in sockets_to_notify:
-            await self.websocket_manager.send_message(message, websocket_id)
-
-    async def send_action_event(
-        self,
-        *,
-        projectConfigId: ID,
-        actionEvents: list[ControlActionEvent],
-        sequence: int,
-    ):
-        if not actionEvents:
-            raise ValueError("actionEvents must contain at least one entry")
-        content = ListenerActionEventContent(
-            projectConfigId=projectConfigId,
-            actionEvents=actionEvents,
-            sequence=sequence,
-        )
-        logger.debug(
-            "sending listener action event for project config %s (sequence=%s)",
-            projectConfigId,
-            sequence,
-        )
-        sockets_to_notify = set()
-        for (
-            registration,
-            matching_callbacks,
-        ) in self.listener_registry.iter_callbacks_matching_actions(
-            project_config_id=projectConfigId,
-            action_ids=(event.actionId for event in actionEvents),
-        ):
-            if matching_callbacks:
-                sockets_to_notify.add(registration.websocket_id)
-
-        if not sockets_to_notify:
-            logger.debug(
-                "no listener sockets registered for action events %s (project config %s)",
-                [event.actionId for event in actionEvents],
-                projectConfigId,
-            )
-            return
-
-        message = WebsocketMsgListenerActionEvent(content=content)
         for websocket_id in sockets_to_notify:
             await self.websocket_manager.send_message(message, websocket_id)
 
