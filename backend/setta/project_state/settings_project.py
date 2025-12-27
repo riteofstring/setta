@@ -121,8 +121,13 @@ def humanize_settings_identifier(identifier: str) -> str:
     return " ".join(output)
 
 
-def apply_settings_display_names(project_state: ProjectStateCore) -> None:
-    for code_obj in project_state.codeObjs.values():
+def apply_settings_display_names(
+    project_state: ProjectStateCore,
+    existing_code_obj_ids: set[ID] | None = None,
+) -> None:
+    for code_obj_id, code_obj in project_state.codeObjs.items():
+        if existing_code_obj_ids is not None and code_obj_id in existing_code_obj_ids:
+            continue
         if code_obj.displayName.strip():
             continue
         if not code_obj.name:

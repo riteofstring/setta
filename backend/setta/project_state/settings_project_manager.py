@@ -25,7 +25,6 @@ class SettingsProjectManager(BaseProjectManager):
     def load_initial_state(self):
         logger.debug("Loading settings project")
         p = self.settings_file.load_settings_project()
-        apply_settings_display_names(p)
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):
@@ -52,12 +51,13 @@ class SettingsProjectManager(BaseProjectManager):
         section_variants_to_load: list[tuple[str, str]],
     ):
         p = self.project_state_backend
+        existing_code_obj_ids = set(p.codeObjs.keys())
         load_json_sources_into_data_structures(
             p,
             json_sources,
             section_variants_to_load,
         )
-        apply_settings_display_names(p)
+        apply_settings_display_names(p, existing_code_obj_ids=existing_code_obj_ids)
 
         for config_id in p.projectConfigs.keys():
             single_config = convert_backend_to_single_config(p, config_id)
