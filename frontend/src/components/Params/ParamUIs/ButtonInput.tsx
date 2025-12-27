@@ -70,3 +70,30 @@ export function ButtonInputConfigForParam({
     </div>
   );
 }
+
+export function ButtonInput({
+  label,
+  onClick,
+  isDisabled = false,
+  wrapperClassName,
+  buttonClassName,
+}: {
+  label: string;
+  onClick: () => void;
+  isDisabled?: boolean;
+  wrapperClassName?: string;
+  buttonClassName?: string;
+}) {
+  return (
+    <div className={wrapperClassName}>
+      <button
+        type="button"
+        className={buttonClassName}
+        onClick={onClick}
+        disabled={isDisabled}
+      >
+        {label}
+      </button>
+    </div>
+  );
+}

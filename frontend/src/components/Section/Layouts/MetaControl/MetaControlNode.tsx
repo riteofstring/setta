@@ -1,4 +1,5 @@
 import {
+  ConfiguredButtonInput,
   ConfiguredColorPickerInput,
   ConfiguredDropdownInput,
   ConfiguredRotaryInput,
@@ -16,21 +17,46 @@ import {
 } from "utils/constants";
 import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
 
-export function MetaControlContent({
-  sectionId,
-  controlParamId,
-  codeObjType,
-  value,
-  defaultVal,
-  onValueChange,
-}: {
+type MetaControlContentButtonProps = {
   sectionId: string;
   controlParamId: string;
-  codeObjType: CodeObjType;
+  codeObjType: CodeObjTypeEnum.ButtonParam;
+  onAction: () => void;
+};
+
+type MetaControlContentValueProps = {
+  sectionId: string;
+  controlParamId: string;
+  codeObjType: Exclude<CodeObjType, CodeObjTypeEnum.ButtonParam>;
   value: string;
   defaultVal: string;
   onValueChange: ParamValueChange;
-}) {
+};
+
+type MetaControlContentProps =
+  | MetaControlContentButtonProps
+  | MetaControlContentValueProps;
+
+export function MetaControlContent(props: MetaControlContentProps) {
+  if (props.codeObjType === CodeObjTypeEnum.ButtonParam) {
+    return (
+      <ButtonControl
+        sectionId={props.sectionId}
+        controlParamId={props.controlParamId}
+        onAction={props.onAction}
+      />
+    );
+  }
+
+  const {
+    sectionId,
+    controlParamId,
+    codeObjType,
+    value,
+    defaultVal,
+    onValueChange,
+  } = props;
+
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
     case CodeObjTypeEnum.TextParam:
@@ -103,6 +129,26 @@ export function MetaControlContent({
     default:
       return null;
   }
+}
+
+function ButtonControl({
+  sectionId,
+  controlParamId,
+  onAction,
+}: {
+  sectionId: string;
+  controlParamId: string;
+  onAction: () => void;
+}) {
+  return (
+    <ConfiguredButtonInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      onClick={onAction}
+      wrapperClassName="flex w-full items-center justify-center"
+      buttonClassName="flex h-8 min-w-[120px] items-center justify-center rounded-lg bg-setta-200/30 px-3 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-300 dark:hover:bg-setta-900"
+    />
+  );
 }
 
 function TextInputControl({

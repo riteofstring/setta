@@ -1,5 +1,6 @@
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
+import { ButtonInput } from "./ButtonInput";
 import { ColorPickerInput } from "./ColorPickerInput";
 import { DropdownInput } from "./DropdownInput";
 import { RotaryInput } from "./RotaryInput";
@@ -8,6 +9,40 @@ import { SliderInput } from "./SliderInput";
 export type ParamValueChange = (
   value: string | number | boolean | null,
 ) => void;
+
+type ConfiguredButtonInputProps = {
+  sectionId: string;
+  paramInfoId: string;
+  onClick: () => void;
+  wrapperClassName?: string;
+  buttonClassName?: string;
+  isDisabled?: boolean;
+};
+
+export function ConfiguredButtonInput({
+  sectionId,
+  paramInfoId,
+  onClick,
+  wrapperClassName,
+  buttonClassName,
+  isDisabled,
+}: ConfiguredButtonInputProps) {
+  const { label } = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.ButtonParam,
+  );
+
+  return (
+    <ButtonInput
+      label={label}
+      onClick={onClick}
+      wrapperClassName={wrapperClassName}
+      buttonClassName={buttonClassName}
+      isDisabled={isDisabled}
+    />
+  );
+}
 
 type ConfiguredSliderInputProps = {
   sectionId: string;
