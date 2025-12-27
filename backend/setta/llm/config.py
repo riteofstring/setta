@@ -4,9 +4,9 @@ import json
 from typing import Any, Iterable
 
 from setta.database.db_objs import DBE
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 

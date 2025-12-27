@@ -136,9 +136,7 @@ class SettaFastMCP(FastMCP):
         @wraps(func)
         async def wrapper(**kwargs):
             self._refresh_temporary_id_map_if_needed()
-            context_kwargs = {
-                k: v for k, v in kwargs.items() if isinstance(v, Context)
-            }
+            context_kwargs = {k: v for k, v in kwargs.items() if isinstance(v, Context)}
             for key in context_kwargs:
                 kwargs.pop(key)
             kwargs = convert_temporary_ids_to_canonical(

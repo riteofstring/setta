@@ -1,7 +1,7 @@
 import bm25s
+from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from mcp.server.fastmcp.server import Context
 from setta.mcp.tool_setup import setta_init_tool
 from setta.utils.constants import C
 

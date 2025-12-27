@@ -2,11 +2,11 @@ import inspect
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
+from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from mcp.server.fastmcp.server import Context
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -69,7 +69,9 @@ def _build_tool_callable(
     async def tool_callable(**raw_kwargs: Any):
         ctx: Context = raw_kwargs.pop("ctx")
         request = request_model(**raw_kwargs)
-        manager = ctx.fastmcp.state.project_manager_switcher.get(request.projectConfigId)
+        manager = ctx.fastmcp.state.project_manager_switcher.get(
+            request.projectConfigId
+        )
         manager_method = getattr(manager, manager_method_name)
         result = manager_method(request)
         if inspect.isawaitable(result):

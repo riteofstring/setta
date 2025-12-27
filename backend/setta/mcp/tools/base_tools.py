@@ -1,8 +1,8 @@
 import importlib.metadata
 
+from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from mcp.server.fastmcp.server import Context
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.types.id import ID
 
@@ -49,6 +49,8 @@ def getProjectConfigNamesAndIds(ctx: Context):
     """
     Return metadata for every known project config so external agents can pick one.
     """
-    _, metadata = ctx.fastmcp.state.project_manager_switcher.main.get_all_project_metadata()
+    _, metadata = (
+        ctx.fastmcp.state.project_manager_switcher.main.get_all_project_metadata()
+    )
     entries = [ProjectConfigNamesAndIdsEntry(name=m.name, id=m.id) for m in metadata]
     return ProjectConfigNamesAndIdsList(projectConfigs=entries)
