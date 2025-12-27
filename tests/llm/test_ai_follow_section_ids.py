@@ -4,8 +4,7 @@ from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import build_namespaced_tool_name
+from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -25,7 +24,7 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         self.dbe = DBE(Path(self.temp_dir.name))
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.mcp_client = MultiMCPClient({})
+        self.mcp_client = MCPClient("http://localhost")
         project_manager_switcher = build_project_summary_switcher(ID("project-1"))
         self.manager = LLMChatManager(
             self.dbe,
@@ -40,11 +39,10 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
     def _collect_ids_from_arguments(
         self, arguments_list: list[dict[str, object]]
     ) -> dict[str, list[ID]] | None:
-        tool_name = build_namespaced_tool_name("setta", "test_tool")
         tool_calls = [
             ToolCall(
                 function=ToolCallFunction(
-                    name=tool_name,
+                    name="test_tool",
                     arguments=arguments,
                 )
             )
@@ -93,7 +91,7 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_collects_ids_from_tool_argument_metadata(self) -> None:
-        tool_name = build_namespaced_tool_name("setta", "annotated_tool")
+        tool_name = "annotated_tool"
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
@@ -120,7 +118,7 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         )
 
     def test_collects_section_ids_from_mapping_keys(self) -> None:
-        tool_name = build_namespaced_tool_name("setta", "mapping_tool")
+        tool_name = "mapping_tool"
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
