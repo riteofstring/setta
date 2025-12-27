@@ -380,14 +380,6 @@ class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class SetShowParamDisplayNamesRequest(ProjectManagerRequestWithProjectConfig):
-    """Toggle whether display names are used for parameters in the UI."""
-
-    showParamDisplayNames: bool = Field(
-        description="True to show display names for parameters, false to show canonical names.",
-    )
-
-
 class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     """Assign a new manual value to a parameter within a section."""
 
@@ -429,17 +421,6 @@ class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     )
     name: str = Field(
         description="New human-readable name to store on the code object.",
-    )
-
-
-class SetCodeObjDisplayNameRequest(ProjectManagerRequestWithProjectConfig):
-    """Set the user-facing display name for a code object."""
-
-    codeObjId: ID = Field(
-        description="Identifier of the code object whose display name should change.",
-    )
-    displayName: str = Field(
-        description="Optional user-facing display name for the code object.",
     )
 
 

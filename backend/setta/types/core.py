@@ -12,7 +12,6 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 class Core(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    displayName: str = ""
     variants: list[ID] = Field(default_factory=list)
     defaultVariant: ID | None = None
     sharedModifier: SharedModifier = Field(default_factory=SharedModifier)
