@@ -27,7 +27,6 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
-    TypeErrorIgnoreState,
 )
 
 
@@ -67,7 +66,7 @@ class SharedModifier(TypedDict):
     hideParams: NotRequired[bool]
     hideUnpinnedParams: NotRequired[bool]
     id: NotRequired[ID]
-    ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
+    ignoreTypeErrors: NotRequired[dict[ID, bool]]
     imagePath: NotRequired[str]
     isFrozen: NotRequired[bool]
     isHorizontalOrientation: NotRequired[bool]

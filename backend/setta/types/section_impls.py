@@ -88,11 +88,6 @@ class SectionWithParamsDisplayMode(str, Enum):
     Yaml = "Yaml"
 
 
-class TypeErrorIgnoreState(BaseModel, extra="forbid"):
-    callable: bool = False
-    params: dict[ID, bool] = Field(default_factory=dict)
-
-
 class TextBlockDisplayMode(str, Enum):
     Render = "Render"
     Edit = "Edit"
@@ -148,7 +143,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedParams: list[ID] = Field(default_factory=list)
     pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
-    ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
+    ignoreTypeErrors: dict[ID, bool] = Field(default_factory=dict)
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 

@@ -106,7 +106,6 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
-    TypeErrorIgnoreState,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
@@ -154,28 +153,6 @@ def get_curr_top_level_param_ids(
         p, section_id, BaseSectionWithParamsImpl
     )
     return get_top_level_param_ids(p, section_impl)
-
-
-def collect_ignore_type_errors_by_section(
-    p: "ProjectStateSingleConfig",
-) -> dict[ID, TypeErrorIgnoreState]:
-    ignore_type_errors_by_section: dict[ID, TypeErrorIgnoreState] = {}
-    for section_id in p.sections.keys():
-        section_impl = get_curr_effective_section_impl(p, section_id)
-        if not isinstance(section_impl, BaseSectionWithParamsImpl):
-            continue
-        ignore_state = section_impl.ignoreTypeErrors
-        ignored_params = {
-            param_id: True
-            for param_id, is_ignored in ignore_state.params.items()
-            if is_ignored
-        }
-        if ignore_state.callable or ignored_params:
-            ignore_type_errors_by_section[section_id] = TypeErrorIgnoreState(
-                callable=ignore_state.callable,
-                params=ignored_params,
-            )
-    return ignore_type_errors_by_section
 
 
 def get_top_level_param_ids(
@@ -1456,36 +1433,6 @@ def toggle_param_selected(
             if paramInfoId in curr
             else [*curr, paramInfoId]
         ),
-    )
-
-
-def set_type_error_ignore(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    paramInfoId: ID | None,
-    ignoreTypeErrors: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-
-    def update(curr: TypeErrorIgnoreState):
-        next_params = dict(curr.params)
-        if paramInfoId is None:
-            return TypeErrorIgnoreState(
-                callable=ignoreTypeErrors,
-                params=next_params,
-            )
-        if ignoreTypeErrors:
-            next_params[paramInfoId] = True
-        elif paramInfoId in next_params:
-            del next_params[paramInfoId]
-        return TypeErrorIgnoreState(callable=curr.callable, params=next_params)
-
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(ignoreTypeErrors=update),
     )
 
 
