@@ -203,13 +203,17 @@ function SectionSearchCore({
   };
 
   // TODO: Shouldn't use important for this, but ok for now. FIX.
-  const valueNameInconsistentStyle =
-    valueNameInconsistent && !hasCallableError ? "setta-callable-ready" : "";
-  const callableErrorStyle = hasCallableError
-    ? "!border-red-500 dark:!border-red-600 !outline !outline-2 !outline-red-500 dark:!outline-red-700"
+  const valueNameInconsistentStyle = valueNameInconsistent
+    ? "setta-callable-ready"
     : "";
+  let callableErrorStyle = "";
+  if (hasCallableError && !valueNameInconsistent) {
+    callableErrorStyle =
+      "!bg-red-200 dark:!bg-red-800/30 !border-red-200 dark:!border-red-800/30";
+  }
   const showStatusIndicator = valueNameInconsistent || waitingForResult;
-  const showRightIndicator = showStatusIndicator || hasCallableError;
+  const showCallableErrorIndicator = hasCallableError && !valueNameInconsistent;
+  const showRightIndicator = showStatusIndicator || showCallableErrorIndicator;
 
   function onCallableErrorContextMenu(e: MouseEvent<HTMLSpanElement>) {
     openTypeErrorContextMenu(e, sectionId, null);
@@ -252,7 +256,7 @@ function SectionSearchCore({
       />
       {showRightIndicator && (
         <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
-          {hasCallableError && (
+          {showCallableErrorIndicator && (
             <span
               className="pointer-events-auto grid h-[18px] w-[18px] place-items-center rounded-full bg-red-500/80 text-white"
               onContextMenu={onCallableErrorContextMenu}
