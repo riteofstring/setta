@@ -25,6 +25,7 @@ import {
 } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfigForParam } from "./DropdownInput";
 import { PasswordInput } from "./PasswordInput";
+import { RotaryInput } from "./RotaryInput";
 import { SliderInput, SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
 
@@ -145,7 +146,7 @@ export function ParamUI({
       );
     case CodeObjTypeEnum.RotaryParam:
       return (
-        <SliderParamConfigured
+        <RotaryParamConfigured
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           value={value}
@@ -289,6 +290,40 @@ function SliderParamConfigured({
       sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer
       rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`}
       textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:block"
+    />
+  );
+}
+
+function RotaryParamConfigured({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  onChange: (value: string | number) => void;
+  onEscape: () => void;
+  isDisabled: boolean;
+}) {
+  const { min, max, step } = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.RotaryParam,
+  );
+
+  return (
+    <RotaryInput
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      min={min}
+      max={max}
+      step={step}
+      isDisabled={isDisabled}
     />
   );
 }

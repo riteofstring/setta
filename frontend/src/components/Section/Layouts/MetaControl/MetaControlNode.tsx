@@ -1,6 +1,7 @@
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
+import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
@@ -13,7 +14,6 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
-import { clamp } from "utils/utils";
 
 export function MetaControlContent({
   sectionId,
@@ -205,39 +205,19 @@ function RotaryControl({
     controlParamId,
     CodeObjTypeEnum.RotaryParam,
   );
-  const parsed = Number.parseFloat(value);
-  const normalized = Number.isFinite(parsed) ? parsed : min;
-  const clamped = clamp(normalized, min, max);
-  const displayValue = clamped.toFixed(2);
 
-  function handleClick() {
-    const rawNextValue = clamped + step;
-    const nextValue = rawNextValue > max ? min : clamp(rawNextValue, min, max);
+  function handleChange(nextValue: number) {
     onValueChange(String(nextValue));
   }
 
   return (
-    <div className="flex w-full items-center gap-3">
-      <button
-        type="button"
-        className={`${NO_DRAG_CLASS_NAME} relative h-12 w-12 cursor-pointer bg-transparent p-0`}
-        onClick={handleClick}
-      >
-        <div className="absolute inset-0 rounded-full border border-setta-300/70 bg-gradient-to-br from-setta-50 via-setta-200 to-setta-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] dark:border-setta-700/70 dark:from-setta-900 dark:via-setta-800 dark:to-setta-950" />
-        <div className="absolute inset-[6px] rounded-full border border-setta-200/70 bg-setta-100 dark:border-setta-700/70 dark:bg-setta-850" />
-        <div className="absolute inset-[13px] rounded-full bg-setta-50 dark:bg-setta-900" />
-        <div className="absolute left-1/2 top-[6px] h-3 w-[2px] -translate-x-1/2 rounded-full bg-blue-500" />
-        <div className="absolute inset-0 rounded-full border border-dashed border-setta-300/40 dark:border-setta-700/40" />
-      </button>
-      <div className="flex flex-col">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
-          Level
-        </span>
-        <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
-          {displayValue}
-        </span>
-      </div>
-    </div>
+    <RotaryInput
+      value={value}
+      onChange={handleChange}
+      min={min}
+      max={max}
+      step={step}
+    />
   );
 }
 
