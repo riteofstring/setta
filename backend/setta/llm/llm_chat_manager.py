@@ -36,6 +36,10 @@ from setta.mcp.tool_metadata import (
     ToolArgumentPreviewIdType,
     ToolArgumentPreviewMetadata,
 )
+from setta.mcp.tool_search_index import (
+    ToolSearchIndex,
+    build_tool_search_entries_from_llm_definitions,
+)
 from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
@@ -1663,10 +1667,15 @@ class LLMChatManager:
             )
         arguments = dict(tool_call.function.arguments or {})
         server_ids = self._resolve_mcp_server_ids(chat.llmConfig)
-        available_tools = {}
+        available_tools: dict[str, ChatCompletionToolParam] = {}
+        annotations_by_name: dict[str, Any] = {}
         if server_ids:
+            server_id_set = set(server_ids)
             available_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
-                set(server_ids)
+                server_id_set
+            )
+            annotations_by_name = self.mcp_client.tool_annotations_for_servers(
+                server_id_set
             )
         if tool_name == self._search_tool_name:
             if not server_ids:
@@ -1694,15 +1703,22 @@ class LLMChatManager:
             else:
                 arguments["serverIds"] = list(server_ids)
         started_at = get_now_timestamp()
-        try:
-            call_result = await self.mcp_client.call_tool(tool_name, arguments)
-        except Exception:
-            logger.exception(
-                "MCP tool invocation failed for chat %s (tool=%s)",
-                chat_id,
-                tool_name,
+        if tool_name == self._search_tool_name:
+            call_result = self._run_local_search_tool(
+                arguments=arguments,
+                available_tools=available_tools,
+                annotations_by_name=annotations_by_name,
             )
-            raise
+        else:
+            try:
+                call_result = await self.mcp_client.call_tool(tool_name, arguments)
+            except Exception:
+                logger.exception(
+                    "MCP tool invocation failed for chat %s (tool=%s)",
+                    chat_id,
+                    tool_name,
+                )
+                raise
         completed_at = get_now_timestamp()
 
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
@@ -1802,6 +1818,45 @@ class LLMChatManager:
             result=result_payload,
             started_at=started_at,
             completed_at=completed_at,
+        )
+
+    def _run_local_search_tool(
+        self,
+        *,
+        arguments: dict[str, Any],
+        available_tools: dict[str, ChatCompletionToolParam],
+        annotations_by_name: dict[str, Any],
+    ) -> CallToolResult:
+        query = arguments.get("query", "")
+        if not isinstance(query, str):
+            raise ValueError("query must be a string")
+        normalized_query = query.strip()
+        if normalized_query == "":
+            raise ValueError("query must not be empty")
+        limit = arguments.get("limit")
+        if limit is None:
+            limit = 2
+
+        entries = build_tool_search_entries_from_llm_definitions(
+            available_tools,
+            annotations_by_name,
+        )
+        index = ToolSearchIndex.build(entries)
+        results_payload: list[dict[str, str | None]] = []
+        if index is not None:
+            for result in index.search(normalized_query, limit):
+                results_payload.append(
+                    {
+                        "name": result.name,
+                        "description": result.description,
+                        "category": result.category,
+                    }
+                )
+        structured = {"results": results_payload}
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(structured))],
+            structuredContent=structured,
+            isError=False,
         )
 
     def _parse_search_tool_results(

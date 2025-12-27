@@ -171,18 +171,15 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
             search_results = search_and_unlock_mcp_tools(
                 query="section size settings",
                 limit=2,
-                serverIds=[SETTA_MCP_SERVER_ID],
                 ctx=ctx,
             )
             search_result_names = [result.name for result in search_results.results]
             self.assertIn(
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
+                "set_section_sizes",
                 search_result_names,
             )
             self.assertNotIn(
-                build_namespaced_tool_name(
-                    SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
-                ),
+                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
                 search_result_names,
             )
 
@@ -195,20 +192,17 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 {
                     "query": "section size settings",
                     "limit": 2,
-                    "serverIds": [SETTA_MCP_SERVER_ID],
                 },
                 context=ctx,
             )
             parsed_results = results_via_tool_run.results
             parsed_result_names = [result.name for result in parsed_results]
             self.assertIn(
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes"),
+                "set_section_sizes",
                 parsed_result_names,
             )
             self.assertNotIn(
-                build_namespaced_tool_name(
-                    SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
-                ),
+                C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME,
                 parsed_result_names,
             )
 
@@ -238,14 +232,11 @@ class MCPServerToolRegistrationTest(unittest.IsolatedAsyncioTestCase):
                 results = search_and_unlock_mcp_tools(
                     query=query,
                     limit=limit,
-                    serverIds=[SETTA_MCP_SERVER_ID],
                     ctx=ctx,
                 )
                 result_names = [result.name for result in results.results]
                 self.assertIn(
-                    build_namespaced_tool_name(
-                        SETTA_MCP_SERVER_ID, "create_top_level_section"
-                    ),
+                    "create_top_level_section",
                     result_names,
                     msg=(
                         f"search results for '{query}' did not include "
