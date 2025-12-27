@@ -12,7 +12,7 @@ from setta.types.generated.dependency_values import (
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import MetaControlType
+from setta.types.section_impls import ActionControlType
 
 
 class ListenerDependencyMode(str, Enum):
@@ -40,22 +40,22 @@ class ListenerRealtimeEventContent(BaseModel):
     sequence: int
 
 
-class MetaControlActionEvent(BaseModel):
+class ControlActionEvent(BaseModel):
     controlName: str
     actionId: str
-    metaControlType: MetaControlType
+    actionControlType: ActionControlType
     payload: str | None = None
     timestampMs: int
 
 
 class RealtimeActionEventContent(BaseModel):
     projectConfigId: ID
-    actionEvent: MetaControlActionEvent
+    actionEvent: ControlActionEvent
 
 
 class ListenerActionEventContent(BaseModel):
     projectConfigId: ID
-    actionEvents: list[MetaControlActionEvent]
+    actionEvents: list[ControlActionEvent]
     sequence: int
 
 
