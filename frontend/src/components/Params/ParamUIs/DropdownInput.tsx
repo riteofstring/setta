@@ -1,5 +1,16 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import type { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
+import _ from "lodash";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+  setCurrEffectiveCodeObjImplValue,
+} from "state/actions/sectionInfos";
+import {
+  DropdownConfigForFrontend,
+  useParamCodeObjUIConfig,
+} from "state/hooks/uiTypes";
+import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 
 export function DropdownInputConfigForParam({
@@ -15,30 +26,54 @@ export function DropdownInputConfigForParam({
     CodeObjTypeEnum.DropdownParam,
   );
 
-  function onChange() {
-    console.log("onChange");
+  function onChange(newConfig: DropdownConfigForFrontend) {
+    const configClone = _.cloneDeep(newConfig);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"DropdownParamCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          configClone,
+        );
+      },
+      send: (frontendOpId) =>
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          newConfig: configClone,
+          frontendOpId,
+        }),
+    });
   }
   return <DropdownInputConfig config={config} onChange={onChange} />;
 }
 
-function DropdownInputConfig({ onChange, config }) {
+function DropdownInputConfig({
+  onChange,
+  config,
+}: {
+  onChange: (x: DropdownConfigForFrontend) => void;
+  config: DropdownConfigForFrontend;
+}) {
   const choices = config.choices ?? [];
 
   const addChoice = () => {
     const newChoices = [...choices, ""];
-    onChange("choices", () => newChoices);
+    onChange({ choices: newChoices });
   };
 
-  const removeChoice = (removeIdx) => {
+  const removeChoice = (removeIdx: number) => {
     const newChoices = choices.filter((c, idx) => idx !== removeIdx);
-    onChange("choices", () => newChoices);
+    onChange({ choices: newChoices });
   };
 
-  const updateChoice = (updateIdx, newChoice) => {
+  const updateChoice = (updateIdx: number, newChoice: string) => {
     const newChoices = choices.map((c, idx) =>
       idx === updateIdx ? newChoice : c,
     );
-    onChange("choices", () => newChoices);
+    onChange({ choices: newChoices });
   };
 
   return (
@@ -86,6 +121,14 @@ export function DropdownInput({
   isDisabled,
   placeholder,
   small = true,
+}: {
+  choices: Array<string>;
+  value: string | null;
+  onChange: OnSelectedItemChangeFnType<string>;
+  outerDivClasses?: string;
+  isDisabled?: boolean;
+  placeholder?: string;
+  small?: boolean;
 }) {
   const allItems = [
     {

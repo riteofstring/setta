@@ -14,11 +14,11 @@ from setta.types.code_obj_impls import (
     ParamNameType,
 )
 from setta.types.section_impls import (
+    ActionControlType,
     BrowserAreaViewMode,
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -115,8 +115,7 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    metaControlType: MetaControlType = MetaControlType.button
-    metaControlValue: str = ""
+    actionControlType: ActionControlType | None = ActionControlType.button
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -210,6 +209,15 @@ class UserDefaultSliderParamCodeObjImpl(
     value: str = "0"
 
 
+class UserDefaultRotaryParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    min: float = 0
+    max: float = 1
+    step: float = 0.1
+    value: str = "0"
+
+
 class UserDefaultSwitchParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
@@ -230,6 +238,18 @@ class UserDefaultDropdownParamCodeObjImpl(
 
 
 class UserDefaultPasswordParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    pass
+
+
+class UserDefaultTextAreaParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    pass
+
+
+class UserDefaultDropzoneParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
     pass

@@ -13,9 +13,11 @@ from setta.types.artifact import (
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
+    BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
+    ControlCodeObjTypeSet,
     TextParamCodeObjImpl,
 )
 from setta.types.core import (
@@ -37,6 +39,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseCodeObjImplArgs,
     BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
+    BaseParamCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
     BaseSectionImplArgs,
@@ -99,6 +102,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
+    MetaControlSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -133,6 +137,54 @@ def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id
     if section_impl.callable:
         return p.codeObjs[section_impl.callable]
     return None
+
+
+def get_curr_meta_control_impl_with_type_guard(
+    p: "ProjectStateSingleConfig", section_id: ID
+) -> MetaControlSectionImpl:
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, section_id, MetaControlSectionImpl
+    )
+    has_param = impl.controlParamId is not None
+    has_action = impl.actionControlType is not None
+    if has_param == has_action:
+        raise ValueError(
+            f"Meta control {section_id} must define exactly one control mode."
+        )
+    if impl.controlParamId is None and impl.controlCodeObjVariantMap:
+        raise ValueError(
+            f"Meta control {section_id} action controls cannot define code obj mappings."
+        )
+    if impl.controlParamId is not None:
+        if impl.controlParamId not in impl.controlCodeObjVariantMap:
+            raise KeyError(
+                f"Meta control {section_id} missing code obj variant mapping."
+            )
+    return impl
+
+
+def get_meta_control_param_id(p: "ProjectStateSingleConfig", section_id: ID) -> ID:
+    impl = get_curr_meta_control_impl_with_type_guard(p, section_id)
+    if impl.controlParamId is None:
+        raise KeyError(f"Meta control {section_id} has no control param id.")
+    param_id = impl.controlParamId
+    if param_id not in p.codeObjs:
+        raise KeyError(f"Meta control {section_id} missing control code obj core.")
+    if param_id not in impl.controlCodeObjVariantMap:
+        raise KeyError(
+            f"Meta control {section_id} missing variant map for control param."
+        )
+    variant_id = impl.controlCodeObjVariantMap[param_id]
+    if variant_id not in p.codeObjVariants:
+        raise KeyError(
+            f"Meta control {section_id} missing variant for control param {param_id}."
+        )
+    code_obj_impl = p.codeObjImpls[p.codeObjVariants[variant_id].impl]
+    if code_obj_impl.type not in ControlCodeObjTypeSet:
+        raise TypeError(
+            f"Meta control {section_id} uses unsupported code obj type {code_obj_impl.type}."
+        )
+    return param_id
 
 
 def get_curr_section_children_ids(
@@ -254,6 +306,40 @@ def add_code_obj(
     return code_obj_variant
 
 
+def add_meta_control_code_obj(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    section_id: ID,
+    code_obj_type: CodeObjType,
+):
+    if code_obj_type not in ControlCodeObjTypeSet:
+        raise ValueError(f"Unsupported meta control type {code_obj_type}")
+    code_obj_impl = create_code_obj_impl(
+        type=code_obj_type,  # type: ignore
+        defaults=get_user_default_code_obj_from_settings(settings, code_obj_type),  # type: ignore
+    )
+    code_obj = Core()
+    code_obj_variant = Variant(
+        impl=code_obj_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
+    )
+    code_obj.variants.append(code_obj_variant.id)
+    if not code_obj.defaultVariant:
+        code_obj.defaultVariant = code_obj_variant.id
+    p.codeObjs[code_obj.id] = code_obj
+    p.codeObjImpls[code_obj_impl.id] = code_obj_impl
+    p.codeObjVariants[code_obj_variant.id] = code_obj_variant
+    set_curr_effective_section_impl_value(
+        p,
+        section_id,
+        MetaControlSectionImplArgsWithCallable(
+            controlParamId=code_obj.id,
+            controlCodeObjVariantMap={code_obj.id: code_obj_variant.id},
+            actionControlType=None,
+        ),
+    )
+
+
 def update_variant_impl_props(
     p: "ProjectStateSingleConfig", variant_ids: list[ID], new_impl: BaseCodeObjImpl
 ):
@@ -310,18 +396,6 @@ def set_param_entered_value(
     )
 
 
-def set_meta_control_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    value: str,
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        MetaControlSectionImplArgsWithCallable(metaControlValue=value),
-    )
-
-
 def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
     for projectConfigId, config in p.projectConfigs.items():
         if projectConfigName == config.name:
@@ -344,7 +418,27 @@ def create_section(
     impl_type: SectionType,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
+    control_code_obj_type: CodeObjType | None = None,
 ):
+    action_override = False
+    control_param_override = False
+    if isinstance(impl_overrides, dict) and impl_type is SectionType.MetaControl:
+        if "actionControlType" in impl_overrides:
+            action_override = impl_overrides["actionControlType"] is not None
+        if "controlParamId" in impl_overrides:
+            control_param_override = impl_overrides["controlParamId"] is not None
+        if action_override and control_param_override:
+            raise ValueError(
+                "Meta control overrides cannot include both actionControlType and controlParamId."
+            )
+        if action_override and control_code_obj_type is not None:
+            raise ValueError(
+                "Meta control action overrides cannot include control code obj types."
+            )
+        if control_param_override and control_code_obj_type is not None:
+            raise ValueError(
+                "Meta control overrides cannot include control code obj type when controlParamId is set."
+            )
     impl = create_section_impl(  # type: ignore
         impl_type,  # type: ignore
         get_user_default_section_from_settings(settings, impl_type),  # type: ignore
@@ -365,6 +459,24 @@ def create_section(
     p.sections[core.id] = core
     p.sectionImpls[impl.id] = impl
     p.sectionVariants[variant.id] = variant
+
+    if isinstance(impl, MetaControlSectionImpl):
+        if not action_override and not control_param_override:
+            control_type = (
+                control_code_obj_type
+                if control_code_obj_type is not None
+                else CodeObjType.SliderParam
+            )
+            add_meta_control_code_obj(settings, p, core.id, control_type)
+        elif action_override:
+            set_curr_effective_section_impl_value(
+                p,
+                core.id,
+                MetaControlSectionImplArgsWithCallable(
+                    controlParamId=None,
+                    controlCodeObjVariantMap={},
+                ),
+            )
 
     return core.id
 
@@ -417,8 +529,16 @@ def create_top_level_section(
     position: Position,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
+    control_code_obj_type: CodeObjType | None = None,
 ):
-    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
+    sectionId = create_section(
+        settings,
+        p,
+        impl_type,
+        impl_overrides,
+        core_overrides,
+        control_code_obj_type=control_code_obj_type,
+    )
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )
@@ -664,7 +784,9 @@ def change_param_impl(
         sectionId,
         paramInfoId,
     )
+    core = p.codeObjs[paramInfoId]
     old_impl = p.codeObjImpls[variant.impl]
+    old_effective_impl = get_effective_impl(old_impl, core, variant)
     impl = p.codeObjImpls.get(selectedId, None)
     if not impl:
         # selectedId will be the CodeObjType name
@@ -679,7 +801,21 @@ def change_param_impl(
     if not impl.isPreset and impl.id not in variant.nonPresetImpls:
         variant.nonPresetImpls.append(impl.id)
 
-    maybe_convert_code_obj_value(old_impl, impl, p.codeObjs[paramInfoId], variant)
+    if isinstance(old_effective_impl, BaseParamCodeObjImpl) and isinstance(
+        impl, BaseParamCodeObjImpl
+    ):
+        set_effective_impl_value(
+            impl,
+            core,
+            variant,
+            BaseParamCodeObjImplArgsWithCallable(
+                coreNameEditable=old_effective_impl.coreNameEditable,
+                coreNameType=old_effective_impl.coreNameType,
+                passingStyle=old_effective_impl.passingStyle,
+            ),
+        )
+
+    maybe_convert_code_obj_value(old_impl, impl, core, variant)
 
 
 def update_param_impl_config(
@@ -721,9 +857,11 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
             | CodeObjType.TextParam
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
+            | CodeObjType.TextAreaParam
+            | CodeObjType.DropzoneParam
         ):
             return value
-        case CodeObjType.SliderParam:
+        case CodeObjType.SliderParam | CodeObjType.RotaryParam:
             try:
                 x = float(value)
                 if not math.isnan(x):

@@ -135,6 +135,17 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <SliderParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+        />
+      );
     case CodeObjTypeEnum.SwitchParam:
       return (
         <SwitchParamConfigured
@@ -173,6 +184,23 @@ export function ParamUI({
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
+          isSelectingParams={isSelectingParams}
+        />
+      );
+    case CodeObjTypeEnum.TextAreaParam:
+    case CodeObjTypeEnum.DropzoneParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
         />
       );
