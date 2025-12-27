@@ -11,6 +11,23 @@ class Position(BaseModel):
     y: float = 0
 
 
+class ViewRect(BaseModel, extra="forbid"):
+    """World-space rectangle describing the visible canvas area."""
+
+    x: float = Field(
+        description="Horizontal coordinate of the left edge of the visible area.",
+    )
+    y: float = Field(
+        description="Vertical coordinate of the top edge of the visible area.",
+    )
+    width: float = Field(
+        description="Width of the visible area in world-space units.",
+    )
+    height: float = Field(
+        description="Height of the visible area in world-space units.",
+    )
+
+
 class Viewport(BaseModel, extra="forbid"):
     """Camera settings describing the canvas offset and zoom level."""
 

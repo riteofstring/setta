@@ -7,7 +7,9 @@ import {
   MetaControlTypeEnum,
   Position,
   SectionTypeEnum,
+  ViewRect,
 } from "utils/generatedTypes";
+import { getViewportRectForPlacement } from "./createSections";
 import { getCurrProjectConfigId } from "../sectionInfos";
 
 export type CreateSectionsContextMenuInfo = {
@@ -194,11 +196,14 @@ export function useCreateSectionsList() {
 export function createTopLevelSectionFromImplSpecs(
   implSpecs: CreateSectionsContextMenuInfo["implSpecs"],
   position: Position,
+  viewRect?: ViewRect | null,
 ) {
-  route_create_top_level_section({
+  const resolvedViewRect = viewRect ?? getViewportRectForPlacement();
+  return route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),
     implType: implSpecs.type,
     implOverrides: implSpecs,
     position,
+    viewRect: resolvedViewRect,
   });
 }

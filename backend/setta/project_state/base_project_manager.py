@@ -176,6 +176,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant_or_ask,
     delete_sections,
     get_curr_section_callable_code_obj,
+    get_smart_top_level_section_position,
     group_sections,
     maybe_update_gen_python_code_section,
     move_section_to_pane,
@@ -999,11 +1000,31 @@ class BaseProjectManager(ABC):
         """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        view_rect = x.viewRect
+        position = get_smart_top_level_section_position(
+            self.settings_file.settings,
+            project_state,
+            x.implType,
+            x.implOverrides,
+            x.position,
+            view_rect,
+        )
+        viewport = project_state.projectConfig.viewport
+        logger.debug(
+            "Placing top-level section: projectConfigId=%s implType=%s "
+            "requested=%s resolved=%s viewRect=%s viewport=%s",
+            x.projectConfigId,
+            x.implType,
+            x.position.model_dump(),
+            position.model_dump(),
+            view_rect.model_dump() if view_rect else None,
+            viewport.model_dump() if viewport else None,
+        )
         sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
             x.implType,
-            x.position,
+            position,
             x.implOverrides,
         )
         await self.update_and_broadcast_project_state(project_state)
@@ -1280,7 +1301,10 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
-        new_project_config = ProjectConfig(previewImgColor=previewImgColor)
+        new_project_config = ProjectConfig(
+            previewImgColor=previewImgColor,
+            viewport=None,
+        )
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         create_top_level_section(
             self.settings_file.settings,

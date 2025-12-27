@@ -37,7 +37,12 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
-from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
+from setta.types.project_config import (
+    Position,
+    TopLevelSectionLayout,
+    Viewport,
+    ViewRect,
+)
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     SectionSize,
@@ -144,6 +149,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | None
     ]
     position: Position
+    viewRect: NotRequired[ViewRect | None]
 
 
 class ListenerCreateViewModeRequestPayload(TypedDict):

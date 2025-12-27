@@ -86,7 +86,7 @@ from setta.types.helpers_lvl1 import (
     set_curr_effective_section_impl_value,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, TopLevelSectionLayout
+from setta.types.project_config import Position, TopLevelSectionLayout, ViewRect
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
@@ -367,6 +367,296 @@ def create_section(
     p.sectionVariants[variant.id] = variant
 
     return core.id
+
+
+_SECTION_PLACEMENT_FALLBACK_WIDTH = 420.0
+_SECTION_PLACEMENT_FALLBACK_HEIGHT = 260.0
+_SECTION_PLACEMENT_PADDING = 16.0
+_SECTION_PLACEMENT_STEP = 40.0
+_SECTION_PLACEMENT_MIN_STEPS = 20
+_SECTION_PLACEMENT_MAX_STEPS = 240
+
+
+def get_smart_top_level_section_position(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    impl_type: SectionType,
+    impl_overrides: BaseSectionImplArgsUnion | None,
+    preferred_position: Position,
+    view_rect: ViewRect | None = None,
+) -> Position:
+    width, height = _resolve_section_placement_size(settings, impl_type, impl_overrides)
+    existing_rects = _get_top_level_section_rects(p)
+    clamped_position = (
+        _clamp_position_to_view_rect(preferred_position, width, height, view_rect)
+        if view_rect
+        else None
+    )
+    if not existing_rects:
+        return clamped_position or preferred_position
+
+    if view_rect:
+        if clamped_position and not _rect_overlaps_existing(
+            clamped_position, width, height, existing_rects
+        ):
+            return clamped_position
+        candidate = _find_non_overlapping_position_in_view_rect(
+            view_rect,
+            width,
+            height,
+            existing_rects,
+            preferred_position,
+        )
+        if candidate:
+            return candidate
+
+    candidate = _find_non_overlapping_position(
+        preferred_position,
+        width,
+        height,
+        existing_rects,
+    )
+    if candidate:
+        return candidate
+
+    return _get_fallback_position(
+        preferred_position,
+        width,
+        height,
+        existing_rects,
+    )
+
+
+def _resolve_section_placement_size(
+    settings: SettingsState,
+    impl_type: SectionType,
+    impl_overrides: BaseSectionImplArgsUnion | None,
+) -> tuple[float, float]:
+    base_impl = get_user_default_section_from_settings(settings, impl_type)
+    preview_impl = create_section_impl(impl_type, base_impl, impl_overrides)
+    width = _resolve_size_value(
+        preview_impl.size.width, _SECTION_PLACEMENT_FALLBACK_WIDTH
+    )
+    height = _resolve_size_value(
+        preview_impl.size.height, _SECTION_PLACEMENT_FALLBACK_HEIGHT
+    )
+    return width, height
+
+
+def _resolve_size_value(
+    value: float | SectionSizeMode,
+    fallback: float,
+) -> float:
+    if value == SectionSizeMode.auto:
+        return fallback
+    return float(value)
+
+
+def _get_top_level_section_rects(p: "ProjectStateSingleConfig"):
+    rects: list[tuple[float, float, float, float]] = []
+    for section_id, layout in p.projectConfig.topLevelSections.items():
+        impl = get_curr_effective_section_impl(p, section_id)
+        width = (
+            float(layout.w)
+            if layout.w is not None
+            else _resolve_size_value(impl.size.width, _SECTION_PLACEMENT_FALLBACK_WIDTH)
+        )
+        height = (
+            float(layout.h)
+            if layout.h is not None
+            else _resolve_size_value(
+                impl.size.height, _SECTION_PLACEMENT_FALLBACK_HEIGHT
+            )
+        )
+        rects.append((layout.x, layout.y, width, height))
+    return rects
+
+
+def _find_non_overlapping_position(
+    preferred_position: Position,
+    width: float,
+    height: float,
+    existing_rects: list[tuple[float, float, float, float]],
+) -> Position | None:
+    max_steps = _get_max_steps_for_search(
+        preferred_position,
+        width,
+        height,
+        existing_rects,
+    )
+    for step in range(max_steps + 1):
+        for dx in range(-step, step + 1):
+            for dy in range(-step, step + 1):
+                if max(abs(dx), abs(dy)) != step:
+                    continue
+                candidate = Position(
+                    x=preferred_position.x + dx * _SECTION_PLACEMENT_STEP,
+                    y=preferred_position.y + dy * _SECTION_PLACEMENT_STEP,
+                )
+                if not _rect_overlaps_existing(
+                    candidate, width, height, existing_rects
+                ):
+                    return candidate
+    return None
+
+
+def _find_non_overlapping_position_in_view_rect(
+    view_rect: ViewRect,
+    width: float,
+    height: float,
+    existing_rects: list[tuple[float, float, float, float]],
+    preferred_position: Position,
+) -> Position | None:
+    bounds = _get_view_rect_bounds(view_rect, width, height)
+    if not bounds:
+        return None
+    min_x, min_y, max_x, max_y = bounds
+    candidates: list[Position] = []
+    y = min_y
+    while y <= max_y:
+        x = min_x
+        while x <= max_x:
+            candidates.append(Position(x=x, y=y))
+            x += _SECTION_PLACEMENT_STEP
+        y += _SECTION_PLACEMENT_STEP
+
+    candidates.sort(
+        key=lambda candidate: _distance_squared(
+            candidate.x + width / 2,
+            candidate.y + height / 2,
+            preferred_position.x,
+            preferred_position.y,
+        )
+    )
+
+    for candidate in candidates:
+        if not _rect_overlaps_existing(candidate, width, height, existing_rects):
+            return candidate
+    return None
+
+
+def _rect_overlaps_existing(
+    candidate: Position,
+    width: float,
+    height: float,
+    existing_rects: list[tuple[float, float, float, float]],
+) -> bool:
+    for x, y, w, h in existing_rects:
+        if _rects_overlap_with_padding(
+            candidate.x,
+            candidate.y,
+            width,
+            height,
+            x,
+            y,
+            w,
+            h,
+        ):
+            return True
+    return False
+
+
+def _get_max_steps_for_search(
+    preferred_position: Position,
+    width: float,
+    height: float,
+    existing_rects: list[tuple[float, float, float, float]],
+) -> int:
+    if not existing_rects:
+        return _SECTION_PLACEMENT_MIN_STEPS
+    min_x = min(x for x, _, _, _ in existing_rects)
+    max_x = max(x + w for x, _, w, _ in existing_rects)
+    min_y = min(y for _, y, _, _ in existing_rects)
+    max_y = max(y + h for _, y, _, h in existing_rects)
+    max_dist = max(
+        abs(preferred_position.x - min_x),
+        abs(preferred_position.x - max_x),
+        abs(preferred_position.y - min_y),
+        abs(preferred_position.y - max_y),
+    )
+    max_dim = max(width, height)
+    steps = math.ceil((max_dist + max_dim) / _SECTION_PLACEMENT_STEP) + 2
+    steps = max(steps, _SECTION_PLACEMENT_MIN_STEPS)
+    return min(steps, _SECTION_PLACEMENT_MAX_STEPS)
+
+
+def _rects_overlap_with_padding(
+    ax: float,
+    ay: float,
+    aw: float,
+    ah: float,
+    bx: float,
+    by: float,
+    bw: float,
+    bh: float,
+) -> bool:
+    return (
+        ax < bx + bw + _SECTION_PLACEMENT_PADDING
+        and ax + aw > bx - _SECTION_PLACEMENT_PADDING
+        and ay < by + bh + _SECTION_PLACEMENT_PADDING
+        and ay + ah > by - _SECTION_PLACEMENT_PADDING
+    )
+
+
+def _get_fallback_position(
+    preferred_position: Position,
+    width: float,
+    height: float,
+    existing_rects: list[tuple[float, float, float, float]],
+) -> Position:
+    if not existing_rects:
+        return preferred_position
+    max_x = max(x + w for x, _, w, _ in existing_rects)
+    min_y = min(y for _, y, _, _ in existing_rects)
+    candidate = Position(
+        x=max_x + _SECTION_PLACEMENT_PADDING,
+        y=min_y,
+    )
+    if not _rect_overlaps_existing(candidate, width, height, existing_rects):
+        return candidate
+    return preferred_position
+
+
+def _clamp_position_to_view_rect(
+    preferred_position: Position,
+    width: float,
+    height: float,
+    view_rect: ViewRect | None,
+) -> Position | None:
+    if not view_rect:
+        return None
+    bounds = _get_view_rect_bounds(view_rect, width, height)
+    if not bounds:
+        return None
+    min_x, min_y, max_x, max_y = bounds
+    clamped_x = min(max(preferred_position.x, min_x), max_x)
+    clamped_y = min(max(preferred_position.y, min_y), max_y)
+    return Position(x=clamped_x, y=clamped_y)
+
+
+def _get_view_rect_bounds(
+    view_rect: ViewRect,
+    width: float,
+    height: float,
+) -> tuple[float, float, float, float] | None:
+    min_x = view_rect.x + _SECTION_PLACEMENT_PADDING
+    min_y = view_rect.y + _SECTION_PLACEMENT_PADDING
+    max_x = view_rect.x + view_rect.width - width - _SECTION_PLACEMENT_PADDING
+    max_y = view_rect.y + view_rect.height - height - _SECTION_PLACEMENT_PADDING
+    if max_x < min_x or max_y < min_y:
+        return None
+    return min_x, min_y, max_x, max_y
+
+
+def _distance_squared(
+    ax: float,
+    ay: float,
+    bx: float,
+    by: float,
+) -> float:
+    dx = ax - bx
+    dy = ay - by
+    return dx * dx + dy * dy
 
 
 def init_draw_section_layer(impl: DrawSectionImpl):

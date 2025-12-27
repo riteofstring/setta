@@ -11,12 +11,17 @@ import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useRef } from "react";
-import { getEmptySpacePosition } from "state/actions/sections/createSections";
+import {
+  getEmptySpacePlacement,
+  panToSectionIfNeeded,
+  reservePlacement,
+} from "state/actions/sections/createSections";
 import {
   CreateSectionsContextMenuInfo,
   createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
+import { res200 } from "utils/endpointUtils";
 import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectSearch, useSettings } from "state/definitions";
@@ -130,6 +135,10 @@ function ProjectPageCommandPalette() {
   }
 
   const onSelectedItemChange: OnSelectedItemChangeFnType<string> = (id) => {
+    void handleCommandPaletteSelection(id);
+  };
+
+  async function handleCommandPaletteSelection(id: string | null) {
     // finds matching item, and then uses its specificProps
     // TODO: make this less bad
     let match: CreateSectionsContextMenuInfo | null = null;
@@ -146,11 +155,17 @@ function ProjectPageCommandPalette() {
       return;
     }
 
-    createTopLevelSectionFromImplSpecs(
+    const placement = getEmptySpacePlacement({ allowOutOfView: true });
+    reservePlacement(placement);
+    const res = await createTopLevelSectionFromImplSpecs(
       match.implSpecs,
-      getEmptySpacePosition(),
+      placement.position,
+      placement.viewRect,
     );
-  };
+    if (res200(res)) {
+      panToSectionIfNeeded(res.data);
+    }
+  }
 
   return (
     <ProjectPageAdvancedCore

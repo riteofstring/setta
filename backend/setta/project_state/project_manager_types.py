@@ -13,7 +13,12 @@ from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
 from setta.types.id import ID
-from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
+from setta.types.project_config import (
+    Position,
+    TopLevelSectionLayout,
+    Viewport,
+    ViewRect,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -168,6 +173,10 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     )
     position: Position = Field(
         description="Canvas coordinates where the section should be placed.",
+    )
+    viewRect: ViewRect | None = Field(
+        default=None,
+        description="Optional visible bounds used to keep placement within view.",
     )
 
 
