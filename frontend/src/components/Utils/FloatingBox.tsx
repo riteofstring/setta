@@ -3,11 +3,10 @@ import _ from "lodash";
 import { Resizable, ResizeCallback } from "re-resizable";
 import React, { useEffect, useRef } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
-import {
-  createTopLevelSection,
-  getEmptySpacePosition,
-} from "state/actions/sections/createSections";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { getEmptySpacePosition } from "state/actions/sections/createSections";
 import { useLocalStorage, useSettings } from "state/definitions";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
@@ -390,7 +389,8 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
         ? `## ${item.title}\n\n${item.content}`
         : item.content;
       if (content) {
-        createTopLevelSection({
+        route_create_top_level_section({
+          projectConfigId: getCurrProjectConfigId(),
           implType: SectionTypeEnum.TextBlock,
           implOverrides: {
             size: { width: 300, height: 300 },

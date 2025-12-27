@@ -1,1 +1,0 @@
-Compare the current branch with the main branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Is there any reason I shouldn't merge the current branch into the main branch? Both branches are up to date locally. Always assume that main branch changes won't be clobbered (i.e. any merge conflicts will be handled gracefully).

@@ -13,6 +13,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
@@ -20,6 +21,7 @@ import { CodeObjType, CodeObjTypeEnum } from "utils/generatedTypes";
 type MetaControlContentButtonProps = {
   sectionId: string;
   controlParamId: string;
+  sectionName: string;
   codeObjType: CodeObjTypeEnum.ButtonParam;
   onAction: () => void;
 };
@@ -27,6 +29,7 @@ type MetaControlContentButtonProps = {
 type MetaControlContentValueProps = {
   sectionId: string;
   controlParamId: string;
+  sectionName: string;
   codeObjType: Exclude<CodeObjType, CodeObjTypeEnum.ButtonParam>;
   value: string;
   defaultVal: string;
@@ -52,6 +55,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
     sectionId,
     controlParamId,
     codeObjType,
+    sectionName,
     value,
     defaultVal,
     onValueChange,
@@ -103,7 +107,13 @@ export function MetaControlContent(props: MetaControlContentProps) {
         />
       );
     case CodeObjTypeEnum.SwitchParam:
-      return <SwitchControl value={value} onValueChange={onValueChange} />;
+      return (
+        <SwitchControl
+          sectionName={sectionName}
+          value={value}
+          onValueChange={onValueChange}
+        />
+      );
     case CodeObjTypeEnum.ColorPickerParam:
       return (
         <ColorControl
@@ -204,11 +214,11 @@ function SliderControl({
   onValueChange: ParamValueChange;
 }) {
   const sliderRootClassName =
-    "SliderRoot relative flex w-full flex-1 touch-none select-none items-center";
+    `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
   const sliderTrackClassName =
-    "relative flex-grow rounded-full bg-setta-200 h-[3px] dark:bg-setta-700";
+    `${NO_DRAG_CLASS_NAME} relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700 cursor-pointer`;
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
-  const sliderThumbClassName = `${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
+  const sliderThumbClassName = `${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
 
   return (
     <ConfiguredSliderInput
@@ -216,7 +226,7 @@ function SliderControl({
       paramInfoId={controlParamId}
       value={value}
       onChange={onValueChange}
-      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} flex w-full min-w-0 items-center gap-2`}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`}
       sliderRootClassName={sliderRootClassName}
       sliderTrackClassName={sliderTrackClassName}
       sliderRangeClassName={sliderRangeClassName}
@@ -248,9 +258,11 @@ function RotaryControl({
 }
 
 function SwitchControl({
+  sectionName,
   value,
   onValueChange,
 }: {
+  sectionName: string;
   value: string;
   onValueChange: ParamValueChange;
 }) {
@@ -260,7 +272,7 @@ function SwitchControl({
     <div className="flex w-full items-center justify-between gap-3">
       <div className="flex flex-col">
         <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
-          Enabled
+          {sectionName}
         </span>
         <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
           {isOn ? "On" : "Off"}
