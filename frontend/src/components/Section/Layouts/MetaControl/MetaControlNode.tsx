@@ -1,12 +1,11 @@
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
+import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { type DragEvent } from "react";
-import { FiUploadCloud } from "react-icons/fi";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import {
   NO_DRAG_CLASS_NAME,
@@ -98,7 +97,7 @@ export function MetaControlContent({
     case CodeObjTypeEnum.PasswordParam:
       return <PasswordControl value={value} onValueChange={onValueChange} />;
     case CodeObjTypeEnum.DropzoneParam:
-      return <DropzoneControl value={value} onValueChange={onValueChange} />;
+      return <DropzoneInput value={value} onChange={onValueChange} />;
     default:
       return null;
   }
@@ -332,44 +331,6 @@ function PasswordControl({
         gridArea="single-cell-child"
       />
       <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
-    </div>
-  );
-}
-
-function DropzoneControl({
-  value,
-  onValueChange,
-}: {
-  value: string;
-  onValueChange: (value: string) => void;
-}) {
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    const files = Array.from(event.dataTransfer.files);
-    if (files.length > 0) {
-      onValueChange(files.map((file) => file.name).join(", "));
-      return;
-    }
-    const text = event.dataTransfer.getData("text");
-    if (text) {
-      onValueChange(text);
-    }
-  }
-
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-  }
-
-  const label = value === "" ? "Drop a file here" : value;
-
-  return (
-    <div
-      className={`${NO_DRAG_CLASS_NAME} flex w-full items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-    >
-      <FiUploadCloud className="text-base" />
-      {label}
     </div>
   );
 }

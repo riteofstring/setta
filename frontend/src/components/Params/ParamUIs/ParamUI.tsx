@@ -24,6 +24,7 @@ import {
   ColorPickerInputConfigForParam,
 } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfigForParam } from "./DropdownInput";
+import { DropzoneInput } from "./DropzoneInput";
 import { PasswordInput } from "./PasswordInput";
 import { RotaryInput } from "./RotaryInput";
 import { SliderInput, SliderInputConfigForParam } from "./SliderInput";
@@ -197,7 +198,6 @@ export function ParamUI({
         />
       );
     case CodeObjTypeEnum.TextAreaParam:
-    case CodeObjTypeEnum.DropzoneParam:
       return (
         <TextParamConfigured
           sectionId={sectionId}
@@ -211,6 +211,14 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+        />
+      );
+    case CodeObjTypeEnum.DropzoneParam:
+      return (
+        <DropzoneParamConfigured
+          value={value}
+          onChange={onChange}
+          isDisabled={isDisabled}
         />
       );
     default:
@@ -325,6 +333,20 @@ function RotaryParamConfigured({
       step={step}
       isDisabled={isDisabled}
     />
+  );
+}
+
+function DropzoneParamConfigured({
+  value,
+  onChange,
+  isDisabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  isDisabled: boolean;
+}) {
+  return (
+    <DropzoneInput value={value} onChange={onChange} isDisabled={isDisabled} />
   );
 }
 
