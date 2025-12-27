@@ -1,14 +1,15 @@
 import asyncio
 import logging
-from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import mcp.types as types
 from mcp import ClientSession
-from mcp.client.sse import sse_client
-from mcp.client.stdio import StdioServerParameters, stdio_client
-from mcp.types import Tool
+from mcp.client.session_group import ClientSessionGroup, SseServerParameters
+from mcp.client.stdio import StdioServerParameters
 
+from setta.logging.errors import log_failure
+from setta.logging.tasks import spawn_background_task
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
 from setta.utils.constants import C
@@ -19,147 +20,335 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MCPServerClient:
-    """Client wrapper for a single MCP server."""
+@dataclass
+class _ServerState:
+    server_id: str
+    config: MCPServerConfig
+    session: ClientSession | None = None
+    stop_event: asyncio.Event = field(default_factory=asyncio.Event)
+    init_tool_definitions: dict[str, "ChatCompletionToolParam"] = field(
+        default_factory=dict
+    )
+    discoverable_tool_definitions: dict[str, "ChatCompletionToolParam"] = field(
+        default_factory=dict
+    )
+    tool_annotations_by_name: dict[str, SettaToolAnnotations] = field(
+        default_factory=dict
+    )
 
-    def __init__(
-        self,
-        server_id: str,
-        config: MCPServerConfig,
-        *,
-        on_tools_updated: Callable[[], None] | None = None,
-    ) -> None:
-        self.server_id = server_id
-        self._config = config
-        self._transport = config.transport
-        self._url: str | None = None
-        self._headers: dict[str, str] = {}
-        self._command: str | None = None
-        self._args: list[str] = []
-        self._env: dict[str, str] = {}
-        self._cwd: str | None = None
-        self._stop_event = asyncio.Event()
-        if config.transport == "sse":
-            if not config.url:
-                raise ValueError(f"MCP server '{server_id}' requires a url")
-            self._url = config.url
-            self._headers = dict(config.headers)
-        elif config.transport == "stdio":
-            if not config.command:
-                raise ValueError(f"MCP server '{server_id}' requires a command")
-            self._command = config.command
-            self._args = list(config.args)
-            self._env = dict(config.env)
-            self._cwd = config.cwd
-        else:
-            raise ValueError(
-                f"MCP server '{server_id}' uses unsupported transport '{config.transport}'"
-            )
-        self._on_tools_updated = on_tools_updated
-        self.session: ClientSession | None = None
-        self.exit_stack = AsyncExitStack()
+
+class MultiMCPClient:
+    """Aggregate MCP client with namespaced tool definitions."""
+
+    def __init__(self, server_configs: dict[str, MCPServerConfig]) -> None:
+        self._server_states: dict[str, _ServerState] = {}
+        self._connect_tasks: dict[str, asyncio.Task[None]] = {}
+        self._connect_lock = asyncio.Lock()
+        self._group_lock = asyncio.Lock()
+        self._group_ready = False
+        self._component_name_prefixes: dict[int, str] = {}
+        self._component_name_counts: dict[str, int] = {}
+        self._group = ClientSessionGroup(
+            component_name_hook=self._component_name_hook,
+        )
         self.init_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
         self.discoverable_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
+        self._tool_cache_version = 0
+        for server_id, config in server_configs.items():
+            self._validate_server_id(server_id)
+            self._server_states[server_id] = _ServerState(
+                server_id=server_id,
+                config=config,
+            )
+        self._rebuild_tool_cache()
 
-    async def connect_to_server(self, retry_delay: int = 1) -> None:
-        """Connect to the MCP server and maintain tool caches."""
+    @property
+    def tool_cache_version(self) -> int:
+        return self._tool_cache_version
 
-        target = self._url if self._transport == "sse" else self._command
-        logger.info("Starting MCP client connection to %s (%s)", self.server_id, target)
+    async def connect_to_servers(self, retry_delay: int = 1) -> None:
+        if not self._server_states:
+            return
+        await self._ensure_group_ready()
+        async with self._connect_lock:
+            for server_id, state in self._server_states.items():
+                self._ensure_connect_task(server_id, state, retry_delay)
 
-        while not self._stop_event.is_set():
+    async def update_server_configs(
+        self,
+        server_configs: dict[str, MCPServerConfig],
+        retry_delay: int = 1,
+    ) -> None:
+        await self._ensure_group_ready()
+        stop_states: list[_ServerState] = []
+        cancel_tasks: list[asyncio.Task[None]] = []
+        async with self._connect_lock:
+            current_ids = set(self._server_states)
+            new_ids = set(server_configs)
+            removed_ids = current_ids - new_ids
+            added_ids = new_ids - current_ids
+            updated_ids: set[str] = set()
+            for server_id in current_ids & new_ids:
+                state = self._server_states[server_id]
+                if not self._config_matches(state.config, server_configs[server_id]):
+                    updated_ids.add(server_id)
+
+            for server_id in removed_ids | updated_ids:
+                state = self._server_states.pop(server_id, None)
+                if state:
+                    state.stop_event.set()
+                    stop_states.append(state)
+                task = self._connect_tasks.pop(server_id, None)
+                if task:
+                    cancel_tasks.append(task)
+
+            for server_id in added_ids | updated_ids:
+                self._validate_server_id(server_id)
+                state = _ServerState(
+                    server_id=server_id,
+                    config=server_configs[server_id],
+                )
+                self._server_states[server_id] = state
+                self._ensure_connect_task(server_id, state, retry_delay)
+
+            for server_id, state in self._server_states.items():
+                self._ensure_connect_task(server_id, state, retry_delay)
+
+            if removed_ids or added_ids or updated_ids:
+                self._rebuild_tool_cache()
+
+        for task in cancel_tasks:
+            task.cancel()
+        if cancel_tasks:
+            await asyncio.gather(*cancel_tasks, return_exceptions=True)
+        if stop_states:
+            await asyncio.gather(
+                *(self._disconnect_session(state) for state in stop_states),
+                return_exceptions=True,
+            )
+
+    async def call_tool(
+        self, namespaced_tool_name: str, tool_args: dict[str, object]
+    ) -> types.CallToolResult:
+        server_id, tool_name = self._split_namespaced_tool_name(namespaced_tool_name)
+        session = self._get_server_session(server_id)
+        return await session.call_tool(tool_name, tool_args)
+
+    async def stop(self) -> None:
+        async with self._connect_lock:
+            tasks = list(self._connect_tasks.values())
+            self._connect_tasks = {}
+            states = list(self._server_states.values())
+            for state in states:
+                state.stop_event.set()
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        if states:
+            await asyncio.gather(
+                *(self._disconnect_session(state) for state in states),
+                return_exceptions=True,
+            )
+        if self._group_ready:
+            await self._group.__aexit__(None, None, None)
+            self._group_ready = False
+        logger.info("MCP client resources cleaned up successfully")
+
+    def _component_name_hook(
+        self,
+        name: str,
+        server_info: types.Implementation,
+    ) -> str:
+        key = id(server_info)
+        prefix = self._component_name_prefixes.get(key)
+        if prefix is None:
+            base = server_info.name or "mcp"
+            count = self._component_name_counts.get(base, 0) + 1
+            self._component_name_counts[base] = count
+            suffix = f"-{count}" if count > 1 else ""
+            prefix = f"{base}{suffix}"
+            self._component_name_prefixes[key] = prefix
+        return f"{prefix}{C.MCP_TOOL_NAMESPACE_SEPARATOR}{name}"
+
+    async def _ensure_group_ready(self) -> None:
+        if self._group_ready:
+            return
+        async with self._group_lock:
+            if self._group_ready:
+                return
+            await self._group.__aenter__()
+            self._group_ready = True
+
+    def _get_server_state(self, server_id: str) -> _ServerState:
+        if server_id not in self._server_states:
+            raise KeyError(f"MCP server '{server_id}' is not registered")
+        return self._server_states[server_id]
+
+    def _get_server_session(self, server_id: str) -> ClientSession:
+        state = self._get_server_state(server_id)
+        if not state.session:
+            raise ValueError(f"MCP server '{server_id}' is not connected")
+        return state.session
+
+    def _ensure_connect_task(
+        self,
+        server_id: str,
+        state: _ServerState,
+        retry_delay: int,
+    ) -> None:
+        task = self._connect_tasks.get(server_id)
+        if task is not None and not task.done():
+            return
+        self._connect_tasks[server_id] = spawn_background_task(
+            lambda: self._connect_loop(server_id, state, retry_delay),
+            label=f"mcp-client-{server_id}",
+            logger=logger,
+            extra_values={
+                "service": "mcp-client",
+                "server_id": server_id,
+                "transport": state.config.transport,
+            },
+        )
+
+    async def _connect_loop(
+        self,
+        server_id: str,
+        state: _ServerState,
+        retry_delay: int,
+    ) -> None:
+        await self._ensure_group_ready()
+        target = self._describe_target(state.config)
+        logger.info("Starting MCP client connection to %s (%s)", server_id, target)
+
+        while not state.stop_event.is_set():
             try:
-                logger.info("Attempting to connect to %s (%s)", self.server_id, target)
-                if self._transport == "sse":
-                    transport = await self.exit_stack.enter_async_context(
-                        sse_client(url=self._url, headers=self._headers or None)
-                    )
-                else:
-                    server_params = StdioServerParameters(
-                        command=self._command,
-                        args=list(self._args),
-                        env=self._env or None,
-                        cwd=self._cwd,
-                    )
-                    transport = await self.exit_stack.enter_async_context(
-                        stdio_client(server_params)
-                    )
-                self.read, self.write = transport
-                self.session = await self.exit_stack.enter_async_context(
-                    ClientSession(self.read, self.write)
+                logger.info("Attempting to connect to %s (%s)", server_id, target)
+                session = await self._connect_session(state.config)
+                state.session = session
+                logger.info("Connected to %s (%s)", server_id, target)
+                await self._refresh_tool_cache(server_id, state, session)
+                await self._keep_alive(state)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log_failure(
+                    exc,
+                    label="mcp-client-connect",
+                    logger=logger,
+                    handled=True,
                 )
-                await self.session.initialize()
-                logger.info("Connected to %s (%s)", self.server_id, target)
-                response = await self.session.list_tools()
-                self._update_tool_cache(list(response.tools))
-                if self._on_tools_updated:
-                    self._on_tools_updated()
-                await self._keep_alive()
-            except asyncio.TimeoutError:
-                logger.warning(
-                    "Connection to %s timed out; retrying in %s seconds",
-                    self.server_id,
-                    retry_delay,
-                )
-            except Exception:
-                logger.exception(
-                    "Connection to %s failed; retrying in %s seconds",
-                    self.server_id,
-                    retry_delay,
-                )
+            finally:
+                await self._disconnect_session(state)
 
-            await self.exit_stack.aclose()
-            self.session = None
-            self.exit_stack = AsyncExitStack()
-            if self._stop_event.is_set():
+            if state.stop_event.is_set():
                 break
             await asyncio.sleep(retry_delay)
 
-    async def _keep_alive(self) -> None:
-        if not self.session:
-            raise ValueError("MCP session must be initialized before keep-alive")
+    async def _connect_session(self, config: MCPServerConfig) -> ClientSession:
+        if config.transport == "sse":
+            if not config.url:
+                raise ValueError("SSE MCP server requires url")
+            params = SseServerParameters(
+                url=config.url,
+                headers=dict(config.headers) or None,
+            )
+        elif config.transport == "stdio":
+            if not config.command:
+                raise ValueError("stdio MCP server requires command")
+            params = StdioServerParameters(
+                command=config.command,
+                args=list(config.args),
+                env=dict(config.env) or None,
+                cwd=config.cwd,
+            )
+        else:
+            raise ValueError(
+                f"MCP server transport '{config.transport}' is not supported"
+            )
+        return await self._group.connect_to_server(params)
 
-        while not self._stop_event.is_set():
-            await asyncio.sleep(10)
-            if self._stop_event.is_set():
-                break
-            await self.session.send_ping()
-
-    async def call_tool(
-        self, tool_name: str, tool_args: dict[str, object]
-    ) -> types.CallToolResult:
-        if not self.session:
-            raise ValueError("MCP session must be initialized before calling tools")
-
-        return await self.session.call_tool(tool_name, tool_args)
-
-    async def stop(self) -> None:
-        self._stop_event.set()
-        await self.exit_stack.aclose()
-        self.session = None
-        logger.info("MCP client resources cleaned up for %s", self.server_id)
-
-    def matches_config(self, config: MCPServerConfig) -> bool:
-        return self._config.model_dump() == config.model_dump()
-
-    def _update_tool_cache(self, tools: list[Tool]) -> None:
+    async def _refresh_tool_cache(
+        self,
+        server_id: str,
+        state: _ServerState,
+        session: ClientSession,
+    ) -> None:
+        response = await session.list_tools()
         init_tools: dict[str, "ChatCompletionToolParam"] = {}
         discoverable_tools: dict[str, "ChatCompletionToolParam"] = {}
         tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
-        for tool in tools:
+        for tool in response.tools:
             annotations = self._normalize_tool_annotations(tool.annotations)
-            tool_type = annotations.settaToolType
             definition = self._convert_tool_to_llm_definition(tool)
-            if tool_type == SettaToolType.init:
+            if annotations.settaToolType == SettaToolType.init:
                 init_tools[tool.name] = definition
             else:
                 discoverable_tools[tool.name] = definition
             tool_annotations_by_name[tool.name] = annotations
+        state.init_tool_definitions = init_tools
+        state.discoverable_tool_definitions = discoverable_tools
+        state.tool_annotations_by_name = tool_annotations_by_name
+        self._rebuild_tool_cache()
+        logger.info(
+            "Updated MCP tool cache for %s (%s init, %s discoverable)",
+            server_id,
+            len(init_tools),
+            len(discoverable_tools),
+        )
 
-        self.init_tool_definitions = init_tools
-        self.discoverable_tool_definitions = discoverable_tools
-        self.tool_annotations_by_name = tool_annotations_by_name
+    async def _keep_alive(self, state: _ServerState) -> None:
+        session = state.session
+        if not session:
+            raise ValueError("MCP session must be initialized before keep-alive")
+
+        while not state.stop_event.is_set():
+            await asyncio.sleep(10)
+            if state.stop_event.is_set():
+                break
+            await session.send_ping()
+
+    async def _disconnect_session(self, state: _ServerState) -> None:
+        had_tools = bool(
+            state.init_tool_definitions
+            or state.discoverable_tool_definitions
+            or state.tool_annotations_by_name
+        )
+        if had_tools:
+            state.init_tool_definitions = {}
+            state.discoverable_tool_definitions = {}
+            state.tool_annotations_by_name = {}
+            self._rebuild_tool_cache()
+
+        session = state.session
+        if not session:
+            return
+        state.session = None
+        try:
+            await self._group.disconnect_from_server(session)
+        except Exception as exc:
+            log_failure(
+                exc,
+                label="mcp-client-disconnect",
+                logger=logger,
+                handled=True,
+            )
+
+    @staticmethod
+    def _describe_target(config: MCPServerConfig) -> str:
+        if config.transport == "sse":
+            return config.url or "(missing url)"
+        if config.transport == "stdio":
+            return config.command or "(missing command)"
+        return config.transport
+
+    @staticmethod
+    def _config_matches(
+        left: MCPServerConfig,
+        right: MCPServerConfig,
+    ) -> bool:
+        return left.model_dump() == right.model_dump()
 
     @staticmethod
     def _normalize_tool_annotations(
@@ -174,7 +363,7 @@ class MCPServerClient:
 
     @staticmethod
     def _convert_tool_to_llm_definition(
-        tool: Tool,
+        tool: types.Tool,
     ) -> "ChatCompletionToolParam":
         function_payload = {
             "name": tool.name,
@@ -183,149 +372,38 @@ class MCPServerClient:
         }
         return {"type": "function", "function": function_payload}
 
-
-class MultiMCPClient:
-    """Aggregate MCP client with namespaced tool definitions."""
-
-    def __init__(self, server_configs: dict[str, MCPServerConfig]) -> None:
-        self._server_clients: dict[str, MCPServerClient] = {}
-        self._connect_tasks: dict[str, asyncio.Task[None]] = {}
-        self._connect_lock = asyncio.Lock()
-        self.init_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
-        self.discoverable_tool_definitions: dict[str, "ChatCompletionToolParam"] = {}
-        self.tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
-        self._tool_cache_version = 0
-        for server_id, config in server_configs.items():
-            self._validate_server_id(server_id)
-            self._server_clients[server_id] = MCPServerClient(
-                server_id,
-                config,
-                on_tools_updated=self._rebuild_tool_cache,
-            )
-        self._rebuild_tool_cache()
-
-    @property
-    def tool_cache_version(self) -> int:
-        return self._tool_cache_version
-
-    async def connect_to_servers(self, retry_delay: int = 1) -> None:
-        if not self._server_clients:
-            return
-        async with self._connect_lock:
-            for server_id, client in self._server_clients.items():
-                self._ensure_connect_task(server_id, client, retry_delay)
-
-    async def update_server_configs(
-        self,
-        server_configs: dict[str, MCPServerConfig],
-        retry_delay: int = 1,
-    ) -> None:
-        stop_clients: list[MCPServerClient] = []
-        cancel_tasks: list[asyncio.Task[None]] = []
-        async with self._connect_lock:
-            current_ids = set(self._server_clients)
-            new_ids = set(server_configs)
-            removed_ids = current_ids - new_ids
-            added_ids = new_ids - current_ids
-            updated_ids: set[str] = set()
-            for server_id in current_ids & new_ids:
-                client = self._server_clients[server_id]
-                if not client.matches_config(server_configs[server_id]):
-                    updated_ids.add(server_id)
-
-            for server_id in removed_ids | updated_ids:
-                client = self._server_clients.pop(server_id, None)
-                if client:
-                    stop_clients.append(client)
-                task = self._connect_tasks.pop(server_id, None)
-                if task:
-                    cancel_tasks.append(task)
-
-            for server_id in added_ids | updated_ids:
-                self._validate_server_id(server_id)
-                client = MCPServerClient(
-                    server_id,
-                    server_configs[server_id],
-                    on_tools_updated=self._rebuild_tool_cache,
-                )
-                self._server_clients[server_id] = client
-                self._ensure_connect_task(server_id, client, retry_delay)
-
-            for server_id, client in self._server_clients.items():
-                self._ensure_connect_task(server_id, client, retry_delay)
-
-            if removed_ids or added_ids or updated_ids:
-                self._rebuild_tool_cache()
-
-        for task in cancel_tasks:
-            task.cancel()
-        if stop_clients:
-            await asyncio.gather(*(client.stop() for client in stop_clients))
-
-    async def call_tool(
-        self, namespaced_tool_name: str, tool_args: dict[str, object]
-    ) -> types.CallToolResult:
-        server_id, tool_name = self._split_namespaced_tool_name(namespaced_tool_name)
-        server_client = self._get_server_client(server_id)
-        return await server_client.call_tool(tool_name, tool_args)
-
-    async def stop(self) -> None:
-        async with self._connect_lock:
-            tasks = list(self._connect_tasks.values())
-            self._connect_tasks = {}
-        for task in tasks:
-            task.cancel()
-        async with asyncio.TaskGroup() as tg:
-            for client in self._server_clients.values():
-                tg.create_task(client.stop())
-
-    def _get_server_client(self, server_id: str) -> MCPServerClient:
-        if server_id not in self._server_clients:
-            raise KeyError(f"MCP server '{server_id}' is not registered")
-        return self._server_clients[server_id]
-
-    def _ensure_connect_task(
-        self,
-        server_id: str,
-        client: MCPServerClient,
-        retry_delay: int,
-    ) -> None:
-        task = self._connect_tasks.get(server_id)
-        if task is not None and not task.done():
-            return
-        self._connect_tasks[server_id] = asyncio.create_task(
-            client.connect_to_server(retry_delay=retry_delay),
-            name=f"mcp-client-{server_id}",
-        )
-
     def _rebuild_tool_cache(self) -> None:
         init_tools: dict[str, "ChatCompletionToolParam"] = {}
         discoverable_tools: dict[str, "ChatCompletionToolParam"] = {}
         tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
-        for server_id, client in self._server_clients.items():
-            for tool_name, definition in client.init_tool_definitions.items():
+        for server_id, state in self._server_states.items():
+            for tool_name, definition in state.init_tool_definitions.items():
                 namespaced_name = self._build_namespaced_tool_name(server_id, tool_name)
-                if tool_name not in client.tool_annotations_by_name:
+                if tool_name not in state.tool_annotations_by_name:
                     raise KeyError(
                         f"MCP server '{server_id}' missing annotations for '{tool_name}'"
                     )
                 init_tools[namespaced_name] = self._namespace_tool_definition(
-                    server_id, tool_name, definition
+                    server_id,
+                    tool_name,
+                    definition,
                 )
                 tool_annotations_by_name[namespaced_name] = (
-                    client.tool_annotations_by_name[tool_name]
+                    state.tool_annotations_by_name[tool_name]
                 )
-            for tool_name, definition in client.discoverable_tool_definitions.items():
+            for tool_name, definition in state.discoverable_tool_definitions.items():
                 namespaced_name = self._build_namespaced_tool_name(server_id, tool_name)
-                if tool_name not in client.tool_annotations_by_name:
+                if tool_name not in state.tool_annotations_by_name:
                     raise KeyError(
                         f"MCP server '{server_id}' missing annotations for '{tool_name}'"
                     )
                 discoverable_tools[namespaced_name] = self._namespace_tool_definition(
-                    server_id, tool_name, definition
+                    server_id,
+                    tool_name,
+                    definition,
                 )
                 tool_annotations_by_name[namespaced_name] = (
-                    client.tool_annotations_by_name[tool_name]
+                    state.tool_annotations_by_name[tool_name]
                 )
 
         self.init_tool_definitions = init_tools
@@ -345,7 +423,8 @@ class MultiMCPClient:
         definition: "ChatCompletionToolParam",
     ) -> "ChatCompletionToolParam":
         namespaced_name = MultiMCPClient._build_namespaced_tool_name(
-            server_id, tool_name
+            server_id,
+            tool_name,
         )
         payload = dict(definition)
         function_payload = payload.get("function")
