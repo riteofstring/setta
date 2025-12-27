@@ -838,19 +838,6 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        )
-    )
-    async def set_meta_control_value(self, x: SetMetaControlValueRequest):
-        """Write a new manual value for the targeted meta control."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_meta_control_value(project_state, x.sectionId, x.value)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"codeObj": ["codeObjId"]}
         )
     )

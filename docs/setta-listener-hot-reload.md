@@ -8,18 +8,17 @@ such as ML models or database handles can be reused safely.
 ## How the Runtime Works
 
 - **Callback rebuilds happen under a lock.** `SettaListener.reload_callbacks`
-  acquires an internal lock before clearing and re-registering callbacks. The
-  listener keeps a snapshot of the previous registration so recoverable errors
-  restore the old callbacks automatically (`backend/setta/api/listener.py:503-528`).
+  acquires an internal lock before clearing and re-registering callbacks. If
+  reload fails, the previous callbacks and scheduler state are restored.
 - **Registrations can be replayed at any time.** The listener clears its
-  bookkeeping, resends `ListenerRegister`, and tolerates repeated acknowledgements
-  without leaking scheduler state (`backend/setta/api/listener.py:610-636`, `backend/setta/api/listener.py:358-415`).
-- **Persisted snapshots are cached.** When callbacks change, the listener replays
-  the most recent snapshot so newly registered handlers see current values right
-  away (`backend/setta/api/listener.py:1153-1184`).
-- **Realtime traffic continues uninterrupted.** The watcher runs inside the same
-  event loop as the websocket connection; no reconnects are required when callback
-  code changes (`backend/setta/api/listener.py:245-270`).
+  bookkeeping, resends `ListenerRegister`, and resets expected ack tracking
+  without leaking scheduler state.
+- **Persisted snapshots are cached.** When callbacks change, the listener can
+  replay the most recent snapshot so newly registered handlers see current values
+  right away (`trigger_refresh=True`).
+- **Realtime traffic continues uninterrupted.** The watcher runs as a background
+  task alongside the websocket connection; no reconnects are required when
+  callback code changes.
 
 ## Starting a Listener with Hot Reload
 
@@ -46,6 +45,8 @@ listener.start(
     builder=build_callbacks,
     extra_watch_paths=["callbacks/**/*.py"],
     ignore_patterns=["tests/**"],
+    trigger_refresh=True,
+    settle_delay=0.2,
 )
 ```
 
@@ -54,8 +55,10 @@ Key points:
   registration succeeds on the first bootstrap.
 - Heavy resources should live outside the builder function so they persist between
   reloads.
+- The builder must be a named function defined in a module so the reloader can
+  reload it by name.
 - Attempting to provide a builder without `hot_reload=True` raises an error, keeping
-  the API straightforward (`backend/setta/api/listener.py:205-234`).
+  the API straightforward.
 
 ## ListenerHotReloader Reference
 
@@ -65,7 +68,7 @@ updates (`backend/setta/api/hot_reload.py`).
 - **Module discovery.** The reloader infers watch roots from the builder module, so a
   simple script can opt in without specifying paths.
 - **File watching.** `watchfiles.awatch` provides an asyncio-native watcher that
-  batches edits and cooperates with the listener loop (`backend/setta/api/hot_reload.py:166-185`).
+  batches edits and cooperates with the listener loop.
 - **Custom targets.** `extra_watch_paths` accepts files, directories, or glob
   patterns. `ignore_patterns` filters noise such as generated files.
 - **Snapshot replay.** `trigger_refresh` (default `True`) controls whether the cached
@@ -73,7 +76,7 @@ updates (`backend/setta/api/hot_reload.py`).
 - **Manual reloads.** `reload_now(reload_module=False)` lets scripts prime callback
   registration before connecting, and `stop()` cleanly tears down the watcher.
 - **Settle delay.** Configure `settle_delay` to debounce bursty editor writes; the
-  default is 100 ms.
+  default is 0.1 seconds.
 
 ## Watcher Configuration Details
 
@@ -84,7 +87,7 @@ roots:
   example, `callbacks/**/*.py` watches every Python file under `callbacks/`).
 - Ignore patterns apply per directory root and use `fnmatch` semantics.
 - For direct file paths, ignore patterns are matched against the file name so single
-  files can be exempted without restructuring the project (`backend/setta/api/hot_reload.py:302-358`).
+  files can be exempted without restructuring the project.
 
 ## Testing & Verification
 

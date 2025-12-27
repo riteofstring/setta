@@ -3,34 +3,39 @@
 This page explains how realtime listener updates move through the system, how callback dependencies are evaluated, and what happens when the backend forces a snapshot replay.
 
 ## Snapshot bootstrap and registration
-- The listener connects via `SettaListener.run_forever`, sends `ListenerInitContent`, and receives a targeted `WebsocketMsgListenerForceRefresh` containing `ProjectStateSingleConfig`.
-- `_process_snapshot(refresh_kind="bootstrap")` compiles the project with `DependencyGraph` and `PythonCodeGenerator`, instantiates `s`, and populates `_dependency_cache`.
-- Each `@listener.listen` decorator becomes a `ListenerCallbackSpec`. During bootstrap, `_build_register_content` looks up the sanitized dependency names in `DependencyGraph.full_path_name_to_dep_key` and emits those typed dependency keys (instances of the `BaseDependencyKeyUnionWithDiscriminator` union) inside `WebsocketMsgListenerRegister`.
-- `_refresh_from_snapshot` caches the latest `ProjectStateSingleConfig` inside `_latest_persisted_snapshot`. Hot reload (`reload_callbacks`) and force refresh payloads that omit `projectState` reuse this cache via `_replay_cached_snapshot`, so freshly registered callbacks hydrate immediately instead of waiting for another backend snapshot.
-- Bootstrap callbacks run once the snapshot hydrates. Specs with `run_on_refresh=True` run even if nothing changed, while REFRESH_ONLY callbacks skip realtime traffic but emit an initial invocation so bootstrap-only workflows still fire.
+- The listener connects via `SettaListener.run_forever` (or `start`), sends `ListenerInitContent`, and the backend replies with a targeted `WebsocketMsgListenerForceRefresh` containing `ProjectStateSingleConfig`.
+- `_refresh_from_snapshot` caches the latest `ProjectStateSingleConfig` and delegates to `_process_snapshot`, which rebuilds `DependencyGraph` and `PythonCodeGenerator`, instantiates the generated `s` state, and resets `_last_realtime_sequence`.
+- If code generation fails, the listener keeps runtime state unavailable, skips hydration, and still registers so coverage and action routing stay consistent.
+- Each `@listener.listen` decorator produces a `ListenerCallbackSpec`. During registration, `_build_register_content` maps declared dependency strings through `DependencyGraph.full_path_name_to_dep_key` and sends typed dependency keys in `WebsocketMsgListenerRegister`.
+- Cached snapshots are replayed by `_replay_cached_snapshot` when callbacks reload and when force refresh payloads omit `projectState`, so newly registered callbacks see current values without waiting for a new backend snapshot.
 
 ## Realtime delta pipeline
-- Producer side: code that mutates project state calls `RealtimeEventHub.emit_realtime_delta`. The hub increments per-project sequence numbers and delegates to `WMHPythonScriptSender.send_realtime_update`.
-- The sender filters listener registrations so only sockets with matching dependencies receive the `WebsocketMsgListenerRealtimeEvent` payload.
-- Consumer side: `_handle_realtime_event` enforces sequencing (`sequence` must advance, otherwise the event is ignored) and rejects deltas for unknown dependency keys.
-- Each `ListenerRealtimeDelta` carries a discriminated dependency key plus a canonical value. `_set_dependency_value` updates the generated `s` instance, rehydrating typed values via `PythonCodeGenerator.get_value`.
-- `_dependency_cache` keeps the latest values per dependency. When deltas arrive, the cache is updated so subsequent snapshots can detect whether a value actually changed.
-- Matching callbacks enqueue work through `ListenerCallbackScheduler`, which handles debounce/throttle. SPECIFIC callbacks receive only the dependencies that changed; ANY_DEPENDENCY callbacks see a merged `changed` map of every delta in the batch; REFRESH_ONLY callbacks are skipped for realtime deliveries.
+- Producer side: UI changes emit `RealtimeUIChange`, `WMHFrontendReceiver` calls `RealtimeEventHub.emit_realtime_delta`, and the hub increments the per-project sequence before delegating to `WMHPythonScriptSender.send_realtime_update`.
+- The sender filters listener registrations so only sockets with matching dependency keys (or realtime wildcard callbacks) receive `WebsocketMsgListenerRealtimeEvent`.
+- Consumer side: `_handle_realtime_event` enforces sequencing (sequence must strictly increase), skips deltas with unknown dependency keys, and ignores updates until runtime state is available.
+- `_set_dependency_value` updates the generated state instance by evaluating the code-generated expression for the dependency.
+- Applied values update `_dependency_cache`, and matching callbacks are scheduled through `ListenerCallbackScheduler`. SPECIFIC callbacks receive only the dependencies that changed; ANY_DEPENDENCY callbacks receive the merged `changed` map for the batch; REFRESH_ONLY callbacks are skipped for realtime deltas.
+
+## Action event pipeline
+- Action controls emit `RealtimeActionEvent`, and `RealtimeEventHub.emit_action_event` increments the same per-project sequence counter used by dependency deltas.
+- `WMHPythonScriptSender.send_action_event` filters listeners by action ids. An empty `actions=[]` list registers a wildcard that receives all action events.
+- `_handle_action_event` enforces sequencing, batches action events per callback, and schedules them through `ListenerCallbackScheduler`. `ctx.actions` is populated for these calls; `ctx.changed` remains empty unless a dependency delta was also queued before execution.
+- Action events do not touch the dependency cache or the generated `s` instance.
 
 ## Dependency modes
-- `ListenerDependencyMode.SPECIFIC` (default when `deps` are provided) fires on realtime when any declared dependency changes. Snapshots trigger SPECIFIC callbacks only when the new value differs, unless `run_on_refresh=True`, in which case they run on bootstrap and force refresh regardless of diffs.
-- `ListenerDependencyMode.ANY_DEPENDENCY` describes a wildcard watcher. You omit `deps`; the callback runs on every bootstrap, force refresh, and realtime delta. Snapshot replays currently invoke the callback with an empty `ctx.changed` (no diff is computed), while realtime batches populate `ctx.changed` with the union of every dependency updated in that batch.
-- `ListenerDependencyMode.REFRESH_ONLY` is the implicit mode when no deps are declared. Callbacks run during bootstrap and force refresh, but realtime updates are ignored. Declaring deps is optional; if present they populate `ctx.changed` on refreshes for convenience.
-- Dependency names must match entries in `DependencyGraph.full_path_name_to_dep_key`; `_build_register_content` raises `KeyError` when a dependency string cannot be resolved so mistakes surface immediately instead of silently failing.
+- `ListenerDependencyMode.SPECIFIC` is the default when `deps` are provided. Realtime deltas run the callback when any declared dependency changes; snapshots run when a value changed or `run_on_refresh=True`.
+- `ListenerDependencyMode.ANY_DEPENDENCY` is a wildcard mode. Omit `deps`; the callback runs on every bootstrap, force refresh, and realtime delta. Snapshot callbacks receive an empty `ctx.changed`, while realtime batches include the merged changes.
+- `ListenerDependencyMode.REFRESH_ONLY` is the default when no `deps` are provided. Callbacks run on bootstrap and force refresh and ignore realtime deltas. If `deps` are present, `ctx.changed` includes any updated values; the callback still runs even if the diff is empty.
+- Action-only callbacks that leave `dependency_mode` unset (defaults to REFRESH_ONLY) run on snapshots only when `run_on_refresh=True`.
+- Dependency names must match `DependencyGraph.full_path_name_to_dep_key`; `_build_register_content` raises `KeyError` when a dependency string cannot be resolved.
 
 ## Force refresh lifecycle
-- Forcing a refresh (`WMHPythonScriptSender.send_force_refresh`) unicasts `WebsocketMsgListenerForceRefresh` to listeners bootstrapped for the project (or a targeted subset) and always calls `RealtimeEventHub.reset_sequence` beforehand—regardless of whether a snapshot payload is included or sockets are currently connected—so the very next realtime delta starts at sequence `1`.
-- `SettaListener._handle_force_refresh` falls back to the cached `_latest_persisted_snapshot` if the payload omits `projectState`. Missing snapshots are logged and only clear `_last_realtime_sequence`.
-- `_process_snapshot(refresh_kind="force_refresh")` resets `_last_realtime_sequence`, rebuilds the dependency graph, and replays callbacks using the same rules as bootstrap. SPECIFIC callbacks run if a watched dependency changed; `run_on_refresh=True` ensures they run even without changes; REFRESH_ONLY callbacks always execute.
-- After a successful replay, any future realtime event starts at sequence `1` again, preventing stale deltas from being accepted out of order.
+- Forcing a refresh (`WMHPythonScriptSender.send_force_refresh`) sends `WebsocketMsgListenerForceRefresh` and calls `RealtimeEventHub.reset_sequence`, so the next realtime delta or action event starts at sequence `1` even if no sockets were connected.
+- `_handle_force_refresh` replays the provided `projectState` or falls back to `_latest_persisted_snapshot`. Missing snapshots are logged and only clear `_last_realtime_sequence`.
+- `_process_snapshot` rebuilds the dependency graph and replays callbacks using the same rules as bootstrap, then waits for new realtime deltas at sequence `1`.
 
 ## Operational tips
-- When adding new listener callbacks, prefer SPECIFIC mode with explicit dependency strings so the registry can filter realtime traffic server-side.
-- Use REFRESH_ONLY for expensive operations that should not react to every delta but still need to react to schema or project rebuilds.
-- If a callback requires awareness of all deltas (for example, logging or routing messages), choose ANY_DEPENDENCY and handle the merged `ctx.changed`.
-- Sequencing bugs typically stem from bypassing `WMHPythonScriptSender.send_force_refresh` (which already calls `RealtimeEventHub.reset_sequence`). If you broadcast snapshots manually, make the `reset_sequence` call yourself before emitting new deltas.
+- Prefer SPECIFIC mode with explicit dependencies so server-side filtering reduces realtime traffic.
+- Use ANY_DEPENDENCY for logging or routing workflows that need every delta.
+- Use REFRESH_ONLY for expensive recomputations that should only happen on snapshots.
+- When listening for action controls, set `actions=[]` to receive all actions or provide explicit `actionId` values for targeted callbacks.
