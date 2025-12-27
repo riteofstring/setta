@@ -3,7 +3,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -13,6 +12,7 @@ from setta.types.generated.dependency_values import (
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.section_impls import MetaControlType
 
 
 class ListenerDependencyMode(str, Enum):
@@ -40,22 +40,22 @@ class ListenerRealtimeEventContent(BaseModel):
     sequence: int
 
 
-class ControlActionEvent(BaseModel):
+class MetaControlActionEvent(BaseModel):
     controlName: str
     actionId: str
-    actionControlType: CodeObjType
+    metaControlType: MetaControlType
     payload: str | None = None
     timestampMs: int
 
 
 class RealtimeActionEventContent(BaseModel):
     projectConfigId: ID
-    actionEvent: ControlActionEvent
+    actionEvent: MetaControlActionEvent
 
 
 class ListenerActionEventContent(BaseModel):
     projectConfigId: ID
-    actionEvents: list[ControlActionEvent]
+    actionEvents: list[MetaControlActionEvent]
     sequence: int
 
 

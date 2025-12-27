@@ -16,7 +16,6 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
@@ -124,7 +123,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     implType: SectionType
-    controlCodeObjType: NotRequired[CodeObjType | None]
     implOverrides: NotRequired[
         CallableSectionImplArgs
         | DictSectionImplArgs
@@ -387,6 +385,13 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     imagePath: str
+
+
+class ListenerSetMetaControlValueRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    value: str
 
 
 class ListenerSetParamEnteredValueRequestPayload(TypedDict):
@@ -817,6 +822,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetImageAreaImagePathRequestPayload
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
+
+    async def set_meta_control_value(
+        self, payload: ListenerSetMetaControlValueRequestPayload
+    ) -> None:
+        return await self._caller("route_set_meta_control_value", payload)
 
     async def set_param_entered_value(
         self, payload: ListenerSetParamEnteredValueRequestPayload
