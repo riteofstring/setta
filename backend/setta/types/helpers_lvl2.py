@@ -13,6 +13,7 @@ from setta.types.artifact import (
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
+    BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
@@ -38,6 +39,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseCodeObjImplArgs,
     BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
+    BaseParamCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
     BaseSectionImplArgs,
@@ -782,7 +784,9 @@ def change_param_impl(
         sectionId,
         paramInfoId,
     )
+    core = p.codeObjs[paramInfoId]
     old_impl = p.codeObjImpls[variant.impl]
+    old_effective_impl = get_effective_impl(old_impl, core, variant)
     impl = p.codeObjImpls.get(selectedId, None)
     if not impl:
         # selectedId will be the CodeObjType name
@@ -797,7 +801,21 @@ def change_param_impl(
     if not impl.isPreset and impl.id not in variant.nonPresetImpls:
         variant.nonPresetImpls.append(impl.id)
 
-    maybe_convert_code_obj_value(old_impl, impl, p.codeObjs[paramInfoId], variant)
+    if isinstance(old_effective_impl, BaseParamCodeObjImpl) and isinstance(
+        impl, BaseParamCodeObjImpl
+    ):
+        set_effective_impl_value(
+            impl,
+            core,
+            variant,
+            BaseParamCodeObjImplArgsWithCallable(
+                coreNameEditable=old_effective_impl.coreNameEditable,
+                coreNameType=old_effective_impl.coreNameType,
+                passingStyle=old_effective_impl.passingStyle,
+            ),
+        )
+
+    maybe_convert_code_obj_value(old_impl, impl, core, variant)
 
 
 def update_param_impl_config(
