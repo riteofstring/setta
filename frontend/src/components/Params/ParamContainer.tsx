@@ -87,9 +87,7 @@ function _ParamContainer({
           maybeErrorMessage={maybeErrorMessage}
         />
         <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {!!maybeErrorMessage && (
-          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-        )}
+        {!!maybeErrorMessage && <ErrorSection paramInfoId={paramInfoId} />}
       </article>
     </>
   ) : (
@@ -117,15 +115,9 @@ function _ParamContainer({
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
 
-function ErrorSection({
-  sectionId,
-  paramInfoId,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-}) {
-  function onContextMenu(e: React.MouseEvent<SVGElement>) {
-    openTypeErrorContextMenu(e, sectionId, paramInfoId);
+function ErrorSection({ paramInfoId }) {
+  function onContextMenu(e) {
+    openTypeErrorContextMenu(e, paramInfoId);
   }
 
   return (

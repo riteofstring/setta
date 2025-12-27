@@ -111,13 +111,11 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     SectionType,
-    MetaControlType,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
-    CodeFileBinding,
-    TypeErrorIgnoreState
+    CodeFileBinding
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
