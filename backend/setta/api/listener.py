@@ -178,16 +178,13 @@ class SettaListener:
     def __init__(
         self,
         *,
-        project_name: str | None = None,
-        project_config_id: "ID | None" = None,
+        project_name: str,
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
     ) -> None:
-        if project_name is None and project_config_id is None:
-            raise ValueError("SettaListener requires project_name or project_config_id")
         self._project_name = project_name
-        self._project_config_id: "ID | None" = project_config_id
+        self._project_config_id: "ID | None" = None
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._host = host
         self._port = port

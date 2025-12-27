@@ -3,6 +3,7 @@ from typing import Awaitable, Callable, NotRequired, TypedDict
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
     CodeFileBindingUpdate,
+    CreateTopLevelSectionResponse,
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
 )
@@ -38,7 +39,12 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
-from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
+from setta.types.project_config import (
+    Position,
+    TopLevelSectionLayout,
+    Viewport,
+    ViewportBounds,
+)
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     SectionSize,
@@ -145,7 +151,9 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | BrowserSectionImplArgs
         | None
     ]
-    position: Position
+    position: NotRequired[Position | None]
+    topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout] | None]
+    viewportBounds: NotRequired[ViewportBounds | None]
 
 
 class ListenerCreateViewModeRequestPayload(TypedDict):
@@ -650,7 +658,7 @@ class RouterEndpointAPI:
 
     async def create_top_level_section(
         self, payload: ListenerCreateTopLevelSectionRequestPayload
-    ) -> str:
+    ) -> CreateTopLevelSectionResponse:
         return await self._caller("route_create_top_level_section", payload)
 
     async def create_view_mode(

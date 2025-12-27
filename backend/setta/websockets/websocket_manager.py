@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import WebSocket
-from starlette.websockets import WebSocketDisconnect, WebSocketState
+from starlette.websockets import WebSocketState
 from websockets.exceptions import ConnectionClosedError
 
 from setta.types.websocket import (
@@ -61,7 +61,7 @@ class WebsocketManager:
             return
         try:
             await websocket.send_text(message.model_dump_json())
-        except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
+        except (RuntimeError, ConnectionClosedError):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self.sockets.pop(toWebsocketId, None)
 
