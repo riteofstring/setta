@@ -20,7 +20,11 @@ export function getOnCreateEditor({
   defaultVal,
 }) {
   return (view) => {
-    view.focus();
+    if (view.contentDOM?.focus) {
+      view.contentDOM.focus({ preventScroll: true });
+    } else {
+      view.focus();
+    }
     if (initialEvent !== "tab") {
       const { clientX, clientY } = initialEvent;
       const pos = view.posAtCoords({ x: clientX, y: clientY });

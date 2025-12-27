@@ -806,7 +806,7 @@ export function deleteAllActiveSections() {
   });
 }
 
-export function createTopLevelSectionLayoutDict(
+function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
 ) {
