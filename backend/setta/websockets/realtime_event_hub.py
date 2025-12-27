@@ -1,5 +1,5 @@
 from setta.types.id import ID
-from setta.types.listener import ControlActionEvent, ListenerRealtimeDelta
+from setta.types.listener import ListenerRealtimeDelta, MetaControlActionEvent
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 
@@ -39,7 +39,7 @@ class RealtimeEventHub:
         self,
         *,
         project_config_id: ID,
-        action_events: list[ControlActionEvent],
+        action_events: list[MetaControlActionEvent],
     ) -> None:
         if not action_events:
             raise ValueError("action_events must contain at least one entry")

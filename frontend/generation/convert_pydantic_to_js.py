@@ -87,7 +87,7 @@ def get_modules_from_package(package):
 def get_all_sets(module):
     return inspect.getmembers(
         module,
-        lambda obj: isinstance(obj, (set, frozenset))
+        lambda obj: isinstance(obj, set)
         and not inspect.isclass(obj)
         and is_not_tagged_for_skipping(obj),
     )
@@ -189,36 +189,23 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
     return dependency_ts
 
 
-def _set_sort_key(value):
-    if isinstance(value, enum.Enum):
-        return str(value.value)
-    return str(value)
-
-
-def _set_elem_to_ts_literal(value):
-    if isinstance(value, enum.Enum):
-        value = value.value
-    if isinstance(value, str):
-        return f'"{value}"'
-    if isinstance(value, bool):
-        return str(value).lower()
-    if isinstance(value, (int, float)):
-        return str(value)
-    if value is None:
-        return "null"
-    return f'"{str(value)}"'
-
-
-def set_to_ts(name: str, set_obj: set | frozenset, processed_types: set):
+def set_to_ts(name: str, set_obj: set, processed_types: set):
     if name in processed_types:
         return ""
 
     processed_types.add(name)
 
     # Convert set elements to TypeScript array literals
-    elements = [
-        _set_elem_to_ts_literal(elem) for elem in sorted(set_obj, key=_set_sort_key)
-    ]
+    elements = []
+    for elem in sorted(set_obj):  # Sort for consistent output
+        if isinstance(elem, str):
+            elements.append(f'"{elem}"')
+        elif isinstance(elem, (int, float)):
+            elements.append(str(elem))
+        elif isinstance(elem, bool):
+            elements.append(str(elem).lower())
+        else:
+            elements.append(str(elem))
 
     elements_str = ", ".join(elements)
     return f"export const {name} = new Set([{elements_str}]);\n\n"
@@ -518,7 +505,7 @@ def python_value_to_ts(value):
     elif isinstance(value, (list, tuple)):
         items = [python_value_to_ts(item) for item in value]
         return f"[{', '.join(items)}]"
-    elif isinstance(value, (set, frozenset)):
+    elif isinstance(value, set):
         items = [python_value_to_ts(item) for item in value]
         return f"new Set([{', '.join(items)}] as const)"
     elif isinstance(value, BaseModel):
