@@ -50,7 +50,25 @@ class PythonValueCodec:
     def format_param_expression(self, node: ParamNode) -> str:
         param_type = node.type
         literal_value = self._expect_literal(node)
-        return self._format_param_literal(param_type, literal_value, node.deps)
+
+        if param_type in (
+            CodeObjType.TextParam,
+            CodeObjType.CodeParam,
+            CodeObjType.SliderParam,
+            CodeObjType.DropdownParam,
+        ):
+            return literal_value
+
+        if param_type == CodeObjType.SwitchParam:
+            return "True" if literal_value == "true" else "False"
+
+        if param_type == CodeObjType.ColorPickerParam:
+            return f'"{literal_value}"'
+
+        if param_type == CodeObjType.NestedParam:
+            return self.format_dict(node.deps)
+
+        raise ValueError(f"Unsupported CodeObjType {param_type}")
 
     def format_dict(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
         parts: list[str] = []
@@ -77,8 +95,6 @@ class PythonValueCodec:
                 return self.format_list(node.deps)
             case SectionType.Group | SectionType.Dict:
                 return self.format_dict(node.deps)
-            case SectionType.MetaControl:
-                return self._format_meta_control_section(node)
             case SectionType.TextBlock:
                 if node.value:
                     return repr(node.value.payload)
@@ -117,54 +133,6 @@ class PythonValueCodec:
             return "None"
         callable_name = node.value.payload
         return self._construct_callable(callable_name, node.deps)
-
-    def _format_meta_control_section(self, node: SectionNode) -> str:
-        if node.value is None:
-            return "None"
-        if node.value.type is not DependencyValueType.Literal:
-            raise ValueError(
-                f"Unsupported dependency value kind {node.value} for meta control {node.full_path_name}"
-            )
-        control_type = node.control_code_obj_type
-        if control_type is None:
-            raise ValueError(f"Missing control code obj type for {node.full_path_name}")
-        literal_value = node.value.payload
-        return self._format_param_literal(control_type, literal_value)
-
-    def _format_param_literal(
-        self,
-        param_type: CodeObjType,
-        literal_value: str,
-        deps: dict[BaseDependencyKeyUnion, bool] | None = None,
-    ) -> str:
-        if param_type in (
-            CodeObjType.TextParam,
-            CodeObjType.CodeParam,
-            CodeObjType.SliderParam,
-            CodeObjType.RotaryParam,
-            CodeObjType.DropdownParam,
-        ):
-            return literal_value
-
-        if param_type in (
-            CodeObjType.TextAreaParam,
-            CodeObjType.PasswordParam,
-            CodeObjType.DropzoneParam,
-        ):
-            return repr(literal_value)
-
-        if param_type == CodeObjType.SwitchParam:
-            return "True" if literal_value == "true" else "False"
-
-        if param_type == CodeObjType.ColorPickerParam:
-            return f'"{literal_value}"'
-
-        if param_type == CodeObjType.NestedParam:
-            if deps is None:
-                raise ValueError("NestedParam requires dependency mapping.")
-            return self.format_dict(deps)
-
-        raise ValueError(f"Unsupported CodeObjType {param_type}")
 
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]

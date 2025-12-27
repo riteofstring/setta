@@ -1,7 +1,7 @@
 import re
 from typing import TYPE_CHECKING
 
-from setta.mcp.client import MCPClient
+from setta.mcp.tool_metadata import SettaToolAnnotations
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.section_impls import SectionType
 
@@ -31,30 +31,32 @@ PREUNLOCK_SECTION_TYPE_CATEGORIES: dict[str, set[str]] = {
 
 
 class ToolPreunlocker:
-    def __init__(self, mcp_client: MCPClient) -> None:
-        self._mcp_client = mcp_client
-
     def select_tools(
         self,
         chat: "Chat",
         project_summary: "ProjectStateSummary",
+        *,
+        available_tools: dict[str, "ChatCompletionToolParam"],
+        annotations_by_name: dict[str, SettaToolAnnotations | None],
     ) -> dict[str, "ChatCompletionToolParam"]:
-        if not self._mcp_client.discoverable_tool_definitions:
+        if not available_tools:
             return {}
         message_text = self._extract_latest_user_text(chat)
         message_tokens = set(self._tokenize_text(message_text))
         category_weights = self._score_categories_from_sections(project_summary)
         if not message_tokens and not category_weights:
             return {}
-        scored_tools = self._score_tools(message_tokens, category_weights)
+        scored_tools = self._score_tools(
+            message_tokens,
+            category_weights,
+            available_tools,
+            annotations_by_name,
+        )
         if not scored_tools:
             return {}
         ranked = sorted(scored_tools.items(), key=lambda item: (-item[1], item[0]))
         tool_names = [name for name, _ in ranked[:PREUNLOCK_MAX_TOOLS]]
-        definitions = {
-            name: self._mcp_client.discoverable_tool_definitions[name]
-            for name in tool_names
-        }
+        definitions = {name: available_tools[name] for name in tool_names}
         return definitions
 
     def _score_categories_from_sections(
@@ -74,9 +76,9 @@ class ToolPreunlocker:
         self,
         message_tokens: set[str],
         category_weights: dict[str, int],
+        available: dict[str, "ChatCompletionToolParam"],
+        annotations_by_name: dict[str, SettaToolAnnotations | None],
     ) -> dict[str, int]:
-        available = self._mcp_client.discoverable_tool_definitions
-        annotations_by_name = self._mcp_client.tool_annotations_by_name
         scores: dict[str, int] = {}
         for name, definition in available.items():
             annotations = annotations_by_name.get(name)
@@ -91,7 +93,7 @@ class ToolPreunlocker:
             score = 0
             if message_tokens:
                 score += self._score_tool_relevance(
-                    name,
+                    self._strip_server_prefix(name),
                     description,
                     annotations.searchTags,
                     message_tokens,
@@ -147,3 +149,9 @@ class ToolPreunlocker:
         if isinstance(section_type, SectionType):
             return section_type.value
         return str(section_type)
+
+    @staticmethod
+    def _strip_server_prefix(tool_name: str) -> str:
+        if "__" in tool_name:
+            return tool_name.split("__", 1)[1]
+        return tool_name

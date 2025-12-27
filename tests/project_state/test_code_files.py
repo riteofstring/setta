@@ -282,7 +282,7 @@ class CodeFilesTests(unittest.TestCase):
         self.assertFalse(metadata.has_conflict)
 
 
-class CodeWriteToDiskTests(unittest.TestCase):
+class CodeUpdateFileTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmpdir = tempfile.TemporaryDirectory()
         root = Path(self._tmpdir.name).resolve()
@@ -322,12 +322,12 @@ class CodeWriteToDiskTests(unittest.TestCase):
         self.code_files.register_binding(path, registered)
         return binding
 
-    def test_write_to_disk_rejects_read_only_binding(self) -> None:
+    def test_update_file_rejects_read_only_binding(self) -> None:
         binding = self._register_binding("readonly.sh", CodeFileAccessMode.read_only)
         code = BashCode(self.dbe, self.code_files, binding)
 
         with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
-            wrote = code.write_to_disk("echo 'blocked'")
+            wrote = code.update_file("echo 'blocked'")
 
         self.assertFalse(wrote)
         mock_write.assert_not_called()
@@ -336,7 +336,7 @@ class CodeWriteToDiskTests(unittest.TestCase):
         assert metadata is not None
         self.assertIsNone(metadata.last_written_hash)
 
-    def test_write_to_disk_skips_noop_writes(self) -> None:
+    def test_update_file_skips_noop_writes(self) -> None:
         binding = self._register_binding("noop.sh", CodeFileAccessMode.read_write)
         initial_content = "echo 'hello'"
         self.dbe.write(binding.canonical_path, initial_content)
@@ -345,7 +345,7 @@ class CodeWriteToDiskTests(unittest.TestCase):
         code = BashCode(self.dbe, self.code_files, binding)
 
         with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
-            wrote = code.write_to_disk(initial_content)
+            wrote = code.update_file(initial_content)
 
         self.assertFalse(wrote)
         mock_write.assert_not_called()
@@ -354,14 +354,14 @@ class CodeWriteToDiskTests(unittest.TestCase):
         assert metadata is not None
         self.assertEqual(metadata.last_written_hash, initial_hash)
 
-    def test_write_to_disk_records_write_metadata(self) -> None:
+    def test_update_file_records_write_metadata(self) -> None:
         binding = self._register_binding("write.sh", CodeFileAccessMode.read_write)
         code = BashCode(self.dbe, self.code_files, binding)
         new_content = "echo 'updated'"
         expected_hash = hashlib.md5(new_content.encode("utf-8")).hexdigest()
 
         with patch.object(self.dbe, "write", wraps=self.dbe.write) as mock_write:
-            wrote = code.write_to_disk(new_content)
+            wrote = code.update_file(new_content)
 
         self.assertTrue(wrote)
         mock_write.assert_called_once_with(binding.canonical_path, new_content)

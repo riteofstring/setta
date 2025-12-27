@@ -1,13 +1,8 @@
-import tempfile
 import unittest
-from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, TypeVar, cast
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.database.db_objs import DBE
-from setta.database.settings_file import SettingsFile
 from setta.project_state.listener_artifact_updates import ListenerArtifactUpdateError
-from setta.terminals.terminals import Terminals
 from setta.types.artifact import ArtifactType, ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -36,7 +31,6 @@ from setta.types.websocket import (
 )
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
-from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_receiver import (
     WMHPythonScriptReceiver,
@@ -114,21 +108,13 @@ def _build_receiver_fixture(
     frontend_sender = WMHFrontendSender(cast("WebsocketManager", websocket_manager))
     python_script_sender = _StubPythonScriptSender()
     project_manager_switcher = _StubProjectManagerSwitcher(states)
-    temp_dir = tempfile.TemporaryDirectory()
-    dbe = DBE(Path(temp_dir.name))
-    settings_file = SettingsFile(dbe, frontend_sender)
-    terminals = Terminals(frontend_sender, settings_file)
-    cli_sender = WMHCLISender(cast("WebsocketManager", websocket_manager))
     receiver = WMHPythonScriptReceiver(
         cast("WebsocketManager", websocket_manager),
         listener_registry,
         frontend_sender,
         cast("WMHPythonScriptSender", python_script_sender),
         cast("ProjectManagerSwitcher", project_manager_switcher),
-        terminals,
-        cli_sender,
     )
-    receiver._temp_dir = temp_dir
     return (
         receiver,
         websocket_manager,

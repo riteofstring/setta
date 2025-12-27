@@ -19,7 +19,6 @@ import {
   CodeObjTypeEnum,
   ColorPickerParamCodeObjImpl,
   DropdownParamCodeObjImpl,
-  RotaryParamCodeObjImpl,
   SectionType,
   SectionTypeEnum,
   SliderParamCodeObjImpl,
@@ -98,11 +97,6 @@ export type SliderConfigForFrontend = Pick<
   "min" | "max" | "step"
 >;
 
-type RotaryConfigForFrontend = Pick<
-  RotaryParamCodeObjImpl,
-  "min" | "max" | "step"
->;
-
 type DropdownConfigForFrontend = Pick<DropdownParamCodeObjImpl, "choices">;
 
 export type ColorPickerConfigForFrontend = Pick<
@@ -114,13 +108,6 @@ const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.SliderParam]: (
     obj: SliderParamCodeObjImpl,
   ): SliderConfigForFrontend => ({
-    min: obj.min,
-    max: obj.max,
-    step: obj.step,
-  }),
-  [CodeObjTypeEnum.RotaryParam]: (
-    obj: RotaryParamCodeObjImpl,
-  ): RotaryConfigForFrontend => ({
     min: obj.min,
     max: obj.max,
     step: obj.step,
