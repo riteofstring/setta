@@ -9,8 +9,36 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import type { CodeObjType } from "utils/generatedTypes";
-import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
+import {
+  BaseParamCodeObjImplTypeSet,
+  CodeObjTypeEnum,
+  ControlCodeObjTypeSet,
+  SectionParamCodeObjTypeSet,
+} from "utils/generatedTypes";
 import { IdNameCombobox } from "../../../Utils/Combobox/IdNameCombobox";
+
+const CODE_OBJ_TYPE_FILTERS = {
+  control: ControlCodeObjTypeSet,
+  sectionParam: SectionParamCodeObjTypeSet,
+} as const;
+
+export type CodeObjTypeFilterKey = keyof typeof CODE_OBJ_TYPE_FILTERS;
+
+const CODE_OBJ_TYPE_ENUM_VALUES = Object.values(
+  CodeObjTypeEnum,
+) as Array<CodeObjType>;
+
+const CODE_OBJ_TYPE_FILTER_LISTS: Record<
+  CodeObjTypeFilterKey,
+  Array<CodeObjType>
+> = {
+  control: CODE_OBJ_TYPE_ENUM_VALUES.filter((type) =>
+    CODE_OBJ_TYPE_FILTERS.control.has(type),
+  ),
+  sectionParam: CODE_OBJ_TYPE_ENUM_VALUES.filter((type) =>
+    CODE_OBJ_TYPE_FILTERS.sectionParam.has(type),
+  ),
+};
 
 function UITypeCombobox({
   nonPresetImpls,
@@ -42,17 +70,17 @@ export function ParamConfigUITypeCombobox({
   sectionId,
   paramInfoId,
   selectedBaseImplId,
-  presetCodeObjImpls,
-  allowedImplTypes,
+  codeObjTypeFilterKey,
   onDropdownSelect,
 }: {
   sectionId: string;
   paramInfoId: string;
   selectedBaseImplId: string;
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
-  allowedImplTypes?: Array<CodeObjType>;
+  codeObjTypeFilterKey: CodeObjTypeFilterKey;
   onDropdownSelect: OnSelectedItemChangeFnType<string>;
 }) {
+  const presetCodeObjImpls = usePresetCodeObjImpls(codeObjTypeFilterKey);
+  const allowedImplTypes = CODE_OBJ_TYPE_FILTER_LISTS[codeObjTypeFilterKey];
   const nonPresetImpls = useNonPresetImplsForParam(
     sectionId,
     paramInfoId,
@@ -66,6 +94,28 @@ export function ParamConfigUITypeCombobox({
       onDropdownSelect={onDropdownSelect}
     />
   );
+}
+
+function usePresetCodeObjImpls(
+  filterKey: CodeObjTypeFilterKey,
+): ComboboxItemArrayType<string> {
+  const typeSet = CODE_OBJ_TYPE_FILTERS[filterKey];
+  return useProjectState((x) => {
+    const output: ComboboxItemArrayType<string> = [];
+    for (const c of Object.values(x.codeObjImpls)) {
+      if (!c.isPreset) {
+        continue;
+      }
+      if (!typeSet.has(c.type)) {
+        continue;
+      }
+      output.push({
+        id: c.id,
+        name: `${c.name} - (${c.type})`,
+      });
+    }
+    return output;
+  }, _.isEqual);
 }
 
 function useNonPresetImplsForParam(

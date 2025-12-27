@@ -1,8 +1,5 @@
 import { UIConfigDropdownAndFields } from "components/Panes/UiEditor/UIConfig/UIConfigDropdownAndFields";
-import {
-  ComboboxItemArrayType,
-  OnSelectedItemChangeFnType,
-} from "components/Utils/Combobox/ComboboxStateReducer";
+import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 import _ from "lodash";
 import type { ReactNode } from "react";
 import {
@@ -13,11 +10,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_change_param_impl } from "utils/generatedEndpoints";
-import {
-  CodeObjTypeEnum,
-  ControlCodeObjTypeSet,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 
 type MetaControlConfigState = {
@@ -26,28 +19,7 @@ type MetaControlConfigState = {
   paramName: string;
 };
 
-const CONTROL_CODE_OBJ_TYPES = Object.values(CodeObjTypeEnum).filter((type) =>
-  ControlCodeObjTypeSet.has(type),
-);
-
 export function MetaControlSettings({ sectionId }: { sectionId: string }) {
-  const presetCodeObjImpls = useProjectState((x) => {
-    const output: ComboboxItemArrayType<string> = [];
-    for (const c of Object.values(x.codeObjImpls)) {
-      if (!c.isPreset) {
-        continue;
-      }
-      if (!ControlCodeObjTypeSet.has(c.type)) {
-        continue;
-      }
-      output.push({
-        id: c.id,
-        name: `${c.name} - (${c.type})`,
-      });
-    }
-    return output;
-  }, _.isEqual);
-
   const { controlParamId, baseImplId, paramName } = useProjectState(
     (x): MetaControlConfigState => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -101,8 +73,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
           sectionId={sectionId}
           paramInfoId={controlParamId}
           baseImplId={baseImplId}
-          presetCodeObjImpls={presetCodeObjImpls}
-          allowedImplTypes={CONTROL_CODE_OBJ_TYPES}
+          codeObjTypeFilterKey="control"
           onDropdownSelect={onSelect}
         />
       </MetaControlConfigCard>
