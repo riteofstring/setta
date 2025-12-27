@@ -17,6 +17,8 @@ class ListenerRegistration:
     dependency_index: dict[BaseDependencyKeyUnion, set[str]] = field(
         default_factory=dict
     )
+    action_index: dict[str, set[str]] = field(default_factory=dict)
+    action_wildcard_callbacks: set[str] = field(default_factory=set)
     wildcard_callbacks: set[str] = field(default_factory=set)
 
     @classmethod
@@ -29,8 +31,16 @@ class ListenerRegistration:
     ) -> "ListenerRegistration":
         callback_map: dict[str, ListenerRegisterCallback] = dict(callbacks)
         dependency_index: dict[BaseDependencyKeyUnion, set[str]] = {}
+        action_index: dict[str, set[str]] = {}
+        action_wildcard_callbacks: set[str] = set()
         wildcard_callbacks: set[str] = set()
         for callback_id, callback in callback_map.items():
+            if callback.actions is not None:
+                if not callback.actions:
+                    action_wildcard_callbacks.add(callback_id)
+                else:
+                    for action_id in callback.actions:
+                        action_index.setdefault(action_id, set()).add(callback_id)
             if callback.dependencyMode is ListenerDependencyMode.REFRESH_ONLY:
                 continue
             if callback.dependencyMode is ListenerDependencyMode.ANY_DEPENDENCY:
@@ -46,6 +56,8 @@ class ListenerRegistration:
             project_config_id=project_config_id,
             callbacks=callback_map,
             dependency_index=dependency_index,
+            action_index=action_index,
+            action_wildcard_callbacks=action_wildcard_callbacks,
             wildcard_callbacks=wildcard_callbacks,
         )
 
@@ -112,6 +124,22 @@ class ListenerRegistry:
             for dependency_key in dependency_filter:
                 matching_callbacks.update(
                     registration.dependency_index.get(dependency_key, set())
+                )
+            if matching_callbacks:
+                yield registration, matching_callbacks
+
+    def iter_callbacks_matching_actions(
+        self,
+        *,
+        project_config_id: ID,
+        action_ids: Iterable[str],
+    ) -> Iterable[tuple[ListenerRegistration, set[str]]]:
+        action_filter = set(action_ids)
+        for registration in self.iter_registrations_for_project(project_config_id):
+            matching_callbacks: set[str] = set(registration.action_wildcard_callbacks)
+            for action_id in action_filter:
+                matching_callbacks.update(
+                    registration.action_index.get(action_id, set())
                 )
             if matching_callbacks:
                 yield registration, matching_callbacks

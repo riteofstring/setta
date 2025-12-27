@@ -1,7 +1,7 @@
 import re
 from typing import TYPE_CHECKING
 
-from setta.mcp.multi_client import MultiMCPClient
+from setta.mcp.client import MCPClient
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.section_impls import SectionType
 
@@ -31,7 +31,7 @@ PREUNLOCK_SECTION_TYPE_CATEGORIES: dict[str, set[str]] = {
 
 
 class ToolPreunlocker:
-    def __init__(self, mcp_client: MultiMCPClient) -> None:
+    def __init__(self, mcp_client: MCPClient) -> None:
         self._mcp_client = mcp_client
 
     def select_tools(

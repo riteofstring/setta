@@ -22,7 +22,6 @@ export class C {
   static LLM_THINKING = "thinking";
   static MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
-  static MCP_TOOL_NAMESPACE_SEPARATOR = "__";
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static OPEN_BROWSER_ON_START = false;
   static PORT = 8000;

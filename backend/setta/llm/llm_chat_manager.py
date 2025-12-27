@@ -23,7 +23,7 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
-from setta.mcp.multi_client import MultiMCPClient
+from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -172,7 +172,7 @@ class LLMChatManager:
     def __init__(
         self,
         dbe: DBE,
-        mcp_client: MultiMCPClient,
+        mcp_client: MCPClient,
         websocket_msg_handler: WMHFrontendSender,
         project_manager_switcher: "ProjectManagerSwitcher",
     ) -> None:
@@ -1625,12 +1625,6 @@ class LLMChatManager:
                 f"Tool call {tool_call.id} in chat {chat_id} is missing a function name"
             )
         arguments = dict(tool_call.function.arguments or {})
-        if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME:
-            separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
-            raise ValueError(
-                "Tool name must be namespaced as "
-                f"'<server_id>{separator}search_and_unlock_mcp_tools'"
-            )
         started_at = get_now_timestamp()
         try:
             call_result = await self.mcp_client.call_tool(tool_name, arguments)
@@ -1642,9 +1636,9 @@ class LLMChatManager:
             )
             raise
         completed_at = get_now_timestamp()
+
         sanitized_arguments = self._sanitize_tool_arguments(arguments)
-        search_server_id = self._get_search_tool_server_id(tool_name)
-        if search_server_id and not call_result.isError:
+        if tool_name == C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME and not call_result.isError:
             tool_chat_message = self._build_search_tool_chat_message(
                 chat_id,
                 tool_name,
@@ -1653,7 +1647,6 @@ class LLMChatManager:
                 sanitized_arguments,
                 started_at,
                 completed_at,
-                search_server_id,
             )
         else:
             tool_chat_message = ToolChatMessage(
@@ -1689,66 +1682,6 @@ class LLMChatManager:
         )
         return json.loads(json.dumps(converted))
 
-    @staticmethod
-    def _get_search_tool_server_id(tool_name: str) -> str | None:
-        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
-        if separator not in tool_name:
-            return None
-        server_id, base_name = tool_name.split(separator, 1)
-        if not server_id:
-            raise ValueError("Tool name is missing server id")
-        if base_name != C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME:
-            return None
-        return server_id
-
-    def _parse_search_tool_results(
-        self,
-        call_result: CallToolResult,
-        server_id: str,
-    ) -> list[dict[str, str | None]]:
-        entry = call_result.content[0] if call_result.content else None
-        if not isinstance(entry, TextContent):
-            return []
-
-        text = (entry.text or "").strip()
-        if not text:
-            return []
-
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError:
-            logger.debug("Failed to parse search tool payload", exc_info=True)
-            return []
-
-        if not isinstance(payload, list):
-            return []
-
-        results: list[dict[str, str | None]] = []
-        separator = C.MCP_TOOL_NAMESPACE_SEPARATOR
-        for item in payload:
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name")
-            if not isinstance(name, str) or not name.strip():
-                continue
-            namespaced_name = (
-                name if separator in name else f"{server_id}{separator}{name}"
-            )
-            description = item.get("description")
-            if not isinstance(description, str):
-                description = ""
-            category = item.get("category")
-            if not isinstance(category, str) or not category.strip():
-                category = None
-            results.append(
-                {
-                    "name": namespaced_name,
-                    "description": description,
-                    "category": category,
-                }
-            )
-        return results
-
     def _build_search_tool_chat_message(
         self,
         chat_id: ID,
@@ -1758,9 +1691,8 @@ class LLMChatManager:
         arguments: dict[str, Any],
         started_at,
         completed_at,
-        server_id: str,
     ) -> ToolChatMessage:
-        search_results = self._parse_search_tool_results(call_result, server_id)
+        search_results = self._parse_search_tool_results(call_result)
         definitions = self._build_tool_definitions_from_search_results(search_results)
         added_tool_names: list[str] = []
         if definitions:
@@ -1797,6 +1729,48 @@ class LLMChatManager:
             completed_at=completed_at,
         )
 
+    def _parse_search_tool_results(
+        self, call_result: CallToolResult
+    ) -> list[dict[str, str | None]]:
+        entry = call_result.content[0] if call_result.content else None
+        if not isinstance(entry, TextContent):
+            return []
+
+        text = (entry.text or "").strip()
+        if not text:
+            return []
+
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            logger.debug("Failed to parse search tool payload", exc_info=True)
+            return []
+
+        if not isinstance(payload, list):
+            return []
+
+        results: list[dict[str, str | None]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            description = item.get("description")
+            if not isinstance(description, str):
+                description = ""
+            category = item.get("category")
+            if not isinstance(category, str) or not category.strip():
+                category = None
+            results.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "category": category,
+                }
+            )
+        return results
+
     def _build_tool_definitions_from_search_results(
         self,
         search_results: list[dict[str, str | None]],
@@ -1804,14 +1778,17 @@ class LLMChatManager:
         definitions: dict[str, ChatCompletionToolParam] = {}
         available = self.mcp_client.discoverable_tool_definitions
         for result in search_results:
-            if "name" not in result:
-                raise KeyError("Search result is missing a name")
-            name = result["name"]
+            name = result.get("name")
             if not name:
-                raise ValueError("Search result name must not be empty")
-            if name not in available:
-                raise KeyError(f"Search result '{name}' is missing a definition")
-            definition = available[name]
+                continue
+            definition = available.get(name)
+            if not definition:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Search tool returned unknown definition '%s'",
+                        name,
+                    )
+                continue
             definitions[name] = definition
         return definitions
 

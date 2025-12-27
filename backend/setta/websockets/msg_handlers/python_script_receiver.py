@@ -1,4 +1,7 @@
+import inspect
 import logging
+
+from pydantic import ValidationError
 
 from setta.listeners.listener_frontend_emit_resolver import (
     InvalidListenerArtifactUpdateError,
@@ -8,6 +11,9 @@ from setta.listeners.listener_frontend_emit_resolver import (
     UnknownListenerDependencyError,
     UnsupportedListenerArtifactUpdateError,
     UnsupportedListenerDependencyError,
+)
+from setta.listeners.listener_router_endpoint_registry import (
+    get_listener_router_endpoint_specs,
 )
 from setta.project_state.listener_artifact_updates import (
     ListenerArtifactUpdateError,
@@ -26,6 +32,7 @@ from setta.types.listener import (
     ListenerErrorContent,
     ListenerRegisterAckContent,
     ListenerRegisterAckStatus,
+    ListenerRouterEndpointResultContent,
 )
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.websocket import (
@@ -34,6 +41,8 @@ from setta.types.websocket import (
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
+    WebsocketMsgListenerRouterEndpointCall,
+    WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.websockets.listener_coverage import ListenerCoverageTracker
 from setta.websockets.listener_registry import ListenerRegistry
@@ -123,6 +132,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             await self._handle_listener_register(message, fromWebsocketId)
         elif isinstance(message, WebsocketMsgListenerFrontendEmit):
             await self._handle_listener_frontend_emit(message, fromWebsocketId)
+        elif isinstance(message, WebsocketMsgListenerRouterEndpointCall):
+            await self._handle_listener_router_endpoint_call(message, fromWebsocketId)
 
     async def _handle_listener_init(
         self, message: WebsocketMsgListenerInit, websocket_id: str
@@ -443,6 +454,187 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 details={"message": str(exc)},
                 project_config_id=project_config_id,
             )
+
+    async def _handle_listener_router_endpoint_call(
+        self, message: WebsocketMsgListenerRouterEndpointCall, websocket_id: str
+    ) -> None:
+        registration = self.listener_registry.get_registration(websocket_id)
+        if registration is None:
+            logger.warning(
+                "dropping listener router endpoint call for unregistered websocket %s",
+                websocket_id,
+            )
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=message.content.projectConfigId,
+                call_id=message.content.callId,
+                ok=False,
+                error="listener_not_registered",
+                details={"websocketId": websocket_id},
+            )
+            return
+        expected_project_config_id = registration.project_config_id
+        project_config_id = message.content.projectConfigId
+        if project_config_id != expected_project_config_id:
+            logger.warning(
+                (
+                    "dropping listener router endpoint call for websocket %s "
+                    "(expected project config %s, got %s)"
+                ),
+                websocket_id,
+                expected_project_config_id,
+                project_config_id,
+            )
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=expected_project_config_id,
+                call_id=message.content.callId,
+                ok=False,
+                error="project_config_mismatch",
+                details={
+                    "expectedProjectConfigId": expected_project_config_id,
+                    "receivedProjectConfigId": project_config_id,
+                },
+            )
+            return
+
+        endpoint_name = message.content.endpointName
+        if not endpoint_name:
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=project_config_id,
+                call_id=message.content.callId,
+                ok=False,
+                error="listener_call_invalid_operation",
+                details={"message": "endpointName must be non-empty"},
+            )
+            return
+
+        payload = message.content.payload
+        if "projectConfigId" in payload:
+            if payload["projectConfigId"] != project_config_id:
+                await self._send_router_endpoint_result(
+                    websocket_id,
+                    project_config_id=project_config_id,
+                    call_id=message.content.callId,
+                    ok=False,
+                    error="project_config_mismatch",
+                    details={
+                        "expectedProjectConfigId": project_config_id,
+                        "receivedProjectConfigId": payload["projectConfigId"],
+                    },
+                )
+                return
+
+        try:
+            result = await self._dispatch_listener_router_endpoint_call(
+                project_config_id=project_config_id,
+                endpoint_name=endpoint_name,
+                payload=payload,
+                websocket_id=websocket_id,
+            )
+        except ValidationError as exc:
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=project_config_id,
+                call_id=message.content.callId,
+                ok=False,
+                error="listener_call_invalid_payload",
+                details={"message": str(exc)},
+            )
+            return
+        except ValueError as exc:
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=project_config_id,
+                call_id=message.content.callId,
+                ok=False,
+                error="listener_call_failed",
+                details={"message": str(exc)},
+            )
+            return
+        except Exception as exc:
+            logger.exception("listener router endpoint call failed")
+            await self._send_router_endpoint_result(
+                websocket_id,
+                project_config_id=project_config_id,
+                call_id=message.content.callId,
+                ok=False,
+                error="listener_call_failed",
+                details={"message": str(exc)},
+            )
+            return
+
+        await self._send_router_endpoint_result(
+            websocket_id,
+            project_config_id=project_config_id,
+            call_id=message.content.callId,
+            ok=True,
+            result=result,
+        )
+
+    async def _dispatch_listener_router_endpoint_call(
+        self,
+        *,
+        project_config_id: ID,
+        endpoint_name: str,
+        payload: dict[str, object],
+        websocket_id: str,
+    ) -> object:
+        specs = get_listener_router_endpoint_specs()
+        if endpoint_name not in specs:
+            raise ValueError(f"unknown listener endpoint: {endpoint_name}")
+        spec = specs[endpoint_name]
+        state = self._get_listener_state(websocket_id)
+        await state.wait_until_ready()
+
+        payload_data = dict(payload)
+        if "projectConfigId" in payload_data:
+            if payload_data["projectConfigId"] != project_config_id:
+                raise ValueError("project_config_mismatch")
+        elif "projectConfigId" in spec.request_model.model_fields:
+            payload_data["projectConfigId"] = project_config_id
+
+        kwargs: dict[str, object] = {
+            spec.request_param_name: spec.request_model(**payload_data)
+        }
+        if spec.state_param_name is not None:
+            kwargs[spec.state_param_name] = state
+
+        result = spec.endpoint(**kwargs)
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    def _get_listener_state(self, websocket_id: str):
+        if websocket_id not in self.websocket_manager.sockets:
+            raise KeyError(f"unknown websocket id: {websocket_id}")
+        socket_info = self.websocket_manager.sockets[websocket_id]
+        return socket_info.websocket.app.state.setta
+
+    async def _send_router_endpoint_result(
+        self,
+        websocket_id: str,
+        *,
+        project_config_id: ID,
+        call_id: str,
+        ok: bool,
+        result: object | None = None,
+        error: str | None = None,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        content = ListenerRouterEndpointResultContent(
+            projectConfigId=project_config_id,
+            callId=call_id,
+            ok=ok,
+            result=result,
+            error=error,
+            details=details or {},
+        )
+        await self.websocket_manager.send_message(
+            WebsocketMsgListenerRouterEndpointResult(content=content),
+            websocket_id,
+        )
 
     async def _sync_listener_coverage(self, project_config_id: ID) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(
