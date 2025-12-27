@@ -154,3 +154,18 @@ class PythonValueCodecTest(TestCase):
             codec.required_imports,
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
+
+    def test_meta_control_formatting_uses_code_obj_type(self) -> None:
+        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
+        section_node = SectionNode(
+            id=ID("section"),
+            name="Meta",
+            full_path_name="meta",
+            type=SectionType.MetaControl,
+            isTopLevel=True,
+            deps={},
+            value=LiteralDependencyValue("secret"),
+            control_code_obj_type=CodeObjType.TextAreaParam,
+        )
+        rendered = codec.format_section(section_node)
+        self.assertEqual(rendered, "'secret'")

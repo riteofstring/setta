@@ -1,8 +1,5 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import {
-  ComboboxItemArrayType,
-  OnSelectedItemChangeFnType,
-} from "components/Utils/Combobox/ComboboxStateReducer";
+import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 import _ from "lodash";
 import React from "react";
 import {
@@ -15,29 +12,19 @@ import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
+import type { CodeObjTypeFilterKey } from "./UITypeCombobox";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 function _UIConfig({ sectionId }: { sectionId: string }) {
   const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
-  const presetCodeObjImpls = useProjectState((x) => {
-    const output: ComboboxItemArrayType<string> = [];
-    for (const c of Object.values(x.codeObjImpls)) {
-      if (c.isPreset) {
-        output.push({
-          id: c.id,
-          name: `${c.name} - (${c.type})`,
-        });
-      }
-    }
-    return output;
-  }, _.isEqual);
+  const codeObjTypeFilterKey: CodeObjTypeFilterKey = "sectionParam";
 
   return (
     <UIConfigCore
       sectionId={sectionId}
       paramInfos={paramInfos}
-      presetCodeObjImpls={presetCodeObjImpls}
+      codeObjTypeFilterKey={codeObjTypeFilterKey}
     />
   );
 }
@@ -47,11 +34,11 @@ export const UIConfig = React.memo(_UIConfig);
 function UIConfigCore({
   sectionId,
   paramInfos,
-  presetCodeObjImpls,
+  codeObjTypeFilterKey,
 }: {
   sectionId: string;
   paramInfos: Array<{ id: string; name: string }>;
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
+  codeObjTypeFilterKey: CodeObjTypeFilterKey;
 }) {
   const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
@@ -78,7 +65,7 @@ function UIConfigCore({
           <UIElement
             sectionId={sectionId}
             paramInfo={e}
-            presetCodeObjImpls={presetCodeObjImpls}
+            codeObjTypeFilterKey={codeObjTypeFilterKey}
             key={`${e.name}-${idx}`}
           />
         ))}
@@ -90,11 +77,11 @@ function UIConfigCore({
 function _UIElement({
   sectionId,
   paramInfo,
-  presetCodeObjImpls,
+  codeObjTypeFilterKey,
 }: {
   sectionId: string;
   paramInfo: { id: string; name: string };
-  presetCodeObjImpls: ComboboxItemArrayType<string>;
+  codeObjTypeFilterKey: CodeObjTypeFilterKey;
 }) {
   const paramInfoId = paramInfo.id;
   const baseImplId = useProjectState((x) => {
@@ -129,7 +116,7 @@ function _UIElement({
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         baseImplId={baseImplId}
-        presetCodeObjImpls={presetCodeObjImpls}
+        codeObjTypeFilterKey={codeObjTypeFilterKey}
         onDropdownSelect={onSelect}
       />
     </div>

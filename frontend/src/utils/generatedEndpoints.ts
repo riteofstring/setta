@@ -469,12 +469,6 @@ export async function route_set_type_error_ignore(
   return await post("/setTypeErrorIgnore", x);
 }
 
-export async function route_set_meta_control_value(
-  x: gt.SetMetaControlValueRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setMetaControlValue", x);
-}
-
 export async function route_set_code_obj_name(
   x: gt.SetCodeObjNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

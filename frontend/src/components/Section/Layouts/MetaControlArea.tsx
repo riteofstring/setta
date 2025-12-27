@@ -1,103 +1,178 @@
+import type { ParamValueChange } from "components/Params/ParamUIs/ConfiguredParamInputs";
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   getSectionCore,
-  setCurrEffectiveSectionImplValue,
+  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import {
-  sendRealtimeMetaControlAction,
-  sendRealtimeMetaControlLiteral,
+  sendRealtimeControlAction,
+  sendRealtimeSectionLiteral,
 } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { route_set_meta_control_value } from "utils/generatedEndpoints";
-import { MetaControlTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { route_set_param_entered_value } from "utils/generatedEndpoints";
+import {
+  CodeObjTypeEnum,
+  SectionTypeEnum,
+  isBaseChildlessCodeObjImpl,
+} from "utils/generatedTypes";
 
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
-  const metaControlType = useProjectState((x) => {
+  const { controlParamId } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.MetaControl,
     );
-    return impl.metaControlType;
-  });
-  const baseValue = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.MetaControl,
-    );
-    return impl.metaControlValue;
-  });
-  const sectionName = useProjectState((x) => getSectionCore(x, sectionId).name);
+    return {
+      controlParamId: impl.metaControlParamId,
+    };
+  }, _.isEqual);
+
+  if (!controlParamId) {
+    return null;
+  }
+
+  return (
+    <MetaControlValueArea
+      sectionId={sectionId}
+      controlParamId={controlParamId}
+    />
+  );
+}
+
+function MetaControlValueArea({
+  sectionId,
+  controlParamId,
+}: {
+  sectionId: string;
+  controlParamId: string;
+}) {
+  const { codeObjType, baseValue, defaultVal, sectionName } = useProjectState(
+    (x) => {
+      const sectionName = getSectionCore(x, sectionId).name;
+      const controlImpl = getCurrEffectiveCodeObjImpl(
+        x,
+        sectionId,
+        controlParamId,
+      );
+      if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
+        return {
+          codeObjType: controlImpl.type,
+          baseValue: "",
+          defaultVal: "",
+          sectionName,
+        };
+      }
+      const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        x,
+        sectionId,
+        controlParamId,
+        isBaseChildlessCodeObjImpl,
+      );
+      return {
+        codeObjType: childlessImpl.type,
+        baseValue: childlessImpl.value,
+        defaultVal: childlessImpl.defaultVal,
+        sectionName,
+      };
+    },
+    _.isEqual,
+  );
 
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
     (pendingValue) => {
+      if (codeObjType === CodeObjTypeEnum.ButtonParam) {
+        return;
+      }
       useProjectState.setState((state) => {
-        setCurrEffectiveSectionImplValue<"MetaControlSection">(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
           sectionId,
+          controlParamId,
           {
-            metaControlValue: pendingValue,
+            value: pendingValue,
           },
         );
       });
     },
   );
 
-  function handleMetaControlValueChange(nextValue: string) {
-    const valueStr = _.toString(nextValue);
-    if (metaControlType === MetaControlTypeEnum.button) {
-      sendRealtimeMetaControlAction({
-        controlName: sectionName,
-        actionId: sectionName,
-        metaControlType,
-        payload: valueStr,
-      });
+  const handleValueChange: ParamValueChange = (nextValue) => {
+    if (codeObjType === CodeObjTypeEnum.ButtonParam) {
       return;
     }
+    if (nextValue === null) {
+      return;
+    }
+    const valueStr = _.toString(nextValue);
     setPendingValue(valueStr);
     if (value !== valueStr) {
-      sendRealtimeMetaControlLiteral(sectionId, valueStr);
+      sendRealtimeSectionLiteral(sectionId, valueStr);
     }
-    debouncedSetMetaControlValue(sectionId, valueStr);
+    debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+  };
+
+  function handleAction() {
+    sendRealtimeControlAction({
+      controlName: sectionName,
+      actionId: sectionName,
+      actionControlType: CodeObjTypeEnum.ButtonParam,
+      payload: null,
+    });
   }
 
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
-      <MetaControlContent
-        metaControlType={metaControlType}
-        metaControlValue={value}
-        onMetaControlValueChange={handleMetaControlValueChange}
-      />
+      {codeObjType === CodeObjTypeEnum.ButtonParam ? (
+        <MetaControlContent
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          codeObjType={codeObjType}
+          onAction={handleAction}
+        />
+      ) : (
+        <MetaControlContent
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          codeObjType={codeObjType}
+          value={value}
+          defaultVal={defaultVal}
+          onValueChange={handleValueChange}
+        />
+      )}
     </div>
   );
 }
 
 export const MetaControlArea = React.memo(_MetaControlArea);
 
-const debouncedSetMetaControlValue = _.debounce(
-  (sectionId: string, value: string) => {
+const debouncedSetParamEnteredValue = _.debounce(
+  (sectionId: string, paramInfoId: string, value: string) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveSectionImplValue<"MetaControlSection">(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
           sectionId,
+          paramInfoId,
           {
-            metaControlValue: value,
+            value,
           },
         );
       },
       send: (frontendOpId) =>
-        route_set_meta_control_value({
+        route_set_param_entered_value({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
+          paramInfoId,
           value,
           frontendOpId,
         }),
