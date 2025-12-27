@@ -138,6 +138,7 @@ class PythonValueCodec:
         deps: dict[BaseDependencyKeyUnion, bool] | None = None,
     ) -> str:
         if param_type in (
+            CodeObjType.TextParam,
             CodeObjType.CodeParam,
             CodeObjType.SliderParam,
             CodeObjType.RotaryParam,
@@ -146,7 +147,6 @@ class PythonValueCodec:
             return literal_value
 
         if param_type in (
-            CodeObjType.TextParam,
             CodeObjType.TextAreaParam,
             CodeObjType.PasswordParam,
             CodeObjType.DropzoneParam,

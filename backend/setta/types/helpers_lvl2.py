@@ -50,7 +50,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
-    CodeParamCodeObjImplArgs,
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
@@ -58,6 +57,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
+    TextParamCodeObjImplArgs,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -329,11 +329,6 @@ def add_meta_control_code_obj(
         type=code_obj_type,  # type: ignore
         defaults=get_user_default_code_obj_from_settings(settings, code_obj_type),  # type: ignore
     )
-    if code_obj_impl.type in (CodeObjType.SliderParam, CodeObjType.RotaryParam):
-        code_obj_impl.value = convert_code_obj_value(
-            code_obj_impl,
-            code_obj_impl.value,
-        )
     code_obj = Core()
     code_obj_variant = Variant(
         impl=code_obj_impl.id,
@@ -906,9 +901,9 @@ def create_kwarg_objs(
     settings: SettingsState, p: "ProjectStateSingleConfig", sectionIds: list[ID]
 ):
     newImpl = create_code_obj_impl(
-        CodeObjType.CodeParam,
-        settings.codeParamCodeObjDefault,
-        CodeParamCodeObjImplArgs(coreNameEditable=True),
+        CodeObjType.TextParam,
+        settings.textParamCodeObjDefault,
+        TextParamCodeObjImplArgs(coreNameEditable=True),
     )
     newCore = Core(name="")
 

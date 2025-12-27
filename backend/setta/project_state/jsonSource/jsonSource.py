@@ -9,16 +9,16 @@ from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.logging.tasks import spawn_background_task
 from setta.types.code_obj_impls import (
     CodeObjType,
-    CodeParamCodeObjImpl,
     NestedParamCodeObjImpl,
+    TextParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
-    CodeParamCodeObjImplArgsWithCallable,
     NestedParamCodeObjImplArgsWithCallable,
+    TextParamCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -307,8 +307,8 @@ class JSONSource:
             )
         else:
             codeObjImpl = create_code_obj_impl(
-                CodeObjType.CodeParam,
-                self.settings_file.settings.codeParamCodeObjDefault,
+                CodeObjType.TextParam,
+                self.settings_file.settings.textParamCodeObjDefault,
             )
             codeObjVariant = Variant(
                 impl=codeObjImpl.id,
@@ -322,13 +322,13 @@ class JSONSource:
             unsharedKeys=[],  # all attributes (like value) should be shared across variants & impls
         )
 
-        if isinstance(codeObjImpl, CodeParamCodeObjImpl):
+        if isinstance(codeObjImpl, TextParamCodeObjImpl):
             # this should set codeObj.sharedModifier["value"]
             set_effective_impl_value(
                 codeObjImpl,
                 codeObj,
                 codeObjVariant,
-                CodeParamCodeObjImplArgsWithCallable(value=json.dumps(value)),
+                TextParamCodeObjImplArgsWithCallable(value=json.dumps(value)),
             )
 
         output.codeObjVariantMap[codeObj.id] = variantId
