@@ -6,41 +6,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Sections are the configuration surface. Put every configurable value in sections or params.
 - Generated code is derived from sections; it is not hand-edited.
 - Control flow (if/for/while) belongs in Code sections as normal Python.
-- If you need to write any code, prefer a Code section and `set_code` over file edits.
 - No backward compatibility. Do not keep legacy code just to keep things running during refactors.
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
-
-## Listener scripts
-- Listener scripts are standalone Python processes that connect to the Setta backend,
-  receive project snapshots and realtime deltas, and run callbacks when dependencies
-  change or actions fire.
-- Use them to integrate Setta projects with external systems (APIs, databases, model
-  runs), to keep long-lived services reacting to UI changes, to build interactive
-  applications where frontend actions trigger listener work that updates the UI, or
-  to push values/artifacts back into the frontend via `emit_to_frontend`.
-- When asked to create a listener script inside Setta, write it in a Code section
-  using `set_code`. Do not create or edit files directly; avoid looking for file
-  system tools.
-- Always import `SettaListener` from `setta.api`
-  (`from setta.api import SettaListener`). There is no `setta_listener` module.
-- `SettaListener` requires `project_name` or `project_config_id` (at least one).
-- Use `@listener.listen(...)` for callbacks and `listener.start()` or
-  `await listener.run_forever()` to run; do not invent methods like
-  `listener.on_change` or `listener.run`.
-- Always call `@listener.listen` with keyword arguments (for example,
-  `deps=[...]`, `actions=[...]`, `dependency_mode=...`); do not pass positional args.
-- Listener scripts should not hardcode IDs from chat (those are temporary). Prefer
-  `project_name` and `ctx.ids` helpers to resolve IDs at runtime (use
-  `ctx.ids.param_ids(...)` or `ctx.ids.meta_control_param_ids(...)`).
-- If you only have temporary IDs from chat, pass `use_temporary_ids=True` to
-  `SettaListener` so snapshots and `ctx.ids` use the same ID format.
-- For interactive control-to-control wiring, always use a listener script and update
-  the target control via `set_param_entered_value` (param id) or `emit_to_frontend`
-  with a param dependency key. Do not set MetaControl values to `state.*` or other
-  expressions expecting reactivity.
-- If asked to write or explain Setta listener scripts, call `get_setta_docs` first.
-- `get_setta_docs` can also return other docs from `/docs`; pass `doc_ids`
-  from `available_docs` (use `meta_controls` for meta control details).
 
 ## Where code goes (map)
 - Section params -> configuration values in the dependency graph.
@@ -68,21 +35,9 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Dict or Group sections -> `state.<path> = {"child": value, ...}`
 - ListRoot sections -> `state.<path> = [child_value0, child_value1, ...]` in order.
 - GlobalVariables section -> top-level params become `state.<param_name>`.
-- MetaControl sections -> `state.<path> = <literal>` from the single control param; `ButtonParam` yields `None`.
 - TextBlock -> `state.<path> = "<text>"`; Draw -> base64 payload or None.
 - Sections outside the dependency graph (Code, GenPythonCode, Image, Chart, Browser,
   Terminal, Chat, etc.) do not emit generated values.
-
-## Meta control sections
-- MetaControl sections contain exactly one control code object (`metaControlParamId`); they are not param lists.
-- Do not add control parameters or add_kwarg entries; create another MetaControl section for more controls.
-- Create them with `create_top_level_section` (implType: `MetaControl`) and optional `controlCodeObjType` (default: `SliderParam`).
-- To change the control type, use `change_param_impl` on the control param id; to persist a value, use `set_param_entered_value`.
-- Button controls emit action events (actionId == section name) and do not persist a value.
-- In `get_latest_project_state_summary`, MetaControl sections list the control param as the
-  single entry in `parameters`; use its `paramId` for `set_param_entered_value`,
-  `change_param_impl`, or `set_code_obj_name`.
-- MetaControl values are literals only; do not set them to `state.*` expressions.
 
 ## Naming rules for `state.<path>`
 - Names are sanitized: spaces and []"' become underscores; consecutive underscores
@@ -128,7 +83,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Create a top-level callable section:
   1) `getProjectConfigNamesAndIds`
   2) `get_latest_project_state_summary`
-  3) `create_top_level_section` (implType: `Callable`, position: `{x, y}`)
+  3) `create_top_level_section` (implType: `Callable`, optional position/viewport)
   4) `set_section_name` (optional)
   5) `set_callable` (callableName: `pkg.module.fn`, refetchParams: `true`)
   6) `set_param_entered_value` for each param
@@ -151,7 +106,7 @@ Create a callable section + set params:
 ```
 getProjectConfigNamesAndIds {}
 get_latest_project_state_summary {"projectConfigId":"<config_id>"}
-create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable","position":{"x":80,"y":120}}
+create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable"}
 set_section_name {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","name":"Load Data"}
 set_callable {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","callableName":"my_pkg.load_data","refetchParams":true}
 set_param_entered_value {"sectionId":"<new_section_id>","paramInfoId":"<param_id>","projectConfigId":"<config_id>","value":"state.config__path"}

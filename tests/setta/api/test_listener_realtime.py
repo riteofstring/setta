@@ -136,7 +136,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -189,52 +188,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         callback_payloads = list(register_payload["content"]["callbacks"].values())
         self.assertEqual(callback_payloads[0]["debounceMs"], 50)
 
-    async def test_refresh_callbacks_respect_concurrency_limit(self) -> None:
-        project_state = self._build_project_state()
-        concurrency = 2
-        listener = SettaListener(
-            project_name=project_state.projectConfig.name,
-            refresh_concurrency=concurrency,
-        )
-        active = 0
-        max_active = 0
-        completed = 0
-        active_lock = asyncio.Lock()
-        ready_event = asyncio.Event()
-        release_event = asyncio.Event()
-        completed_event = asyncio.Event()
-        total_callbacks = 4
-
-        async def on_refresh(state, ctx) -> None:
-            nonlocal active, max_active, completed
-            async with active_lock:
-                active += 1
-                if active > max_active:
-                    max_active = active
-                if active >= concurrency:
-                    ready_event.set()
-            await release_event.wait()
-            async with active_lock:
-                active -= 1
-                completed += 1
-                if completed == total_callbacks:
-                    completed_event.set()
-
-        for _ in range(total_callbacks):
-            listener.listen(deps=("Welcome",), run_on_refresh=True)(on_refresh)
-
-        await listener._process_snapshot(
-            project_state,
-            refresh_kind="force_refresh",
-        )
-        try:
-            await asyncio.wait_for(ready_event.wait(), timeout=1.0)
-            self.assertEqual(concurrency, max_active)
-        finally:
-            release_event.set()
-
-        await asyncio.wait_for(completed_event.wait(), timeout=1.0)
-
     async def test_force_refresh_replays_snapshot_and_resets_sequence(self) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(
@@ -255,7 +208,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(run_on_refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
@@ -294,7 +246,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
         )
-        await asyncio.sleep(0)
 
         self.assertIsNone(listener._last_realtime_sequence)
         self.assertEqual(
@@ -327,7 +278,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -365,7 +315,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
         )
-        await asyncio.sleep(0)
 
         self.assertEqual(
             refresh_calls,
@@ -394,7 +343,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(any_calls, [{}])
         self.assertEqual(specific_calls, [{"Welcome": "Hello"}])
