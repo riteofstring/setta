@@ -14,8 +14,10 @@ class StartupMessageTests(unittest.TestCase):
             port=61234,
             workspace_path=Path("/work/project"),
             bootstrap_url_fragment="http://127.0.0.1:61234/__setta__/bootstrap#token=tok",
+            bootstrap_url_plain="http://127.0.0.1:61234/__setta__/bootstrap",
             token="tok",
             auto_open=True,
+            is_remote_session=False,
         )
 
         self.assertIn("Setta running (session abc123)", message)
@@ -35,8 +37,10 @@ class StartupMessageTests(unittest.TestCase):
                 port=61234,
                 workspace_path=workspace,
                 bootstrap_url_fragment="http://127.0.0.1:61234/__setta__/bootstrap#token=tok2",
+                bootstrap_url_plain="http://127.0.0.1:61234/__setta__/bootstrap",
                 token="tok2",
                 auto_open=False,
+                is_remote_session=True,
             )
 
         self.assertIn("Manual tunnel", message)
