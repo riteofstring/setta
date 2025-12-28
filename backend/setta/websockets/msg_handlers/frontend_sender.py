@@ -133,6 +133,27 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             share_session_id,
         )
 
+    async def broadcast_backend_log_event_to_all_frontends(
+        self,
+        message: str,
+        *,
+        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info,
+        project_config_id: ID | None = None,
+    ) -> None:
+        threshold = self._resolve_ui_log_level()
+        event_level = _SEVERITY_TO_LOG_LEVEL.get(severity, logging.INFO)
+        if event_level < threshold:
+            return
+        event = SettaBackendLogEvent(
+            projectConfigId=project_config_id,
+            severity=severity,
+            message=message,
+        )
+        await self.websocket_manager.broadcast(
+            WebsocketMsgBackendLogEvent(content=event),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
     async def log_and_broadcast_backend_log_event(
         self,
         message: str,
@@ -165,6 +186,36 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             severity=severity,
             project_config_id=project_config_id,
             share_session_id=share_session_id,
+        )
+
+    async def log_and_broadcast_backend_log_event_to_all_frontends(
+        self,
+        message: str,
+        *,
+        severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.info,
+        project_config_id: ID | None = None,
+        logger: logging.Logger | None = None,
+        context: Mapping[str, LoggingContextInput] | None = None,
+    ) -> None:
+        event_level = _SEVERITY_TO_LOG_LEVEL.get(severity, logging.INFO)
+        backend_logger = logger or logging.getLogger(__name__)
+
+        context_values: dict[str, LoggingContextInput] = {}
+        if project_config_id is not None:
+            context_values["project_config_id"] = str(project_config_id)
+        if context:
+            context_values.update(context)
+
+        if context_values:
+            with logging_context(values=context_values):
+                backend_logger.log(event_level, message)
+        else:
+            backend_logger.log(event_level, message)
+
+        await self.broadcast_backend_log_event_to_all_frontends(
+            message,
+            severity=severity,
+            project_config_id=project_config_id,
         )
 
     async def log_failure_and_broadcast_backend_log_event(

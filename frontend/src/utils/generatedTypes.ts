@@ -4804,6 +4804,23 @@ const BrowserAreaItemSchema = z.object({
 
 export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
 
+const ShareDeploymentListenerConfigSchema = z.object({
+  entrypoint: z.string(),
+  enabled: z.boolean().default(true),
+  isolation: z
+    .enum(ListenerIsolationModeEnum)
+    .default(ListenerIsolationModeEnum.per_viewer),
+});
+
+const ShareDeploymentManifestSchema = z.object({
+  version: z.int(),
+  projectConfigId: IDSchema,
+  createdAt: z.iso.datetime().default(get_now_timestamp),
+  listener: z
+    .union([ShareDeploymentListenerConfigSchema, z.null()])
+    .default(null),
+});
+
 const ShareDeploymentMetadataSchema = z.object({
   deploymentId: z.string(),
   deploymentRoot: z.string(),
@@ -4812,6 +4829,31 @@ const ShareDeploymentMetadataSchema = z.object({
 
 export type ShareDeploymentMetadata = z.infer<
   typeof ShareDeploymentMetadataSchema
+>;
+
+const SharePolicySchema = z.object({
+  allowParamChanges: z.boolean().default(true),
+  allowVariantChanges: z.boolean().default(true),
+  allowLayoutChanges: z.boolean().default(true),
+  allowRun: z.boolean().default(false),
+  allowLLM: z.boolean().default(false),
+  allowMCP: z.boolean().default(false),
+  listenerIsolation: z
+    .enum(ListenerIsolationModeEnum)
+    .default(ListenerIsolationModeEnum.per_viewer),
+  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
+});
+
+const ShareDeploymentSessionResponseSchema = z.object({
+  deploymentId: z.string(),
+  shareSessionId: z.string(),
+  projectConfigId: IDSchema,
+  sharePolicy: SharePolicySchema,
+  manifest: z.union([ShareDeploymentManifestSchema, z.null()]).default(null),
+});
+
+export type ShareDeploymentSessionResponse = z.infer<
+  typeof ShareDeploymentSessionResponseSchema
 >;
 
 const WebsocketMsgSchema = z.object({

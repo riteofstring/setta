@@ -91,6 +91,9 @@ class ShareListenerRuntime:
         spec.loader.exec_module(module)
         return module
 
+    def _drop_module(self, module: ModuleType) -> None:
+        sys.modules.pop(module.__name__, None)
+
     def _resolve_builder(self, module: ModuleType) -> _ListenerBuilder:
         for name in _BUILDER_NAMES:
             builder = getattr(module, name, None)
@@ -155,6 +158,7 @@ class ShareListenerRuntime:
         handle = self._session_handles.pop(session_id)
         handle.listener.stop()
         handle.task.cancel()
+        self._drop_module(handle.module)
 
     def stop_shared_listener(self) -> None:
         if self._shared_handle is None:
@@ -163,6 +167,8 @@ class ShareListenerRuntime:
         self._shared_handle = None
         handle.listener.stop()
         handle.task.cancel()
+        self._drop_module(handle.module)
+        self._shared_module = None
 
     def stop_all(self) -> None:
         session_ids = list(self._session_handles.keys())

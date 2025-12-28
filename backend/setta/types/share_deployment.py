@@ -52,3 +52,11 @@ class ShareDeploymentMetadata(BaseModel, extra="forbid"):
     deploymentId: str
     deploymentRoot: Path
     sharePolicyPath: Path
+
+
+class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
+    deploymentId: str
+    shareSessionId: str
+    projectConfigId: ID
+    sharePolicy: SharePolicy
+    manifest: ShareDeploymentManifest | None = None

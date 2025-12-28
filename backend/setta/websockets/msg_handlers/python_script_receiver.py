@@ -30,6 +30,7 @@ from setta.project_state.listener_dependency_updates import (
     ListenerDependencyUpdateError,
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
     PythonScriptWebsocketMsgUnion,
@@ -42,6 +43,7 @@ from setta.types.id import (
 )
 from setta.types.listener import (
     ListenerErrorContent,
+    ListenerFrontendEmitKeyAndValue,
     ListenerRegisterAckContent,
     ListenerRegisterAckStatus,
     ListenerRouterEndpointResultContent,
@@ -554,6 +556,125 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             return
 
+        async def _resolve_emits_for_state(
+            *,
+            dependency_graph: DependencyGraph,
+            artifacts,
+        ) -> (
+            tuple[
+                list[ListenerFrontendEmitKeyAndValue],
+                list[BaseArtifactUnionWithDiscriminator],
+            ]
+            | None
+        ):
+            try:
+                resolved_dependency_values = (
+                    self.listener_frontend_emit_resolver.resolve(
+                        dependency_values=dependency_values,
+                        dependency_graph=dependency_graph,
+                    )
+                )
+                resolved_artifact_updates = (
+                    self.listener_frontend_emit_resolver.resolve_artifact_updates(
+                        artifact_updates=artifact_updates,
+                        artifacts=artifacts,
+                    )
+                )
+            except UnknownListenerDependencyError as exc:
+                logger.warning(
+                    "listener emit referenced unknown dependency %s",
+                    exc.dependency_name,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_unknown_dependency",
+                    details={"dependencyName": exc.dependency_name},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            except InvalidListenerDependencyValueError as exc:
+                logger.warning(
+                    "listener emit provided invalid value for %s",
+                    exc.dependency_name,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_invalid_value",
+                    details={
+                        "dependencyName": exc.dependency_name,
+                        "expectedType": exc.expected_type.value,
+                    },
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            except UnsupportedListenerDependencyError as exc:
+                logger.warning(
+                    "listener emit targeted unsupported dependency %s",
+                    exc.dependency_name,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_unsupported_dependency",
+                    details={
+                        "dependencyName": exc.dependency_name,
+                        "reason": exc.reason,
+                    },
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            except InvalidListenerArtifactUpdateError as exc:
+                logger.warning(
+                    "listener emit provided invalid artifact update for %s", exc.path
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_invalid_artifact_update",
+                    details={
+                        "path": exc.path,
+                        "message": exc.message,
+                    },
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            except UnsupportedListenerArtifactUpdateError as exc:
+                logger.warning(
+                    "listener emit targeted unsupported artifact update for %s",
+                    exc.path,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_unsupported_artifact_update",
+                    details={"path": exc.path, "reason": exc.reason},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            except ListenerFrontendEmitResolverError as exc:
+                logger.exception("listener emit resolver failed")
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_failed",
+                    details={"message": str(exc)},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            except ValueError as exc:
+                logger.warning("invalid listener emit payload: %s", exc)
+                await self._send_listener_error(
+                    websocket_id,
+                    error="listener_emit_invalid_payload",
+                    details={"message": str(exc)},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return None
+            return resolved_dependency_values, resolved_artifact_updates
+
         if self.share_mode:
             share_manager = self._require_share_project_manager()
             try:
@@ -561,11 +682,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     session_ids = share_manager.get_session_ids()
                     if not session_ids:
                         raise KeyError("Share listener emit missing active sessions")
-                    session_id = session_ids[0]
                 else:
-                    session_id = share_session_id
-                project_state = share_manager.get_session_state(session_id)
-                artifacts = share_manager.get_session_artifacts(session_id)
+                    session_ids = [share_session_id]
             except KeyError as exc:
                 logger.warning(
                     "failed to load share state for listener emit (project %s)",
@@ -579,143 +697,102 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     share_session_id=share_session_id,
                 )
                 return
-            dependency_graph = DependencyGraph(project_state)
-        else:
-            manager = self.project_manager_switcher.get(project_config_id)
-            try:
-                dependency_graph = manager.gen_code[project_config_id].dep_graph
-            except KeyError:
-                logger.warning(
-                    "failed to load dependency graph for listener emit (project %s)",
-                    project_config_id,
-                )
-                await self._send_listener_error(
-                    websocket_id,
-                    error="project_state_unavailable",
-                    details={"projectConfigId": project_config_id},
-                    project_config_id=project_config_id,
-                    share_session_id=share_session_id,
-                )
-                return
-            artifacts = manager.artifacts
 
-        try:
-            resolved_dependency_values = self.listener_frontend_emit_resolver.resolve(
-                dependency_values=dependency_values,
-                dependency_graph=dependency_graph,
-            )
-            resolved_artifact_updates = (
-                self.listener_frontend_emit_resolver.resolve_artifact_updates(
-                    artifact_updates=artifact_updates,
+            resolved_by_session: dict[
+                str,
+                tuple[
+                    list[ListenerFrontendEmitKeyAndValue],
+                    list[BaseArtifactUnionWithDiscriminator],
+                ],
+            ] = {}
+            for session_id in session_ids:
+                try:
+                    project_state = share_manager.get_session_state(session_id)
+                    artifacts = share_manager.get_session_artifacts(session_id)
+                except KeyError as exc:
+                    logger.warning(
+                        "failed to load share state for listener emit (project %s)",
+                        project_config_id,
+                    )
+                    await self._send_listener_error(
+                        websocket_id,
+                        error="project_state_unavailable",
+                        details={"message": str(exc)},
+                        project_config_id=project_config_id,
+                        share_session_id=share_session_id,
+                    )
+                    return
+                dependency_graph = DependencyGraph(project_state)
+                resolved = await _resolve_emits_for_state(
+                    dependency_graph=dependency_graph,
                     artifacts=artifacts,
                 )
-            )
-        except UnknownListenerDependencyError as exc:
-            logger.warning(
-                "listener emit referenced unknown dependency %s",
-                exc.dependency_name,
-            )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_unknown_dependency",
-                details={"dependencyName": exc.dependency_name},
-                project_config_id=project_config_id,
-                share_session_id=share_session_id,
-            )
-            return
-        except InvalidListenerDependencyValueError as exc:
-            logger.warning(
-                "listener emit provided invalid value for %s", exc.dependency_name
-            )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_value",
-                details={
-                    "dependencyName": exc.dependency_name,
-                    "expectedType": exc.expected_type.value,
-                },
-                project_config_id=project_config_id,
-                share_session_id=share_session_id,
-            )
-            return
-        except UnsupportedListenerDependencyError as exc:
-            logger.warning(
-                "listener emit targeted unsupported dependency %s", exc.dependency_name
-            )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_unsupported_dependency",
-                details={
-                    "dependencyName": exc.dependency_name,
-                    "reason": exc.reason,
-                },
-                project_config_id=project_config_id,
-                share_session_id=share_session_id,
-            )
-            return
-        except InvalidListenerArtifactUpdateError as exc:
-            logger.warning(
-                "listener emit provided invalid artifact update for %s", exc.path
-            )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_artifact_update",
-                details={
-                    "path": exc.path,
-                    "message": exc.message,
-                },
-                project_config_id=project_config_id,
-                share_session_id=share_session_id,
-            )
-            return
-        except UnsupportedListenerArtifactUpdateError as exc:
-            logger.warning(
-                "listener emit targeted unsupported artifact update for %s", exc.path
-            )
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_unsupported_artifact_update",
-                details={"path": exc.path, "reason": exc.reason},
-                project_config_id=project_config_id,
-                share_session_id=share_session_id,
-            )
+                if resolved is None:
+                    return
+                resolved_by_session[session_id] = resolved
+
+            for session_id, resolved in resolved_by_session.items():
+                dependency_updates, resolved_artifact_updates = resolved
+                try:
+                    await share_manager.apply_listener_emit_updates(
+                        share_session_id=session_id,
+                        dependency_updates=dependency_updates,
+                        artifact_updates=resolved_artifact_updates,
+                    )
+                except ListenerArtifactUpdateError as exc:
+                    logger.warning("listener emit artifact updates failed: %s", exc)
+                    await self._send_listener_error(
+                        websocket_id,
+                        error="listener_emit_artifact_update_failed",
+                        details={"message": str(exc)},
+                        project_config_id=project_config_id,
+                        share_session_id=share_session_id,
+                    )
+                    return
+                except ListenerDependencyUpdateError as exc:
+                    logger.warning("listener emit failed to apply: %s", exc)
+                    await self._send_listener_error(
+                        websocket_id,
+                        error="listener_emit_failed",
+                        details={"message": str(exc)},
+                        project_config_id=project_config_id,
+                        share_session_id=share_session_id,
+                    )
+                    return
             return
 
-        except ListenerFrontendEmitResolverError as exc:
-            logger.exception("listener emit resolver failed")
+        manager = self.project_manager_switcher.get(project_config_id)
+        try:
+            dependency_graph = manager.gen_code[project_config_id].dep_graph
+        except KeyError:
+            logger.warning(
+                "failed to load dependency graph for listener emit (project %s)",
+                project_config_id,
+            )
             await self._send_listener_error(
                 websocket_id,
-                error="listener_emit_failed",
-                details={"message": str(exc)},
+                error="project_state_unavailable",
+                details={"projectConfigId": project_config_id},
                 project_config_id=project_config_id,
                 share_session_id=share_session_id,
             )
             return
-        except ValueError as exc:
-            logger.warning("invalid listener emit payload: %s", exc)
-            await self._send_listener_error(
-                websocket_id,
-                error="listener_emit_invalid_payload",
-                details={"message": str(exc)},
-                project_config_id=project_config_id,
-                share_session_id=share_session_id,
-            )
+        artifacts = manager.artifacts
+
+        resolved = await _resolve_emits_for_state(
+            dependency_graph=dependency_graph,
+            artifacts=artifacts,
+        )
+        if resolved is None:
             return
+        resolved_dependency_values, resolved_artifact_updates = resolved
 
         try:
-            if self.share_mode:
-                share_manager = self._require_share_project_manager()
-                await share_manager.apply_listener_emit_updates(
-                    share_session_id=share_session_id,
-                    dependency_updates=resolved_dependency_values,
-                    artifact_updates=resolved_artifact_updates,
-                )
-            else:
-                await manager.apply_listener_emit_updates(
-                    projectConfigId=project_config_id,
-                    dependency_updates=resolved_dependency_values,
-                    artifact_updates=resolved_artifact_updates,
-                )
+            await manager.apply_listener_emit_updates(
+                projectConfigId=project_config_id,
+                dependency_updates=resolved_dependency_values,
+                artifact_updates=resolved_artifact_updates,
+            )
         except ListenerArtifactUpdateError as exc:
             logger.warning("listener emit artifact updates failed: %s", exc)
             await self._send_listener_error(

@@ -41,6 +41,8 @@ class ShareProjectManager:
         self.manifest = self._load_manifest()
         self.project_config_id = self._resolve_project_config_id()
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
+        if self.manifest is not None and self.manifest.listener is not None:
+            self.share_policy.listenerIsolation = self.manifest.listener.isolation
         self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
         self._artifact_watcher = SpecificFileWatcher()

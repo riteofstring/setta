@@ -3,11 +3,19 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
-from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithCompletedOpIds,
+)
+from setta.routers.dependencies import (
+    ReadyAppStateFromRequest as AppStateFromRequest,
+)
+from setta.routers.dependencies import (
+    get_share_session_id_from_request,
+)
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
@@ -26,6 +34,7 @@ from setta.types.share_deployment import (
     ShareDeploymentListenerConfig,
     ShareDeploymentManifest,
     ShareDeploymentMetadata,
+    ShareDeploymentSessionResponse,
     SharePolicy,
 )
 from setta.utils.constants import CWD, C
@@ -174,6 +183,36 @@ def _apply_share_policy_overrides(
     return policy
 
 
+def _require_share_mode(state: AppStateFromRequest) -> None:
+    if not state.share_mode:
+        raise HTTPException(
+            status_code=400,
+            detail="Share mode is not enabled for this server.",
+        )
+
+
+def _expected_share_deployment_id(state: AppStateFromRequest) -> str:
+    if state.share_deployment_root is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Share deployment root is not configured.",
+        )
+    if C.SHARE_DEPLOYMENT_ID:
+        return C.SHARE_DEPLOYMENT_ID
+    return state.share_deployment_root.name
+
+
+def _require_matching_deployment_id(
+    state: AppStateFromRequest, deployment_id: str
+) -> None:
+    expected_id = _expected_share_deployment_id(state)
+    if deployment_id != expected_id:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Share deployment not found: {deployment_id}",
+        )
+
+
 def _rebase_project_state_paths(
     project_state: "ProjectStateBackend", deployment_root: Path
 ) -> None:
@@ -302,6 +341,56 @@ def route_list_share_deployments() -> list[ShareDeploymentMetadata]:
             )
         )
     return deployments
+
+
+@router.post(Route.SHARE_DEPLOYMENT_SESSION)
+async def route_create_share_session(
+    deploymentId: str,
+    state: AppStateFromRequest,
+) -> ShareDeploymentSessionResponse:
+    _require_share_mode(state)
+    _require_matching_deployment_id(state, deploymentId)
+    session = state.share_session_store.create_session()
+    state.share_project_manager.create_session_state(session.id)
+    return ShareDeploymentSessionResponse(
+        deploymentId=deploymentId,
+        shareSessionId=session.id,
+        projectConfigId=state.share_project_manager.project_config_id,
+        sharePolicy=state.share_project_manager.share_policy,
+        manifest=state.share_project_manager.manifest,
+    )
+
+
+@router.get(Route.SHARE_DEPLOYMENT_STATE)
+async def route_get_share_deployment_state(
+    deploymentId: str,
+    state: AppStateFromRequest,
+    request: Request,
+) -> ProjectStateSingleConfigWithCompletedOpIds:
+    _require_share_mode(state)
+    _require_matching_deployment_id(state, deploymentId)
+    try:
+        share_session_id = get_share_session_id_from_request(request)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing share session id.",
+        ) from exc
+    try:
+        state.share_session_store.get_session(share_session_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+    project_state = state.share_project_manager.get_or_create_session_state(
+        share_session_id
+    )
+    return ProjectStateSingleConfigWithCompletedOpIds(
+        projectState=project_state,
+        completedOpIds=[],
+        pendingOpIds=[],
+    )
 
 
 @router.post(Route.SHARE_DEPLOYMENTS)

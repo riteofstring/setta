@@ -42,12 +42,22 @@ async def _notify_and_raise(
     *,
     message: str,
     project_config_id: ID | None,
+    share_mode: bool,
+    share_session_id: str | None,
 ) -> None:
-    await frontend_sender.log_and_broadcast_backend_log_event(
-        message,
-        severity=SettaBackendLogEventSeverity.warning,
-        project_config_id=project_config_id,
-    )
+    if share_mode and share_session_id is None:
+        await frontend_sender.log_and_broadcast_backend_log_event_to_all_frontends(
+            message,
+            severity=SettaBackendLogEventSeverity.warning,
+            project_config_id=project_config_id,
+        )
+    else:
+        await frontend_sender.log_and_broadcast_backend_log_event(
+            message,
+            severity=SettaBackendLogEventSeverity.warning,
+            project_config_id=project_config_id,
+            share_session_id=share_session_id,
+        )
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
 
 
@@ -57,12 +67,22 @@ async def _notify_and_close(
     *,
     message: str,
     project_config_id: ID | None,
+    share_mode: bool,
+    share_session_id: str | None,
 ) -> None:
-    await frontend_sender.log_and_broadcast_backend_log_event(
-        message,
-        severity=SettaBackendLogEventSeverity.warning,
-        project_config_id=project_config_id,
-    )
+    if share_mode and share_session_id is None:
+        await frontend_sender.log_and_broadcast_backend_log_event_to_all_frontends(
+            message,
+            severity=SettaBackendLogEventSeverity.warning,
+            project_config_id=project_config_id,
+        )
+    else:
+        await frontend_sender.log_and_broadcast_backend_log_event(
+            message,
+            severity=SettaBackendLogEventSeverity.warning,
+            project_config_id=project_config_id,
+            share_session_id=share_session_id,
+        )
     if websocket.application_state == WebSocketState.CONNECTING:
         await websocket.accept()
     await websocket.close(code=4403)
@@ -76,6 +96,7 @@ async def enforce_share_policy(
     policy_flag: str,
     denied_message: str,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> None:
     if not share_mode:
@@ -85,6 +106,8 @@ async def enforce_share_policy(
             frontend_sender,
             message=denied_message,
             project_config_id=project_config_id,
+            share_mode=share_mode,
+            share_session_id=share_session_id,
         )
     if section_ids and policy.allowedSections is not None:
         disallowed = _disallowed_sections(section_ids, policy.allowedSections)
@@ -96,6 +119,8 @@ async def enforce_share_policy(
                 frontend_sender,
                 message=message,
                 project_config_id=project_config_id,
+                share_mode=share_mode,
+                share_session_id=share_session_id,
             )
 
 
@@ -108,6 +133,7 @@ async def enforce_share_policy_ws(
     policy_flag: str,
     denied_message: str,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> bool:
     if not share_mode:
@@ -118,6 +144,8 @@ async def enforce_share_policy_ws(
             websocket,
             message=denied_message,
             project_config_id=project_config_id,
+            share_mode=share_mode,
+            share_session_id=share_session_id,
         )
         return False
     if section_ids and policy.allowedSections is not None:
@@ -131,6 +159,8 @@ async def enforce_share_policy_ws(
                 websocket,
                 message=message,
                 project_config_id=project_config_id,
+                share_mode=share_mode,
+                share_session_id=share_session_id,
             )
             return False
     return True
@@ -140,6 +170,7 @@ async def ensure_share_param_changes_allowed(
     state: "SettaFastAPIState",
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -149,6 +180,7 @@ async def ensure_share_param_changes_allowed(
         policy_flag="allowParamChanges",
         denied_message="Share policy disallows parameter changes.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
         section_ids=section_ids,
     )
 
@@ -157,6 +189,7 @@ async def ensure_share_variant_changes_allowed(
     state: "SettaFastAPIState",
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -166,6 +199,7 @@ async def ensure_share_variant_changes_allowed(
         policy_flag="allowVariantChanges",
         denied_message="Share policy disallows variant changes.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
         section_ids=section_ids,
     )
 
@@ -174,6 +208,7 @@ async def ensure_share_layout_changes_allowed(
     state: "SettaFastAPIState",
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -183,6 +218,7 @@ async def ensure_share_layout_changes_allowed(
         policy_flag="allowLayoutChanges",
         denied_message="Share policy disallows layout changes.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
         section_ids=section_ids,
     )
 
@@ -191,6 +227,7 @@ async def ensure_share_run_allowed(
     state: "SettaFastAPIState",
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> None:
     await enforce_share_policy(
@@ -200,8 +237,17 @@ async def ensure_share_run_allowed(
         policy_flag="allowRun",
         denied_message="Share policy disallows run and terminal access.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
         section_ids=section_ids,
     )
+    if state.share_mode and not state.terminals:
+        await _notify_and_raise(
+            state.wmh_frontend_sender,
+            message="Share run support is not enabled.",
+            project_config_id=project_config_id,
+            share_mode=state.share_mode,
+            share_session_id=share_session_id,
+        )
 
 
 async def ensure_share_run_allowed_ws(
@@ -209,9 +255,10 @@ async def ensure_share_run_allowed_ws(
     websocket: WebSocket,
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
     section_ids: list[ID] | None = None,
 ) -> bool:
-    return await enforce_share_policy_ws(
+    allowed = await enforce_share_policy_ws(
         websocket,
         share_mode=state.share_mode,
         policy=_policy_from_state(state),
@@ -219,14 +266,29 @@ async def ensure_share_run_allowed_ws(
         policy_flag="allowRun",
         denied_message="Share policy disallows run and terminal access.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
         section_ids=section_ids,
     )
+    if not allowed:
+        return False
+    if state.share_mode and not state.terminals:
+        await _notify_and_close(
+            state.wmh_frontend_sender,
+            websocket,
+            message="Share run support is not enabled.",
+            project_config_id=project_config_id,
+            share_mode=state.share_mode,
+            share_session_id=share_session_id,
+        )
+        return False
+    return True
 
 
 async def ensure_share_llm_allowed(
     state: "SettaFastAPIState",
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
         share_mode=state.share_mode,
@@ -235,13 +297,23 @@ async def ensure_share_llm_allowed(
         policy_flag="allowLLM",
         denied_message="Share policy disallows LLM access.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
     )
+    if state.share_mode and not state.chat_manager:
+        await _notify_and_raise(
+            state.wmh_frontend_sender,
+            message="Share LLM support is not enabled.",
+            project_config_id=project_config_id,
+            share_mode=state.share_mode,
+            share_session_id=share_session_id,
+        )
 
 
 async def ensure_share_mcp_allowed(
     state: "SettaFastAPIState",
     *,
     project_config_id: ID | None,
+    share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
         share_mode=state.share_mode,
@@ -250,6 +322,7 @@ async def ensure_share_mcp_allowed(
         policy_flag="allowMCP",
         denied_message="Share policy disallows MCP access.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
     )
 
 
@@ -259,6 +332,7 @@ async def ensure_share_listener_emits_allowed(
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
     project_config_id: ID | None,
+    share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
         share_mode=share_mode,
@@ -267,4 +341,5 @@ async def ensure_share_listener_emits_allowed(
         policy_flag="allowParamChanges",
         denied_message="Share policy disallows listener updates.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
     )

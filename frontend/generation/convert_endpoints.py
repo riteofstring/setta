@@ -1,5 +1,6 @@
 import dataclasses
 import inspect
+import re
 import types
 from collections.abc import Sequence as ABCSequence
 from typing import (
@@ -247,10 +248,24 @@ def create_ts_fn_def(
             len(Route.PREFIX.value) :
         ]
     if method == "POST":
-        assert len(args) <= 1
-        arg = args[0] if len(args) == 1 else ""
-        definition += f"""{{
-            return await post("{endpoint_path_without_prefix}", {arg})
+        path_param_names = re.findall(r"{(.*?)}", endpoint_path_without_prefix)
+        path_params = [arg for arg in args if arg in path_param_names]
+        body_args = [arg for arg in args if arg not in path_param_names]
+        if not body_args:
+            body = "null"
+        elif len(body_args) == 1:
+            body = body_args[0]
+        else:
+            body = f"{{ {','.join(body_args)} }}"
+        address_params = f"{{ {','.join(path_params)} }}" if path_params else ""
+        if address_params:
+            definition += f"""{{
+            return await post("{endpoint_path_without_prefix}", {body}, {address_params})
+        }}
+    """
+        else:
+            definition += f"""{{
+            return await post("{endpoint_path_without_prefix}", {body})
         }}
     """
     elif method == "GET":
