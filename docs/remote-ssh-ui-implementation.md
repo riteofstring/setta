@@ -14,11 +14,12 @@ Done:
 - HTTP auth middleware and websocket auth gating are wired (`backend/setta/middleware/auth.py`, `backend/setta/routers/websocket.py`, `backend/setta/server.py`).
 - Bootstrap page + consume endpoint are live and wired (`backend/setta/routers/bootstrap.py`, `backend/setta/types/routes.py`).
 - Server startup behavior refactor landed (random port when omitted, loopback default, session metadata + bootstrap token output, best-effort local auto-open).
+- CLI `status --connect-info` implemented with base64 JSON payload and new tests (`backend/setta/start.py`, `tests/setta/test_start_status.py`).
 - Legacy websocket CLI `setta connect` removed (`backend/setta/websockets/connect.py`).
 - Frontend endpoints/types regenerated to include bootstrap routes (`frontend/src/utils/generatedEndpoints.ts`, `frontend/src/utils/generatedTypes.ts`).
 
 Not started yet:
-- New CLI `status --connect-info` and SSH-based `setta connect`.
+- SSH-based `setta connect`.
 - Frontend fetch/websocket auth handling (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`).
 
 ## Current Code Touchpoints (What Exists Today)
@@ -159,7 +160,7 @@ Remove or rename the existing websocket-based `setta connect`:
 - CLI `connect` is reserved for the new SSH helper.
 
 ### 6) CLI: `setta status --connect-info`
-Status: NOT STARTED
+Status: DONE
 
 Add a `status` subcommand that prints connection info (human-readable or JSON).
 
