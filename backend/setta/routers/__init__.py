@@ -1,6 +1,5 @@
 from .ai import router as ai_router
 from .artifact import router as artifact_router
-from .bootstrap import router as bootstrap_router
 from .code_info import router as code_info_router
 from .listener import router as listener_router
 from .llm import router as llm_router

@@ -62,14 +62,9 @@ import { updateSettings } from "./settings";
 
 let wss: WebSocket | null;
 let wasOpen = false;
-let authLost = false;
-const AUTH_CLOSE_CODE = 4401;
 
 export const openWebSocket = _.debounce(
-  (pathname: string) => {
-    if (authLost) {
-      return;
-    }
+  (pathname) => {
     if (!wss) {
       wss = new WebSocket(
         `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
@@ -103,17 +98,8 @@ export const openWebSocket = _.debounce(
 
       wss.addEventListener("error", closeWebSocket);
 
-      wss.addEventListener("close", (event: CloseEvent) => {
+      wss.addEventListener("close", () => {
         wss = null;
-        if (event.code === AUTH_CLOSE_CODE) {
-          authLost = true;
-          wasOpen = false;
-          clearAllWebsocketConnections();
-          addTemporaryNotification(
-            "Authentication required. Open /__setta__/bootstrap to continue.",
-          );
-          return;
-        }
         if (wasOpen) {
           addTemporaryNotification("Server connection lost");
           wasOpen = false;
