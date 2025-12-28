@@ -14,7 +14,7 @@ import { useContextMenus, useProjectState } from "state/definitions";
 import {
   route_delete_sections,
   route_group_sections,
-  route_toggle_position_lock,
+  route_toggle_position_locks,
   route_toggle_section_visibility,
 } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -87,21 +87,23 @@ export function SelectionContextMenu() {
   function onClickLock() {
     const state = useProjectState.getState();
     const targetLocked = !allLocked;
-    for (const sectionId of nodeIds) {
+    const sectionIdsToToggle = nodeIds.filter((sectionId: string) => {
       const impl = getCurrEffectiveSectionImpl(state, sectionId);
-      if (impl.positionAndSizeLocked === targetLocked) {
-        continue;
-      }
+      return impl.positionAndSizeLocked !== targetLocked;
+    });
+    if (sectionIdsToToggle.length > 0) {
       dispatchOptimisticProjectStateUpdate({
         apply: (draft) => {
-          setCurrEffectiveSectionImplValue(draft, sectionId, {
-            positionAndSizeLocked: (curr) => !curr,
-          });
+          for (const sectionId of sectionIdsToToggle) {
+            setCurrEffectiveSectionImplValue(draft, sectionId, {
+              positionAndSizeLocked: targetLocked,
+            });
+          }
         },
         send: (frontendOpId) =>
-          route_toggle_position_lock({
+          route_toggle_position_locks({
             projectConfigId: getCurrProjectConfigId(),
-            sectionId,
+            sectionIds: sectionIdsToToggle,
             frontendOpId,
           }),
       });

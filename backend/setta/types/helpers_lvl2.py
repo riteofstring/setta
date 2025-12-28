@@ -1499,12 +1499,18 @@ def get_first_heading_or_text(markdown: str):
     return None
 
 
-def toggle_position_lock(p: "ProjectStateSingleConfig", sectionId: ID):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionImplArgsWithCallable(positionAndSizeLocked=lambda curr: not curr),
-    )
+def toggle_position_locks(p: "ProjectStateSingleConfig", section_ids: list[ID]):
+    for section_id in section_ids:
+        if section_id not in p.sections:
+            raise KeyError(f"Section {section_id} not found")
+    for section_id in section_ids:
+        set_curr_effective_section_impl_value(
+            p,
+            section_id,
+            BaseSectionImplArgsWithCallable(
+                positionAndSizeLocked=lambda curr: not curr
+            ),
+        )
 
 
 def toggle_minimized(p: "ProjectStateSingleConfig", sectionId: ID):

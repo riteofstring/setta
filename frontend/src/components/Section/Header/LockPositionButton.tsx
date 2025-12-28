@@ -7,7 +7,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_toggle_position_lock } from "utils/generatedEndpoints";
+import { route_toggle_position_locks } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type LockPositionButtonRenderState = {
@@ -54,9 +54,9 @@ export function LockPositionButton({
         });
       },
       send: (frontendOpId) =>
-        route_toggle_position_lock({
+        route_toggle_position_locks({
           projectConfigId: getCurrProjectConfigId(),
-          sectionId,
+          sectionIds: [sectionId],
           frontendOpId,
         }),
     });

@@ -74,7 +74,7 @@ from setta.project_state.project_manager_types import (
     ToggleIsEditingViewModeRequest,
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
-    TogglePositionLockRequest,
+    TogglePositionLocksRequest,
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
@@ -449,11 +449,11 @@ async def route_set_code_file_binding(
     await state.project_manager_switcher.get(x.projectConfigId).set_code_file_binding(x)
 
 
-@router.post(Route.TOGGLE_POSITION_LOCK)
-async def route_toggle_position_lock(
-    x: TogglePositionLockRequest, state: AppStateFromRequest
+@router.post(Route.TOGGLE_POSITION_LOCKS)
+async def route_toggle_position_locks(
+    x: TogglePositionLocksRequest, state: AppStateFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).toggle_position_lock(x)
+    await state.project_manager_switcher.get(x.projectConfigId).toggle_position_locks(x)
 
 
 @router.post(Route.TOGGLE_MINIMIZED)

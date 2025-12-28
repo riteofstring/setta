@@ -443,8 +443,8 @@ class SetCodeObjDisplayNameRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class TogglePositionLockRequest(ProjectManagerRequestWithSection):
-    """Flip the layout lock flag for a section."""
+class TogglePositionLocksRequest(ProjectManagerRequestWithSectionIds):
+    """Flip the layout lock flag for multiple sections."""
 
 
 class ToggleMinimizedRequest(ProjectManagerRequestWithSection):

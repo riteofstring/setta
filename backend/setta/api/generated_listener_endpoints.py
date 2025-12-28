@@ -561,10 +561,10 @@ class ListenerToggleParamSelectedRequestPayload(TypedDict):
     paramInfoId: ID
 
 
-class ListenerTogglePositionLockRequestPayload(TypedDict):
+class ListenerTogglePositionLocksRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-    sectionId: ID
+    sectionIds: list[ID]
 
 
 class ListenerToggleSectionVisibilityRequestPayload(TypedDict):
@@ -969,10 +969,10 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_toggle_param_selected", payload)
 
-    async def toggle_position_lock(
-        self, payload: ListenerTogglePositionLockRequestPayload
+    async def toggle_position_locks(
+        self, payload: ListenerTogglePositionLocksRequestPayload
     ) -> None:
-        return await self._caller("route_toggle_position_lock", payload)
+        return await self._caller("route_toggle_position_locks", payload)
 
     async def toggle_section_visibility(
         self, payload: ListenerToggleSectionVisibilityRequestPayload
