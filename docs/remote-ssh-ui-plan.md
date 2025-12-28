@@ -2,6 +2,7 @@
 
 ## Summary
 This plan keeps the current workflow (install Setta in the project’s Python environment and start it from the project folder) while making SSH-based access secure and easy. The server binds only to loopback (or UDS), uses a per-session secret to mint short-lived bootstrap tokens and an auth cookie for normal access, and provides a single-command `setta connect host:/path` helper plus a fully copy/pasteable manual tunnel flow.
+Local-only runs auto-open the browser in a best-effort way (TTY + GUI present, no SSH), while remote runs avoid opening a remote browser and instead print the bootstrap URL or use `setta connect` to open locally.
 
 ## Goals
 - Preserve the existing workflow: install Setta in the project’s Python env, run from the project folder.
@@ -11,6 +12,7 @@ This plan keeps the current workflow (install Setta in the project’s Python en
 - Allow viewing the UI locally even without a local Setta install.
 - Make copy/paste connection instructions easy to obtain.
 - Make multi-session handling explicit (list alternatives; require a session choice when multiple are running).
+- Make local-only usage automatic by opening the browser on `setta` start when running on a local TTY with a GUI available.
 
 ## Non-goals
 - Replacing SSH with a new transport.
@@ -183,6 +185,42 @@ Bootstrap script:
   - redirects to /
 Final URL:
   http://127.0.0.1:61037/
+```
+
+## Local Auto-Open (Best Effort Local Only)
+When a user runs `setta` directly in a local project, the CLI should auto-open a browser to the bootstrap URL. This should be best-effort and avoid remote or headless environments.
+
+Rules:
+- Default to auto-open when `stdin` is a TTY, a GUI is available, and no SSH environment is detected.
+- Skip auto-open if `--no-open` is provided.
+- Skip auto-open if `SSH_CONNECTION` or `SSH_TTY` is set (remote session).
+- Skip auto-open if no GUI is available; instead print the bootstrap URL.
+- When `setta connect` starts the remote process, always pass `--no-open` to avoid remote browser launch.
+
+Concrete examples:
+```text
+Local (laptop, project on your machine):
+  $ cd ~/work/my-project
+  $ source .venv/bin/activate
+  $ setta
+  Setta running (session 9f2c4b, port 61234)
+  Opening browser to:
+    http://127.0.0.1:61234/__setta__/bootstrap#token=abcd...
+  Browser sets cookie and redirects to /
+
+Remote (project on buildbox, use helper):
+  $ setta connect dev@buildbox:/work/my-project
+  Starting Setta on dev@buildbox:/work/my-project...
+  Using session 9f2c4b (port 61234).
+  Opening local tunnel on 61037 (keep this terminal open).
+  Opening browser...
+
+Remote (manual SSH):
+  dev@buildbox$ cd /work/my-project && source .venv/bin/activate && setta
+  Setta running (session 9f2c4b, port 61234)
+  Remote shell detected; not opening a browser.
+  Open locally:
+    http://127.0.0.1:61000/__setta__/bootstrap#token=abcd...
 ```
 
 ## Security Model
