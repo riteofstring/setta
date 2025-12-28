@@ -3,8 +3,6 @@ from enum import Enum
 
 class Route(str, Enum):
     PREFIX = "/api"
-    BOOTSTRAP_PAGE = "/__setta__/bootstrap"
-    BOOTSTRAP_CONSUME = "/__setta__/bootstrap/consume"
     SWAGGER_DOCS = "/docs"
     OPENAPI_DOCS = "/openapi.json"
     REDOC_DOCS = "/redoc"
@@ -102,8 +100,9 @@ class Route(str, Enum):
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"
     SET_CODE = "/setCode"
-    TOGGLE_POSITION_LOCK = "/togglePositionLock"
+    TOGGLE_POSITION_LOCKS = "/togglePositionLocks"
     TOGGLE_MINIMIZED = "/toggleMinimized"
+    TOGGLE_GROUP_ORIENTATION = "/toggleGroupOrientation"
     SET_SECTION_PARAM_FILTER = "/setSectionParamFilter"
     SET_SECTION_VARIANT = "/setSectionVariant"
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"

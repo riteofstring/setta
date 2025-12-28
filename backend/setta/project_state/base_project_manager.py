@@ -135,10 +135,11 @@ from setta.project_state.project_manager_types import (
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
+    ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
-    TogglePositionLockRequest,
+    TogglePositionLocksRequest,
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
@@ -213,9 +214,10 @@ from setta.types.helpers_lvl2 import (
     set_text_block_format,
     set_text_block_text,
     set_type_error_ignore,
+    toggle_group_orientation,
     toggle_minimized,
     toggle_param_selected,
-    toggle_position_lock,
+    toggle_position_locks,
     toggle_variant_frozen,
     toggle_variant_json_source,
     ungroup_groups,
@@ -911,13 +913,13 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
+            pathsByIdType={"section": ["sectionIds"]}
         )
     )
-    async def toggle_position_lock(self, x: TogglePositionLockRequest):
-        """Flip whether a section's layout is locked in place."""
+    async def toggle_position_locks(self, x: TogglePositionLocksRequest):
+        """Flip whether multiple sections' layouts are locked in place."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        toggle_position_lock(project_state, x.sectionId)
+        toggle_position_locks(project_state, x.sectionIds)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -930,6 +932,18 @@ class BaseProjectManager(ABC):
         """Expand or collapse a section panel within the project workspace."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_minimized(project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def toggle_group_orientation(self, x: ToggleGroupOrientationRequest):
+        """Flip whether a group section lays out children horizontally."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        toggle_group_orientation(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

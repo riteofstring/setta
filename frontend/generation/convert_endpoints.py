@@ -17,7 +17,7 @@ from typing import (
     is_typeddict,
 )
 
-from fastapi import BackgroundTasks, Request, Response
+from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.server import app
@@ -92,7 +92,7 @@ def create_args(inputs):
     args_with_annotations = []
 
     for name, type in inputs.items():
-        if type in (SettaFastAPIState, Request, Response):
+        if type is SettaFastAPIState:
             continue
         type_annotation = python_type_to_ts(type, {}, set(), use_input_types=True)
         args.append(name)

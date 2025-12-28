@@ -36,20 +36,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_CATCH_ALL_PATH = "/{full_path:path}"
-
-
-def _move_catch_all_route_to_end(app: FastAPI) -> None:
-    routes = list(app.router.routes)
-    catch_all = [
-        route for route in routes if getattr(route, "path", None) == _CATCH_ALL_PATH
-    ]
-    if not catch_all:
-        return
-    app.router.routes = [
-        route for route in routes if route not in catch_all
-    ] + catch_all
-
 
 class SettaFastMCP(FastMCP):
     def __init__(
@@ -85,7 +71,6 @@ class SettaFastMCP(FastMCP):
 
         app.get(mount_path)(handle_mcp_connection)
         app.mount(msg_path, app=sse_transport.handle_post_message)
-        _move_catch_all_route_to_end(app)
 
         self.add_setta_tools()
         spawn_background_task(

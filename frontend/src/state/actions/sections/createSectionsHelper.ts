@@ -173,16 +173,16 @@ export function useCreateSectionsList() {
       items: sectionGroupItems,
     },
     {
-      group: "MetaControls",
-      items: metaControlGroupItems,
-    },
-    {
       group: "Code",
       items: codeGroupItems,
     },
     {
       group: "Artifacts",
       items: artifactGroupItems,
+    },
+    {
+      group: "MetaControls",
+      items: metaControlGroupItems,
     },
     {
       group: "Embed",

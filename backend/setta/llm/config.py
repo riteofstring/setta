@@ -9,7 +9,6 @@ from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
-from setta.utils.network import format_host_for_url
 
 
 def load_llm_config(dbe: DBE) -> AllLLMConfigs:
@@ -20,16 +19,13 @@ def load_llm_config(dbe: DBE) -> AllLLMConfigs:
         example = dbe.read_llm_config_example()
         if example:
             config = AllLLMConfigs.model_validate(example)
-            config = _ensure_setta_mcp_server_url(config)
             save_llm_config(config, dbe)
             return config
     if not raw:
         config = _build_default_llm_config()
-        config = _ensure_setta_mcp_server_url(config)
         save_llm_config(config, dbe)
         return config
-    config = AllLLMConfigs.model_validate(raw)
-    return _ensure_setta_mcp_server_url(config)
+    return AllLLMConfigs.model_validate(raw)
 
 
 def save_llm_config(
@@ -78,22 +74,6 @@ def _build_default_llm_config() -> AllLLMConfigs:
             )
         },
     )
-
-
-def _ensure_setta_mcp_server_url(config: AllLLMConfigs) -> AllLLMConfigs:
-    server = config.mcpServers.get(SETTA_MCP_SERVER_ID)
-    if server is None:
-        return config
-    if server.transport not in {"sse", "streamable_http"}:
-        return config
-    host = format_host_for_url(constants.C.HOST)
-    desired_url = f"http://{host}:{constants.C.PORT}/mcp"
-    if server.url == desired_url:
-        return config
-    config.mcpServers[SETTA_MCP_SERVER_ID] = server.model_copy(
-        update={"url": desired_url}
-    )
-    return config
 
 
 def merge_chat_llm_configs(

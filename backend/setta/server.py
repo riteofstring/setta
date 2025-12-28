@@ -24,14 +24,12 @@ from setta.lsp.managers import (
     stop_lsps,
 )
 from setta.middleware import (
-    AuthMiddleware,
     LoggingContextMiddleware,
     bind_request_logging_context,
 )
 from setta.routers import (
     ai_router,
     artifact_router,
-    bootstrap_router,
     code_info_router,
     listener_router,
     llm_router,
@@ -71,20 +69,19 @@ async def lifespan(app: FastAPI):
 
         # {full_path:path} is to catch all paths not explicitly covered here
         @app.get("/{full_path:path}", response_class=HTMLResponse)
-        async def read_root(full_path: str):
+        async def read_root(_full_path: str):
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
 
     logger.info("Ready: %s", C.BACKEND)
     browser_task: asyncio.Task[None] | None = None
-    open_url = C.OPEN_BROWSER_ON_START
-    if open_url:
-        C.OPEN_BROWSER_ON_START = None
+    if C.OPEN_BROWSER_ON_START:
+        C.OPEN_BROWSER_ON_START = False
         browser_task = spawn_background_task(
-            _open_browser_after_startup(open_url),
+            _open_browser_after_startup(C.BACKEND),
             label="open-browser",
-            extra_values={"open_url": open_url},
+            extra_values={"backend_url": C.BACKEND},
         )
     try:
         yield
@@ -109,12 +106,9 @@ app = FastAPI(
 )
 
 app.add_middleware(LoggingContextMiddleware)
-app.add_middleware(AuthMiddleware)
-# Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -125,7 +119,6 @@ http_router_kwargs = {
 }
 websocket_router_kwargs = {"prefix": Route.PREFIX.value}
 
-app.include_router(bootstrap_router)
 app.include_router(projects_router, **http_router_kwargs)
 app.include_router(sections_router, **http_router_kwargs)
 app.include_router(terminals_http_router, **http_router_kwargs)

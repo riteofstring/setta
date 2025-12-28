@@ -251,8 +251,6 @@ export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
 
 export const RouteEnum = {
   PREFIX: "/api",
-  BOOTSTRAP_PAGE: "/__setta__/bootstrap",
-  BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
   SWAGGER_DOCS: "/docs",
   OPENAPI_DOCS: "/openapi.json",
   REDOC_DOCS: "/redoc",
@@ -350,8 +348,9 @@ export const RouteEnum = {
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_FILE_BINDING: "/setCodeFileBinding",
   SET_CODE: "/setCode",
-  TOGGLE_POSITION_LOCK: "/togglePositionLock",
+  TOGGLE_POSITION_LOCKS: "/togglePositionLocks",
   TOGGLE_MINIMIZED: "/toggleMinimized",
+  TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
@@ -4916,14 +4915,6 @@ export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
 >;
 
-const BootstrapConsumeRequestSchema = z.object({
-  token: z.union([z.string(), z.null()]).default(null),
-});
-
-export type BootstrapConsumeRequestInput = z.input<
-  typeof BootstrapConsumeRequestSchema
->;
-
 const DocstringToMarkdownRequestSchema = z.object({
   docstring: z.string(),
 });
@@ -5701,6 +5692,16 @@ export type TextFieldCompletionRequestInput = z.input<
   typeof TextFieldCompletionRequestSchema
 >;
 
+const ToggleGroupOrientationRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type ToggleGroupOrientationRequestInput = z.input<
+  typeof ToggleGroupOrientationRequestSchema
+>;
+
 const ToggleIsEditingViewModeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5731,14 +5732,14 @@ export type ToggleParamSelectedRequestInput = z.input<
   typeof ToggleParamSelectedRequestSchema
 >;
 
-const TogglePositionLockRequestSchema = z.object({
+const TogglePositionLocksRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  sectionId: IDSchema,
+  sectionIds: z.array(IDSchema),
 });
 
-export type TogglePositionLockRequestInput = z.input<
-  typeof TogglePositionLockRequestSchema
+export type TogglePositionLocksRequestInput = z.input<
+  typeof TogglePositionLocksRequestSchema
 >;
 
 const ToggleSectionVisibilityRequestSchema = z.object({
