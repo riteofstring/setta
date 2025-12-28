@@ -15,11 +15,12 @@ Done:
 - Bootstrap page + consume endpoint are live and wired (`backend/setta/routers/bootstrap.py`, `backend/setta/types/routes.py`).
 - Server startup behavior refactor landed (random port when omitted, loopback default, session metadata + bootstrap token output, best-effort local auto-open).
 - CLI `status --connect-info` implemented with base64 JSON payload and new tests (`backend/setta/start.py`, `tests/setta/test_start_status.py`).
+- SSH-based `setta connect` implemented with remote start, session selection, and tunnel handling (`backend/setta/start.py`).
+- `status --list-sessions --json` and `status --delete-session` added to support connect session selection and cleanup (`backend/setta/start.py`).
 - Legacy websocket CLI `setta connect` removed (`backend/setta/websockets/connect.py`).
 - Frontend endpoints/types regenerated to include bootstrap routes (`frontend/src/utils/generatedEndpoints.ts`, `frontend/src/utils/generatedTypes.ts`).
 
 Not started yet:
-- SSH-based `setta connect`.
 - Frontend fetch/websocket auth handling (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`).
 
 ## Current Code Touchpoints (What Exists Today)
@@ -185,7 +186,7 @@ New CLI flow (Click) in `backend/setta/start.py`:
   - For robustness over SSH, `--json` prints a single line prefixed with `__SETTA_JSON_B64__` followed by base64-encoded JSON, so banners/MOTDs do not break parsing.
 
 ### 7) CLI: `setta connect user@host --workspace /path`
-Status: NOT STARTED
+Status: DONE
 
 Replace `setta connect` with an SSH orchestration helper.
 
@@ -274,6 +275,6 @@ Frontend:
 ## Sequencing (Recommended)
 1) DONE: Session registry + token signer + constants.
 2) DONE: Auth middleware + bootstrap routes.
-3) IN PROGRESS: CLI refactor (`status`, `connect` still pending).
+3) DONE: CLI refactor (`status`, `connect`).
 4) NOT STARTED: Frontend auth handling.
 5) DONE: Endpoint generation + cleanup.

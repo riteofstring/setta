@@ -3,13 +3,14 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from click.testing import CliRunner
 
-from setta.sessions import SessionRegistry
+from setta.sessions import SessionMetadata, SessionRegistry
 from setta.start import status
 from setta.utils.constants import C
 
@@ -53,8 +54,8 @@ class StartStatusTests(unittest.TestCase):
 
     def _create_session(
         self, port: int, started_at: datetime | None = None
-    ) -> None:
-        self.registry.create_session(
+    ) -> SessionMetadata:
+        return self.registry.create_session(
             workspace_path=self.workspace,
             host="127.0.0.1",
             port=port,
@@ -130,6 +131,56 @@ class StartStatusTests(unittest.TestCase):
         session = payload["session"]
         self.assertEqual(session["port"], 61235)
         self.assertEqual(session["startedAt"], later.isoformat())
+
+    def test_status_list_sessions_json_emits_payload(self) -> None:
+        first = self._create_session(port=61234)
+        second = self._create_session(port=61235)
+        runner = CliRunner()
+
+        result = runner.invoke(status, ["--list-sessions", "--json"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        payload = self._decode_connect_info(result.output)
+        sessions = payload["sessions"]
+        self.assertEqual(len(sessions), 2)
+        ports = {session["port"] for session in sessions}
+        self.assertEqual(ports, {first.port, second.port})
+        for session in sessions:
+            self.assertEqual(
+                session["workspacePath"], str(self.workspace.resolve())
+            )
+
+    def test_status_list_sessions_requires_json(self) -> None:
+        self._create_session(port=61234)
+        runner = CliRunner()
+
+        result = runner.invoke(status, ["--list-sessions"])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Use --json with --list-sessions", result.output)
+
+    def test_status_delete_session_removes_metadata_and_stops_process(self) -> None:
+        session = self._create_session(port=61234)
+        runner = CliRunner()
+
+        result = runner.invoke(status, ["--delete-session", session.id])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn(f"Deleted session {session.id}.", result.output)
+        session_dir = self.sessions_root / session.id
+        self.assertFalse(session_dir.exists())
+        deadline = time.monotonic() + 2.0
+        while self.process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertIsNotNone(self.process.poll())
+
+    def test_status_delete_session_missing_reports_error(self) -> None:
+        runner = CliRunner()
+
+        result = runner.invoke(status, ["--delete-session", "missing"])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Session missing not found", result.output)
 
 
 if __name__ == "__main__":
