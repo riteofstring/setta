@@ -505,6 +505,12 @@ export async function route_toggle_minimized(
   return await post("/toggleMinimized", x);
 }
 
+export async function route_toggle_group_orientation(
+  x: gt.ToggleGroupOrientationRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleGroupOrientation", x);
+}
+
 export async function route_set_code(
   x: gt.SetCodeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

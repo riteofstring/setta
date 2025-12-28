@@ -350,6 +350,7 @@ export const RouteEnum = {
   SET_CODE: "/setCode",
   TOGGLE_POSITION_LOCK: "/togglePositionLock",
   TOGGLE_MINIMIZED: "/toggleMinimized",
+  TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
@@ -5689,6 +5690,16 @@ const TextFieldCompletionRequestSchema = z.object({
 
 export type TextFieldCompletionRequestInput = z.input<
   typeof TextFieldCompletionRequestSchema
+>;
+
+const ToggleGroupOrientationRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type ToggleGroupOrientationRequestInput = z.input<
+  typeof ToggleGroupOrientationRequestSchema
 >;
 
 const ToggleIsEditingViewModeRequestSchema = z.object({
