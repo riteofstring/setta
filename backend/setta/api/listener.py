@@ -31,7 +31,11 @@ from setta.code_gen.value_mode import PythonValueMode
 from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
-from setta.types.dependency_key import SectionDependencyKey, SectionParamDependencyKey
+from setta.types.dependency_key import (
+    SectionDependencyKey,
+    SectionParamDependencyKey,
+    create_dep_key,
+)
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.generated.unions import (
@@ -106,24 +110,27 @@ ListenerCallbackBuilder = Callable[["SettaListener"], None]
 class ListenerCallbackSpec:
     function: ListenerCallback
     callback_id: str
-    declared_dependencies: tuple[str, ...]
+    declared_dependencies: tuple["ListenerDependencySpec", ...]
     declared_actions: tuple[str, ...] | None
     dependency_mode: ListenerDependencyMode
     debounce_ms: int | None
     throttle_ms: int | None
     run_on_refresh: bool
     structured_dependencies: tuple[BaseDependencyKeyUnion, ...] = ()
+    dependency_names: tuple[str, ...] = ()
     logger: logging.Logger | None = None
 
 
 @dataclass(slots=True)
 class ListenerCallbackContext:
     changed: dict[str, Any]
+    changed_by_id: dict["ListenerDependencyId", Any]
     actions: list[ControlActionEvent]
     log: logging.Logger
     emit_to_frontend: Callable[..., Awaitable[None]]
     project_manager: RouterEndpointAPI
     ids: "ListenerDependencyIds"
+    values: "ListenerDependencyValues"
 
 
 @dataclass(slots=True)
@@ -138,6 +145,12 @@ class ListenerRuntimeState:
 class ListenerParamIds:
     sectionId: "ID"
     paramInfoId: "ID"
+
+
+@dataclass(frozen=True, slots=True)
+class ListenerDependencyId:
+    sectionId: "ID"
+    paramInfoId: "ID | None" = None
 
 
 class ListenerDependencyIds:
@@ -186,6 +199,55 @@ class ListenerDependencyIds:
             sectionId=section_id,
             paramInfoId=param_id,
         )
+
+    def dependency_id(self, dependency_name: str) -> ListenerDependencyId:
+        dep_key = self.dependency_key(dependency_name)
+        return _dependency_id_from_key(dep_key)
+
+    def dependency_name(
+        self, section_id: "ID", param_info_id: "ID | None" = None
+    ) -> str:
+        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_info_id)
+        graph = self._dependency_graph.graph
+        if dep_key not in graph:
+            raise KeyError(
+                f"Unknown dependency id: sectionId={section_id} paramInfoId={param_info_id}"
+            )
+        return graph[dep_key].full_path_name
+
+
+class ListenerDependencyValues:
+    def __init__(self, dependency_graph: DependencyGraph, state: Any) -> None:
+        self._dependency_graph = dependency_graph
+        self._state = state
+
+    def by_id(self, section_id: "ID", param_id: "ID | None" = None) -> Any:
+        dep_key = create_dep_key(sectionId=section_id, codeObjId=param_id)
+        graph = self._dependency_graph.graph
+        if dep_key not in graph:
+            raise KeyError(
+                f"Unknown dependency id: sectionId={section_id} paramInfoId={param_id}"
+            )
+        name = graph[dep_key].full_path_name
+        return getattr(self._state, name)
+
+
+ListenerDependencySpec = str | ListenerDependencyId | BaseDependencyKeyUnion
+
+
+def dep_id(section_id: "ID", param_id: "ID | None" = None) -> ListenerDependencyId:
+    return ListenerDependencyId(sectionId=section_id, paramInfoId=param_id)
+
+
+def _dependency_id_from_key(
+    dep_key: BaseDependencyKeyUnion,
+) -> ListenerDependencyId:
+    if isinstance(dep_key, SectionParamDependencyKey):
+        return ListenerDependencyId(
+            sectionId=dep_key.sectionId,
+            paramInfoId=dep_key.codeObjId,
+        )
+    return ListenerDependencyId(sectionId=dep_key.sectionId)
 
 
 class SettaListener:
@@ -591,7 +653,7 @@ class SettaListener:
     def listen(
         self,
         *,
-        deps: Iterable[str] | None = None,
+        deps: Iterable[ListenerDependencySpec] | None = None,
         actions: Iterable[str] | None = None,
         dependency_mode: ListenerDependencyMode | str | None = None,
         debounce_ms: int | None = None,
@@ -674,18 +736,11 @@ class SettaListener:
                 "Listener runtime state unavailable during registration payload build"
             )
         dependency_graph = runtime_state.dependency_graph
+        self._refresh_callback_dependency_metadata(dependency_graph)
         callbacks: dict[str, ListenerRegisterCallback] = {}
         for spec in self._callbacks.values():
-            structured_dependencies: list[BaseDependencyKeyUnion] = []
-            for dependency in spec.declared_dependencies:
-                dep_key = dependency_graph.full_path_name_to_dep_key.get(dependency)
-                if dep_key is None:
-                    raise KeyError(
-                        f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
-                    )
-                structured_dependencies.append(dep_key)
             callbacks[spec.callback_id] = ListenerRegisterCallback(
-                dependencies=list(structured_dependencies),
+                dependencies=list(spec.structured_dependencies),
                 dependencyMode=spec.dependency_mode,
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
@@ -696,16 +751,72 @@ class SettaListener:
                     else None
                 ),
             )
-            spec.structured_dependencies = tuple(structured_dependencies)
         return ListenerRegisterContent(
             projectConfigId=self._require_project_id(), callbacks=callbacks
         )
+
+    def _resolve_dependency_spec(
+        self,
+        dependency_graph: DependencyGraph,
+        dependency: ListenerDependencySpec,
+    ) -> BaseDependencyKeyUnion:
+        if isinstance(dependency, ListenerDependencyId):
+            dep_key = create_dep_key(
+                sectionId=dependency.sectionId,
+                codeObjId=dependency.paramInfoId,
+            )
+        elif isinstance(dependency, (SectionDependencyKey, SectionParamDependencyKey)):
+            dep_key = dependency
+        elif isinstance(dependency, str):
+            lookup = dependency_graph.full_path_name_to_dep_key
+            if dependency not in lookup:
+                raise KeyError(
+                    f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
+                )
+            dep_key = lookup[dependency]
+        else:
+            raise TypeError(
+                "Listener dependencies must be a name, dependency id, or dependency key"
+            )
+        graph = dependency_graph.graph
+        if dep_key not in graph:
+            raise KeyError(
+                f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
+            )
+        return dep_key
+
+    def _refresh_callback_dependency_metadata(
+        self, dependency_graph: DependencyGraph
+    ) -> None:
+        for spec in self._callbacks.values():
+            if spec.declared_dependencies and not spec.structured_dependencies:
+                structured: list[BaseDependencyKeyUnion] = []
+                for dependency in spec.declared_dependencies:
+                    structured.append(
+                        self._resolve_dependency_spec(
+                            dependency_graph,
+                            dependency,
+                        )
+                    )
+                spec.structured_dependencies = tuple(structured)
+            if not spec.structured_dependencies:
+                spec.dependency_names = ()
+                continue
+            names: list[str] = []
+            graph = dependency_graph.graph
+            for dep_key in spec.structured_dependencies:
+                if dep_key not in graph:
+                    raise KeyError(
+                        f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
+                    )
+                names.append(graph[dep_key].full_path_name)
+            spec.dependency_names = tuple(names)
 
     @staticmethod
     def _normalize_dependency_mode(
         mode: ListenerDependencyMode | str | None,
         *,
-        declared_dependencies: tuple[str, ...],
+        declared_dependencies: tuple[ListenerDependencySpec, ...],
     ) -> ListenerDependencyMode:
         if mode is None:
             if declared_dependencies:
@@ -847,6 +958,7 @@ class SettaListener:
         snapshot_values: dict[str, Any] = {}
         updated_cache = dict(self._dependency_cache)
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
@@ -867,7 +979,7 @@ class SettaListener:
                 continue
 
             if mode is ListenerDependencyMode.SPECIFIC:
-                for dependency in spec.declared_dependencies:
+                for dependency in spec.dependency_names:
                     value = self._get_dependency_value(
                         runtime_state.s_instance,
                         dependency,
@@ -890,7 +1002,7 @@ class SettaListener:
             else:  # ListenerDependencyMode.REFRESH_ONLY
                 if refresh_kind in {"bootstrap", "force_refresh"}:
                     should_run = True
-                    for dependency in spec.declared_dependencies:
+                    for dependency in spec.dependency_names:
                         value = self._get_dependency_value(
                             runtime_state.s_instance,
                             dependency,
@@ -1053,6 +1165,8 @@ class SettaListener:
             )
             return
 
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
+
         if self._last_realtime_sequence is not None:
             if content.sequence <= self._last_realtime_sequence:
                 logger.debug(
@@ -1073,6 +1187,7 @@ class SettaListener:
             return
 
         applied_dependencies: dict[str, Any] = {}
+        applied_dependencies_by_key: dict[BaseDependencyKeyUnion, Any] = {}
         for delta in content.deltas:
             dep_key = delta.dependency
             node = runtime_state.dependency_graph.graph.get(dep_key)
@@ -1106,6 +1221,7 @@ class SettaListener:
                 )
                 continue
             applied_dependencies[dependency] = hydrated_value
+            applied_dependencies_by_key[dep_key] = hydrated_value
 
         if not applied_dependencies:
             logger.debug(
@@ -1126,8 +1242,10 @@ class SettaListener:
                 continue
 
             changed: dict[str, Any] = {}
-            for dependency in spec.declared_dependencies:
-                if dependency not in applied_dependencies:
+            for dep_key, dependency in zip(
+                spec.structured_dependencies, spec.dependency_names
+            ):
+                if dep_key not in applied_dependencies_by_key:
                     continue
                 try:
                     value = self._resolve_dependency_value(
@@ -1439,16 +1557,42 @@ class SettaListener:
             raise RuntimeError(
                 "Listener project state is unavailable; wait for bootstrap before calling router endpoints"
             )
+        ids = ListenerDependencyIds(
+            runtime_state.dependency_graph, runtime_state.project_state
+        )
+        values = ListenerDependencyValues(
+            runtime_state.dependency_graph, runtime_state.s_instance
+        )
         return ListenerCallbackContext(
             changed=changed,
+            changed_by_id=self._build_changed_by_id(
+                runtime_state.dependency_graph, changed
+            ),
             actions=actions,
             log=spec_logger,
             emit_to_frontend=self.emit_to_frontend,
             project_manager=project_manager,
-            ids=ListenerDependencyIds(
-                runtime_state.dependency_graph, runtime_state.project_state
-            ),
+            ids=ids,
+            values=values,
         )
+
+    def _build_changed_by_id(
+        self,
+        dependency_graph: DependencyGraph,
+        changed: dict[str, Any],
+    ) -> dict[ListenerDependencyId, Any]:
+        if not changed:
+            return {}
+        lookup = dependency_graph.full_path_name_to_dep_key
+        changed_by_id: dict[ListenerDependencyId, Any] = {}
+        for dependency_name, value in changed.items():
+            if dependency_name not in lookup:
+                raise KeyError(
+                    f"Unknown dependency name {dependency_name!r} for project {self._log_identifier}"
+                )
+            dep_key = lookup[dependency_name]
+            changed_by_id[_dependency_id_from_key(dep_key)] = value
+        return changed_by_id
 
     def _get_router_endpoint_api(self) -> RouterEndpointAPI:
         if self._router_endpoint_api is None:
@@ -1516,6 +1660,7 @@ class SettaListener:
         snapshot_values: dict[str, Any] = {}
         updated_cache = dict(self._dependency_cache)
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
@@ -1527,7 +1672,7 @@ class SettaListener:
                 if spec.run_on_refresh:
                     callbacks_to_run.append((spec, {}))
                 continue
-            dependencies = spec.declared_dependencies
+            dependencies = spec.dependency_names
             if not dependencies:
                 callbacks_to_run.append((spec, {}))
                 continue

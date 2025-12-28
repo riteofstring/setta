@@ -76,7 +76,7 @@ def process_gen_code_diagnostic(
         )
     elif d.code == "reportCallIssue":
         return process_report_call_issue(
-            position.start, message, code_generator, dep_graph
+            position.start, message, code_generator, dep_graph, range_index
         )
     elif is_undefined_symbol_diagnostic(d):
         return process_undefined_symbol(position, message, code_generator, range_index)
@@ -101,13 +101,16 @@ def process_report_call_issue(
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
+    range_index: RangeIndex,
 ):
     if "positional argument" in message:
         return process_positional_argument_issue(
-            start, message, code_generator, dep_graph
+            start, message, code_generator, dep_graph, range_index
         )
     elif "parameter" in message:
-        return process_named_argument_issue(start, message, code_generator, dep_graph)
+        return process_named_argument_issue(
+            start, message, code_generator, dep_graph, range_index
+        )
     return []
 
 
@@ -148,6 +151,7 @@ def _process_argument_issue(
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
     param_filter: Callable[[ParamNode], bool],
+    range_index: RangeIndex,
 ):
     """
     Helper function to process argument issues.
@@ -160,6 +164,12 @@ def _process_argument_issue(
         param_filter: Function that takes a param and returns True if it should be included
     """
     dep_key = code_generator.value_pos_start_to_dep_key.get(start)
+    if not dep_key:
+        dep_key = find_dep_key_for_range(
+            SettaLSPPosition(start=start, end=start + 1),
+            code_generator,
+            range_index,
+        )
     if not dep_key:
         return []
     node = dep_graph.graph.get(dep_key)
@@ -183,6 +193,7 @@ def process_positional_argument_issue(
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
+    range_index: RangeIndex,
 ):
     return _process_argument_issue(
         start,
@@ -190,6 +201,7 @@ def process_positional_argument_issue(
         code_generator,
         dep_graph,
         lambda param: param.passing_style == ParameterPassingStyle.POSITIONAL_ONLY,
+        range_index,
     )
 
 
@@ -198,6 +210,7 @@ def process_named_argument_issue(
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
+    range_index: RangeIndex,
 ):
     missing_param_names = extract_parameters(message)
     return _process_argument_issue(
@@ -206,6 +219,7 @@ def process_named_argument_issue(
         code_generator,
         dep_graph,
         lambda param: param.name in missing_param_names,
+        range_index,
     )
 
 

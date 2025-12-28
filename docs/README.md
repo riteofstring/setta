@@ -12,4 +12,3 @@
 - `setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.
 - `setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
-- `setta-cli-commands.md` – summary of all `setta` CLI commands and their options.

@@ -537,6 +537,12 @@ class ListenerTextFieldCompletionRequestPayload(TypedDict):
     position: int
 
 
+class ListenerToggleGroupOrientationRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+
+
 class ListenerToggleIsEditingViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -942,6 +948,11 @@ class RouterEndpointAPI:
         self, payload: ListenerTextFieldCompletionRequestPayload
     ) -> list[CodeMirrorCompletion]:
         return await self._caller("route_text_field_completion", payload)
+
+    async def toggle_group_orientation(
+        self, payload: ListenerToggleGroupOrientationRequestPayload
+    ) -> None:
+        return await self._caller("route_toggle_group_orientation", payload)
 
     async def toggle_is_editing_view_mode(
         self, payload: ListenerToggleIsEditingViewModeRequestPayload
