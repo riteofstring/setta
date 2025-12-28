@@ -31,18 +31,18 @@ This plan keeps the current workflow (install Setta in the project’s Python en
    Bind: 127.0.0.1:61234 (remote only)
    Remote start (copy/paste on host, if needed):
      cd /work/my-project && source .venv/bin/activate && setta
-   From your laptop (recommended):
+   From your laptop (recommended if Setta is installed locally):
      setta connect dev@buildbox:/work/my-project --session 9f2c4b
-   No local Setta? Copy/paste:
+   If your laptop prints "setta: command not found", use the manual tunnel steps instead:
      LOCAL_PORT=61000
-     ssh -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
-    Open this URL in your browser (recommended):
-      http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>
-    If the page prompts for a token (JS blocked or fragment stripped), open:
-      http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap
-      and paste:
-        <token>
-     (macOS: open URL, Linux: xdg-open URL, Windows: start URL)
+     ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
+     Open this URL in your browser (recommended):
+       http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>
+     If the page prompts for a token (JS blocked or fragment stripped), open:
+       http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap
+       and paste:
+         <token>
+   (macOS: open URL, Linux: xdg-open URL, Windows: start URL)
    ```
 
 ## Manual Flow (Two SSH Sessions)
@@ -56,7 +56,7 @@ Requires two terminals:
   Remote start (copy/paste on host, if needed):
     cd /work/my-project && source .venv/bin/activate && setta
   LOCAL_PORT=61000
-  ssh -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
+  ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
   Open this URL in your browser (recommended):
     http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>
   If the page prompts for a token (JS blocked or fragment stripped), open:
@@ -64,7 +64,8 @@ Requires two terminals:
     and paste:
       <token>
   ```
-Pick any free LOCAL_PORT on your laptop; if you see “Address already in use,” change it (for example, 61001) and rerun the tunnel command.
+Keep the tunnel command running; Ctrl+C stops it. If you see a remote prompt like `dev@buildbox:~$`, you probably omitted `-N`. The tunnel still works, but it is easy to forget it is running; prefer `-N` and keep this terminal open.
+Pick any free LOCAL_PORT on your laptop; if you see “Address already in use,” change it (for example, 61001) and rerun the tunnel command (example: `LOCAL_PORT=61001`).
 Leave the SSH session running in Terminal B; close it with Ctrl+C when done.
 Optional commands: macOS `open URL`, Linux `xdg-open URL`, Windows `start URL`.
 The bootstrap page sets an auth cookie and redirects to `/` so the token does not remain in the URL.
@@ -77,17 +78,6 @@ Query tokens may also land in shell history or logs.
 If the token expires, run `setta status --connect-info` again to mint a fresh one (no server restart needed).
 
 Note: if `61000` is already in use, choose a different local port and update `LOCAL_PORT`.
-
-Optional: one-command tunnel that auto-opens the URL (foreground, no background PID):
-```bash
-TOKEN=<token>
-LOCAL_PORT=61000
-ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox \
-  -o ExitOnForwardFailure=yes \
-  -o PermitLocalCommand=yes \
-  -o LocalCommand="open http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=${TOKEN}"
-```
-Replace `open` with `xdg-open` (Linux) or `start` (Windows).
 
 ## Single SSH Session (Optional)
 This only works if you already know the remote port. If Setta is using a random port,
@@ -134,7 +124,16 @@ Behavior:
   - Deletion prompts for confirmation and stops the server before removing session metadata.
 - If `stdin` is not a TTY and multiple sessions match, exit non-zero with a clear message to use `--session <id>` or `--latest` (do not prompt or hang).
 - Support non-interactive selection with `--session <id>` or `--latest`.
+- Define `--latest` ordering (for example, "most recently started"). Example: session A started at 09:00, session B started at 10:05; `--latest` selects B.
 - Chooses a free local port automatically (prints it), or uses `--local-port` if provided.
+- Print progress lines so the CLI does not appear hung during remote startup or SSH handshake. Example output:
+  ```text
+  Starting Setta on dev@buildbox:/work/my-project...
+  Using session 9f2c4b (port 61234).
+  Opening local tunnel on 61037 (keep this terminal open).
+  Opening browser...
+  Tunnel active (Ctrl+C to stop).
+  ```
 - Opens a local tunnel and launches the browser to the bootstrap URL. For `setta connect`,
   pass the token via fragment by default (`#token=...`) so the UI loads immediately; allow
   `?token=` as a fallback and scrub via `history.replaceState`. The bootstrap page should
@@ -150,7 +149,7 @@ Behavior:
   Tunnel running in background (pid 48219, local port 61037).
   To stop: kill 48219
   ```
-- `--print-only` prints the exact `ssh -L` command, bootstrap URL, and token on
+- `--print-only` prints the exact `ssh -N -L` command, bootstrap URL, and token on
   separate lines, then exits without opening a browser or keeping a tunnel alive.
 - `--no-open` skips launching a browser (useful for headless shells).
 
@@ -162,6 +161,11 @@ Concrete example (helper flow, no token in history):
 ```text
 User runs:
   setta connect dev@buildbox:/work/my-project
+CLI output:
+  Starting Setta on dev@buildbox:/work/my-project...
+  Using session 9f2c4b (port 61234).
+  Opening local tunnel on 61037 (keep this terminal open).
+  Opening browser...
 CLI opens:
   http://127.0.0.1:61037/__setta__/bootstrap#token=7f3b2c9e
 Browser requests:
@@ -231,6 +235,7 @@ SSH tunnel and browser instructions. Include a fragment URL with the token for t
 flow, plus a plain `/__setta__/bootstrap` URL for manual paste when JS is blocked. Provide
 optional commands for macOS (`open URL`), Linux (`xdg-open URL`), Windows (`start URL`), or
 `python -m webbrowser URL`.
+Example: if your laptop prints `setta: command not found`, use the printed `ssh -N -L ...` snippet instead of `setta connect`.
 
 ## Testing and Verification
 - Start Setta on a remote host, verify bind is loopback only.
