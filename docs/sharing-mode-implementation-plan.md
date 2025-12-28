@@ -17,8 +17,10 @@ steps based on the current code layout.
   `backend/setta/project_state/code_files.py`). If share deployments need to be
   self-contained, export code files and rebase bindings.
 - `SettingsFile.load_settings()` creates default files when missing
-  (`backend/setta/database/settings_file.py`). Share mode should avoid writing
-  settings, or include a settings snapshot in the deployment.
+  (`backend/setta/database/settings_file.py`). Share mode currently initializes
+  settings on boot, which writes `setta-settings.json` and
+  `setta-settings-project.json` into the deployment root; revisit this if share
+  deployments must remain write-free.
 - Artifact caches are populated by file watchers; `get_cached_*` does not read
   from disk (`backend/setta/project_state/artifacts.py`). If share mode disables
   watchers, add a one-time load path or a separate cache strategy.
@@ -61,7 +63,7 @@ Status: completed. Implemented in `backend/setta/routers/share_deployments.py`.
   - Avoid any writes back to the developer workspace state.
 
 ## 3) Share runtime server/state
-Status: in progress. Share runtime boots with a mode flag and deployment root, and skips IDE-only services.
+Status: completed. Share runtime boots with a mode flag and deployment root, and skips IDE-only services.
 - Introduce a share mode flag (env or CLI) and branch in
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
@@ -74,13 +76,13 @@ Implemented:
 - Share mode flag + deployment root resolution via `SETTA_SHARE_MODE`,
   `SETTA_SHARE_DEPLOYMENT_ROOT`, and `SETTA_SHARE_DEPLOYMENT_ID` in
   `backend/setta/utils/constants.py`.
-- `backend/setta/server.py` now constructs `SettaFastAPIState` with share mode.
+- `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
-  deployment root, and skips watchers/LSP/MCP/LLM boot.
-- `backend/setta/server_state.py` initializes `WMHFrontendReceiver` in share mode
-  for share websocket traffic.
-- `backend/setta/server_state.py` wires `ShareListenerRuntime` and a share-mode
-  `WMHPythonScriptReceiver` for listener websocket traffic.
+  deployment root, and skips watchers/LSP boot.
+- `backend/setta/server_state.py` initializes share settings, terminals only
+  when `allowRun`, and share listener runtime + share websocket receivers.
+- `backend/setta/server_state.py` initializes MCP + LLM only when allowed by
+  policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
 Status: completed. Per-viewer overlays, manifest selection, session dependencies, and share run root overrides are implemented.
@@ -169,8 +171,8 @@ Implemented:
   adds the `/share/frontend` websocket route.
 
 ## 7) Listener runtime + isolation
-Status: in progress. Listener runtime, session scoping, and share-mode listener
-websocket handling are implemented; remaining work is frontend UX.
+Status: completed. Listener runtime, session scoping, and share-mode listener
+websocket handling are implemented.
 - Add `backend/setta/share/listener_runtime.py` to load and run
   `listener/app.py` from the deployment root.
 - Implement isolation modes:
@@ -225,7 +227,8 @@ Implemented:
 - Share run output cleanup runs in the background for ephemeral snapshots.
 
 ## 9) LLM + MCP gating
-Status: in progress. Share boot skips MCP/LLM; LLM policy gating is done; per-viewer chat store and MCP gating remain.
+Status: completed. Share boot gates MCP/LLM by policy, and per-viewer chat state
+is isolated in memory.
 - Add share policy flags `allowLLM` and `allowMCP` (default false).
 - In share mode initialization, skip `SettaFastMCP`, `MultiMCPClient`, and
   `LLMChatManager` unless enabled.
@@ -233,21 +236,31 @@ Status: in progress. Share boot skips MCP/LLM; LLM policy gating is done; per-vi
   to `setta_files/chats`.
 - Block `/llm/config` and `/llm/apiKeys` updates in share mode.
 Implemented:
+- Share state only initializes MCP/LLM when policy allows, and loads LLM config
+  only when `allowLLM` or `allowMCP` is true.
+- `backend/setta/llm/chat_store.py` introduces `ChatStore` plus `DBEChatStore`
+  and `MemoryChatStore` so share sessions can avoid disk writes.
+- `backend/setta/share/chat_manager.py` provides a per-session `ShareChatManager`
+  that uses `MemoryChatStore` and session-scoped project summaries.
+- `backend/setta/mcp/noop_client.py` provides a no-op MCP client for LLM-only
+  share sessions.
 - LLM routes in `backend/setta/routers/ai.py` and `backend/setta/routers/llm.py`
-  are blocked when `allowLLM` is false.
-- LLM routes also block when share runtime services are not initialized.
+  require a share session id in share mode, and are blocked when `allowLLM` is
+  false or share LLM is not initialized.
+- `/llm/config` and `/llm/apiKeys` updates are blocked in share mode.
 
 ## 10) Frontend share mode UX
-- Add a share route in `frontend/src/components/Pages/router.tsx` (for example
-  `/share/:deploymentId`).
-- Add share bootstrap logic (create session, fetch policy, load project state)
-  in `frontend/src/state/actions`.
-- Add share session/policy stores in `frontend/src/state/definitions.ts`.
-- Update `frontend/src/state/actions/websocketReceive.ts` to include the share
-  session id in the websocket connection and in realtime events.
-- Disable or hide controls based on `SharePolicy` (run buttons, view mode edits,
-  param edits, layout moves).
-- Add a visible "Sharing Mode" indicator in the header.
+Status: completed. Share session bootstrap, websocket scoping, and UI gating
+are in place.
+Implemented:
+- Added `/share/:deploymentId` routing with share wrapper/container components.
+- Added share session bootstrap (`route_create_share_session` + state fetch) and
+  share session store + hooks.
+- Websocket connections include `shareSessionId` and use `/share/frontend` in
+  share mode.
+- UI controls are gated by policy (run, param edits, variant/view edits, layout
+  moves/resizes, and lock-position edits).
+- Header shows a "Sharing Mode" indicator and share search behavior.
 
 ## 11) Generated endpoints + types
 Status: completed. Share router registered in `backend/setta/server.py`, and
@@ -259,7 +272,9 @@ frontend bindings include share session/state endpoints.
 - Do not manually edit anything under `backend/setta/types/generated`.
 
 ## 12) Tests + verification
-Status: partially complete. Added publish deployment tests, share runtime boot tests, policy enforcement tests, share session/state tests, share run snapshot tests, cleanup tests, and share websocket scoping tests.
+Status: completed. Added publish deployment tests, share runtime boot tests,
+policy enforcement tests, share session/state tests, share run snapshot tests,
+cleanup tests, and share websocket scoping tests.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).
@@ -271,7 +286,7 @@ Status: partially complete. Added publish deployment tests, share runtime boot t
 Implemented:
 - `tests/routers/test_share_deployments.py` covers deployment publishing.
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
-  guardrails, and no settings/LLM seed writes.
+  guardrails, settings file creation, and policy-gated services.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
   session isolation, and missing session errors.
 - `tests/project_state/test_share_project_manager.py` covers listener emit
@@ -285,6 +300,8 @@ Implemented:
   and run/terminal routes.
 - `tests/routers/test_share_policy_routes.py` covers allowed-section gating for
   run routes.
+- `tests/routers/test_share_policy_routes.py` covers share-mode LLM config/API
+  key update blocking.
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
@@ -302,3 +319,5 @@ Implemented:
   behavior in shared and per-viewer modes.
 - `tests/api/test_listener_websocket_endpoint.py` covers listener websocket URL
   query handling for share sessions.
+- `tests/share/test_chat_manager.py` covers share session chat isolation.
+- `tests/llm/test_chat_store.py` covers `MemoryChatStore` persistence behavior.

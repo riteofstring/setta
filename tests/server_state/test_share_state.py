@@ -5,11 +5,15 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI
 
 from setta.database.db_objs import DBE
+from setta.mcp.client import MultiMCPClient
 from setta.project_state.share_project_manager import ShareProjectManager
+from setta.share.chat_manager import ShareChatManager
 from setta.server_state import SettaFastAPIState
 from setta.share.session_store import MemorySessionStore
+from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import SharePolicy
 
 
 def _write_share_project(root: Path) -> ProjectConfig:
@@ -23,19 +27,27 @@ def _write_share_project(root: Path) -> ProjectConfig:
     return project_config
 
 
+def _write_share_policy(root: Path, policy: SharePolicy) -> None:
+    dbe = DBE(root)
+    dbe.write_json(root / "share_policy.json", policy.model_dump())
+
+
 class ShareStateTests(unittest.IsolatedAsyncioTestCase):
+    async def _build_state(self, root: Path) -> SettaFastAPIState:
+        app = FastAPI()
+        state = SettaFastAPIState(
+            app,
+            share_mode=True,
+            share_deployment_root=root,
+        )
+        await state.wait_until_ready()
+        return state
+
     async def test_share_state_boots_without_watchers(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             project_config = _write_share_project(root)
-            app = FastAPI()
-            state = SettaFastAPIState(
-                app,
-                share_mode=True,
-                share_deployment_root=root,
-            )
-
-            await state.wait_until_ready()
+            state = await self._build_state(root)
 
             self.assertIsInstance(state.share_session_store, MemorySessionStore)
             self.assertIsInstance(state.share_project_manager, ShareProjectManager)
@@ -51,17 +63,14 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             _write_share_project(root)
-            app = FastAPI()
-            state = SettaFastAPIState(
-                app,
-                share_mode=True,
-                share_deployment_root=root,
-            )
+            state = await self._build_state(root)
 
-            await state.wait_until_ready()
-
-            self.assertFalse((root / "setta-settings.json").exists())
+            self.assertTrue((root / "setta-settings.json").exists())
+            self.assertTrue((root / "setta-settings-project.json").exists())
+            self.assertFalse((root / "llm_config.json").exists())
             self.assertFalse((root / "llm_config.example.json").exists())
+
+            self.assertIsNotNone(state.settings_file)
 
     def test_share_state_requires_project_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -73,3 +82,59 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                     share_mode=True,
                     share_deployment_root=root,
                 )
+
+    async def test_share_state_policy_gates_services(self) -> None:
+        scenarios = [
+            (
+                "no-llm-no-mcp-no-run",
+                SharePolicy(allowLLM=False, allowMCP=False, allowRun=False),
+                False,
+                False,
+                False,
+            ),
+            (
+                "llm-only",
+                SharePolicy(allowLLM=True, allowMCP=False, allowRun=False),
+                True,
+                False,
+                False,
+            ),
+            (
+                "mcp-only",
+                SharePolicy(allowLLM=False, allowMCP=True, allowRun=False),
+                False,
+                True,
+                False,
+            ),
+            (
+                "llm-mcp-run",
+                SharePolicy(allowLLM=True, allowMCP=True, allowRun=True),
+                True,
+                True,
+                True,
+            ),
+        ]
+
+        for label, policy, expect_llm, expect_mcp, expect_run in scenarios:
+            with self.subTest(label=label):
+                with TemporaryDirectory() as tmpdir:
+                    root = Path(tmpdir)
+                    _write_share_project(root)
+                    _write_share_policy(root, policy)
+                    state = await self._build_state(root)
+
+                    if expect_llm:
+                        self.assertIsInstance(state.chat_manager, ShareChatManager)
+                    else:
+                        self.assertFalse(state.chat_manager)
+
+                    if expect_mcp:
+                        self.assertIsInstance(state.mcp_client, MultiMCPClient)
+                        await state.mcp_client.stop()
+                    else:
+                        self.assertFalse(state.mcp_client)
+
+                    if expect_run:
+                        self.assertIsInstance(state.terminals, Terminals)
+                    else:
+                        self.assertFalse(state.terminals)

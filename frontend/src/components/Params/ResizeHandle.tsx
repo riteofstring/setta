@@ -1,6 +1,13 @@
+import { useShareSession } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
 export function ResizeHandle({ showResizeHandle, onMouseDown }) {
+  const allowLayoutChanges = useShareSession(
+    (x) => x.sharePolicy?.allowLayoutChanges ?? true,
+  );
+  if (!allowLayoutChanges) {
+    return null;
+  }
   return (
     <div className="section-center relative mx-auto h-[90%] w-0.5 rounded-sm group-hover/arg-group:bg-setta-500/15">
       {showResizeHandle && (

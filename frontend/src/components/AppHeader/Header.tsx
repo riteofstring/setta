@@ -1,5 +1,9 @@
-import { useProjectLoading } from "state/definitions";
-import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
+import { useProjectLoading, useShareSession } from "state/definitions";
+import {
+  HOME_ROUTER_PATH,
+  PROJECT_CONFIG_ROUTER_PATH,
+  SHARE_DEPLOYMENT_ROUTER_PATH,
+} from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { HelpText } from "./HelpText";
 import { Notification } from "./Notification";
@@ -13,6 +17,7 @@ export function HeaderContainer({ path }: { path: string }) {
     projectIsLoading: x.projectIsLoading,
     projectIs404: x.projectIs404,
   }));
+  const isShareMode = useShareSession((x) => x.isShareMode);
 
   return (
     <header
@@ -23,6 +28,11 @@ export function HeaderContainer({ path }: { path: string }) {
         <>
           <ProjectNav />
           <SearchSwitch path={path} />
+          {isShareMode && (
+            <span className="ml-2 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-700">
+              Sharing Mode
+            </span>
+          )}
         </>
       )}
       <div className="relative flex flex-1 items-center justify-end">
@@ -39,6 +49,8 @@ function SearchSwitch({ path }: { path: string }) {
     case HOME_ROUTER_PATH:
       return <HomePageSearchBar />;
     case PROJECT_CONFIG_ROUTER_PATH:
+      return <ProjectPageSearchBar />;
+    case SHARE_DEPLOYMENT_ROUTER_PATH:
       return <ProjectPageSearchBar />;
     default:
       return null;

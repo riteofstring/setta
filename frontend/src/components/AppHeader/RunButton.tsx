@@ -19,12 +19,14 @@ import {
   usePendingOperations,
   useProjectState,
   useRunControl,
+  useShareSession,
 } from "state/definitions";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
   const continuousRunStarted = useRunControl((x) => x.continuousRunStarted);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
+  const allowRun = useShareSession((x) => x.sharePolicy?.allowRun ?? true);
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
@@ -48,10 +50,16 @@ export function RunButton() {
     "flex items-center gap-2 px-1.5 py-1.5 text-xs text-setta-700 dark:text-setta-200  mx-1 rounded-md text-left hover:bg-setta-600 hover:text-white dark:hover:bg-setta-900 dark:hover:text-white active:bg-blue-100 active:dark:bg-blue-950 cursor-pointer";
 
   useEffect(() => {
+    if (!allowRun) {
+      return;
+    }
     ensureDefaultCustomRuns(projectConfigId);
-  }, [projectConfigId]);
+  }, [projectConfigId, allowRun]);
 
   useEffect(() => {
+    if (!allowRun) {
+      return;
+    }
     const unsubscribe = usePendingOperations.subscribe((state, prevState) => {
       const nextLen = state.pending.length;
       const prevLen = prevState.pending.length;
@@ -66,7 +74,26 @@ export function RunButton() {
     });
 
     return unsubscribe;
-  }, []);
+  }, [allowRun]);
+
+  if (!allowRun) {
+    return (
+      <div className="setta-gradient-border-shell opacity-50">
+        <div className="flex justify-stretch">
+          <button
+            className={`nodrag inline-flex cursor-not-allowed items-center focus-visible:ring-2 ${baseClasses} ${idleButtonClasses} rounded-md px-2`}
+            disabled={true}
+            {...getFloatingBoxHandlers({
+              content: "Run controls are disabled in sharing mode.",
+            })}
+          >
+            {mainIcon}
+            Run
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

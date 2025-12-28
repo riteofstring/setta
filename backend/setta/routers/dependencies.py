@@ -114,6 +114,9 @@ ReadyAppStateFromWebsocket = Annotated[
     SettaFastAPIState, Depends(get_ready_app_state_from_websocket)
 ]
 ShareSessionIdFromRequest = Annotated[str, Depends(get_share_session_id_from_request)]
+MaybeShareSessionIdFromRequest = Annotated[
+    str | None, Depends(maybe_get_share_session_id_from_request)
+]
 ShareSessionIdFromWebsocket = Annotated[
     str, Depends(get_share_session_id_from_websocket)
 ]

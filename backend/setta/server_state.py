@@ -21,6 +21,7 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.share_project_manager import ShareProjectManager
+from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.run_cleanup import (
     DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
@@ -135,7 +136,9 @@ class SettaFastAPIState:
         )
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
         self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
-        self.chat_manager: LLMChatManager = self._defer_attr("chat_manager")
+        self.chat_manager: LLMChatManager | ShareChatManager = self._defer_attr(
+            "chat_manager"
+        )
         self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
@@ -163,7 +166,7 @@ class SettaFastAPIState:
     async def _initialize_async(self, app):
         try:
             if self.share_mode:
-                await self._initialize_share_async()
+                await self._initialize_share_async(app)
                 return
             from setta.project_state.project_manager import ProjectManager
             from setta.project_state.project_manager_switcher import (
@@ -307,7 +310,7 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_share_async(self) -> None:
+    async def _initialize_share_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -325,6 +328,9 @@ class SettaFastAPIState:
             self.share_deployment_root,
             self.wmh_frontend_sender,
         )
+        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+        if self.share_project_manager.share_policy.allowRun:
+            self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         if (
             self.share_project_manager.share_policy.runSnapshotMode
             == RunSnapshotMode.ephemeral
@@ -362,6 +368,42 @@ class SettaFastAPIState:
             share_project_manager=self.share_project_manager,
             share_mode=True,
         )
+        share_policy = self.share_project_manager.share_policy
+        llm_config = None
+        if share_policy.allowLLM or share_policy.allowMCP:
+            llm_config = load_llm_config(self.dbe)
+        if share_policy.allowMCP:
+            apply_fastmcp_preparse_patch()
+            self.mcp_server = SettaFastMCP(
+                app,
+                self,
+                "/mcp",
+                "Setta MCP Server",
+                self.wmh_frontend_sender,
+                self.dbe,
+            )
+            if llm_config is None:
+                llm_config = load_llm_config(self.dbe)
+            self.mcp_client = MultiMCPClient(
+                llm_config.mcpServers,
+                frontend_sender=self.wmh_frontend_sender,
+            )
+            if self.mcp_client:
+                spawn_background_task(
+                    self.mcp_client.connect_to_servers(),
+                    label="mcp-client-connect",
+                    request_id="boot",
+                    extra_values={"service": "mcp-client"},
+                )
+        if share_policy.allowLLM:
+            self.chat_manager = ShareChatManager(
+                self.dbe,
+                self.wmh_frontend_sender,
+                self.share_project_manager,
+                self.share_session_store,
+                mcp_client=self.mcp_client if share_policy.allowMCP else None,
+                llm_config=llm_config,
+            )
         self._ready_event.set()
         self.init_status.record("Share backend ready")
         self.init_status.mark_ready()

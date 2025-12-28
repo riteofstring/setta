@@ -4830,6 +4830,10 @@ const ShareDeploymentManifestSchema = z.object({
     .default(null),
 });
 
+export type ShareDeploymentManifest = z.infer<
+  typeof ShareDeploymentManifestSchema
+>;
+
 const ShareDeploymentMetadataSchema = z.object({
   deploymentId: z.string(),
   deploymentRoot: z.string(),
@@ -4855,6 +4859,8 @@ const SharePolicySchema = z.object({
     .default(ListenerIsolationModeEnum.per_viewer),
   allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
 });
+
+export type SharePolicy = z.infer<typeof SharePolicySchema>;
 
 const ShareDeploymentSessionResponseSchema = z.object({
   deploymentId: z.string(),
