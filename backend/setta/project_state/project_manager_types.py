@@ -443,16 +443,12 @@ class SetCodeObjDisplayNameRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class TogglePositionLocksRequest(ProjectManagerRequestWithSectionIds):
-    """Flip the layout lock flag for multiple sections."""
+class TogglePositionLockRequest(ProjectManagerRequestWithSection):
+    """Flip the layout lock flag for a section."""
 
 
 class ToggleMinimizedRequest(ProjectManagerRequestWithSection):
     """Expand or collapse a section."""
-
-
-class ToggleGroupOrientationRequest(ProjectManagerRequestWithSection):
-    """Switch a group section between horizontal and vertical layouts."""
 
 
 class SetCodeRequest(ProjectManagerRequestWithSection):
