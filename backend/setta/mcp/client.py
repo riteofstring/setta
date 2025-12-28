@@ -362,6 +362,7 @@ class MultiMCPClient:
                 )
             except Exception:
                 if self._is_shutting_down:
+                    await self._cleanup_server(server_id)
                     return
                 logger.exception(
                     "Connection to %s failed; retrying in %s seconds",
@@ -370,6 +371,8 @@ class MultiMCPClient:
                 )
 
             await self._cleanup_server(server_id)
+            if self._is_shutting_down:
+                return
             await asyncio.sleep(retry_delay)
 
     async def _connect_server_once(
