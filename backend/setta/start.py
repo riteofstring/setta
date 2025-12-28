@@ -24,7 +24,7 @@ from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.network import format_host_for_ssh_tunnel, format_host_for_url
+from setta.utils.network import build_bootstrap_urls, format_host_for_ssh_tunnel
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
@@ -583,12 +583,6 @@ def _should_auto_open(no_open: bool) -> bool:
     return True
 
 
-def _build_bootstrap_urls(host: str, port: int, token: str) -> tuple[str, str]:
-    url_host = format_host_for_url(host)
-    base = f"http://{url_host}:{port}{Route.BOOTSTRAP_PAGE.value}"
-    return f"{base}#token={token}", base
-
-
 def _format_bind_hint(host: str, port: int) -> str:
     suffix = " (remote only)" if host in {"127.0.0.1", "::1"} else ""
     return f"{host}:{port}{suffix}"
@@ -917,7 +911,7 @@ def status(
     secret = secret_path.read_bytes()
 
     token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
-    bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
+    bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
         session.host, session.port, token
     )
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
@@ -1151,7 +1145,7 @@ def connect(
     bootstrap_url = connect_info["bootstrapUrlFragment"]
     token = _extract_token_from_bootstrap_url(bootstrap_url)
     resolved_local_port = local_port or _select_free_port("127.0.0.1")
-    local_bootstrap_url, _ = _build_bootstrap_urls(
+    local_bootstrap_url, _ = build_bootstrap_urls(
         "127.0.0.1", resolved_local_port, token
     )
     if verbose:
@@ -1247,7 +1241,7 @@ def cli(
         secret = registry.load_secret(session)
         token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
 
-        bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
+        bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
             resolved_host, resolved_port, token
         )
         auto_open = _should_auto_open(no_open)

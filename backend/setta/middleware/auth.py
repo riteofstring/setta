@@ -63,7 +63,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if token_payload is not None:
                 response = await call_next(request)
                 auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-                set_auth_cookie(response, auth_cookie)
+                set_auth_cookie(response, auth_cookie, request=request)
                 return response
 
         return _unauthorized_response(request)

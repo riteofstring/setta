@@ -1,8 +1,12 @@
 import unittest
 
-from setta.start import _build_bootstrap_urls, _build_ssh_tunnel_command
+from setta.start import _build_ssh_tunnel_command
 from setta.types.routes import Route
-from setta.utils.network import format_host_for_ssh_tunnel, format_host_for_url
+from setta.utils.network import (
+    build_bootstrap_urls,
+    format_host_for_ssh_tunnel,
+    format_host_for_url,
+)
 
 
 class StartupHelperTests(unittest.TestCase):
@@ -24,7 +28,7 @@ class StartupHelperTests(unittest.TestCase):
 
     def test_build_bootstrap_urls(self) -> None:
         token = "token123"
-        fragment, plain = _build_bootstrap_urls("127.0.0.1", 61234, token)
+        fragment, plain = build_bootstrap_urls("127.0.0.1", 61234, token)
         expected_base = f"http://127.0.0.1:61234{Route.BOOTSTRAP_PAGE.value}"
         self.assertEqual(fragment, f"{expected_base}#token={token}")
         self.assertEqual(plain, expected_base)

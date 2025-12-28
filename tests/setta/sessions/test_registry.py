@@ -80,6 +80,27 @@ class SessionRegistryTests(unittest.TestCase):
             registry.delete_session(created.id)
             self.assertFalse(session_dir.exists())
 
+    def test_delete_session_removes_extra_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_root = Path(temp_dir) / "sessions"
+            workspace = Path(temp_dir) / "workspace"
+            workspace.mkdir()
+            registry = SessionRegistry(sessions_root=sessions_root)
+
+            created = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+            )
+            session_dir = sessions_root / created.id
+            extra_file = session_dir / "extra.txt"
+            extra_file.write_text("extra", encoding="utf-8")
+
+            registry.delete_session(created.id)
+
+            self.assertFalse(session_dir.exists())
+
     def test_load_sessions_tracks_suspicious_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             sessions_root = Path(temp_dir) / "sessions"

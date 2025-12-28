@@ -1,6 +1,7 @@
 import json
 import os
 import secrets
+import shutil
 import stat
 from datetime import datetime, timezone
 from pathlib import Path
@@ -122,13 +123,7 @@ class SessionRegistry:
         session_dir = self._session_dir(session_id)
         if not session_dir.exists():
             return
-        metadata_path = session_dir / SESSION_METADATA_FILENAME
-        secret_path = session_dir / SESSION_SECRET_FILENAME
-        if metadata_path.exists():
-            metadata_path.unlink()
-        if secret_path.exists():
-            secret_path.unlink()
-        session_dir.rmdir()
+        shutil.rmtree(session_dir)
 
     def suspicious_session_ids(self) -> set[str]:
         return set(self._suspicious_session_ids)

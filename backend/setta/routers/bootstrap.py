@@ -1,4 +1,4 @@
-from fastapi import Body, Depends, Header, HTTPException, status
+from fastapi import Body, Depends, Header, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -174,6 +174,7 @@ async def route_bootstrap_page() -> str:
 
 @router.post(Route.BOOTSTRAP_CONSUME)
 async def route_bootstrap_consume(
+    request: Request,
     payload: BootstrapConsumeRequest | None = Body(default=None),
     bearer_token: str | None = Depends(_bearer_token_from_header),
 ) -> dict[str, str]:
@@ -200,5 +201,5 @@ async def route_bootstrap_consume(
 
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
     response = JSONResponse({"status": "ok"})
-    set_auth_cookie(response, auth_cookie)
+    set_auth_cookie(response, auth_cookie, request=request)
     return response

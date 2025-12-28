@@ -12,9 +12,8 @@ from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR
-from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.network import format_host_for_url
+from setta.utils.network import build_bootstrap_urls
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -152,7 +151,7 @@ def start_backend(
     os.environ[SESSION_ID_ENV_VAR] = session.id
     secret = session_registry.load_secret(session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
-    bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
+    bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
         resolved_host, resolved_port, token
     )
 
@@ -219,12 +218,6 @@ def _resolve_frontend_url(
     if open_browser:
         return bootstrap_url or f"http://{host}:{port}"
     return None
-
-
-def _build_bootstrap_urls(host: str, port: int, token: str) -> tuple[str, str]:
-    url_host = format_host_for_url(host)
-    base = f"http://{url_host}:{port}{Route.BOOTSTRAP_PAGE.value}"
-    return f"{base}#token={token}", base
 
 
 def _ensure_frontend_bundle_available() -> None:
