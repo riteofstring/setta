@@ -2,7 +2,7 @@
 
 These snippets assume the Setta backend is running and you know the project name. Dependency strings are the same attribute names you read from the generated `state` object (the sanitized names in the project graph).
 
-Import note: always use `from setta.api import SettaListener`. There is no `setta_listener` module. `SettaListener` accepts either `project_name` or `project_config_id`. If you only have temporary IDs from chat, pass `use_temporary_ids=True` and use `dep_id(...)` plus `ctx.values.by_id(...)`/`ctx.changed_by_id` instead of hardcoding dependency names.
+Import note: always use `from setta.api import SettaListener`. There is no `setta_listener` module. `SettaListener` accepts either `project_name` or `project_config_id`. If you only have temporary IDs from chat, pass `use_temporary_ids=True` and use `ctx.ids` helpers instead of hardcoding ids.
 
 Dependency name construction (from `DependencyGraph.create_full_path_name`):
 - Names are sanitized with `sanitize_name` (spaces/quotes/brackets -> `_`, consecutive `_` collapse, trim leading/trailing `_`).
@@ -14,7 +14,6 @@ Dependency name construction (from `DependencyGraph.create_full_path_name`):
 - Meta Control values use the section name (sanitized) as the dependency. The control param name is not included.
 - Global Variables params are top-level (just the sanitized param name).
 - Duplicate sanitized names get `_2`, `_3`, etc for uniqueness.
-- If you want rename-safe dependencies, use `dep_id(section_id, param_id)` instead of names.
 
 ## Basic dependency listener (sync)
 Strings: `Demo Project` is the project name; `hiding_river__x` is a param dependency (section `hiding_river` + param `x`, joined with `__`); `groups=%s` and `changed=%s` are log message templates.
@@ -28,24 +27,6 @@ listener = SettaListener(project_name="Demo Project")
 def on_groups_change(state, ctx) -> None:
     ctx.log.info("groups=%s", state.hiding_river__x)
     ctx.log.info("changed=%s", ctx.changed)
-
-
-listener.start()
-```
-
-## Id-based dependencies (rename-safe)
-Strings: `Demo Project` is the project name; `1` and `42` are dependency IDs (temporary or canonical, depending on `use_temporary_ids`); `changed by id=%s` is a log message template.
-```python
-from setta.api import SettaListener, dep_id
-
-listener = SettaListener(project_name="Demo Project", use_temporary_ids=True)
-
-
-@listener.listen(deps=[dep_id("1", "42")])
-def on_param_change(state, ctx) -> None:
-    value = ctx.values.by_id("1", "42")
-    ctx.log.info("changed by id=%s", ctx.changed_by_id)
-    ctx.log.info("value=%s", value)
 
 
 listener.start()

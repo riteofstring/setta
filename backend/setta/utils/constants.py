@@ -39,6 +39,16 @@ class C:
     CODE_FOLDER = SETTA_FILES_FOLDER / "code"
     DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
     ARTIFACTS_FOLDER = SETTA_FILES_FOLDER / "artifacts"
+    RUN_FOLDER = SETTA_FILES_FOLDER / "run"
+    RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
+    RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
+
+    AUTH_COOKIE_NAME = "setta_auth"
+    AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12
+    AUTH_COOKIE_SAMESITE = "lax"
+    AUTH_COOKIE_SECURE = False
+    BOOTSTRAP_TOKEN_TTL_SECONDS = 60 * 10
+    SESSION_SECRET_BYTES = 32
 
     # WebSocket message types
     WS_RUN_CODE = "runCode"
