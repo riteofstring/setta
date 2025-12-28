@@ -85,7 +85,7 @@ Implemented:
   policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
-Status: completed. Per-viewer overlays, manifest selection, session dependencies, and share run root overrides are implemented.
+Status: partial. ShareProjectManager + session store exist, but share-mode mutation routes are not wired to overlays yet.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -115,10 +115,18 @@ Implemented:
   `RedisSessionStore` stub.
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
+Remaining:
+- Share-mode mutation routes in `backend/setta/routers/project_manager.py` still
+  call `project_manager_switcher` (which is not initialized in share mode), so
+  overlay updates do not work yet.
+- Share mode does not initialize `state.artifacts`, so cached artifact load
+  routes fail unless artifacts arrive via listener emits.
+- Session TTL cleanup is not scheduled; `ShareSessionStore.cleanup_expired` is
+  never invoked.
 
 ## 5) Policy enforcement
-Status: completed. Share policy is loaded from `share_policy.json` and enforced
-across share mode mutations.
+Status: partial. Policy checks are wired, but share-mode mutations still route
+through the IDE project managers.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
 - Load the share policy in `backend/setta/project_state/share_project_manager.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
@@ -142,6 +150,11 @@ Implemented:
 - Policy violations broadcast to the active share session (or all share
   sessions if the request is not session-scoped).
 - Run and LLM routes also block when share runtime services are not initialized.
+Remaining:
+- Share-mode mutation routes still call `project_manager_switcher`, so policy
+  checks can pass but the mutation path fails in share mode.
+- Missing share session ids currently raise `KeyError` (500) in some share-only
+  routes; convert to HTTP 400/404 responses.
 
 ## 6) Websocket scoping + realtime events
 Status: completed. Share websocket sessions are scoped end-to-end.
@@ -169,6 +182,9 @@ Implemented:
   `(project_config_id, share_session_id)` and passes session ids through.
 - `backend/setta/routers/websocket.py` passes share session ids on connect and
   adds the `/share/frontend` websocket route.
+Remaining:
+- `/share/frontend` does not wait for share initialization; mirror the readiness
+  wait used in the IDE websocket route to avoid connect-time races.
 
 ## 7) Listener runtime + isolation
 Status: completed. Listener runtime, session scoping, and share-mode listener
@@ -207,7 +223,8 @@ Implemented:
   avoid accumulating `sys.modules` entries.
 
 ## 8) Run flow changes
-Status: completed. Run snapshot mode, share run roots, and TTL cleanup are implemented.
+Status: partial. Run snapshot mode and share run roots are implemented, but
+terminal/run isolation is not yet per-viewer.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
 - Override `create_run_command` in share mode to write into
@@ -225,6 +242,9 @@ Implemented:
 - Share run output writes to `setta_files/share_runs/<deployment>/<session>/<timestamp>`
   and uses per-session snapshots or canonical files based on snapshot mode.
 - Share run output cleanup runs in the background for ephemeral snapshots.
+Remaining:
+- Terminals are still keyed by `sectionId`, so share sessions can collide on
+  PTY state and output. Add a per-session terminal namespace or ids.
 
 ## 9) LLM + MCP gating
 Status: completed. Share boot gates MCP/LLM by policy, and per-viewer chat state
