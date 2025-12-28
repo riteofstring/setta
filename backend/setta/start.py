@@ -24,6 +24,7 @@ from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.network import format_host_for_url
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
@@ -560,16 +561,8 @@ def _should_auto_open(no_open: bool) -> bool:
     return True
 
 
-def _format_host_for_url(host: str) -> str:
-    if host in {"0.0.0.0", "::"}:
-        return "127.0.0.1"
-    if ":" in host and not host.startswith("["):
-        return f"[{host}]"
-    return host
-
-
 def _build_bootstrap_urls(host: str, port: int, token: str) -> tuple[str, str]:
-    url_host = _format_host_for_url(host)
+    url_host = format_host_for_url(host)
     base = f"http://{url_host}:{port}{Route.BOOTSTRAP_PAGE.value}"
     return f"{base}#token={token}", base
 

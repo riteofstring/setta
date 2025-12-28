@@ -13,7 +13,10 @@ import {
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
-import { route_get_latest_project_state } from "utils/generatedEndpoints";
+import {
+  route_get_backend_init_status,
+  route_get_latest_project_state,
+} from "utils/generatedEndpoints";
 import {
   Base64DependencyValue,
   BaseDependencyKeyUnion,
@@ -65,6 +68,9 @@ let wasOpen = false;
 let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
+const AUTH_RECOVERY_INTERVAL_MS = 2000;
+let authRecoveryTimer: number | null = null;
+let authRecoveryInFlight = false;
 
 export const openWebSocket = _.debounce(
   (pathname: string) => {
@@ -113,6 +119,7 @@ export const openWebSocket = _.debounce(
           addTemporaryNotification(
             `Authentication required. Open ${BOOTSTRAP_URL} to continue.`,
           );
+          scheduleAuthRecovery(pathname);
           return;
         }
         if (wasOpen) {
@@ -130,6 +137,43 @@ export const openWebSocket = _.debounce(
   1000,
   { leading: true },
 );
+
+function clearAuthRecoveryTimer() {
+  if (authRecoveryTimer === null) {
+    return;
+  }
+  window.clearTimeout(authRecoveryTimer);
+  authRecoveryTimer = null;
+}
+
+function scheduleAuthRecovery(pathname: string) {
+  if (!authLost) {
+    return;
+  }
+  if (authRecoveryTimer !== null) {
+    return;
+  }
+  authRecoveryTimer = window.setTimeout(() => {
+    authRecoveryTimer = null;
+    void attemptAuthRecovery(pathname);
+  }, AUTH_RECOVERY_INTERVAL_MS);
+}
+
+async function attemptAuthRecovery(pathname: string) {
+  if (!authLost || authRecoveryInFlight) {
+    return;
+  }
+  authRecoveryInFlight = true;
+  const res = await route_get_backend_init_status();
+  authRecoveryInFlight = false;
+  if (res200(res)) {
+    authLost = false;
+    clearAuthRecoveryTimer();
+    openWebSocket(pathname);
+    return;
+  }
+  scheduleAuthRecovery(pathname);
+}
 
 function closeWebSocket() {
   if (wss) {

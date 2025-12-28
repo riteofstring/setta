@@ -158,9 +158,9 @@ class SessionRegistry:
     def _is_session_stale(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:
             return True
-        if not psutil.pid_exists(metadata.pid):
+        process = self._get_process(metadata.pid)
+        if process is None:
             return True
-        process = psutil.Process(metadata.pid)
         is_setta = self._is_setta_process(process)
         if is_setta is False:
             return True
@@ -169,15 +169,21 @@ class SessionRegistry:
     def _is_session_suspicious(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:
             return False
-        if not psutil.pid_exists(metadata.pid):
+        process = self._get_process(metadata.pid)
+        if process is None:
             return False
-        process = psutil.Process(metadata.pid)
         is_setta = self._is_setta_process(process)
         if is_setta is False:
             return False
         if is_setta is None:
             return False
         return not self._is_port_listening(process, metadata.host, metadata.port)
+
+    def _get_process(self, pid: int) -> psutil.Process | None:
+        try:
+            return psutil.Process(pid)
+        except (psutil.NoSuchProcess, psutil.ZombieProcess):
+            return None
 
     def _is_setta_process(self, process: psutil.Process) -> bool | None:
         try:

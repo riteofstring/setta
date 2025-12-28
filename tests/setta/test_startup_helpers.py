@@ -1,17 +1,18 @@
 import unittest
 
-from setta.start import _build_bootstrap_urls, _format_host_for_url
+from setta.start import _build_bootstrap_urls
 from setta.types.routes import Route
+from setta.utils.network import format_host_for_url
 
 
 class StartupHelperTests(unittest.TestCase):
     def test_format_host_for_url_rewrites_wildcards(self) -> None:
-        self.assertEqual(_format_host_for_url("0.0.0.0"), "127.0.0.1")
-        self.assertEqual(_format_host_for_url("::"), "127.0.0.1")
+        self.assertEqual(format_host_for_url("0.0.0.0"), "127.0.0.1")
+        self.assertEqual(format_host_for_url("::"), "127.0.0.1")
 
     def test_format_host_for_url_brackets_ipv6(self) -> None:
-        self.assertEqual(_format_host_for_url("2001:db8::1"), "[2001:db8::1]")
-        self.assertEqual(_format_host_for_url("[2001:db8::2]"), "[2001:db8::2]")
+        self.assertEqual(format_host_for_url("2001:db8::1"), "[2001:db8::1]")
+        self.assertEqual(format_host_for_url("[2001:db8::2]"), "[2001:db8::2]")
 
     def test_build_bootstrap_urls(self) -> None:
         token = "token123"

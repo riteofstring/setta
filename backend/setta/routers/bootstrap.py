@@ -3,12 +3,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from setta.auth.cookies import set_auth_cookie
+from setta.auth.headers import extract_bearer_token_value
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter()
 
@@ -149,29 +151,13 @@ class BootstrapConsumeRequest(BaseModel):
 def _bearer_token_from_header(
     authorization: str | None = Header(default=None),
 ) -> str | None:
-    if not authorization:
-        return None
-    scheme, _, value = authorization.partition(" ")
-    if scheme.lower() != "bearer":
-        return None
-    token = value.strip()
-    if not token:
-        return None
-    return token
-
-
-def _format_host_for_url(host: str) -> str:
-    if host in {"0.0.0.0", "::"}:
-        return "127.0.0.1"
-    if ":" in host and not host.startswith("["):
-        return f"[{host}]"
-    return host
+    return extract_bearer_token_value(authorization)
 
 
 def _bootstrap_redirect_url() -> str:
     if not IS_DEV_MODE:
         return "/"
-    host = _format_host_for_url(C.HOST)
+    host = format_host_for_url(C.HOST)
     return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
 
 
