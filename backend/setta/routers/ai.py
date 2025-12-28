@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.share.policy import ensure_share_llm_allowed
 from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
@@ -54,6 +55,10 @@ async def route_get_llm_response(
     x: GetLLMResponseRequest,
     state: AppStateFromRequest,
 ) -> str | None:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     try:
         chat = state.chat_manager.get_or_create_chat(
             x.chatId,
@@ -75,17 +80,25 @@ async def route_get_llm_response(
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)
-def route_get_all_llm_chat_metadata(
+async def route_get_all_llm_chat_metadata(
     state: AppStateFromRequest,
 ) -> list[ChatMetadata]:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     return state.chat_manager.get_all_chat_metadata()
 
 
 @router.post(Route.DELETE_LLM_CHAT)
-def route_delete_llm_chat(
+async def route_delete_llm_chat(
     x: DeleteLLMChatRequest,
     state: AppStateFromRequest,
 ) -> None:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     return state.chat_manager.delete_chat(x.chatId)
 
 
@@ -94,6 +107,10 @@ async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     state: AppStateFromRequest,
 ) -> None:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     await state.chat_manager.request_stop_streaming(x.chatId)
 
 
@@ -102,6 +119,10 @@ async def route_get_llm_chat(
     x: GetLLMChatRequest,
     state: AppStateFromRequest,
 ) -> GetLLMChatRequestResponse:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     chat = state.chat_manager.get_chat(x.chatId)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -119,10 +140,14 @@ async def route_get_llm_chat(
 
 @router.post(Route.GET_AI_FOLLOW_SNAPSHOT)
 @require_project_context()
-def route_get_ai_follow_snapshot(
+async def route_get_ai_follow_snapshot(
     x: GetAIFollowSnapshotRequest,
     state: AppStateFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     return state.chat_manager.get_ai_follow_snapshot(x.projectConfigId)
 
 

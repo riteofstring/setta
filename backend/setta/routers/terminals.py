@@ -11,6 +11,7 @@ from setta.routers.dependencies import (
     ReadyAppStateFromRequest,
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
+from setta.share.policy import ensure_share_run_allowed, ensure_share_run_allowed_ws
 from setta.terminals.run_code import run_code
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -43,6 +44,14 @@ async def terminal_websocket_endpoint(
     id: str,
     state: AppStateFromWebsocket,
 ):
+    allowed = await ensure_share_run_allowed_ws(
+        state,
+        websocket,
+        project_config_id=projectConfigId,
+        section_ids=[sectionId],
+    )
+    if not allowed:
+        return
     state.terminals.new_terminal(projectConfigId, sectionId)
 
     extra_values = {
@@ -82,6 +91,11 @@ async def terminal_websocket_endpoint(
 
 @terminals_http_router.post(Route.DELETE_TERMINALS)
 async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromRequest):
+    await ensure_share_run_allowed(
+        state,
+        project_config_id=None,
+        section_ids=x.sectionIds,
+    )
     await state.terminals.delete_terminals(x.sectionIds)
 
 
@@ -91,6 +105,10 @@ async def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     state: AppStateFromRequest,
 ):
+    await ensure_share_run_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     ids = state.terminals.get_existing_terminals(x.projectConfigId)
     num_killed = state.terminals.kill_processes(ids)
     msg = (
@@ -110,6 +128,11 @@ async def route_run_code(
     x: RunCodeRequest,
     state: ReadyAppStateFromRequest,
 ):
+    await ensure_share_run_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId] if x.sectionId else None,
+    )
     await run_code(
         x.projectConfigId,
         x.sectionId,

@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from setta.llm.config import save_llm_config
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.share.policy import ensure_share_llm_allowed
 from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -17,24 +18,36 @@ class UpdateAPIKeysRequest(BaseModel):
 
 
 @router.get(Route.LLM_CONFIG)
-def route_get_llm_config(state: AppStateFromRequest) -> AllLLMConfigs:
+async def route_get_llm_config(state: AppStateFromRequest) -> AllLLMConfigs:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     return state.chat_manager.config
 
 
 @router.post(Route.LLM_CONFIG)
-def route_set_llm_config(
+async def route_set_llm_config(
     config: AllLLMConfigs,
     state: AppStateFromRequest,
 ) -> AllLLMConfigs:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     save_llm_config(config, state.dbe)
     state.chat_manager.update_config(config)
     return state.chat_manager.config
 
 
 @router.get(Route.LLM_API_KEYS)
-def route_get_llm_api_keys(
+async def route_get_llm_api_keys(
     state: AppStateFromRequest,
 ) -> APIKeys:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     return state.chat_manager.api_keys
 
 
@@ -43,6 +56,10 @@ async def route_set_llm_api_keys(
     payload: UpdateAPIKeysRequest,
     state: AppStateFromRequest,
 ) -> APIKeys:
+    await ensure_share_llm_allowed(
+        state,
+        project_config_id=None,
+    )
     try:
         env_vars = state.dbe.read_dot_env()
         mutated = False

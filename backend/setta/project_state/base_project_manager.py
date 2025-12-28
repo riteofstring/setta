@@ -150,6 +150,10 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
+from setta.share.policy import (
+    ensure_share_listener_emits_allowed,
+    load_share_policy_from_dbe,
+)
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -1652,6 +1656,15 @@ class BaseProjectManager(ABC):
     ) -> None:
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")
+
+        if C.SHARE_MODE:
+            policy = load_share_policy_from_dbe(self.dbe)
+            await ensure_share_listener_emits_allowed(
+                share_mode=C.SHARE_MODE,
+                policy=policy,
+                frontend_sender=self.websocket_msg_handler,
+                project_config_id=projectConfigId,
+            )
 
         project_state = self.get_single_config_state(projectConfigId)
         artifact_payloads: list[BaseArtifactUnion] = []

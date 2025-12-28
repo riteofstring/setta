@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from setta.database.db_objs import DBE
+from setta.share.policy import load_share_policy_from_dbe
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateBackend
@@ -9,6 +10,7 @@ from setta.types.share_deployment import ShareDeploymentManifest
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
+    from setta.types.share_deployment import SharePolicy
 
 
 class ShareProjectManager:
@@ -18,6 +20,7 @@ class ShareProjectManager:
         self.project_state_backend = self.load_initial_state()
         self.manifest = self._load_manifest()
         self.project_config_id = self._resolve_project_config_id()
+        self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
         self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
 
     def load_initial_state(self) -> ProjectStateBackend:
