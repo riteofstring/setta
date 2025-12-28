@@ -11,36 +11,14 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
 
 ## Listener scripts
-- Listener scripts are standalone Python processes that connect to the Setta backend,
-  receive project snapshots and realtime deltas, and run callbacks when dependencies
-  change or actions fire.
-- Use them to integrate Setta projects with external systems (APIs, databases, model
-  runs), to keep long-lived services reacting to UI changes, to build interactive
-  applications where frontend actions trigger listener work that updates the UI, or
-  to push values/artifacts back into the frontend via `emit_to_frontend`.
+- Always call `get_setta_docs` before writing or explaining a listener script. Do not
+  proceed until the relevant docs are retrieved.
+- Treat the docs as the source of truth; follow the examples and wording there
+  rather than guessing. If guidance is missing, fetch more docs.
+- Start with the listener examples doc, then fetch other docs (for example,
+  `meta_controls` or `emit_to_frontend`) as needed.
 - When asked to create a listener script inside Setta, write it in a Code section
-  using `set_code`. Do not create or edit files directly; avoid looking for file
-  system tools.
-- Always import `SettaListener` from `setta.api`
-  (`from setta.api import SettaListener`). There is no `setta_listener` module.
-- `SettaListener` requires `project_name` or `project_config_id` (at least one).
-- Use `@listener.listen(...)` for callbacks and `listener.start()` or
-  `await listener.run_forever()` to run; do not invent methods like
-  `listener.on_change` or `listener.run`.
-- Always call `@listener.listen` with keyword arguments (for example,
-  `deps=[...]`, `actions=[...]`, `dependency_mode=...`); do not pass positional args.
-- Listener scripts should not hardcode IDs from chat (those are temporary). Prefer
-  `project_name` and `ctx.ids` helpers to resolve IDs at runtime (use
-  `ctx.ids.param_ids(...)` or `ctx.ids.meta_control_param_ids(...)`).
-- If you only have temporary IDs from chat, pass `use_temporary_ids=True` to
-  `SettaListener` so snapshots and `ctx.ids` use the same ID format.
-- For interactive control-to-control wiring, always use a listener script and update
-  the target control via `set_param_entered_value` (param id) or `emit_to_frontend`
-  with a param dependency key. Do not set MetaControl values to `state.*` or other
-  expressions expecting reactivity.
-- If asked to write or explain Setta listener scripts, call `get_setta_docs` first.
-- `get_setta_docs` can also return other docs from `/docs`; pass `doc_ids`
-  from `available_docs` (use `meta_controls` for meta control details).
+  using `set_code`. Do not create or edit files directly.
 
 ## Where code goes (map)
 - Section params -> configuration values in the dependency graph.
