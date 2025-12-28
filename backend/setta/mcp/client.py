@@ -124,6 +124,7 @@ class MultiMCPClient:
     ):
         self.server_configs = dict(server_configs)
         self.frontend_sender = frontend_sender
+        self._is_shutting_down = False
         self._sessions: dict[str, ClientSession] = {}
         self._exit_stacks: dict[str, AsyncExitStack] = {}
         self._connection_tasks: dict[str, asyncio.Task[None]] = {}
@@ -160,11 +161,13 @@ class MultiMCPClient:
         return await session.call_tool(tool_id, tool_args)
 
     async def stop(self) -> None:
-        for task in self._connection_tasks.values():
+        self._is_shutting_down = True
+        tasks = list(self._connection_tasks.values())
+        for task in tasks:
             task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         self._connection_tasks.clear()
-        for exit_stack in self._exit_stacks.values():
-            await exit_stack.aclose()
         self._exit_stacks.clear()
         self._sessions.clear()
         self._server_tool_cache.clear()
@@ -263,6 +266,9 @@ class MultiMCPClient:
             try:
                 logger.info("Attempting to connect to %s", server_id)
                 await self._connect_server_once(server_id, config)
+            except asyncio.CancelledError:
+                await asyncio.shield(self._cleanup_server(server_id))
+                raise
             except asyncio.TimeoutError:
                 logger.warning(
                     "Connection to %s timed out; retrying in %s seconds",
@@ -283,6 +289,8 @@ class MultiMCPClient:
                     handled=True,
                 )
             except Exception:
+                if self._is_shutting_down:
+                    return
                 logger.exception(
                     "Connection to %s failed; retrying in %s seconds",
                     server_id,
@@ -370,7 +378,10 @@ class MultiMCPClient:
         exit_stack = self._exit_stacks.pop(server_id, None)
         if exit_stack is None:
             return
-        await exit_stack.aclose()
+        try:
+            await exit_stack.aclose()
+        except Exception:
+            logger.debug("Ignoring MCP cleanup error for %s", server_id, exc_info=True)
         self._sessions.pop(server_id, None)
         self._server_tool_cache.pop(server_id, None)
         self._rebuild_tool_cache()

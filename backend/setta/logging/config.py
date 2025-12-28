@@ -57,13 +57,13 @@ def configure_logging(
             "class": "logging.StreamHandler",
             "stream": stream_target,
             "formatter": "default",
-            "filters": ["setta_context"],
+            "filters": ["setta_context", "suppress_cancelled"],
         },
         "uvicorn_access": {
             "class": "logging.StreamHandler",
             "stream": stream_target,
             "formatter": "access",
-            "filters": ["setta_context"],
+            "filters": ["setta_context", "suppress_cancelled"],
         },
     }
 
@@ -75,7 +75,7 @@ def configure_logging(
             "filename": str(log_path),
             "encoding": "utf-8",
             "formatter": "default",
-            "filters": ["setta_context"],
+            "filters": ["setta_context", "suppress_cancelled"],
         }
         handler_names.append("file")
 
@@ -117,6 +117,9 @@ def configure_logging(
         "filters": {
             "setta_context": {
                 "()": "setta.logging.context.LoggingContextFilter",
+            },
+            "suppress_cancelled": {
+                "()": "setta.logging.filters.SuppressCancelledErrorFilter",
             },
         },
         "handlers": handlers,
