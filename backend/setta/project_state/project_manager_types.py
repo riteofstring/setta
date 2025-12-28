@@ -451,10 +451,6 @@ class ToggleMinimizedRequest(ProjectManagerRequestWithSection):
     """Expand or collapse a section."""
 
 
-class ToggleGroupOrientationRequest(ProjectManagerRequestWithSection):
-    """Switch a group section between horizontal and vertical layouts."""
-
-
 class SetCodeRequest(ProjectManagerRequestWithSection):
     """Submit inline code edits for a section."""
 

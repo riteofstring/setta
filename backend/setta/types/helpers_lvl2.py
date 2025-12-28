@@ -55,7 +55,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CoreArgs,
     DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
-    GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
@@ -1512,15 +1511,6 @@ def toggle_minimized(p: "ProjectStateSingleConfig", sectionId: ID):
         p,
         sectionId,
         BaseSectionImplArgsWithCallable(isMinimized=lambda curr: not curr),
-    )
-
-
-def toggle_group_orientation(p: "ProjectStateSingleConfig", sectionId: ID):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, GroupSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        GroupSectionImplArgsWithCallable(isHorizontalOrientation=lambda curr: not curr),
     )
 
 

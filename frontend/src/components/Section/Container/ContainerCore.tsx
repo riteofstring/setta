@@ -1,7 +1,6 @@
 import _ from "lodash";
 import React from "react";
 
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
@@ -78,11 +77,10 @@ function ContainerGroup({
   const hasNested = useHasTempNested(sectionId);
   const { isActiveSection, positionAndSizeLocked, isInOtherProjectConfigs } =
     useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
       return {
         isActiveSection: x.projectConfig.activeIds.includes(sectionId),
-        positionAndSizeLocked: impl.positionAndSizeLocked,
-        isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+        positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
+        isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
       };
     }, _.isEqual);
 

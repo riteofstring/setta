@@ -4,17 +4,13 @@ import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getActiveViewModeConfig,
-  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useContextMenus, useProjectState } from "state/definitions";
 import {
   route_delete_sections,
   route_group_sections,
-  route_toggle_position_lock,
   route_toggle_section_visibility,
 } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -28,13 +24,14 @@ export function SelectionContextMenu() {
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {
       const viewMode = getActiveViewModeConfig(state);
+      const nodeMap = state.sections;
       const { isEditingViewMode } = state.projectConfig;
 
       let allVisible = true;
       let allLocked = true;
 
       for (const id of nodeIds) {
-        const impl = getCurrEffectiveSectionImpl(state, id);
+        const node = nodeMap[id];
         const visibility = viewMode.visibilityBySectionId[id];
         if (visibility === undefined) {
           throw new Error(
@@ -45,7 +42,7 @@ export function SelectionContextMenu() {
           allVisible = false;
         }
 
-        if (!impl.positionAndSizeLocked) {
+        if (!node.positionAndSizeLocked) {
           allLocked = false;
         }
 
@@ -85,27 +82,11 @@ export function SelectionContextMenu() {
   }
 
   function onClickLock() {
-    const state = useProjectState.getState();
-    const targetLocked = !allLocked;
-    for (const sectionId of nodeIds) {
-      const impl = getCurrEffectiveSectionImpl(state, sectionId);
-      if (impl.positionAndSizeLocked === targetLocked) {
-        continue;
+    useProjectState.setState((state) => {
+      for (const n of nodeIds) {
+        state.sections[n].positionAndSizeLocked = !allLocked;
       }
-      dispatchOptimisticProjectStateUpdate({
-        apply: (draft) => {
-          setCurrEffectiveSectionImplValue(draft, sectionId, {
-            positionAndSizeLocked: (curr) => !curr,
-          });
-        },
-        send: (frontendOpId) =>
-          route_toggle_position_lock({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            frontendOpId,
-          }),
-      });
-    }
+    });
     closeContextMenu();
   }
 
