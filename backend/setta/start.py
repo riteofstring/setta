@@ -21,7 +21,7 @@ from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.types.routes import Route
-from setta.utils.constants import C
+from setta.utils.constants import IS_DEV_MODE, C
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
@@ -429,7 +429,7 @@ def _has_gui() -> bool:
 def _should_auto_open(no_open: bool) -> bool:
     if no_open:
         return False
-    if not sys.stdin.isatty():
+    if not sys.stdin.isatty() and not IS_DEV_MODE:
         return False
     if _is_ssh_session():
         return False
@@ -470,8 +470,10 @@ def _render_startup_message(
     port: int,
     workspace_path: Path,
     bootstrap_url_fragment: str,
+    bootstrap_url_plain: str,
     token: str,
     auto_open: bool,
+    is_remote_session: bool,
 ) -> str:
     bind_label = _format_bind_hint(host, port)
     lines = [
@@ -481,6 +483,17 @@ def _render_startup_message(
     if auto_open:
         lines.append("Opening browser to:")
         lines.append(f"  {bootstrap_url_fragment}")
+        return "\n".join(lines)
+
+    if not is_remote_session:
+        lines.append("Open this URL in your browser (recommended):")
+        lines.append(f"  {bootstrap_url_fragment}")
+        lines.append(
+            "If the page prompts for a token (fragment stripped or you prefer manual entry), open:"
+        )
+        lines.append(f"  {bootstrap_url_plain}")
+        lines.append("  and paste:")
+        lines.append(f"    {token}")
         return "\n".join(lines)
 
     quoted_workspace = shlex.quote(str(workspace_path))
@@ -929,12 +942,13 @@ def cli(
         secret = registry.load_secret(session)
         token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
 
-        bootstrap_url_fragment, _ = _build_bootstrap_urls(
+        bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
             resolved_host, resolved_port, token
         )
         auto_open = _should_auto_open(no_open)
         C.OPEN_BROWSER_ON_START = bootstrap_url_fragment if auto_open else None
 
+        is_remote_session = _is_ssh_session()
         click.echo(
             _render_startup_message(
                 session.id,
@@ -942,8 +956,10 @@ def cli(
                 resolved_port,
                 Path.cwd().resolve(),
                 bootstrap_url_fragment,
+                bootstrap_url_plain,
                 token,
                 auto_open,
+                is_remote_session,
             )
         )
 

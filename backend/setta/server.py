@@ -113,6 +113,7 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

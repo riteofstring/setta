@@ -8,10 +8,11 @@ from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
+from setta.utils.constants import IS_DEV_MODE, C
 
 router = SettaAPIRouter()
 
-BOOTSTRAP_HTML = """<!DOCTYPE html>
+BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -75,6 +76,7 @@ BOOTSTRAP_HTML = """<!DOCTYPE html>
     </main>
     <script>
       (function () {
+        const redirectUrl = "__SETTA_REDIRECT_URL__";
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");
@@ -109,7 +111,7 @@ BOOTSTRAP_HTML = """<!DOCTYPE html>
             throw new Error("Token rejected");
           }
           history.replaceState({}, "", "/__setta__/bootstrap");
-          window.location.assign("/");
+          window.location.assign(redirectUrl);
         }
 
         form.addEventListener("submit", function (event) {
@@ -158,9 +160,30 @@ def _bearer_token_from_header(
     return token
 
 
+def _format_host_for_url(host: str) -> str:
+    if host in {"0.0.0.0", "::"}:
+        return "127.0.0.1"
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
+def _bootstrap_redirect_url() -> str:
+    if not IS_DEV_MODE:
+        return "/"
+    host = _format_host_for_url(C.HOST)
+    return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
+
+
+def _render_bootstrap_html() -> str:
+    return BOOTSTRAP_HTML_TEMPLATE.replace(
+        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url()
+    )
+
+
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)
 async def route_bootstrap_page() -> str:
-    return BOOTSTRAP_HTML
+    return _render_bootstrap_html()
 
 
 @router.post(Route.BOOTSTRAP_CONSUME)
