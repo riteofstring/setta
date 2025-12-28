@@ -199,6 +199,9 @@ export function useAIFollowZIndexBoost(): void {
     }),
     _.isEqual,
   );
+  const mouseDownDraggingSection = useMisc(
+    (state) => state.mouseDownDraggingSection,
+  );
   const { toolArgumentSectionIds, toolResultSectionIds } = useAIFollow(
     (state) => {
       return {
@@ -231,9 +234,9 @@ export function useAIFollowZIndexBoost(): void {
     if (aiFollowTopLevelIds.length === 0) {
       return;
     }
-    if (useMisc.getState().mouseDownDraggingSection) {
+    if (mouseDownDraggingSection) {
       return;
     }
     setZIndices(aiFollowTopLevelIds);
-  }, [aiFollowTopLevelIdsKey, projectConfigId]);
+  }, [aiFollowTopLevelIdsKey, mouseDownDraggingSection, projectConfigId]);
 }
