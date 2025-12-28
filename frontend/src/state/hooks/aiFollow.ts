@@ -7,53 +7,11 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getHighestAncestor } from "state/actions/sectionInfos";
-import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getSectionIdsForProject } from "state/aiFollowUtils";
-import { useAIFollow, useMisc, useProjectState } from "state/definitions";
+import { useAIFollow, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
-
-function collectAIFollowTopLevelIds(
-  toolArgumentSectionIds: Array<string>,
-  toolResultSectionIds: Array<string>,
-  parentSectionMap: Record<string, string | null>,
-): Array<string> {
-  if (
-    toolArgumentSectionIds.length === 0 &&
-    toolResultSectionIds.length === 0
-  ) {
-    return [];
-  }
-
-  const parentIdGetter = (id: string): string | null => {
-    const parentId = parentSectionMap[id];
-    if (parentId === undefined || parentId === null) {
-      return null;
-    }
-    return parentId;
-  };
-
-  const topLevelIds: Array<string> = [];
-  const seenIds = new Set<string>();
-  for (const sectionId of toolArgumentSectionIds) {
-    const topLevelId = getHighestAncestor(sectionId, parentIdGetter);
-    if (!seenIds.has(topLevelId)) {
-      seenIds.add(topLevelId);
-      topLevelIds.push(topLevelId);
-    }
-  }
-  for (const sectionId of toolResultSectionIds) {
-    const topLevelId = getHighestAncestor(sectionId, parentIdGetter);
-    if (!seenIds.has(topLevelId)) {
-      seenIds.add(topLevelId);
-      topLevelIds.push(topLevelId);
-    }
-  }
-
-  return topLevelIds;
-}
 
 export function useAIFollowViewport(): void {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
@@ -189,51 +147,4 @@ export function useAIFollowViewport(): void {
     sectionIdsKey,
     width,
   ]);
-}
-
-export function useAIFollowZIndexBoost(): void {
-  const { projectConfigId, parentSectionMap } = useProjectState(
-    (state) => ({
-      projectConfigId: state.projectConfig.id,
-      parentSectionMap: state.parentSectionMap,
-    }),
-    _.isEqual,
-  );
-  const { toolArgumentSectionIds, toolResultSectionIds } = useAIFollow(
-    (state) => {
-      return {
-        toolArgumentSectionIds: getSectionIdsForProject(
-          state.toolArgumentsIdsByProjectConfigId,
-          projectConfigId,
-        ),
-        toolResultSectionIds: getSectionIdsForProject(
-          state.toolResultIdsByProjectConfigId,
-          projectConfigId,
-        ),
-      };
-    },
-    _.isEqual,
-  );
-
-  const aiFollowTopLevelIds = useMemo(() => {
-    return collectAIFollowTopLevelIds(
-      toolArgumentSectionIds,
-      toolResultSectionIds,
-      parentSectionMap,
-    );
-  }, [parentSectionMap, toolArgumentSectionIds, toolResultSectionIds]);
-  const aiFollowTopLevelIdsKey = useMemo(
-    () => aiFollowTopLevelIds.join("|"),
-    [aiFollowTopLevelIds],
-  );
-
-  useEffect(() => {
-    if (aiFollowTopLevelIds.length === 0) {
-      return;
-    }
-    if (useMisc.getState().mouseDownDraggingSection) {
-      return;
-    }
-    setZIndices(aiFollowTopLevelIds);
-  }, [aiFollowTopLevelIdsKey, projectConfigId]);
 }

@@ -10,7 +10,7 @@ export default defineConfig({
   server: {
     host: C.DEFAULT_HOST,
     port: C.DEV_MODE_FRONTEND_PORT,
-    open: true,
+    open: false,
   },
   preview: {
     port: C.DEV_MODE_FRONTEND_PORT,

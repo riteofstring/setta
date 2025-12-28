@@ -57,8 +57,6 @@ class PythonCodeGenerator:
             self.dep_graph,
             self._lookup_var_name,
             mode=value_mode,
-            collection_item_indent=GEN_CODE_MULTILINE_CONTINUATION_INDENT,
-            collection_close_indent=GEN_CODE_BODY_INDENT,
         )
         self.reset()
 

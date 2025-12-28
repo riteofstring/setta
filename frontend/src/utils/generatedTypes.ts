@@ -251,6 +251,8 @@ export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
 
 export const RouteEnum = {
   PREFIX: "/api",
+  BOOTSTRAP_PAGE: "/__setta__/bootstrap",
+  BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
   SWAGGER_DOCS: "/docs",
   OPENAPI_DOCS: "/openapi.json",
   REDOC_DOCS: "/redoc",
@@ -4912,6 +4914,14 @@ const UpdateArtifactsRequestSchema = z.object({
 
 export type UpdateArtifactsRequestInput = z.input<
   typeof UpdateArtifactsRequestSchema
+>;
+
+const BootstrapConsumeRequestSchema = z.object({
+  token: z.union([z.string(), z.null()]).default(null),
+});
+
+export type BootstrapConsumeRequestInput = z.input<
+  typeof BootstrapConsumeRequestSchema
 >;
 
 const DocstringToMarkdownRequestSchema = z.object({
