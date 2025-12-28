@@ -98,23 +98,6 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
     )
 
 
-@router.websocket(Route.WEBSOCKET_CLI)
-@router.websocket(Route.WEBSOCKET_CLI_WITH_ID)
-async def route_websocket_cli(
-    websocket: WebSocket,
-    state: AppStateFromWebsocket,
-    id: str | None = None,
-):
-    await websocket_route_loop(
-        websocket,
-        state.websocket_manager,
-        state.wmh_cli_receiver,
-        state.wmh_frontend_sender,
-        WebsocketConnectionType.CLI,
-        id=id,
-    )
-
-
 @router.websocket(Route.WEBSOCKET_PYTHON_SCRIPT)
 async def route_websocket_python_script(
     websocket: WebSocket,

@@ -43,7 +43,7 @@ def create_local_ui_app(
         if config is None:
             raise HTTPException(
                 status_code=503,
-                detail="Runtime config not set. Use setta connect to configure.",
+                detail="Runtime config not set. POST /__setta__/config to configure.",
             )
         return config
 

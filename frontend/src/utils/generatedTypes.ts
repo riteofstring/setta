@@ -269,8 +269,6 @@ export const RouteEnum = {
   TERMINAL: "/{projectConfigId}/{sectionId}/{id}",
   DELETE_TERMINALS: "/deleteTerminals",
   WEBSOCKET_FRONTEND: "/frontend",
-  WEBSOCKET_CLI: "/cli",
-  WEBSOCKET_CLI_WITH_ID: "/cli/{id}",
   WEBSOCKET_PYTHON_SCRIPT: "/pythonScript/{id}",
   SAVE_CODE_INFO: "/codeInfo/save",
   KILL_SUBPROCESSES: "/killSubprocesses",
@@ -413,7 +411,6 @@ export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
 
 export const WebsocketConnectionTypeEnum = {
-  CLI: "CLI",
   SERVER: "SERVER",
   PYTHON_SCRIPT: "PYTHON_SCRIPT",
   FRONTEND: "FRONTEND",
@@ -5947,7 +5944,6 @@ export type KillSubprocessesRequestInput = z.input<
 const RunCodeRequestSchema = z.object({
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]),
-  cliId: z.union([z.string(), z.null()]).default(null),
 });
 
 export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;

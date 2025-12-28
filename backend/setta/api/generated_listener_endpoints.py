@@ -276,7 +276,6 @@ class ListenerRedoRequestPayload(TypedDict):
 class ListenerRunCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID | None
-    cliId: NotRequired[str | None]
 
 
 class ListenerSetActiveIdsRequestPayload(TypedDict):

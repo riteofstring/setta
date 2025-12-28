@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import sys
 import threading
@@ -15,24 +14,6 @@ from .session import (
     update_session_metadata_when_ready,
 )
 from .utils.constants import C
-from .websockets.connect import connect as _connect
-
-
-@click.command()
-@click.argument("websocket_id", required=False)
-@click.option("--host", default=C.DEFAULT_HOST, help="backend host")
-@click.option("--port", default=C.DEFAULT_PORT, help="backend port")
-@click.option(
-    "--token-file",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    required=True,
-    help="Path to the auth token file",
-)
-def connect(websocket_id, host, port, token_file: Path):
-    C.HOST = host
-    C.PORT = port
-    token = load_auth_token_from_file(token_file)
-    asyncio.run(_connect(websocket_id, token))
 
 
 @click.command(name="local-ui")
@@ -174,9 +155,7 @@ def cli(
     if ctx.invoked_subcommand is None:
         logging.getLogger(__name__).info("Starting Setta")
         if reload:
-            raise click.UsageError(
-                "--reload is not supported for agent sessions."
-            )
+            raise click.UsageError("--reload is not supported for agent sessions.")
 
         C.HOST = host
         C.PORT = port
@@ -243,7 +222,6 @@ def cli(
         server.run()
 
 
-cli.add_command(connect)
 cli.add_command(local_ui)
 cli.add_command(version)
 cli.add_command(export_db)

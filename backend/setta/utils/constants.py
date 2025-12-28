@@ -40,7 +40,6 @@ class C:
     ARTIFACTS_FOLDER = SETTA_FILES_FOLDER / "artifacts"
 
     # WebSocket message types
-    WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
     SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY"
 

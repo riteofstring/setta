@@ -23,13 +23,11 @@ export class C {
   static MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
-  static OPEN_BROWSER_ON_START = false;
   static PORT = 8000;
   static SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools";
   static SETTA_FILES_FOLDER = "setta_files";
   static SETTA_MCP_PARAM_NAMES = ["setta_state"];
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SETTINGS_PROJECT_NAME = "settings";
-  static WS_RUN_CODE = "runCode";
   static WS_TERMINAL_RESIZE = "terminalResize";
 }

@@ -2,7 +2,7 @@
 
 ## Goals
 - Let users run the UI locally while running compute and filesystem work on a remote host.
-- Hide SSH, port forwarding, and tokens behind a simple `setta connect` flow.
+- Hide SSH, port forwarding, and tokens behind a simple remote-connect flow.
 - Keep the remote surface area private by default (loopback or Unix socket).
 - Make sessions per-user and per-session, not a shared server.
 
@@ -20,11 +20,12 @@
 - Agent startup disables `--reload` to keep session metadata consistent.
 - Local UI server now serves the bundled frontend and exposes a runtime config endpoint (`/__setta__/config`).
 - Frontend networking now pulls base URL + token from runtime config for HTTP + websockets (legacy static address constants removed).
+- Legacy CLI websocket connect command and handlers removed; no CLI remote-connect entrypoint exists yet.
 
 ## User Experience
-- `setta connect user@host [--project /path]` starts or reuses a remote session and opens the local UI.
-- `setta disconnect` tears down the tunnel and asks the agent to exit.
-- `setta status` shows active sessions and local tunnels.
+- A remote-connect command starts or reuses a remote session and opens the local UI.
+- A disconnect command tears down the tunnel and asks the agent to exit.
+- A status command shows active sessions and local tunnels.
 - The user never copies ports or tokens by hand.
 
 ## Architecture Overview
@@ -68,7 +69,7 @@
 ```
 
 ## Connection Flow
-1. Local `setta connect` chooses a session id and a local port.
+1. Local client chooses a session id and a local port.
 2. Local client SSHes in and:
    - creates `~/.setta/run/<session>` with 0700
    - writes token file with umask 077
@@ -79,10 +80,9 @@
 5. If the tunnel drops, the client reconnects and either reuses the same session or mints a new one.
 
 ## CLI Design
-- `setta connect user@host [--project /path] [--reuse] [--new-session]`
-- `setta disconnect [--session <id>]`
-- `setta status`
-- `setta sessions` (optional) to list remote sessions and last activity
+- Provide commands for remote-connect, disconnect, and status (names TBD).
+- Optional command to list remote sessions and last activity.
+- No CLI commands are implemented yet; the new flow will arrive in Phase 2.
 
 ## Remote Agent Design
 - Option A: split the current FastAPI app into:
@@ -118,11 +118,11 @@
 - DONE: Add basic session directory creation, pid/log file creation, and metadata writing.
 
 ### Phase 2: Local Client and SSH Bootstrap
-- Build `setta connect`:
+- Build the remote-connect CLI flow:
   - SSH bootstrap script that starts the agent and prints listen info
   - local tunnel setup
   - local session metadata tracking
-- Build `setta disconnect` and `setta status`.
+- Build the disconnect and status commands.
 
 ### Phase 3: Local UI Wiring
 - DONE: Add a local UI server that serves the built frontend and exposes a runtime config endpoint.
@@ -132,7 +132,7 @@
 ### Phase 4: Reliability and Lifecycle
 - Reconnect behavior for dropped tunnels.
 - Idle timeout and cleanup options.
-- Explicit `setta sessions` cleanup of old remote run dirs.
+- Explicit sessions cleanup command for old remote run dirs.
 
 ### Phase 5: Docs and Release
 - Update docs for the new workflow.

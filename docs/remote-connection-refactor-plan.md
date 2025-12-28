@@ -23,6 +23,7 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   (`backend/setta/database/settings_file.py`).
 - Listener clients connect using host/port only and have no token support
   (`backend/setta/api/listener.py`).
+- Legacy CLI websocket connect handlers and routes have been removed; no CLI entrypoint exists.
 
 ## Refactor Workstreams
 ### 1) Split local UI server vs. remote agent
@@ -42,10 +43,8 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: Agent startup requires `--session-id` + `--token-file`, supports `--uds`/`--session-root`, and writes `session.json`, `agent.pid`, and `logs/agent.log`.
 
 ### 3) CLI refactor for remote connect flows
-- Add new CLI subcommands (`setta connect`, `setta disconnect`, `setta status`)
-  that handle SSH bootstrap + tunnel lifecycle.
-- Keep the existing websocket CLI (`setta connect` today) but rename or re-home it
-  to avoid conflict with the new remote connect command.
+- Add new CLI subcommands that handle SSH bootstrap + tunnel lifecycle (names TBD).
+- DONE: Remove the legacy websocket CLI connect command and handlers to avoid conflicts.
 - DONE: Disable `--reload` for agent sessions to keep session metadata consistent.
 - Store local session metadata under `~/.setta/run/<session>/local.json` as described
   in the plan.

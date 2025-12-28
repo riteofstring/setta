@@ -32,7 +32,6 @@ class KillSubprocessesRequest(BaseModel):
 class RunCodeRequest(BaseModel):
     projectConfigId: ID
     sectionId: ID | None
-    cliId: str | None = None
 
 
 @terminals_ws_router.websocket(Route.TERMINAL)
@@ -113,10 +112,8 @@ async def route_run_code(
     await run_code(
         x.projectConfigId,
         x.sectionId,
-        x.cliId,
         state.project_manager_switcher.get(x.projectConfigId),
         state.terminals,
-        state.wmh_cli_sender,
     )
 
     await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(

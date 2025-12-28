@@ -68,10 +68,8 @@ function sortByConnectionType(list: Array<WebsocketConnectionInfo>) {
   // Define the order of connection types
   const order = {
     [WebsocketConnectionTypeEnum.SERVER]: 1,
-    [WebsocketConnectionTypeEnum.CLI]: 2,
-    [WebsocketConnectionTypeEnum.PYTHON_LOGGER]: 3,
-    [WebsocketConnectionTypeEnum.PYTHON_SCRIPT]: 4,
-    [WebsocketConnectionTypeEnum.FRONTEND]: 5,
+    [WebsocketConnectionTypeEnum.PYTHON_SCRIPT]: 2,
+    [WebsocketConnectionTypeEnum.FRONTEND]: 3,
   };
 
   // Default value for any connectionType not in the order map

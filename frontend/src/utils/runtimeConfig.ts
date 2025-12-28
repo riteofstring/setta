@@ -1,4 +1,4 @@
-export type RuntimeConfig = {
+type RuntimeConfig = {
   apiBaseUrl: string;
   token: string;
 };
@@ -59,7 +59,7 @@ export async function ensureRuntimeConfig(): Promise<RuntimeConfig> {
   return runtimeConfigPromise;
 }
 
-export function getRuntimeConfig(): RuntimeConfig {
+function getRuntimeConfig(): RuntimeConfig {
   if (!runtimeConfig) {
     throw new Error("Runtime config has not been loaded.");
   }

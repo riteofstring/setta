@@ -131,9 +131,7 @@ def start_backend(
         version=_resolve_version(),
     )
 
-    configure_auth_token(
-        load_auth_token_from_file(session_bootstrap.layout.token_file)
-    )
+    configure_auth_token(load_auth_token_from_file(session_bootstrap.layout.token_file))
 
     resolved_level = configure_logging(
         level_override=log_level,
@@ -142,10 +140,7 @@ def start_backend(
     )
     uvicorn_level = logging.getLevelName(resolved_level).lower()
 
-    if (
-        session_bootstrap.layout.uds_path
-        and session_bootstrap.layout.uds_path.exists()
-    ):
+    if session_bootstrap.layout.uds_path and session_bootstrap.layout.uds_path.exists():
         session_bootstrap.layout.uds_path.unlink()
     config = uvicorn.Config(
         "setta.server:app",
