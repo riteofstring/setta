@@ -1,6 +1,16 @@
 import { get, post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
+async function route_bootstrap_page(): Promise<ResponseDataAndStatus<string>> {
+  return await get("/__setta__/bootstrap");
+}
+
+async function route_bootstrap_consume(
+  payload: gt.BootstrapConsumeRequestInput | null,
+): Promise<ResponseDataAndStatus<Record<string, string>>> {
+  return await post("/__setta__/bootstrap/consume", payload);
+}
+
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {

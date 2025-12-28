@@ -1,4 +1,5 @@
 import { C_ADDRESSES } from "./c_addresses";
+import { RouteEnum } from "./generatedTypes";
 
 export type ResponseDataAndStatus<T> = {
   data: T | undefined;
@@ -12,9 +13,29 @@ export function res200<T>(
   return res.status === 200;
 }
 
+function resolveBackendUrl(address: string): string {
+  if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
+  }
+  return `${C_ADDRESSES.BACKEND}${address}`;
+}
+
+async function parseResponse<T>(response: Response): Promise<T | undefined> {
+  if (response.status === 204) {
+    return undefined;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  const isJson =
+    contentType.includes("application/json") || contentType.includes("+json");
+  if (isJson) {
+    return (await response.json()) as T;
+  }
+  return (await response.text()) as T;
+}
+
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, any>,
+  addressParams?: Record<string, string | number | boolean>,
 ): string {
   if (!addressParams) return address;
 
@@ -28,13 +49,15 @@ export function replaceAddressParams(
 
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, any>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
   const fullAddress = replaceAddressParams(address, addressParams);
   try {
-    const response = await fetch(`${C_ADDRESSES.BACKEND}${fullAddress}`);
+    const response = await fetch(resolveBackendUrl(fullAddress), {
+      credentials: "include",
+    });
     return {
-      data: await response.json(),
+      data: await parseResponse<T>(response),
       status: response.status,
       hasResponse: true,
     };
@@ -46,18 +69,19 @@ export async function get<T>(
 
 export async function post<T>(
   address: string,
-  body: any = null,
+  body: unknown | null = null,
 ): Promise<ResponseDataAndStatus<T>> {
   try {
-    const response = await fetch(`${C_ADDRESSES.BACKEND}${address}`, {
+    const response = await fetch(resolveBackendUrl(address), {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
       body: body === null ? null : JSON.stringify(body),
     });
     return {
-      data: await response.json(),
+      data: await parseResponse<T>(response),
       status: response.status,
       hasResponse: true,
     };

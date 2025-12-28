@@ -4,8 +4,9 @@ import logging
 import os
 import re
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence
+from urllib.parse import parse_qs, urlparse
 
 import mcp.types as types
 from anyio.streams.memory import (
@@ -21,15 +22,19 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.stdio import stdio_server
+from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
+from setta.auth.manager import AUTH_COOKIE_MANAGER
+from setta.auth.session import load_current_session_secret
 from setta.logging.config import configure_logging
 from setta.logging.errors import log_failure
-from setta.mcp.namespacing import build_namespaced_tool_name
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.routes import Route
 from setta.utils.constants import C
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -74,6 +79,8 @@ def _resolve_env_mapping(env: dict[str, str] | None) -> dict[str, str] | None:
 class BridgeConfig:
     backend_url: str
     verbose: bool
+    bootstrap_token: str | None = field(default=None, repr=False)
+    bootstrap_url: str | None = field(default=None, repr=False)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -91,6 +98,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable debug logging for the bridge.",
     )
+    parser.add_argument(
+        "--token",
+        dest="bootstrap_token",
+        help="Bootstrap token for MCP authentication.",
+    )
+    parser.add_argument(
+        "--bootstrap-url",
+        help="Bootstrap URL containing a token fragment or query parameter.",
+    )
     return parser
 
 
@@ -100,7 +116,67 @@ def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
     return BridgeConfig(
         backend_url=args.backend,
         verbose=args.verbose,
+        bootstrap_token=args.bootstrap_token,
+        bootstrap_url=args.bootstrap_url,
     )
+
+
+def _origin_from_backend_url(backend_url: str) -> str:
+    parsed = urlparse(backend_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid backend URL: {backend_url}")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _extract_token_from_bootstrap_url(bootstrap_url: str) -> str:
+    parsed = urlparse(bootstrap_url)
+    for candidate in (parsed.fragment, parsed.query):
+        if not candidate:
+            continue
+        params = parse_qs(candidate)
+        token_values = params.get("token")
+        if token_values:
+            token = token_values[0].strip()
+            if token:
+                return token
+    raise ValueError("Bootstrap URL missing token parameter.")
+
+
+def _resolve_bridge_token(config: BridgeConfig) -> str | None:
+    if config.bootstrap_token:
+        token = config.bootstrap_token.strip()
+        return token if token else None
+    if config.bootstrap_url:
+        return _extract_token_from_bootstrap_url(config.bootstrap_url)
+    return None
+
+
+async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
+    origin = _origin_from_backend_url(backend_url)
+    consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+    async with create_mcp_http_client() as client:
+        response = await client.post(consume_url, json={"token": token})
+        response.raise_for_status()
+    cookie_value = response.cookies.get(C.AUTH_COOKIE_NAME)
+    if not cookie_value:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    return cookie_value
+
+
+async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
+    token = _resolve_bridge_token(config)
+    if token:
+        cookie_value = await _consume_bootstrap_token(config.backend_url, token)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+    session_info = load_current_session_secret()
+    if session_info is None:
+        raise ValueError(
+            "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID "
+            "(and SETTA_SESSIONS_ROOT if running outside the session workspace)."
+        )
+    session_metadata, secret = session_info
+    cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+    return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
 
 @dataclass
@@ -121,6 +197,7 @@ class MultiMCPClient:
     ):
         self.server_configs = dict(server_configs)
         self.frontend_sender = frontend_sender
+        self._is_shutting_down = False
         self._sessions: dict[str, ClientSession] = {}
         self._exit_stacks: dict[str, AsyncExitStack] = {}
         self._connection_tasks: dict[str, asyncio.Task[None]] = {}
@@ -157,11 +234,13 @@ class MultiMCPClient:
         return await session.call_tool(tool_id, tool_args)
 
     async def stop(self) -> None:
-        for task in self._connection_tasks.values():
+        self._is_shutting_down = True
+        tasks = list(self._connection_tasks.values())
+        for task in tasks:
             task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         self._connection_tasks.clear()
-        for exit_stack in self._exit_stacks.values():
-            await exit_stack.aclose()
         self._exit_stacks.clear()
         self._sessions.clear()
         self._server_tool_cache.clear()
@@ -260,6 +339,9 @@ class MultiMCPClient:
             try:
                 logger.info("Attempting to connect to %s", server_id)
                 await self._connect_server_once(server_id, config)
+            except asyncio.CancelledError:
+                await asyncio.shield(self._cleanup_server(server_id))
+                raise
             except asyncio.TimeoutError:
                 logger.warning(
                     "Connection to %s timed out; retrying in %s seconds",
@@ -280,6 +362,9 @@ class MultiMCPClient:
                     handled=True,
                 )
             except Exception:
+                if self._is_shutting_down:
+                    await self._cleanup_server(server_id)
+                    return
                 logger.exception(
                     "Connection to %s failed; retrying in %s seconds",
                     server_id,
@@ -287,6 +372,8 @@ class MultiMCPClient:
                 )
 
             await self._cleanup_server(server_id)
+            if self._is_shutting_down:
+                return
             await asyncio.sleep(retry_delay)
 
     async def _connect_server_once(
@@ -294,7 +381,9 @@ class MultiMCPClient:
     ) -> None:
         exit_stack = AsyncExitStack()
         self._exit_stacks[server_id] = exit_stack
-        read_stream, write_stream = await self._open_transport(exit_stack, config)
+        read_stream, write_stream = await self._open_transport(
+            exit_stack, server_id, config
+        )
         session = await exit_stack.enter_async_context(
             ClientSession(read_stream, write_stream)
         )
@@ -308,14 +397,23 @@ class MultiMCPClient:
     async def _open_transport(
         self,
         exit_stack: AsyncExitStack,
+        server_id: str,
         config: MCPServerConfig,
     ):
+        auth_headers = self._build_auth_headers(server_id)
         if config.transport == "sse":
             read_stream, write_stream = await exit_stack.enter_async_context(
-                sse_client(url=config.url or "")
+                sse_client(url=config.url or "", headers=auth_headers)
             )
             return read_stream, write_stream
         if config.transport == "streamable_http":
+            if auth_headers:
+                http_client = create_mcp_http_client(headers=auth_headers)
+                client = await exit_stack.enter_async_context(http_client)
+                read_stream, write_stream, _ = await exit_stack.enter_async_context(
+                    streamable_http_client(url=config.url or "", http_client=client)
+                )
+                return read_stream, write_stream
             read_stream, write_stream, _ = await exit_stack.enter_async_context(
                 streamable_http_client(url=config.url or "")
             )
@@ -333,6 +431,16 @@ class MultiMCPClient:
         )
         return read_stream, write_stream
 
+    def _build_auth_headers(self, server_id: str) -> dict[str, str] | None:
+        if server_id != SETTA_MCP_SERVER_ID:
+            return None
+        session_info = load_current_session_secret()
+        if session_info is None:
+            return None
+        session_metadata, secret = session_info
+        cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)
         if not session:
@@ -346,7 +454,10 @@ class MultiMCPClient:
         exit_stack = self._exit_stacks.pop(server_id, None)
         if exit_stack is None:
             return
-        await exit_stack.aclose()
+        try:
+            await exit_stack.aclose()
+        except Exception:
+            logger.debug("Ignoring MCP cleanup error for %s", server_id, exc_info=True)
         self._sessions.pop(server_id, None)
         self._server_tool_cache.pop(server_id, None)
         self._rebuild_tool_cache()
@@ -414,9 +525,10 @@ class MultiMCPClient:
 async def run_stdio_bridge(config: BridgeConfig) -> None:
     logger.debug("Starting stdio bridge with config: %s", config)
     async with AsyncExitStack() as stack:
+        auth_headers = await _resolve_stdio_bridge_headers(config)
         stdio_read, stdio_write = await stack.enter_async_context(stdio_server())
         backend_read, backend_write = await stack.enter_async_context(
-            sse_client(url=config.backend_url)
+            sse_client(url=config.backend_url, headers=auth_headers)
         )
         logger.info("Connected to Setta backend at %s", config.backend_url)
         async with asyncio.TaskGroup() as tg:

@@ -8,8 +8,13 @@ from typing import TYPE_CHECKING
 
 import uvicorn
 
+from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
+from setta.sessions import SessionMetadata, SessionRegistry
+from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.utils import resolve_sessions_root
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.network import build_bootstrap_urls
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -22,9 +27,30 @@ _DEFAULT_JOIN_TIMEOUT_SECONDS = 5.0
 class BackendServerHandle:
     """Wrap a background uvicorn.Server instance."""
 
-    def __init__(self, server: uvicorn.Server, thread: threading.Thread) -> None:
+    def __init__(
+        self,
+        server: uvicorn.Server,
+        thread: threading.Thread,
+        *,
+        session: SessionMetadata | None = None,
+        session_registry: SessionRegistry | None = None,
+        bootstrap_url_fragment: str | None = None,
+        bootstrap_url_plain: str | None = None,
+        previous_session_id: str | None = None,
+        session_env_updated: bool = False,
+        previous_sessions_root: str | None = None,
+        sessions_root_env_updated: bool = False,
+    ) -> None:
         self._server = server
         self._thread = thread
+        self._session = session
+        self._session_registry = session_registry
+        self._bootstrap_url_fragment = bootstrap_url_fragment
+        self._bootstrap_url_plain = bootstrap_url_plain
+        self._previous_session_id = previous_session_id
+        self._session_env_updated = session_env_updated
+        self._previous_sessions_root = previous_sessions_root
+        self._sessions_root_env_updated = sessions_root_env_updated
 
     @property
     def server(self) -> uvicorn.Server:
@@ -33,6 +59,18 @@ class BackendServerHandle:
     @property
     def thread(self) -> threading.Thread:
         return self._thread
+
+    @property
+    def session(self) -> SessionMetadata | None:
+        return self._session
+
+    @property
+    def bootstrap_url_fragment(self) -> str | None:
+        return self._bootstrap_url_fragment
+
+    @property
+    def bootstrap_url_plain(self) -> str | None:
+        return self._bootstrap_url_plain
 
     def wait_ready(self, timeout: float | None = None) -> bool:
         """Block until uvicorn reports startup complete."""
@@ -47,15 +85,26 @@ class BackendServerHandle:
 
     def stop(self, join_timeout: float | None = None) -> None:
         """Signal the server to exit and wait for the worker thread to finish."""
-        if not self._thread.is_alive():
-            return
-        self._server.should_exit = True
-        self._thread.join(join_timeout or _DEFAULT_JOIN_TIMEOUT_SECONDS)
         if self._thread.is_alive():
-            self._server.force_exit = True
+            self._server.should_exit = True
             self._thread.join(join_timeout or _DEFAULT_JOIN_TIMEOUT_SECONDS)
-        if self._thread.is_alive():
-            raise RuntimeError("Setta backend thread did not exit cleanly.")
+            if self._thread.is_alive():
+                self._server.force_exit = True
+                self._thread.join(join_timeout or _DEFAULT_JOIN_TIMEOUT_SECONDS)
+            if self._thread.is_alive():
+                raise RuntimeError("Setta backend thread did not exit cleanly.")
+        if self._session_env_updated:
+            if self._previous_session_id is None:
+                os.environ.pop(SESSION_ID_ENV_VAR, None)
+            else:
+                os.environ[SESSION_ID_ENV_VAR] = self._previous_session_id
+        if self._sessions_root_env_updated:
+            if self._previous_sessions_root is None:
+                os.environ.pop(SESSIONS_ROOT_ENV_VAR, None)
+            else:
+                os.environ[SESSIONS_ROOT_ENV_VAR] = self._previous_sessions_root
+        if self._session is not None and self._session_registry is not None:
+            self._session_registry.delete_session(self._session.id)
 
     def is_running(self) -> bool:
         return self._thread.is_alive()
@@ -94,7 +143,7 @@ def start_backend(
     ready_timeout:
         Maximum seconds to wait for readiness when wait_for_ready is True.
     open_browser:
-        When True open the root frontend URL; when a string, open that URL.
+        When True open the bootstrap URL; when a string, open that URL.
     """
 
     _ensure_frontend_bundle_available()
@@ -103,6 +152,22 @@ def start_backend(
     resolved_port = port or C.DEFAULT_PORT
     C.HOST = resolved_host
     C.PORT = resolved_port
+
+    workspace_root = Path.cwd()
+    sessions_root = resolve_sessions_root(workspace_root)
+    session_registry = SessionRegistry(sessions_root=sessions_root)
+    session = session_registry.create_session(
+        workspace_root, resolved_host, resolved_port, os.getpid()
+    )
+    previous_session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    os.environ[SESSION_ID_ENV_VAR] = session.id
+    previous_sessions_root = os.environ.get(SESSIONS_ROOT_ENV_VAR)
+    os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
+    secret = session_registry.load_secret(session)
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
+        resolved_host, resolved_port, token
+    )
 
     resolved_level = configure_logging(level_override=log_level)
     uvicorn_level = logging.getLevelName(resolved_level).lower()
@@ -124,17 +189,34 @@ def start_backend(
     )
     thread.start()
 
-    handle = BackendServerHandle(server, thread)
+    handle = BackendServerHandle(
+        server,
+        thread,
+        session=session,
+        session_registry=session_registry,
+        bootstrap_url_fragment=bootstrap_url_fragment,
+        bootstrap_url_plain=bootstrap_url_plain,
+        previous_session_id=previous_session_id,
+        session_env_updated=True,
+        previous_sessions_root=previous_sessions_root,
+        sessions_root_env_updated=True,
+    )
 
     if wait_for_ready:
-        ready = handle.wait_ready(timeout=ready_timeout)
+        try:
+            ready = handle.wait_ready(timeout=ready_timeout)
+        except Exception:
+            handle.stop()
+            raise
         if not ready:
             handle.stop()
             raise TimeoutError(
                 f"Setta backend did not become ready within {ready_timeout} seconds."
             )
 
-    target_url = _resolve_frontend_url(open_browser, resolved_host, resolved_port)
+    target_url = _resolve_frontend_url(
+        open_browser, resolved_host, resolved_port, bootstrap_url_fragment
+    )
     if target_url:
         webbrowser.open(target_url)
 
@@ -145,11 +227,12 @@ def _resolve_frontend_url(
     open_browser: bool | str,
     host: str,
     port: int,
+    bootstrap_url: str | None,
 ) -> str | None:
     if isinstance(open_browser, str):
         return open_browser
     if open_browser:
-        return f"http://{host}:{port}"
+        return bootstrap_url or f"http://{host}:{port}"
     return None
 
 
