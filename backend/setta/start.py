@@ -93,6 +93,14 @@ def _resolve_remote_shell(ssh_target: str, ssh_args: list[str]) -> str:
             f"command -v {candidate}",
             capture_output=True,
         )
+        if result.returncode == 255:
+            details = (result.stderr or result.stdout or "").strip()
+            hint = "SSH failed while probing remote shell."
+            if details:
+                raise click.ClickException(f"{hint} {details}")
+            raise click.ClickException(
+                f"{hint} Check that SSH is reachable and credentials are valid."
+            )
         if result.returncode == 0:
             return candidate
     raise click.ClickException(
