@@ -5,16 +5,12 @@ export class C_ADDRESSES {
   static DEV_MODE = import.meta.env?.DEV;
 
   // Computed properties that mirror the Python class
-  static get BACKEND_ORIGIN() {
-    if (this.DEV_MODE) {
-      return `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    } else {
-      return `http://${location.host}`;
-    }
-  }
-
   static get BACKEND() {
-    return `${this.BACKEND_ORIGIN}${RouteEnum.PREFIX}`;
+    if (this.DEV_MODE) {
+      return `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${RouteEnum.PREFIX}`;
+    } else {
+      return `http://${location.host}${RouteEnum.PREFIX}`;
+    }
   }
 
   static get WEBSOCKET() {

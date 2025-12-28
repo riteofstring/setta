@@ -28,7 +28,7 @@ export class C {
   static MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
-  static OPEN_BROWSER_ON_START = false;
+  static OPEN_BROWSER_ON_START = null;
   static PORT = 8000;
   static RUN_FOLDER = "setta_files/run";
   static RUN_LOGS_FOLDER = "setta_files/run/logs";
