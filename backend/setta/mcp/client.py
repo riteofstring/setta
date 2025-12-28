@@ -21,15 +21,12 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.stdio import stdio_server
-from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
-from setta.auth.manager import AUTH_COOKIE_MANAGER
-from setta.auth.session import load_current_session_secret
 from setta.logging.config import configure_logging
 from setta.logging.errors import log_failure
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
+from setta.mcp.namespacing import build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -297,9 +294,7 @@ class MultiMCPClient:
     ) -> None:
         exit_stack = AsyncExitStack()
         self._exit_stacks[server_id] = exit_stack
-        read_stream, write_stream = await self._open_transport(
-            exit_stack, server_id, config
-        )
+        read_stream, write_stream = await self._open_transport(exit_stack, config)
         session = await exit_stack.enter_async_context(
             ClientSession(read_stream, write_stream)
         )
@@ -313,23 +308,14 @@ class MultiMCPClient:
     async def _open_transport(
         self,
         exit_stack: AsyncExitStack,
-        server_id: str,
         config: MCPServerConfig,
     ):
-        auth_headers = self._build_auth_headers(server_id)
         if config.transport == "sse":
             read_stream, write_stream = await exit_stack.enter_async_context(
-                sse_client(url=config.url or "", headers=auth_headers)
+                sse_client(url=config.url or "")
             )
             return read_stream, write_stream
         if config.transport == "streamable_http":
-            if auth_headers:
-                http_client = create_mcp_http_client(headers=auth_headers)
-                client = await exit_stack.enter_async_context(http_client)
-                read_stream, write_stream, _ = await exit_stack.enter_async_context(
-                    streamable_http_client(url=config.url or "", http_client=client)
-                )
-                return read_stream, write_stream
             read_stream, write_stream, _ = await exit_stack.enter_async_context(
                 streamable_http_client(url=config.url or "")
             )
@@ -346,16 +332,6 @@ class MultiMCPClient:
             stdio_client(params)
         )
         return read_stream, write_stream
-
-    def _build_auth_headers(self, server_id: str) -> dict[str, str] | None:
-        if server_id != SETTA_MCP_SERVER_ID:
-            return None
-        session_info = load_current_session_secret()
-        if session_info is None:
-            return None
-        session_metadata, secret = session_info
-        cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)
