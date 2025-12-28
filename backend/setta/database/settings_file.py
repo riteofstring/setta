@@ -13,6 +13,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import DictSectionImpl
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ class SettingsFile:
             )
             if impl.jsonSourceKeys == [slice]:
                 variant = get_curr_section_variant(p, sectionId)
-                return Path(variant.name)
+                return normalize_path(variant.name)
         return self.dbe.settings
 
     def load_settings_project(self):

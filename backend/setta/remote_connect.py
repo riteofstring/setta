@@ -54,6 +54,8 @@ class LocalSessionMetadata:
     ssh_options: list[str]
     ssh_identity: str | None
     remote_run_root: str
+    remote_workspace_root: str
+    remote_storage_root: str | None
     local_host: str
     local_port: int
     ui_host: str
@@ -93,11 +95,15 @@ def prepare_local_session_layout(
 def _normalize_remote_run_root(run_root: str | None) -> str:
     if not run_root:
         return "$HOME/.setta/run"
-    if run_root == "~":
+    return _normalize_remote_path(run_root)
+
+
+def _normalize_remote_path(path: str) -> str:
+    if path == "~":
         return "$HOME"
-    if run_root.startswith("~/"):
-        return f"$HOME/{run_root[2:]}"
-    return run_root
+    if path.startswith("~/"):
+        return f"$HOME/{path[2:]}"
+    return path
 
 
 def _escape_double_quotes(value: str) -> str:
@@ -109,16 +115,29 @@ def _build_remote_bootstrap_script(
     session_id: str,
     token: str,
     remote_run_root: str,
+    remote_workspace_root: str,
+    remote_storage_root: str | None,
     remote_command: str,
     use_uds: bool,
 ) -> str:
     run_root_value = _escape_double_quotes(_normalize_remote_run_root(remote_run_root))
+    workspace_root_value = _escape_double_quotes(
+        _normalize_remote_path(remote_workspace_root)
+    )
+    storage_root_value = None
+    storage_arg = ""
+    if remote_storage_root:
+        storage_root_value = _escape_double_quotes(
+            _normalize_remote_path(remote_storage_root)
+        )
+        storage_arg = ' --storage-root "${STORAGE_ROOT}"'
     command_value = _escape_double_quotes(remote_command)
     uds_flag = "1" if use_uds else "0"
     lines = [
         "set -euo pipefail",
         f"SESSION_ID={shlex.quote(session_id)}",
         f'RUN_ROOT="{run_root_value}"',
+        f'WORKSPACE_ROOT="{workspace_root_value}"',
         f'REMOTE_COMMAND="{command_value}"',
         f"TOKEN={shlex.quote(token)}",
         f"USE_UDS={uds_flag}",
@@ -134,12 +153,14 @@ def _build_remote_bootstrap_script(
         'if [ "${USE_UDS}" = "1" ]; then',
         '  nohup ${REMOTE_COMMAND} --session-id "${SESSION_ID}" '
         '--token-file "${TOKEN_FILE}" --session-root "${RUN_ROOT}" '
-        '--uds "${UDS_PATH}" --host 127.0.0.1 --port 0 '
+        '--workspace-root "${WORKSPACE_ROOT}"'
+        f"{storage_arg} --uds \"${{UDS_PATH}}\" --host 127.0.0.1 --port 0 "
         '> "${LOG_DIR}/agent.log" 2>&1 </dev/null &',
         "else",
         '  nohup ${REMOTE_COMMAND} --session-id "${SESSION_ID}" '
         '--token-file "${TOKEN_FILE}" --session-root "${RUN_ROOT}" '
-        "--host 127.0.0.1 --port 0 "
+        '--workspace-root "${WORKSPACE_ROOT}"'
+        f"{storage_arg} --host 127.0.0.1 --port 0 "
         '> "${LOG_DIR}/agent.log" 2>&1 </dev/null &',
         "fi",
         "for _ in {1..200}; do",
@@ -154,6 +175,8 @@ def _build_remote_bootstrap_script(
         'echo "Session did not become ready." >&2',
         "exit 1",
     ]
+    if storage_root_value:
+        lines.insert(4, f'STORAGE_ROOT="{storage_root_value}"')
     return "\n".join(lines) + "\n"
 
 
@@ -267,6 +290,8 @@ def _bootstrap_remote_session(
     session_id: str,
     token: str,
     remote_run_root: str,
+    remote_workspace_root: str,
+    remote_storage_root: str | None,
     remote_command: str,
     use_uds: bool,
 ) -> dict[str, object]:
@@ -274,6 +299,8 @@ def _bootstrap_remote_session(
         session_id=session_id,
         token=token,
         remote_run_root=remote_run_root,
+        remote_workspace_root=remote_workspace_root,
+        remote_storage_root=remote_storage_root,
         remote_command=remote_command,
         use_uds=use_uds,
     )
@@ -414,6 +441,8 @@ def _write_local_metadata(
         "ssh_options": metadata.ssh_options,
         "ssh_identity": metadata.ssh_identity,
         "remote_run_root": metadata.remote_run_root,
+        "remote_workspace_root": metadata.remote_workspace_root,
+        "remote_storage_root": metadata.remote_storage_root,
         "local_host": metadata.local_host,
         "local_port": metadata.local_port,
         "ui_host": metadata.ui_host,
@@ -434,6 +463,7 @@ def _parse_local_metadata(payload: dict[str, object]) -> LocalSessionMetadata:
         "ssh_target",
         "ssh_options",
         "remote_run_root",
+        "remote_workspace_root",
         "local_host",
         "local_port",
         "ui_host",
@@ -452,6 +482,8 @@ def _parse_local_metadata(payload: dict[str, object]) -> LocalSessionMetadata:
     ssh_options = payload["ssh_options"]
     ssh_identity = payload["ssh_identity"] if "ssh_identity" in payload else None
     remote_run_root = payload["remote_run_root"]
+    remote_workspace_root = payload["remote_workspace_root"]
+    remote_storage_root = payload["remote_storage_root"] if "remote_storage_root" in payload else None
     local_host = payload["local_host"]
     local_port = payload["local_port"]
     ui_host = payload["ui_host"]
@@ -471,6 +503,10 @@ def _parse_local_metadata(payload: dict[str, object]) -> LocalSessionMetadata:
         raise ValueError("Local ssh identity is invalid.")
     if not isinstance(remote_run_root, str) or not remote_run_root:
         raise ValueError("Local remote run root is invalid.")
+    if not isinstance(remote_workspace_root, str) or not remote_workspace_root:
+        raise ValueError("Local remote workspace root is invalid.")
+    if remote_storage_root is not None and not isinstance(remote_storage_root, str):
+        raise ValueError("Local remote storage root is invalid.")
     if not isinstance(local_host, str) or not local_host:
         raise ValueError("Local host is invalid.")
     if not isinstance(local_port, int):
@@ -495,6 +531,8 @@ def _parse_local_metadata(payload: dict[str, object]) -> LocalSessionMetadata:
         ssh_options=ssh_options,
         ssh_identity=ssh_identity,
         remote_run_root=remote_run_root,
+        remote_workspace_root=remote_workspace_root,
+        remote_storage_root=remote_storage_root,
         local_host=local_host,
         local_port=local_port,
         ui_host=ui_host,
@@ -542,6 +580,8 @@ def connect_remote_session(
     ssh_identity: Path | None,
     session_id: str | None,
     remote_run_root: str | None,
+    remote_workspace_root: str,
+    remote_storage_root: str | None,
     local_run_root: Path | None,
     local_host: str,
     local_port: int | None,
@@ -559,6 +599,14 @@ def connect_remote_session(
 
     token = _generate_token()
     normalized_remote_run_root = _normalize_remote_run_root(remote_run_root)
+    if not remote_workspace_root:
+        raise ValueError("Remote workspace root is required.")
+    normalized_remote_workspace_root = _normalize_remote_path(remote_workspace_root)
+    normalized_remote_storage_root = (
+        _normalize_remote_path(remote_storage_root)
+        if remote_storage_root
+        else None
+    )
     remote_payload: dict[str, object] | None = None
     if reuse_existing:
         remote_payload = _fetch_remote_session(
@@ -589,6 +637,8 @@ def connect_remote_session(
             session_id=resolved_session_id,
             token=token,
             remote_run_root=normalized_remote_run_root,
+            remote_workspace_root=normalized_remote_workspace_root,
+            remote_storage_root=normalized_remote_storage_root,
             remote_command=remote_command,
             use_uds=use_uds,
         )
@@ -628,6 +678,8 @@ def connect_remote_session(
         ssh_options=ssh_options,
         ssh_identity=str(ssh_identity) if ssh_identity else None,
         remote_run_root=normalized_remote_run_root,
+        remote_workspace_root=normalized_remote_workspace_root,
+        remote_storage_root=normalized_remote_storage_root,
         local_host=local_host,
         local_port=resolved_local_port,
         ui_host=ui_host,
@@ -673,6 +725,8 @@ def disconnect_remote_session(
         ssh_options=metadata.ssh_options,
         ssh_identity=metadata.ssh_identity,
         remote_run_root=metadata.remote_run_root,
+        remote_workspace_root=metadata.remote_workspace_root,
+        remote_storage_root=metadata.remote_storage_root,
         local_host=metadata.local_host,
         local_port=metadata.local_port,
         ui_host=metadata.ui_host,

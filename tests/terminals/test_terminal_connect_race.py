@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.terminals.terminals import Terminals
-from setta.utils.constants import C
+from setta.utils.constants import C, configure_storage_root, configure_workspace_root
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -21,7 +21,10 @@ class TerminalConnectRaceTests(unittest.TestCase):
         results: Queue[bool] = Queue(maxsize=1)
 
         with TemporaryDirectory() as tmpdir:
-            dbe = DBE(Path(tmpdir))
+            root = Path(tmpdir)
+            configure_workspace_root(root)
+            configure_storage_root(root)
+            dbe = DBE(root)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
             settings_file = SettingsFile(dbe, frontend_sender)

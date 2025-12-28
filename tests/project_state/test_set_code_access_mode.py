@@ -85,10 +85,8 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
             path.mkdir(parents=True, exist_ok=True)
 
         self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
+            patch.object(C, "WORKSPACE_ROOT", root),
+            patch.object(C, "STORAGE_ROOT", root),
         ]
         for patcher in self._patchers:
             patcher.start()
@@ -101,7 +99,7 @@ class SetCodeAccessModeTests(unittest.IsolatedAsyncioTestCase):
         )
         self.dbe = DBE(self.setta_root)
         self.settings_file = SettingsFile(self.dbe, self.frontend_sender)
-        self.lsps = LSPServers(self.settings_file.settings.languageServer)
+        self.lsps = LSPServers(self.settings_file.settings.languageServer, root)
         self.lsp_writers = LSPWriters(self.lsps)
         self.specific_file_watcher = SpecificFileWatcher()
         self.artifacts = Artifacts(

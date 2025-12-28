@@ -13,7 +13,7 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   terminals, and project state live under one app instance (`backend/setta/server.py`).
 - Auth is token-gated across HTTP, websockets, and MCP SSE (`backend/setta/middleware.py`,
   `backend/setta/websockets`, `backend/setta/mcp/server.py`).
-- LSP is started from `SettaFastAPIState` with workspace `CWD` and settings sourced
+- LSP is started from `SettaFastAPIState` with an explicit workspace root (no CWD assumptions) and settings sourced
   from typed `SettingsState.languageServer` (`LanguageServerSettings`) (`backend/setta/server_state.py`,
   `backend/setta/lsp/*`, `backend/setta/types/generated/settings_state.py`).
 - The frontend now derives API + websocket base URLs from runtime config served
@@ -23,8 +23,10 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - Settings are persisted via `SettingsFile` in `setta_files/` and broadcast over websockets,
   and backend endpoints now support interpreter selection, but there is no UI workflow yet
   (`backend/setta/database/settings_file.py`).
+- Workspace/storage roots are explicit runtime config; `setta_files/` resolves under the storage root and session.json records both roots.
 - Listener clients now send tokens via `Sec-WebSocket-Protocol` (`backend/setta/api/listener.py`).
 - Legacy CLI websocket connect handlers and routes have been removed; remote-connect CLI entrypoints exist.
+- Remote-connect bootstrap now passes `--workspace-root` (required) and optional `--storage-root` to the agent.
 
 ## Refactor Workstreams
 ### 1) Split local UI server vs. remote agent
@@ -67,10 +69,10 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: Persist the selected interpreter in settings and trigger LSP restart on changes.
 
 ### 6) Workspace root + storage isolation
-- Replace global `CWD` assumptions in LSP and path normalization so the workspace
-  root can be set per session/project.
-- Ensure `setta_files/` storage can be rooted under the remote session directory
-  (or per-project root) instead of the agent CWD.
+- DONE: Replace global `CWD` assumptions with an explicit workspace root configured per session.
+- DONE: Root `setta_files/` under a configurable storage root (defaults to session run dir).
+- DONE: Thread workspace/storage roots through agent startup, session metadata, and remote-connect bootstrap.
+- DONE: Normalize paths + LSP + Python env discovery against the configured workspace root.
 
 ### 7) Compatibility surface (listener + MCP)
 - Update listener APIs to accept auth tokens and remote base URLs.
@@ -90,3 +92,4 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: Runtime-configurable frontend networking.
 - Backend interpreter selection (typed settings + env listing + interpreter update endpoints); UI pending.
 - Session metadata on both local and remote sides.
+- DONE: Workspace root + storage isolation (`setta_files/` under storage root; session metadata includes workspace/storage roots).

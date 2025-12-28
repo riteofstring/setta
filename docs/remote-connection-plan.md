@@ -18,6 +18,9 @@
 - Agent startup now requires `--session-id` + `--token-file` and writes `~/.setta/run/<session>/` metadata (pid, logs, session.json).
 - Agent startup supports `--uds` and `--session-root`, and updates session metadata once the server is bound.
 - Agent startup disables `--reload` to keep session metadata consistent.
+- Workspace + storage roots are explicit: agent requires `--workspace-root`, optional `--storage-root` defaults to the session run dir, and session metadata includes both roots.
+- Path normalization + LSP + Python env discovery now use the configured workspace root (no CWD assumptions).
+- `setta_files/` resolves under the storage root instead of the agent CWD.
 - Local UI server now serves the bundled frontend and exposes a runtime config endpoint (`/__setta__/config`).
 - Frontend networking now pulls base URL + token from runtime config for HTTP + websockets (legacy static address constants removed).
 - Legacy CLI websocket connect command and handlers removed.
@@ -47,8 +50,9 @@
 - Must support:
   - `--session-id`
   - `--token-file`
+  - `--workspace-root` (required)
+  - `--storage-root` (optional, defaults to session run dir)
   - `--uds` (preferred) or `--host 127.0.0.1 --port 0`
-  - `--project-root` (optional)
 - Writes remote session metadata in `~/.setta/run/<session>/`.
 
 ### Transport
@@ -70,13 +74,14 @@
   session.json          # metadata: version, ports, start time
   logs/agent.log
 ```
+`session.json` now includes `workspace_root` and `storage_root`.
 
 ## Connection Flow
 1. Local client chooses a session id and a local port.
 2. Local client SSHes in and:
    - creates `~/.setta/run/<session>` with 0700
    - writes token file with umask 077
-   - starts the remote agent with `--uds` or `--host 127.0.0.1 --port 0`
+   - starts the remote agent with `--workspace-root` (required), optional `--storage-root`, and `--uds` or `--host 127.0.0.1 --port 0`
    - returns the chosen port or socket path
 3. Local client establishes SSH forwarding to the remote UDS or port.
 4. Local UI points to `http://127.0.0.1:<localport>` and sends the token on every request.
@@ -131,6 +136,11 @@
 - DONE: Add a local UI server that serves the built frontend and exposes a runtime config endpoint.
 - DONE: Store token in memory only (no disk) and inject into HTTP + websocket calls.
 - DONE: Frontend networking now relies on runtime config and still routes via `generatedEndpoints`.
+
+### Phase 3.5: Workspace root + storage isolation
+- DONE: Require `--workspace-root` at agent startup; optional `--storage-root` defaults to the session run dir.
+- DONE: Thread workspace/storage roots through session metadata and remote-connect bootstrap.
+- DONE: Normalize paths + LSP + Python env discovery against the configured workspace root, with `setta_files/` rooted under storage.
 
 ### Phase 4: Reliability and Lifecycle
 - Reconnect behavior for dropped tunnels.

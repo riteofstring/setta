@@ -6,7 +6,7 @@ from setta.types.language_server import (
     PythonEnvironmentInfo,
     PythonEnvironmentSource,
 )
-from setta.utils.constants import CWD
+from setta.utils.utils import resolve_workspace_root
 
 _VENV_DIR_NAMES = (".venv", "venv", ".env", "env")
 _PYENV_ROOT_ENV = "PYENV_ROOT"
@@ -142,7 +142,7 @@ def list_python_environments(
         label="Current (sys.executable)",
     )
 
-    root = project_root if project_root else CWD
+    root = project_root if project_root else resolve_workspace_root()
     if root.exists():
         _add_project_venvs(candidates, root)
 

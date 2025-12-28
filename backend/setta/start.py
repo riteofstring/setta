@@ -23,7 +23,7 @@ from .session import (
     update_session_metadata_when_ready,
 )
 from .types.routes import Route
-from .utils.constants import C
+from .utils.constants import C, configure_storage_root, configure_workspace_root
 
 
 @click.command(name="local-ui")
@@ -139,6 +139,16 @@ def export_db(readable, readable_with_variants):
     help="Remote session root (defaults to ~/.setta/run)",
 )
 @click.option(
+    "--remote-workspace-root",
+    required=True,
+    help="Remote workspace root for the agent session",
+)
+@click.option(
+    "--remote-storage-root",
+    default=None,
+    help="Remote storage root for setta_files (defaults to session run dir)",
+)
+@click.option(
     "--local-run-root",
     type=click.Path(file_okay=False, path_type=Path),
     default=None,
@@ -184,6 +194,8 @@ def remote_connect(
     ui_host: str,
     ui_port: int,
     remote_run_root: str | None,
+    remote_workspace_root: str,
+    remote_storage_root: str | None,
     local_run_root: Path | None,
     frontend_root: Path | None,
     remote_command: str,
@@ -199,6 +211,8 @@ def remote_connect(
         ssh_identity=ssh_identity,
         session_id=session_id,
         remote_run_root=remote_run_root,
+        remote_workspace_root=remote_workspace_root,
+        remote_storage_root=remote_storage_root,
         local_run_root=local_run_root,
         local_host=local_host,
         local_port=local_port,
@@ -306,6 +320,18 @@ def remote_status(
     help="Override the session root (defaults to ~/.setta/run)",
 )
 @click.option(
+    "--workspace-root",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Workspace root for this agent session",
+)
+@click.option(
+    "--storage-root",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Root directory for setta_files storage (defaults to session run dir)",
+)
+@click.option(
     "--uds",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
@@ -333,6 +359,8 @@ def cli(
     port: int,
     session_id: str | None,
     session_root: Path | None,
+    workspace_root: Path | None,
+    storage_root: Path | None,
     uds: Path | None,
     token_file: Path | None,
     log_level,
@@ -350,6 +378,8 @@ def cli(
             raise click.UsageError("Missing required option: --session-id")
         if token_file is None:
             raise click.UsageError("Missing required option: --token-file")
+        if workspace_root is None:
+            raise click.UsageError("Missing required option: --workspace-root")
         session_bootstrap = bootstrap_session(
             session_id=session_id,
             token_file=token_file,
@@ -358,7 +388,11 @@ def cli(
             host=host,
             port=port,
             version=__version__,
+            workspace_root=workspace_root,
+            storage_root=storage_root,
         )
+        configure_workspace_root(session_bootstrap.metadata_base.workspace_root)
+        configure_storage_root(session_bootstrap.metadata_base.storage_root)
 
         resolved_log_level = configure_logging(
             level_override=log_level,

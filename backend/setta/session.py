@@ -37,6 +37,8 @@ class SessionMetadataBase:
     started_at: str
     token_file: Path
     log_file: Path
+    workspace_root: Path
+    storage_root: Path
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,22 @@ def resolve_run_root(run_root: Path | None) -> Path:
     if run_root is None:
         return DEFAULT_RUN_ROOT
     return run_root.expanduser().resolve()
+
+
+def _resolve_workspace_root(workspace_root: Path) -> Path:
+    resolved = workspace_root.expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"Workspace root does not exist: {resolved}")
+    if not resolved.is_dir():
+        raise NotADirectoryError(f"Workspace root is not a directory: {resolved}")
+    return resolved
+
+
+def _resolve_storage_root(storage_root: Path | None, fallback: Path) -> Path:
+    target = storage_root or fallback
+    resolved = target.expanduser().resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
 
 
 def ensure_dir(path: Path, mode: int) -> None:
@@ -99,6 +117,8 @@ def bootstrap_session(
     host: str | None,
     port: int | None,
     version: str,
+    workspace_root: Path,
+    storage_root: Path | None,
 ) -> SessionBootstrap:
     session_layout = prepare_session_layout(
         session_id,
@@ -106,6 +126,8 @@ def bootstrap_session(
         uds_path,
         run_root=run_root,
     )
+    resolved_workspace_root = _resolve_workspace_root(workspace_root)
+    resolved_storage_root = _resolve_storage_root(storage_root, session_layout.run_dir)
     ensure_token_permissions(session_layout.token_file)
     ensure_log_file(session_layout.log_file)
     pid = os.getpid()
@@ -118,6 +140,8 @@ def bootstrap_session(
         started_at=started_at,
         token_file=session_layout.token_file,
         log_file=session_layout.log_file,
+        workspace_root=resolved_workspace_root,
+        storage_root=resolved_storage_root,
     )
     listen_info = build_listen_info(host, port, session_layout.uds_path)
     write_session_metadata(
@@ -176,6 +200,8 @@ def build_session_metadata(
         "status": status,
         "token_file": str(base.token_file),
         "log_file": str(base.log_file),
+        "workspace_root": str(base.workspace_root),
+        "storage_root": str(base.storage_root),
     }
     if listen_info is not None:
         payload["listen"] = listen_info

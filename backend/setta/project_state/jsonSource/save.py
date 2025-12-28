@@ -16,6 +16,7 @@ from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
+from setta.utils.utils import normalize_path
 
 
 def save_json_source_data(
@@ -52,7 +53,7 @@ def save_json_source_data(
                 ),
             )
 
-            filename = Path(variant.name)
+            filename = normalize_path(variant.name)
             to_be_saved[filename].update(hierarchy.nested_dict)
 
             # Make sure the jsonSourceKeys are present.

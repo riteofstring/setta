@@ -12,7 +12,7 @@ from setta.session import (
     bootstrap_session,
     update_session_metadata_when_ready,
 )
-from setta.utils.constants import C
+from setta.utils.constants import C, configure_storage_root, configure_workspace_root
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -85,6 +85,8 @@ def start_backend(
     *,
     session_id: str,
     token_file: Path,
+    workspace_root: Path,
+    storage_root: Path | None = None,
     host: str | None = None,
     port: int | None = None,
     uds: Path | None = None,
@@ -101,6 +103,10 @@ def start_backend(
         Session identifier used for run metadata storage.
     token_file:
         Path to the token file used for auth.
+    workspace_root:
+        Workspace root for the agent session.
+    storage_root:
+        Root directory for setta_files storage (defaults to the session run dir).
     host / port:
         Override the bind address (defaults match the CLI).
     uds:
@@ -117,6 +123,8 @@ def start_backend(
 
     if not session_id:
         raise ValueError("session_id is required to start the backend")
+    if workspace_root is None:
+        raise ValueError("workspace_root is required to start the backend")
     resolved_host = host or C.DEFAULT_HOST
     resolved_port = C.DEFAULT_PORT if port is None else port
     C.HOST = resolved_host
@@ -129,7 +137,11 @@ def start_backend(
         host=resolved_host,
         port=resolved_port,
         version=_resolve_version(),
+        workspace_root=workspace_root,
+        storage_root=storage_root,
     )
+    configure_workspace_root(session_bootstrap.metadata_base.workspace_root)
+    configure_storage_root(session_bootstrap.metadata_base.storage_root)
 
     configure_auth_token(load_auth_token_from_file(session_bootstrap.layout.token_file))
 

@@ -1,7 +1,8 @@
+from pathlib import Path
+
 from setta.logging.tasks import spawn_background_task
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.settings_state import LanguageServerSettings
-from setta.utils.constants import CWD
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 from ..file_watchers.lsp import LSPFileWatcher
@@ -11,9 +12,9 @@ from .writer import LanguageServerWriter
 
 
 class LSPServers:
-    def __init__(self, settings: LanguageServerSettings):
+    def __init__(self, settings: LanguageServerSettings, workspace_root: Path):
         self.full = LanguageServer(
-            workspace_folder=CWD,
+            workspace_folder=workspace_root,
             settings=settings,
             name="full",
         )

@@ -11,7 +11,7 @@ from setta.types.id import ID
 from setta.types.language_server import PythonEnvironmentInfo
 from setta.types.routes import Route
 from setta.types.settings_state import LanguageServerSettings
-from setta.utils.constants import CWD
+from setta.utils.utils import normalize_path
 
 from .dependencies import ReadyAppStateFromRequest as AppStateFromRequest
 
@@ -52,9 +52,9 @@ async def route_type_check(x: TypeCheckRequest, state: AppStateFromRequest):
 async def route_get_python_environments(
     x: ListPythonEnvironmentsRequest, state: AppStateFromRequest
 ) -> ListPythonEnvironmentsResponse:
-    project_root = CWD
+    project_root = state.workspace_root
     if x.projectRoot:
-        project_root = Path(x.projectRoot)
+        project_root = normalize_path(x.projectRoot)
         if not project_root.exists():
             raise HTTPException(
                 status_code=400,

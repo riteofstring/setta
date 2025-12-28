@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, cast
 
 from setta.project_state.artifacts import Artifacts
@@ -15,6 +17,7 @@ from setta.types.artifact import (
     DrawAreaLayerItemTransformArtifact,
     ImageArtifact,
 )
+from setta.utils.constants import configure_storage_root, configure_workspace_root
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
@@ -55,6 +58,15 @@ def _build_artifacts() -> Artifacts:
 
 
 class ApplyListenerArtifactUpdatesTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmpdir = TemporaryDirectory()
+        root = Path(self._tmpdir.name)
+        configure_workspace_root(root)
+        configure_storage_root(root)
+
+    def tearDown(self) -> None:
+        self._tmpdir.cleanup()
+
     def test_image_artifact_is_cached_and_marked_dirty(self):
         artifacts = _build_artifacts()
         artifact = ImageArtifact(

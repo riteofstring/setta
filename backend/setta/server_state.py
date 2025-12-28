@@ -20,7 +20,7 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.terminals.terminals import Terminals
-from setta.utils.constants import C
+from setta.utils.constants import C, require_storage_root, require_workspace_root
 from setta.utils.init_status import BackendInitializationStatus
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -58,6 +58,8 @@ class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
+        self.workspace_root = require_workspace_root()
+        self.storage_root = require_storage_root()
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
         seed_llm_config_example_file(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
@@ -142,7 +144,9 @@ class SettaFastAPIState:
 
             self.init_status.record("Loading project state")
             await self._maybe_delay()
-            self.lsps = LSPServers(self.settings_file.settings.languageServer)
+            self.lsps = LSPServers(
+                self.settings_file.settings.languageServer, self.workspace_root
+            )
             self.lsp_writers = LSPWriters(self.lsps)
             project_manager = ProjectManager(
                 self.lsp_writers,

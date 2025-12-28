@@ -19,7 +19,7 @@ from setta.utils.utils import compute_md5_prefix, normalize_path
 
 class DBE:
     def __init__(self, path: Path):
-        self.path = normalize_path(path)
+        self.path = path.expanduser().resolve()
         self.project = self.path / "project.json"
         self.temporary_id_map = self.path / "temporary_id_map.json"
         self.notifications = self.path / "notifications.json"
@@ -31,35 +31,43 @@ class DBE:
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
 
-    def get_file_lock(self, path):
+    def _resolve_path(self, path: Path) -> Path:
+        if path.is_absolute():
+            return path
+        return normalize_path(path)
+
+    def get_file_lock(self, path: Path):
+        resolved_path = self._resolve_path(path)
         locks_dir = self.path / "file_locks"
         locks_dir.mkdir(exist_ok=True)
         # Create a hash to avoid name conflicts
-        path_hash = compute_md5_prefix(str(path.absolute()), 8)
-        lock_filename = f"{path.name}_{path_hash}.lock"
+        path_hash = compute_md5_prefix(str(resolved_path.absolute()), 8)
+        lock_filename = f"{resolved_path.name}_{path_hash}.lock"
         lock_path = locks_dir / lock_filename
         return FileLock(lock_path, timeout=10)
 
     def read(self, path: Path, mode="r"):
-        if not path.exists():
+        resolved_path = self._resolve_path(path)
+        if not resolved_path.exists():
             return None
-        lock = self.get_file_lock(path)
+        lock = self.get_file_lock(resolved_path)
         with lock:
-            with open(path, mode) as f:
+            with open(resolved_path, mode) as f:
                 return f.read()
 
     def write(self, path: Path, data, mode="w"):
-        lock = self.get_file_lock(path)
+        resolved_path = self._resolve_path(path)
+        lock = self.get_file_lock(resolved_path)
 
         with lock:
-            path.parent.mkdir(parents=True, exist_ok=True)
+            resolved_path.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
-                mode=mode, dir=path.parent, delete=False, suffix=".tmp"
+                mode=mode, dir=resolved_path.parent, delete=False, suffix=".tmp"
             ) as tmp:
                 tmp.write(data)
                 tmp_path = tmp.name
 
-            Path(tmp_path).replace(path)
+            Path(tmp_path).replace(resolved_path)
 
     def copy(self, source: Path, dest: Path):
         content = self.read(source, mode="rb")

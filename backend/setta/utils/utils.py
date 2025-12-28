@@ -5,7 +5,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, TypeVar
 
-from setta.utils.constants import CWD
+from setta.utils.constants import require_workspace_root
 
 
 def get_absolute_path(src_path, file_path):
@@ -126,12 +126,13 @@ def move_item_in_array(array: list[list_generic], from_index: int, to_index: int
     return new_array
 
 
-def normalize_path(path: Path | str):
-    # Resolve to absolute path (handles both relative and absolute inputs)
-    absolute = (CWD / path).resolve()
+def resolve_workspace_root() -> Path:
+    return require_workspace_root()
 
-    try:
-        return absolute.relative_to(CWD.resolve())
-    except ValueError:
-        # Path is outside project
-        return absolute
+
+def normalize_path(path: Path | str) -> Path:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    root = resolve_workspace_root()
+    return (root / candidate).resolve()

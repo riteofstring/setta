@@ -11,6 +11,8 @@ class SessionBootstrapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             run_root = temp_path / "run"
+            workspace_root = temp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
             token_file = temp_path / "token"
             token_file.write_text("test-token\n")
 
@@ -22,6 +24,8 @@ class SessionBootstrapTests(unittest.TestCase):
                 host="127.0.0.1",
                 port=8123,
                 version="0.0.0-test",
+                workspace_root=workspace_root,
+                storage_root=None,
             )
 
             self.assertTrue(session_bootstrap.layout.run_dir.exists())
@@ -40,4 +44,9 @@ class SessionBootstrapTests(unittest.TestCase):
             self.assertEqual(
                 payload["log_file"],
                 str(session_bootstrap.layout.log_file),
+            )
+            self.assertEqual(payload["workspace_root"], str(workspace_root.resolve()))
+            self.assertEqual(
+                payload["storage_root"],
+                str(session_bootstrap.layout.run_dir.resolve()),
             )
