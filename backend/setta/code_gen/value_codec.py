@@ -31,19 +31,11 @@ class PythonValueCodec:
         *,
         mode: PythonValueMode = PythonValueMode.LIVE_RUNTIME,
         helper_module_alias: str = "_setta_value_helpers",
-        collection_item_indent: str = "    ",
-        collection_close_indent: str = "",
-        max_inline_collection_chars: int = 88,
-        multiline_collection_min_items: int = 4,
     ):
         self.dep_graph = dep_graph
         self.var_lookup = var_lookup
         self.mode = mode
         self.helper_module_alias = helper_module_alias
-        self.collection_item_indent = collection_item_indent
-        self.collection_close_indent = collection_close_indent
-        self.max_inline_collection_chars = max_inline_collection_chars
-        self.multiline_collection_min_items = multiline_collection_min_items
         self._required_imports: set[str] = set()
 
     def reset_usage(self) -> None:
@@ -67,39 +59,14 @@ class PythonValueCodec:
                 continue
             node = self.dep_graph.graph[dep_key]
             parts.append(f'"{node.name}": {self.var_lookup(dep_key)}')
-        return self._format_collection("{", "}", parts)
+        joined = ", ".join(parts)
+        return "{" + joined + "}"
 
     def format_list(self, deps: dict[BaseDependencyKeyUnion, bool]) -> str:
         items = [
             self.var_lookup(dep_key) for dep_key, is_used in deps.items() if is_used
         ]
-        return self._format_collection("[", "]", items)
-
-    def _format_collection(
-        self,
-        open_bracket: str,
-        close_bracket: str,
-        items: list[str],
-    ) -> str:
-        if not items:
-            return f"{open_bracket}{close_bracket}"
-        joined = ", ".join(items)
-        inline = f"{open_bracket}{joined}{close_bracket}"
-        if not self._should_multiline_collection(items, inline):
-            return inline
-        item_indent = self.collection_item_indent
-        close_indent = self.collection_close_indent
-        lines = [f"{item_indent}{item}," for item in items]
-        return (
-            f"{open_bracket}\n" + "\n".join(lines) + f"\n{close_indent}{close_bracket}"
-        )
-
-    def _should_multiline_collection(self, items: list[str], inline: str) -> bool:
-        if any("\n" in item for item in items):
-            return True
-        if len(items) >= self.multiline_collection_min_items:
-            return True
-        return len(inline) > self.max_inline_collection_chars
+        return "[" + ", ".join(items) + "]"
 
     def format_section(self, node: SectionNode) -> str | None:
         section_type = node.type
@@ -202,28 +169,31 @@ class PythonValueCodec:
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]
     ) -> str:
-        items: list[str] = []
+        rendered_args = ""
+        idx = 0
         for dep_key, is_used in deps.items():
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
             if not isinstance(node, ParamNode):
                 continue
+            prefix = "" if idx == 0 else ", "
             var_name = self.var_lookup(dep_key)
             passing_style = node.passing_style
             if passing_style == ParameterPassingStyle.ARGS:
-                items.append(f"*{var_name}")
+                prefix = "*"
             elif passing_style == ParameterPassingStyle.KWARGS:
-                items.append(f"**{var_name}")
+                prefix = "**"
             elif passing_style in (
                 ParameterPassingStyle.DEFAULT,
                 ParameterPassingStyle.KEYWORD_ONLY,
             ):
-                items.append(f"{node.name}={var_name}")
-            else:
-                items.append(var_name)
+                prefix += f"{node.name}="
 
-        return self._format_collection(f"{callable_name}(", ")", items)
+            rendered_args += f"{prefix}{var_name}"
+            idx += 1
+
+        return f"{callable_name}({rendered_args})"
 
     def _format_base64_value(self, payload: str) -> str:
         if self.mode is PythonValueMode.LIVE_RUNTIME:
