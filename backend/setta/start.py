@@ -537,6 +537,27 @@ def _resolve_port(host: str, port: int | None) -> int:
     return port
 
 
+def _resolve_sessions_root(workspace: Path | str | None) -> Path | None:
+    if workspace is None:
+        return None
+    sessions_root = C.RUN_SESSIONS_FOLDER
+    if sessions_root.is_absolute():
+        return sessions_root
+    if isinstance(workspace, Path):
+        raw = str(workspace)
+    else:
+        raw = workspace
+    expanded = os.path.expandvars(os.path.expanduser(raw))
+    return Path(expanded).resolve() / sessions_root
+
+
+def _build_session_registry(workspace: Path | str | None) -> SessionRegistry:
+    sessions_root = _resolve_sessions_root(workspace)
+    if sessions_root is None:
+        return SessionRegistry()
+    return SessionRegistry(sessions_root=sessions_root)
+
+
 def _is_ssh_session() -> bool:
     return bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
 
@@ -829,7 +850,7 @@ def status(
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
 
-    registry = SessionRegistry()
+    registry = _build_session_registry(workspace)
     if delete_session_id:
         sessions = registry.load_sessions(prune_stale=False)
         target = next(
@@ -885,7 +906,7 @@ def status(
         allow_prompt=allow_prompt,
     )
 
-    secret_path = Path(session.secretPath)
+    secret_path = registry.resolve_secret_path(session)
     if not secret_path.exists():
         raise click.ClickException(f"Secret file missing for session {session.id}.")
     secret = secret_path.read_bytes()
@@ -946,7 +967,7 @@ def stop(
         raise click.ClickException("Use --all by itself.")
 
     if ssh_target is None:
-        registry = SessionRegistry()
+        registry = _build_session_registry(workspace)
         sessions = registry.find_sessions_by_workspace(workspace)
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")

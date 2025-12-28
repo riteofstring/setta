@@ -188,7 +188,11 @@ def start_backend(
     )
 
     if wait_for_ready:
-        ready = handle.wait_ready(timeout=ready_timeout)
+        try:
+            ready = handle.wait_ready(timeout=ready_timeout)
+        except Exception:
+            handle.stop()
+            raise
         if not ready:
             handle.stop()
             raise TimeoutError(

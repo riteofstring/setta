@@ -126,8 +126,15 @@ class SessionRegistry:
     def suspicious_session_ids(self) -> set[str]:
         return set(self._suspicious_session_ids)
 
-    def load_secret(self, metadata: SessionMetadata) -> bytes:
+    def resolve_secret_path(self, metadata: SessionMetadata) -> Path:
         secret_path = Path(metadata.secretPath)
+        if secret_path.is_absolute():
+            return secret_path
+        workspace_root = self._canonicalize_workspace_path(metadata.workspacePath)
+        return workspace_root / secret_path
+
+    def load_secret(self, metadata: SessionMetadata) -> bytes:
+        secret_path = self.resolve_secret_path(metadata)
         if not secret_path.exists():
             raise FileNotFoundError(f"Secret file missing for session {metadata.id}")
         return secret_path.read_bytes()

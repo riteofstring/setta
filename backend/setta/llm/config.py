@@ -9,6 +9,7 @@ from setta.types.chat import ChatMetadata
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
 from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
+from setta.utils.network import format_host_for_url
 
 
 def load_llm_config(dbe: DBE) -> AllLLMConfigs:
@@ -85,7 +86,8 @@ def _ensure_setta_mcp_server_url(config: AllLLMConfigs) -> AllLLMConfigs:
         return config
     if server.transport not in {"sse", "streamable_http"}:
         return config
-    desired_url = f"{constants.C.BACKEND}/mcp"
+    host = format_host_for_url(constants.C.HOST)
+    desired_url = f"http://{host}:{constants.C.PORT}/mcp"
     if server.url == desired_url:
         return config
     config.mcpServers[SETTA_MCP_SERVER_ID] = server.model_copy(

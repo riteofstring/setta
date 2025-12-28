@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR
@@ -58,7 +57,7 @@ def load_current_session_secret(
         metadata = find_session_for_pid(os.getpid(), active_registry)
     if metadata is None:
         return None
-    secret_path = Path(metadata.secretPath)
+    secret_path = active_registry.resolve_secret_path(metadata)
     if not secret_path.exists():
         return None
     secret = secret_path.read_bytes()
