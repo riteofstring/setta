@@ -8,7 +8,7 @@ Local-only runs auto-open the browser in a best-effort way (TTY + GUI present, n
 - Preserve the existing workflow: install Setta in the project’s Python env, run from the project folder.
 - Make remote UI access safe by default (no public bind, token-gated routes).
 - Keep SSH optional and manual-friendly, but also offer a one-command helper.
-- Avoid a large refactor or new transport layer.
+- Avoid a new transport layer.
 - Allow viewing the UI locally even without a local Setta install.
 - Make copy/paste connection instructions easy to obtain.
 - Make multi-session handling explicit (list alternatives; require a session choice when multiple are running).
