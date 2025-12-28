@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from setta.sessions import SessionMetadata, SessionRegistry
+from setta.sessions.constants import SESSION_ID_ENV_VAR
 
 
 def find_session_for_pid(
@@ -19,7 +20,14 @@ def load_current_session_secret(
     registry: SessionRegistry | None = None,
 ) -> tuple[SessionMetadata, bytes] | None:
     active_registry = registry or SessionRegistry()
-    metadata = find_session_for_pid(os.getpid(), active_registry)
+    metadata: SessionMetadata | None = None
+    session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    if session_id:
+        metadata = active_registry.load_session(
+            session_id, prune_stale=False, track_suspicious=False
+        )
+    if metadata is None:
+        metadata = find_session_for_pid(os.getpid(), active_registry)
     if metadata is None:
         return None
     secret_path = Path(metadata.secretPath)

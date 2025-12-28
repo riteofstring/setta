@@ -21,6 +21,7 @@ from setta import __version__
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
+from setta.sessions.constants import SESSION_ID_ENV_VAR
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 
@@ -632,17 +633,16 @@ def _render_startup_message(
     lines.append("")
     lines.append("Manual tunnel (no local Setta install):")
     local_port = _DEFAULT_LOCAL_PORT
-    lines.append(f"  {_build_ssh_tunnel_command_for_port(local_port, port)}")
+    lines.append(f"  LOCAL_PORT={local_port}")
+    lines.append(f"  {_build_ssh_tunnel_command(port)}")
     lines.append("  Open in browser (recommended):")
     lines.append(
-        f"    http://127.0.0.1:{local_port}{Route.BOOTSTRAP_PAGE.value}#token={token}"
+        f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}#token={token}"
     )
     lines.append("  Manual token entry:")
-    lines.append(f"    http://127.0.0.1:{local_port}{Route.BOOTSTRAP_PAGE.value}")
-    lines.append(f"    Token: {token}")
-    lines.append(
-        f"  Tip: if you change the local port, replace {local_port} in the tunnel + URLs."
-    )
+    lines.append(f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}")
+    lines.append(f"    and paste: {token}")
+    lines.append("  Tip: set LOCAL_PORT to change the local port.")
     lines.append(
         "  macOS: open URL | Linux: xdg-open URL | Windows: start URL | "
         "Python: python -m webbrowser URL"
@@ -1218,6 +1218,7 @@ def cli(
         session = registry.create_session(
             Path.cwd(), resolved_host, resolved_port, os.getpid()
         )
+        os.environ[SESSION_ID_ENV_VAR] = session.id
         secret = registry.load_secret(session)
         token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
 

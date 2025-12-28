@@ -31,6 +31,13 @@ class AuthValidationTests(unittest.TestCase):
 
         self.assertIsNone(payload)
 
+    def test_validate_auth_cookie_rejects_invalid_encoding(self) -> None:
+        secret = secrets.token_bytes(32)
+
+        payload = validate_auth_cookie("a.a", "session-a", secret)
+
+        self.assertIsNone(payload)
+
     def test_consume_bootstrap_token_accepts_matching_session(self) -> None:
         secret = secrets.token_bytes(32)
         session_id = "bootstrap-accept"
@@ -53,6 +60,13 @@ class AuthValidationTests(unittest.TestCase):
         secret = secrets.token_bytes(32)
 
         payload = consume_bootstrap_token("invalid-token", "session-a", secret)
+
+        self.assertIsNone(payload)
+
+    def test_consume_bootstrap_token_rejects_invalid_encoding(self) -> None:
+        secret = secrets.token_bytes(32)
+
+        payload = consume_bootstrap_token("a.a", "session-a", secret)
 
         self.assertIsNone(payload)
 

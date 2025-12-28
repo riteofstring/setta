@@ -29,6 +29,24 @@ class SessionRegistry:
         self._sessions_root = sessions_root or C.RUN_SESSIONS_FOLDER
         self._suspicious_session_ids: set[str] = set()
 
+    def load_session(
+        self,
+        session_id: str,
+        prune_stale: bool = True,
+        track_suspicious: bool = True,
+    ) -> SessionMetadata | None:
+        session_dir = self._session_dir(session_id)
+        metadata_path = session_dir / SESSION_METADATA_FILENAME
+        if not metadata_path.exists():
+            return None
+        metadata = self._read_metadata_path(metadata_path)
+        if prune_stale and self._is_session_stale(metadata):
+            self.delete_session(metadata.id)
+            return None
+        if track_suspicious and self._is_session_suspicious(metadata):
+            self._suspicious_session_ids.add(metadata.id)
+        return metadata
+
     def create_session(
         self,
         workspace_path: Path | str,

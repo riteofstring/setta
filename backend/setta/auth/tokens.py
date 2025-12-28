@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hmac
 import json
 import secrets
@@ -97,7 +98,10 @@ def _b64url_encode(data: bytes) -> str:
 
 def _b64url_decode(data: str) -> bytes:
     padding = "=" * (-len(data) % 4)
-    return base64.urlsafe_b64decode(data + padding)
+    try:
+        return base64.urlsafe_b64decode(data + padding)
+    except binascii.Error as exc:
+        raise ValueError("Invalid token encoding") from exc
 
 
 class AuthCookieManager:

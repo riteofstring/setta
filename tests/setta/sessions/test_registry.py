@@ -31,6 +31,11 @@ class SessionRegistryTests(unittest.TestCase):
             self.assertEqual(loaded.pid, 12345)
             self.assertEqual(Path(loaded.secretPath).parent, sessions_root / created.id)
 
+            metadata_path = sessions_root / created.id / "session.json"
+            secret_path = sessions_root / created.id / "secret"
+            self.assertTrue(metadata_path.exists())
+            self.assertTrue(secret_path.exists())
+
             secret_bytes = registry.load_secret(loaded)
             self.assertEqual(len(secret_bytes), C.SESSION_SECRET_BYTES)
 
