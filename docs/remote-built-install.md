@@ -37,4 +37,5 @@ Wheel installs do not leave a source tree behind. If you also want to remove the
 
 ```bash
 uv pip uninstall setta
+rm -rf ~/.cache/uv ~/.cache/pip
 ```
