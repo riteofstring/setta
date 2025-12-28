@@ -50,6 +50,7 @@ def generate_settings_state() -> str:
 from pydantic import BaseModel, Field
 
 from setta.types.settings_state import (
+    LanguageServerSettings,
     SectionSizingPolicy,
     SettingsBackend,
     SettingsGUI,
@@ -72,7 +73,9 @@ class SettingsState(BaseModel, extra="forbid"):
     sectionSizingPolicy: SectionSizingPolicy = Field(
         default_factory=SectionSizingPolicy
     )
-    languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
+    languageServer: LanguageServerSettings = Field(
+        default_factory=LanguageServerSettings
+    )
     
 {defaults_str}
 """

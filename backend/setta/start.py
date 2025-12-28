@@ -273,9 +273,7 @@ def remote_status(
         return
     for session in sessions:
         tunnel_state = "running" if psutil.pid_exists(session.tunnel_pid) else "stopped"
-        ui_state = (
-            "running" if psutil.pid_exists(session.local_ui_pid) else "stopped"
-        )
+        ui_state = "running" if psutil.pid_exists(session.local_ui_pid) else "stopped"
         ui_url = f"http://{session.ui_host}:{session.ui_port}"
         api_url = (
             f"http://{session.local_host}:{session.local_port}{Route.PREFIX.value}"

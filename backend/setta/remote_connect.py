@@ -139,7 +139,7 @@ def _build_remote_bootstrap_script(
         "else",
         '  nohup ${REMOTE_COMMAND} --session-id "${SESSION_ID}" '
         '--token-file "${TOKEN_FILE}" --session-root "${RUN_ROOT}" '
-        '--host 127.0.0.1 --port 0 '
+        "--host 127.0.0.1 --port 0 "
         '> "${LOG_DIR}/agent.log" 2>&1 </dev/null &',
         "fi",
         "for _ in {1..200}; do",
@@ -282,7 +282,9 @@ def _bootstrap_remote_session(
         ssh_identity=ssh_identity,
     )
     args.extend([ssh_target, "bash", "-s"])
-    result = subprocess.run(args, input=script, text=True, capture_output=True, check=True)
+    result = subprocess.run(
+        args, input=script, text=True, capture_output=True, check=True
+    )
     output = result.stdout.strip()
     if not output:
         raise RuntimeError("Remote bootstrap did not return session metadata.")

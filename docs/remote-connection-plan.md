@@ -23,6 +23,7 @@
 - Legacy CLI websocket connect command and handlers removed.
 - New CLI remote-connect flow added: SSH bootstrap, tunnel setup, local UI config injection, and local session metadata (`local.json`).
 - Added CLI commands: `remote-connect`, `remote-disconnect`, and `remote-status`.
+- Language server settings are now typed, with Python environment discovery and interpreter selection endpoints that persist settings and restart LSP.
 
 ## User Experience
 - A remote-connect command starts or reuses a remote session and opens the local UI.
@@ -82,9 +83,8 @@
 5. If the tunnel drops, the client reconnects and either reuses the same session or mints a new one.
 
 ## CLI Design
-- Provide commands for remote-connect, disconnect, and status (names TBD).
+- DONE: Provide commands for remote-connect, disconnect, and status.
 - Optional command to list remote sessions and last activity.
-- No CLI commands are implemented yet; the new flow will arrive in Phase 2.
 
 ## Remote Agent Design
 - Option A: split the current FastAPI app into:
@@ -99,8 +99,9 @@
   - production: static assets packaged into the Python install
   - development: allow a flag to use Vite dev server
 - DONE: Provide a local config endpoint that stores the remote base URL and token in memory.
-- Provide a Python environment selector for the remote host and persist the chosen interpreter path for language server startup.
-- Allow listing available remote environments and accept a manual path (similar to VSCode).
+- DONE: Backend supports interpreter selection (typed settings, environment listing, and `pythonPath` update that restarts LSP).
+- TODO: Provide a Python environment selector UI for the remote host and persist the chosen interpreter path.
+- TODO: Allow listing available remote environments and accept a manual path (similar to VSCode).
 
 ## Authentication Details
 - HTTP: require `Authorization: Bearer <token>`.
@@ -146,6 +147,7 @@
   - Attempt to curl the remote loopback port without token, expect 401.
   - Open a websocket without token, expect refusal.
   - Restart the local client and reattach to an existing session.
+  - List Python environments, set interpreter, confirm LSP restarts and settings persist.
 - Automated:
   - Session bootstrap test verifies session.json creation and starting status.
 - Automated (later):
@@ -156,4 +158,4 @@
 - How should Windows handle UDS (fallback to loopback TCP)?
 - How do we want to store local session metadata if multiple remotes are active?
 - Do we want to support remote project root selection at connect time?
-- Should the remote Python interpreter selection be per-session or per-project, and should we auto-detect a default (for example, a local .venv on the remote)?
+- Should the remote Python interpreter selection be per-session or per-project (currently stored in SettingsState)?

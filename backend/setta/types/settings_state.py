@@ -124,6 +124,17 @@ class SettingsBackend(BaseModel):
     saveRenderedValues: bool = False
 
 
+class BasedPyrightSettings(BaseModel, extra="forbid"):
+    pythonPath: str | None = None
+
+
+class LanguageServerSettings(BaseModel, extra="forbid"):
+    basedpyright: BasedPyrightSettings = Field(default_factory=BasedPyrightSettings)
+
+    def as_lsp_settings(self) -> dict[str, object]:
+        return self.model_dump(exclude_none=True)
+
+
 class SectionSizingPolicyTypeEntry(BaseModel):
     minHeight: float
     maxHeight: float

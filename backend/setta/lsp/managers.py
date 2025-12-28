@@ -1,5 +1,6 @@
 from setta.logging.tasks import spawn_background_task
 from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.settings_state import LanguageServerSettings
 from setta.utils.constants import CWD
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -10,12 +11,15 @@ from .writer import LanguageServerWriter
 
 
 class LSPServers:
-    def __init__(self, settings):
+    def __init__(self, settings: LanguageServerSettings):
         self.full = LanguageServer(
             workspace_folder=CWD,
             settings=settings,
             name="full",
         )
+
+    def update_settings(self, settings: LanguageServerSettings) -> None:
+        self.full.update_settings(settings)
 
     async def start(self):
         await self.full.start()

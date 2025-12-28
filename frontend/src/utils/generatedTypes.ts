@@ -223,6 +223,14 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 
+const PythonEnvironmentSourceEnum = {
+  current: "current",
+  venv: "venv",
+  pyenv: "pyenv",
+  conda: "conda",
+  path: "path",
+} as const;
+
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
   error: "error",
@@ -291,7 +299,9 @@ export const RouteEnum = {
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
+  GET_PYTHON_ENVIRONMENTS: "/getPythonEnvironments",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
+  SET_LANGUAGE_SERVER_INTERPRETER: "/setLanguageServerInterpreter",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
@@ -3458,6 +3468,32 @@ function createSectionSizingPolicy(
   return SectionSizingPolicySchema.parse(options);
 }
 
+const BasedPyrightSettingsSchema = z.object({
+  pythonPath: z.union([z.string(), z.null()]).default(null),
+});
+
+type BasedPyrightSettings = z.infer<typeof BasedPyrightSettingsSchema>;
+
+function createBasedPyrightSettings(
+  options: Partial<BasedPyrightSettings> = {},
+): BasedPyrightSettings {
+  return BasedPyrightSettingsSchema.parse(options);
+}
+
+const LanguageServerSettingsSchema = z.object({
+  basedpyright: BasedPyrightSettingsSchema.default(createBasedPyrightSettings),
+});
+
+export type LanguageServerSettings = z.infer<
+  typeof LanguageServerSettingsSchema
+>;
+
+function createLanguageServerSettings(
+  options: Partial<LanguageServerSettings> = {},
+): LanguageServerSettings {
+  return LanguageServerSettingsSchema.parse(options);
+}
+
 const UserDefaultBrowserSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
@@ -4067,7 +4103,9 @@ const SettingsStateSchema = z.object({
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
-  languageServer: z.record(z.string(), z.any()).default({}),
+  languageServer: LanguageServerSettingsSchema.default(
+    createLanguageServerSettings,
+  ),
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
@@ -4772,6 +4810,12 @@ const ViewportBoundsSchema = z.object({
 
 export type ViewportBounds = z.infer<typeof ViewportBoundsSchema>;
 
+const PythonEnvironmentInfoSchema = z.object({
+  path: z.string(),
+  label: z.string(),
+  source: z.enum(PythonEnvironmentSourceEnum),
+});
+
 const ListenerCoverageRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
@@ -4925,6 +4969,31 @@ const UpdateAPIKeysRequestSchema = z.object({
 
 export type UpdateAPIKeysRequestInput = z.input<
   typeof UpdateAPIKeysRequestSchema
+>;
+
+const ListPythonEnvironmentsRequestSchema = z.object({
+  projectRoot: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ListPythonEnvironmentsRequestInput = z.input<
+  typeof ListPythonEnvironmentsRequestSchema
+>;
+
+const ListPythonEnvironmentsResponseSchema = z.object({
+  environments: z.array(PythonEnvironmentInfoSchema),
+  selectedPath: z.union([z.string(), z.null()]),
+});
+
+export type ListPythonEnvironmentsResponse = z.infer<
+  typeof ListPythonEnvironmentsResponseSchema
+>;
+
+const SetLanguageServerInterpreterRequestSchema = z.object({
+  pythonPath: z.union([z.string(), z.null()]),
+});
+
+export type SetLanguageServerInterpreterRequestInput = z.input<
+  typeof SetLanguageServerInterpreterRequestSchema
 >;
 
 const TypeCheckRequestSchema = z.object({

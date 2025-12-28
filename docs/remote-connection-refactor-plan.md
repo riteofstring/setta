@@ -11,21 +11,20 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   `backend/setta/remote_connect.py`, wired through `backend/setta/start.py`.
 - The backend is monolithic: all HTTP routes, websockets, MCP SSE endpoints, LSP,
   terminals, and project state live under one app instance (`backend/setta/server.py`).
-- No auth layer exists; HTTP routes, websockets, and MCP SSE are open by default
-  (`backend/setta/routers`, `backend/setta/websockets`, `backend/setta/mcp/server.py`).
+- Auth is token-gated across HTTP, websockets, and MCP SSE (`backend/setta/middleware.py`,
+  `backend/setta/websockets`, `backend/setta/mcp/server.py`).
 - LSP is started from `SettaFastAPIState` with workspace `CWD` and settings sourced
-  from `SettingsState.languageServer` (a raw `dict`) (`backend/setta/server_state.py`,
+  from typed `SettingsState.languageServer` (`LanguageServerSettings`) (`backend/setta/server_state.py`,
   `backend/setta/lsp/*`, `backend/setta/types/generated/settings_state.py`).
 - The frontend now derives API + websocket base URLs from runtime config served
   by the local UI server (`/__setta__/config`) and injects auth tokens into HTTP
   + websocket connections (`frontend/src/utils/runtimeConfig.ts`,
   `frontend/src/utils/endpointUtils.ts`).
 - Settings are persisted via `SettingsFile` in `setta_files/` and broadcast over websockets,
-  but there is no UI workflow for selecting a Python interpreter
+  and backend endpoints now support interpreter selection, but there is no UI workflow yet
   (`backend/setta/database/settings_file.py`).
-- Listener clients connect using host/port only and have no token support
-  (`backend/setta/api/listener.py`).
-- Legacy CLI websocket connect handlers and routes have been removed; no CLI entrypoint exists.
+- Listener clients now send tokens via `Sec-WebSocket-Protocol` (`backend/setta/api/listener.py`).
+- Legacy CLI websocket connect handlers and routes have been removed; remote-connect CLI entrypoints exist.
 
 ## Refactor Workstreams
 ### 1) Split local UI server vs. remote agent
@@ -61,12 +60,11 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: Frontend networking continues to route through `generatedEndpoints`.
 
 ### 5) Language server environment selection
-- Add a typed model for `SettingsState.languageServer` so interpreter path and
+- DONE: Added a typed model for `SettingsState.languageServer` so interpreter path and
   related options are explicit (and shared with the frontend via generation).
-- Add backend endpoints to list remote Python environments and to update the
+- DONE: Added backend endpoints to list remote Python environments and to update the
   selected interpreter path.
-- Persist the selected interpreter (per-session or per-project) and trigger
-  LSP restart on changes.
+- DONE: Persist the selected interpreter in settings and trigger LSP restart on changes.
 
 ### 6) Workspace root + storage isolation
 - Replace global `CWD` assumptions in LSP and path normalization so the workspace
@@ -90,5 +88,5 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: Local UI server/proxy with runtime config endpoint.
 - Token-gated HTTP, websocket, and MCP SSE routes.
 - DONE: Runtime-configurable frontend networking.
-- Runtime-configurable interpreter selection UX.
+- Backend interpreter selection (typed settings + env listing + interpreter update endpoints); UI pending.
 - Session metadata on both local and remote sides.
