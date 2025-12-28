@@ -143,6 +143,9 @@ New CLI flow (Click) in `backend/setta/start.py`:
   - Optionally filters by workspace path.
   - Canonicalize `--workspace` with `Path.resolve()` before filtering so it matches stored `workspacePath`.
   - Mints a bootstrap token with the session secret.
+  - If multiple sessions match:
+    - In TTY mode and without `--json`, prompt the user to pick a session (or `--latest`).
+    - In non-TTY or when `--json` is used, require `--session` or `--latest` and exit non-zero otherwise.
   - Outputs:
     - session id
     - bind address + port
@@ -173,13 +176,13 @@ Implementation outline:
   - Run `ssh <ssh_args> target "bash -lc 'cd <path> && <cmd> --no-open'"` (detached).
   - Use `nohup` + background: `mkdir -p setta_files/run/logs && nohup <cmd> --no-open > setta_files/run/logs/nohup.out 2>&1 &`
   - If `nohup` is missing, fall back to `setsid`; if neither exists, exit with a clear error suggesting `--remote-cmd`.
-- Poll `ssh <ssh_args> target "bash -lc 'cd <path> && <resolved_cmd> status --connect-info --json'"` and parse the `__SETTA_JSON_B64__` payload.
+- Poll `ssh <ssh_args> target "bash -lc 'cd <path> && <resolved_cmd> status --connect-info --json --session <id>'"` (or `--latest`) and parse the `__SETTA_JSON_B64__` payload.
 - If multiple sessions:
   - Interactive selection when TTY.
   - Allow `d<number>` to delete a session (confirm, stop server, remove metadata).
   - Non-TTY requires `--session` or `--latest`.
 - Tunnel + open:
-  - Use `ssh <ssh_args> -N -L local_port:127.0.0.1:<remote_port>`.
+  - Use `ssh <ssh_args> -N -L local_port:127.0.0.1:<remote_port> -o ExitOnForwardFailure=yes`.
   - For `--detach`, background the tunnel and print the PID.
   - For `--print-only`, emit the tunnel command + bootstrap URL and exit.
   - For default, open browser to `/__setta__/bootstrap#token=...` and keep tunnel in foreground.

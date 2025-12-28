@@ -68,6 +68,8 @@ Requires two terminals:
     and paste:
       <token>
   ```
+If multiple sessions exist for the workspace, `setta status --connect-info` should prompt in TTY mode to choose a session. In non-TTY
+contexts (and for `--json`), require `--session <id>` or `--latest` and exit with a clear error if not provided.
 Keep the tunnel command running; Ctrl+C stops it. If you see a remote prompt like `dev@buildbox:~$`, you probably omitted `-N`. The tunnel still works, but it is easy to forget it is running; prefer `-N` and keep this terminal open.
 Pick any free LOCAL_PORT on your laptop; if you see “Address already in use,” change it (for example, 61001) and rerun the tunnel command (example: `LOCAL_PORT=61001`).
 Leave the SSH session running in Terminal B; close it with Ctrl+C when done.
@@ -134,6 +136,7 @@ Behavior:
 - Support non-interactive selection with `--session <id>` or `--latest`.
 - Define `--latest` ordering (for example, "most recently started"). Example: session A started at 09:00, session B started at 10:05; `--latest` selects B.
 - Chooses a free local port automatically (prints it), or uses `--local-port` if provided.
+- Uses `setta status --connect-info --json` with `--session` or `--latest` for polling so it never blocks on prompts.
 - Print progress lines so the CLI does not appear hung during remote startup or SSH handshake. Example output:
   ```text
   Starting Setta on dev@buildbox (workspace /work/my-project)...
@@ -149,6 +152,7 @@ Behavior:
   auto-consume the fragment, set the auth cookie via a POST, replace the URL before any
   navigation, and redirect to `/` so the user never sees a token prompt and the token is
   not stored in browser history.
+- Always include `-o ExitOnForwardFailure=yes` on the tunnel command so a failed forward fails fast.
 - Keeps the tunnel alive in the foreground so a single local terminal can drive the entire flow.
 - Runs in the foreground; `Ctrl+C` closes the tunnel and leaves the remote server running.
   - Print a clear warning that this terminal must stay open; closing it disconnects the UI. Include a quick reconnect hint (`setta connect ...`).
