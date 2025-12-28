@@ -10,7 +10,7 @@ _cached_sessions_root: str | None = None
 
 
 def _get_cached_session(
-    session_id: str | None, pid: int, sessions_root: Path | None
+    session_id: str, sessions_root: Path | None
 ) -> tuple[SessionMetadata, bytes] | None:
     if _cached_metadata is None or _cached_secret is None:
         return None
@@ -19,12 +19,8 @@ def _get_cached_session(
             return None
     elif _cached_sessions_root is not None:
         return None
-    if session_id:
-        if _cached_metadata.id != session_id:
-            return None
-    else:
-        if _cached_metadata.pid != pid:
-            return None
+    if _cached_metadata.id != session_id:
+        return None
     return _cached_metadata, _cached_secret
 
 
@@ -56,20 +52,12 @@ def _resolve_sessions_root_from_env() -> Path | None:
     return Path(expanded).resolve()
 
 
-def find_session_for_pid(
-    pid: int, registry: SessionRegistry | None = None
-) -> SessionMetadata | None:
-    active_registry = registry or SessionRegistry()
-    sessions = active_registry.load_sessions(prune_stale=False)
-    for session in sessions:
-        if session.pid == pid:
-            return session
-    return None
-
-
 def load_current_session_secret(
     registry: SessionRegistry | None = None,
 ) -> tuple[SessionMetadata, bytes] | None:
+    session_id = os.environ.get(SESSION_ID_ENV_VAR)
+    if not session_id:
+        return None
     sessions_root = None
     if registry is None:
         sessions_root = _resolve_sessions_root_from_env()
@@ -79,22 +67,17 @@ def load_current_session_secret(
             active_registry = SessionRegistry()
     else:
         active_registry = registry
-    metadata: SessionMetadata | None = None
-    session_id = os.environ.get(SESSION_ID_ENV_VAR)
     if registry is None:
-        cached = _get_cached_session(session_id, os.getpid(), sessions_root)
+        cached = _get_cached_session(session_id, sessions_root)
         if cached is not None:
             cached_metadata, cached_secret = cached
             secret_path = active_registry.resolve_secret_path(cached_metadata)
             if secret_path.exists():
                 return cached
             _clear_cached_session()
-    if session_id:
-        metadata = active_registry.load_session(
-            session_id, prune_stale=False, track_suspicious=False
-        )
-    if metadata is None:
-        metadata = find_session_for_pid(os.getpid(), active_registry)
+    metadata = active_registry.load_session(
+        session_id, prune_stale=False, track_suspicious=False
+    )
     if metadata is None:
         return None
     secret_path = active_registry.resolve_secret_path(metadata)

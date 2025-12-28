@@ -12,6 +12,7 @@ from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.utils import resolve_sessions_root
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls
 
@@ -21,18 +22,6 @@ if TYPE_CHECKING:
 _READY_POLL_INTERVAL_SECONDS = 0.05
 _DEFAULT_READY_TIMEOUT_SECONDS = 15.0
 _DEFAULT_JOIN_TIMEOUT_SECONDS = 5.0
-
-
-def _resolve_sessions_root(workspace: Path | str) -> Path:
-    sessions_root = C.RUN_SESSIONS_FOLDER
-    if sessions_root.is_absolute():
-        return sessions_root
-    if isinstance(workspace, Path):
-        raw = str(workspace)
-    else:
-        raw = workspace
-    expanded = os.path.expandvars(os.path.expanduser(raw))
-    return Path(expanded).resolve() / sessions_root
 
 
 class BackendServerHandle:
@@ -165,7 +154,7 @@ def start_backend(
     C.PORT = resolved_port
 
     workspace_root = Path.cwd()
-    sessions_root = _resolve_sessions_root(workspace_root)
+    sessions_root = resolve_sessions_root(workspace_root)
     session_registry = SessionRegistry(sessions_root=sessions_root)
     session = session_registry.create_session(
         workspace_root, resolved_host, resolved_port, os.getpid()

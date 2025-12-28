@@ -60,6 +60,7 @@ class AuthSessionTests(unittest.TestCase):
                 port=61234,
                 pid=os.getpid(),
             )
+            self._set_session_env(created.id)
 
             result = load_current_session_secret(registry)
 
@@ -128,7 +129,7 @@ class AuthSessionTests(unittest.TestCase):
             self.assertEqual(metadata.id, created.id)
             self.assertEqual(len(secret), C.SESSION_SECRET_BYTES)
 
-    def test_load_current_session_secret_returns_none_without_matching_pid(
+    def test_load_current_session_secret_returns_none_without_session_id(
         self,
     ) -> None:
         self._set_session_env(None)
@@ -142,7 +143,7 @@ class AuthSessionTests(unittest.TestCase):
                 workspace_path=workspace,
                 host="127.0.0.1",
                 port=61234,
-                pid=0,
+                pid=os.getpid(),
             )
 
             result = load_current_session_secret(registry)
@@ -165,6 +166,7 @@ class AuthSessionTests(unittest.TestCase):
                 port=61234,
                 pid=os.getpid(),
             )
+            self._set_session_env(created.id)
             secret_path = Path(created.secretPath)
             secret_path.unlink()
 

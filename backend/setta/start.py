@@ -22,6 +22,7 @@ from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.utils import resolve_sessions_root
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls, format_host_for_ssh_tunnel
@@ -554,22 +555,8 @@ def _resolve_port(host: str, port: int | None) -> int:
     return port
 
 
-def _resolve_sessions_root(workspace: Path | str | None) -> Path | None:
-    if workspace is None:
-        return None
-    sessions_root = C.RUN_SESSIONS_FOLDER
-    if sessions_root.is_absolute():
-        return sessions_root
-    if isinstance(workspace, Path):
-        raw = str(workspace)
-    else:
-        raw = workspace
-    expanded = os.path.expandvars(os.path.expanduser(raw))
-    return Path(expanded).resolve() / sessions_root
-
-
 def _build_session_registry(workspace: Path | str | None) -> SessionRegistry:
-    sessions_root = _resolve_sessions_root(workspace)
+    sessions_root = resolve_sessions_root(workspace)
     if sessions_root is None:
         return SessionRegistry()
     return SessionRegistry(sessions_root=sessions_root)
@@ -1250,7 +1237,7 @@ def cli(
         C.HOST = resolved_host
         C.PORT = resolved_port
 
-        sessions_root = _resolve_sessions_root(Path.cwd())
+        sessions_root = resolve_sessions_root(Path.cwd())
         registry = SessionRegistry(sessions_root=sessions_root)
         session = registry.create_session(
             Path.cwd(), resolved_host, resolved_port, os.getpid()
