@@ -7,6 +7,19 @@ This document translates `docs/remote-ssh-ui-plan.md` into concrete code changes
 - It is acceptable for the app to be broken mid-refactor; remove old code as soon as it is superseded.
 - Keep runtime metadata under `setta_files/`; do not commit new runtime files.
 
+## Progress Summary
+Done:
+- Session registry + secret handling is in place, with helper accessors and tests (`backend/setta/sessions/registry.py`, `backend/setta/auth/session.py`, `tests/sessions/test_registry.py`).
+- Token/cookie signing and validation helpers are implemented, plus tests (`backend/setta/auth/tokens.py`, `backend/setta/auth/manager.py`, `backend/setta/auth/cookies.py`, `backend/setta/auth/validation.py`, `tests/auth/test_tokens.py`, `tests/auth/test_validation.py`).
+- HTTP auth middleware and websocket auth gating are wired (`backend/setta/middleware/auth.py`, `backend/setta/routers/websocket.py`, `backend/setta/server.py`).
+- Bootstrap page + consume endpoint are live and wired (`backend/setta/routers/bootstrap.py`, `backend/setta/types/routes.py`).
+- Frontend endpoints/types regenerated to include bootstrap routes (`frontend/src/utils/generatedEndpoints.ts`, `frontend/src/utils/generatedTypes.ts`).
+
+Not started yet:
+- Server startup behavior refactor (`backend/setta/start.py`).
+- New CLI `status --connect-info` and SSH-based `setta connect`.
+- Frontend fetch/websocket auth handling (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`).
+
 ## Current Code Touchpoints (What Exists Today)
 - CLI entrypoint: `backend/setta/start.py` (Click group, `setta`, `setta connect` websocket helper, `--open-browser`).
 - Server: `backend/setta/server.py` (FastAPI app, static frontend mount, no auth).
@@ -41,6 +54,8 @@ This document translates `docs/remote-ssh-ui-plan.md` into concrete code changes
 ## Backend Implementation Plan
 
 ### 1) Session Registry + Metadata
+Status: DONE
+
 Create a small session registry that is initialized at server startup and stored on disk for discovery by `setta status` and `setta connect`.
 
 New module(s):
@@ -61,6 +76,8 @@ Implementation details:
 - Create secret file alongside session metadata, chmod `0600` on POSIX.
 
 ### 2) Token Model + Auth Manager
+Status: DONE
+
 Create a token signer/validator using the per-session secret.
 
 New module(s):
@@ -82,6 +99,8 @@ Constants (add to `backend/setta/utils/constants.py`):
 - `SESSION_SECRET_BYTES`
 
 ### 3) Auth Enforcement for HTTP + Websockets
+Status: DONE
+
 Add a global auth guard.
 
 New module(s):
@@ -97,6 +116,8 @@ New module(s):
   - Close unauthenticated sockets with a clear close code (e.g., 4401).
 
 ### 4) Bootstrap Page + Token Consumption
+Status: DONE
+
 Serve a minimal HTML bootstrap page directly from the backend.
 
 New router:
@@ -115,6 +136,8 @@ Server wiring:
 - Import and include router in `backend/setta/server.py` before the catch-all static route.
 
 ### 5) Server Startup Behavior
+Status: NOT STARTED
+
 Refactor `backend/setta/start.py` to:
 - Allocate a random port when `--port` is not provided.
 - Force host default to `127.0.0.1`.
@@ -135,6 +158,8 @@ Remove or rename the existing websocket-based `setta connect`:
 - Replace CLI `connect` with the new SSH helper.
 
 ### 6) CLI: `setta status --connect-info`
+Status: NOT STARTED
+
 Add a `status` subcommand that prints connection info (human-readable or JSON).
 
 New CLI flow (Click) in `backend/setta/start.py`:
@@ -158,6 +183,8 @@ New CLI flow (Click) in `backend/setta/start.py`:
   - For robustness over SSH, `--json` prints a single line prefixed with `__SETTA_JSON_B64__` followed by base64-encoded JSON, so banners/MOTDs do not break parsing.
 
 ### 7) CLI: `setta connect user@host --workspace /path`
+Status: NOT STARTED
+
 Replace `setta connect` with an SSH orchestration helper.
 
 Implementation outline:
@@ -192,6 +219,8 @@ Implementation outline:
 ## Frontend Implementation Plan
 
 ### 1) Fetch + Websocket Auth
+Status: NOT STARTED
+
 Update frontend networking to send cookies and handle auth loss.
 
 Files to change:
@@ -201,6 +230,8 @@ Files to change:
   - Detect auth-close (e.g., 4401) and notify; optionally redirect to `/__setta__/bootstrap`.
 
 ### 2) Boot Flow Handling
+Status: NOT STARTED
+
 `GlobalWrapper` currently polls `backendInitStatus`. With strict auth, `/` and static assets are protected, so the UI only loads after the auth cookie is set via `/__setta__/bootstrap`.
 
 Chosen approach:
@@ -208,6 +239,8 @@ Chosen approach:
 - Direct visits to `/` without a cookie should return 401 with a minimal HTML body that points users to `/__setta__/bootstrap` (no redirect). `setta connect` and manual instructions must open `/__setta__/bootstrap` (fragment token preferred).
 
 ## Generated Endpoints + Types
+Status: DONE
+
 Add new routes + types, then regenerate TS bindings.
 
 Backend:
@@ -237,8 +270,8 @@ Frontend:
 - Run `setta connect user@host --workspace /path`, ensure tunnel + browser open.
 
 ## Sequencing (Recommended)
-1) Session registry + token signer + constants.
-2) Auth middleware + bootstrap routes.
-3) CLI refactor (`status`, `connect`).
-4) Frontend auth handling.
-5) Endpoint generation + cleanup.
+1) DONE: Session registry + token signer + constants.
+2) DONE: Auth middleware + bootstrap routes.
+3) NOT STARTED: CLI refactor (`status`, `connect`).
+4) NOT STARTED: Frontend auth handling.
+5) DONE: Endpoint generation + cleanup.
