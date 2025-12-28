@@ -91,7 +91,7 @@ roots:
 
 ## Testing & Verification
 
-- Automated coverage lives in `tests/setta/api/test_listener_hot_reload.py`.
+- Automated coverage lives in `tests/api/test_listener_hot_reload.py`.
   The suite verifies callback ID churn, snapshot replay after reloads, glob/ignore
   handling, and the convenience `start(hot_reload=True, ...)` path.
 - `tests/manual_listener_smoke.py --hot-reload` is a manual script that connects to

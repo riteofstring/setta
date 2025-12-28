@@ -6,7 +6,7 @@
 - `frontend/` contains the React/Vite UI; place components and stores in `src/`, shared templates in `generation/`, and static assets under `public/`.
 - `setta_files/` stores runtime metadata created by the app; keep only canonical fixtures under version control and wipe local noise before committing.
 - Root scripts such as `build.sh`, `build_and_upload.sh`, and `format_code.sh` orchestrate packaging, publishing, and formatting; keep them executable after edits.
-- The `tests/` directory mirrors backend modules for new Python regression suites; align subfolders with the `setta` package layout.
+- The `tests/` directory mirrors `backend/setta` directly (for example, `tests/auth`, `tests/code_gen`, `tests/middleware`, `tests/start`); do not nest suites under `tests/setta`.
 
 ## Build, Test, and Development Commands
 

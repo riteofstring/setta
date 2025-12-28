@@ -21,7 +21,7 @@ from watchfiles import Change
 if TYPE_CHECKING:
     from websockets import ClientConnection
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class _StubWebsocket:

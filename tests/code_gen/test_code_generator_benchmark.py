@@ -11,7 +11,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 )
 from setta.types.dependency_key import create_dep_key
 from setta.types.id import ID
-from tests.setta.code_gen.test_code_generator_formatting import (
+from tests.code_gen.test_code_generator_formatting import (
     build_callable_project_state,
 )
 
