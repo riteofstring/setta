@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import os
+import re
 import shlex
 import signal
 import socket
@@ -25,6 +26,7 @@ from setta.utils.constants import IS_DEV_MODE, C
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
+_TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
 
 
 @dataclass
@@ -153,7 +155,15 @@ def _resolve_remote_workspace(
     shell: str,
     workspace: str,
 ) -> str:
-    inner = f"cd {shlex.quote(workspace)} && pwd -P"
+    tilde_parts = _split_tilde_path(workspace)
+    if tilde_parts is None:
+        inner = f"cd {shlex.quote(workspace)} && pwd -P"
+    else:
+        tilde_prefix, rest = tilde_parts
+        if rest:
+            inner = f"cd {tilde_prefix} && cd {shlex.quote(rest)} && pwd -P"
+        else:
+            inner = f"cd {tilde_prefix} && pwd -P"
     result = _run_ssh_command(
         ssh_target,
         ssh_args,
@@ -161,8 +171,11 @@ def _resolve_remote_workspace(
         capture_output=True,
     )
     if result.returncode != 0:
+        tilde_hint = _build_remote_workspace_tilde_hint(workspace)
+        suffix = f" {tilde_hint}" if tilde_hint else ""
         raise click.ClickException(
-            f"Failed to resolve remote workspace: {result.stderr.strip() or result.stdout.strip()}"
+            f"Failed to resolve remote workspace: "
+            f"{result.stderr.strip() or result.stdout.strip()}{suffix}"
         )
     lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     if not lines:
@@ -209,6 +222,27 @@ def _resolve_remote_setta_command(
             "Remote Setta command resolution returned no output. Use --remote-cmd."
         )
     return lines[-1]
+
+
+def _split_tilde_path(path: str) -> tuple[str, str] | None:
+    if not path.startswith("~"):
+        return None
+    tilde_prefix, _, remainder = path.partition("/")
+    if not _TILDE_PREFIX_RE.fullmatch(tilde_prefix):
+        return None
+    return tilde_prefix, remainder.lstrip("/")
+
+
+def _build_remote_workspace_tilde_hint(workspace: str) -> str | None:
+    if workspace.startswith("~"):
+        return None
+    local_home = os.path.expanduser("~")
+    if not local_home or not workspace.startswith(local_home):
+        return None
+    return (
+        "\nIf you meant a remote ~ path, quote it like "
+        "-w '~/path' or -w \\~/path so your local shell does not expand it."
+    )
 
 
 def _remote_command_exists(ssh_target: str, ssh_args: list[str], command: str) -> bool:
@@ -787,7 +821,7 @@ def export_db(readable: bool, readable_with_variants: bool) -> None:
 )
 @click.option("--delete-session", "delete_session_id", default=None)
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON (base64) payload")
-@click.option("--workspace", type=click.Path(path_type=Path))
+@click.option("-w", "--workspace", type=click.Path(path_type=Path))
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
 def status(
@@ -897,7 +931,7 @@ def status(
 
 @click.command()
 @click.argument("ssh_target", required=False)
-@click.option("--workspace", required=True)
+@click.option("-w", "--workspace", required=True)
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
 @click.option("--all", "stop_all", is_flag=True)
@@ -957,7 +991,7 @@ def stop(
 
 @click.command()
 @click.argument("ssh_target")
-@click.option("--workspace", required=True)
+@click.option("-w", "--workspace", required=True)
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
 @click.option("--ssh-args", default=None)
@@ -1227,3 +1261,4 @@ cli.add_command(export_db)
 cli.add_command(status)
 cli.add_command(stop)
 cli.add_command(connect)
+cli.add_command(connect, name="c")

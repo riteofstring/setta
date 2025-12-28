@@ -65,7 +65,7 @@ Required usage:
 - `--connect-info` prints the bootstrap URLs, token, and tunnel hints.
 
 Other options:
-- `--workspace PATH` filters sessions by workspace (default: all sessions).
+- `--workspace PATH` (`-w` works too) filters sessions by workspace (default: all sessions).
 - `--session ID` selects a specific session.
 - `--latest` selects the newest session.
 - `--json` emits a base64 JSON payload prefixed with `__SETTA_JSON_B64__`.
@@ -75,7 +75,7 @@ Other options:
 Examples:
 ```sh
 setta status --connect-info --workspace /path/to/project --latest
-setta status --connect-info --json --workspace /path/to/project
+setta status --connect-info --json -w /path/to/project
 setta status --list-sessions --json
 ```
 
@@ -84,19 +84,19 @@ setta status --list-sessions --json
 Stops one or more Setta sessions, either locally (default) or on a remote host.
 
 Local stop:
-- `setta stop --workspace /path` selects sessions by workspace.
+- `setta stop --workspace /path` (or `-w`) selects sessions by workspace.
 - Use `--session`, `--latest`, or `--all` to choose the target set.
 
 Remote stop:
 - Provide an SSH target to stop remote sessions:
-  `setta stop user@host --workspace /path`.
+  `setta stop user@host --workspace /path` (or `-w`).
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
 
 Examples:
 ```sh
-setta stop --workspace /path/to/project --latest
-setta stop user@host --workspace /path/to/project --all
+setta stop -w /path/to/project --latest
+setta stop user@host -w /path/to/project --all
 ```
 
 ## `setta connect`
@@ -107,7 +107,8 @@ opens the browser to the bootstrap URL.
 
 Required:
 - `ssh_target` (e.g., `user@host`)
-- `--workspace PATH`
+- `--workspace PATH` (`-w` works too)
+  - Remote paths can use `~` (e.g., `~/work/project`).
 
 Options:
 - `--session ID` selects a specific session.
@@ -125,4 +126,5 @@ Examples:
 setta connect user@host --workspace /path/to/project
 setta connect user@host --workspace /path/to/project --local-port 61000 --detach
 setta connect user@host --workspace /path/to/project --print-only
+setta c user@host -w /path/to/project
 ```
