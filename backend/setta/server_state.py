@@ -21,6 +21,7 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.share_project_manager import ShareProjectManager
+from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
@@ -115,6 +116,9 @@ class SettaFastAPIState:
         )
         self.share_project_manager: ShareProjectManager = self._defer_attr(
             "share_project_manager"
+        )
+        self.share_listener_runtime: ShareListenerRuntime = self._defer_attr(
+            "share_listener_runtime"
         )
         self.wmh_frontend_receiver: WMHFrontendReceiver = self._defer_attr(
             "wmh_frontend_receiver"
@@ -301,6 +305,9 @@ class SettaFastAPIState:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
+        from setta.websockets.msg_handlers.python_script_receiver import (
+            WMHPythonScriptReceiver,
+        )
 
         self.init_status.record("Loading share deployment")
         await self._maybe_delay()
@@ -308,12 +315,30 @@ class SettaFastAPIState:
             raise ValueError("Share deployment root must be set in share mode")
         self.share_session_store = MemorySessionStore()
         self.share_project_manager = ShareProjectManager(
-            self.dbe, self.share_deployment_root
+            self.dbe,
+            self.share_deployment_root,
+            self.wmh_frontend_sender,
+        )
+        self.share_listener_runtime = ShareListenerRuntime(
+            deployment_root=self.share_deployment_root,
+            manifest=self.share_project_manager.manifest,
+            policy=self.share_project_manager.share_policy,
+            project_config_id=self.share_project_manager.project_config_id,
         )
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,
             project_manager=None,
             realtime_event_hub=self.realtime_event_hub,
+            share_mode=True,
+        )
+        self.wmh_python_script_receiver = WMHPythonScriptReceiver(
+            self.websocket_manager,
+            self.listener_registry,
+            self.wmh_frontend_sender,
+            self.wmh_python_script_sender,
+            project_manager_switcher=None,
+            dbe=self.dbe,
+            share_project_manager=self.share_project_manager,
             share_mode=True,
         )
         self._ready_event.set()

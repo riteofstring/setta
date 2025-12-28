@@ -1,8 +1,10 @@
 import inspect
 import logging
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
 from setta.listeners.listener_frontend_emit_resolver import (
     InvalidListenerArtifactUpdateError,
@@ -45,6 +47,7 @@ from setta.types.listener import (
     ListenerRouterEndpointResultContent,
 )
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.share_deployment import ListenerIsolationMode
 from setta.types.websocket import (
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
@@ -60,6 +63,9 @@ from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
+if TYPE_CHECKING:
+    from setta.project_state.share_project_manager import ShareProjectManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,8 +76,11 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         listener_registry: ListenerRegistry,
         frontend_sender: WMHFrontendSender,
         python_script_sender: WMHPythonScriptSender,
-        project_manager_switcher: ProjectManagerSwitcher,
+        project_manager_switcher: ProjectManagerSwitcher | None,
         dbe: DBE,
+        *,
+        share_project_manager: "ShareProjectManager | None" = None,
+        share_mode: bool = False,
     ):
         super().__init__(websocket_manager)
         self.listener_registry = listener_registry
@@ -79,11 +88,33 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.python_script_sender = python_script_sender
         self.project_manager_switcher = project_manager_switcher
         self.dbe = dbe
+        self.share_project_manager = share_project_manager
+        self.share_mode = share_mode
         self.listener_coverage_tracker = ListenerCoverageTracker()
         self.listener_frontend_emit_resolver = ListenerFrontendEmitResolver()
         self._temporary_id_map_mtime_ns: int | None = None
         self._temporary_to_canonical: TemporaryToCanonicalIDMap = {}
         self._canonical_to_temporary: CanonicalToTemporaryIDMap = {}
+
+    def _require_share_project_manager(self) -> "ShareProjectManager":
+        if self.share_project_manager is None:
+            raise KeyError("Share project manager is required in share mode")
+        return self.share_project_manager
+
+    def _get_share_session_id_for_socket(self, websocket_id: str) -> str | None:
+        if not self.share_mode:
+            return None
+        share_session_id = self.websocket_manager.get_share_session_id(websocket_id)
+        if share_session_id is None:
+            manager = self._require_share_project_manager()
+            if (
+                manager.share_policy.listenerIsolation
+                is ListenerIsolationMode.per_viewer
+            ):
+                raise KeyError(
+                    f"Missing share session id for listener websocket {websocket_id}"
+                )
+        return share_session_id
 
     @staticmethod
     def _format_listener_error_message(
@@ -111,6 +142,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         details: dict[str, object],
         project_config_id: ID | None = None,
         severity: SettaBackendLogEventSeverity = SettaBackendLogEventSeverity.error,
+        share_session_id: str | None = None,
     ) -> None:
         content = ListenerErrorContent(error=error, details=details)
         if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
@@ -129,13 +161,17 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             message,
             severity=severity,
             project_config_id=project_config_id,
+            share_session_id=share_session_id,
         )
 
     async def on_disconnect(self, websocket_id):
         registration = self.listener_registry.get_registration(websocket_id)
         self.listener_registry.remove_registration(websocket_id)
         if registration is not None:
-            await self._sync_listener_coverage(registration.project_config_id)
+            await self._sync_listener_coverage(
+                registration.project_config_id,
+                share_session_id=registration.share_session_id,
+            )
 
     async def process_json_str(self, json_str, fromWebsocketId):
         message: PythonScriptWebsocketMsgUnion = (
@@ -157,6 +193,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         project_config_id = message.content.projectConfigId
         project_name = message.content.projectName
         use_temporary_ids = message.content.useTemporaryIds
+        share_session_id = self._get_share_session_id_for_socket(websocket_id)
         if project_config_id is not None and use_temporary_ids:
             try:
                 project_config_id = self._convert_incoming_payload(project_config_id)
@@ -170,8 +207,90 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     websocket_id,
                     error="listener_invalid_id",
                     details={"message": str(exc)},
+                    share_session_id=share_session_id,
                 )
                 return
+
+        if self.share_mode:
+            manager = self._require_share_project_manager()
+            if project_config_id is None:
+                project_config_id = manager.project_config_id
+            elif project_config_id != manager.project_config_id:
+                logger.warning(
+                    "listener websocket %s requested project %s but share deployment is %s",
+                    websocket_id,
+                    project_config_id,
+                    manager.project_config_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="project_config_mismatch",
+                    details={
+                        "expectedProjectConfigId": manager.project_config_id,
+                        "receivedProjectConfigId": project_config_id,
+                    },
+                    project_config_id=manager.project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return
+            if project_name is not None:
+                config_map = manager.project_state_backend.projectConfigs
+                if project_config_id not in config_map:
+                    raise KeyError(
+                        f"Share deployment missing project config: {project_config_id}"
+                    )
+                config = config_map[project_config_id]
+                if config.name != project_name:
+                    logger.warning(
+                        (
+                            "listener websocket %s provided project name %s but "
+                            "deployment name is %s"
+                        ),
+                        websocket_id,
+                        project_name,
+                        config.name,
+                    )
+
+            self.listener_registry.record_bootstrap(
+                websocket_id=websocket_id,
+                project_config_id=project_config_id,
+                use_temporary_ids=use_temporary_ids,
+                share_session_id=share_session_id,
+            )
+            logger.debug(
+                "recorded listener bootstrap for websocket %s (project %s share=%s)",
+                websocket_id,
+                project_config_id,
+                share_session_id,
+            )
+            try:
+                if share_session_id is None:
+                    project_state = manager.build_base_state()
+                else:
+                    project_state = manager.get_or_create_session_state(
+                        share_session_id
+                    )
+            except KeyError:
+                logger.warning(
+                    "failed to load share state for listener websocket %s (project %s)",
+                    websocket_id,
+                    project_config_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return
+
+            await self.python_script_sender.send_force_refresh(
+                projectState=project_state,
+                targetWebsocketIds=(websocket_id,),
+                share_session_id=share_session_id,
+            )
+            return
 
         if project_config_id is None:
             if project_name is None:
@@ -183,6 +302,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     websocket_id,
                     error="project_state_unavailable",
                     details={"websocketId": websocket_id},
+                    share_session_id=share_session_id,
                 )
                 return
             try:
@@ -199,6 +319,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     websocket_id,
                     error="project_state_unavailable",
                     details={"projectName": project_name},
+                    share_session_id=share_session_id,
                 )
                 return
         elif project_name is not None:
@@ -230,6 +351,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             websocket_id=websocket_id,
             project_config_id=project_config_id,
             use_temporary_ids=use_temporary_ids,
+            share_session_id=share_session_id,
         )
         logger.debug(
             "recorded listener bootstrap for websocket %s (project %s)",
@@ -250,12 +372,14 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="project_state_unavailable",
                 details={"projectConfigId": project_config_id},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
 
         await self.python_script_sender.send_force_refresh(
             projectState=project_state,
             targetWebsocketIds=(websocket_id,),
+            share_session_id=share_session_id,
         )
 
     async def _handle_listener_register(
@@ -263,6 +387,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
     ) -> None:
         previous_registration = self.listener_registry.get_registration(websocket_id)
         content = message.content
+        share_session_id = self._get_share_session_id_for_socket(websocket_id)
         if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
             try:
                 content = self._convert_incoming_payload(content)
@@ -275,14 +400,19 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     websocket_id,
                     error="listener_invalid_id",
                     details={"message": str(exc)},
+                    share_session_id=share_session_id,
                 )
                 return
         registration = self.listener_registry.upsert_registration(
             websocket_id=websocket_id,
             project_config_id=content.projectConfigId,
             callbacks=content.callbacks,
+            share_session_id=share_session_id,
         )
         bootstrap_project = self.listener_registry.get_bootstrap_project_config(
+            websocket_id
+        )
+        bootstrap_session = self.listener_registry.get_bootstrap_share_session_id(
             websocket_id
         )
         if (bootstrap_project is not None) and (
@@ -297,6 +427,18 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 registration.project_config_id,
                 bootstrap_project,
             )
+        if (bootstrap_session is not None) and (
+            bootstrap_session != registration.share_session_id
+        ):
+            logger.warning(
+                (
+                    "listener websocket %s registered for share session %s but "
+                    "bootstrap targeted session %s"
+                ),
+                websocket_id,
+                registration.share_session_id,
+                bootstrap_session,
+            )
         ack_statuses = {
             callback_id: ListenerRegisterAckStatus(status="accepted")
             for callback_id in content.callbacks
@@ -309,13 +451,19 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             ack_content = self._convert_outgoing_payload(ack_content)
         ack_message = WebsocketMsgListenerRegisterAck(content=ack_content)
         await self.websocket_manager.send_message(ack_message, websocket_id)
-        await self._sync_listener_coverage(registration.project_config_id)
+        await self._sync_listener_coverage(
+            registration.project_config_id,
+            share_session_id=registration.share_session_id,
+        )
         if (
             previous_registration is not None
             and previous_registration.project_config_id
             != registration.project_config_id
         ):
-            await self._sync_listener_coverage(previous_registration.project_config_id)
+            await self._sync_listener_coverage(
+                previous_registration.project_config_id,
+                share_session_id=previous_registration.share_session_id,
+            )
 
     async def _handle_listener_frontend_emit(
         self, message: WebsocketMsgListenerFrontendEmit, websocket_id: str
@@ -332,6 +480,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 details={"websocketId": websocket_id},
             )
             return
+        share_session_id = registration.share_session_id
         content = message.content
         if self.listener_registry.use_temporary_ids_for_socket(websocket_id):
             try:
@@ -345,6 +494,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     websocket_id,
                     error="listener_invalid_id",
                     details={"message": str(exc)},
+                    share_session_id=share_session_id,
                 )
                 return
         expected_project_config_id = registration.project_config_id
@@ -367,10 +517,26 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     "receivedProjectConfigId": project_config_id,
                 },
                 project_config_id=expected_project_config_id,
+                share_session_id=share_session_id,
             )
             return
 
-        manager = self.project_manager_switcher.get(project_config_id)
+        if self.share_mode:
+            manager = self._require_share_project_manager()
+            if (
+                share_session_id is None
+                and manager.share_policy.listenerIsolation
+                is ListenerIsolationMode.per_viewer
+            ):
+                await self._send_listener_error(
+                    websocket_id,
+                    error="share_session_missing",
+                    details={"websocketId": websocket_id},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return
+
         dependency_values = content.dependencyValues
         artifact_updates = content.artifactUpdates
         if not dependency_values and not artifact_updates:
@@ -384,23 +550,54 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     "message": "listener emits require dependencyValues or artifactUpdates"
                 },
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
 
-        try:
-            dependency_graph = manager.gen_code[project_config_id].dep_graph
-        except KeyError:
-            logger.warning(
-                "failed to load dependency graph for listener emit (project %s)",
-                project_config_id,
-            )
-            await self._send_listener_error(
-                websocket_id,
-                error="project_state_unavailable",
-                details={"projectConfigId": project_config_id},
-                project_config_id=project_config_id,
-            )
-            return
+        if self.share_mode:
+            share_manager = self._require_share_project_manager()
+            try:
+                if share_session_id is None:
+                    session_ids = share_manager.get_session_ids()
+                    if not session_ids:
+                        raise KeyError("Share listener emit missing active sessions")
+                    session_id = session_ids[0]
+                else:
+                    session_id = share_session_id
+                project_state = share_manager.get_session_state(session_id)
+                artifacts = share_manager.get_session_artifacts(session_id)
+            except KeyError as exc:
+                logger.warning(
+                    "failed to load share state for listener emit (project %s)",
+                    project_config_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="project_state_unavailable",
+                    details={"message": str(exc)},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return
+            dependency_graph = DependencyGraph(project_state)
+        else:
+            manager = self.project_manager_switcher.get(project_config_id)
+            try:
+                dependency_graph = manager.gen_code[project_config_id].dep_graph
+            except KeyError:
+                logger.warning(
+                    "failed to load dependency graph for listener emit (project %s)",
+                    project_config_id,
+                )
+                await self._send_listener_error(
+                    websocket_id,
+                    error="project_state_unavailable",
+                    details={"projectConfigId": project_config_id},
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                return
+            artifacts = manager.artifacts
 
         try:
             resolved_dependency_values = self.listener_frontend_emit_resolver.resolve(
@@ -410,7 +607,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             resolved_artifact_updates = (
                 self.listener_frontend_emit_resolver.resolve_artifact_updates(
                     artifact_updates=artifact_updates,
-                    artifacts=manager.artifacts,
+                    artifacts=artifacts,
                 )
             )
         except UnknownListenerDependencyError as exc:
@@ -423,6 +620,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="listener_emit_unknown_dependency",
                 details={"dependencyName": exc.dependency_name},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
         except InvalidListenerDependencyValueError as exc:
@@ -437,6 +635,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     "expectedType": exc.expected_type.value,
                 },
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
         except UnsupportedListenerDependencyError as exc:
@@ -451,6 +650,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     "reason": exc.reason,
                 },
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
         except InvalidListenerArtifactUpdateError as exc:
@@ -465,6 +665,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     "message": exc.message,
                 },
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
         except UnsupportedListenerArtifactUpdateError as exc:
@@ -476,6 +677,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="listener_emit_unsupported_artifact_update",
                 details={"path": exc.path, "reason": exc.reason},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
 
@@ -486,6 +688,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="listener_emit_failed",
                 details={"message": str(exc)},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
         except ValueError as exc:
@@ -495,15 +698,24 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="listener_emit_invalid_payload",
                 details={"message": str(exc)},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
             return
 
         try:
-            await manager.apply_listener_emit_updates(
-                projectConfigId=project_config_id,
-                dependency_updates=resolved_dependency_values,
-                artifact_updates=resolved_artifact_updates,
-            )
+            if self.share_mode:
+                share_manager = self._require_share_project_manager()
+                await share_manager.apply_listener_emit_updates(
+                    share_session_id=share_session_id,
+                    dependency_updates=resolved_dependency_values,
+                    artifact_updates=resolved_artifact_updates,
+                )
+            else:
+                await manager.apply_listener_emit_updates(
+                    projectConfigId=project_config_id,
+                    dependency_updates=resolved_dependency_values,
+                    artifact_updates=resolved_artifact_updates,
+                )
         except ListenerArtifactUpdateError as exc:
             logger.warning("listener emit artifact updates failed: %s", exc)
             await self._send_listener_error(
@@ -511,6 +723,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="listener_emit_artifact_update_failed",
                 details={"message": str(exc)},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
         except ListenerDependencyUpdateError as exc:
             logger.warning("listener emit failed to apply: %s", exc)
@@ -519,6 +732,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 error="listener_emit_failed",
                 details={"message": str(exc)},
                 project_config_id=project_config_id,
+                share_session_id=share_session_id,
             )
 
     async def _handle_listener_router_endpoint_call(
@@ -773,10 +987,30 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         ) = self.dbe.read_temporary_id_map()
         self._temporary_id_map_mtime_ns = mtime_ns
 
-    async def _sync_listener_coverage(self, project_config_id: ID) -> None:
+    async def _sync_listener_coverage(
+        self,
+        project_config_id: ID,
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
         snapshot = self.listener_coverage_tracker.update_for_project(
             project_config_id,
-            self.listener_registry.iter_registrations_for_project(project_config_id),
+            self.listener_registry.iter_registrations_for_project(
+                project_config_id,
+                share_session_id=share_session_id,
+            ),
         )
         if snapshot is not None:
-            await self.frontend_sender.broadcast_listener_coverage_snapshot(snapshot)
+            if not self.share_mode or share_session_id is not None:
+                await self.frontend_sender.broadcast_listener_coverage_snapshot(
+                    snapshot,
+                    share_session_id=share_session_id,
+                )
+                return
+            manager = self._require_share_project_manager()
+            session_ids = manager.get_session_ids()
+            for session_id in session_ids:
+                await self.frontend_sender.broadcast_listener_coverage_snapshot(
+                    snapshot,
+                    share_session_id=session_id,
+                )

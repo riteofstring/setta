@@ -40,6 +40,15 @@ def _extract_share_session_id(headers, cookies, query_params) -> str:
     return session_id
 
 
+def _maybe_extract_share_session_id(headers, cookies, query_params) -> str | None:
+    session_id = headers.get("x-share-session-id")
+    if not session_id:
+        session_id = cookies.get("shareSessionId")
+    if not session_id:
+        session_id = query_params.get("shareSessionId")
+    return session_id
+
+
 def get_share_session_id_from_request(request: Request) -> str:
     return _extract_share_session_id(
         request.headers, request.cookies, request.query_params
@@ -48,6 +57,18 @@ def get_share_session_id_from_request(request: Request) -> str:
 
 def get_share_session_id_from_websocket(websocket: WebSocket) -> str:
     return _extract_share_session_id(
+        websocket.headers, websocket.cookies, websocket.query_params
+    )
+
+
+def maybe_get_share_session_id_from_request(request: Request) -> str | None:
+    return _maybe_extract_share_session_id(
+        request.headers, request.cookies, request.query_params
+    )
+
+
+def maybe_get_share_session_id_from_websocket(websocket: WebSocket) -> str | None:
+    return _maybe_extract_share_session_id(
         websocket.headers, websocket.cookies, websocket.query_params
     )
 

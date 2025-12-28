@@ -78,6 +78,8 @@ Implemented:
   deployment root, and skips watchers/LSP/MCP/LLM boot.
 - `backend/setta/server_state.py` initializes `WMHFrontendReceiver` in share mode
   for share websocket traffic.
+- `backend/setta/server_state.py` wires `ShareListenerRuntime` and a share-mode
+  `WMHPythonScriptReceiver` for listener websocket traffic.
 
 ## 4) Share project manager + per-viewer overlays
 Status: in progress. Per-viewer overlays, manifest selection, and session dependencies are implemented; share run root overrides remain pending.
@@ -100,6 +102,8 @@ Implemented:
   manages per-viewer overlay state in memory.
 - `ShareProjectManager` keeps persistence/watchers as no-ops and only validates
   state on updates.
+- `ShareProjectManager` tracks per-session artifacts and applies listener emits,
+  broadcasting project state/artifact updates to the correct session(s).
 - `backend/setta/routers/dependencies.py` resolves share session ids from
   header/cookie/query and exposes session/overlay dependencies.
 - `backend/setta/share/session_store.py` provides `MemorySessionStore` and a
@@ -156,6 +160,9 @@ Implemented:
   adds the `/share/frontend` websocket route.
 
 ## 7) Listener runtime + isolation
+Status: in progress. Listener runtime, session scoping, and share-mode listener
+websocket handling are implemented; remaining work includes run flow and frontend
+UX.
 - Add `backend/setta/share/listener_runtime.py` to load and run
   `listener/app.py` from the deployment root.
 - Implement isolation modes:
@@ -166,6 +173,24 @@ Implemented:
   `WMHPythonScriptReceiver`.
 - Ensure listener emits update the correct per-viewer overlay via
   `BaseProjectManager.apply_listener_emit_updates`.
+Implemented:
+- `backend/setta/share/listener_runtime.py` loads the share listener entrypoint
+  and runs `SettaListener` instances per session or shared, depending on
+  `SharePolicy.listenerIsolation`.
+- `backend/setta/api/listener.py` appends `shareSessionId` to listener websocket
+  URLs when provided.
+- `backend/setta/routers/websocket.py` ensures share session state exists and
+  starts the share listener runtime on frontend connections; listener websockets
+  accept optional share session ids and enforce `per_viewer` requirements.
+- `backend/setta/routers/listener.py` scopes listener coverage snapshots to the
+  share session in share mode.
+- `backend/setta/websockets/listener_registry.py` stores share session ids per
+  websocket and filters project registrations/sockets by session.
+- `backend/setta/websockets/msg_handlers/python_script_receiver.py` handles
+  share-mode listener init/register/emit flows, uses share session state and
+  artifacts, and broadcasts listener coverage snapshots per session.
+- `backend/setta/websockets/msg_handlers/python_script_sender.py` filters listener
+  notifications by share session and resets realtime sequences per session.
 
 ## 8) Run flow changes
 Status: in progress. Policy gating is done; share run roots/TTL are pending.
@@ -228,6 +253,8 @@ Implemented:
   guardrails, and no settings/LLM seed writes.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
   session isolation, and missing session errors.
+- `tests/project_state/test_share_project_manager.py` covers listener emit
+  updates for per-session project state and artifact broadcasts.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
   precedence for HTTP and websocket requests.
 - `tests/share/test_policy.py` covers policy guard helpers.
@@ -239,3 +266,11 @@ Implemented:
   realtime sequencing.
 - `tests/websockets/test_frontend_receiver_share_mode.py` covers share websocket
   session enforcement and realtime forwarding.
+- `tests/websockets/test_python_script_sender_share_sessions.py` covers
+  listener realtime/force refresh filtering by share session id.
+- `tests/websockets/test_python_script_receiver_share_mode.py` covers share-mode
+  listener errors and listener coverage fan-out.
+- `tests/share/test_listener_runtime.py` covers listener runtime lifecycle
+  behavior in shared and per-viewer modes.
+- `tests/api/test_listener_websocket_endpoint.py` covers listener websocket URL
+  query handling for share sessions.

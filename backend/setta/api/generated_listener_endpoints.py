@@ -38,7 +38,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     TextBlockSectionImplArgs,
 )
 from setta.types.id import ID
-from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.project_config import (
     Position,
     TopLevelSectionLayout,
@@ -237,10 +236,6 @@ class ListenerGroupSectionsRequestPayload(TypedDict):
 
 
 class ListenerKillSubprocessesRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
-
-
-class ListenerListenerCoverageRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
@@ -739,11 +734,6 @@ class RouterEndpointAPI:
         self, payload: ListenerGetLatestProjectStateRequestPayload
     ) -> ProjectStateSingleConfigWithCompletedOpIds:
         return await self._caller("route_get_latest_project_state", payload)
-
-    async def get_listener_coverage(
-        self, payload: ListenerListenerCoverageRequestPayload
-    ) -> ListenerCoverageSnapshot:
-        return await self._caller("route_get_listener_coverage", payload)
 
     async def group_sections(
         self, payload: ListenerGroupSectionsRequestPayload

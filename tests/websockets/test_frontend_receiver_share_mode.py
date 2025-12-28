@@ -103,6 +103,7 @@ class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             listener_socket,
             WebsocketConnectionType.PYTHON_SCRIPT,
             id="python-listener",
+            shareSessionId="session-a",
         )
 
         project_config_id = ID("share-project")
@@ -117,6 +118,7 @@ class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                     actions=None,
                 )
             },
+            share_session_id="session-a",
         )
 
         frontend_messages: list[Message] = []
