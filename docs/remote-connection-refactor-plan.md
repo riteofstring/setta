@@ -7,8 +7,11 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - CLI entry point `setta.start:cli` starts an agent-only FastAPI server with no
   static UI serving and no browser launch (`backend/setta/start.py`,
   `backend/setta/server.py`, `backend/setta/backend_launcher.py`).
+- With the plan update, `setta` with no args should start the local UI server; passing `--ssh-target` should run the remote-connect flow.
 - Remote-connect CLI commands now exist and are implemented in
   `backend/setta/remote_connect.py`, wired through `backend/setta/start.py`.
+- Remote agent installation is not handled; `remote-connect` assumes `setta` is already installed on the remote host and on PATH, but the plan now calls for auto-install on connect.
+- Local UI requires runtime config at startup; there is no Connect screen or local-connect flow yet.
 - The backend is monolithic: all HTTP routes, websockets, MCP SSE endpoints, LSP,
   terminals, and project state live under one app instance (`backend/setta/server.py`).
 - Auth is token-gated across HTTP, websockets, and MCP SSE (`backend/setta/middleware.py`,
@@ -36,7 +39,12 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: `backend/setta/backend_launcher.py` and `backend/setta/start.py` no longer
   open browsers or check for frontend bundles.
 
-### 2) Add session + auth plumbing
+### 2) Remote agent installation (new)
+- Add remote agent install checks to `remote-connect` and bootstrap when missing or incompatible.
+- Add a `remote-install` CLI command that bootstraps a Python environment and installs the agent on the remote host.
+- Allow users to pass a custom install command or target Python environment.
+
+### 3) Add session + auth plumbing
 - Add a session bootstrap layer that creates `~/.setta/run/<session>/` metadata
   (token, socket/port, pid, logs) on the remote host.
 - DONE: Implement token-gated auth for all HTTP routes, websockets, and MCP SSE endpoints.
@@ -45,15 +53,16 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: CLI and listener websocket clients now send the token via `Sec-WebSocket-Protocol`.
 - DONE: Agent startup requires `--session-id` + `--token-file`, supports `--uds`/`--session-root`, and writes `session.json`, `agent.pid`, and `logs/agent.log`.
 
-### 3) CLI refactor for remote connect flows
+### 4) CLI refactor for remote connect flows
 - DONE: Add CLI subcommands that handle SSH bootstrap + tunnel lifecycle
   (`remote-connect`, `remote-disconnect`, `remote-status`).
 - DONE: Remove the legacy websocket CLI connect command and handlers to avoid conflicts.
 - DONE: Disable `--reload` for agent sessions to keep session metadata consistent.
 - DONE: Store local session metadata under `~/.setta/run/<session>/local.json` as described
   in the plan.
+- Add a `local-connect` command that starts a local agent session and configures the UI.
 
-### 4) Frontend networking rework (base URL + auth)
+### 5) Frontend networking rework (base URL + auth)
 - DONE: Replaced static `C_ADDRESSES` usage with a runtime config store that supplies
   the remote base URL and token (legacy constants removed).
 - DONE: `endpointUtils` now attaches `Authorization: Bearer <token>` for HTTP.
@@ -61,25 +70,25 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   (`Sec-WebSocket-Protocol`).
 - DONE: Frontend networking continues to route through `generatedEndpoints`.
 
-### 5) Language server environment selection
+### 6) Language server environment selection
 - DONE: Added a typed model for `SettingsState.languageServer` so interpreter path and
   related options are explicit (and shared with the frontend via generation).
 - DONE: Added backend endpoints to list remote Python environments and to update the
   selected interpreter path.
 - DONE: Persist the selected interpreter in settings and trigger LSP restart on changes.
 
-### 6) Workspace root + storage isolation
+### 7) Workspace root + storage isolation
 - DONE: Replace global `CWD` assumptions with an explicit workspace root configured per session.
 - DONE: Root `setta_files/` under a configurable storage root (defaults to session run dir).
 - DONE: Thread workspace/storage roots through agent startup, session metadata, and remote-connect bootstrap.
 - DONE: Normalize paths + LSP + Python env discovery against the configured workspace root.
 
-### 7) Compatibility surface (listener + MCP)
+### 8) Compatibility surface (listener + MCP)
 - Update listener APIs to accept auth tokens and remote base URLs.
 - Ensure MCP SSE endpoints are token-protected and still reachable through the
   local proxy/tunnel path.
 
-### 8) Tests + docs scaffolding
+### 9) Tests + docs scaffolding
 - DONE: Add session bootstrap test to verify session.json creation and starting status.
 - Add auth and tunnel smoke tests that exercise token-gated HTTP + websocket flows.
 - Document manual verification steps for remote connect and LSP interpreter
@@ -88,6 +97,8 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 ## Deliverables (High-Level)
 - New agent-mode backend start path (no static UI).
 - DONE: Local UI server/proxy with runtime config endpoint.
+- Auto-install during remote-connect, with a standalone remote-install command.
+- Local connect flow (Connect screen + local-connect command).
 - Token-gated HTTP, websocket, and MCP SSE routes.
 - DONE: Runtime-configurable frontend networking.
 - Backend interpreter selection (typed settings + env listing + interpreter update endpoints); UI pending.

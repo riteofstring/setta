@@ -5,6 +5,7 @@
 - Hide SSH, port forwarding, and tokens behind a simple remote-connect flow.
 - Keep the remote surface area private by default (loopback or Unix socket).
 - Make sessions per-user and per-session, not a shared server.
+- Provide auto-install during remote connect, with a standalone remote-install command for advanced usage.
 
 ## Non-goals
 - Multi-tenant security across users with root access.
@@ -29,10 +30,14 @@
 - Language server settings are now typed, with Python environment discovery and interpreter selection endpoints that persist settings and restart LSP.
 
 ## User Experience
-- A remote-connect command starts or reuses a remote session and opens the local UI.
+- A remote-connect command installs the agent if missing, then starts or reuses a remote session and opens the local UI.
+- A remote-install command is available for explicit installs or troubleshooting.
 - A disconnect command tears down the tunnel and asks the agent to exit.
 - A status command shows active sessions and local tunnels.
 - The user never copies ports or tokens by hand.
+- When invoked with no args, `setta` starts the local UI server. Supplying `--ssh-target` triggers a remote connect.
+- If runtime config is missing, the local UI shows a Connect screen instead of erroring.
+- The Connect screen supports Local (no SSH) and Remote (SSH) flows; Local starts a local agent for a chosen folder.
 
 ## Architecture Overview
 
@@ -43,6 +48,7 @@
   - establishes an SSH tunnel
   - injects the auth token into local UI requests
 - Stores local session metadata in `~/.setta/run/<session>/local.json`.
+- Local connect starts an agent on the same machine without SSH and wires the UI via runtime config.
 
 ### Remote Agent (new or split)
 - Runs under the remote Unix user account.
@@ -77,6 +83,7 @@
 `session.json` now includes `workspace_root` and `storage_root`.
 
 ## Connection Flow
+0. Local client verifies the remote agent is installed (or installs it automatically).
 1. Local client chooses a session id and a local port.
 2. Local client SSHes in and:
    - creates `~/.setta/run/<session>` with 0700
@@ -87,9 +94,19 @@
 4. Local UI points to `http://127.0.0.1:<localport>` and sends the token on every request.
 5. If the tunnel drops, the client reconnects and either reuses the same session or mints a new one.
 
+## Local Connection Flow
+0. User selects a local workspace folder in the Connect screen (or runs `local-connect`).
+1. Local client creates a session, token file, and run dir under `~/.setta/run/<session>/`.
+2. Local client starts a local agent with `--workspace-root`, optional `--storage-root`, and UDS or loopback port.
+3. Local UI is configured with the local agent base URL and token.
+
 ## CLI Design
 - DONE: Provide commands for remote-connect, disconnect, and status.
+- Remote-connect should verify the remote agent and bootstrap it if missing.
+- Provide a remote-install command that bootstraps a Python environment and installs the agent on the remote host.
+- Provide a local-connect command that starts a local agent session and configures the UI.
 - Optional command to list remote sessions and last activity.
+- Support a no-args `setta` command that launches the local UI server, and use `--ssh-target` as the explicit signal to run the remote-connect flow.
 
 ## Remote Agent Design
 - Option A: split the current FastAPI app into:
@@ -105,6 +122,8 @@
   - development: allow a flag to use Vite dev server
 - DONE: Provide a local config endpoint that stores the remote base URL and token in memory.
 - DONE: Backend supports interpreter selection (typed settings, environment listing, and `pythonPath` update that restarts LSP).
+- TODO: Show a Connect screen when runtime config is not set, rather than failing on load.
+- TODO: Support Local vs Remote choices on the Connect screen (Local starts a local agent session).
 - TODO: Provide a Python environment selector UI for the remote host and persist the chosen interpreter path.
 - TODO: Allow listing available remote environments and accept a manual path (similar to VSCode).
 
@@ -131,6 +150,8 @@
   - local tunnel setup (UDS preferred, TCP fallback)
   - local session metadata tracking (`local.json`)
 - DONE: Build the disconnect and status commands.
+- TODO: Add remote agent install checks to remote-connect and a standalone remote-install command.
+- TODO: Add local-connect flow that starts a local agent and configures the UI.
 
 ### Phase 3: Local UI Wiring
 - DONE: Add a local UI server that serves the built frontend and exposes a runtime config endpoint.
@@ -169,3 +190,5 @@
 - How do we want to store local session metadata if multiple remotes are active?
 - Do we want to support remote project root selection at connect time?
 - Should the remote Python interpreter selection be per-session or per-project (currently stored in SettingsState)?
+- Where should the remote agent installation live, and how should users customize the install command or Python environment?
+- How should auto-install detect a missing or incompatible agent version?
