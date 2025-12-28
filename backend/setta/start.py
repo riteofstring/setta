@@ -69,16 +69,55 @@ def _parse_ssh_args(raw: str | None) -> list[str]:
     return shlex.split(raw)
 
 
+def _has_control_socket_option(ssh_args: list[str]) -> bool:
+    control_keys = ("controlmaster", "controlpath", "controlpersist")
+    for idx, arg in enumerate(ssh_args):
+        if arg in {"-M", "-S"}:
+            return True
+        if arg.startswith("-S") and len(arg) > 2:
+            return True
+        lower = arg.lower()
+        if lower == "-o":
+            if idx + 1 >= len(ssh_args):
+                continue
+            option = ssh_args[idx + 1].lower()
+            if any(option.startswith(f"{key}=") for key in control_keys):
+                return True
+            continue
+        if lower.startswith("-o"):
+            option = lower[2:]
+            if any(option.startswith(f"{key}=") for key in control_keys):
+                return True
+    return False
+
+
+def _apply_control_socket_args(ssh_args: list[str]) -> list[str]:
+    if _has_control_socket_option(ssh_args):
+        return ssh_args
+    control_args = [
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        "ControlPersist=5m",
+        "-o",
+        "ControlPath=~/.ssh/setta-ctl-%r@%h:%p",
+    ]
+    return control_args + ssh_args
+
+
 def _run_ssh_command(
     ssh_target: str,
     ssh_args: list[str],
     remote_command: str,
     capture_output: bool = True,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
     cmd = ["ssh", *ssh_args, ssh_target, remote_command]
     if capture_output:
-        return subprocess.run(cmd, check=False, capture_output=True, text=True)
-    return subprocess.run(cmd, check=False)
+        return subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=timeout
+        )
+    return subprocess.run(cmd, check=False, timeout=timeout)
 
 
 def _build_remote_shell_command(shell: str, inner_command: str) -> str:
@@ -284,12 +323,13 @@ def _start_remote_setta(
     shell: str,
     workspace: str,
     setta_command: str,
+    verbose: bool = False,
 ) -> None:
     runner = None
-    if _remote_command_exists(ssh_target, ssh_args, "nohup"):
-        runner = "nohup"
-    elif _remote_command_exists(ssh_target, ssh_args, "setsid"):
+    if _remote_command_exists(ssh_target, ssh_args, "setsid"):
         runner = "setsid"
+    elif _remote_command_exists(ssh_target, ssh_args, "nohup"):
+        runner = "nohup"
     if runner is None:
         raise click.ClickException(
             "Remote host missing nohup/setsid for background start. Use --remote-cmd."
@@ -299,21 +339,53 @@ def _start_remote_setta(
     quoted_start = shlex.quote(start_cmd)
     if runner == "nohup":
         launch = (
+            f"cd {shlex.quote(workspace)} && "
             f"mkdir -p {shlex.quote(str(C.RUN_LOGS_FOLDER))} && "
-            f"nohup {shell} -lc {quoted_start} > {shlex.quote(str(log_file))} 2>&1 &"
+            f"nohup {shell} -lc {quoted_start} > {shlex.quote(str(log_file))} 2>&1 < /dev/null &"
         )
     else:
         launch = (
+            f"cd {shlex.quote(workspace)} && "
             f"mkdir -p {shlex.quote(str(C.RUN_LOGS_FOLDER))} && "
             f"setsid {shell} -lc {quoted_start} > {shlex.quote(str(log_file))} 2>&1 < /dev/null &"
         )
+    if verbose:
+        click.echo(f"Remote start runner: {runner}")
+        click.echo(f"Remote start log: {log_file}")
+        click.echo(f"Remote start command: {launch}")
     inner = launch
-    result = _run_ssh_command(
-        ssh_target,
-        ssh_args,
-        _build_remote_shell_command(shell, inner),
-        capture_output=True,
-    )
+    remote_command = _build_remote_shell_command(shell, inner)
+    if verbose:
+        ssh_cmd = ["ssh", *ssh_args, ssh_target, remote_command]
+        click.echo(f"Remote start ssh: {shlex.join(ssh_cmd)}")
+    try:
+        result = _run_ssh_command(
+            ssh_target,
+            ssh_args,
+            remote_command,
+            capture_output=True,
+            timeout=10.0,
+        )
+    except subprocess.TimeoutExpired as exc:
+        if verbose:
+            click.echo(
+                "Remote start SSH command did not return after 10s; "
+                "continuing to poll for sessions."
+            )
+            stdout = (exc.stdout or "").strip()
+            stderr = (exc.stderr or "").strip()
+            if stdout:
+                click.echo(f"Remote start stdout (partial): {stdout}")
+            if stderr:
+                click.echo(f"Remote start stderr (partial): {stderr}")
+        return
+    if verbose:
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+        if stdout:
+            click.echo(f"Remote start stdout: {stdout}")
+        if stderr:
+            click.echo(f"Remote start stderr: {stderr}")
     if result.returncode != 0:
         raise click.ClickException(
             f"Failed to start remote Setta: {result.stderr.strip() or result.stdout.strip()}"
@@ -327,12 +399,19 @@ def _wait_for_remote_session(
     workspace: str,
     setta_command: str,
     timeout_seconds: float = 30.0,
+    verbose: bool = False,
 ) -> RemoteSessionSummary:
     deadline = time.monotonic() + timeout_seconds
+    attempt = 0
     while True:
+        attempt += 1
         sessions = _fetch_remote_sessions(
             ssh_target, ssh_args, shell, workspace, setta_command
         )
+        if verbose:
+            click.echo(
+                f"Remote session poll #{attempt}: {len(sessions)} session(s) found."
+            )
         if sessions:
             return max(sessions, key=lambda session: session.started_at)
         if time.monotonic() >= deadline:
@@ -758,6 +837,7 @@ def status(
 @click.option("--detach", is_flag=True)
 @click.option("--print-only", is_flag=True)
 @click.option("--no-open", is_flag=True)
+@click.option("--verbose", is_flag=True)
 def connect(
     ssh_target: str,
     workspace: str,
@@ -769,24 +849,37 @@ def connect(
     detach: bool,
     print_only: bool,
     no_open: bool,
+    verbose: bool,
 ) -> None:
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
     if detach and print_only:
         raise click.ClickException("Use either --detach or --print-only, not both.")
 
-    ssh_args_list = _parse_ssh_args(ssh_args)
+    ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
+    if verbose:
+        click.echo(
+            f"SSH args: {shlex.join(ssh_args_list) if ssh_args_list else '(none)'}"
+        )
     shell = _resolve_remote_shell(ssh_target, ssh_args_list)
+    if verbose:
+        click.echo(f"Remote shell: {shell}")
     remote_workspace = _resolve_remote_workspace(
         ssh_target, ssh_args_list, shell, workspace
     )
+    if verbose:
+        click.echo(f"Remote workspace: {remote_workspace}")
     setta_command = _resolve_remote_setta_command(
         ssh_target, ssh_args_list, shell, remote_workspace, remote_cmd
     )
+    if verbose:
+        click.echo(f"Remote Setta command: {setta_command}")
 
     sessions = _fetch_remote_sessions(
         ssh_target, ssh_args_list, shell, remote_workspace, setta_command
     )
+    if verbose:
+        click.echo(f"Remote sessions found: {len(sessions)}")
     selected_session: RemoteSessionSummary | None = None
     if session_id:
         selected_session = next(
@@ -841,10 +934,20 @@ def connect(
                 f"Starting Setta on {ssh_target} (workspace {remote_workspace})..."
             )
         _start_remote_setta(
-            ssh_target, ssh_args_list, shell, remote_workspace, setta_command
+            ssh_target,
+            ssh_args_list,
+            shell,
+            remote_workspace,
+            setta_command,
+            verbose=verbose,
         )
         selected_session = _wait_for_remote_session(
-            ssh_target, ssh_args_list, shell, remote_workspace, setta_command
+            ssh_target,
+            ssh_args_list,
+            shell,
+            remote_workspace,
+            setta_command,
+            verbose=verbose,
         )
 
     if not print_only:
@@ -864,13 +967,18 @@ def connect(
     bootstrap_url = connect_info["bootstrapUrlFragment"]
     token = _extract_token_from_bootstrap_url(bootstrap_url)
     resolved_local_port = local_port or _select_free_port("127.0.0.1")
+    local_bootstrap_url, _ = _build_bootstrap_urls(
+        "127.0.0.1", resolved_local_port, token
+    )
+    if verbose:
+        click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
     tunnel_args = _build_ssh_tunnel_args(
         ssh_target, ssh_args_list, resolved_local_port, selected_session.port
     )
 
     if print_only:
         click.echo(shlex.join(tunnel_args))
-        click.echo(bootstrap_url)
+        click.echo(local_bootstrap_url)
         click.echo(token)
         return
 
@@ -885,7 +993,7 @@ def connect(
         )
         if not no_open:
             click.echo("Opening browser...")
-            webbrowser.open(bootstrap_url, new=0)
+            webbrowser.open(local_bootstrap_url, new=0)
         click.echo(
             f"Tunnel running in background (pid {proc.pid}, local port {resolved_local_port})."
         )
@@ -898,7 +1006,7 @@ def connect(
     proc = subprocess.Popen(tunnel_args)
     if not no_open:
         click.echo("Opening browser...")
-        webbrowser.open(bootstrap_url, new=0)
+        webbrowser.open(local_bootstrap_url, new=0)
     click.echo("Tunnel active (Ctrl+C to stop).")
     click.echo(
         "Tip: use --detach to background the tunnel or --print-only to copy commands."
