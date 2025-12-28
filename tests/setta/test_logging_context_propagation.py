@@ -1,9 +1,7 @@
 import asyncio
-import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from setta.logging.context import (
     get_logging_context,
@@ -14,8 +12,6 @@ from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from setta.utils.async_debouncer import AsyncDebouncer
-from setta.utils.constants import C
-from setta.websockets import connect as cli_connect
 
 
 class AsyncDebouncerLoggingTests(unittest.IsolatedAsyncioTestCase):
@@ -98,39 +94,6 @@ class LanguageServerLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(contexts[0]["task"], "lsp-diagnostics-callback")
         self.assertEqual(contexts[0]["uri"], uri)
         self.assertEqual(contexts[0]["lsp_server"], "unit-reader")
-
-
-class WebsocketConnectLoggingTests(unittest.IsolatedAsyncioTestCase):
-    async def test_cli_run_code_tasks_include_cli_metadata(self) -> None:
-        messages = [
-            json.dumps(
-                {
-                    "messageType": C.WS_RUN_CODE,
-                    "content": "echo 'ok'",
-                }
-            )
-        ]
-
-        async def _websocket():
-            for payload in messages:
-                yield payload
-
-        recorded: list[dict[str, str]] = []
-        finished = asyncio.Event()
-
-        async def _fake_run_code(command: str) -> None:
-            recorded.append(get_logging_context())
-            self.assertEqual(command, "echo 'ok'")
-            finished.set()
-
-        with patch.object(cli_connect, "run_code_as_subprocess", _fake_run_code):
-            await cli_connect.consumer_handler(_websocket(), "cli-123")
-            await asyncio.wait_for(finished.wait(), timeout=1)
-
-        context = recorded[0]
-        self.assertEqual(context["task"], "cli-run-code")
-        self.assertEqual(context["cli_connection_id"], "cli-123")
-        self.assertEqual(context["command"], "echo 'ok'")
 
 
 if __name__ == "__main__":

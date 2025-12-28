@@ -13,16 +13,17 @@ Done:
 - Token/cookie signing and validation helpers are implemented, plus tests (`backend/setta/auth/tokens.py`, `backend/setta/auth/manager.py`, `backend/setta/auth/cookies.py`, `backend/setta/auth/validation.py`, `tests/auth/test_tokens.py`, `tests/auth/test_validation.py`).
 - HTTP auth middleware and websocket auth gating are wired (`backend/setta/middleware/auth.py`, `backend/setta/routers/websocket.py`, `backend/setta/server.py`).
 - Bootstrap page + consume endpoint are live and wired (`backend/setta/routers/bootstrap.py`, `backend/setta/types/routes.py`).
+- Server startup behavior refactor landed (random port when omitted, loopback default, session metadata + bootstrap token output, best-effort local auto-open).
+- Legacy websocket CLI `setta connect` removed (`backend/setta/websockets/connect.py`).
 - Frontend endpoints/types regenerated to include bootstrap routes (`frontend/src/utils/generatedEndpoints.ts`, `frontend/src/utils/generatedTypes.ts`).
 
 Not started yet:
-- Server startup behavior refactor (`backend/setta/start.py`).
 - New CLI `status --connect-info` and SSH-based `setta connect`.
 - Frontend fetch/websocket auth handling (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`).
 
 ## Current Code Touchpoints (What Exists Today)
-- CLI entrypoint: `backend/setta/start.py` (Click group, `setta`, `setta connect` websocket helper, `--open-browser`).
-- Server: `backend/setta/server.py` (FastAPI app, static frontend mount, no auth).
+- CLI entrypoint: `backend/setta/start.py` (Click group, startup prints bootstrap URL, `--no-open` for local-only).
+- Server: `backend/setta/server.py` (FastAPI app, static frontend mount, auth middleware).
 - Constants: `backend/setta/utils/constants.py` (host/port, frontend origins).
 - Backend state: `backend/setta/server_state.py` (no session metadata).
 - Frontend boot: `frontend/src/components/Pages/GlobalWrapper.tsx` (polls `backendInitStatus`).
@@ -136,7 +137,7 @@ Server wiring:
 - Import and include router in `backend/setta/server.py` before the catch-all static route.
 
 ### 5) Server Startup Behavior
-Status: NOT STARTED
+Status: DONE
 
 Refactor `backend/setta/start.py` to:
 - Allocate a random port when `--port` is not provided.
@@ -154,8 +155,8 @@ Refactor `backend/setta/start.py` to:
 - Always pass `--no-open` when started remotely via `setta connect`.
 
 Remove or rename the existing websocket-based `setta connect`:
-- Delete or rename `backend/setta/websockets/connect.py`.
-- Replace CLI `connect` with the new SSH helper.
+- Deleted `backend/setta/websockets/connect.py`.
+- CLI `connect` is reserved for the new SSH helper.
 
 ### 6) CLI: `setta status --connect-info`
 Status: NOT STARTED
@@ -253,8 +254,8 @@ Frontend:
 - Update uses of new endpoints only through `frontend/src/utils/generatedEndpoints.ts`.
 
 ## Code Removal (Explicit)
-- Remove legacy websocket CLI `setta connect` and its helper `backend/setta/websockets/connect.py`.
-- Remove any open-browser behavior that conflicts with the new SSH-first flow.
+- Removed legacy websocket CLI `setta connect` and its helper `backend/setta/websockets/connect.py`.
+- Open-browser behavior now targets the bootstrap URL and is local-only (TTY + GUI, no SSH).
 
 ## Documentation Notes (Manual Alternatives)
 - Include the optional single-SSH-session example when a known remote port is available.
@@ -272,6 +273,6 @@ Frontend:
 ## Sequencing (Recommended)
 1) DONE: Session registry + token signer + constants.
 2) DONE: Auth middleware + bootstrap routes.
-3) NOT STARTED: CLI refactor (`status`, `connect`).
+3) IN PROGRESS: CLI refactor (`status`, `connect` still pending).
 4) NOT STARTED: Frontend auth handling.
 5) DONE: Endpoint generation + cleanup.

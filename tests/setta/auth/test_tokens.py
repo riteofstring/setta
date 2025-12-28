@@ -45,8 +45,8 @@ class BootstrapTokenManagerTests(unittest.TestCase):
 
         token = manager.mint("session-1", secret, now=now)
         payload_part, signature_part = token.split(".")
-        replacement = "A" if signature_part[-1] != "A" else "B"
-        tampered_signature = f"{signature_part[:-1]}{replacement}"
+        replacement = "A" if signature_part[0] != "A" else "B"
+        tampered_signature = f"{replacement}{signature_part[1:]}"
         tampered_token = f"{payload_part}.{tampered_signature}"
 
         with self.assertRaises(ValueError):

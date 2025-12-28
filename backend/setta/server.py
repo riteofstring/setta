@@ -78,12 +78,13 @@ async def lifespan(app: FastAPI):
 
     logger.info("Ready: %s", C.BACKEND)
     browser_task: asyncio.Task[None] | None = None
-    if C.OPEN_BROWSER_ON_START:
-        C.OPEN_BROWSER_ON_START = False
+    open_url = C.OPEN_BROWSER_ON_START
+    if open_url:
+        C.OPEN_BROWSER_ON_START = None
         browser_task = spawn_background_task(
-            _open_browser_after_startup(C.BACKEND),
+            _open_browser_after_startup(open_url),
             label="open-browser",
-            extra_values={"backend_url": C.BACKEND},
+            extra_values={"open_url": open_url},
         )
     try:
         yield
