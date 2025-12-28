@@ -19,9 +19,10 @@ Done:
 - `status --list-sessions --json` and `status --delete-session` added to support connect session selection and cleanup (`backend/setta/start.py`).
 - Legacy websocket CLI `setta connect` removed (`backend/setta/websockets/connect.py`).
 - Frontend endpoints/types regenerated to include bootstrap routes (`frontend/src/utils/generatedEndpoints.ts`, `frontend/src/utils/generatedTypes.ts`).
+- Frontend auth handling wired for fetch and websocket auth loss (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`, `frontend/src/utils/c_addresses.ts`).
 
 Not started yet:
-- Frontend fetch/websocket auth handling (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`).
+- None.
 
 ## Current Code Touchpoints (What Exists Today)
 - CLI entrypoint: `backend/setta/start.py` (Click group, startup prints bootstrap URL, `--no-open` for local-only).
@@ -222,7 +223,7 @@ Implementation outline:
 ## Frontend Implementation Plan
 
 ### 1) Fetch + Websocket Auth
-Status: NOT STARTED
+Status: DONE
 
 Update frontend networking to send cookies and handle auth loss.
 
@@ -231,6 +232,8 @@ Files to change:
   - Add `credentials: "include"` on `fetch` calls.
 - `frontend/src/state/actions/websocketReceive.ts`
   - Detect auth-close (e.g., 4401) and notify; optionally redirect to `/__setta__/bootstrap`.
+- `frontend/src/utils/c_addresses.ts`
+  - Add backend origin helper for non-API routes.
 
 ### 2) Boot Flow Handling
 Status: NOT STARTED
