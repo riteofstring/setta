@@ -474,6 +474,17 @@ def _stop_session_process(pid: int) -> None:
         ) from exc
 
 
+def _ensure_background_process_started(
+    proc: subprocess.Popen[str], wait_seconds: float = 0.2
+) -> None:
+    time.sleep(wait_seconds)
+    if proc.poll() is not None:
+        raise click.ClickException(
+            f"SSH tunnel failed to start (exit {proc.returncode}). "
+            "Try --print-only or --verbose."
+        )
+
+
 def _extract_token_from_bootstrap_url(url: str) -> str:
     marker = "#token="
     if marker not in url:
@@ -1178,6 +1189,7 @@ def connect(
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
+        _ensure_background_process_started(proc)
         if not no_open:
             click.echo("Opening browser...")
             webbrowser.open(local_bootstrap_url, new=0)

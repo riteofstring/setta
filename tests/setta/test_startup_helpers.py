@@ -1,7 +1,15 @@
+import subprocess
+import sys
 import unittest
 from pathlib import PureWindowsPath
 
-from setta.start import _build_ssh_tunnel_command, _format_remote_path
+import click
+
+from setta.start import (
+    _build_ssh_tunnel_command,
+    _ensure_background_process_started,
+    _format_remote_path,
+)
 from setta.types.routes import Route
 from setta.utils.network import (
     build_bootstrap_urls,
@@ -43,6 +51,25 @@ class StartupHelperTests(unittest.TestCase):
     def test_format_remote_path_uses_posix_separators(self) -> None:
         windows_path = PureWindowsPath("setta_files\\run\\logs")
         self.assertEqual(_format_remote_path(windows_path), "setta_files/run/logs")
+
+    def test_ensure_background_process_started_raises_on_exit(self) -> None:
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "import sys; sys.exit(2)"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.addCleanup(proc.wait)
+        with self.assertRaises(click.ClickException):
+            _ensure_background_process_started(proc, wait_seconds=0.05)
+
+    def test_ensure_background_process_started_accepts_running(self) -> None:
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(0.2)"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.addCleanup(proc.wait)
+        _ensure_background_process_started(proc, wait_seconds=0.05)
 
 
 if __name__ == "__main__":

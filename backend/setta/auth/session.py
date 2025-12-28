@@ -39,6 +39,15 @@ def _update_cached_session(
     _cached_sessions_root = str(sessions_root) if sessions_root is not None else None
 
 
+def _clear_cached_session() -> None:
+    global _cached_metadata
+    global _cached_secret
+    global _cached_sessions_root
+    _cached_metadata = None
+    _cached_secret = None
+    _cached_sessions_root = None
+
+
 def _resolve_sessions_root_from_env() -> Path | None:
     sessions_root = os.environ.get(SESSIONS_ROOT_ENV_VAR)
     if not sessions_root:
@@ -75,7 +84,11 @@ def load_current_session_secret(
     if registry is None:
         cached = _get_cached_session(session_id, os.getpid(), sessions_root)
         if cached is not None:
-            return cached
+            cached_metadata, cached_secret = cached
+            secret_path = active_registry.resolve_secret_path(cached_metadata)
+            if secret_path.exists():
+                return cached
+            _clear_cached_session()
     if session_id:
         metadata = active_registry.load_session(
             session_id, prune_stale=False, track_suspicious=False
