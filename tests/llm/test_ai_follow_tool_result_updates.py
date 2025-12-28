@@ -3,7 +3,8 @@ import unittest
 
 from mcp.types import CallToolResult, TextContent
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.client import MCPClient
+from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import (
     AIFollowToolResultMetadata,
     SettaToolAnnotations,
@@ -12,7 +13,11 @@ from setta.mcp.tool_metadata import (
 )
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import convert_canonical_ids_to_temporary
-from setta.project_state.project_manager_types import CreateTopLevelSectionRequest
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.project_state.project_manager_types import (
+    AddKwargRequest,
+    CreateTopLevelSectionRequest,
+)
 from setta.types.id import ID
 from setta.types.project_config import Position
 from setta.types.section_impls import SectionType
@@ -27,15 +32,21 @@ from starlette.websockets import WebSocket
 from tests.utils.manager_fixture import real_project_manager
 
 
-def _build_tool_annotations_by_name() -> dict[str, SettaToolAnnotations]:
+def _build_tool_annotations_by_name(
+    server_id: str,
+) -> dict[str, SettaToolAnnotations]:
     tool_annotations_by_name: dict[str, SettaToolAnnotations] = {}
     for tool_fn in SETTA_INIT_MCP_TOOLS:
-        tool_annotations_by_name[tool_fn.__name__] = SettaToolAnnotations(
+        tool_annotations_by_name[
+            build_namespaced_tool_name(server_id, tool_fn.__name__)
+        ] = SettaToolAnnotations(
             settaToolType=SettaToolType.init,
             aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
         )
     for tool_fn in SETTA_MCP_TOOLS:
-        tool_annotations_by_name[tool_fn.__name__] = SettaToolAnnotations(
+        tool_annotations_by_name[
+            build_namespaced_tool_name(server_id, tool_fn.__name__)
+        ] = SettaToolAnnotations(
             settaToolType=SettaToolType.discoverable,
             aiFollowToolResult=get_ai_follow_tool_result(tool_fn),
         )
@@ -127,11 +138,16 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
         async with real_project_manager() as fixture:
             websocket_manager = fixture.websocket_manager
             frontend_sender = WMHFrontendSender(websocket_manager)
-            mcp_client = MCPClient("http://localhost")
+            mcp_client = MultiMCPClient({})
+            project_manager_switcher = ProjectManagerSwitcher(
+                fixture.manager,
+                fixture.manager,
+            )
             chat_manager = LLMChatManager(
                 fixture.dbe,
                 mcp_client,
                 frontend_sender,
+                project_manager_switcher,
             )
 
             websocket_id = "tool-result-follow-socket"
@@ -178,13 +194,14 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                     implType=SectionType.Dict,
                     position=Position(),
                 )
-                section_id = await fixture.manager.create_top_level_section(request)
+                response = await fixture.manager.create_top_level_section(request)
+                section_id = response.sectionId
 
                 temporary_to_canonical, canonical_to_temporary = (
                     fixture.dbe.read_temporary_id_map()
                 )
-                temporary_section_id = convert_canonical_ids_to_temporary(
-                    section_id,
+                temporary_response = convert_canonical_ids_to_temporary(
+                    response,
                     canonical_to_temporary,
                     temporary_to_canonical,
                 )
@@ -192,23 +209,30 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
 
                 call_result = CallToolResult(
                     content=[
-                        TextContent(type="text", text=str(temporary_section_id))
+                        TextContent(
+                            type="text",
+                            text=temporary_response.model_dump_json(),
+                        )
                     ],
                     isError=False,
                 )
 
+                namespaced_tool_name = build_namespaced_tool_name(
+                    SETTA_MCP_SERVER_ID,
+                    "create_top_level_section",
+                )
                 mcp_client.tool_annotations_by_name[
-                    "create_top_level_section"
+                    namespaced_tool_name
                 ] = SettaToolAnnotations(
                     settaToolType=SettaToolType.discoverable,
                     aiFollowToolResult=AIFollowToolResultMetadata(
-                        pathsByIdType={"section": ["$"]},
+                        pathsByIdType={"section": ["sectionId"]},
                     ),
                 )
 
                 chat_id = ID("chat-1")
                 await chat_manager._maybe_broadcast_ai_follow_tool_result_update(
-                    "create_top_level_section",
+                    namespaced_tool_name,
                     call_result,
                     project_config_id,
                     chat_id,
@@ -236,14 +260,21 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
         async with real_project_manager() as fixture:
             websocket_manager = fixture.websocket_manager
             frontend_sender = WMHFrontendSender(websocket_manager)
-            mcp_client = MCPClient("http://localhost")
+            mcp_client = MultiMCPClient({})
+            project_manager_switcher = ProjectManagerSwitcher(
+                fixture.manager,
+                fixture.manager,
+            )
             chat_manager = LLMChatManager(
                 fixture.dbe,
                 mcp_client,
                 frontend_sender,
+                project_manager_switcher,
             )
 
-            tool_annotations_by_name = _build_tool_annotations_by_name()
+            tool_annotations_by_name = _build_tool_annotations_by_name(
+                SETTA_MCP_SERVER_ID
+            )
             self.assertTrue(tool_annotations_by_name)
             mcp_client.tool_annotations_by_name = tool_annotations_by_name
 
@@ -251,6 +282,37 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             for annotations in tool_annotations_by_name.values():
                 if annotations.aiFollowToolResult:
                     id_types.update(annotations.aiFollowToolResult.pathsByIdType.keys())
+
+            project_config_id = ID(
+                fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            section_id: ID | None = None
+            if "section" in id_types or "codeObj" in id_types:
+                sections = fixture.manager.project_state_backend.sections
+                if not sections:
+                    request = CreateTopLevelSectionRequest(
+                        projectConfigId=project_config_id,
+                        implType=SectionType.Dict,
+                        position=Position(),
+                    )
+                    response = await fixture.manager.create_top_level_section(request)
+                    section_id = response.sectionId
+                else:
+                    section_id = next(iter(sections))
+
+            if "codeObj" in id_types:
+                code_objs = fixture.manager.project_state_backend.codeObjs
+                if not code_objs:
+                    if section_id is None:
+                        raise AssertionError(
+                            "No section ID available to seed code objects"
+                        )
+                    await fixture.manager.add_kwarg(
+                        AddKwargRequest(
+                            projectConfigId=project_config_id,
+                            sectionId=section_id,
+                        )
+                    )
 
             canonical_ids_by_type, temporary_ids_by_type = _build_ids_by_type(
                 fixture,
@@ -293,6 +355,41 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
                             id_list,
                             tool_name,
                         )
+
+    async def test_ignores_non_setta_tool_result_updates(self) -> None:
+        async with real_project_manager() as fixture:
+            frontend_sender = WMHFrontendSender(fixture.websocket_manager)
+            mcp_client = MultiMCPClient({})
+            project_manager_switcher = ProjectManagerSwitcher(
+                fixture.manager,
+                fixture.manager,
+            )
+            chat_manager = LLMChatManager(
+                fixture.dbe,
+                mcp_client,
+                frontend_sender,
+                project_manager_switcher,
+            )
+
+            tool_name = build_namespaced_tool_name("context7", "create_top_level_section")
+            mcp_client.tool_annotations_by_name[tool_name] = SettaToolAnnotations(
+                settaToolType=SettaToolType.discoverable,
+                aiFollowToolResult=AIFollowToolResultMetadata(
+                    pathsByIdType={"section": ["$"]},
+                ),
+            )
+
+            call_result = CallToolResult(
+                content=[TextContent(type="text", text="section-1")],
+                isError=False,
+            )
+
+            result = chat_manager._build_ai_follow_tool_result_update(
+                tool_name,
+                call_result,
+            )
+
+            self.assertIsNone(result)
 
 
 if __name__ == "__main__":

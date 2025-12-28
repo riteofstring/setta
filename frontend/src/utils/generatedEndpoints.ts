@@ -295,7 +295,7 @@ export async function route_update_param_impl_config(
 
 export async function route_create_top_level_section(
   x: gt.CreateTopLevelSectionRequestInput,
-): Promise<ResponseDataAndStatus<string>> {
+): Promise<ResponseDataAndStatus<gt.CreateTopLevelSectionResponse>> {
   return await post("/createTopLevelSection", x);
 }
 
@@ -403,6 +403,12 @@ export async function route_set_top_level_section_layout(
   return await post("/setTopLevelSectionLayout", x);
 }
 
+export async function route_auto_layout_top_level_sections(
+  x: gt.AutoLayoutTopLevelSectionsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/autoLayoutTopLevelSections", x);
+}
+
 export async function route_add_kwarg(
   x: gt.AddKwargRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -451,16 +457,34 @@ export async function route_set_gen_code_suffix(
   return await post("/setGenCodeSuffix", x);
 }
 
+export async function route_set_show_param_display_names(
+  x: gt.SetShowParamDisplayNamesRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setShowParamDisplayNames", x);
+}
+
 export async function route_set_param_entered_value(
   x: gt.SetParamEnteredValueRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setParamEnteredValue", x);
 }
 
+export async function route_set_type_error_ignore(
+  x: gt.SetTypeErrorIgnoreRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTypeErrorIgnore", x);
+}
+
 export async function route_set_code_obj_name(
   x: gt.SetCodeObjNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCodeObjName", x);
+}
+
+export async function route_set_code_obj_display_name(
+  x: gt.SetCodeObjDisplayNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeObjDisplayName", x);
 }
 
 export async function route_set_code_file_binding(

@@ -178,10 +178,10 @@ class Terminals:
                 output = pty_process.read(1024)
                 if not pty_info["terminalPromptIsReady"].is_set():
                     initial_buffer += output
-                    # We wait for the SETTA_CLEAR_CMD string to appear four times
+                    # We wait for the SETTA_CLEAR_CMD string to appear at least once
                     # before we consider the terminal ready.
                     # This is just to make the terminal look less cluttered and annoying on the frontend.
-                    if initial_buffer.count(SETTA_CLEAR_CMD) >= 4:
+                    if initial_buffer.count(SETTA_CLEAR_CMD) >= 1:
                         pty_info["terminalPromptIsReady"].set()
                         await self.send_output_to_sectionId(
                             sectionId, C.SETTA_TERMINAL_READY, setSentReadyMsg=True

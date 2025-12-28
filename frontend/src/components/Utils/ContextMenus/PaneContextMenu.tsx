@@ -22,9 +22,9 @@ export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
   const contextMenuItems = useCreateSectionsList();
 
-  function handleCreateSection(menuItem: CreateSectionsContextMenuInfo) {
+  function onClick(menuItem: CreateSectionsContextMenuInfo) {
     createTopLevelSectionFromImplSpecs(
-      menuItem.implSpecs,
+      menuItem,
       screenToFlowPosition({ x, y }),
     );
     closeAllContextMenus();

@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import (
     BaseDependencyKeyUnionWithDiscriminator,
 )
@@ -23,6 +24,7 @@ class ListenerDependencyMode(str, Enum):
 class ListenerInitContent(BaseModel):
     projectConfigId: ID | None = None
     projectName: str | None = None
+    useTemporaryIds: bool = False
 
     @model_validator(mode="after")
     def _validate_identifier(self):
@@ -36,6 +38,25 @@ class ListenerInitContent(BaseModel):
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: ID
     deltas: list["ListenerRealtimeDelta"]
+    sequence: int
+
+
+class ControlActionEvent(BaseModel):
+    controlName: str
+    actionId: str
+    actionControlType: CodeObjType
+    payload: str | None = None
+    timestampMs: int
+
+
+class RealtimeActionEventContent(BaseModel):
+    projectConfigId: ID
+    actionEvent: ControlActionEvent
+
+
+class ListenerActionEventContent(BaseModel):
+    projectConfigId: ID
+    actionEvents: list[ControlActionEvent]
     sequence: int
 
 
@@ -59,6 +80,22 @@ class ListenerFrontendEmitRawContent(BaseModel):
     artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
         default_factory=list
     )
+
+
+class ListenerRouterEndpointCallContent(BaseModel):
+    projectConfigId: ID
+    callId: str
+    endpointName: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ListenerRouterEndpointResultContent(BaseModel):
+    projectConfigId: ID
+    callId: str
+    ok: bool
+    result: Any | None = None
+    error: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ListenerCoverageRequest(BaseModel):
@@ -89,6 +126,7 @@ class ListenerRegisterCallback(BaseModel):
     debounceMs: int | None = None
     throttleMs: int | None = None
     runOnRefresh: bool = False
+    actions: list[str] | None = None
 
 
 class ListenerRegisterContent(BaseModel):

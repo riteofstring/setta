@@ -25,19 +25,20 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeLanguage,
     ConfigLanguage,
-    MetaControlType,
     SectionSize,
     SectionSizeMode,
     SectionType,
     SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
+    TypeErrorIgnoreState,
 )
 
 
 class CoreArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
+    displayName: NotRequired[str]
     variants: NotRequired[list[ID]]
     defaultVariant: NotRequired[ID | None]
     sharedModifier: NotRequired[SharedModifier]
@@ -89,9 +90,10 @@ class CoreArgs(TypedDict):
                 "isPreset",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
+                "label",
                 "layers",
                 "max",
-                "metaControlType",
+                "metaControlParamId",
                 "min",
                 "name",
                 "paramFilter",
@@ -119,6 +121,7 @@ class CoreArgs(TypedDict):
 class ProjectConfigArgs(TypedDict):
     id: NotRequired[ID]
     name: NotRequired[str]
+    showParamDisplayNames: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
@@ -172,7 +175,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedParams: NotRequired[list[ID]]
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
-    ignoreTypeErrors: NotRequired[dict[ID, bool]]
+    ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     displayMode: NotRequired[SectionWithParamsDisplayMode]
 
 
@@ -198,7 +201,7 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     ]
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
-        dict[ID, bool] | Callable[[dict[ID, bool]], dict[ID, bool]]
+        TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
     ]
     displayMode: NotRequired[
         SectionWithParamsDisplayMode
@@ -404,7 +407,8 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
-    metaControlType: NotRequired[MetaControlType]
+    metaControlParamId: NotRequired[ID | None]
+    codeObjVariantMap: NotRequired[dict[ID, ID]]
 
 
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -412,8 +416,9 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.MetaControl]
         | Callable[[Literal[SectionType.MetaControl]], Literal[SectionType.MetaControl]]
     ]
-    metaControlType: NotRequired[
-        MetaControlType | Callable[[MetaControlType], MetaControlType]
+    metaControlParamId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    codeObjVariantMap: NotRequired[
+        dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
     ]
 
 
@@ -614,6 +619,19 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     ]
 
 
+class ButtonParamCodeObjImplArgs(BaseParamCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.ButtonParam]]
+    label: NotRequired[str]
+
+
+class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
+    type: NotRequired[
+        Literal[CodeObjType.ButtonParam]
+        | Callable[[Literal[CodeObjType.ButtonParam]], Literal[CodeObjType.ButtonParam]]
+    ]
+    label: NotRequired[str | Callable[[str], str]]
+
+
 class SliderParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.SliderParam]]
     min: NotRequired[int]
@@ -629,6 +647,23 @@ class SliderParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCal
     min: NotRequired[int | Callable[[int], int]]
     max: NotRequired[int | Callable[[int], int]]
     step: NotRequired[int | Callable[[int], int]]
+
+
+class RotaryParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.RotaryParam]]
+    min: NotRequired[float]
+    max: NotRequired[float]
+    step: NotRequired[float]
+
+
+class RotaryParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
+    type: NotRequired[
+        Literal[CodeObjType.RotaryParam]
+        | Callable[[Literal[CodeObjType.RotaryParam]], Literal[CodeObjType.RotaryParam]]
+    ]
+    min: NotRequired[float | Callable[[float], float]]
+    max: NotRequired[float | Callable[[float], float]]
+    step: NotRequired[float | Callable[[float], float]]
 
 
 class SwitchParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
@@ -691,6 +726,36 @@ class PasswordParamCodeObjImplArgsWithCallable(
         Literal[CodeObjType.PasswordParam]
         | Callable[
             [Literal[CodeObjType.PasswordParam]], Literal[CodeObjType.PasswordParam]
+        ]
+    ]
+
+
+class TextAreaParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.TextAreaParam]]
+
+
+class TextAreaParamCodeObjImplArgsWithCallable(
+    BaseChildlessCodeObjImplArgsWithCallable
+):
+    type: NotRequired[
+        Literal[CodeObjType.TextAreaParam]
+        | Callable[
+            [Literal[CodeObjType.TextAreaParam]], Literal[CodeObjType.TextAreaParam]
+        ]
+    ]
+
+
+class DropzoneParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.DropzoneParam]]
+
+
+class DropzoneParamCodeObjImplArgsWithCallable(
+    BaseChildlessCodeObjImplArgsWithCallable
+):
+    type: NotRequired[
+        Literal[CodeObjType.DropzoneParam]
+        | Callable[
+            [Literal[CodeObjType.DropzoneParam]], Literal[CodeObjType.DropzoneParam]
         ]
     ]
 

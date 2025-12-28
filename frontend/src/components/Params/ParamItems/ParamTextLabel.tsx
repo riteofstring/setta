@@ -1,7 +1,10 @@
+import { getParamDisplayName } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 
 export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
-  const name = useProjectState((x) => x.codeObjs[paramInfoId].name);
+  const name = useProjectState((x) =>
+    getParamDisplayName(x, sectionId, paramInfoId),
+  );
 
   function onClick() {
     if (useMisc.getState().isSelectingParams) {

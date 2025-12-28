@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
-    SELF_IDENTIFIER,
+    GEN_CODE_INSTANCE_NAME,
     create_unique_name,
     sanitize_name,
 )
@@ -28,10 +28,13 @@ from setta.types.generated.dependency_values import BaseDependencyValueUnion
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
+    get_variant_base_and_effective_code_obj_impl_with_type_guard,
 )
 from setta.types.helpers_lvl2 import (
+    get_curr_meta_control_impl_with_type_guard,
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
+    get_meta_control_param_id,
 )
 from setta.types.id import ID
 from setta.types.project_state import (
@@ -65,6 +68,8 @@ class Node(ABC):
 
 @dataclass
 class SectionNode(Node):
+    control_code_obj_type: CodeObjType | None = None
+
     @property
     def has_name_and_value(self) -> bool:
         return True
@@ -115,6 +120,7 @@ class DependencyGraph:
             SectionType.GlobalVariables: self._export_global_variables_section,
             SectionType.TextBlock: self._export_text_block_section,
             SectionType.Draw: self._export_draw_section,
+            SectionType.MetaControl: self._export_meta_control_section,
         }
         self.construct_graph(p)
 
@@ -270,11 +276,40 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
+    def _export_meta_control_section(self, ctx: SectionExportContext):
+        section_impl = get_curr_meta_control_impl_with_type_guard(
+            ctx.project_state, ctx.section_id
+        )
+        control_param_id = get_meta_control_param_id(ctx.project_state, ctx.section_id)
+        variant_id = section_impl.codeObjVariantMap[control_param_id]
+        _, _, control_impl = (
+            get_variant_base_and_effective_code_obj_impl_with_type_guard(
+                ctx.project_state,
+                ctx.project_state.codeObjs[control_param_id],
+                variant_id,
+                BaseParamCodeObjImpl,
+            )
+        )
+        control_value = None
+        if isinstance(control_impl, BaseChildlessCodeObjImpl):
+            control_value = LiteralDependencyValue(control_impl.value)
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=control_value,
+            control_code_obj_type=control_impl.type,
+            deps={},
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: ID):
         callable = get_curr_section_callable_code_obj(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(
-                callable.name, SELF_IDENTIFIER, keep_attr_only=True
+                callable.name, GEN_CODE_INSTANCE_NAME, keep_attr_only=True
             )
             return callable.name, potential_refs
         return None, None
@@ -317,7 +352,7 @@ class DependencyGraph:
                     raw_value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
-                    raw_value, SELF_IDENTIFIER, keep_attr_only=True
+                    raw_value, GEN_CODE_INSTANCE_NAME, keep_attr_only=True
                 )
                 if potential_refs:
                     self.nodes_with_potential_refs[dep_key] = potential_refs

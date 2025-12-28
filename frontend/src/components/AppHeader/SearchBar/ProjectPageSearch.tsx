@@ -11,7 +11,6 @@ import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useRef } from "react";
-import { getEmptySpacePosition } from "state/actions/sections/createSections";
 import {
   CreateSectionsContextMenuInfo,
   createTopLevelSectionFromImplSpecs,
@@ -146,10 +145,7 @@ function ProjectPageCommandPalette() {
       return;
     }
 
-    createTopLevelSectionFromImplSpecs(
-      match.implSpecs,
-      getEmptySpacePosition(),
-    );
+    createTopLevelSectionFromImplSpecs(match);
   };
 
   return (

@@ -1,35 +1,81 @@
 # emit_to_frontend flow
 
 ## Purpose
-`emit_to_frontend` lets Python listener callbacks push deterministic project-state and artifact overrides back through the Setta backend so the canonical broadcasts that drive the UI include listener-driven data. The flow replaces the old "payload + target" passthrough with typed dependency updates and artifact unions.
+`emit_to_frontend` lets listener callbacks push dependency values or artifact updates
+back through the backend so the UI receives the same canonical broadcasts as any
+other project-state mutation. It is available as `SettaListener.emit_to_frontend`
+and as `ctx.emit_to_frontend` inside callbacks.
+
+## Preconditions + payload shape
+- The listener must be bootstrapped (`_runtime_state` is set) and registered (or
+  registration is pending).
+- At least one of `dependency_values` or `artifact_updates` is required.
+- `dependency_values` uses sanitized dependency names (the same strings used in
+  `@listener.listen` and the generated `state` attributes).
+- `artifact_updates` entries must validate against `BaseArtifactTypeAdapter` (type/id/value).
 
 ## Step-by-step pipeline
-1. **Listener helper (backend/setta/api/listener.py)**
-   - `SettaListener.emit_to_frontend` validates that the listener has finished bootstrap + registration and that at least one of `dependency_values` or `artifact_updates` is non-empty.
-   - Dependency mappings are copied as plain dicts; artifact payloads are validated with `BaseArtifactTypeAdapter` so only well-formed union entries are emitted.
-   - The helper wraps everything in `ListenerFrontendEmitRawContent` (project id + payloads) and ships a `WebsocketMsgListenerFrontendEmit` over the existing WebSocket connection.
+1. **Listener helper (`backend/setta/api/listener.py`)**
+   - `SettaListener.emit_to_frontend` checks runtime state + registration and
+     rejects empty payloads.
+   - Dependency mappings are copied as plain dicts; artifact payloads are
+     validated with `BaseArtifactTypeAdapter`.
+   - Sends `WebsocketMsgListenerFrontendEmit` with `ListenerFrontendEmitRawContent`.
 
-2. **WebSocket receiver (backend/setta/websockets/msg_handlers/python_script_receiver.py)**
-   - `_handle_listener_frontend_emit` ensures the websocket is still registered for the target project config and rejects empty payloads.
-   - The handler grabs the active `DependencyGraph` from the project manager so dependency names can be resolved, and obtains the artifact cache for artifact validation.
+2. **WebSocket receiver (`backend/setta/websockets/msg_handlers/python_script_receiver.py`)**
+   - Confirms the websocket is registered for the project and rejects empty
+     payloads.
+   - Loads the project manager + dependency graph
+     (`manager.gen_code[project_config_id].dep_graph`); missing graphs return a
+     `project_state_unavailable` error.
+   - Resolves dependencies and artifacts; errors are returned as
+     `WebsocketMsgListenerError` with specific codes.
 
-3. **Dependency + artifact resolution (backend/setta/listeners/listener_frontend_emit_resolver.py)**
-   - `ListenerFrontendEmitResolver.resolve` maps each sanitized dependency string to its `BaseDependencyKeyUnion` using the graph’s `full_path_name_to_dep_key` lookup.
-   - Expected value types come from the node metadata. The resolver currently coerces literal text/param values, Base64 section payloads, and file-read strings; unsupported dependencies throw loud errors so caller scripts immediately see failures.
-   - `resolve_artifact_updates` normalizes artifact ids, ensures requested artifact types match anything already cached at that path, and returns typed unions ready for application.
+3. **Dependency + artifact resolution (`backend/setta/listeners/listener_frontend_emit_resolver.py`)**
+   - Maps sanitized names to dependency keys via
+     `DependencyGraph.full_path_name_to_dep_key`.
+   - Infers expected value type from the node value or section type:
+     - Literal: section params, callable sections, TextBlock sections.
+     - Base64: Draw + Image sections.
+     - FileRead: dependencies whose current value type is FileRead.
+   - Normalizes artifact paths and enforces cached type consistency.
 
-4. **Backend application (backend/setta/project_state/base_project_manager.py & helpers)**
-   - `BaseProjectManager.apply_listener_emit_updates` runs inside the manager’s serialized queue via `@enqueue_method`, so listener updates cannot race with other mutations.
-   - Dependency updates are applied directly to the authoritative `ProjectStateSingleConfig` via `apply_listener_dependency_updates`. As of today, section params and TextBlock sections are supported; targeting other section types raises `ListenerDependencyUpdateError`, keeping invariants explicit.
-   - Artifact updates go through `apply_listener_artifact_updates`, which normalizes ids, writes them into the in-memory artifact cache, and returns the payloads that should be broadcast.
+4. **Backend application (`backend/setta/project_state/base_project_manager.py`)**
+   - `apply_listener_emit_updates` runs through the serialized queue
+     (`@enqueue_method`).
+   - Dependency updates call `apply_listener_dependency_updates`:
+     - Supported: `SectionParamDependencyKey` (literal) and
+       `SectionDependencyKey` for TextBlock sections.
+     - Other dependency types raise `ListenerDependencyUpdateError`; Image
+       sections currently raise `NotImplementedError`.
+   - Artifact updates call `apply_listener_artifact_updates`, which normalizes
+     ids and caches artifacts in memory.
 
-5. **Broadcasts and feedback**
-   - After dependency updates, `update_and_broadcast_project_state` reuses the normal websocket fan-out so the frontend receives the same snapshot shape it expects everywhere else.
-   - If artifacts were touched, `broadcast_artifacts_update` sends the usual `update` message with the resolved artifact unions.
-   - Any resolver/project-manager failure is turned into `WebsocketMsgListenerError` responses with specific error codes (unknown dependency, invalid value, unsupported artifact, etc.), so listener scripts can log or retry with corrected data.
+5. **Broadcasts**
+   - Dependency updates trigger `update_and_broadcast_project_state` (full
+     update + LSP sync).
+   - Artifact updates trigger `broadcast_artifacts_update`.
+   - Artifact-only emits do not rebuild or broadcast project state.
+
+## Error codes returned to listeners
+- `listener_not_registered`
+- `project_config_mismatch`
+- `listener_emit_invalid_payload`
+- `project_state_unavailable`
+- `listener_emit_unknown_dependency`
+- `listener_emit_invalid_value`
+- `listener_emit_unsupported_dependency`
+- `listener_emit_invalid_artifact_update`
+- `listener_emit_unsupported_artifact_update`
+- `listener_emit_failed`
+- `listener_emit_artifact_update_failed`
 
 ## Practical implications
-- Listeners now specify dependencies using the same sanitized identifiers they used when declaring `@listener.listen` dependencies—no knowledge of project-state internals or dependency keys is required.
-- Since the project manager mutates canonical state before broadcasting, future listeners or UI refreshes see the emitted changes without needing a dedicated "listener forward" channel.
-- Artifact updates are fully typed (`{type, id, value}`); listeners can seed brand-new artifacts as long as they comply with the union schema, and the backend normalizes paths so cached artifacts remain consistent.
-- The unit tests under `tests/websockets/test_python_script_receiver.py` and `tests/project_state/test_listener_artifact_updates.py` exercise resolver validation, state mutation, and error paths, ensuring regressions are caught before release.
+- Use the sanitized dependency strings from `@listener.listen`; unresolved names
+  fail fast.
+- Dependency updates are intentionally narrow today (params + TextBlock only).
+- Use artifact updates for Draw/Image payloads instead of dependency updates.
+- Artifact updates stay in memory until a save writes them to disk.
+- Tests covering this path live in `tests/websockets/test_python_script_receiver.py`,
+  `tests/project_state/test_listener_emit_updates.py`, and
+  `tests/project_state/test_listener_artifact_updates.py`.

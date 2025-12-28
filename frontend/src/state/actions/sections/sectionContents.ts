@@ -3,25 +3,27 @@ import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
+  getParamDisplayName,
 } from "../sectionInfos";
 
 export function paramNameFromPathArray(
-  codeObjs: ZustandProjectState["codeObjs"],
+  state: ZustandProjectState,
+  sectionId: string,
   currPath: Array<string>,
 ) {
   if (currPath.length === 1) {
-    return codeObjs[currPath[0]].name;
-  } else {
-    let name = "";
-    for (const [pathIdx, currId] of currPath.entries()) {
-      if (pathIdx === 0) {
-        name = codeObjs[currId].name;
-      } else {
-        name += `["${codeObjs[currId].name}"]`;
-      }
-    }
-    return name;
+    return getParamDisplayName(state, sectionId, currPath[0]);
   }
+  let name = "";
+  for (const [pathIdx, currId] of currPath.entries()) {
+    const displayName = getParamDisplayName(state, sectionId, currId);
+    if (pathIdx === 0) {
+      name = displayName;
+    } else {
+      name += `["${displayName}"]`;
+    }
+  }
+  return name;
 }
 
 export function getAllVisibleParamsInSection(

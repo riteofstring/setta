@@ -122,7 +122,7 @@ export function justMoveANode(id: string, position: Position) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function getNewNodes() {
+function getNewNodes() {
   return _.cloneDeep(useNodeInternals.getState().x);
 }
 
