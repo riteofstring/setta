@@ -20,9 +20,11 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.terminals.terminals import Terminals
-from setta.utils.constants import C, require_storage_root, require_workspace_root
+from setta.utils.constants import C
 from setta.utils.init_status import BackendInitializationStatus
 from setta.websockets.listener_registry import ListenerRegistry
+from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
+from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.realtime_event_hub import RealtimeEventHub
@@ -58,8 +60,6 @@ class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
-        self.workspace_root = require_workspace_root()
-        self.storage_root = require_storage_root()
         self.dbe = DBE(C.SETTA_FILES_FOLDER)
         seed_llm_config_example_file(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
@@ -70,6 +70,7 @@ class SettaFastAPIState:
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+        self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
 
         self.lsps: LSPServers = self._defer_attr("lsps")
@@ -87,6 +88,7 @@ class SettaFastAPIState:
         self.wmh_frontend_receiver: WMHFrontendReceiver = self._defer_attr(
             "wmh_frontend_receiver"
         )
+        self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
         self.wmh_python_script_receiver: WMHPythonScriptReceiver = self._defer_attr(
             "wmh_python_script_receiver"
         )
@@ -144,9 +146,7 @@ class SettaFastAPIState:
 
             self.init_status.record("Loading project state")
             await self._maybe_delay()
-            self.lsps = LSPServers(
-                self.settings_file.settings.languageServer, self.workspace_root
-            )
+            self.lsps = LSPServers(self.settings_file.settings.languageServer)
             self.lsp_writers = LSPWriters(self.lsps)
             project_manager = ProjectManager(
                 self.lsp_writers,

@@ -35,7 +35,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
     WebsocketConnectionType,
 )
-from setta.utils.constants import configure_storage_root, configure_workspace_root
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -117,8 +116,6 @@ def _build_receiver_fixture(
     python_script_sender = _StubPythonScriptSender()
     project_manager_switcher = _StubProjectManagerSwitcher(states)
     temp_dir = tempfile.TemporaryDirectory()
-    configure_workspace_root(Path(temp_dir.name))
-    configure_storage_root(Path(temp_dir.name))
     dbe = DBE(Path(temp_dir.name))
     if temporary_to_canonical:
         canonical_to_temporary = {

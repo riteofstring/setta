@@ -94,8 +94,10 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             path.mkdir(parents=True, exist_ok=True)
 
         async with AsyncExitStack() as stack:
-            stack.enter_context(patch.object(C, "WORKSPACE_ROOT", root))
-            stack.enter_context(patch.object(C, "STORAGE_ROOT", root))
+            stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
+            stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
+            stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
+            stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
@@ -106,7 +108,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             dbe = DBE(setta_root)
             settings_file = SettingsFile(dbe, frontend_sender)
 
-            lsps = LSPServers(settings_file.settings.languageServer, root)
+            lsps = LSPServers(settings_file.settings.languageServer)
             lsp_writers = LSPWriters(lsps)
             lsp_readers = LSPReaders(lsps, frontend_sender)
 
@@ -184,10 +186,13 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         for path in (code_folder, artifacts_folder, backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
+        _populate_project_fixture_files(sample_root, setta_root)
+
         async with AsyncExitStack() as stack:
-            stack.enter_context(patch.object(C, "WORKSPACE_ROOT", root))
-            stack.enter_context(patch.object(C, "STORAGE_ROOT", root))
-            _populate_project_fixture_files(sample_root, setta_root)
+            stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
+            stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
+            stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
+            stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
@@ -198,7 +203,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             dbe = DBE(setta_root)
             settings_file = SettingsFile(dbe, frontend_sender)
 
-            lsps = LSPServers(settings_file.settings.languageServer, root)
+            lsps = LSPServers(settings_file.settings.languageServer)
             lsp_writers = LSPWriters(lsps)
             lsp_readers = LSPReaders(lsps, frontend_sender)
 

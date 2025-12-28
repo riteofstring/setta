@@ -24,7 +24,6 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeSectionImpl,
 )
-from setta.utils.constants import configure_storage_root, configure_workspace_root
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -49,8 +48,6 @@ class CodeFilesTests(unittest.TestCase):
         asyncio.set_event_loop(self._loop)
         self._tmpdir = tempfile.TemporaryDirectory()
         root = Path(self._tmpdir.name).resolve()
-        configure_workspace_root(root)
-        configure_storage_root(root)
 
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager)
@@ -289,8 +286,6 @@ class CodeWriteToDiskTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmpdir = tempfile.TemporaryDirectory()
         root = Path(self._tmpdir.name).resolve()
-        configure_workspace_root(root)
-        configure_storage_root(root)
 
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)

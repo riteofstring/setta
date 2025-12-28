@@ -11,6 +11,7 @@ import {
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
@@ -35,10 +36,6 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
-import {
-  getWebsocketAuthProtocol,
-  getWebsocketBaseUrl,
-} from "utils/runtimeConfig";
 import {
   receiveLLMApiKeysUpdate,
   receiveLLMConfigUpdate,
@@ -67,13 +64,10 @@ let wss: WebSocket | null;
 let wasOpen = false;
 
 export const openWebSocket = _.debounce(
-  (pathname: string) => {
+  (pathname) => {
     if (!wss) {
-      const websocketBaseUrl = getWebsocketBaseUrl();
-      const authProtocol = getWebsocketAuthProtocol();
       wss = new WebSocket(
-        `${websocketBaseUrl}${RouteEnum.WEBSOCKET_FRONTEND}`,
-        [authProtocol],
+        `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
       );
       wss.addEventListener("open", async () => {
         sendCurrentAddress(pathname);

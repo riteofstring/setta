@@ -1,18 +1,15 @@
 import logging
+import os
 import threading
 import time
+import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import uvicorn
 
-from setta.auth import configure_auth_token, load_auth_token_from_file
 from setta.logging.config import configure_logging
-from setta.session import (
-    bootstrap_session,
-    update_session_metadata_when_ready,
-)
-from setta.utils.constants import C, configure_storage_root, configure_workspace_root
+from setta.utils.constants import IS_DEV_MODE, C
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -20,12 +17,6 @@ if TYPE_CHECKING:
 _READY_POLL_INTERVAL_SECONDS = 0.05
 _DEFAULT_READY_TIMEOUT_SECONDS = 15.0
 _DEFAULT_JOIN_TIMEOUT_SECONDS = 5.0
-
-
-def _resolve_version() -> str:
-    from setta import __version__
-
-    return __version__
 
 
 class BackendServerHandle:
@@ -83,86 +74,43 @@ class BackendServerHandle:
 
 def start_backend(
     *,
-    session_id: str,
-    token_file: Path,
-    workspace_root: Path,
-    storage_root: Path | None = None,
     host: str | None = None,
     port: int | None = None,
-    uds: Path | None = None,
-    session_root: Path | None = None,
     log_level: str | int | None = None,
     wait_for_ready: bool = True,
     ready_timeout: float = _DEFAULT_READY_TIMEOUT_SECONDS,
+    open_browser: bool | str = False,
 ) -> BackendServerHandle:
     """Start the packaged FastAPI backend in a background thread.
 
     Parameters
     ----------
-    session_id:
-        Session identifier used for run metadata storage.
-    token_file:
-        Path to the token file used for auth.
-    workspace_root:
-        Workspace root for the agent session.
-    storage_root:
-        Root directory for setta_files storage (defaults to the session run dir).
     host / port:
         Override the bind address (defaults match the CLI).
-    uds:
-        Optional Unix domain socket path to bind instead of TCP.
-    session_root:
-        Override the session root (defaults to ~/.setta/run).
     log_level:
         Optional logging level override passed to the shared logging bootstrap.
     wait_for_ready:
         When True, block until the server reports startup finished.
     ready_timeout:
         Maximum seconds to wait for readiness when wait_for_ready is True.
+    open_browser:
+        When True open the root frontend URL; when a string, open that URL.
     """
 
-    if not session_id:
-        raise ValueError("session_id is required to start the backend")
-    if workspace_root is None:
-        raise ValueError("workspace_root is required to start the backend")
+    _ensure_frontend_bundle_available()
+
     resolved_host = host or C.DEFAULT_HOST
-    resolved_port = C.DEFAULT_PORT if port is None else port
+    resolved_port = port or C.DEFAULT_PORT
     C.HOST = resolved_host
     C.PORT = resolved_port
-    session_bootstrap = bootstrap_session(
-        session_id=session_id,
-        token_file=token_file,
-        uds_path=uds,
-        run_root=session_root,
-        host=resolved_host,
-        port=resolved_port,
-        version=_resolve_version(),
-        workspace_root=workspace_root,
-        storage_root=storage_root,
-    )
-    configure_workspace_root(session_bootstrap.metadata_base.workspace_root)
-    configure_storage_root(session_bootstrap.metadata_base.storage_root)
 
-    configure_auth_token(load_auth_token_from_file(session_bootstrap.layout.token_file))
-
-    resolved_level = configure_logging(
-        level_override=log_level,
-        log_file=str(session_bootstrap.layout.log_file),
-        force=True,
-    )
+    resolved_level = configure_logging(level_override=log_level)
     uvicorn_level = logging.getLevelName(resolved_level).lower()
 
-    if session_bootstrap.layout.uds_path and session_bootstrap.layout.uds_path.exists():
-        session_bootstrap.layout.uds_path.unlink()
     config = uvicorn.Config(
         "setta.server:app",
         host=resolved_host,
         port=resolved_port,
-        uds=(
-            str(session_bootstrap.layout.uds_path)
-            if session_bootstrap.layout.uds_path
-            else None
-        ),
         log_level=uvicorn_level,
         log_config=None,
         timeout_graceful_shutdown=1,
@@ -185,24 +133,39 @@ def start_backend(
             raise TimeoutError(
                 f"Setta backend did not become ready within {ready_timeout} seconds."
             )
-        update_session_metadata_when_ready(
-            server,
-            session_bootstrap.layout.session_file,
-            session_bootstrap.metadata_base,
-            session_bootstrap.listen_info,
-        )
-    else:
-        monitor_thread = threading.Thread(
-            target=update_session_metadata_when_ready,
-            args=(
-                server,
-                session_bootstrap.layout.session_file,
-                session_bootstrap.metadata_base,
-                session_bootstrap.listen_info,
-            ),
-            name="setta-session-metadata",
-            daemon=True,
-        )
-        monitor_thread.start()
+
+    target_url = _resolve_frontend_url(open_browser, resolved_host, resolved_port)
+    if target_url:
+        webbrowser.open(target_url)
 
     return handle
+
+
+def _resolve_frontend_url(
+    open_browser: bool | str,
+    host: str,
+    port: int,
+) -> str | None:
+    if isinstance(open_browser, str):
+        return open_browser
+    if open_browser:
+        return f"http://{host}:{port}"
+    return None
+
+
+def _ensure_frontend_bundle_available() -> None:
+    if IS_DEV_MODE:
+        return
+
+    static_dir = Path(__file__).resolve().parent / "static" / "frontend"
+    if static_dir.exists():
+        return
+    env_hint = os.environ.get("SETTA_DEV_MODE")
+    msg = (
+        "Compiled frontend assets are missing at "
+        f"{static_dir}. Run `./build.sh` to bundle the UI "
+        "or set SETTA_DEV_MODE=true before importing Setta."
+    )
+    if env_hint:
+        msg += f" (SETTA_DEV_MODE={env_hint!r})"
+    raise RuntimeError(msg)

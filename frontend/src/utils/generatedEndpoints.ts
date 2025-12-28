@@ -183,18 +183,6 @@ export async function route_type_check(
   return await post("/typeCheck", x);
 }
 
-async function route_get_python_environments(
-  x: gt.ListPythonEnvironmentsRequestInput,
-): Promise<ResponseDataAndStatus<gt.ListPythonEnvironmentsResponse>> {
-  return await post("/getPythonEnvironments", x);
-}
-
-async function route_set_language_server_interpreter(
-  x: gt.SetLanguageServerInterpreterRequestInput,
-): Promise<ResponseDataAndStatus<gt.LanguageServerSettings>> {
-  return await post("/setLanguageServerInterpreter", x);
-}
-
 export async function route_get_llm_config(): Promise<
   ResponseDataAndStatus<gt.AllLLMConfigs>
 > {

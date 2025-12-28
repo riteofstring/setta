@@ -2,8 +2,6 @@ import asyncio
 import logging
 from collections import defaultdict
 
-from setta.types.settings_state import LanguageServerSettings
-
 logger = logging.getLogger(__name__)
 
 
@@ -11,7 +9,7 @@ class LanguageServer:
     def __init__(
         self,
         workspace_folder,
-        settings: LanguageServerSettings,
+        settings,
         name,
     ):
         # Create folders if they don't exist
@@ -19,11 +17,14 @@ class LanguageServer:
         self.workspace_folder = workspace_folder
         self.server = None
         self.init_properties()
-        self.settings = settings.as_lsp_settings()
+        if not isinstance(settings, dict):
+            logger.warning(
+                "warning: your language server settings is not an object, so it will have no effect"
+            )
+            self.settings = {}
+        else:
+            self.settings = settings
         self.name = name
-
-    def update_settings(self, settings: LanguageServerSettings) -> None:
-        self.settings = settings.as_lsp_settings()
 
     async def start(self):
         logger.debug("Starting %s language server", self.name)

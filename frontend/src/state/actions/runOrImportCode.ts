@@ -15,6 +15,7 @@ export async function runCodeBlock(sectionId: string | null) {
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
+    cliId: null,
   });
 }
 

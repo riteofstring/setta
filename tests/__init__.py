@@ -1,22 +1,12 @@
-import atexit
+from pathlib import Path
 import logging
 import os
 import sys
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 _ROOT_DIR = Path(__file__).resolve().parents[1]
 _BACKEND_PATH = str(_ROOT_DIR / "backend")
 if _BACKEND_PATH not in sys.path:
     sys.path.insert(0, _BACKEND_PATH)
-
-from setta.utils.constants import configure_storage_root, configure_workspace_root
-
-_TEST_ROOT = TemporaryDirectory()
-_DEFAULT_ROOT = Path(_TEST_ROOT.name)
-configure_workspace_root(_DEFAULT_ROOT)
-configure_storage_root(_DEFAULT_ROOT)
-atexit.register(_TEST_ROOT.cleanup)
 
 
 class _IgnoreAsyncioSlowCallback(logging.Filter):

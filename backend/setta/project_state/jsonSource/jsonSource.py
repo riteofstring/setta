@@ -218,7 +218,7 @@ class JSONSource:
                 if (
                     not isinstance(impl, BaseDictSectionImpl)
                     or not impl.isJsonSource
-                    or normalize_path(variant.name) != coreUpdate.relPath
+                    or variant.name != str(coreUpdate.relPath)
                 ):
                     continue
 

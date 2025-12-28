@@ -4,7 +4,6 @@ import inspect
 import logging
 from ast import literal_eval
 from dataclasses import dataclass
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -22,7 +21,6 @@ from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
-from setta.auth import WEBSOCKET_PROTOCOL_PREFIX, load_auth_token_from_file
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     Node,
@@ -201,18 +199,11 @@ class SettaListener:
         host: str = C.HOST,
         port: int = C.PORT,
         reconnect_delay: float = 5.0,
-        token: str | None = None,
-        token_file: Path | None = None,
     ) -> None:
         if project_name is None and project_config_id is None:
             raise ValueError("SettaListener requires project_name or project_config_id")
         if refresh_concurrency < 1:
             raise ValueError("refresh_concurrency must be >= 1")
-        resolved_token = token
-        if resolved_token is None and token_file is not None:
-            resolved_token = load_auth_token_from_file(token_file)
-        if not resolved_token:
-            raise ValueError("SettaListener requires an auth token")
         self._project_name = project_name
         self._project_config_id: "ID | None" = project_config_id
         self._use_temporary_ids = use_temporary_ids
@@ -222,7 +213,6 @@ class SettaListener:
         self._host = host
         self._port = port
         self._reconnect_delay = reconnect_delay
-        self._token = resolved_token
         self._stop_event = asyncio.Event()
         self._socket_id = uuid4().hex
         self._registration_pending = False
@@ -404,16 +394,12 @@ class SettaListener:
     async def _connect_once(self) -> None:
         """Open the websocket once and process messages until it closes."""
         endpoint = self.websocket_endpoint
-        protocol = f"{WEBSOCKET_PROTOCOL_PREFIX}{self._token}"
         with logging_context(
             listener_id=self._log_identifier,
             listener_endpoint=endpoint,
         ):
             logger.debug("Listener %s connecting to %s", self._log_identifier, endpoint)
-            async with websockets.connect(
-                endpoint,
-                subprotocols=[protocol],
-            ) as websocket:
+            async with websockets.connect(endpoint) as websocket:
                 logger.info("Listener %s connected", self._log_identifier)
                 self._websocket = websocket
                 await self._send_bootstrap_init()
