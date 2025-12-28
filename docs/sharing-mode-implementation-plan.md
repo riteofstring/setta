@@ -249,9 +249,19 @@ Implemented:
   false or share LLM is not initialized.
 - `/llm/config` and `/llm/apiKeys` updates are blocked in share mode.
 
-## 10) Frontend share mode UX
-Status: completed. Share session bootstrap, websocket scoping, and UI gating
-are in place.
+## 10) Share access + auth model
+Status: in progress. Auth middleware still blocks share endpoints; share mode
+currently requires a bootstrap token.
+- Decide on public-by-default share access vs tokenized share URLs for OSS.
+- Either exempt share routes from auth in `backend/setta/middleware/auth.py`
+  when `SETTA_SHARE_MODE` is true, or run a share-only app without auth
+  middleware.
+- Ensure websocket access (`/share/frontend` + listener websockets) follows the
+  same policy as HTTP routes.
+
+## 11) Frontend share mode UX
+Status: in progress. Share session bootstrap, websocket scoping, and UI gating
+are in place, but IDE-side publish/redeploy UX is still missing.
 Implemented:
 - Added `/share/:deploymentId` routing with share wrapper/container components.
 - Added share session bootstrap (`route_create_share_session` + state fetch) and
@@ -261,8 +271,18 @@ Implemented:
 - UI controls are gated by policy (run, param edits, variant/view edits, layout
   moves/resizes, and lock-position edits).
 - Header shows a "Sharing Mode" indicator and share search behavior.
+Remaining:
+- Publish/redeploy UI: add an IDE entry point (header or Project menu).
+- Publish/redeploy UI: modal with policy toggles (allowParamChanges,
+  allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP).
+- Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
+  and run snapshot mode.
+- Publish/redeploy UI: call `route_publish_share_deployment` and surface errors.
+- Publish/redeploy UI: show deployment id + share URL with copy/open actions and
+  optionally list recent deployments.
+- Publish/redeploy UI: show instructions when the share backend is not running.
 
-## 11) Generated endpoints + types
+## 12) Generated endpoints + types
 Status: completed. Share router registered in `backend/setta/server.py`, and
 frontend bindings include share session/state endpoints.
 - Register share routes in `backend/setta/types/routes.py` and include share
@@ -271,7 +291,7 @@ frontend bindings include share session/state endpoints.
   - `source activate.sh && cd frontend && pnpm generate`
 - Do not manually edit anything under `backend/setta/types/generated`.
 
-## 12) Tests + verification
+## 13) Tests + verification
 Status: completed. Added publish deployment tests, share runtime boot tests,
 policy enforcement tests, share session/state tests, share run snapshot tests,
 cleanup tests, and share websocket scoping tests.
@@ -321,3 +341,11 @@ Implemented:
   query handling for share sessions.
 - `tests/share/test_chat_manager.py` covers share session chat isolation.
 - `tests/llm/test_chat_store.py` covers `MemoryChatStore` persistence behavior.
+
+## Open questions
+- Should OSS share mode be open-by-default or require auth/bootstrap tokens?
+- What is the default share policy for new deployments?
+- Should terminals/run remain disabled by default in share mode?
+- Do we want an IDE-side "record run" toggle for run snapshot mode?
+- Should share deployments remain strictly write-free (settings files are
+  currently written on share boot)?
