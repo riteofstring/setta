@@ -101,6 +101,60 @@ class SessionRegistryTests(unittest.TestCase):
 
             self.assertFalse(session_dir.exists())
 
+    def test_is_session_process_setta_detects_console_script_name(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            script_path = root / "setta"
+            script_path.write_text("import time\n\ntime.sleep(60)\n", encoding="utf-8")
+
+            process = subprocess.Popen(
+                [sys.executable, str(script_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.addCleanup(process.wait)
+            self.addCleanup(process.terminate)
+
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+            )
+
+            self.assertTrue(registry.is_session_process_setta(session))
+
+    def test_is_session_process_setta_detects_script_py_name(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            workspace = root / "workspace"
+            workspace.mkdir()
+            script_path = root / "setta-script.py"
+            script_path.write_text("import time\n\ntime.sleep(60)\n", encoding="utf-8")
+
+            process = subprocess.Popen(
+                [sys.executable, str(script_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.addCleanup(process.wait)
+            self.addCleanup(process.terminate)
+
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61235,
+                pid=process.pid,
+            )
+
+            self.assertTrue(registry.is_session_process_setta(session))
+
     def test_load_sessions_tracks_suspicious_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             sessions_root = Path(temp_dir) / "sessions"

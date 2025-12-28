@@ -211,9 +211,13 @@ class SessionRegistry:
             return False
         if not cmdline:
             return False
+        script_basenames = {"setta", "setta.exe", "setta-script.py"}
         first = cmdline[0].lower()
-        if os.path.basename(first) in {"setta", "setta.exe"}:
+        if os.path.basename(first) in script_basenames:
             return True
+        for item in cmdline[1:]:
+            if os.path.basename(item).lower() in script_basenames:
+                return True
         lowered = [item.lower() for item in cmdline]
         for idx, item in enumerate(lowered):
             if item == "-m" and idx + 1 < len(lowered) and lowered[idx + 1] == "setta":
