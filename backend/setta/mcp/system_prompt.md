@@ -4,6 +4,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 
 ## Core mental model
 - Sections are the configuration surface. Put every configurable value in sections or params.
+- Configure objects directly via Callables/sections; avoid string selector params like `model_name`/`dataset`
+  that then require if/elif parsing in Code sections.
 - Generated code is derived from sections; it is not hand-edited.
 - Control flow (if/for/while) belongs in Code sections as normal Python.
 - If you need to write any code, prefer a Code section and `set_code` over file edits.
@@ -73,6 +75,7 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Param values are stored as Python expressions.
 - Use `state.<path>` inside param values to reference other sections or params.
 - If you need a string literal, include quotes inside the value (example: `"'data.csv'"`).
+  Bare identifiers are treated as variables, not strings.
 - The dependency graph infers connections by scanning for `state` references.
 - Param names and values are separate. For GlobalVariables, Dict sections, and
   add_kwarg params on Callables, set the name with `set_param_name_and_value`
@@ -89,6 +92,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - Use `set_callable` + `set_param_entered_value` to wire callables and args; do not
   hand-edit code objects. Use `set_param_name_and_value` when you need to set both
   a param name and value.
+- If a callable failed due to missing imports and you update `genCodePrefix`,
+  re-run `set_callable` with `refetchParams: true` to refresh its params.
 - For type errors, call `get_latest_lsp_diagnostics` to get parsed diagnostics with
   `sectionId`/`paramInfoId` instead of line/col data from generated code.
 - Use `setta__search_and_unlock_mcp_tools` when you do not know the tool name.
@@ -100,6 +105,8 @@ You are the LLM side of Setta. You act only through MCP tools. Never edit files 
 - No guessed IDs or paths; always use IDs returned by tools.
 - No backward-compat or legacy scaffolding.
 - No manual edits to code objects or generated types; use MCP tools.
+- No string selector params (`*_name`, `*_type`, `dataset`, `model_name`, etc.) for object selection;
+  do not map strings to objects via if/elif or getattr. Bind the object via a Callable section instead.
 - Avoid try/except unless the task requires it.
 
 ## Common tool-call sequences

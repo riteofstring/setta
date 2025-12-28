@@ -80,6 +80,8 @@ def process_gen_code_diagnostic(
         )
     elif is_undefined_symbol_diagnostic(d):
         return process_undefined_symbol(position, message, code_generator, range_index)
+    elif is_syntax_error_diagnostic(d):
+        return process_syntax_error(position, message, code_generator, range_index)
     return []
 
 
@@ -130,7 +132,39 @@ def is_undefined_symbol_diagnostic(d: LSPTypes.Diagnostic) -> bool:
     return any(pattern in message for pattern in undefined_message_patterns)
 
 
+def is_syntax_error_diagnostic(d: LSPTypes.Diagnostic) -> bool:
+    code = d.code if isinstance(d.code, str) else ""
+    if code in {"reportSyntaxError"}:
+        return True
+
+    message = d.message.lower()
+    syntax_message_patterns = (
+        "invalid syntax",
+        "syntax error",
+        "unexpected indent",
+        "expected an indented block",
+        "unexpected eof",
+        "unterminated string",
+        "unterminated string literal",
+        "invalid character",
+        "expected expression",
+    )
+    return any(pattern in message for pattern in syntax_message_patterns)
+
+
 def process_undefined_symbol(
+    position: SettaLSPPosition,
+    message: str,
+    code_generator: PythonCodeGenerator,
+    range_index: RangeIndex,
+):
+    dep_key = find_dep_key_for_range(position, code_generator, range_index)
+    if not dep_key:
+        return []
+    return [get_message_with_ids(message, dep_key)]
+
+
+def process_syntax_error(
     position: SettaLSPPosition,
     message: str,
     code_generator: PythonCodeGenerator,
