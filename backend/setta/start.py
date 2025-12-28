@@ -12,7 +12,7 @@ import time
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import click
 import uvicorn
@@ -126,6 +126,10 @@ def _run_ssh_command(
 
 def _build_remote_shell_command(shell: str, inner_command: str) -> str:
     return f"{shell} -lc {shlex.quote(inner_command)}"
+
+
+def _format_remote_path(path: PurePath) -> str:
+    return path.as_posix()
 
 
 def _resolve_remote_shell(ssh_target: str, ssh_args: list[str]) -> str:
@@ -369,24 +373,25 @@ def _start_remote_setta(
         raise click.ClickException(
             "Remote host missing nohup/setsid for background start. Use --remote-cmd."
         )
-    log_file = C.RUN_LOGS_FOLDER / "nohup.out"
+    remote_logs_dir = _format_remote_path(C.RUN_LOGS_FOLDER)
+    remote_log_file = f"{remote_logs_dir}/nohup.out"
     start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} --no-open"
     quoted_start = shlex.quote(start_cmd)
     if runner == "nohup":
         launch = (
             f"cd {shlex.quote(workspace)} && "
-            f"mkdir -p {shlex.quote(str(C.RUN_LOGS_FOLDER))} && "
-            f"nohup {shell} -lc {quoted_start} > {shlex.quote(str(log_file))} 2>&1 < /dev/null &"
+            f"mkdir -p {shlex.quote(remote_logs_dir)} && "
+            f"nohup {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
         )
     else:
         launch = (
             f"cd {shlex.quote(workspace)} && "
-            f"mkdir -p {shlex.quote(str(C.RUN_LOGS_FOLDER))} && "
-            f"setsid {shell} -lc {quoted_start} > {shlex.quote(str(log_file))} 2>&1 < /dev/null &"
+            f"mkdir -p {shlex.quote(remote_logs_dir)} && "
+            f"setsid {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
         )
     if verbose:
         click.echo(f"Remote start runner: {runner}")
-        click.echo(f"Remote start log: {log_file}")
+        click.echo(f"Remote start log: {remote_log_file}")
         click.echo(f"Remote start command: {launch}")
     inner = launch
     remote_command = _build_remote_shell_command(shell, inner)

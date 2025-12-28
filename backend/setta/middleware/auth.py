@@ -39,7 +39,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         if request.method == "OPTIONS":
             return await call_next(request)
-        if request.url.path in AUTH_EXEMPT_PATHS:
+        if _is_auth_exempt_path(request.url.path):
             return await call_next(request)
 
         session_info = load_current_session_secret()
@@ -73,3 +73,11 @@ def _unauthorized_response(request: Request) -> Response:
     if request.url.path.startswith(Route.PREFIX.value):
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     return HTMLResponse(UNAUTHORIZED_HTML, status_code=401)
+
+
+def _is_auth_exempt_path(path: str) -> bool:
+    if path in AUTH_EXEMPT_PATHS:
+        return True
+    if path.endswith("/"):
+        return path.rstrip("/") in AUTH_EXEMPT_PATHS
+    return False

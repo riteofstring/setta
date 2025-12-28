@@ -1,6 +1,7 @@
 import unittest
+from pathlib import PureWindowsPath
 
-from setta.start import _build_ssh_tunnel_command
+from setta.start import _build_ssh_tunnel_command, _format_remote_path
 from setta.types.routes import Route
 from setta.utils.network import (
     build_bootstrap_urls,
@@ -12,7 +13,7 @@ from setta.utils.network import (
 class StartupHelperTests(unittest.TestCase):
     def test_format_host_for_url_rewrites_wildcards(self) -> None:
         self.assertEqual(format_host_for_url("0.0.0.0"), "127.0.0.1")
-        self.assertEqual(format_host_for_url("::"), "127.0.0.1")
+        self.assertEqual(format_host_for_url("::"), "[::1]")
 
     def test_format_host_for_url_brackets_ipv6(self) -> None:
         self.assertEqual(format_host_for_url("2001:db8::1"), "[2001:db8::1]")
@@ -38,6 +39,10 @@ class StartupHelperTests(unittest.TestCase):
         self.assertIn("10.0.0.5:61234", command)
         ipv6_command = _build_ssh_tunnel_command("2001:db8::1", 61235)
         self.assertIn("[2001:db8::1]:61235", ipv6_command)
+
+    def test_format_remote_path_uses_posix_separators(self) -> None:
+        windows_path = PureWindowsPath("setta_files\\run\\logs")
+        self.assertEqual(_format_remote_path(windows_path), "setta_files/run/logs")
 
 
 if __name__ == "__main__":

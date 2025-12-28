@@ -28,7 +28,7 @@ class LLMConfigMcpUrlTests(unittest.TestCase):
     def test_ensure_setta_mcp_server_url_formats_host(self) -> None:
         cases = [
             ("0.0.0.0", "127.0.0.1"),
-            ("::", "127.0.0.1"),
+            ("::", "[::1]"),
             ("2001:db8::1", "[2001:db8::1]"),
         ]
         for host, expected in cases:

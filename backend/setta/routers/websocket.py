@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 from setta.auth.headers import extract_bearer_token
 from setta.auth.session import load_current_session_secret
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 async def _authenticate_websocket(websocket: WebSocket) -> bool:
     session_info = load_current_session_secret()
     if session_info is None:
-        await websocket.close(code=4401)
+        await _close_unauthorized(websocket)
         return False
     session_metadata, secret = session_info
     cookie_value = websocket.cookies.get(C.AUTH_COOKIE_NAME)
@@ -46,8 +47,14 @@ async def _authenticate_websocket(websocket: WebSocket) -> bool:
         if token_payload is not None:
             return True
 
-    await websocket.close(code=4401)
+    await _close_unauthorized(websocket)
     return False
+
+
+async def _close_unauthorized(websocket: WebSocket) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=4401)
 
 
 async def websocket_route_loop(

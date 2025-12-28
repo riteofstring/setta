@@ -84,6 +84,15 @@ class AuthBootstrapIntegrationTests(unittest.TestCase):
         response.raise_for_status()
         self.assertEqual(response.json(), {"ok": True})
 
+    def test_bootstrap_page_trailing_slash_redirects(self) -> None:
+        response = self.client.get(
+            "/__setta__/bootstrap/",
+            follow_redirects=False,
+        )
+        self.assertIn(response.status_code, {307, 308})
+        location = response.headers.get("location", "")
+        self.assertTrue(location.endswith("/__setta__/bootstrap"))
+
 
 if __name__ == "__main__":
     unittest.main()
