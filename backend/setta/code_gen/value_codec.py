@@ -202,31 +202,28 @@ class PythonValueCodec:
     def _construct_callable(
         self, callable_name: str, deps: dict[BaseDependencyKeyUnion, bool]
     ) -> str:
-        rendered_args = ""
-        idx = 0
+        items: list[str] = []
         for dep_key, is_used in deps.items():
             if not is_used:
                 continue
             node = self.dep_graph.graph[dep_key]
             if not isinstance(node, ParamNode):
                 continue
-            prefix = "" if idx == 0 else ", "
             var_name = self.var_lookup(dep_key)
             passing_style = node.passing_style
             if passing_style == ParameterPassingStyle.ARGS:
-                prefix = "*"
+                items.append(f"*{var_name}")
             elif passing_style == ParameterPassingStyle.KWARGS:
-                prefix = "**"
+                items.append(f"**{var_name}")
             elif passing_style in (
                 ParameterPassingStyle.DEFAULT,
                 ParameterPassingStyle.KEYWORD_ONLY,
             ):
-                prefix += f"{node.name}="
+                items.append(f"{node.name}={var_name}")
+            else:
+                items.append(var_name)
 
-            rendered_args += f"{prefix}{var_name}"
-            idx += 1
-
-        return f"{callable_name}({rendered_args})"
+        return self._format_collection(f"{callable_name}(", ")", items)
 
     def _format_base64_value(self, payload: str) -> str:
         if self.mode is PythonValueMode.LIVE_RUNTIME:
