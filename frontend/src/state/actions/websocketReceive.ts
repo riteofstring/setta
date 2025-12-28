@@ -64,6 +64,7 @@ let wss: WebSocket | null;
 let wasOpen = false;
 let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
+const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 
 export const openWebSocket = _.debounce(
   (pathname: string) => {
@@ -110,7 +111,7 @@ export const openWebSocket = _.debounce(
           wasOpen = false;
           clearAllWebsocketConnections();
           addTemporaryNotification(
-            "Authentication required. Open /__setta__/bootstrap to continue.",
+            `Authentication required. Open ${BOOTSTRAP_URL} to continue.`,
           );
           return;
         }

@@ -19,7 +19,7 @@ Done:
 - `status --list-sessions --json` and `status --delete-session` added to support connect session selection and cleanup (`backend/setta/start.py`).
 - Legacy websocket CLI `setta connect` removed (`backend/setta/websockets/connect.py`).
 - Frontend endpoints/types regenerated to include bootstrap routes (`frontend/src/utils/generatedEndpoints.ts`, `frontend/src/utils/generatedTypes.ts`).
-- Frontend auth handling wired for fetch and websocket auth loss (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`, `frontend/src/utils/c_addresses.ts`).
+- Frontend auth handling wired for fetch and websocket auth loss, with auth-loss notifications pointing to the full bootstrap URL for cross-origin dev (`frontend/src/utils/endpointUtils.ts`, `frontend/src/state/actions/websocketReceive.ts`, `frontend/src/utils/c_addresses.ts`).
 
 Not started yet:
 - None.
@@ -30,8 +30,8 @@ Not started yet:
 - Constants: `backend/setta/utils/constants.py` (host/port, frontend origins).
 - Backend state: `backend/setta/server_state.py` (no session metadata).
 - Frontend boot: `frontend/src/components/Pages/GlobalWrapper.tsx` (polls `backendInitStatus`).
-- Fetch helpers: `frontend/src/utils/endpointUtils.ts` (no cookies).
-- Websockets: `frontend/src/state/actions/websocketReceive.ts` (no auth handling).
+- Fetch helpers: `frontend/src/utils/endpointUtils.ts` (sends cookies with `credentials: "include"`).
+- Websockets: `frontend/src/state/actions/websocketReceive.ts` (auth-close handling points to bootstrap URL).
 - Endpoint generation: `frontend/generation/convert_endpoints.py`, `frontend/src/utils/generatedEndpoints.ts`.
 
 ## New Runtime Artifacts
@@ -279,5 +279,5 @@ Frontend:
 1) DONE: Session registry + token signer + constants.
 2) DONE: Auth middleware + bootstrap routes.
 3) DONE: CLI refactor (`status`, `connect`).
-4) NOT STARTED: Frontend auth handling.
+4) DONE: Frontend auth handling (cookies + websocket auth loss notification).
 5) DONE: Endpoint generation + cleanup.
