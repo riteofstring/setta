@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { forwardRef } from "react";
 import type { ComponentPropsWithoutRef, ElementRef } from "react";
+import { forwardRef } from "react";
 
 type ItemProps = ComponentPropsWithoutRef<typeof DropdownMenu.Item>;
 

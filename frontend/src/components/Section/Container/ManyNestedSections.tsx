@@ -49,12 +49,10 @@ function NestedSectionsWithMargin({ childIds, sectionId, isGroup }) {
     goToSection(sectionId);
   };
 
-  const isHorizontalOrientation = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
-    },
-  );
+  const isHorizontalOrientation = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
+  });
 
   return (
     <div className="flex items-stretch">

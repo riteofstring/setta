@@ -7,8 +7,8 @@ import {
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useEffect, useMemo, useRef } from "react";
 import type { ComponentPropsWithRef, KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   CreateSectionsContextMenuInfo,
@@ -20,6 +20,15 @@ import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
+  const contextMenuItems = useCreateSectionsList();
+
+  function handleCreateSection(menuItem: CreateSectionsContextMenuInfo) {
+    createTopLevelSectionFromImplSpecs(
+      menuItem.implSpecs,
+      screenToFlowPosition({ x, y }),
+    );
+    closeAllContextMenus();
+  }
 
   return (
     <ContextMenuCore
@@ -30,28 +39,32 @@ export function PaneContextMenu() {
     >
       {isOpen ? (
         <PaneContextMenuContents
-          x={x}
-          y={y}
+          contextMenuItems={contextMenuItems}
           onClose={closeAllContextMenus}
+          onCreateSection={handleCreateSection}
         />
       ) : null}
     </ContextMenuCore>
   );
 }
 
+type CreateSectionsContextMenuGroup = {
+  group: string;
+  items: Array<CreateSectionsContextMenuInfo>;
+};
+
 type PaneContextMenuContentsProps = {
-  x: number;
-  y: number;
+  contextMenuItems: Array<CreateSectionsContextMenuGroup>;
   onClose: () => void;
+  onCreateSection: (menuItem: CreateSectionsContextMenuInfo) => void;
 };
 
 function PaneContextMenuContents({
-  x,
-  y,
+  contextMenuItems,
   onClose,
+  onCreateSection,
 }: PaneContextMenuContentsProps) {
   const filterInputRef = useRef<HTMLInputElement | null>(null);
-  const contextMenuItems = useCreateSectionsList();
 
   const allItems = useMemo<AllItemsType<CreateSectionsContextMenuInfo>>(() => {
     return contextMenuItems.map((group) => ({
@@ -69,11 +82,7 @@ function PaneContextMenuContents({
     if (!item) {
       return;
     }
-    createTopLevelSectionFromImplSpecs(
-      item.implSpecs,
-      screenToFlowPosition({ x, y }),
-    );
-    onClose();
+    onCreateSection(item);
   };
 
   const {
@@ -167,12 +176,7 @@ function ContextMenuFilter({
       <div className="absolute left-0 grid select-none place-items-center pl-1">
         <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
       </div>
-      <input
-        {...rest}
-        className={classes}
-        placeholder="Filter"
-        tabIndex={0}
-      />
+      <input {...rest} className={classes} placeholder="Filter" tabIndex={0} />
     </search>
   );
 }
