@@ -104,16 +104,26 @@ Implemented:
   `RedisSessionStore` stub.
 
 ## 5) Policy enforcement
-- Add `SharePolicy` in `backend/setta/types/share_policy.py` (no Pydantic alias use).
-- Enforce policy in share routes and/or inside `ShareProjectManager`:
-  - Params: `set_param_entered_value`, `update_param_impl_config`,
-    `set_param_name_and_value`.
-  - Variants/view modes: create/delete/toggle variant, view mode edits.
-  - Layout: move/resize/viewport/column widths.
-  - Run/terminals: `route_run_code`, terminal websocket endpoints.
-  - Listener emits: `apply_listener_emit_updates`.
-  - LLM/MCP routes.
-- Return 403 with a clear message; broadcast a notification via
+Status: completed. Share policy is loaded from `share_policy.json` and enforced
+across share mode mutations.
+- Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
+- Load the share policy in `backend/setta/project_state/share_project_manager.py`
+  and in the enforcement helpers (`backend/setta/share/policy.py`).
+- Enforce policy in share routes and listeners:
+  - Params: `route_change_param_impl`, `route_update_param_impl_config`,
+    `route_set_param_entered_value` in `backend/setta/routers/project_manager.py`.
+  - Variants/view modes: create/delete/toggle variants + view mode edits in
+    `backend/setta/routers/project_manager.py`.
+  - Layout: move/resize/viewport/column widths and layout/view toggles in
+    `backend/setta/routers/project_manager.py`.
+  - Run/terminals: `route_run_code`, `route_kill_subprocesses`,
+    `route_delete_terminals`, and terminal websocket in
+    `backend/setta/routers/terminals.py`.
+  - Listener emits: `apply_listener_emit_updates` in
+    `backend/setta/project_state/base_project_manager.py`.
+  - LLM routes: `backend/setta/routers/ai.py` + `backend/setta/routers/llm.py`.
+  - `allowedSections` is enforced for section-scoped mutations.
+- Return 403 with a clear message; emit a UI log event via
   `backend/setta/websockets/msg_handlers/frontend_sender.py`.
 
 ## 6) Websocket scoping + realtime events
@@ -141,6 +151,7 @@ Implemented:
   `BaseProjectManager.apply_listener_emit_updates`.
 
 ## 8) Run flow changes
+Status: in progress. Policy gating is done; share run roots/TTL are pending.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
 - Override `create_run_command` in share mode to write into
@@ -148,15 +159,21 @@ Implemented:
 - Add TTL cleanup (background task) for share run output.
 - Gate run and terminal endpoints in `backend/setta/routers/terminals.py`
   against `SharePolicy.allowRun`.
+Implemented:
+- Run/terminal HTTP routes + terminal websocket are blocked when
+  `allowRun` is false.
 
 ## 9) LLM + MCP gating
-Status: in progress. Share boot skips MCP/LLM; policy gating and per-viewer chat store remain.
+Status: in progress. Share boot skips MCP/LLM; LLM policy gating is done; per-viewer chat store and MCP gating remain.
 - Add share policy flags `allowLLM` and `allowMCP` (default false).
 - In share mode initialization, skip `SettaFastMCP`, `MultiMCPClient`, and
   `LLMChatManager` unless enabled.
 - Add an in-memory chat store keyed by share session id so chats are not written
   to `setta_files/chats`.
 - Block `/llm/config` and `/llm/apiKeys` updates in share mode.
+Implemented:
+- LLM routes in `backend/setta/routers/ai.py` and `backend/setta/routers/llm.py`
+  are blocked when `allowLLM` is false.
 
 ## 10) Frontend share mode UX
 - Add a share route in `frontend/src/components/Pages/router.tsx` (for example
@@ -179,7 +196,7 @@ Status: partially complete. Share router registered in `backend/setta/server.py`
 - Do not manually edit anything under `backend/setta/types/generated`.
 
 ## 12) Tests + verification
-Status: partially complete. Added publish deployment tests and share runtime boot tests.
+Status: partially complete. Added publish deployment tests, share runtime boot tests, and policy enforcement tests.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).
@@ -196,3 +213,6 @@ Implemented:
   session isolation, and missing session errors.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
   precedence for HTTP and websocket requests.
+- `tests/share/test_policy.py` covers policy guard helpers.
+- `tests/routers/test_share_policy_routes.py` covers policy enforcement in LLM
+  and run/terminal routes.
