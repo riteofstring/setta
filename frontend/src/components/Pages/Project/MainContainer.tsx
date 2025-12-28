@@ -2,7 +2,10 @@ import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMir
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
-import { useAIFollowViewport, useAIFollowZIndexBoost } from "state/hooks/aiFollow";
+import {
+  useAIFollowViewport,
+  useAIFollowZIndexBoost,
+} from "state/hooks/aiFollow";
 import { useLoadProjectConfig } from "state/hooks/project";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";

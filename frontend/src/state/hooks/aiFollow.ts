@@ -7,14 +7,10 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getSectionIdsForProject } from "state/aiFollowUtils";
 import { getHighestAncestor } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import {
-  useAIFollow,
-  useMisc,
-  useProjectState,
-} from "state/definitions";
+import { getSectionIdsForProject } from "state/aiFollowUtils";
+import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
@@ -24,7 +20,10 @@ function collectAIFollowTopLevelIds(
   toolResultSectionIds: Array<string>,
   parentSectionMap: Record<string, string | null>,
 ): Array<string> {
-  if (toolArgumentSectionIds.length === 0 && toolResultSectionIds.length === 0) {
+  if (
+    toolArgumentSectionIds.length === 0 &&
+    toolResultSectionIds.length === 0
+  ) {
     return [];
   }
 
