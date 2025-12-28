@@ -110,6 +110,7 @@ app = FastAPI(
 
 app.add_middleware(LoggingContextMiddleware)
 app.add_middleware(AuthMiddleware)
+# Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,

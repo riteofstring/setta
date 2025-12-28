@@ -132,6 +132,14 @@ class SessionRegistry:
             raise FileNotFoundError(f"Secret file missing for session {metadata.id}")
         return secret_path.read_bytes()
 
+    def is_session_process_setta(self, metadata: SessionMetadata) -> bool:
+        if metadata.pid <= 0:
+            return False
+        process = self._get_process(metadata.pid)
+        if process is None:
+            return False
+        return self._is_setta_process(process) is True
+
     def _canonicalize_workspace_path(self, workspace_path: Path | str) -> Path:
         if isinstance(workspace_path, Path):
             raw = str(workspace_path)
@@ -194,8 +202,16 @@ class SessionRegistry:
             return False
         if not cmdline:
             return False
+        first = cmdline[0].lower()
+        if os.path.basename(first) in {"setta", "setta.exe"}:
+            return True
         lowered = [item.lower() for item in cmdline]
-        return any("setta" in item for item in lowered)
+        for idx, item in enumerate(lowered):
+            if item == "-m" and idx + 1 < len(lowered) and lowered[idx + 1] == "setta":
+                return True
+            if item.startswith("setta.") or item.startswith("setta:"):
+                return True
+        return False
 
     def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
         try:

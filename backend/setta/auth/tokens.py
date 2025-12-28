@@ -21,17 +21,29 @@ class AuthCookiePayload(BaseModel):
 
 class NonceTracker:
     def __init__(self) -> None:
-        self._consumed: dict[str, set[str]] = {}
+        self._consumed: dict[str, dict[str, int]] = {}
 
-    def is_consumed(self, session_id: str, nonce: str) -> bool:
+    def is_consumed(self, session_id: str, nonce: str, now: int) -> bool:
+        self._prune_session(session_id, now)
         if session_id not in self._consumed:
             return False
         return nonce in self._consumed[session_id]
 
-    def consume(self, session_id: str, nonce: str) -> None:
+    def consume(self, session_id: str, nonce: str, exp: int, now: int) -> None:
+        self._prune_session(session_id, now)
         if session_id not in self._consumed:
-            self._consumed[session_id] = set()
-        self._consumed[session_id].add(nonce)
+            self._consumed[session_id] = {}
+        self._consumed[session_id][nonce] = exp
+
+    def _prune_session(self, session_id: str, now: int) -> None:
+        consumed = self._consumed.get(session_id)
+        if not consumed:
+            return
+        expired = [nonce for nonce, exp in consumed.items() if exp <= now]
+        for nonce in expired:
+            del consumed[nonce]
+        if not consumed:
+            self._consumed.pop(session_id, None)
 
 
 class BootstrapTokenManager:
@@ -56,10 +68,14 @@ class BootstrapTokenManager:
     def consume(
         self, token: str, secret: bytes, now: datetime | None = None
     ) -> BootstrapTokenPayload:
-        payload = self._validate(token, secret, now)
-        if self._nonce_tracker.is_consumed(payload.sessionId, payload.nonce):
+        effective_now = now or datetime.now(timezone.utc)
+        payload = self._validate(token, secret, effective_now)
+        timestamp = int(effective_now.timestamp())
+        if self._nonce_tracker.is_consumed(payload.sessionId, payload.nonce, timestamp):
             raise ValueError("Token has already been consumed")
-        self._nonce_tracker.consume(payload.sessionId, payload.nonce)
+        self._nonce_tracker.consume(
+            payload.sessionId, payload.nonce, payload.exp, timestamp
+        )
         return payload
 
     def _validate(

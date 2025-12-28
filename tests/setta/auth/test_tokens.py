@@ -2,7 +2,7 @@ import secrets
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from setta.auth.tokens import AuthCookieManager, BootstrapTokenManager
+from setta.auth.tokens import AuthCookieManager, BootstrapTokenManager, NonceTracker
 
 
 class BootstrapTokenManagerTests(unittest.TestCase):
@@ -94,6 +94,15 @@ class AuthCookieManagerTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             manager.validate(tampered, secret, now=now)
+
+
+class NonceTrackerTests(unittest.TestCase):
+    def test_prunes_expired_nonces(self) -> None:
+        tracker = NonceTracker()
+        tracker.consume("session-1", "nonce-1", exp=10, now=0)
+
+        self.assertTrue(tracker.is_consumed("session-1", "nonce-1", now=0))
+        self.assertFalse(tracker.is_consumed("session-1", "nonce-1", now=10))
 
 
 if __name__ == "__main__":

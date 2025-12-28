@@ -35,7 +35,7 @@ class StartStatusTests(unittest.TestCase):
                 sys.executable,
                 "-c",
                 "import time; time.sleep(60)",
-                "setta-cli-test",
+                "setta.server:app",
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -173,6 +173,41 @@ class StartStatusTests(unittest.TestCase):
         while self.process.poll() is None and time.monotonic() < deadline:
             time.sleep(0.05)
         self.assertIsNotNone(self.process.poll())
+
+    def test_status_delete_session_does_not_kill_non_setta_process(self) -> None:
+        other_process = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import time; time.sleep(60)",
+                "unit-test",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        def terminate_other_process() -> None:
+            if other_process.poll() is None:
+                other_process.terminate()
+
+        self.addCleanup(other_process.wait)
+        self.addCleanup(terminate_other_process)
+
+        session = self.registry.create_session(
+            workspace_path=self.workspace,
+            host="127.0.0.1",
+            port=61236,
+            pid=other_process.pid,
+        )
+        runner = CliRunner()
+
+        result = runner.invoke(status, ["--delete-session", session.id])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn(f"Deleted session {session.id}.", result.output)
+        session_dir = self.sessions_root / session.id
+        self.assertFalse(session_dir.exists())
+        self.assertIsNone(other_process.poll())
 
     def test_status_delete_session_missing_reports_error(self) -> None:
         runner = CliRunner()

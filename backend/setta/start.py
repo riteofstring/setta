@@ -837,7 +837,8 @@ def status(
         )
         if target is None:
             raise click.ClickException(f"Session {delete_session_id} not found.")
-        _stop_session_process(target.pid)
+        if registry.is_session_process_setta(target):
+            _stop_session_process(target.pid)
         registry.delete_session(target.id)
         click.echo(f"Deleted session {target.id}.")
         return
@@ -951,7 +952,8 @@ def stop(
             raise click.ClickException("No matching Setta sessions found.")
         targets = _select_local_stop_targets(sessions, session_id, latest, stop_all)
         for session in targets:
-            _stop_session_process(session.pid)
+            if registry.is_session_process_setta(session):
+                _stop_session_process(session.pid)
             registry.delete_session(session.id)
             click.echo(f"Stopped session {session.id}.")
         return
