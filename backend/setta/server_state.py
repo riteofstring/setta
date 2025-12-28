@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from setta.database.db_objs import DBE
@@ -19,6 +20,8 @@ from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
+from setta.project_state.share_project_manager import ShareProjectManager
+from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.utils.init_status import BackendInitializationStatus
@@ -30,15 +33,14 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
+_T = TypeVar("_T")
+
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
     from setta.websockets.msg_handlers.python_script_receiver import (
         WMHPythonScriptReceiver,
     )
-
-
-_T = TypeVar("_T")
 
 
 class _UninitializedAttribute:
@@ -57,21 +59,41 @@ class _UninitializedAttribute:
 
 
 class SettaFastAPIState:
-    def __init__(self, app):
+    def __init__(
+        self,
+        app,
+        *,
+        share_mode: bool = False,
+        share_deployment_root: Path | None = None,
+    ):
+        self.share_mode = share_mode
+        self.share_deployment_root = self._resolve_share_deployment_root(
+            share_mode, share_deployment_root
+        )
+
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
-        self.dbe = DBE(C.SETTA_FILES_FOLDER)
-        seed_llm_config_example_file(self.dbe)
+        self.dbe = DBE(
+            self.share_deployment_root
+            if self.share_deployment_root is not None
+            else C.SETTA_FILES_FOLDER
+        )
+        if not self.share_mode:
+            seed_llm_config_example_file(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
-            self.dbe,
+            None if self.share_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+        if self.share_mode:
+            self.settings_file = self._defer_attr("settings_file")
+            self.terminals = self._defer_attr("terminals")
+        else:
+            self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+            self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
-        self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
 
         self.lsps: LSPServers = self._defer_attr("lsps")
         self.lsp_writers: LSPWriters = self._defer_attr("lsp_writers")
@@ -84,6 +106,12 @@ class SettaFastAPIState:
         self.json_source: JSONSource = self._defer_attr("json_source")
         self.project_manager_switcher: ProjectManagerSwitcher = self._defer_attr(
             "project_manager_switcher"
+        )
+        self.share_session_store: ShareSessionStore = self._defer_attr(
+            "share_session_store"
+        )
+        self.share_project_manager: ShareProjectManager = self._defer_attr(
+            "share_project_manager"
         )
         self.wmh_frontend_receiver: WMHFrontendReceiver = self._defer_attr(
             "wmh_frontend_receiver"
@@ -101,7 +129,8 @@ class SettaFastAPIState:
         )
 
         self.init_status = BackendInitializationStatus()
-        self.init_status.record("Booting backend services")
+        mode_label = "share" if self.share_mode else "backend"
+        self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
                 f"Simulating slow init (+{C.BACKEND_INIT_DELAY_SECONDS:.1f}s per step)"
@@ -119,15 +148,24 @@ class SettaFastAPIState:
         )
 
     async def _initialize_async(self, app):
-        from setta.project_state.project_manager import ProjectManager
-        from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-        from setta.project_state.settings_project_manager import SettingsProjectManager
-        from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
-        from setta.websockets.msg_handlers.python_script_receiver import (
-            WMHPythonScriptReceiver,
-        )
-
         try:
+            if self.share_mode:
+                await self._initialize_share_async()
+                return
+            from setta.project_state.project_manager import ProjectManager
+            from setta.project_state.project_manager_switcher import (
+                ProjectManagerSwitcher,
+            )
+            from setta.project_state.settings_project_manager import (
+                SettingsProjectManager,
+            )
+            from setta.websockets.msg_handlers.frontend_receiver import (
+                WMHFrontendReceiver,
+            )
+            from setta.websockets.msg_handlers.python_script_receiver import (
+                WMHPythonScriptReceiver,
+            )
+
             self.init_status.record("Creating file watchers")
             await self._maybe_delay()
             self.specific_file_watcher = SpecificFileWatcher()
@@ -256,9 +294,42 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
+    async def _initialize_share_async(self) -> None:
+        self.init_status.record("Loading share deployment")
+        await self._maybe_delay()
+        if self.share_deployment_root is None:
+            raise ValueError("Share deployment root must be set in share mode")
+        self.share_session_store = MemorySessionStore()
+        self.share_project_manager = ShareProjectManager(
+            self.dbe, self.share_deployment_root
+        )
+        self._ready_event.set()
+        self.init_status.record("Share backend ready")
+        self.init_status.mark_ready()
+
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
+
+    def _resolve_share_deployment_root(
+        self, share_mode: bool, share_deployment_root: Path | None
+    ) -> Path | None:
+        if not share_mode:
+            return None
+        if share_deployment_root is None:
+            raise ValueError(
+                "Share mode requires SETTA_SHARE_DEPLOYMENT_ROOT or "
+                "SETTA_SHARE_DEPLOYMENT_ID"
+            )
+        resolved = share_deployment_root.expanduser().resolve()
+        if not resolved.exists():
+            raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
+        project_path = resolved / "project.json"
+        if not project_path.exists():
+            raise FileNotFoundError(
+                f"Share deployment missing project.json: {project_path}"
+            )
+        return resolved
 
     async def _maybe_delay(self) -> None:
         delay = C.BACKEND_INIT_DELAY_SECONDS

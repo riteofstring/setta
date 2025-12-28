@@ -60,7 +60,7 @@ Status: completed. Implemented in `backend/setta/routers/share_deployments.py`.
   - Avoid any writes back to the developer workspace state.
 
 ## 3) Share runtime server/state
-Status: not started (share runtime still pending; share router registration is done in step 11).
+Status: in progress. Share runtime boots with a mode flag and deployment root, and skips IDE-only services.
 - Introduce a share mode flag (env or CLI) and branch in
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
@@ -69,8 +69,16 @@ Status: not started (share runtime still pending; share router registration is d
   - Initializes a share session store and share project manager.
 - Ensure share routers are included in `backend/setta/server.py` so endpoint
   generation in `frontend/generation/convert_endpoints.py` can see them.
+Implemented:
+- Share mode flag + deployment root resolution via `SETTA_SHARE_MODE`,
+  `SETTA_SHARE_DEPLOYMENT_ROOT`, and `SETTA_SHARE_DEPLOYMENT_ID` in
+  `backend/setta/utils/constants.py`.
+- `backend/setta/server.py` now constructs `SettaFastAPIState` with share mode.
+- `backend/setta/server_state.py` branches share initialization, loads from the
+  deployment root, and skips watchers/LSP/MCP/LLM boot.
 
 ## 4) Share project manager + per-viewer overlays
+Status: in progress. Stubs exist; overlay logic and no-op persistence are pending.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -84,6 +92,10 @@ Status: not started (share runtime still pending; share router registration is d
 - Add a dependency in `backend/setta/routers/dependencies.py` to resolve the
   share session id from header/cookie/query and to load the per-viewer overlay.
 - Keep explicit KeyError checks for missing sessions/ids (no `.get` side effects).
+Implemented:
+- `backend/setta/project_state/share_project_manager.py` loads `project.json`.
+- `backend/setta/share/session_store.py` provides `MemorySessionStore` and a
+  `RedisSessionStore` stub.
 
 ## 5) Policy enforcement
 - Add `SharePolicy` in `backend/setta/types/share_policy.py` (no Pydantic alias use).
@@ -132,6 +144,7 @@ Status: not started (share runtime still pending; share router registration is d
   against `SharePolicy.allowRun`.
 
 ## 9) LLM + MCP gating
+Status: in progress. Share boot skips MCP/LLM; policy gating and per-viewer chat store remain.
 - Add share policy flags `allowLLM` and `allowMCP` (default false).
 - In share mode initialization, skip `SettaFastMCP`, `MultiMCPClient`, and
   `LLMChatManager` unless enabled.
@@ -160,7 +173,7 @@ Status: partially complete. Share router registered in `backend/setta/server.py`
 - Do not manually edit anything under `backend/setta/types/generated`.
 
 ## 12) Tests + verification
-Status: partially complete. Added publish deployment tests in `tests/routers/test_share_deployments.py`.
+Status: partially complete. Added publish deployment tests and share runtime boot tests.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).
@@ -169,3 +182,7 @@ Status: partially complete. Added publish deployment tests in `tests/routers/tes
 - Manual checks:
   - Publish a deployment, open two share sessions, and verify isolation.
   - Verify UI controls match `share_policy.json` settings.
+Implemented:
+- `tests/routers/test_share_deployments.py` covers deployment publishing.
+- `tests/server_state/test_share_state.py` covers share boot, missing deployment
+  guardrails, and no settings/LLM seed writes.

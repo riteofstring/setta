@@ -58,7 +58,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.setta = SettaFastAPIState(app)
+    if C.SHARE_MODE:
+        app.state.setta = SettaFastAPIState(
+            app,
+            share_mode=True,
+            share_deployment_root=C.SHARE_DEPLOYMENT_ROOT,
+        )
+    else:
+        app.state.setta = SettaFastAPIState(app)
 
     if not IS_DEV_MODE:
         # Mount the 'frontend/dist' directory at '/static'
