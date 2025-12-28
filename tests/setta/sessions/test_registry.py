@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -77,6 +79,39 @@ class SessionRegistryTests(unittest.TestCase):
 
             registry.delete_session(created.id)
             self.assertFalse(session_dir.exists())
+
+    def test_load_sessions_tracks_suspicious_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sessions_root = Path(temp_dir) / "sessions"
+            workspace = Path(temp_dir) / "workspace"
+            workspace.mkdir()
+            registry = SessionRegistry(sessions_root=sessions_root)
+
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "import time; time.sleep(60)",
+                    "setta.server:app",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.addCleanup(process.wait)
+            self.addCleanup(process.terminate)
+
+            session = registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+            )
+
+            registry.load_sessions(prune_stale=False, track_suspicious=False)
+            self.assertEqual(registry.suspicious_session_ids(), set())
+
+            registry.load_sessions(prune_stale=False, track_suspicious=True)
+            self.assertEqual(registry.suspicious_session_ids(), {session.id})
 
 
 if __name__ == "__main__":

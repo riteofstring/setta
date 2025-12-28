@@ -80,7 +80,9 @@ class SessionRegistry:
         self._write_metadata(metadata)
         return metadata
 
-    def load_sessions(self, prune_stale: bool = True) -> list[SessionMetadata]:
+    def load_sessions(
+        self, prune_stale: bool = True, track_suspicious: bool = False
+    ) -> list[SessionMetadata]:
         self._suspicious_session_ids.clear()
         sessions: list[SessionMetadata] = []
         if not self._sessions_root.exists():
@@ -95,16 +97,21 @@ class SessionRegistry:
             if prune_stale and self._is_session_stale(metadata):
                 self.delete_session(metadata.id)
                 continue
-            if self._is_session_suspicious(metadata):
+            if track_suspicious and self._is_session_suspicious(metadata):
                 self._suspicious_session_ids.add(metadata.id)
             sessions.append(metadata)
         return sessions
 
     def find_sessions_by_workspace(
-        self, workspace_path: Path | str, prune_stale: bool = True
+        self,
+        workspace_path: Path | str,
+        prune_stale: bool = True,
+        track_suspicious: bool = False,
     ) -> list[SessionMetadata]:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
-        sessions = self.load_sessions(prune_stale=prune_stale)
+        sessions = self.load_sessions(
+            prune_stale=prune_stale, track_suspicious=track_suspicious
+        )
         return [
             session
             for session in sessions
@@ -222,7 +229,7 @@ class SessionRegistry:
 
     def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
         try:
-            connections = process.connections(kind="inet")
+            connections = process.net_connections(kind="inet")
         except psutil.AccessDenied:
             return True
         except (psutil.NoSuchProcess, psutil.ZombieProcess):

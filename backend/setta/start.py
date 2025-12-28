@@ -24,7 +24,7 @@ from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.network import format_host_for_url
+from setta.utils.network import format_host_for_ssh_tunnel, format_host_for_url
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
@@ -203,7 +203,6 @@ def _resolve_remote_setta_command(
         f'if [ -f "./env/bin/activate" ]; then printf \'%s\' "{activation} ./env/bin/activate && setta"; exit 0; fi;'
         'if [ -f "pyproject.toml" ] && command -v poetry >/dev/null 2>&1; then printf \'%s\' "poetry run setta"; exit 0; fi;'
         'if [ -f "pyproject.toml" ] && command -v uv >/dev/null 2>&1; then printf \'%s\' "uv run setta"; exit 0; fi;'
-        'if [ -n "$CONDA_PREFIX" ]; then printf \'%s\' "setta"; exit 0; fi;'
         "if command -v setta >/dev/null 2>&1; then printf '%s' \"setta\"; exit 0; fi;"
         "exit 2;"
     )
@@ -480,15 +479,17 @@ def _extract_token_from_bootstrap_url(url: str) -> str:
 def _build_ssh_tunnel_args(
     ssh_target: str,
     ssh_args: list[str],
+    host: str,
     local_port: int,
     remote_port: int,
 ) -> list[str]:
+    tunnel_host = format_host_for_ssh_tunnel(host)
     return [
         "ssh",
         *ssh_args,
         "-N",
         "-L",
-        f"{local_port}:127.0.0.1:{remote_port}",
+        f"{local_port}:{tunnel_host}:{remote_port}",
         "-o",
         "ExitOnForwardFailure=yes",
         ssh_target,
@@ -593,16 +594,20 @@ def _format_bind_hint(host: str, port: int) -> str:
     return f"{host}:{port}{suffix}"
 
 
-def _build_ssh_tunnel_command(port: int) -> str:
+def _build_ssh_tunnel_command(host: str, port: int) -> str:
+    tunnel_host = format_host_for_ssh_tunnel(host)
     return (
-        "ssh -N -L ${LOCAL_PORT}:127.0.0.1:"
-        f"{port} <user@host> -o ExitOnForwardFailure=yes"
+        f"ssh -N -L ${{LOCAL_PORT}}:{tunnel_host}:{port} "
+        "<user@host> -o ExitOnForwardFailure=yes"
     )
 
 
-def _build_ssh_tunnel_command_for_port(local_port: int, remote_port: int) -> str:
+def _build_ssh_tunnel_command_for_port(
+    host: str, local_port: int, remote_port: int
+) -> str:
+    tunnel_host = format_host_for_ssh_tunnel(host)
     return (
-        f"ssh -N -L {local_port}:127.0.0.1:{remote_port} "
+        f"ssh -N -L {local_port}:{tunnel_host}:{remote_port} "
         "<user@host> -o ExitOnForwardFailure=yes"
     )
 
@@ -648,7 +653,7 @@ def _render_startup_message(
     lines.append("Manual tunnel (no local Setta install):")
     local_port = _DEFAULT_LOCAL_PORT
     lines.append(f"  LOCAL_PORT={local_port}")
-    lines.append(f"  {_build_ssh_tunnel_command(port)}")
+    lines.append(f"  {_build_ssh_tunnel_command(host, port)}")
     lines.append("  Open in browser (recommended):")
     lines.append(
         f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}#token={token}"
@@ -694,7 +699,7 @@ def _render_connect_info_message(
     lines.append("")
     lines.append("Manual tunnel (no local Setta install):")
     lines.append(
-        f"  {_build_ssh_tunnel_command_for_port(_DEFAULT_LOCAL_PORT, session.port)}"
+        f"  {_build_ssh_tunnel_command_for_port(session.host, _DEFAULT_LOCAL_PORT, session.port)}"
     )
     lines.append("  Open in browser (recommended):")
     lines.append(
@@ -915,7 +920,7 @@ def status(
     bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
         session.host, session.port, token
     )
-    ssh_tunnel_command = _build_ssh_tunnel_command(session.port)
+    ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
         payload = {
@@ -1152,7 +1157,11 @@ def connect(
     if verbose:
         click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
     tunnel_args = _build_ssh_tunnel_args(
-        ssh_target, ssh_args_list, resolved_local_port, selected_session.port
+        ssh_target,
+        ssh_args_list,
+        selected_session.host,
+        resolved_local_port,
+        selected_session.port,
     )
 
     if print_only:
