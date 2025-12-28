@@ -161,6 +161,13 @@ def _process_argument_issue(
     """
     dep_key = code_generator.value_pos_start_to_dep_key.get(start)
     if not dep_key:
+        range_index = build_dep_key_range_index(code_generator)
+        dep_key = find_dep_key_for_range(
+            SettaLSPPosition(start=start, end=start + 1),
+            code_generator,
+            range_index,
+        )
+    if not dep_key:
         return []
     node = dep_graph.graph.get(dep_key)
     if not node:

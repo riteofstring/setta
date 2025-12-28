@@ -3,8 +3,6 @@ from enum import Enum
 
 class Route(str, Enum):
     PREFIX = "/api"
-    BOOTSTRAP_PAGE = "/__setta__/bootstrap"
-    BOOTSTRAP_CONSUME = "/__setta__/bootstrap/consume"
     SWAGGER_DOCS = "/docs"
     OPENAPI_DOCS = "/openapi.json"
     REDOC_DOCS = "/redoc"
