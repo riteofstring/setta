@@ -493,16 +493,22 @@ export async function route_set_code_file_binding(
   return await post("/setCodeFileBinding", x);
 }
 
-export async function route_toggle_position_lock(
-  x: gt.TogglePositionLockRequestInput,
+export async function route_toggle_position_locks(
+  x: gt.TogglePositionLocksRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/togglePositionLock", x);
+  return await post("/togglePositionLocks", x);
 }
 
 export async function route_toggle_minimized(
   x: gt.ToggleMinimizedRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleMinimized", x);
+}
+
+export async function route_toggle_group_orientation(
+  x: gt.ToggleGroupOrientationRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleGroupOrientation", x);
 }
 
 export async function route_set_code(
