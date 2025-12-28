@@ -18,6 +18,8 @@
 - Agent startup now requires `--session-id` + `--token-file` and writes `~/.setta/run/<session>/` metadata (pid, logs, session.json).
 - Agent startup supports `--uds` and `--session-root`, and updates session metadata once the server is bound.
 - Agent startup disables `--reload` to keep session metadata consistent.
+- Local UI server now serves the bundled frontend and exposes a runtime config endpoint (`/__setta__/config`).
+- Frontend networking now pulls base URL + token from runtime config for HTTP + websockets (legacy static address constants removed).
 
 ## User Experience
 - `setta connect user@host [--project /path]` starts or reuses a remote session and opens the local UI.
@@ -91,10 +93,10 @@
 - Keep endpoint names aligned with frontend `generatedEndpoints`.
 
 ## Local UI Design
-- Serve the existing frontend bundle locally:
+- DONE: Serve the existing frontend bundle locally:
   - production: static assets packaged into the Python install
   - development: allow a flag to use Vite dev server
-- Provide a local config endpoint that stores the remote base URL and token in memory.
+- DONE: Provide a local config endpoint that stores the remote base URL and token in memory.
 - Provide a Python environment selector for the remote host and persist the chosen interpreter path for language server startup.
 - Allow listing available remote environments and accept a manual path (similar to VSCode).
 
@@ -123,9 +125,9 @@
 - Build `setta disconnect` and `setta status`.
 
 ### Phase 3: Local UI Wiring
-- Add a local UI server that proxies to the remote base URL.
-- Store token in memory only (no disk).
-- Ensure the frontend always uses `generatedEndpoints`.
+- DONE: Add a local UI server that serves the built frontend and exposes a runtime config endpoint.
+- DONE: Store token in memory only (no disk) and inject into HTTP + websocket calls.
+- DONE: Frontend networking now relies on runtime config and still routes via `generatedEndpoints`.
 
 ### Phase 4: Reliability and Lifecycle
 - Reconnect behavior for dropped tunnels.

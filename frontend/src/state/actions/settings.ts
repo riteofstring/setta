@@ -6,7 +6,7 @@ import { SettingsState } from "utils/generatedTypes";
 
 const SETTINGS_RETRY_DELAY_MS = 500;
 
-export function useLoadSettings() {
+export function useLoadSettings(runtimeConfigReady: boolean) {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
@@ -32,7 +32,9 @@ export function useLoadSettings() {
       setSettingsLoaded(true);
     }
 
-    void loadSettings();
+    if (runtimeConfigReady) {
+      void loadSettings();
+    }
 
     return () => {
       isMounted = false;
@@ -40,7 +42,7 @@ export function useLoadSettings() {
         window.clearTimeout(retryTimeout);
       }
     };
-  }, []);
+  }, [runtimeConfigReady]);
 
   return settingsLoaded;
 }

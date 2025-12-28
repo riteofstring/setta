@@ -3,6 +3,7 @@ import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import { useProjectLoading, useSettings } from "state/definitions";
+import { useRuntimeConfig } from "state/hooks/runtimeConfig";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -12,12 +13,14 @@ import {
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 
 export function GlobalWrapper({ children }) {
-  useOpenCloseWebsocket();
+  const runtimeConfigReady = useRuntimeConfig();
+  useOpenCloseWebsocket(runtimeConfigReady);
   useSetHTMLTitle();
-  const settingsLoaded = useLoadSettings();
-  const initStatus = useBackendInitStatus();
+  const settingsLoaded = useLoadSettings(runtimeConfigReady);
+  const initStatus = useBackendInitStatus(runtimeConfigReady);
   const backendReady = initStatus?.isReady ?? false;
-  const shouldShowLoading = !settingsLoaded || !backendReady;
+  const shouldShowLoading =
+    !runtimeConfigReady || !settingsLoaded || !backendReady;
 
   if (shouldShowLoading) {
     return (
@@ -25,6 +28,7 @@ export function GlobalWrapper({ children }) {
         <LoadingScreen
           initStatus={initStatus}
           settingsLoaded={settingsLoaded}
+          runtimeConfigReady={runtimeConfigReady}
         />
       </div>
     );
@@ -70,12 +74,14 @@ function useSetHTMLTitle() {
   }, [pathname, projectConfigName, projectIs404]);
 }
 
-function useOpenCloseWebsocket() {
+function useOpenCloseWebsocket(runtimeConfigReady: boolean) {
   const location = useLocation();
 
   useEffect(() => {
-    openWebSocket(location.pathname);
-  }, [location.pathname]);
+    if (runtimeConfigReady) {
+      openWebSocket(location.pathname);
+    }
+  }, [location.pathname, runtimeConfigReady]);
 }
 
 function useDefaultProjectConfigName() {
@@ -97,7 +103,7 @@ function useDefaultProjectConfigName() {
   return defaultProjectConfigName;
 }
 
-function useBackendInitStatus() {
+function useBackendInitStatus(runtimeConfigReady: boolean) {
   const [status, setStatus] = useState<BackendInitStatusResponse | null>(null);
 
   useEffect(() => {
@@ -116,10 +122,12 @@ function useBackendInitStatus() {
       }
     }
 
-    poll();
-    intervalId = window.setInterval(() => {
-      void poll();
-    }, 500);
+    if (runtimeConfigReady) {
+      poll();
+      intervalId = window.setInterval(() => {
+        void poll();
+      }, 500);
+    }
 
     return () => {
       isMounted = false;
@@ -127,17 +135,22 @@ function useBackendInitStatus() {
         clearInterval(intervalId);
       }
     };
-  }, []);
+  }, [runtimeConfigReady]);
 
   return status;
 }
 
 type LoadingScreenProps = {
   initStatus: BackendInitStatusResponse | null;
+  runtimeConfigReady: boolean;
   settingsLoaded: boolean;
 };
 
-function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
+function LoadingScreen({
+  initStatus,
+  runtimeConfigReady,
+  settingsLoaded,
+}: LoadingScreenProps) {
   const events = initStatus?.events ?? [];
   const lastEvent = events.length > 0 ? events[events.length - 1] : undefined;
   const backendMessage = lastEvent?.message ?? "Starting backend services";
@@ -151,6 +164,7 @@ function LoadingScreen({ initStatus, settingsLoaded }: LoadingScreenProps) {
         Preparing setta
       </div>
       <div className="space-y-1 text-center text-xs text-setta-500 dark:text-setta-200">
+        {!runtimeConfigReady && <p>Loading connection config…</p>}
         {!settingsLoaded && <p>Loading settings…</p>}
         <p>Backend: {backendMessage}</p>
       </div>

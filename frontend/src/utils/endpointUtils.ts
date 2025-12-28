@@ -1,4 +1,4 @@
-import { C_ADDRESSES } from "./c_addresses";
+import { ensureRuntimeConfig } from "./runtimeConfig";
 
 export type ResponseDataAndStatus<T> = {
   data: T | undefined;
@@ -14,7 +14,7 @@ export function res200<T>(
 
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, any>,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): string {
   if (!addressParams) return address;
 
@@ -28,11 +28,16 @@ export function replaceAddressParams(
 
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, any>,
+  addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): Promise<ResponseDataAndStatus<T>> {
   const fullAddress = replaceAddressParams(address, addressParams);
   try {
-    const response = await fetch(`${C_ADDRESSES.BACKEND}${fullAddress}`);
+    const config = await ensureRuntimeConfig();
+    const response = await fetch(`${config.apiBaseUrl}${fullAddress}`, {
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+      },
+    });
     return {
       data: await response.json(),
       status: response.status,
@@ -46,13 +51,15 @@ export async function get<T>(
 
 export async function post<T>(
   address: string,
-  body: any = null,
+  body: unknown | null = null,
 ): Promise<ResponseDataAndStatus<T>> {
   try {
-    const response = await fetch(`${C_ADDRESSES.BACKEND}${address}`, {
+    const config = await ensureRuntimeConfig();
+    const response = await fetch(`${config.apiBaseUrl}${address}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${config.token}`,
       },
       body: body === null ? null : JSON.stringify(body),
     });

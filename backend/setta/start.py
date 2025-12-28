@@ -35,6 +35,69 @@ def connect(websocket_id, host, port, token_file: Path):
     asyncio.run(_connect(websocket_id, token))
 
 
+@click.command(name="local-ui")
+@click.option("--host", default=C.DEFAULT_HOST, help="Local UI host")
+@click.option("--port", default=8001, help="Local UI port")
+@click.option(
+    "--frontend-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Path to the built frontend assets",
+)
+@click.option(
+    "--remote-base-url",
+    default=None,
+    help="Remote agent base URL (including /api)",
+)
+@click.option(
+    "--token",
+    default=None,
+    help="Auth token for the remote agent",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["critical", "error", "warning", "info", "debug"], case_sensitive=False
+    ),
+    default=None,
+    help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
+)
+def local_ui(
+    host: str,
+    port: int,
+    frontend_root: Path | None,
+    remote_base_url: str | None,
+    token: str | None,
+    log_level,
+):
+    from .local_ui_server import LocalUIConfig, create_local_ui_app
+
+    resolved_log_level = configure_logging(level_override=log_level)
+    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
+
+    initial_config = None
+    if remote_base_url or token:
+        if not remote_base_url or not token:
+            raise click.UsageError(
+                "Both --remote-base-url and --token are required to preconfigure the UI."
+            )
+        initial_config = LocalUIConfig(apiBaseUrl=remote_base_url, token=token)
+
+    app = create_local_ui_app(
+        frontend_root=frontend_root,
+        config=initial_config,
+    )
+    config = uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        log_level=uvicorn_log_level,
+        log_config=None,
+    )
+    server = uvicorn.Server(config)
+    server.run()
+
+
 @click.command()
 def version():
     click.echo(f"setta version {__version__}")
@@ -181,5 +244,6 @@ def cli(
 
 
 cli.add_command(connect)
+cli.add_command(local_ui)
 cli.add_command(version)
 cli.add_command(export_db)

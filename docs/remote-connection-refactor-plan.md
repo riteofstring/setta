@@ -14,10 +14,10 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - LSP is started from `SettaFastAPIState` with workspace `CWD` and settings sourced
   from `SettingsState.languageServer` (a raw `dict`) (`backend/setta/server_state.py`,
   `backend/setta/lsp/*`, `backend/setta/types/generated/settings_state.py`).
-- The frontend derives API and websocket base URLs from static constants and
-  `location.host` with no runtime override or auth injection
-  (`frontend/src/utils/c_addresses.ts`, `frontend/src/utils/endpointUtils.ts`,
-  `frontend/src/state/actions/websocketReceive.ts`, `frontend/src/state/hooks/terminals/terminal.ts`).
+- The frontend now derives API + websocket base URLs from runtime config served
+  by the local UI server (`/__setta__/config`) and injects auth tokens into HTTP
+  + websocket connections (`frontend/src/utils/runtimeConfig.ts`,
+  `frontend/src/utils/endpointUtils.ts`).
 - Settings are persisted via `SettingsFile` in `setta_files/` and broadcast over websockets,
   but there is no UI workflow for selecting a Python interpreter
   (`backend/setta/database/settings_file.py`).
@@ -27,9 +27,8 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 ## Refactor Workstreams
 ### 1) Split local UI server vs. remote agent
 - DONE: Backend app serves only API + websockets (static UI mounting removed).
-- Add a small local UI server (or proxy) that serves the bundled frontend and provides
-  a local config endpoint (base URL + token). This keeps the UI local while talking
-  to the remote agent.
+- DONE: Added a local UI server that serves the bundled frontend and provides a
+  runtime config endpoint (base URL + token).
 - DONE: `backend/setta/backend_launcher.py` and `backend/setta/start.py` no longer
   open browsers or check for frontend bundles.
 
@@ -52,13 +51,12 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
   in the plan.
 
 ### 4) Frontend networking rework (base URL + auth)
-- Replace static `C_ADDRESSES` usage with a runtime config store that supplies
-  the remote base URL and token.
-- Update `endpointUtils` to attach `Authorization: Bearer <token>` for HTTP.
-- Update websocket creation (frontend + terminals) to include the token
-  (`Sec-WebSocket-Protocol` or query param).
-- Keep all frontend calls routed through `generatedEndpoints`, and regenerate
-  types if new endpoints are added.
+- DONE: Replaced static `C_ADDRESSES` usage with a runtime config store that supplies
+  the remote base URL and token (legacy constants removed).
+- DONE: `endpointUtils` now attaches `Authorization: Bearer <token>` for HTTP.
+- DONE: Websocket creation (frontend + terminals) now includes the token
+  (`Sec-WebSocket-Protocol`).
+- DONE: Frontend networking continues to route through `generatedEndpoints`.
 
 ### 5) Language server environment selection
 - Add a typed model for `SettingsState.languageServer` so interpreter path and
@@ -87,7 +85,8 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 
 ## Deliverables (High-Level)
 - New agent-mode backend start path (no static UI).
-- Local UI server/proxy with runtime config endpoint.
+- DONE: Local UI server/proxy with runtime config endpoint.
 - Token-gated HTTP, websocket, and MCP SSE routes.
-- Runtime-configurable frontend networking + interpreter selection UX.
+- DONE: Runtime-configurable frontend networking.
+- Runtime-configurable interpreter selection UX.
 - Session metadata on both local and remote sides.

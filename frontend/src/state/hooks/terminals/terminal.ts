@@ -1,10 +1,13 @@
 import { useEffect, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { C } from "utils/c";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
 import { RouteEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import {
+  getWebsocketAuthProtocol,
+  getWebsocketBaseUrl,
+} from "utils/runtimeConfig";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
@@ -20,10 +23,22 @@ import {
 // But in case of double renders (basically just StrictMode),
 // this keeps a list of websockets, so we can add the new websocket
 // while the old one gets deleted.
-const TERMINAL_WEBSOCKETS = {};
-const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
+const TERMINAL_WEBSOCKETS: Record<string, WebSocket[]> = {};
+const INITIAL_MESSAGES: Record<string, string[]> = {}; // maps from sectionId to a list of messages
 
-export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
+type UseTerminalProps = {
+  sectionId: string;
+  width: number;
+  height: number;
+  setHasScrollbar: (hasScrollbar: boolean) => void;
+};
+
+export function useTerminal({
+  sectionId,
+  width,
+  height,
+  setHasScrollbar,
+}: UseTerminalProps) {
   const terminalRef = useRef(null); // Ref for the terminal container
   const fitAddon = useFitAddon();
 
@@ -79,11 +94,13 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
   return terminalRef;
 }
 
-function newTerminalWebsocket(sectionId) {
+function newTerminalWebsocket(sectionId: string) {
   const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
-  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id })}`;
-  const ws = new WebSocket(wsTerminalAddress);
+  const websocketBaseUrl = getWebsocketBaseUrl();
+  const authProtocol = getWebsocketAuthProtocol();
+  const wsTerminalAddress = `${websocketBaseUrl}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id })}`;
+  const ws = new WebSocket(wsTerminalAddress, [authProtocol]);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {
       const sentMessageIdx = [];
@@ -128,7 +145,7 @@ function newTerminalWebsocket(sectionId) {
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-function addTerminalInitialMessage(sectionId, msg) {
+function addTerminalInitialMessage(sectionId: string, msg: string) {
   if (!(sectionId in INITIAL_MESSAGES)) {
     INITIAL_MESSAGES[sectionId] = [];
   }
@@ -137,6 +154,6 @@ function addTerminalInitialMessage(sectionId, msg) {
   }
 }
 
-function removeWsFromArray(x, ws) {
-  return x.filter((w) => w !== ws);
+function removeWsFromArray(wsList: WebSocket[], ws: WebSocket) {
+  return wsList.filter((item) => item !== ws);
 }
