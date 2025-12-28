@@ -36,7 +36,7 @@ This document translates `docs/remote-ssh-ui-plan.md` into concrete code changes
       "secretPath": "setta_files/run/sessions/9f2c4b/secret"
     }
     ```
-  - Example flow: `ssh dev@host "bash -lc 'cd /work/my-project && setta status --connect-info --json'"` returns the session + a fresh bootstrap token based on the on-disk secret.
+- Example flow: `ssh dev@host "bash -lc 'cd /work/my-project && setta status --connect-info --json'"` returns a base64-encoded JSON payload (prefixed with `__SETTA_JSON_B64__`) containing the session + a fresh bootstrap token based on the on-disk secret.
 
 ## Backend Implementation Plan
 
@@ -149,16 +149,19 @@ New CLI flow (Click) in `backend/setta/start.py`:
     - remote start command (copy/paste on host, if needed)
     - bootstrap URL with fragment token
     - plain bootstrap URL (no token)
-    - `setta connect` example line
+    - `setta connect` example line (with `--workspace`)
     - manual tunnel snippet (includes `LOCAL_PORT=...`, `ssh -N -L ... -o ExitOnForwardFailure=yes`, fragment URL, plain bootstrap URL + token, and optional `open`/`xdg-open`/`start`/`python -m webbrowser` hints)
   - JSON output should include: `session`, `bootstrapUrlFragment`, `bootstrapUrlPlain`, `sshTunnelCommand`.
+  - For robustness over SSH, `--json` prints a single line prefixed with `__SETTA_JSON_B64__` followed by base64-encoded JSON, so banners/MOTDs do not break parsing.
 
-### 7) CLI: `setta connect host:/path`
+### 7) CLI: `setta connect user@host --workspace /path`
 Replace `setta connect` with an SSH orchestration helper.
 
 Implementation outline:
-- Parse `ssh_target` as `user@host:/path` (split at first `:`).
-- Resolve the remote workspace path to a canonical path (`~`, env vars, symlinks) via SSH (for example, `bash -lc 'cd <path> && pwd -P'`), then use that path for session matching and for `--workspace` when polling `setta status --connect-info`.
+- Accept `ssh_target` as `user@host` (or `host`) and require `--workspace /path`.
+  - For IPv6, use bracketed hosts like `user@[2001:db8::1]`.
+  - Optional `--ssh-args` appends SSH flags to every SSH invocation (start, status, tunnel), for example `--ssh-args "-p 2222 -J bastion"`.
+- Resolve the remote workspace path (from `--workspace`) to a canonical path (`~`, env vars, symlinks) via SSH (for example, `bash -lc 'cd <path> && pwd -P'`), then use that path for session matching and for `--workspace` when polling `setta status --connect-info`.
 - Resolve remote start command:
   - Prefer `--remote-cmd`.
   - Else search `./.venv/bin/activate`, `./venv/bin/activate`, `./env/bin/activate`.
@@ -167,16 +170,16 @@ Implementation outline:
   - Else `setta` on PATH.
 - Shell fallback: prefer `bash -lc`. If `bash` is missing, try `sh -lc` and use POSIX `.` for activation (`. .venv/bin/activate`). If neither shell is available, exit with a clear error and a `--remote-cmd` example.
 - Start remote setta if no session:
-  - Run `ssh target "bash -lc 'cd <path> && <cmd> --no-open'"` (detached).
+  - Run `ssh <ssh_args> target "bash -lc 'cd <path> && <cmd> --no-open'"` (detached).
   - Use `nohup` + background: `mkdir -p setta_files/run/logs && nohup <cmd> --no-open > setta_files/run/logs/nohup.out 2>&1 &`
   - If `nohup` is missing, fall back to `setsid`; if neither exists, exit with a clear error suggesting `--remote-cmd`.
-  - Poll `ssh target "bash -lc 'cd <path> && setta status --connect-info --json'"`.
+- Poll `ssh <ssh_args> target "bash -lc 'cd <path> && <resolved_cmd> status --connect-info --json'"` and parse the `__SETTA_JSON_B64__` payload.
 - If multiple sessions:
   - Interactive selection when TTY.
   - Allow `d<number>` to delete a session (confirm, stop server, remove metadata).
   - Non-TTY requires `--session` or `--latest`.
 - Tunnel + open:
-  - Use `ssh -N -L local_port:127.0.0.1:<remote_port>`.
+  - Use `ssh <ssh_args> -N -L local_port:127.0.0.1:<remote_port>`.
   - For `--detach`, background the tunnel and print the PID.
   - For `--print-only`, emit the tunnel command + bootstrap URL and exit.
   - For default, open browser to `/__setta__/bootstrap#token=...` and keep tunnel in foreground.
@@ -199,7 +202,7 @@ Files to change:
 
 Chosen approach:
 - Do not add a frontend 401 redirect. The bootstrap page is the only unauthenticated entrypoint.
-- Direct visits to `/` without a cookie should return 401; `setta connect` and manual instructions must open `/__setta__/bootstrap` (fragment token preferred).
+- Direct visits to `/` without a cookie should return 401 with a minimal HTML body that points users to `/__setta__/bootstrap` (no redirect). `setta connect` and manual instructions must open `/__setta__/bootstrap` (fragment token preferred).
 
 ## Generated Endpoints + Types
 Add new routes + types, then regenerate TS bindings.
@@ -228,7 +231,7 @@ Frontend:
 - Open `/__setta__/bootstrap#token=...`, verify cookie set + redirect.
 - Verify websocket connection requires auth cookie.
 - Run `setta status --connect-info`, ensure snippet prints with fresh token.
-- Run `setta connect user@host:/path`, ensure tunnel + browser open.
+- Run `setta connect user@host --workspace /path`, ensure tunnel + browser open.
 
 ## Sequencing (Recommended)
 1) Session registry + token signer + constants.
