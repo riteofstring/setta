@@ -1,13 +1,21 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
-from fastapi import Request, WebSocket
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from starlette.types import Scope
 
 from setta.routers.dependencies import (
     get_share_session_id_from_request,
     get_share_session_id_from_websocket,
+    share_session_context_from_request,
 )
+from setta.server_state import SettaFastAPIState
+from setta.database.db_objs import DBE
+from setta.share.session_context import get_share_session_id
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
 
 
 def _make_request(
@@ -73,6 +81,46 @@ def _make_websocket(
     return WebSocket(scope, empty_receive, empty_send)
 
 
+def _write_share_project(root: Path) -> ProjectConfig:
+    dbe = DBE(root)
+    project_config = ProjectConfig(name="share-dependency-test")
+    project_state = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    dbe.write_project(project_state)
+    return project_config
+
+
+def _make_app_request(
+    app: FastAPI,
+    *,
+    path: str = "/share",
+    headers: list[tuple[bytes, bytes]] | None = None,
+    query_string: str | None = None,
+) -> Request:
+    scope: Scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "scheme": "http",
+        "method": "GET",
+        "path": path,
+        "root_path": "",
+        "query_string": query_string.encode() if query_string else b"",
+        "headers": headers or [],
+        "client": ("127.0.0.1", 8000),
+        "server": ("testserver", 80),
+        "path_params": {},
+        "app": app,
+        "state": {},
+    }
+
+    async def empty_receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    return Request(scope, empty_receive)
+
+
 class ShareDependencyTests(unittest.TestCase):
     def test_request_header_precedence(self) -> None:
         request = _make_request(
@@ -125,6 +173,55 @@ class ShareDependencyTests(unittest.TestCase):
         websocket = _make_websocket()
         with self.assertRaises(KeyError):
             get_share_session_id_from_websocket(websocket)
+
+
+class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
+    async def _build_state(self, root: Path) -> tuple[FastAPI, SettaFastAPIState]:
+        app = FastAPI()
+        state = SettaFastAPIState(
+            app,
+            share_mode=True,
+            share_deployment_root=root,
+        )
+        app.state.setta = state
+        await state.wait_until_ready()
+        return app, state
+
+    async def test_share_session_context_sets_and_resets(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_share_project(root)
+            app, state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            request = _make_app_request(
+                app,
+                headers=[(b"x-share-session-id", session.id.encode())],
+            )
+            self.assertIsNone(get_share_session_id())
+
+            context = share_session_context_from_request(request)
+            try:
+                session_id = await context.__anext__()
+                self.assertEqual(session.id, session_id)
+                self.assertEqual(session.id, get_share_session_id())
+            finally:
+                await context.aclose()
+
+            self.assertIsNone(get_share_session_id())
+
+    async def test_share_session_context_requires_session_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_share_project(root)
+            app, _state = await self._build_state(root)
+            request = _make_app_request(app)
+            context = share_session_context_from_request(request)
+            try:
+                with self.assertRaises(HTTPException) as ctx:
+                    await context.__anext__()
+                self.assertEqual(400, ctx.exception.status_code)
+            finally:
+                await context.aclose()
 
 
 if __name__ == "__main__":

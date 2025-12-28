@@ -1,8 +1,9 @@
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, AsyncGenerator
 
-from fastapi import Depends, Request, WebSocket
+from fastapi import Depends, HTTPException, Request, WebSocket, status
 
 from setta.server_state import SettaFastAPIState
+from setta.share.session_context import reset_share_session_id, set_share_session_id
 
 if TYPE_CHECKING:
     from setta.share.session_store import ShareSession
@@ -71,6 +72,26 @@ def maybe_get_share_session_id_from_websocket(websocket: WebSocket) -> str | Non
     return _maybe_extract_share_session_id(
         websocket.headers, websocket.cookies, websocket.query_params
     )
+
+
+async def share_session_context_from_request(
+    request: Request,
+) -> AsyncGenerator[str | None, None]:
+    state = await get_ready_app_state_from_request(request)
+    if not state.share_mode:
+        yield None
+        return
+    session_id = maybe_get_share_session_id_from_request(request)
+    if session_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing share session id.",
+        )
+    token = set_share_session_id(session_id)
+    try:
+        yield session_id
+    finally:
+        reset_share_session_id(token)
 
 
 async def get_share_session_from_request(request: Request) -> "ShareSession":

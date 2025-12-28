@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
@@ -84,7 +84,12 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
-from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
+from setta.routers.dependencies import (
+    ReadyAppStateFromRequest as AppStateFromRequest,
+)
+from setta.routers.dependencies import (
+    share_session_context_from_request,
+)
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.share.policy import (
     ensure_share_layout_changes_allowed,
@@ -95,7 +100,10 @@ from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
-router = SettaProjectContextAPIRouter(require_project_context_by_default=True)
+router = SettaProjectContextAPIRouter(
+    require_project_context_by_default=True,
+    dependencies=[Depends(share_session_context_from_request)],
+)
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)

@@ -33,6 +33,9 @@ from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
+    from setta.project_state.share_session_project_manager import (
+        ShareSessionProjectManager,
+    )
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.types.section_impls import CodeFileBinding
@@ -59,6 +62,7 @@ class ShareProjectManager:
             self.share_policy.listenerIsolation = self.manifest.listener.isolation
         self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
+        self._session_managers: dict[str, "ShareSessionProjectManager"] = {}
         self._artifact_watcher = SpecificFileWatcher()
 
     def load_initial_state(self) -> ProjectStateBackend:
@@ -97,6 +101,8 @@ class ShareProjectManager:
         del self._session_states[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
+        if session_id in self._session_managers:
+            del self._session_managers[session_id]
 
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
@@ -107,6 +113,11 @@ class ShareProjectManager:
 
     def get_session_ids(self) -> list[str]:
         return list(self._session_states.keys())
+
+    def register_session_manager(
+        self, session_id: str, manager: "ShareSessionProjectManager"
+    ) -> None:
+        self._session_managers[session_id] = manager
 
     def save(self) -> None:
         return None
@@ -318,6 +329,10 @@ class ShareProjectManager:
 
             if dependency_updates:
                 self.update(project_state)
+                if session_id in self._session_managers:
+                    await self._session_managers[session_id].replace_session_state(
+                        project_state
+                    )
                 await self.frontend_sender.broadcast_project_state(
                     project_state,
                     completedOpIds=[],

@@ -9,8 +9,10 @@ from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
 from setta.database.db_objs import DBE
+from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
 from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_session_project_manager import ShareSessionProjectManager
 from setta.project_state.utils import convert_path_to_module_path
 from setta.types.artifact import ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
@@ -35,7 +37,9 @@ from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.types.websocket import WebsocketConnectionType
+from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -474,6 +478,67 @@ class ShareProjectManagerTests(unittest.TestCase):
 
             self._loop.run_until_complete(websocket_a.close())
             self._loop.run_until_complete(websocket_b.close())
+
+    def test_listener_emit_updates_registered_session_manager(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project_config_id = ID("listener-project")
+            section_id = ID("section-a")
+            state = _build_project_state(project_config_id, section_id)
+            dbe = _write_project_with_state(root, state)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(
+                websocket_manager, share_mode=True
+            )
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager.create_session_state("session-a")
+
+            async def run_test() -> None:
+                python_sender = WMHPythonScriptSender(
+                    websocket_manager,
+                    ListenerRegistry(),
+                )
+                settings_file = SettingsFile(dbe, frontend_sender)
+                session_manager = ShareSessionProjectManager(
+                    share_project_manager=manager,
+                    share_session_id="session-a",
+                    settings_file=settings_file,
+                    python_script_sender=python_sender,
+                )
+                try:
+                    await session_manager._process_queue_task_started.wait()
+                    new_text = "Updated text"
+                    dependency_updates = [
+                        ListenerFrontendEmitKeyAndValue(
+                            dependencyKey=create_dep_key(sectionId=section_id),
+                            value=LiteralDependencyValue(new_text),
+                        )
+                    ]
+                    await manager.apply_listener_emit_updates(
+                        share_session_id="session-a",
+                        dependency_updates=dependency_updates,
+                        artifact_updates=[],
+                    )
+
+                    session_state = session_manager.get_single_config_state(
+                        project_config_id
+                    )
+                    impl = get_curr_effective_section_impl_with_type_guard(
+                        session_state,
+                        section_id,
+                        TextBlockSectionImpl,
+                    )
+                    self.assertEqual(new_text, impl.text)
+                finally:
+                    session_manager.queue_task.cancel()
+                    results = await asyncio.gather(
+                        session_manager.queue_task,
+                        return_exceptions=True,
+                    )
+                    self.assertEqual(1, len(results))
+                    self.assertIsInstance(results[0], asyncio.CancelledError)
+
+            self._loop.run_until_complete(run_test())
 
     def test_listener_emit_broadcasts_artifact_updates(self) -> None:
         with TemporaryDirectory() as tmpdir:

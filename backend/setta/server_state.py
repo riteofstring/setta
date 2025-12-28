@@ -21,6 +21,9 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_session_project_manager_switcher import (
+    ShareSessionProjectManagerSwitcher,
+)
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.run_cleanup import (
@@ -329,6 +332,11 @@ class SettaFastAPIState:
             self.wmh_frontend_sender,
         )
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+        self.project_manager_switcher = ShareSessionProjectManagerSwitcher(
+            self.share_project_manager,
+            self.settings_file,
+            self.wmh_python_script_sender,
+        )
         if self.share_project_manager.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         if (

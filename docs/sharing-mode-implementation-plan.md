@@ -85,7 +85,7 @@ Implemented:
   policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
-Status: partial. ShareProjectManager + session store exist, but share-mode mutation routes are not wired to overlays yet.
+Status: mostly completed. ShareProjectManager + session store exist and share-mode mutation routes are wired to per-session overlays; remaining items are session TTL cleanup and artifact cache init.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -111,22 +111,25 @@ Implemented:
   when present.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
   header/cookie/query and exposes session/overlay dependencies.
+- `backend/setta/routers/project_manager.py` now binds a per-request share
+  session context so share-mode mutations use session-scoped managers.
+- `backend/setta/project_state/share_session_project_manager.py` provides a
+  per-session BaseProjectManager wrapper with share-session broadcasts.
+- `backend/setta/project_state/share_session_project_manager_switcher.py`
+  wires share-mode project manager access to per-session managers.
 - `backend/setta/share/session_store.py` provides `MemorySessionStore` and a
   `RedisSessionStore` stub.
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
 Remaining:
-- Share-mode mutation routes in `backend/setta/routers/project_manager.py` still
-  call `project_manager_switcher` (which is not initialized in share mode), so
-  overlay updates do not work yet.
 - Share mode does not initialize `state.artifacts`, so cached artifact load
   routes fail unless artifacts arrive via listener emits.
 - Session TTL cleanup is not scheduled; `ShareSessionStore.cleanup_expired` is
   never invoked.
 
 ## 5) Policy enforcement
-Status: partial. Policy checks are wired, but share-mode mutations still route
-through the IDE project managers.
+Status: mostly completed. Policy checks are wired, and share-mode mutations now
+route through per-session managers.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
 - Load the share policy in `backend/setta/project_state/share_project_manager.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
@@ -151,8 +154,6 @@ Implemented:
   sessions if the request is not session-scoped).
 - Run and LLM routes also block when share runtime services are not initialized.
 Remaining:
-- Share-mode mutation routes still call `project_manager_switcher`, so policy
-  checks can pass but the mutation path fails in share mode.
 - Missing share session ids currently raise `KeyError` (500) in some share-only
   routes; convert to HTTP 400/404 responses.
 
@@ -331,10 +332,14 @@ Implemented:
   session isolation, and missing session errors.
 - `tests/project_state/test_share_project_manager.py` covers listener emit
   updates for per-session project state and artifact broadcasts.
+- `tests/project_state/test_share_project_manager.py` covers listener emit sync
+  with per-session managers.
 - `tests/project_state/test_share_project_manager.py` covers share run snapshot
   creation for `ephemeral` and canonical runs for `never`.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
-  precedence for HTTP and websocket requests.
+  precedence for HTTP and websocket requests plus share session context setup.
+- `tests/project_state/test_share_session_project_manager_switcher.py` covers
+  per-session share manager routing and session context requirements.
 - `tests/share/test_policy.py` covers policy guard helpers.
 - `tests/routers/test_share_policy_routes.py` covers policy enforcement in LLM
   and run/terminal routes.
