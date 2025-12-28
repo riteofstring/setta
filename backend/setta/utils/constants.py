@@ -42,6 +42,8 @@ class C:
     RUN_FOLDER = SETTA_FILES_FOLDER / "run"
     RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
     RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
+    SHARE_DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "share_deployments"
+    SHARE_RUNS_FOLDER = SETTA_FILES_FOLDER / "share_runs"
 
     AUTH_COOKIE_NAME = "setta_auth"
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12

@@ -27,6 +27,9 @@ steps based on the current code layout.
   of truth to avoid divergence.
 
 ## 1) Share deployment data model + constants
+Status: completed. Implemented in `backend/setta/types/share_deployment.py`, added
+`C.SHARE_DEPLOYMENTS_FOLDER`/`C.SHARE_RUNS_FOLDER`, and registered share routes
+in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (version, projectConfigId, createdAt, listener config).
   - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, listenerIsolation, allowedSections).
