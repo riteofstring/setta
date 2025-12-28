@@ -730,3 +730,15 @@ export async function route_get_backend_init_status(): Promise<
 > {
   return await get("/backendInitStatus");
 }
+
+async function route_list_share_deployments(): Promise<
+  ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
+> {
+  return await get("/share/deployments");
+}
+
+async function route_publish_share_deployment(
+  x: gt.PublishShareDeploymentRequestInput,
+): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
+  return await post("/share/deployments", x);
+}

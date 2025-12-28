@@ -42,6 +42,7 @@ in `backend/setta/types/routes.py`.
   `/share/deployments/{deploymentId}/state`, `/share/frontend`).
 
 ## 2) Publish share deployment (IDE mode)
+Status: completed. Implemented in `backend/setta/routers/share_deployments.py`.
 - Add a new router in `backend/setta/routers/share_deployments.py` with endpoints:
   - `route_publish_share_deployment` (inputs: projectConfigId, policy overrides).
   - `route_list_share_deployments` / `route_get_share_deployment` as needed.
@@ -52,11 +53,14 @@ in `backend/setta/types/routes.py`.
   - Copy referenced artifacts from `setta_files/artifacts` into the deployment
     root under `artifacts/`, and rebase artifact paths in the exported
     `project.json` if necessary.
+  - Copy JSON source files into `json_sources/` and rebase `variant.name` paths.
+  - Copy code files into `code/` and rebase `CodeFileBinding.canonical_path`.
   - Copy listener entrypoint (if present) into `listener/` inside the deployment.
   - Write `project.json`, `manifest.json`, and `share_policy.json`.
   - Avoid any writes back to the developer workspace state.
 
 ## 3) Share runtime server/state
+Status: not started (share runtime still pending; share router registration is done in step 11).
 - Introduce a share mode flag (env or CLI) and branch in
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
@@ -148,6 +152,7 @@ in `backend/setta/types/routes.py`.
 - Add a visible "Sharing Mode" indicator in the header.
 
 ## 11) Generated endpoints + types
+Status: partially complete. Share router registered in `backend/setta/server.py`; run generation after future route changes.
 - Register share routes in `backend/setta/types/routes.py` and include share
   routers in `backend/setta/server.py`.
 - Regenerate frontend bindings after route changes:
@@ -155,6 +160,7 @@ in `backend/setta/types/routes.py`.
 - Do not manually edit anything under `backend/setta/types/generated`.
 
 ## 12) Tests + verification
+Status: partially complete. Added publish deployment tests in `tests/routers/test_share_deployments.py`.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).

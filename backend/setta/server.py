@@ -40,6 +40,7 @@ from setta.routers import (
     projects_router,
     sections_router,
     settings_router,
+    share_deployments_router,
     status_router,
     terminals_http_router,
     terminals_ws_router,
@@ -140,6 +141,7 @@ app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
+app.include_router(share_deployments_router, **http_router_kwargs)
 
 
 async def _open_browser_after_startup(url: str) -> None:

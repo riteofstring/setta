@@ -391,6 +391,10 @@ export const RouteEnum = {
   SET_CHART_SETTINGS: "/setChartSettings",
   LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
   LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM: "/loadDrawAreaLayerItemTransform",
+  SHARE_DEPLOYMENTS: "/share/deployments",
+  SHARE_DEPLOYMENT_SESSION: "/share/deployments/{deploymentId}/session",
+  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentId}/state",
+  WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
 } as const;
 
 export const BackgroundVariantEnum = {
@@ -414,6 +418,11 @@ export const RenameRefactorModeEnum = {
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
+
+const ListenerIsolationModeEnum = {
+  per_viewer: "per_viewer",
+  shared: "shared",
+} as const;
 
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
@@ -4794,6 +4803,16 @@ const BrowserAreaItemSchema = z.object({
 
 export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
 
+const ShareDeploymentMetadataSchema = z.object({
+  deploymentId: z.string(),
+  deploymentRoot: z.string(),
+  sharePolicyPath: z.string(),
+});
+
+export type ShareDeploymentMetadata = z.infer<
+  typeof ShareDeploymentMetadataSchema
+>;
+
 const WebsocketMsgSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -5932,6 +5951,35 @@ const SaveSettingsRequestSchema = z.object({
 
 export type SaveSettingsRequestInput = z.input<
   typeof SaveSettingsRequestSchema
+>;
+
+const SharePolicyOverridesSchema = z.object({
+  allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowVariantChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowRun: z.union([z.boolean(), z.null()]).default(null),
+  allowLLM: z.union([z.boolean(), z.null()]).default(null),
+  allowMCP: z.union([z.boolean(), z.null()]).default(null),
+  listenerIsolation: z
+    .union([z.enum(ListenerIsolationModeEnum), z.null()])
+    .default(null),
+  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
+});
+
+const PublishShareDeploymentRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  sharePolicyOverrides: z
+    .union([SharePolicyOverridesSchema, z.null()])
+    .default(null),
+  listenerEntrypoint: z.union([z.string(), z.null()]).default(null),
+  listenerEnabled: z.boolean().default(true),
+  listenerIsolation: z
+    .union([z.enum(ListenerIsolationModeEnum), z.null()])
+    .default(null),
+});
+
+export type PublishShareDeploymentRequestInput = z.input<
+  typeof PublishShareDeploymentRequestSchema
 >;
 
 const BackendInitEventSchema = z.object({
