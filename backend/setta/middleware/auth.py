@@ -18,22 +18,6 @@ UNAUTHORIZED_HTML = """<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Setta Unauthorized</title>
-    <style>
-      body {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-        background: #f6f4f1;
-        color: #151515;
-        margin: 0;
-        padding: 2rem;
-      }
-      main {
-        max-width: 640px;
-      }
-      a {
-        color: #0b5fff;
-      }
-    </style>
   </head>
   <body>
     <main>

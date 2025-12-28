@@ -110,9 +110,8 @@ export const openWebSocket = _.debounce(
           wasOpen = false;
           clearAllWebsocketConnections();
           addTemporaryNotification(
-            "Authentication required. Opening bootstrap page.",
+            "Authentication required. Open /__setta__/bootstrap to continue.",
           );
-          window.location.assign(getBootstrapUrl());
           return;
         }
         if (wasOpen) {
@@ -136,10 +135,6 @@ function closeWebSocket() {
     wss.close();
     wss = null;
   }
-}
-
-function getBootstrapUrl(): string {
-  return `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 }
 
 function wssReady(wss: WebSocket | null): wss is WebSocket {

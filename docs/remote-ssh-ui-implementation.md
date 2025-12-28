@@ -231,12 +231,12 @@ Files to change:
 - `frontend/src/utils/endpointUtils.ts`
   - Add `credentials: "include"` on `fetch` calls.
 - `frontend/src/state/actions/websocketReceive.ts`
-  - Detect auth-close (e.g., 4401) and notify; optionally redirect to `/__setta__/bootstrap`.
+  - Detect auth-close (e.g., 4401) and notify; point users to `/__setta__/bootstrap`.
 - `frontend/src/utils/c_addresses.ts`
   - Add backend origin helper for non-API routes.
 
 ### 2) Boot Flow Handling
-Status: NOT STARTED
+Status: DONE
 
 `GlobalWrapper` currently polls `backendInitStatus`. With strict auth, `/` and static assets are protected, so the UI only loads after the auth cookie is set via `/__setta__/bootstrap`.
 
