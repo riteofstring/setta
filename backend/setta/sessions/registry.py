@@ -173,9 +173,7 @@ class SessionRegistry:
         lowered = [item.lower() for item in cmdline]
         return any("setta" in item for item in lowered)
 
-    def _is_port_listening(
-        self, process: psutil.Process, host: str, port: int
-    ) -> bool:
+    def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
         try:
             connections = process.connections(kind="inet")
         except psutil.AccessDenied:

@@ -35,9 +35,7 @@ class BootstrapTokenManager:
         self._ttl_seconds = ttl_seconds
         self._nonce_tracker = nonce_tracker or NonceTracker()
 
-    def mint(
-        self, session_id: str, secret: bytes, now: datetime | None = None
-    ) -> str:
+    def mint(self, session_id: str, secret: bytes, now: datetime | None = None) -> str:
         issued_at = now or datetime.now(timezone.utc)
         exp = int(issued_at.timestamp()) + self._ttl_seconds
         payload = BootstrapTokenPayload(
@@ -87,9 +85,7 @@ class BootstrapTokenManager:
     def _sign(self, payload: bytes, secret: bytes) -> bytes:
         return hmac.new(secret, payload, "sha256").digest()
 
-    def _is_expired(
-        self, payload: BootstrapTokenPayload, now: datetime | None
-    ) -> bool:
+    def _is_expired(self, payload: BootstrapTokenPayload, now: datetime | None) -> bool:
         timestamp = int((now or datetime.now(timezone.utc)).timestamp())
         return timestamp >= payload.exp
 
