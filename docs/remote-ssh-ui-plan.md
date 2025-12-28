@@ -24,7 +24,7 @@ This plan keeps the current workflow (install Setta in the project’s Python en
    ```bash
    setta connect dev@buildbox:/work/my-project
    ```
-3. `setta connect` uses SSH to start Setta (if not already running), opens a local tunnel, and launches the browser. The UI loads locally with auth already established. The browser opens `/__setta__/bootstrap#token=...`; the bootstrap page auto-consumes the fragment, sets the auth cookie, uses `history.replaceState` to scrub the URL, and redirects to `/` without prompting the user. Because the token is in the fragment and the URL is rewritten before redirect, it should not appear in browser history unless JS does not run or a query-string token is used.
+3. `setta connect` uses SSH to start Setta (if not already running), opens a local tunnel, and launches the browser. The UI loads locally with auth already established. The browser opens `/__setta__/bootstrap#token=...`; the bootstrap page auto-consumes the fragment, sets the auth cookie, uses `history.replaceState` to scrub the URL, and redirects to `/` without prompting the user. Because the token is in the fragment and the URL is rewritten before redirect, it should not appear in browser history. If the fragment is stripped, the page will prompt for a token; query-string tokens can appear in history.
 4. If the user prefers to start Setta manually on the host, the remote output prints a fully ready-to-copy snippet:
    ```text
    Setta running (session 9f2c4b)
@@ -38,7 +38,7 @@ This plan keeps the current workflow (install Setta in the project’s Python en
      ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
      Open this URL in your browser (recommended):
        http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>
-     If the page prompts for a token (JS blocked or fragment stripped), open:
+     If the page prompts for a token (fragment stripped or you prefer manual entry), open:
        http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap
        and paste:
          <token>
@@ -59,7 +59,7 @@ Requires two terminals:
   ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
   Open this URL in your browser (recommended):
     http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>
-  If the page prompts for a token (JS blocked or fragment stripped), open:
+  If the page prompts for a token (fragment stripped or you prefer manual entry), open:
     http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap
     and paste:
       <token>
@@ -73,7 +73,7 @@ The bootstrap page sets an auth cookie and redirects to `/` so the token does no
 Prefer the fragment form (`#token=<token>`). The fragment is not sent in the initial request; the bootstrap script
 reads it client-side, POSTs it to consume, and calls `history.replaceState` before redirecting, so the token should
 not appear in browser history.
-The token can still end up in history if JS does not run (blocked/CSP/extensions) or if a query-string token is used.
+The token can still end up in history if a query-string token is used or if tooling converts the fragment into a query string.
 Query tokens may also land in shell history or logs.
 If the token expires, run `setta status --connect-info` again to mint a fresh one (no server restart needed).
 
@@ -120,6 +120,7 @@ Behavior:
 - If exactly one session matches, use it.
 - If multiple sessions match and no non-interactive option is provided, prompt interactively:
   - Show a short numbered list (session id, started time, port).
+  - Show an inline hint line like: `Select [1-3], dN delete, q quit` (example: `d3`).
   - User enters a number to connect, `d<number>` to delete a session, or `q` to quit.
   - Deletion prompts for confirmation and stops the server before removing session metadata.
 - If `stdin` is not a TTY and multiple sessions match, exit non-zero with a clear message to use `--session <id>` or `--latest` (do not prompt or hang).
@@ -133,6 +134,7 @@ Behavior:
   Opening local tunnel on 61037 (keep this terminal open).
   Opening browser...
   Tunnel active (Ctrl+C to stop).
+  Tip: use --detach to background the tunnel or --print-only to copy commands.
   ```
 - Opens a local tunnel and launches the browser to the bootstrap URL. For `setta connect`,
   pass the token via fragment by default (`#token=...`) so the UI loads immediately; allow
@@ -143,6 +145,7 @@ Behavior:
 - Keeps the tunnel alive in the foreground so a single local terminal can drive the entire flow.
 - Runs in the foreground; `Ctrl+C` closes the tunnel and leaves the remote server running.
   - Print a clear warning that this terminal must stay open; closing it disconnects the UI. Include a quick reconnect hint (`setta connect ...`).
+  - After the tunnel is active, print a short tip about `--detach` and `--print-only`.
 - `--detach` runs the tunnel in the background and returns control of the terminal; print the tunnel PID and a single, foolproof stop command.
   Example:
   ```text
@@ -166,6 +169,8 @@ CLI output:
   Using session 9f2c4b (port 61234).
   Opening local tunnel on 61037 (keep this terminal open).
   Opening browser...
+  Tunnel active (Ctrl+C to stop).
+  Tip: use --detach to background the tunnel or --print-only to copy commands.
 CLI opens:
   http://127.0.0.1:61037/__setta__/bootstrap#token=7f3b2c9e
 Browser requests:
@@ -190,7 +195,7 @@ Final URL:
 - Auth cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, with a longer max-age (for example, 8-24 hours) to avoid repeated prompts.
 - Auth credentials (bootstrap tokens and auth cookies) protect access even when traffic is tunneled over SSH; the tunnel is transport security, not auth.
 - Never bind to public interfaces unless explicitly requested.
-- For `setta connect`, token delivery uses a URL fragment plus `history.replaceState` so the token does not end up in browser history. It can still appear if JS does not run or if a query-string token is used.
+- For `setta connect`, token delivery uses a URL fragment plus `history.replaceState` so the token does not end up in browser history. It can still appear if a query-string token is used or the fragment is rewritten into a query string.
 
 ## Token Lifecycle (User-Friendly)
 - Session secret: created once per server session and stored on disk; never shown to users.
@@ -232,10 +237,32 @@ Users can still access the UI with only SSH installed by using manual tunnel + b
 The helper command remains optional. On the remote host, run `setta status --connect-info`
 to print a ready-to-copy snippet that includes the remote start command plus the local
 SSH tunnel and browser instructions. Include a fragment URL with the token for the no-prompt
-flow, plus a plain `/__setta__/bootstrap` URL for manual paste when JS is blocked. Provide
+flow, plus a plain `/__setta__/bootstrap` URL for manual paste if the fragment is stripped or the user prefers manual entry. Provide
 optional commands for macOS (`open URL`), Linux (`xdg-open URL`), Windows (`start URL`), or
 `python -m webbrowser URL`.
 Example: if your laptop prints `setta: command not found`, use the printed `ssh -N -L ...` snippet instead of `setta connect`.
+
+### Single-Terminal Suggestions (No Local Setta)
+These are optional ideas when you want to avoid keeping two terminals open at the same time.
+Each has tradeoffs (especially around stopping background processes), so list them as alternatives.
+
+Option A: Detach Setta remotely, then run only the local tunnel in the foreground.
+```bash
+ssh dev@buildbox "bash -lc 'cd /work/my-project && source .venv/bin/activate && nohup setta >/tmp/setta.log 2>&1 &'"
+LOCAL_PORT=61000
+ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
+open "http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>"
+```
+Notes: you must manually stop the remote Setta process later (for example, by session id or PID).
+
+Option B: Background the local tunnel and keep your terminal free.
+```bash
+LOCAL_PORT=61000
+ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes &
+open "http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>"
+wait
+```
+Notes: use `jobs`/`fg`/`kill` to manage the background tunnel; closing the terminal will end it.
 
 ## Testing and Verification
 - Start Setta on a remote host, verify bind is loopback only.
