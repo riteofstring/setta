@@ -11,7 +11,7 @@ import uvicorn
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
-from setta.sessions.constants import SESSION_ID_ENV_VAR
+from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls
 
@@ -21,6 +21,18 @@ if TYPE_CHECKING:
 _READY_POLL_INTERVAL_SECONDS = 0.05
 _DEFAULT_READY_TIMEOUT_SECONDS = 15.0
 _DEFAULT_JOIN_TIMEOUT_SECONDS = 5.0
+
+
+def _resolve_sessions_root(workspace: Path | str) -> Path:
+    sessions_root = C.RUN_SESSIONS_FOLDER
+    if sessions_root.is_absolute():
+        return sessions_root
+    if isinstance(workspace, Path):
+        raw = str(workspace)
+    else:
+        raw = workspace
+    expanded = os.path.expandvars(os.path.expanduser(raw))
+    return Path(expanded).resolve() / sessions_root
 
 
 class BackendServerHandle:
@@ -37,6 +49,8 @@ class BackendServerHandle:
         bootstrap_url_plain: str | None = None,
         previous_session_id: str | None = None,
         session_env_updated: bool = False,
+        previous_sessions_root: str | None = None,
+        sessions_root_env_updated: bool = False,
     ) -> None:
         self._server = server
         self._thread = thread
@@ -46,6 +60,8 @@ class BackendServerHandle:
         self._bootstrap_url_plain = bootstrap_url_plain
         self._previous_session_id = previous_session_id
         self._session_env_updated = session_env_updated
+        self._previous_sessions_root = previous_sessions_root
+        self._sessions_root_env_updated = sessions_root_env_updated
 
     @property
     def server(self) -> uvicorn.Server:
@@ -93,6 +109,11 @@ class BackendServerHandle:
                 os.environ.pop(SESSION_ID_ENV_VAR, None)
             else:
                 os.environ[SESSION_ID_ENV_VAR] = self._previous_session_id
+        if self._sessions_root_env_updated:
+            if self._previous_sessions_root is None:
+                os.environ.pop(SESSIONS_ROOT_ENV_VAR, None)
+            else:
+                os.environ[SESSIONS_ROOT_ENV_VAR] = self._previous_sessions_root
         if self._session is not None and self._session_registry is not None:
             self._session_registry.delete_session(self._session.id)
 
@@ -143,12 +164,16 @@ def start_backend(
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    session_registry = SessionRegistry()
+    workspace_root = Path.cwd()
+    sessions_root = _resolve_sessions_root(workspace_root)
+    session_registry = SessionRegistry(sessions_root=sessions_root)
     session = session_registry.create_session(
-        Path.cwd(), resolved_host, resolved_port, os.getpid()
+        workspace_root, resolved_host, resolved_port, os.getpid()
     )
     previous_session_id = os.environ.get(SESSION_ID_ENV_VAR)
     os.environ[SESSION_ID_ENV_VAR] = session.id
+    previous_sessions_root = os.environ.get(SESSIONS_ROOT_ENV_VAR)
+    os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
     secret = session_registry.load_secret(session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
     bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
@@ -184,6 +209,8 @@ def start_backend(
         bootstrap_url_plain=bootstrap_url_plain,
         previous_session_id=previous_session_id,
         session_env_updated=True,
+        previous_sessions_root=previous_sessions_root,
+        sessions_root_env_updated=True,
     )
 
     if wait_for_ready:

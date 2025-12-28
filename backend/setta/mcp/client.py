@@ -171,7 +171,8 @@ async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
     session_info = load_current_session_secret()
     if session_info is None:
         raise ValueError(
-            "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID."
+            "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID "
+            "(and SETTA_SESSIONS_ROOT if running outside the session workspace)."
         )
     session_metadata, secret = session_info
     cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)

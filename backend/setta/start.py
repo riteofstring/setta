@@ -21,7 +21,7 @@ from setta import __version__
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
-from setta.sessions.constants import SESSION_ID_ENV_VAR
+from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls, format_host_for_ssh_tunnel
@@ -1238,11 +1238,13 @@ def cli(
         C.HOST = resolved_host
         C.PORT = resolved_port
 
-        registry = SessionRegistry()
+        sessions_root = _resolve_sessions_root(Path.cwd())
+        registry = SessionRegistry(sessions_root=sessions_root)
         session = registry.create_session(
             Path.cwd(), resolved_host, resolved_port, os.getpid()
         )
         os.environ[SESSION_ID_ENV_VAR] = session.id
+        os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
         secret = registry.load_secret(session)
         token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
 
