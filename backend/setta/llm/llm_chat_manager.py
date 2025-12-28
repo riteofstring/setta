@@ -54,7 +54,6 @@ from setta.project_state.chats.save import (
     delete_chat as delete_chat_record,
 )
 from setta.project_state.project_manager_types import (
-    GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateSummaryRequest,
 )
 from setta.project_state.project_state_summary_types import ProjectStateSummary
@@ -92,7 +91,6 @@ if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
-DIAGNOSTICS_TOOL_BASE_NAME = "get_latest_lsp_diagnostics"
 
 
 @dataclass
@@ -202,9 +200,6 @@ class LLMChatManager:
         self._ai_follow_state: dict[ID, AIFollowState] = {}
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
-        )
-        self._diagnostics_tool_name = build_namespaced_tool_name(
-            SETTA_MCP_SERVER_ID, DIAGNOSTICS_TOOL_BASE_NAME
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
@@ -358,12 +353,6 @@ class LLMChatManager:
                     chat.projectConfigId,
                 )
                 tool_results = await self._run_tool_calls(chat, assistant_message)
-                diagnostics_result = await self._maybe_append_lsp_diagnostics(
-                    chat,
-                    assistant_message,
-                )
-                if diagnostics_result:
-                    tool_results.append(diagnostics_result)
                 if assistant_message.tool_calls:
                     await self._update_and_broadcast_ai_follow_update(
                         chat.projectConfigId,
@@ -1650,82 +1639,6 @@ class LLMChatManager:
             result = await self._dispatch_tool_call(chat, tool_call)
             results.append(result)
         return results
-
-    async def _maybe_append_lsp_diagnostics(
-        self,
-        chat: Chat,
-        assistant_message: AssistantChatMessage,
-    ) -> ToolChatMessage | None:
-        if not self._should_emit_lsp_diagnostics(assistant_message):
-            return None
-
-        project_config_id = chat.projectConfigId
-        project_manager = self.project_manager_switcher.get(project_config_id)
-        diagnostics = await project_manager.get_latest_lsp_diagnostics(
-            GetLatestLspDiagnosticsRequest(projectConfigId=project_config_id)
-        )
-
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
-        map_size_before = len(canonical_to_temporary)
-        converted_diagnostics = convert_canonical_ids_to_temporary(
-            diagnostics,
-            canonical_to_temporary,
-            temporary_to_canonical,
-        )
-        if len(canonical_to_temporary) != map_size_before:
-            self.dbe.write_temporary_id_map(canonical_to_temporary)
-
-        project_config_id_value = str(converted_diagnostics.projectConfigId)
-        tool_call = ToolCall(
-            function=ToolCallFunction(
-                name=self._diagnostics_tool_name,
-                arguments={"projectConfigId": project_config_id_value},
-            )
-        )
-        if assistant_message.tool_calls is None:
-            assistant_message.tool_calls = []
-        assistant_message.tool_calls.append(tool_call)
-
-        started_at = get_now_timestamp()
-        content_text = self._serialize_prompt_payload(converted_diagnostics)
-        completed_at = get_now_timestamp()
-        tool_chat_message = ToolChatMessage(
-            tool_call_id=tool_call.id,
-            tool_name=self._diagnostics_tool_name,
-            arguments={"projectConfigId": project_config_id_value},
-            content=[TextContent(type="text", text=content_text)],
-            is_error=False,
-            result=converted_diagnostics.model_dump(mode="json"),
-            started_at=started_at,
-            completed_at=completed_at,
-        )
-        await self.websocket_msg_handler.send_streaming_response(
-            chat.id,
-            ToolResultEvent(result=tool_chat_message),
-        )
-        return tool_chat_message
-
-    def _should_emit_lsp_diagnostics(
-        self,
-        assistant_message: AssistantChatMessage,
-    ) -> bool:
-        tool_calls = assistant_message.tool_calls or []
-        if not tool_calls:
-            return False
-        saw_setta_tool = False
-        for tool_call in tool_calls:
-            tool_name = tool_call.function.name.strip()
-            if not tool_name:
-                continue
-            if tool_name == self._search_tool_name:
-                continue
-            if tool_name == self._diagnostics_tool_name:
-                return False
-            if self._is_setta_tool_name(tool_name):
-                saw_setta_tool = True
-        return saw_setta_tool
 
     def _should_persist_partial_message(
         self,

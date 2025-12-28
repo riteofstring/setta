@@ -14,7 +14,7 @@ export function res200<T>(
 
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, any>,
+  addressParams?: Record<string, string | number | boolean>,
 ): string {
   if (!addressParams) return address;
 
@@ -28,11 +28,13 @@ export function replaceAddressParams(
 
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, any>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
   const fullAddress = replaceAddressParams(address, addressParams);
   try {
-    const response = await fetch(`${C_ADDRESSES.BACKEND}${fullAddress}`);
+    const response = await fetch(`${C_ADDRESSES.BACKEND}${fullAddress}`, {
+      credentials: "include",
+    });
     return {
       data: await response.json(),
       status: response.status,
@@ -46,11 +48,12 @@ export async function get<T>(
 
 export async function post<T>(
   address: string,
-  body: any = null,
+  body: unknown | null = null,
 ): Promise<ResponseDataAndStatus<T>> {
   try {
     const response = await fetch(`${C_ADDRESSES.BACKEND}${address}`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
