@@ -1,6 +1,16 @@
 import { get, post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
+async function route_bootstrap_page(): Promise<ResponseDataAndStatus<string>> {
+  return await get("/__setta__/bootstrap");
+}
+
+async function route_bootstrap_consume(
+  payload: gt.BootstrapConsumeRequestInput | null,
+): Promise<ResponseDataAndStatus<Record<string, string>>> {
+  return await post("/__setta__/bootstrap/consume", payload);
+}
+
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
@@ -493,22 +503,16 @@ export async function route_set_code_file_binding(
   return await post("/setCodeFileBinding", x);
 }
 
-export async function route_toggle_position_locks(
-  x: gt.TogglePositionLocksRequestInput,
+export async function route_toggle_position_lock(
+  x: gt.TogglePositionLockRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/togglePositionLocks", x);
+  return await post("/togglePositionLock", x);
 }
 
 export async function route_toggle_minimized(
   x: gt.ToggleMinimizedRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleMinimized", x);
-}
-
-export async function route_toggle_group_orientation(
-  x: gt.ToggleGroupOrientationRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleGroupOrientation", x);
 }
 
 export async function route_set_code(

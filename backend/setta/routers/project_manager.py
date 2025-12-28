@@ -70,11 +70,10 @@ from setta.project_state.project_manager_types import (
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
-    ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
     ToggleMinimizedRequest,
     ToggleParamSelectedRequest,
-    TogglePositionLocksRequest,
+    TogglePositionLockRequest,
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
@@ -449,25 +448,16 @@ async def route_set_code_file_binding(
     await state.project_manager_switcher.get(x.projectConfigId).set_code_file_binding(x)
 
 
-@router.post(Route.TOGGLE_POSITION_LOCKS)
-async def route_toggle_position_locks(
-    x: TogglePositionLocksRequest, state: AppStateFromRequest
+@router.post(Route.TOGGLE_POSITION_LOCK)
+async def route_toggle_position_lock(
+    x: TogglePositionLockRequest, state: AppStateFromRequest
 ):
-    await state.project_manager_switcher.get(x.projectConfigId).toggle_position_locks(x)
+    await state.project_manager_switcher.get(x.projectConfigId).toggle_position_lock(x)
 
 
 @router.post(Route.TOGGLE_MINIMIZED)
 async def route_toggle_minimized(x: ToggleMinimizedRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).toggle_minimized(x)
-
-
-@router.post(Route.TOGGLE_GROUP_ORIENTATION)
-async def route_toggle_group_orientation(
-    x: ToggleGroupOrientationRequest, state: AppStateFromRequest
-):
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).toggle_group_orientation(x)
 
 
 @router.post(Route.SET_CODE)

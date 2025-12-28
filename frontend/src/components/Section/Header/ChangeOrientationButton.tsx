@@ -3,44 +3,23 @@ import {
   TbArrowBigRightLinesFilled,
 } from "react-icons/tb";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
-  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_toggle_group_orientation } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-type ChangeOrientationButtonProps = {
-  sectionId: string;
-};
-
-export function ChangeOrientationButton({
-  sectionId,
-}: ChangeOrientationButtonProps) {
+export function ChangeOrientationButton({ sectionId }) {
   const isHorizontalOrientation = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
   });
 
   function onClick() {
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const impl = getCurrEffectiveSectionImpl(state, sectionId);
-        if (impl.type !== SectionTypeEnum.Group) {
-          return;
-        }
-        setCurrEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
-          isHorizontalOrientation: !impl.isHorizontalOrientation,
-        });
-      },
-      send: (frontendOpId) =>
-        route_toggle_group_orientation({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          frontendOpId,
-        }),
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
+        isHorizontalOrientation: !isHorizontalOrientation,
+      });
     });
   }
 
