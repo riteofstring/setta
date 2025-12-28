@@ -13,3 +13,4 @@
 - `setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
 - `setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
+- `remote-ssh-manual.md` – manual SSH tunnel steps for remote Setta without a local install.

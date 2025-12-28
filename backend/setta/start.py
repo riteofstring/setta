@@ -551,6 +551,13 @@ def _build_ssh_tunnel_command(port: int) -> str:
     )
 
 
+def _build_ssh_tunnel_command_for_port(local_port: int, remote_port: int) -> str:
+    return (
+        f"ssh -N -L {local_port}:127.0.0.1:{remote_port} "
+        "<user@host> -o ExitOnForwardFailure=yes"
+    )
+
+
 def _render_startup_message(
     session_id: str,
     host: str,
@@ -573,41 +580,38 @@ def _render_startup_message(
         return "\n".join(lines)
 
     if not is_remote_session:
-        lines.append("Open this URL in your browser (recommended):")
+        lines.append("")
+        lines.append("Bootstrap URL (recommended):")
         lines.append(f"  {bootstrap_url_fragment}")
-        lines.append(
-            "If the page prompts for a token (fragment stripped or you prefer manual entry), open:"
-        )
+        lines.append("")
+        lines.append("Manual token entry:")
         lines.append(f"  {bootstrap_url_plain}")
-        lines.append("  and paste:")
-        lines.append(f"    {token}")
+        lines.append(f"  Token: {token}")
         return "\n".join(lines)
 
     quoted_workspace = shlex.quote(str(workspace_path))
-    lines.append("From your laptop (recommended if Setta is installed locally):")
+    lines.append("")
+    lines.append("From your laptop (Setta installed):")
     lines.append(
         f"  setta connect <user@host> --workspace {quoted_workspace} --session {session_id}"
     )
-    lines.append("Manual tunnel (if Setta is not installed locally):")
-    lines.append("  LOCAL_PORT=61000")
+    lines.append("")
+    lines.append("Manual tunnel (no local Setta install):")
+    local_port = _DEFAULT_LOCAL_PORT
+    lines.append(f"  {_build_ssh_tunnel_command_for_port(local_port, port)}")
+    lines.append("  Open in browser (recommended):")
     lines.append(
-        "  ssh -N -L ${LOCAL_PORT}:127.0.0.1:"
-        f"{port} <user@host> -o ExitOnForwardFailure=yes"
+        f"    http://127.0.0.1:{local_port}{Route.BOOTSTRAP_PAGE.value}#token={token}"
     )
-    lines.append("  Open this URL in your browser (recommended):")
+    lines.append("  Manual token entry:")
+    lines.append(f"    http://127.0.0.1:{local_port}{Route.BOOTSTRAP_PAGE.value}")
+    lines.append(f"    Token: {token}")
     lines.append(
-        "    http://127.0.0.1:${LOCAL_PORT}"
-        f"{Route.BOOTSTRAP_PAGE.value}#token={token}"
+        f"  Tip: if you change the local port, replace {local_port} in the tunnel + URLs."
     )
     lines.append(
-        "  If the page prompts for a token (fragment stripped or you prefer manual entry), open:"
-    )
-    lines.append(f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}")
-    lines.append("    and paste:")
-    lines.append(f"      {token}")
-    lines.append(
-        "  (macOS: open URL, Linux: xdg-open URL, Windows: start URL, "
-        "Python: python -m webbrowser URL)"
+        "  macOS: open URL | Linux: xdg-open URL | Windows: start URL | "
+        "Python: python -m webbrowser URL"
     )
     return "\n".join(lines)
 
@@ -623,27 +627,44 @@ def _render_connect_info_message(
     lines = [
         f"Setta session {session.id}",
         f"Bind: {bind_label}",
-        "Remote start (copy/paste on host, if needed):",
-        f"  cd {quoted_workspace} && source .venv/bin/activate && setta",
-        "Bootstrap URL with fragment token:",
-        f"  {bootstrap_url_fragment}",
-        "Bootstrap URL (no token):",
-        f"  {bootstrap_url_plain}",
-        "From your laptop (recommended if Setta is installed locally):",
-        f"  setta connect <user@host> --workspace {quoted_workspace} --session {session.id}",
-        "Manual tunnel (if Setta is not installed locally):",
-        f"  LOCAL_PORT={_DEFAULT_LOCAL_PORT}",
-        f"  {_build_ssh_tunnel_command(session.port)}",
-        "  Open this URL in your browser (recommended):",
-        "    http://127.0.0.1:${LOCAL_PORT}"
-        f"{Route.BOOTSTRAP_PAGE.value}#token={token}",
-        "  If the page prompts for a token (fragment stripped or you prefer manual entry), open:",
-        f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}",
-        "    and paste:",
-        f"      {token}",
-        "  (macOS: open URL, Linux: xdg-open URL, Windows: start URL, "
-        "Python: python -m webbrowser URL)",
     ]
+    lines.append("")
+    lines.append("Remote start (run on host, if needed):")
+    lines.append(f"  cd {quoted_workspace} && source .venv/bin/activate && setta")
+    lines.append("")
+    lines.append("Bootstrap URL (fragment token):")
+    lines.append(f"  {bootstrap_url_fragment}")
+    lines.append("")
+    lines.append("Bootstrap URL (manual token entry):")
+    lines.append(f"  {bootstrap_url_plain}")
+    lines.append(f"  Token: {token}")
+    lines.append("")
+    lines.append("From your laptop (Setta installed):")
+    lines.append(
+        f"  setta connect <user@host> --workspace {quoted_workspace} --session {session.id}"
+    )
+    lines.append("")
+    lines.append("Manual tunnel (no local Setta install):")
+    lines.append(
+        f"  {_build_ssh_tunnel_command_for_port(_DEFAULT_LOCAL_PORT, session.port)}"
+    )
+    lines.append("  Open in browser (recommended):")
+    lines.append(
+        f"    http://127.0.0.1:{_DEFAULT_LOCAL_PORT}"
+        f"{Route.BOOTSTRAP_PAGE.value}#token={token}"
+    )
+    lines.append("  Manual token entry:")
+    lines.append(
+        f"    http://127.0.0.1:{_DEFAULT_LOCAL_PORT}{Route.BOOTSTRAP_PAGE.value}"
+    )
+    lines.append(f"    Token: {token}")
+    lines.append(
+        f"  Tip: if you change the local port, replace {_DEFAULT_LOCAL_PORT} in the tunnel + URLs."
+    )
+    lines.append(
+        "  macOS: open URL | Linux: xdg-open URL | Windows: start URL | "
+        "Python: python -m webbrowser URL"
+    )
     return "\n".join(lines)
 
 
