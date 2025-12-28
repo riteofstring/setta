@@ -20,7 +20,9 @@
 - Agent startup disables `--reload` to keep session metadata consistent.
 - Local UI server now serves the bundled frontend and exposes a runtime config endpoint (`/__setta__/config`).
 - Frontend networking now pulls base URL + token from runtime config for HTTP + websockets (legacy static address constants removed).
-- Legacy CLI websocket connect command and handlers removed; no CLI remote-connect entrypoint exists yet.
+- Legacy CLI websocket connect command and handlers removed.
+- New CLI remote-connect flow added: SSH bootstrap, tunnel setup, local UI config injection, and local session metadata (`local.json`).
+- Added CLI commands: `remote-connect`, `remote-disconnect`, and `remote-status`.
 
 ## User Experience
 - A remote-connect command starts or reuses a remote session and opens the local UI.
@@ -118,11 +120,11 @@
 - DONE: Add basic session directory creation, pid/log file creation, and metadata writing.
 
 ### Phase 2: Local Client and SSH Bootstrap
-- Build the remote-connect CLI flow:
+- DONE: Build the remote-connect CLI flow:
   - SSH bootstrap script that starts the agent and prints listen info
-  - local tunnel setup
-  - local session metadata tracking
-- Build the disconnect and status commands.
+  - local tunnel setup (UDS preferred, TCP fallback)
+  - local session metadata tracking (`local.json`)
+- DONE: Build the disconnect and status commands.
 
 ### Phase 3: Local UI Wiring
 - DONE: Add a local UI server that serves the built frontend and exposes a runtime config endpoint.

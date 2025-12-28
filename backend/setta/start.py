@@ -4,15 +4,25 @@ import threading
 from pathlib import Path
 
 import click
+import psutil
 import uvicorn
 
 from . import __version__
 from .auth import configure_auth_token, load_auth_token_from_file
 from .logging.config import configure_logging
+from .remote_connect import (
+    DEFAULT_LOCAL_HOST,
+    DEFAULT_REMOTE_COMMAND,
+    connect_remote_session,
+    disconnect_remote_session,
+    list_local_metadata,
+    read_local_metadata,
+)
 from .session import (
     bootstrap_session,
     update_session_metadata_when_ready,
 )
+from .types.routes import Route
 from .utils.constants import C
 
 
@@ -96,6 +106,185 @@ def export_db(readable, readable_with_variants):
         readable_with_variants = True
 
     # TODO
+
+
+@click.command(name="remote-connect")
+@click.option("--ssh-target", required=True, help="SSH target (user@host)")
+@click.option(
+    "--session-id",
+    default=None,
+    help="Reuse a specific session id (auto-generated if omitted)",
+)
+@click.option(
+    "--reuse",
+    is_flag=True,
+    help="Reuse a remote session if session.json already exists",
+)
+@click.option(
+    "--local-host",
+    default=DEFAULT_LOCAL_HOST,
+    help="Local bind host for the tunnel",
+)
+@click.option(
+    "--local-port",
+    type=int,
+    default=None,
+    help="Local port for the SSH tunnel (defaults to a free port)",
+)
+@click.option("--ui-host", default=DEFAULT_LOCAL_HOST, help="Local UI host")
+@click.option("--ui-port", default=8001, help="Local UI port")
+@click.option(
+    "--remote-run-root",
+    default=None,
+    help="Remote session root (defaults to ~/.setta/run)",
+)
+@click.option(
+    "--local-run-root",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Local session root (defaults to ~/.setta/run)",
+)
+@click.option(
+    "--frontend-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Path to local UI frontend assets",
+)
+@click.option(
+    "--remote-command",
+    default=DEFAULT_REMOTE_COMMAND,
+    help="Remote command used to start the Setta agent",
+)
+@click.option("--no-uds", is_flag=True, help="Disable UDS and use TCP on the remote")
+@click.option(
+    "--ssh-option",
+    multiple=True,
+    help="Extra ssh -o options (repeatable)",
+)
+@click.option(
+    "--ssh-identity",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to SSH identity file",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["critical", "error", "warning", "info", "debug"], case_sensitive=False
+    ),
+    default=None,
+    help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
+)
+def remote_connect(
+    ssh_target: str,
+    session_id: str | None,
+    reuse: bool,
+    local_host: str,
+    local_port: int | None,
+    ui_host: str,
+    ui_port: int,
+    remote_run_root: str | None,
+    local_run_root: Path | None,
+    frontend_root: Path | None,
+    remote_command: str,
+    no_uds: bool,
+    ssh_option: tuple[str, ...],
+    ssh_identity: Path | None,
+    log_level: str | None,
+) -> None:
+    configure_logging(level_override=log_level)
+    metadata = connect_remote_session(
+        ssh_target=ssh_target,
+        ssh_options=list(ssh_option),
+        ssh_identity=ssh_identity,
+        session_id=session_id,
+        remote_run_root=remote_run_root,
+        local_run_root=local_run_root,
+        local_host=local_host,
+        local_port=local_port,
+        ui_host=ui_host,
+        ui_port=ui_port,
+        frontend_root=frontend_root,
+        remote_command=remote_command,
+        no_uds=no_uds,
+        reuse_existing=reuse,
+        log_level=log_level,
+    )
+    api_url = f"http://{metadata.local_host}:{metadata.local_port}{Route.PREFIX.value}"
+    ui_url = f"http://{metadata.ui_host}:{metadata.ui_port}"
+    click.echo(f"Remote session {metadata.session_id} connected.")
+    click.echo(f"Local UI: {ui_url}")
+    click.echo(f"Local API: {api_url}")
+
+
+@click.command(name="remote-disconnect")
+@click.option("--session-id", required=True, help="Session id to disconnect")
+@click.option(
+    "--local-run-root",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Local session root (defaults to ~/.setta/run)",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["critical", "error", "warning", "info", "debug"], case_sensitive=False
+    ),
+    default=None,
+    help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
+)
+def remote_disconnect(
+    session_id: str,
+    local_run_root: Path | None,
+    log_level: str | None,
+) -> None:
+    configure_logging(level_override=log_level)
+    metadata = read_local_metadata(session_id=session_id, run_root=local_run_root)
+    updated = disconnect_remote_session(
+        metadata=metadata,
+        local_run_root=local_run_root,
+    )
+    click.echo(f"Remote session {updated.session_id} disconnected.")
+
+
+@click.command(name="remote-status")
+@click.option(
+    "--local-run-root",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Local session root (defaults to ~/.setta/run)",
+)
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["critical", "error", "warning", "info", "debug"], case_sensitive=False
+    ),
+    default=None,
+    help="Override the logging level (defaults to SETTA_LOG_LEVEL or INFO)",
+)
+def remote_status(
+    local_run_root: Path | None,
+    log_level: str | None,
+) -> None:
+    configure_logging(level_override=log_level)
+    sessions = list_local_metadata(local_run_root)
+    if not sessions:
+        click.echo("No local remote sessions found.")
+        return
+    for session in sessions:
+        tunnel_state = "running" if psutil.pid_exists(session.tunnel_pid) else "stopped"
+        ui_state = (
+            "running" if psutil.pid_exists(session.local_ui_pid) else "stopped"
+        )
+        ui_url = f"http://{session.ui_host}:{session.ui_port}"
+        api_url = (
+            f"http://{session.local_host}:{session.local_port}{Route.PREFIX.value}"
+        )
+        click.echo(
+            f"{session.session_id} | {session.status} | ssh {session.ssh_target}"
+        )
+        click.echo(f"  ui {ui_state} {ui_url}")
+        click.echo(f"  tunnel {tunnel_state} {api_url}")
 
 
 @click.group(
@@ -225,3 +414,6 @@ def cli(
 cli.add_command(local_ui)
 cli.add_command(version)
 cli.add_command(export_db)
+cli.add_command(remote_connect)
+cli.add_command(remote_disconnect)
+cli.add_command(remote_status)

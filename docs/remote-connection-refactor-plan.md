@@ -7,6 +7,8 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - CLI entry point `setta.start:cli` starts an agent-only FastAPI server with no
   static UI serving and no browser launch (`backend/setta/start.py`,
   `backend/setta/server.py`, `backend/setta/backend_launcher.py`).
+- Remote-connect CLI commands now exist and are implemented in
+  `backend/setta/remote_connect.py`, wired through `backend/setta/start.py`.
 - The backend is monolithic: all HTTP routes, websockets, MCP SSE endpoints, LSP,
   terminals, and project state live under one app instance (`backend/setta/server.py`).
 - No auth layer exists; HTTP routes, websockets, and MCP SSE are open by default
@@ -43,10 +45,11 @@ to implement the remote-connection plan in `docs/remote-connection-plan.md`.
 - DONE: Agent startup requires `--session-id` + `--token-file`, supports `--uds`/`--session-root`, and writes `session.json`, `agent.pid`, and `logs/agent.log`.
 
 ### 3) CLI refactor for remote connect flows
-- Add new CLI subcommands that handle SSH bootstrap + tunnel lifecycle (names TBD).
+- DONE: Add CLI subcommands that handle SSH bootstrap + tunnel lifecycle
+  (`remote-connect`, `remote-disconnect`, `remote-status`).
 - DONE: Remove the legacy websocket CLI connect command and handlers to avoid conflicts.
 - DONE: Disable `--reload` for agent sessions to keep session metadata consistent.
-- Store local session metadata under `~/.setta/run/<session>/local.json` as described
+- DONE: Store local session metadata under `~/.setta/run/<session>/local.json` as described
   in the plan.
 
 ### 4) Frontend networking rework (base URL + auth)
