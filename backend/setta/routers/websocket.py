@@ -2,6 +2,9 @@ import logging
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from setta.auth.headers import extract_bearer_token
+from setta.auth.session import load_current_session_secret
+from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
 from setta.logging.context import get_logging_context, push_logging_context
 from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.routers.dependencies import (
@@ -12,6 +15,7 @@ from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
@@ -20,6 +24,30 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 router = SettaAPIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _authenticate_websocket(websocket: WebSocket) -> bool:
+    session_info = load_current_session_secret()
+    if session_info is None:
+        await websocket.close(code=4401)
+        return False
+    session_metadata, secret = session_info
+    cookie_value = websocket.cookies.get(C.AUTH_COOKIE_NAME)
+    if cookie_value:
+        cookie_payload = validate_auth_cookie(cookie_value, session_metadata.id, secret)
+        if cookie_payload is not None:
+            return True
+
+    bearer_token = extract_bearer_token(websocket.headers)
+    if bearer_token:
+        token_payload = consume_bootstrap_token(
+            bearer_token, session_metadata.id, secret
+        )
+        if token_payload is not None:
+            return True
+
+    await websocket.close(code=4401)
+    return False
 
 
 async def websocket_route_loop(
@@ -89,6 +117,8 @@ async def websocket_route_loop(
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebsocket):
+    if not await _authenticate_websocket(websocket):
+        return
     await websocket_route_loop(
         websocket,
         state.websocket_manager,
@@ -105,6 +135,8 @@ async def route_websocket_cli(
     state: AppStateFromWebsocket,
     id: str | None = None,
 ):
+    if not await _authenticate_websocket(websocket):
+        return
     await websocket_route_loop(
         websocket,
         state.websocket_manager,
@@ -121,6 +153,8 @@ async def route_websocket_python_script(
     state: AppStateFromWebsocket,
     id: str,
 ):
+    if not await _authenticate_websocket(websocket):
+        return
     await websocket_route_loop(
         websocket,
         state.websocket_manager,

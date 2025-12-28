@@ -4,13 +4,18 @@ import json
 import secrets
 from datetime import datetime, timezone
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 
 class BootstrapTokenPayload(BaseModel):
     sessionId: str
     exp: int
     nonce: str
+
+
+class AuthCookiePayload(BaseModel):
+    sessionId: str
+    exp: int
 
 
 class NonceTracker:
@@ -68,22 +73,18 @@ class BootstrapTokenManager:
         return payload
 
     def _decode_token(self, token: str) -> tuple[BootstrapTokenPayload, bytes]:
-        parts = token.split(".")
-        if len(parts) != 2:
-            raise ValueError("Invalid token format")
-        payload_bytes = _b64url_decode(parts[0])
-        signature = _b64url_decode(parts[1])
-        payload_obj = json.loads(payload_bytes)
-        payload = BootstrapTokenPayload.model_validate(payload_obj)
+        payload_obj, signature = _decode_token_parts(token)
+        try:
+            payload = BootstrapTokenPayload.model_validate(payload_obj)
+        except ValidationError as exc:
+            raise ValueError("Invalid token payload") from exc
         return payload, signature
 
     def _encode_payload(self, payload: BootstrapTokenPayload) -> bytes:
-        raw = payload.model_dump(mode="json")
-        encoded = json.dumps(raw, separators=(",", ":"), sort_keys=True)
-        return encoded.encode("utf-8")
+        return _encode_payload(payload)
 
     def _sign(self, payload: bytes, secret: bytes) -> bytes:
-        return hmac.new(secret, payload, "sha256").digest()
+        return _sign(payload, secret)
 
     def _is_expired(self, payload: BootstrapTokenPayload, now: datetime | None) -> bool:
         timestamp = int((now or datetime.now(timezone.utc)).timestamp())
@@ -97,3 +98,61 @@ def _b64url_encode(data: bytes) -> str:
 def _b64url_decode(data: str) -> bytes:
     padding = "=" * (-len(data) % 4)
     return base64.urlsafe_b64decode(data + padding)
+
+
+class AuthCookieManager:
+    def __init__(self, ttl_seconds: int) -> None:
+        self._ttl_seconds = ttl_seconds
+
+    def mint(self, session_id: str, secret: bytes, now: datetime | None = None) -> str:
+        issued_at = now or datetime.now(timezone.utc)
+        exp = int(issued_at.timestamp()) + self._ttl_seconds
+        payload = AuthCookiePayload(sessionId=session_id, exp=exp)
+        payload_bytes = _encode_payload(payload)
+        signature = _sign(payload_bytes, secret)
+        return f"{_b64url_encode(payload_bytes)}.{_b64url_encode(signature)}"
+
+    def validate(
+        self, token: str, secret: bytes, now: datetime | None = None
+    ) -> AuthCookiePayload:
+        payload, signature = self._decode_token(token)
+        expected = _sign(_encode_payload(payload), secret)
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("Invalid token signature")
+        if self._is_expired(payload, now):
+            raise ValueError("Token has expired")
+        return payload
+
+    def _decode_token(self, token: str) -> tuple[AuthCookiePayload, bytes]:
+        payload_obj, signature = _decode_token_parts(token)
+        try:
+            payload = AuthCookiePayload.model_validate(payload_obj)
+        except ValidationError as exc:
+            raise ValueError("Invalid token payload") from exc
+        return payload, signature
+
+    def _is_expired(self, payload: AuthCookiePayload, now: datetime | None) -> bool:
+        timestamp = int((now or datetime.now(timezone.utc)).timestamp())
+        return timestamp >= payload.exp
+
+
+def _encode_payload(payload: BaseModel) -> bytes:
+    raw = payload.model_dump(mode="json")
+    encoded = json.dumps(raw, separators=(",", ":"), sort_keys=True)
+    return encoded.encode("utf-8")
+
+
+def _sign(payload: bytes, secret: bytes) -> bytes:
+    return hmac.new(secret, payload, "sha256").digest()
+
+
+def _decode_token_parts(token: str) -> tuple[dict, bytes]:
+    parts = token.split(".")
+    if len(parts) != 2:
+        raise ValueError("Invalid token format")
+    payload_bytes = _b64url_decode(parts[0])
+    signature = _b64url_decode(parts[1])
+    payload_obj = json.loads(payload_bytes)
+    if not isinstance(payload_obj, dict):
+        raise ValueError("Invalid token payload")
+    return payload_obj, signature

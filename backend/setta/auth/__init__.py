@@ -1,3 +1,15 @@
-from setta.auth.tokens import BootstrapTokenManager, BootstrapTokenPayload, NonceTracker
+from setta.auth.tokens import (
+    AuthCookieManager,
+    AuthCookiePayload,
+    BootstrapTokenManager,
+    BootstrapTokenPayload,
+    NonceTracker,
+)
 
-__all__ = ["BootstrapTokenManager", "BootstrapTokenPayload", "NonceTracker"]
+__all__ = [
+    "AuthCookieManager",
+    "AuthCookiePayload",
+    "BootstrapTokenManager",
+    "BootstrapTokenPayload",
+    "NonceTracker",
+]
