@@ -24,14 +24,12 @@ from setta.lsp.managers import (
     stop_lsps,
 )
 from setta.middleware import (
-    AuthMiddleware,
     LoggingContextMiddleware,
     bind_request_logging_context,
 )
 from setta.routers import (
     ai_router,
     artifact_router,
-    bootstrap_router,
     code_info_router,
     listener_router,
     llm_router,
@@ -108,7 +106,6 @@ app = FastAPI(
 )
 
 app.add_middleware(LoggingContextMiddleware)
-app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=C.FRONTEND_ORIGINS,
@@ -122,7 +119,6 @@ http_router_kwargs = {
 }
 websocket_router_kwargs = {"prefix": Route.PREFIX.value}
 
-app.include_router(bootstrap_router)
 app.include_router(projects_router, **http_router_kwargs)
 app.include_router(sections_router, **http_router_kwargs)
 app.include_router(terminals_http_router, **http_router_kwargs)

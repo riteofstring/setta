@@ -490,7 +490,16 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         state = SimpleNamespace(section__slider=1, section__switch=False)
 
-        dep_graph = cast("DependencyGraph", SimpleNamespace(graph=graph))
+        dep_graph = cast(
+            "DependencyGraph",
+            SimpleNamespace(
+                graph=graph,
+                full_path_name_to_dep_key={
+                    slider_node.full_path_name: slider_key,
+                    switch_node.full_path_name: switch_key,
+                },
+            ),
+        )
         value_codec = PythonValueCodec(
             dep_graph,
             lambda key: (

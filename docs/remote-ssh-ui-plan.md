@@ -1,14 +1,14 @@
 # Plan: Lightweight SSH Remote UI
 
 ## Summary
-This plan keeps the current workflow (install Setta in the project’s Python environment and start it from the project folder) while making SSH-based access secure and easy. The server binds only to loopback (TCP for now), uses a per-session secret to mint short-lived bootstrap tokens and an auth cookie for normal access, and provides a single-command `setta connect user@host --workspace /path` helper plus a fully copy/pasteable manual tunnel flow.
+This plan keeps the current workflow (install Setta in the project’s Python environment and start it from the project folder) while making SSH-based access secure and easy. The server binds only to loopback (or UDS), uses a per-session secret to mint short-lived bootstrap tokens and an auth cookie for normal access, and provides a single-command `setta connect host:/path` helper plus a fully copy/pasteable manual tunnel flow.
 Local-only runs auto-open the browser in a best-effort way (TTY + GUI present, no SSH), while remote runs avoid opening a remote browser and instead print the bootstrap URL or use `setta connect` to open locally.
 
 ## Goals
 - Preserve the existing workflow: install Setta in the project’s Python env, run from the project folder.
 - Make remote UI access safe by default (no public bind, token-gated routes).
 - Keep SSH optional and manual-friendly, but also offer a one-command helper.
-- Avoid a new transport layer.
+- Avoid a large refactor or new transport layer.
 - Allow viewing the UI locally even without a local Setta install.
 - Make copy/paste connection instructions easy to obtain.
 - Make multi-session handling explicit (list alternatives; require a session choice when multiple are running).
@@ -24,7 +24,7 @@ Local-only runs auto-open the browser in a best-effort way (TTY + GUI present, n
 1. User boots laptop and opens a terminal.
 2. From the laptop, run:
    ```bash
-   setta connect dev@buildbox --workspace /work/my-project
+   setta connect dev@buildbox:/work/my-project
    ```
 3. `setta connect` uses SSH to start Setta (if not already running), opens a local tunnel, and launches the browser. The UI loads locally with auth already established. The browser opens `/__setta__/bootstrap#token=...`; the bootstrap page auto-consumes the fragment, sets the auth cookie, uses `history.replaceState` to scrub the URL, and redirects to `/` without prompting the user. Because the token is in the fragment and the URL is rewritten before redirect, it should not appear in browser history. If the fragment is stripped, the page will prompt for a token; query-string tokens can appear in history.
 4. If the user prefers to start Setta manually on the host, the remote output prints a fully ready-to-copy snippet:
@@ -34,7 +34,7 @@ Local-only runs auto-open the browser in a best-effort way (TTY + GUI present, n
    Remote start (copy/paste on host, if needed):
      cd /work/my-project && source .venv/bin/activate && setta
    From your laptop (recommended if Setta is installed locally):
-    setta connect dev@buildbox --workspace /work/my-project --session 9f2c4b
+     setta connect dev@buildbox:/work/my-project --session 9f2c4b
    If your laptop prints "setta: command not found", use the manual tunnel steps instead:
      LOCAL_PORT=61000
      ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
@@ -53,12 +53,10 @@ Requires two terminals:
 - Terminal B (local): create the SSH tunnel and keep it running.
 
 - SSH in and start Setta (as above).
-- Copy the snippet printed by Setta (or `setta status --connect-info`); it includes the remote start command, a `setta connect` line, and local tunnel steps:
+- Copy the snippet printed by Setta (or `setta status --connect-info`); it includes the remote start command and local tunnel steps:
   ```text
   Remote start (copy/paste on host, if needed):
     cd /work/my-project && source .venv/bin/activate && setta
-  From your laptop (recommended if Setta is installed locally):
-    setta connect dev@buildbox --workspace /work/my-project --session <session_id>
   LOCAL_PORT=61000
   ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
   Open this URL in your browser (recommended):
@@ -68,21 +66,18 @@ Requires two terminals:
     and paste:
       <token>
   ```
-If multiple sessions exist for the workspace, `setta status --connect-info` should prompt in TTY mode to choose a session. In non-TTY
-contexts (and for `--json`), require `--session <id>` or `--latest` and exit with a clear error if not provided.
 Keep the tunnel command running; Ctrl+C stops it. If you see a remote prompt like `dev@buildbox:~$`, you probably omitted `-N`. The tunnel still works, but it is easy to forget it is running; prefer `-N` and keep this terminal open.
 Pick any free LOCAL_PORT on your laptop; if you see “Address already in use,” change it (for example, 61001) and rerun the tunnel command (example: `LOCAL_PORT=61001`).
 Leave the SSH session running in Terminal B; close it with Ctrl+C when done.
 Optional commands: macOS `open URL`, Linux `xdg-open URL`, Windows `start URL`.
 The bootstrap page sets an auth cookie and redirects to `/` so the token does not remain in the URL.
-Tokens are single-use and expire after 10 minutes.
+(Recommended: make this token single-use and short-lived.)
 Prefer the fragment form (`#token=<token>`). The fragment is not sent in the initial request; the bootstrap script
 reads it client-side, POSTs it to consume, and calls `history.replaceState` before redirecting, so the token should
 not appear in browser history.
 The token can still end up in history if a query-string token is used or if tooling converts the fragment into a query string.
 Query tokens may also land in shell history or logs.
 If the token expires, run `setta status --connect-info` again to mint a fresh one (no server restart needed).
-If a user opens `/` without a cookie, show a minimal 401 page that points to `/__setta__/bootstrap` (no redirect) so the user has a clear next step.
 
 Note: if `61000` is already in use, choose a different local port and update `LOCAL_PORT`.
 
@@ -103,12 +98,11 @@ ssh -L 127.0.0.1:61000:127.0.0.1:61234 dev@buildbox \
 ## Helper Command UX (`setta connect`)
 Example:
 ```bash
-setta connect dev@buildbox --workspace /work/my-project
+setta connect dev@buildbox:/work/my-project
 ```
-Requires `--workspace /path`. Optional SSH flags may be passed with `--ssh-args` (example: `--ssh-args "-p 2222 -J bastion"`). For IPv6, use `user@[2001:db8::1]`.
 Behavior:
 - SSHes to the remote host.
-- Starts Setta in the specified workspace if it is not already running (detached via `nohup` + background so it keeps running after the SSH command exits; logs to `setta_files/run/logs/nohup.out`; fall back to `setsid` if `nohup` is missing, otherwise fail with a `--remote-cmd` hint).
+- Starts Setta in the specified workspace if it is not already running (detached so it keeps running after the SSH command exits).
 - Remote env resolution order (first match wins):
   - If `--remote-cmd` is provided, use it verbatim.
   - If `./.venv/bin/activate`, `./venv/bin/activate`, or `./env/bin/activate` exists, run `source <activate> && setta`.
@@ -124,7 +118,6 @@ Behavior:
   ```
 - Reads the remote port and requests a fresh bootstrap token for the selected session.
 - Matches sessions only within the specified workspace (canonicalized path; resolve `~`, env vars, and symlinks to avoid `~/proj` vs `/home/user/proj` mismatches).
-- Auto-prune stale sessions with PID checks (psutil): delete only when PID is missing or not a Setta process; if PID exists but port mismatch, flag and keep.
 - If no session matches, start a new one in that workspace.
 - If exactly one session matches, use it.
 - If multiple sessions match and no non-interactive option is provided, prompt interactively:
@@ -136,10 +129,9 @@ Behavior:
 - Support non-interactive selection with `--session <id>` or `--latest`.
 - Define `--latest` ordering (for example, "most recently started"). Example: session A started at 09:00, session B started at 10:05; `--latest` selects B.
 - Chooses a free local port automatically (prints it), or uses `--local-port` if provided.
-- Uses `setta status --connect-info --json` with `--session` or `--latest` for polling so it never blocks on prompts.
 - Print progress lines so the CLI does not appear hung during remote startup or SSH handshake. Example output:
   ```text
-  Starting Setta on dev@buildbox (workspace /work/my-project)...
+  Starting Setta on dev@buildbox:/work/my-project...
   Using session 9f2c4b (port 61234).
   Opening local tunnel on 61037 (keep this terminal open).
   Opening browser...
@@ -152,7 +144,6 @@ Behavior:
   auto-consume the fragment, set the auth cookie via a POST, replace the URL before any
   navigation, and redirect to `/` so the user never sees a token prompt and the token is
   not stored in browser history.
-- Always include `-o ExitOnForwardFailure=yes` on the tunnel command so a failed forward fails fast.
 - Keeps the tunnel alive in the foreground so a single local terminal can drive the entire flow.
 - Runs in the foreground; `Ctrl+C` closes the tunnel and leaves the remote server running.
   - Print a clear warning that this terminal must stay open; closing it disconnects the UI. Include a quick reconnect hint (`setta connect ...`).
@@ -174,9 +165,9 @@ Single-terminal local UX (primary):
 Concrete example (helper flow, no token in history):
 ```text
 User runs:
-  setta connect dev@buildbox --workspace /work/my-project
+  setta connect dev@buildbox:/work/my-project
 CLI output:
-  Starting Setta on dev@buildbox (workspace /work/my-project)...
+  Starting Setta on dev@buildbox:/work/my-project...
   Using session 9f2c4b (port 61234).
   Opening local tunnel on 61037 (keep this terminal open).
   Opening browser...
@@ -218,8 +209,8 @@ Local (laptop, project on your machine):
   Browser sets cookie and redirects to /
 
 Remote (project on buildbox, use helper):
-  $ setta connect dev@buildbox --workspace /work/my-project
-  Starting Setta on dev@buildbox (workspace /work/my-project)...
+  $ setta connect dev@buildbox:/work/my-project
+  Starting Setta on dev@buildbox:/work/my-project...
   Using session 9f2c4b (port 61234).
   Opening local tunnel on 61037 (keep this terminal open).
   Opening browser...
@@ -233,28 +224,26 @@ Remote (manual SSH):
 ```
 
 ## Security Model
-- Bind only to loopback by default (`127.0.0.1` + random port). Defer UDS support.
+- Bind only to loopback by default (`127.0.0.1` + random port). Optionally support UDS.
 - Generate a per-session secret stored with `0600` permissions and never expose it to users.
 - Mint short-lived, single-use bootstrap tokens on demand (via `setta connect` or `setta status --connect-info`).
 - Require auth for all HTTP endpoints and websocket upgrades (except the bootstrap page). Accept `Authorization: Bearer <bootstrap token>` for first use or an auth cookie for normal use.
-- Only `/__setta__/bootstrap` and `/__setta__/bootstrap/consume` are unauthenticated; direct `/` access without a cookie should return 401 (no auto-redirect).
-- When a Bearer token is used on HTTP, set the auth cookie; Bearer on websockets grants access but does not set cookies.
 - Provide a bootstrap page that accepts a bootstrap token, sets an auth cookie, and redirects to `/`.
-- Bootstrap tokens are single-use and expire after 10 minutes.
-- Auth cookie name is `setta_auth`; it is `HttpOnly`, `SameSite=Lax`, `Path=/`, and has a max-age of 12 hours to avoid repeated prompts.
+- Bootstrap tokens are single-use and short-lived (for example, 5-10 minutes).
+- Auth cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, with a longer max-age (for example, 8-24 hours) to avoid repeated prompts.
 - Auth credentials (bootstrap tokens and auth cookies) protect access even when traffic is tunneled over SSH; the tunnel is transport security, not auth.
 - Never bind to public interfaces unless explicitly requested.
 - For `setta connect`, token delivery uses a URL fragment plus `history.replaceState` so the token does not end up in browser history. It can still appear if a query-string token is used or the fragment is rewritten into a query string.
 
 ## Token Lifecycle (User-Friendly)
 - Session secret: created once per server session and stored on disk; never shown to users.
-- Bootstrap token: minted on demand, single-use, expires after 10 minutes; used only to set the auth cookie.
-- Auth cookie: primary credential; 12-hour max-age so users rarely need to fetch a new token manually.
+- Bootstrap token: minted on demand, single-use, short-lived; used only to set the auth cookie.
+- Auth cookie: primary credential; lasts longer so users rarely need to fetch a new token manually.
 - Manual fallback: rerun `setta status --connect-info` to mint a fresh bootstrap token without restarting the server.
 
 Concrete example:
 ```text
-1) User runs: setta connect dev@buildbox --workspace /work/my-project
+1) User runs: setta connect dev@buildbox:/work/my-project
 2) Server already has a session secret on disk and mints a bootstrap token that expires in 10 minutes.
 3) Browser opens /__setta__/bootstrap#token=...; bootstrap consumes the token, sets a 12-hour cookie, and redirects to /.
 4) Later that day, the user reconnects and the cookie is still valid, so the UI loads without a prompt.
@@ -265,23 +254,21 @@ Concrete example:
 ## Implementation Outline
 ### Server changes (minimal)
 - Default bind to `127.0.0.1` and random port when `--port` is not provided.
-- Generate a per-session secret on startup and store it in `setta_files/run/sessions/<session_id>/secret`.
-- Create or extend `setta_files/run/sessions/<session_id>/session.json` with port, bind address, and secret path.
+- Generate a per-session secret on startup and store it in `~/.setta/run/<session>/secret`.
+- Create or extend session metadata file with port, bind address, and secret path.
 - Add a bootstrap token minting path used by `setta connect` and `setta status --connect-info` to fetch a fresh token.
 - Add auth middleware for HTTP and websocket routes (accept bootstrap token via `Authorization` or auth cookie; allow bootstrap without auth).
 - Add `__setta__/bootstrap` page that prompts for a token, sets a cookie, and redirects.
   - Default to fragment (`#token=`) for one-shot flows; accept `?token=` as a fallback and scrub via `history.replaceState`.
-- Print a ready-to-copy connection hint on startup (session id, a `setta connect` line, and manual tunnel steps).
+- Print a concise connection hint on startup (includes session id and a `setta connect` line).
 
 ### CLI helper
 - Add `setta connect` to orchestrate remote start + tunnel + browser open.
-- Inputs: `ssh_target`, required `--workspace`, optional `--remote-cmd`, optional `--session` / `--latest`, optional `--ssh-args`.
+- Inputs: `ssh_target`, `workspace`, optional `--remote-cmd`, optional `--session` / `--latest`.
 - Uses SSH to start Setta if not already running, then forwards a local port.
-- Remote start uses `nohup` + background with logs under `setta_files/run/logs/nohup.out`; fall back to `setsid` if `nohup` is missing.
 - Opens the browser to the bootstrap URL and keeps the tunnel alive.
-- Auto-prune stale sessions with psutil before listing (PID missing/not Setta); flag port mismatches without deleting.
-- Add `setta status --connect-info` to list sessions and print a ready-to-copy snippet with a freshly minted token (includes a `setta connect` line, fragment URL, plain bootstrap URL, and tunnel command).
-- Add `--print-only`, `--local-port`, and `--no-open` to `setta connect` for scripts or headless workflows.
+- Add `setta status --connect-info` to list sessions and print the manual connect snippet with a freshly minted token.
+- Add `--print-only` to `setta connect` for scripts or users who prefer manual tunnel control.
 
 ## No Local Setta Install
 Users can still access the UI with only SSH installed by using manual tunnel + bootstrap URL.
@@ -299,7 +286,7 @@ Each has tradeoffs (especially around stopping background processes), so list th
 
 Option A: Detach Setta remotely, then run only the local tunnel in the foreground.
 ```bash
-ssh dev@buildbox "bash -lc 'cd /work/my-project && source .venv/bin/activate && mkdir -p setta_files/run/logs && nohup setta --no-open > setta_files/run/logs/nohup.out 2>&1 &'"
+ssh dev@buildbox "bash -lc 'cd /work/my-project && source .venv/bin/activate && nohup setta >/tmp/setta.log 2>&1 &'"
 LOCAL_PORT=61000
 ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 dev@buildbox -o ExitOnForwardFailure=yes
 open "http://127.0.0.1:${LOCAL_PORT}/__setta__/bootstrap#token=<token>"
@@ -321,3 +308,13 @@ Notes: use `jobs`/`fg`/`kill` to manage the background tunnel; closing the termi
 - Hit HTTP and websocket endpoints without a token, expect 401/close.
 - Use bootstrap URL, verify cookie set and UI loads without token in the URL.
 - Use `setta connect`, verify it starts the server and opens the UI locally.
+
+## Open Questions
+- Where should session metadata live and what fields are required for `setta connect`?
+- What is the exact session metadata format for `setta connect` to read (schema + versioning)?
+- What are the exact TTLs for bootstrap tokens and auth cookies?
+- What cookie name/path/expiry should the bootstrap page set?
+- How should the remote process be detached (nohup, setsid, tmux, or a small wrapper)?
+- How should the local tunnel port be chosen (fixed, random, or user-provided)?
+- Should UDS be the preferred path on platforms that support it?
+- What fields should appear in the multi-session list (id, started time, port, workspace)?
