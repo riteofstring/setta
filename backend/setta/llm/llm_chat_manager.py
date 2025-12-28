@@ -467,13 +467,10 @@ class LLMChatManager:
         The payload mirrors the OpenAI chat/completions schema so the streaming
         layer can pass it directly to the configured completion client.
         """
-        system_prompt, project_summary = await self._build_system_prompt_with_summary(
+        system_messages, project_summary = await self._build_system_prompt_with_summary(
             chat
         )
-        system_message = SystemChatMessage(
-            content=[MessageTextContent(text=system_prompt)],
-        ).to_openai_format()
-        messages: list[dict[str, Any]] = [system_message]
+        messages: list[dict[str, Any]] = list(system_messages)
         for message in chat.messages:
             payload = message.to_openai_format()
             messages.append(payload)
@@ -499,23 +496,30 @@ class LLMChatManager:
 
     async def _build_system_prompt_with_summary(
         self, chat: Chat
-    ) -> tuple[str, ProjectStateSummary]:
+    ) -> tuple[list[dict[str, Any]], ProjectStateSummary]:
         project_config_id = chat.projectConfigId
         (
             temporary_project_config_id,
-            project_summary,
+            summary_block,
             summary_payload,
         ) = await self._build_project_summary(project_config_id)
-        prompt = (
-            f"{self.system_prompt}\n\n"
-            "## Active project config\n"
+        summary_text = (
+            "\n\n## Active project config\n"
             f"- id: {temporary_project_config_id}\n\n"
             "## Project summary\n"
             "(Injected at request start; call get_latest_project_state_summary only to"
             " refresh after edits.)\n"
-            f"{project_summary}"
+            f"{summary_block}"
         )
-        return prompt, summary_payload
+        system_messages = [
+            SystemChatMessage(
+                content=[MessageTextContent(text=self.system_prompt)],
+            ).to_openai_format(),
+            SystemChatMessage(
+                content=[MessageTextContent(text=summary_text)],
+            ).to_openai_format(),
+        ]
+        return system_messages, summary_payload
 
     async def _build_project_summary(
         self, project_config_id: ID
@@ -636,11 +640,7 @@ class LLMChatManager:
             return
 
         request["cache_control_injection_points"] = [
-            {"location": "message", "role": "system"},
-            {
-                "location": "message",
-                "index": -1,
-            },
+            {"location": "message", "index": 0},
         ]
 
         if logger.isEnabledFor(logging.DEBUG):

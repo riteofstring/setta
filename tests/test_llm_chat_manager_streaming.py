@@ -140,12 +140,14 @@ class SystemPromptInjectionTests(unittest.TestCase):
 
             self.assertEqual(payload["messages"][0]["role"], "system")
             system_text = payload["messages"][0]["content"][0]["text"]
-            self.assertTrue(system_text.startswith(prompt))
-            self.assertIn("## Active project config", system_text)
-            self.assertIn("## Project summary", system_text)
-            self.assertEqual(payload["messages"][1]["role"], "user")
+            self.assertEqual(system_text, prompt)
+            self.assertEqual(payload["messages"][1]["role"], "system")
+            summary_text = payload["messages"][1]["content"][0]["text"]
+            self.assertIn("## Active project config", summary_text)
+            self.assertIn("## Project summary", summary_text)
+            self.assertEqual(payload["messages"][2]["role"], "user")
             self.assertEqual(
-                payload["messages"][1]["content"][0]["text"],
+                payload["messages"][2]["content"][0]["text"],
                 "Hello from the user",
             )
 
@@ -164,8 +166,7 @@ class CachePromptingTests(unittest.TestCase):
             self.assertEqual(
                 payload.get("cache_control_injection_points"),
                 [
-                    {"location": "message", "role": "system"},
-                    {"location": "message", "index": -1},
+                    {"location": "message", "index": 0},
                 ],
             )
 
@@ -222,8 +223,7 @@ class CachePromptingTests(unittest.TestCase):
             self.assertEqual(
                 payload["cache_control_injection_points"],
                 [
-                    {"location": "message", "role": "system"},
-                    {"location": "message", "index": -1},
+                    {"location": "message", "index": 0},
                 ],
             )
 
