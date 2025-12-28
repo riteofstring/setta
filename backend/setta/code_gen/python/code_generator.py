@@ -7,6 +7,7 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
+from setta.code_gen.python.position_line_col import build_line_index
 from setta.code_gen.utils import (
     CLASS_DEF,
     GEN_CODE_INSTANCE_NAME,
@@ -71,9 +72,14 @@ class PythonCodeGenerator:
             str, BaseDependencyKeyUnion
         ] = {}  # var name to dep_key
         self.value_pos_start_to_dep_key: dict[int, BaseDependencyKeyUnion] = {}
+        self.dep_key_range_index: (
+            tuple[list[int], list[tuple[int, int, BaseDependencyKeyUnion]]] | None
+        ) = None
         self.generated_code: str = ""
         self.code: str = ""
         self.lines: dict[BaseDependencyKeyUnion, PythonCodeLine] = {}
+        self.line_starts: list[int] = [0]
+        self.line_lengths: list[int] = [0]
 
     def generate_code(self):
         self.reset()
@@ -100,6 +106,7 @@ class PythonCodeGenerator:
         self.generated_code = self.generate_wrapper_class(prefix_offset)
         # Persist blank separator lines between prefix/body/suffix.
         self.code = f"{self.gen_code_prefix}{GEN_CODE_SEPARATOR}{self.generated_code}{GEN_CODE_SEPARATOR}{self.gen_code_suffix}"
+        self.line_starts, self.line_lengths = build_line_index(self.code)
         # Position offset accounts for prefix + separator newlines.
         return prefix_offset + len(self.generated_code) + len(GEN_CODE_SEPARATOR)
 
@@ -154,21 +161,32 @@ class PythonCodeGenerator:
 
         # no sections or params? Then just pass.
         if len(self.lines) == 0:
+            self.dep_key_range_index = ([], [])
             return f"{code}{indent}pass"
 
         lines = list(self.lines.items())
         last_index = len(lines) - 1
-        for i, (key, l) in enumerate(lines):
-            curr_pos = position_offset + len(code) + indent_len
-            line_str = f"{indent}{l.var_str}"
-            code = f"{code}{line_str}"
+        code_parts = [code]
+        code_len = len(code)
+        ranges: list[tuple[int, int, BaseDependencyKeyUnion]] = []
+        for i, (key, line) in enumerate(lines):
+            curr_pos = position_offset + code_len + indent_len
+            line_str = f"{indent}{line.var_str}"
+            code_parts.append(line_str)
+            code_len += len(line_str)
             if i < last_index:
-                code = f"{code}\n"
-            self.lines[key].pos = curr_pos
-            value_pos_start = self.lines[key].value_pos_start
+                code_parts.append("\n")
+                code_len += 1
+            line.pos = curr_pos
+            value_pos_start = line.value_pos_start
             if value_pos_start is not None:
                 self.value_pos_start_to_dep_key[value_pos_start] = key
-        return code
+                value_pos_end = value_pos_start + line.value_len
+                ranges.append((value_pos_start, value_pos_end, key))
+        ranges.sort(key=lambda entry: entry[0])
+        starts = [entry[0] for entry in ranges]
+        self.dep_key_range_index = (starts, ranges)
+        return "".join(code_parts)
 
     def _helper_import_block(self) -> str | None:
         helper_imports = self.value_codec.required_imports

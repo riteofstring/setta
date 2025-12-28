@@ -123,7 +123,9 @@ class ProjectGenPythonCode(PythonCode):
         if start is None:
             return None
         absolute_position = position + start
-        line, col = position_to_line_col(generator.code, absolute_position)
+        line, col = position_to_line_col(
+            generator.code, absolute_position, generator.line_starts
+        )
         return generator.code, line, col
 
     async def _request_completion_response(
@@ -150,7 +152,9 @@ class ProjectGenPythonCode(PythonCode):
         if start is None:
             return None
         absolute_position = position + start
-        line, col = position_to_line_col(self.code, absolute_position)
+        line, col = position_to_line_col(
+            self.code, absolute_position, self.code_generator.line_starts
+        )
         return line, col
 
     async def text_field_completion(
@@ -344,7 +348,9 @@ class ProjectGenPythonCode(PythonCode):
     async def gen_code_prefix_completion(self, fullText, position):
         generator = self._clone_generator()
         generator.set_gen_code_prefix(fullText)
-        line, col = position_to_line_col(generator.code, position)
+        line, col = position_to_line_col(
+            generator.code, position, generator.line_starts
+        )
         response = await self._request_completion_response(generator.code, line, col)
         return process_completion_response(response)
 
@@ -352,7 +358,9 @@ class ProjectGenPythonCode(PythonCode):
         generator = self._clone_generator()
         insertion_offset = generator.set_gen_code_suffix(fullText)
         absolute_position = position + insertion_offset
-        line, col = position_to_line_col(generator.code, absolute_position)
+        line, col = position_to_line_col(
+            generator.code, absolute_position, generator.line_starts
+        )
         response = await self._request_completion_response(generator.code, line, col)
         return process_completion_response(response)
 

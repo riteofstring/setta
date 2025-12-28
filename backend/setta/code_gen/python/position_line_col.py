@@ -1,36 +1,49 @@
+from bisect import bisect_right
 from typing import Iterable
 
 
-def position_to_line_col(text: str, position: int):
+def build_line_index(text: str) -> tuple[list[int], list[int]]:
+    line_starts = [0]
+    line_lengths: list[int] = []
+    last_start = 0
+    for idx, ch in enumerate(text):
+        if ch == "\n":
+            line_lengths.append(idx - last_start)
+            line_starts.append(idx + 1)
+            last_start = idx + 1
+    line_lengths.append(len(text) - last_start)
+    return line_starts, line_lengths
+
+
+def position_to_line_col(
+    text: str, position: int, line_starts: list[int] | None = None
+):
     if position < 0 or position > len(text):
         raise ValueError
 
-    lines = text.split("\n")
-    current_pos = 0
+    if line_starts is None:
+        line_starts, _ = build_line_index(text)
 
-    for line_num, line in enumerate(lines):
-        line_length = len(line) + 1  # +1 for the newline character
-        if current_pos + line_length > position:
-            col = position - current_pos
-            return line_num, col
-        current_pos += line_length
-
-    # If we get here, the position is at the very end of the text
-    return len(lines) - 1, len(lines[-1])
+    line = bisect_right(line_starts, position) - 1
+    col = position - line_starts[line]
+    return line, col
 
 
-def line_col_to_position_batch(text: str, line_col_pairs: Iterable[tuple[int, int]]):
-    lines = text.split("\n")
-    line_starts = [0]
-    for line in lines[:-1]:
-        line_starts.append(line_starts[-1] + len(line) + 1)
+def line_col_to_position_batch(
+    text: str,
+    line_col_pairs: Iterable[tuple[int, int]],
+    line_starts: list[int] | None = None,
+    line_lengths: list[int] | None = None,
+):
+    if line_starts is None or line_lengths is None:
+        line_starts, line_lengths = build_line_index(text)
 
     results: list[int] = []
     for line, col in line_col_pairs:
-        if line < 0 or line >= len(lines) or col < 0:
+        if line < 0 or line >= len(line_lengths) or col < 0:
             raise ValueError
         else:
-            position = line_starts[line] + min(col, len(lines[line]))
+            position = line_starts[line] + min(col, line_lengths[line])
             results.append(position)
 
     return results
