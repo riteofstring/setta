@@ -10,12 +10,7 @@ export class C {
     CHAT: ["chatHistory"],
   };
   static ARTIFACTS_FOLDER = "setta_files/artifacts";
-  static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
-  static AUTH_COOKIE_NAME = "setta_auth";
-  static AUTH_COOKIE_SAMESITE = "lax";
-  static AUTH_COOKIE_SECURE = false;
   static BACKEND_INIT_DELAY_SECONDS = 0.0;
-  static BOOTSTRAP_TOKEN_TTL_SECONDS = 600;
   static CODE_FOLDER = "setta_files/code";
   static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
@@ -30,11 +25,7 @@ export class C {
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static OPEN_BROWSER_ON_START = false;
   static PORT = 8000;
-  static RUN_FOLDER = "setta_files/run";
-  static RUN_LOGS_FOLDER = "setta_files/run/logs";
-  static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";
   static SEARCH_AND_UNLOCK_MCP_TOOLS_NAME = "search_and_unlock_mcp_tools";
-  static SESSION_SECRET_BYTES = 32;
   static SETTA_FILES_FOLDER = "setta_files";
   static SETTA_MCP_PARAM_NAMES = ["setta_state"];
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
