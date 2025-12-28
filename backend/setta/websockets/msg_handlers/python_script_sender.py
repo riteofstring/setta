@@ -84,6 +84,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectConfigId: ID,
         deltas: list[ListenerRealtimeDelta],
         sequence: int,
+        share_session_id: str | None = None,
     ):
         if not deltas:
             raise ValueError("deltas must contain at least one entry")
@@ -93,9 +94,10 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             sequence=sequence,
         )
         logger.debug(
-            "sending listener realtime event for project config %s (sequence=%s)",
+            "sending listener realtime event for project config %s (sequence=%s session=%s)",
             projectConfigId,
             sequence,
+            share_session_id,
         )
         sockets_to_notify = set()
         for (
@@ -138,6 +140,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectConfigId: ID,
         actionEvents: list[ControlActionEvent],
         sequence: int,
+        share_session_id: str | None = None,
     ):
         if not actionEvents:
             raise ValueError("actionEvents must contain at least one entry")
@@ -147,9 +150,10 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             sequence=sequence,
         )
         logger.debug(
-            "sending listener action event for project config %s (sequence=%s)",
+            "sending listener action event for project config %s (sequence=%s session=%s)",
             projectConfigId,
             sequence,
+            share_session_id,
         )
         sockets_to_notify = set()
         for (

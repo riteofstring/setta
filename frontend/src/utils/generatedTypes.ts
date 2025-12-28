@@ -2804,6 +2804,7 @@ const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),
   currentAddress: z.union([z.string(), z.null()]),
+  shareSessionId: z.union([z.string(), z.null()]).default(null),
 });
 
 export type WebsocketConnectionInfo = z.infer<

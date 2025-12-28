@@ -80,7 +80,10 @@ class SettaFastAPIState:
         )
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
-        self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
+        self.wmh_frontend_sender = WMHFrontendSender(
+            self.websocket_manager,
+            share_mode=self.share_mode,
+        )
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
@@ -295,6 +298,10 @@ class SettaFastAPIState:
             raise
 
     async def _initialize_share_async(self) -> None:
+        from setta.websockets.msg_handlers.frontend_receiver import (
+            WMHFrontendReceiver,
+        )
+
         self.init_status.record("Loading share deployment")
         await self._maybe_delay()
         if self.share_deployment_root is None:
@@ -302,6 +309,12 @@ class SettaFastAPIState:
         self.share_session_store = MemorySessionStore()
         self.share_project_manager = ShareProjectManager(
             self.dbe, self.share_deployment_root
+        )
+        self.wmh_frontend_receiver = WMHFrontendReceiver(
+            self.websocket_manager,
+            project_manager=None,
+            realtime_event_hub=self.realtime_event_hub,
+            share_mode=True,
         )
         self._ready_event.set()
         self.init_status.record("Share backend ready")
