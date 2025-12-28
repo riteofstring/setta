@@ -4,8 +4,9 @@ import logging
 import os
 import re
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Sequence
+from urllib.parse import parse_qs, urlparse
 
 import mcp.types as types
 from anyio.streams.memory import (
@@ -33,6 +34,7 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_nam
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.routes import Route
 from setta.utils.constants import C
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -77,6 +79,8 @@ def _resolve_env_mapping(env: dict[str, str] | None) -> dict[str, str] | None:
 class BridgeConfig:
     backend_url: str
     verbose: bool
+    bootstrap_token: str | None = field(default=None, repr=False)
+    bootstrap_url: str | None = field(default=None, repr=False)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -94,6 +98,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable debug logging for the bridge.",
     )
+    parser.add_argument(
+        "--token",
+        dest="bootstrap_token",
+        help="Bootstrap token for MCP authentication.",
+    )
+    parser.add_argument(
+        "--bootstrap-url",
+        help="Bootstrap URL containing a token fragment or query parameter.",
+    )
     return parser
 
 
@@ -103,7 +116,66 @@ def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
     return BridgeConfig(
         backend_url=args.backend,
         verbose=args.verbose,
+        bootstrap_token=args.bootstrap_token,
+        bootstrap_url=args.bootstrap_url,
     )
+
+
+def _origin_from_backend_url(backend_url: str) -> str:
+    parsed = urlparse(backend_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid backend URL: {backend_url}")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _extract_token_from_bootstrap_url(bootstrap_url: str) -> str:
+    parsed = urlparse(bootstrap_url)
+    for candidate in (parsed.fragment, parsed.query):
+        if not candidate:
+            continue
+        params = parse_qs(candidate)
+        token_values = params.get("token")
+        if token_values:
+            token = token_values[0].strip()
+            if token:
+                return token
+    raise ValueError("Bootstrap URL missing token parameter.")
+
+
+def _resolve_bridge_token(config: BridgeConfig) -> str | None:
+    if config.bootstrap_token:
+        token = config.bootstrap_token.strip()
+        return token if token else None
+    if config.bootstrap_url:
+        return _extract_token_from_bootstrap_url(config.bootstrap_url)
+    return None
+
+
+async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
+    origin = _origin_from_backend_url(backend_url)
+    consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+    async with create_mcp_http_client() as client:
+        response = await client.post(consume_url, json={"token": token})
+        response.raise_for_status()
+    cookie_value = response.cookies.get(C.AUTH_COOKIE_NAME)
+    if not cookie_value:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    return cookie_value
+
+
+async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
+    token = _resolve_bridge_token(config)
+    if token:
+        cookie_value = await _consume_bootstrap_token(config.backend_url, token)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+    session_info = load_current_session_secret()
+    if session_info is None:
+        raise ValueError(
+            "Missing MCP auth. Provide --token/--bootstrap-url or set SETTA_SESSION_ID."
+        )
+    session_metadata, secret = session_info
+    cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+    return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
 
 @dataclass
@@ -449,9 +521,10 @@ class MultiMCPClient:
 async def run_stdio_bridge(config: BridgeConfig) -> None:
     logger.debug("Starting stdio bridge with config: %s", config)
     async with AsyncExitStack() as stack:
+        auth_headers = await _resolve_stdio_bridge_headers(config)
         stdio_read, stdio_write = await stack.enter_async_context(stdio_server())
         backend_read, backend_write = await stack.enter_async_context(
-            sse_client(url=config.backend_url)
+            sse_client(url=config.backend_url, headers=auth_headers)
         )
         logger.info("Connected to Setta backend at %s", config.backend_url)
         async with asyncio.TaskGroup() as tg:
