@@ -1,0 +1,196 @@
+import json
+import os
+import secrets
+import stat
+from datetime import datetime, timezone
+from pathlib import Path
+
+import psutil
+from pydantic import BaseModel, Field
+
+from setta.utils.constants import C
+
+SESSION_METADATA_FILENAME = "session.json"
+SESSION_SECRET_FILENAME = "secret"
+
+
+class SessionMetadata(BaseModel):
+    id: str
+    workspacePath: str
+    host: str
+    port: int
+    pid: int
+    startedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    secretPath: str
+
+
+class SessionRegistry:
+    def __init__(self, sessions_root: Path | None = None) -> None:
+        self._sessions_root = sessions_root or C.RUN_SESSIONS_FOLDER
+        self._suspicious_session_ids: set[str] = set()
+
+    def create_session(
+        self,
+        workspace_path: Path | str,
+        host: str,
+        port: int,
+        pid: int,
+        started_at: datetime | None = None,
+    ) -> SessionMetadata:
+        canonical_workspace = self._canonicalize_workspace_path(workspace_path)
+        session_id = self._create_session_id()
+        session_dir = self._session_dir(session_id)
+        while session_dir.exists():
+            session_id = self._create_session_id()
+            session_dir = self._session_dir(session_id)
+
+        session_dir.mkdir(parents=True, exist_ok=False)
+        secret_path = session_dir / SESSION_SECRET_FILENAME
+        secret_path.write_bytes(secrets.token_bytes(C.SESSION_SECRET_BYTES))
+        if os.name != "nt":
+            os.chmod(secret_path, stat.S_IRUSR | stat.S_IWUSR)
+
+        metadata = SessionMetadata(
+            id=session_id,
+            workspacePath=str(canonical_workspace),
+            host=host,
+            port=port,
+            pid=pid,
+            startedAt=started_at or datetime.now(timezone.utc),
+            secretPath=str(secret_path),
+        )
+        self._write_metadata(metadata)
+        return metadata
+
+    def load_sessions(self, prune_stale: bool = True) -> list[SessionMetadata]:
+        self._suspicious_session_ids.clear()
+        sessions: list[SessionMetadata] = []
+        if not self._sessions_root.exists():
+            return sessions
+        for session_dir in sorted(self._sessions_root.iterdir()):
+            if not session_dir.is_dir():
+                continue
+            metadata_path = session_dir / SESSION_METADATA_FILENAME
+            if not metadata_path.exists():
+                continue
+            metadata = self._read_metadata_path(metadata_path)
+            if prune_stale and self._is_session_stale(metadata):
+                self.delete_session(metadata.id)
+                continue
+            if self._is_session_suspicious(metadata):
+                self._suspicious_session_ids.add(metadata.id)
+            sessions.append(metadata)
+        return sessions
+
+    def find_sessions_by_workspace(
+        self, workspace_path: Path | str, prune_stale: bool = True
+    ) -> list[SessionMetadata]:
+        canonical_workspace = self._canonicalize_workspace_path(workspace_path)
+        sessions = self.load_sessions(prune_stale=prune_stale)
+        return [
+            session
+            for session in sessions
+            if Path(session.workspacePath).resolve() == canonical_workspace
+        ]
+
+    def delete_session(self, session_id: str) -> None:
+        session_dir = self._session_dir(session_id)
+        if not session_dir.exists():
+            return
+        metadata_path = session_dir / SESSION_METADATA_FILENAME
+        secret_path = session_dir / SESSION_SECRET_FILENAME
+        if metadata_path.exists():
+            metadata_path.unlink()
+        if secret_path.exists():
+            secret_path.unlink()
+        session_dir.rmdir()
+
+    def suspicious_session_ids(self) -> set[str]:
+        return set(self._suspicious_session_ids)
+
+    def load_secret(self, metadata: SessionMetadata) -> bytes:
+        secret_path = Path(metadata.secretPath)
+        if not secret_path.exists():
+            raise FileNotFoundError(f"Secret file missing for session {metadata.id}")
+        return secret_path.read_bytes()
+
+    def _canonicalize_workspace_path(self, workspace_path: Path | str) -> Path:
+        if isinstance(workspace_path, Path):
+            raw = str(workspace_path)
+        else:
+            raw = workspace_path
+        expanded = os.path.expandvars(os.path.expanduser(raw))
+        return Path(expanded).resolve()
+
+    def _create_session_id(self) -> str:
+        return secrets.token_hex(3)
+
+    def _session_dir(self, session_id: str) -> Path:
+        return self._sessions_root / session_id
+
+    def _write_metadata(self, metadata: SessionMetadata) -> None:
+        path = self._session_dir(metadata.id) / SESSION_METADATA_FILENAME
+        payload = metadata.model_dump(mode="json")
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def _read_metadata_path(self, path: Path) -> SessionMetadata:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return SessionMetadata.model_validate(raw)
+
+    def _is_session_stale(self, metadata: SessionMetadata) -> bool:
+        if metadata.pid <= 0:
+            return True
+        if not psutil.pid_exists(metadata.pid):
+            return True
+        process = psutil.Process(metadata.pid)
+        is_setta = self._is_setta_process(process)
+        if is_setta is False:
+            return True
+        return False
+
+    def _is_session_suspicious(self, metadata: SessionMetadata) -> bool:
+        if metadata.pid <= 0:
+            return False
+        if not psutil.pid_exists(metadata.pid):
+            return False
+        process = psutil.Process(metadata.pid)
+        is_setta = self._is_setta_process(process)
+        if is_setta is False:
+            return False
+        if is_setta is None:
+            return False
+        return not self._is_port_listening(process, metadata.host, metadata.port)
+
+    def _is_setta_process(self, process: psutil.Process) -> bool | None:
+        try:
+            cmdline = process.cmdline()
+        except psutil.AccessDenied:
+            return None
+        except (psutil.NoSuchProcess, psutil.ZombieProcess):
+            return False
+        if not cmdline:
+            return False
+        lowered = [item.lower() for item in cmdline]
+        return any("setta" in item for item in lowered)
+
+    def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
+        try:
+            connections = process.connections(kind="inet")
+        except psutil.AccessDenied:
+            return True
+        except (psutil.NoSuchProcess, psutil.ZombieProcess):
+            return False
+        for conn in connections:
+            if conn.status != psutil.CONN_LISTEN:
+                continue
+            if conn.laddr.port != port:
+                continue
+            if not self._host_matches_listen(host, conn.laddr.ip):
+                continue
+            return True
+        return False
+
+    def _host_matches_listen(self, host: str, listen_host: str) -> bool:
+        if listen_host in {"0.0.0.0", "::"}:
+            return True
+        return host == listen_host
