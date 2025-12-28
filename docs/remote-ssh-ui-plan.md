@@ -73,7 +73,7 @@ Pick any free LOCAL_PORT on your laptop; if you see â€œAddress already in use,â€
 Leave the SSH session running in Terminal B; close it with Ctrl+C when done.
 Optional commands: macOS `open URL`, Linux `xdg-open URL`, Windows `start URL`.
 The bootstrap page sets an auth cookie and redirects to `/` so the token does not remain in the URL.
-(Recommended: make this token single-use and short-lived.)
+Tokens are single-use and expire after 10 minutes.
 Prefer the fragment form (`#token=<token>`). The fragment is not sent in the initial request; the bootstrap script
 reads it client-side, POSTs it to consume, and calls `history.replaceState` before redirecting, so the token should
 not appear in browser history.
@@ -234,16 +234,16 @@ Remote (manual SSH):
 - Only `/__setta__/bootstrap` and `/__setta__/bootstrap/consume` are unauthenticated; direct `/` access without a cookie should return 401 (no auto-redirect).
 - When a Bearer token is used on HTTP, set the auth cookie; Bearer on websockets grants access but does not set cookies.
 - Provide a bootstrap page that accepts a bootstrap token, sets an auth cookie, and redirects to `/`.
-- Bootstrap tokens are single-use and short-lived (for example, 5-10 minutes).
-- Auth cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, with a longer max-age (for example, 8-24 hours) to avoid repeated prompts.
+- Bootstrap tokens are single-use and expire after 10 minutes.
+- Auth cookie name is `setta_auth`; it is `HttpOnly`, `SameSite=Lax`, `Path=/`, and has a max-age of 12 hours to avoid repeated prompts.
 - Auth credentials (bootstrap tokens and auth cookies) protect access even when traffic is tunneled over SSH; the tunnel is transport security, not auth.
 - Never bind to public interfaces unless explicitly requested.
 - For `setta connect`, token delivery uses a URL fragment plus `history.replaceState` so the token does not end up in browser history. It can still appear if a query-string token is used or the fragment is rewritten into a query string.
 
 ## Token Lifecycle (User-Friendly)
 - Session secret: created once per server session and stored on disk; never shown to users.
-- Bootstrap token: minted on demand, single-use, short-lived; used only to set the auth cookie.
-- Auth cookie: primary credential; lasts longer so users rarely need to fetch a new token manually.
+- Bootstrap token: minted on demand, single-use, expires after 10 minutes; used only to set the auth cookie.
+- Auth cookie: primary credential; 12-hour max-age so users rarely need to fetch a new token manually.
 - Manual fallback: rerun `setta status --connect-info` to mint a fresh bootstrap token without restarting the server.
 
 Concrete example:
@@ -315,9 +315,3 @@ Notes: use `jobs`/`fg`/`kill` to manage the background tunnel; closing the termi
 - Hit HTTP and websocket endpoints without a token, expect 401/close.
 - Use bootstrap URL, verify cookie set and UI loads without token in the URL.
 - Use `setta connect`, verify it starts the server and opens the UI locally.
-
-## Open Questions
-- What is the exact session metadata schema (fields + versioning) stored under `setta_files/run/` for `setta connect`?
-- What are the exact TTLs for bootstrap tokens and auth cookies?
-- What cookie name/path/expiry should the bootstrap page set?
-- What fields should appear in the multi-session list (id, started time, port, workspace)?

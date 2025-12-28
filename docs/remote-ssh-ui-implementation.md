@@ -74,7 +74,7 @@ New module(s):
   - Set `HttpOnly`, `SameSite=Lax`, `Path=/`; set `Secure` only when running behind HTTPS.
 
 Constants (add to `backend/setta/utils/constants.py`):
-- `AUTH_COOKIE_NAME`
+- `AUTH_COOKIE_NAME` (`"setta_auth"`)
 - `AUTH_COOKIE_MAX_AGE_SECONDS` (12 hours)
 - `AUTH_COOKIE_SAMESITE` (`"lax"`)
 - `AUTH_COOKIE_SECURE` (default false; true when HTTPS)
@@ -123,7 +123,7 @@ Refactor `backend/setta/start.py` to:
 - Print a ready-to-copy connect hint:
   - Always: session id, bind address, port.
   - If local auto-open is allowed: print bootstrap URL (`/__setta__/bootstrap#token=...`) and open it.
-  - If remote or `--no-open`: always print the full manual tunnel snippet (LOCAL_PORT assignment, `ssh -N -L` command, bootstrap URL with fragment token, plain bootstrap URL + token prompt), plus a `setta connect` example.
+  - If remote or `--no-open`: always print the full manual tunnel snippet (LOCAL_PORT assignment, `ssh -N -L` command, bootstrap URL with fragment token, plain bootstrap URL + token prompt, optional `open`/`xdg-open`/`start`/`python -m webbrowser` hints), plus a `setta connect` example.
 - Auto-open browser only when:
   - `stdin` is a TTY
   - no `SSH_*` env vars
@@ -146,10 +146,11 @@ New CLI flow (Click) in `backend/setta/start.py`:
   - Outputs:
     - session id
     - bind address + port
+    - remote start command (copy/paste on host, if needed)
     - bootstrap URL with fragment token
     - plain bootstrap URL (no token)
     - `setta connect` example line
-    - manual tunnel snippet
+    - manual tunnel snippet (includes `LOCAL_PORT=...`, `ssh -N -L ... -o ExitOnForwardFailure=yes`, fragment URL, plain bootstrap URL + token, and optional `open`/`xdg-open`/`start`/`python -m webbrowser` hints)
   - JSON output should include: `session`, `bootstrapUrlFragment`, `bootstrapUrlPlain`, `sshTunnelCommand`.
 
 ### 7) CLI: `setta connect host:/path`
@@ -162,6 +163,7 @@ Implementation outline:
   - Prefer `--remote-cmd`.
   - Else search `./.venv/bin/activate`, `./venv/bin/activate`, `./env/bin/activate`.
   - Else fall back to `poetry run setta` or `uv run setta` if available.
+  - If `CONDA_PREFIX` is set, run `setta`.
   - Else `setta` on PATH.
 - Shell fallback: prefer `bash -lc`. If `bash` is missing, try `sh -lc` and use POSIX `.` for activation (`. .venv/bin/activate`). If neither shell is available, exit with a clear error and a `--remote-cmd` example.
 - Start remote setta if no session:
@@ -214,6 +216,11 @@ Frontend:
 ## Code Removal (Explicit)
 - Remove legacy websocket CLI `setta connect` and its helper `backend/setta/websockets/connect.py`.
 - Remove any open-browser behavior that conflicts with the new SSH-first flow.
+
+## Documentation Notes (Manual Alternatives)
+- Include the optional single-SSH-session example when a known remote port is available.
+- Include the optional single-terminal suggestions for no-local-install workflows (detach remote or background the tunnel).
+- These are documentation-only; no extra flags or new commands required.
 
 ## Verification Checklist (Manual + Minimal Tests)
 - Start `setta` locally, ensure it binds to loopback + random port.
