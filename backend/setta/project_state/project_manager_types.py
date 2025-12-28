@@ -6,7 +6,6 @@ from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
@@ -14,12 +13,7 @@ from setta.types.generated.unions import (
     BaseSectionImplArgsUnionWithDiscriminator,
 )
 from setta.types.id import ID
-from setta.types.project_config import (
-    Position,
-    TopLevelSectionLayout,
-    Viewport,
-    ViewportBounds,
-)
+from setta.types.project_config import Position, TopLevelSectionLayout, Viewport
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -167,38 +161,13 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
     implType: SectionType = Field(
         description="Section implementation type to instantiate.",
     )
-    controlCodeObjType: CodeObjType | None = Field(
-        default=None,
-        description="Optional meta control code obj type to instantiate.",
-    )
     implOverrides: BaseSectionImplArgsUnionWithDiscriminator | None = Field(
         default=None,
         description="Implementation-specific overrides applied during creation.",
         json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
     )
-    position: Position | None = Field(
-        default=None,
+    position: Position = Field(
         description="Canvas coordinates where the section should be placed.",
-    )
-    topLevelSections: dict[ID, TopLevelSectionLayout] | None = Field(
-        default=None,
-        description="Latest top-level section layout snapshot for smart placement.",
-        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
-    )
-    viewportBounds: ViewportBounds | None = Field(
-        default=None,
-        description="Visible canvas bounds for smart placement.",
-        json_schema_extra={C.MCP_HIDDEN_FIELD_SCHEMA_KEY: True},
-    )
-
-
-class CreateTopLevelSectionResponse(BaseModel):
-    sectionId: ID = Field(
-        description="Identifier for the newly created top-level section.",
-    )
-    panTo: Position | None = Field(
-        default=None,
-        description="Optional viewport center for panning to the new section.",
     )
 
 
@@ -315,10 +284,6 @@ class GetLatestProjectStateSummaryRequest(ProjectManagerRequestWithProjectConfig
     """Request a lightweight summary snapshot of the specified project config."""
 
 
-class GetLatestLspDiagnosticsRequest(ProjectManagerRequestWithProjectConfig):
-    """Request the latest parsed LSP diagnostics for generated code."""
-
-
 class ForceRefreshProjectRequest(ProjectManagerRequestWithProjectConfig):
     pass
 
@@ -328,15 +293,6 @@ class SetTopLevelSectionLayoutRequest(ProjectManagerRequestWithProjectConfig):
 
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(
         description="Mapping of section IDs to their serialized layout data.",
-    )
-
-
-class AutoLayoutTopLevelSectionsRequest(ProjectManagerRequestWithProjectConfig):
-    """Compute and apply an automatic layout for top-level sections."""
-
-    margin: int = Field(
-        default=50,
-        description="Padding applied around each section during packing.",
     )
 
 
@@ -380,42 +336,9 @@ class SetGenCodeSuffixRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class SetShowParamDisplayNamesRequest(ProjectManagerRequestWithProjectConfig):
-    """Toggle whether display names are used for parameters in the UI."""
-
-    showParamDisplayNames: bool = Field(
-        description="True to show display names for parameters, false to show canonical names.",
-    )
-
-
 class SetParamEnteredValueRequest(ProjectManagerRequestWithSectionParam):
     """Assign a new manual value to a parameter within a section."""
 
-    value: str = Field(
-        description="Raw text value to persist for the parameter.",
-    )
-
-
-class SetTypeErrorIgnoreRequest(ProjectManagerRequestWithSection):
-    """Toggle ignoring type errors for a callable or parameter within a section."""
-
-    paramInfoId: ID | None = Field(
-        description="Parameter identifier to ignore, or None to target callable errors.",
-    )
-    ignoreTypeErrors: bool = Field(
-        description="Whether to hide type errors for the targeted entry.",
-    )
-
-
-class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
-    """Set a parameter's name and value in one step."""
-
-    codeObjId: ID = Field(
-        description="Identifier of the parameter code object that should be renamed.",
-    )
-    name: str = Field(
-        description="New name to apply to the parameter code object.",
-    )
     value: str = Field(
         description="Raw text value to persist for the parameter.",
     )
@@ -429,17 +352,6 @@ class SetCodeObjNameRequest(ProjectManagerRequestWithProjectConfig):
     )
     name: str = Field(
         description="New human-readable name to store on the code object.",
-    )
-
-
-class SetCodeObjDisplayNameRequest(ProjectManagerRequestWithProjectConfig):
-    """Set the user-facing display name for a code object."""
-
-    codeObjId: ID = Field(
-        description="Identifier of the code object whose display name should change.",
-    )
-    displayName: str = Field(
-        description="Optional user-facing display name for the code object.",
     )
 
 

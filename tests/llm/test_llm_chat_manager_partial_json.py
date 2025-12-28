@@ -4,12 +4,10 @@ from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.client import MultiMCPClient
+from setta.mcp.client import MCPClient
 from setta.types.id import ID
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
-
-from tests.utils.project_summary import build_project_summary_switcher
 
 
 class LLMChatManagerPartialJsonTests(unittest.TestCase):
@@ -18,13 +16,11 @@ class LLMChatManagerPartialJsonTests(unittest.TestCase):
         self.dbe = DBE(Path(self.temp_dir.name))
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.mcp_client = MultiMCPClient({})
-        project_manager_switcher = build_project_summary_switcher(ID("project-1"))
+        self.mcp_client = MCPClient("http://localhost")
         self.manager = LLMChatManager(
             self.dbe,
             self.mcp_client,
             self.frontend_sender,
-            project_manager_switcher,
         )
 
     def tearDown(self) -> None:

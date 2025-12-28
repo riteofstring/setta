@@ -66,7 +66,7 @@ class PythonValueCodecTest(TestCase):
                 id=ID("param-args"),
                 name="args",
                 full_path_name="section.args",
-                type=CodeObjType.CodeParam,
+                type=CodeObjType.TextParam,
                 isTopLevel=False,
                 deps={},
                 value=LiteralDependencyValue("value"),
@@ -76,7 +76,7 @@ class PythonValueCodecTest(TestCase):
                 id=ID("param-color"),
                 name="color",
                 full_path_name="section.color",
-                type=CodeObjType.CodeParam,
+                type=CodeObjType.TextParam,
                 isTopLevel=False,
                 deps={},
                 value=LiteralDependencyValue("blue"),
@@ -106,34 +106,6 @@ class PythonValueCodecTest(TestCase):
             rendered,
             "my_callable(*self.section.args, color=self.section.color)",
         )
-
-    def test_text_param_formats_as_string_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-text"),
-            name="text",
-            full_path_name="section.text",
-            type=CodeObjType.TextParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("2+2"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "'2+2'")
-
-    def test_code_param_formats_as_raw_expression(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        param_node = ParamNode(
-            id=ID("param-code"),
-            name="code",
-            full_path_name="section.code",
-            type=CodeObjType.CodeParam,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("2+2"),
-            passing_style=ParameterPassingStyle.DEFAULT,
-        )
-        self.assertEqual(codec.format_param_expression(param_node), "2+2")
 
     def test_format_text_block_without_value_returns_none(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
@@ -182,18 +154,3 @@ class PythonValueCodecTest(TestCase):
             codec.required_imports,
             ("from setta.code_gen.python import value_helpers as _helpers",),
         )
-
-    def test_meta_control_formatting_uses_code_obj_type(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Meta",
-            full_path_name="meta",
-            type=SectionType.MetaControl,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("secret"),
-            control_code_obj_type=CodeObjType.TextAreaParam,
-        )
-        rendered = codec.format_section(section_node)
-        self.assertEqual(rendered, "'secret'")

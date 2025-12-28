@@ -28,14 +28,13 @@ dependencies = [
     "docstring-to-markdown==0.17",
     "watchdog==6.0.0",
     "python-dotenv==1.1.0",
-    "mcp==1.25.0",
+    "mcp==1.9.3",
     "litellm==1.80.5",
     "ruff==0.12.12",
     "pydantic==2.11.5",
     "lsprotocol==2023.0.1",
     "watchfiles==0.24.0",
     "bm25s==0.2.14",
-    "rectangle-packer==2.0.5"
 ]
 
 [project.urls]

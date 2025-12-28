@@ -4,8 +4,7 @@ from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
+from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -16,8 +15,6 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.types.chat_messages import ToolCall, ToolCallFunction
 
-from tests.utils.project_summary import build_project_summary_switcher
-
 
 class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -25,13 +22,11 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         self.dbe = DBE(Path(self.temp_dir.name))
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.mcp_client = MultiMCPClient({})
-        project_manager_switcher = build_project_summary_switcher(ID("project-1"))
+        self.mcp_client = MCPClient("http://localhost")
         self.manager = LLMChatManager(
             self.dbe,
             self.mcp_client,
             self.frontend_sender,
-            project_manager_switcher,
         )
 
     def tearDown(self) -> None:
@@ -40,17 +35,49 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
     def _collect_ids_from_arguments(
         self, arguments_list: list[dict[str, object]]
     ) -> dict[str, list[ID]] | None:
-        tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "test_tool")
         tool_calls = [
             ToolCall(
                 function=ToolCallFunction(
-                    name=tool_name,
+                    name="test_tool",
                     arguments=arguments,
                 )
             )
             for arguments in arguments_list
         ]
         return self.manager._collect_ai_follow_ids_by_type_from_tool_calls(tool_calls)
+
+    def test_collects_single_section_id(self) -> None:
+        result = self._collect_ids_from_arguments(
+            [{"sectionId": "section-1"}]
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(
+            {str(value) for value in result["section"]},
+            {"section-1"},
+        )
+
+    def test_collects_multiple_section_ids_and_dedupes(self) -> None:
+        result = self._collect_ids_from_arguments(
+            [
+                {"sectionIds": ["section-1", "section-2", "", 123]},
+                {"sectionId": "section-2"},
+                {"sectionIds": []},
+            ]
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(
+            {str(value) for value in result["section"]},
+            {"section-1", "section-2"},
+        )
+
+    def test_empty_section_list_returns_empty_list(self) -> None:
+        result = self._collect_ids_from_arguments(
+            [{"sectionIds": []}]
+        )
+
+        self.assertEqual(result, {"section": []})
 
     def test_missing_section_ids_returns_none(self) -> None:
         result = self._collect_ids_from_arguments(
@@ -60,7 +87,7 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_collects_ids_from_tool_argument_metadata(self) -> None:
-        tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "annotated_tool")
+        tool_name = "annotated_tool"
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
@@ -87,7 +114,7 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
         )
 
     def test_collects_section_ids_from_mapping_keys(self) -> None:
-        tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "mapping_tool")
+        tool_name = "mapping_tool"
         self.manager.mcp_client.tool_annotations_by_name = {
             tool_name: SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
@@ -112,29 +139,6 @@ class AIFollowIdsByTypeExtractionTests(unittest.TestCase):
             {str(value) for value in result["section"]},
             {"section-1"},
         )
-
-    def test_ignores_non_setta_tool_arguments(self) -> None:
-        tool_name = build_namespaced_tool_name("context7", "annotated_tool")
-        self.manager.mcp_client.tool_annotations_by_name = {
-            tool_name: SettaToolAnnotations(
-                settaToolType=SettaToolType.discoverable,
-                aiFollowToolArguments=AIFollowToolArgumentsMetadata(
-                    pathsByIdType={"section": ["targetSectionId"]},
-                ),
-            )
-        }
-        tool_call = ToolCall(
-            function=ToolCallFunction(
-                name=tool_name,
-                arguments={"targetSectionId": "section-9"},
-            )
-        )
-
-        result = self.manager._collect_ai_follow_ids_by_type_from_tool_calls(
-            [tool_call]
-        )
-
-        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

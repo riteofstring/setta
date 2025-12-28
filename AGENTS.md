@@ -73,9 +73,7 @@ When you know a section impl or code obj impl must be of a specific type, use th
 
 ## Generated types
 
-Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`. 
-
-To cleanup generated files after you've imported what you need from them, you can run pnpm full-cleanup to remove unused generated types.
+Don't both manually editing files in `backend/setta/types/generated`. These are generated via `pnpm generate`.
 
 ## Tests
 

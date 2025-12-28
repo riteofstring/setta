@@ -67,7 +67,6 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
-    AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -75,7 +74,6 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
-    CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -86,7 +84,6 @@ from setta.project_state.project_manager_types import (
     DeleteViewModeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetLatestProjectStateSummaryRequest,
     GroupSectionsRequest,
@@ -108,7 +105,6 @@ from setta.project_state.project_manager_types import (
     SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeFileBindingRequest,
-    SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -116,7 +112,6 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
-    SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
@@ -125,13 +120,11 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetSectionWithParamsDisplayModeRequest,
-    SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
-    SetTypeErrorIgnoreRequest,
     SetViewModeNameRequest,
     SetViewportRequest,
     TextFieldCompletionRequest,
@@ -168,10 +161,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     append_draw_area_layer_item,
-    apply_top_level_section_layout_snapshot,
-    auto_layout_top_level_sections,
     change_param_impl,
-    collect_ignore_type_errors_by_section,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_new_section_variant,
@@ -186,7 +176,6 @@ from setta.types.helpers_lvl2 import (
     maybe_update_gen_python_code_section,
     move_section_to_pane,
     move_section_to_parent_section,
-    resolve_top_level_section_position_and_pan,
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
@@ -212,7 +201,6 @@ from setta.types.helpers_lvl2 import (
     set_text_block_display_mode,
     set_text_block_format,
     set_text_block_text,
-    set_type_error_ignore,
     toggle_minimized,
     toggle_param_selected,
     toggle_position_lock,
@@ -231,7 +219,6 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
-from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.notifications import (
     SettaBackendLogEventSeverity,
     SettaNotification,
@@ -520,25 +507,6 @@ class BaseProjectManager(ABC):
             return
         self._pending_ops_idle.set()
 
-    def _flush_code_files(
-        self, projectConfigId: ID
-    ) -> tuple[
-        ProjectGenPythonCode | None,
-        dict[ID, ProjectPythonCode | ProjectBashCode],
-    ]:
-        gen_code = self.gen_code.get(projectConfigId)
-        if gen_code is None:
-            return None, {}
-        gen_code.write_to_disk(gen_code.code)
-        code_entries = self.code_dict.get(projectConfigId, {})
-        for code_entry in code_entries.values():
-            code_entry.write_to_disk(code_entry.code)
-        return gen_code, code_entries
-
-    def _flush_code_files_for_all_configs(self) -> None:
-        for project_config_id in self.project_state_backend.projectConfigs.keys():
-            self._flush_code_files(project_config_id)
-
     @enqueue_method
     async def create_run_command(
         self,
@@ -546,16 +514,13 @@ class BaseProjectManager(ABC):
         sectionId: ID | None,
     ):
         async with self._project_state_lock.read_lock():
-            gen_code, code_entries = self._flush_code_files(projectConfigId)
-            if gen_code is None:
-                raise KeyError(
-                    f"Missing generated code for project config {projectConfigId}"
-                )
             target_folder = create_timestamped_folder(C.CODE_FOLDER)
+            gen_code = self.gen_code[projectConfigId]
             gen_code_path = gen_code.write_to_folder(target_folder)
 
+            code_dict = self.code_dict[projectConfigId]
             code_paths = {}
-            for sid, c in code_entries.items():
+            for sid, c in code_dict.items():
                 code_paths[sid] = c.write_to_folder(target_folder)
 
             if not sectionId:
@@ -564,7 +529,7 @@ class BaseProjectManager(ABC):
                 ].entryCodeBlockId
 
             if sectionId:
-                return code_entries[sectionId].get_run_command(code_paths[sectionId])
+                return code_dict[sectionId].get_run_command(code_paths[sectionId])
             return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
@@ -592,16 +557,6 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
-
-    @enqueue_method
-    @project_state_tool()
-    async def auto_layout_top_level_sections(
-        self, x: AutoLayoutTopLevelSectionsRequest
-    ):
-        """Automatically arrange top-level sections using rectangle packing."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        auto_layout_top_level_sections(project_state, margin=x.margin)
-        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     @project_state_tool(
@@ -664,9 +619,6 @@ class BaseProjectManager(ABC):
                 value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
             code_generator.generate_code()
-            ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
-                projectState
-            )
 
             gen_code_binding = projectState.genCodeBinding
             if gen_code_binding is None:
@@ -680,11 +632,8 @@ class BaseProjectManager(ABC):
                 projectConfigId,
                 dep_graph,
                 code_generator,
-                ignore_type_errors_by_section,
             )
-            if not new_gen_code.binding.canonical_path.exists():
-                new_gen_code.write_to_disk(new_gen_code.code)
-            await new_gen_code.sync_lsp(new_gen_code.code)
+            await new_gen_code.update_file()
             maybe_update_gen_python_code_section(
                 projectState, new_gen_code.generated_code
             )
@@ -706,9 +655,7 @@ class BaseProjectManager(ABC):
                     if not section_code:
                         continue
 
-                    if not section_code.binding.canonical_path.exists():
-                        section_code.write_to_disk(section_code.code)
-                    await section_code.sync_lsp(section_code.code)
+                    await section_code.update_file()
                     self.code_dict[projectConfigId][sectionId] = section_code
 
             self.project_state_backend = self.get_new_project_state_backend(
@@ -803,14 +750,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool()
-    async def set_show_param_display_names(self, x: SetShowParamDisplayNamesRequest):
-        """Toggle whether parameter display names are shown in the UI."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
@@ -836,45 +775,6 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
-        )
-    )
-    async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
-        """Toggle ignoring type errors for the targeted section entry."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_type_error_ignore(
-            project_state, x.sectionId, x.paramInfoId, x.ignoreTypeErrors
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"], "codeObj": ["codeObjId"]}
-        ),
-        tool_argument_preview=ToolArgumentPreviewMetadata(
-            targetIdPathsByType={"section": ["sectionId"], "codeObj": ["codeObjId"]},
-            previewValuePath="value",
-            previewKind=ToolArgumentPreviewKind.paramValue,
-        ),
-    )
-    async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
-        """Set a parameter's name and value in one step."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.codeObjs[x.codeObjId].name = x.name
-        set_param_entered_value(
-            project_state,
-            x.sectionId,
-            x.codeObjId,
-            x.value,
-        )
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"codeObj": ["codeObjId"]}
         )
     )
@@ -882,18 +782,6 @@ class BaseProjectManager(ABC):
         """Rename the requested code object within the active project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"codeObj": ["codeObjId"]}
-        )
-    )
-    async def set_code_obj_display_name(self, x: SetCodeObjDisplayNameRequest):
-        """Update the user-facing display name for the requested code object."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.codeObjs[x.codeObjId].displayName = x.displayName
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1021,7 +909,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_result=AIFollowToolResultMetadata(
             pathsByIdType={
-                "section": ["sectionId"],
+                "section": ["$"],
             },
         )
     )
@@ -1029,34 +917,19 @@ class BaseProjectManager(ABC):
         """Create a root-level section for the requested implementation.
 
         Returns:
-            CreateTopLevelSectionResponse: Identifier and optional viewport pan hint.
+            ID: Identifier for the newly created top-level section so follow-up edits can target it.
         """
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        apply_top_level_section_layout_snapshot(
-            project_state,
-            x.topLevelSections,
-        )
-
-        position, pan_to = resolve_top_level_section_position_and_pan(
+        sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
             x.implType,
             x.position,
             x.implOverrides,
-            x.topLevelSections,
-            x.viewportBounds,
-        )
-        sectionId = create_top_level_section(
-            self.settings_file.settings,
-            project_state,
-            x.implType,
-            position,
-            x.implOverrides,
-            control_code_obj_type=x.controlCodeObjType,
         )
         await self.update_and_broadcast_project_state(project_state)
-        return CreateTopLevelSectionResponse(sectionId=sectionId, panTo=pan_to)
+        return sectionId
 
     @enqueue_method
     @project_state_tool(
@@ -1329,9 +1202,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
-        new_project_config = ProjectConfig(
-            previewImgColor=previewImgColor, viewport=None
-        )
+        new_project_config = ProjectConfig(previewImgColor=previewImgColor)
         project_state = ProjectStateSingleConfig(projectConfig=new_project_config)
         create_top_level_section(
             self.settings_file.settings,
@@ -1859,19 +1730,6 @@ class BaseProjectManager(ABC):
             self.project_state_backend, x.projectConfigId
         )
         return build_project_state_summary(project_state)
-
-    @enqueue_method(require_serialization=False)
-    @project_state_tool(tool_type=SettaToolType.init)
-    async def get_latest_lsp_diagnostics(
-        self, x: GetLatestLspDiagnosticsRequest
-    ) -> SettaProjectConfigDiagnostics:
-        """Return the latest parsed LSP diagnostics for generated code."""
-        async with self._project_state_lock.read_lock():
-            if x.projectConfigId not in self.gen_code:
-                raise KeyError(
-                    f"Missing generated code for project config {x.projectConfigId}"
-                )
-            return self.gen_code[x.projectConfigId].latest_diagnostics
 
     @enqueue_method
     async def autosave(self):

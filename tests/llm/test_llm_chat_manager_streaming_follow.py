@@ -11,8 +11,7 @@ from litellm.types.utils import (
 )
 from setta.database.db_objs import DBE
 from setta.llm.llm_chat_manager import LLMChatManager, ToolCallStreamState
-from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
+from setta.mcp.client import MCPClient
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     SettaToolAnnotations,
@@ -29,8 +28,6 @@ from setta.websockets.websocket_manager import WebsocketManager
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
-from tests.utils.project_summary import build_project_summary_switcher
-
 
 class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
@@ -38,27 +35,20 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         self.dbe = DBE(Path(self.temp_dir.name))
         self.websocket_manager = WebsocketManager()
         self.frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.mcp_client = MultiMCPClient({})
-        project_manager_switcher = build_project_summary_switcher(ID("project-1"))
+        self.mcp_client = MCPClient("http://localhost")
         self.manager = LLMChatManager(
             self.dbe,
             self.mcp_client,
             self.frontend_sender,
-            project_manager_switcher,
-        )
-        namespaced_tool_name = build_namespaced_tool_name(
-            SETTA_MCP_SERVER_ID,
-            "follow_tool",
         )
         self.mcp_client.tool_annotations_by_name = {
-            namespaced_tool_name: SettaToolAnnotations(
+            "follow_tool": SettaToolAnnotations(
                 settaToolType=SettaToolType.discoverable,
                 aiFollowToolArguments=AIFollowToolArgumentsMetadata(
                     pathsByIdType={"section": ["sectionId", "sectionIds"]},
                 ),
             )
         }
-        self._namespaced_tool_name = namespaced_tool_name
         self.websocket_id = "stream-follow-socket"
         self._sent_messages: list[Message] = []
         self._receive_counter = 0
@@ -100,6 +90,74 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
         await self._websocket.close()
         self.temp_dir.cleanup()
 
+    async def test_streaming_follow_updates_on_partial_tool_args(self) -> None:
+        canonical_to_temporary = {
+            ID("section-a"): ID("temp-1"),
+            ID("section-b"): ID("temp-2"),
+        }
+        self.dbe.write_temporary_id_map(canonical_to_temporary)
+
+        chat_id = ID("chat-1")
+        project_config_id = ID("project-1")
+        assistant_message = AssistantChatMessage(content=[])
+        tool_call_state = ToolCallStreamState()
+
+        chunk_one = self._build_stream_chunk('{"sectionId":"temp-1"')
+        await self.manager._handle_stream_chunk(
+            chat_id,
+            assistant_message,
+            chunk_one,
+            tool_call_state,
+            project_config_id,
+        )
+        follow_updates = self._collect_follow_updates()
+        self.assertEqual(1, len(follow_updates))
+        self.assertEqual(
+            {"section-a"},
+            set(follow_updates[-1]["content"]["idsByType"]["section"]),
+        )
+
+        chunk_two = self._build_stream_chunk(
+            ',"sectionIds":["temp-1","temp-2"]'
+        )
+        await self.manager._handle_stream_chunk(
+            chat_id,
+            assistant_message,
+            chunk_two,
+            tool_call_state,
+            project_config_id,
+        )
+        follow_updates = self._collect_follow_updates()
+        self.assertEqual(2, len(follow_updates))
+        self.assertEqual(
+            {"section-a", "section-b"},
+            set(follow_updates[-1]["content"]["idsByType"]["section"]),
+        )
+
+        chunk_three = self._build_stream_chunk("}")
+        await self.manager._handle_stream_chunk(
+            chat_id,
+            assistant_message,
+            chunk_three,
+            tool_call_state,
+            project_config_id,
+        )
+        follow_updates = self._collect_follow_updates()
+        self.assertEqual(2, len(follow_updates))
+
+        await self.manager._finalize_tool_calls(
+            assistant_message,
+            tool_call_state,
+            chat_id,
+            project_config_id,
+        )
+        follow_updates = self._collect_follow_updates()
+        self.assertEqual(3, len(follow_updates))
+        self.assertEqual(
+            {"section-a", "section-b"},
+            set(follow_updates[-1]["content"]["idsByType"]["section"]),
+        )
+
     def _build_stream_chunk(self, arguments_delta: str) -> ModelResponseStream:
         delta = Delta(
             tool_calls=[
@@ -107,9 +165,7 @@ class LLMChatManagerStreamingFollowTests(unittest.IsolatedAsyncioTestCase):
                     index=0,
                     id="tool-call-1",
                     type="function",
-                    function=Function(
-                        name=self._namespaced_tool_name, arguments=arguments_delta
-                    ),
+                    function=Function(name="follow_tool", arguments=arguments_delta),
                 )
             ]
         )

@@ -20,15 +20,11 @@ class CodeObjType(str, Enum):
     CodeCallable = "CodeCallable"
     CodeParam = "CodeParam"
     TextParam = "TextParam"
-    ButtonParam = "ButtonParam"
     SliderParam = "SliderParam"
-    RotaryParam = "RotaryParam"
     SwitchParam = "SwitchParam"
     ColorPickerParam = "ColorPickerParam"
     DropdownParam = "DropdownParam"
     PasswordParam = "PasswordParam"
-    TextAreaParam = "TextAreaParam"
-    DropzoneParam = "DropzoneParam"
     NestedParam = "NestedParam"
 
 
@@ -77,24 +73,11 @@ class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
 
 
-class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
-    type: Literal[CodeObjType.ButtonParam] = CodeObjType.ButtonParam
-    label: str = "Trigger"
-
-
 class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     min: int = 0
     max: int = 100
     step: int = 1
-    value: str = "0"
-
-
-class RotaryParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.RotaryParam] = CodeObjType.RotaryParam
-    min: float = 0
-    max: float = 1
-    step: float = 0.1
     value: str = "0"
 
 
@@ -118,46 +101,5 @@ class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
 
 
-class TextAreaParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.TextAreaParam] = CodeObjType.TextAreaParam
-
-
-class DropzoneParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.DropzoneParam] = CodeObjType.DropzoneParam
-
-
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
-
-
-ControlCodeObjTypeSet = frozenset(
-    {
-        CodeObjType.CodeParam,
-        CodeObjType.TextParam,
-        CodeObjType.ButtonParam,
-        CodeObjType.TextAreaParam,
-        CodeObjType.SliderParam,
-        CodeObjType.RotaryParam,
-        CodeObjType.SwitchParam,
-        CodeObjType.ColorPickerParam,
-        CodeObjType.DropdownParam,
-        CodeObjType.PasswordParam,
-        CodeObjType.DropzoneParam,
-    }
-)
-
-SectionParamCodeObjTypeSet = frozenset(
-    {
-        CodeObjType.CodeParam,
-        CodeObjType.TextParam,
-        CodeObjType.TextAreaParam,
-        CodeObjType.SliderParam,
-        CodeObjType.RotaryParam,
-        CodeObjType.SwitchParam,
-        CodeObjType.ColorPickerParam,
-        CodeObjType.DropdownParam,
-        CodeObjType.PasswordParam,
-        CodeObjType.DropzoneParam,
-        CodeObjType.NestedParam,
-    }
-)

@@ -3,7 +3,6 @@ import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
-import { unstable_batchedUpdates } from "react-dom";
 import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
@@ -37,7 +36,6 @@ import {
   Core,
   ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
-  isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
@@ -84,32 +82,7 @@ function getEffectiveCodeObjImplIfPresent(
   codeObjId: string,
 ): BaseCodeObjImplUnion | null {
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
-    if (sectionImpl.type !== SectionTypeEnum.MetaControl) {
-      return null;
-    }
-    if (!sectionImpl.metaControlParamId) {
-      return null;
-    }
-    if (sectionImpl.metaControlParamId !== codeObjId) {
-      return null;
-    }
-    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-    if (variantId === undefined) {
-      return null;
-    }
-    const variant = projectState.codeObjVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = projectState.codeObjImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    const core = projectState.codeObjs[codeObjId];
-    if (!core) {
-      return null;
-    }
-    return getEffectiveImpl(impl, core, variant);
+    return null;
   }
   const variantId = sectionImpl.codeObjVariantMap[codeObjId];
   if (variantId === undefined) {
@@ -216,29 +189,18 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
   preview = false,
 ) {
-  const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId, preview);
-  if (isBaseSectionWithParamsImpl(sectionImpl)) {
-    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-    if (variantId === undefined) {
-      throw new Error();
-    }
-    return getCodeObjVariant(p, variantId);
+  // Check if sectionId exists in the map
+  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+    p,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+    preview,
+  );
+  const variantId = sectionImpl.codeObjVariantMap[codeObjId];
+  if (variantId === undefined) {
+    throw new Error();
   }
-  if (sectionImpl.type === SectionTypeEnum.MetaControl) {
-    const controlParamId = sectionImpl.metaControlParamId;
-    if (!controlParamId) {
-      throw new Error();
-    }
-    if (controlParamId !== codeObjId) {
-      throw new Error();
-    }
-    const variantId = sectionImpl.codeObjVariantMap[codeObjId];
-    if (variantId === undefined) {
-      throw new Error();
-    }
-    return getCodeObjVariant(p, variantId);
-  }
-  throw new Error();
+  return getCodeObjVariant(p, variantId);
 }
 
 export function getCurrEffectiveCodeObjImpl(
@@ -392,26 +354,6 @@ export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
   return codeObj;
 }
 
-export function getParamDisplayName(
-  state: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-) {
-  const codeObj = getCodeObjCore(state, codeObjId);
-  if (!state.projectConfig.showParamDisplayNames) {
-    return codeObj.name;
-  }
-  const impl = getCurrEffectiveCodeObjImpl(state, sectionId, codeObjId);
-  if (isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
-    return codeObj.name;
-  }
-  const trimmedDisplayName = codeObj.displayName.trim();
-  if (trimmedDisplayName.length > 0) {
-    return codeObj.displayName;
-  }
-  return codeObj.name;
-}
-
 export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   const impl = p.codeObjImpls[implId];
   if (!impl) {
@@ -519,18 +461,19 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  for (const opInfo of nextPending) {
-    opInfo.apply(x.projectState);
-  }
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    x.projectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-    useProjectState.setState(() => x.projectState);
+  usePendingOperations.setState({ pending: nextPending });
+  useProjectState.setState(() => {
+    for (const opInfo of nextPending) {
+      opInfo.apply(x.projectState);
+    }
+    return x.projectState;
   });
+  useNodeInternals.setState((state) => ({
+    x: createNodesMapFromProjectConfigChildren(
+      useProjectState.getState(),
+      state.x,
+    ),
+  }));
 
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
@@ -827,7 +770,7 @@ export function deleteAllActiveSections() {
   });
 }
 
-export function createTopLevelSectionLayoutDict(
+function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
 ) {

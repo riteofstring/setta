@@ -6,14 +6,13 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
-from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
-from setta.mcp.client import MultiMCPClient
+from setta.mcp.client import MCPClient
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
@@ -60,15 +59,14 @@ class SettaFastAPIState:
     def __init__(self, app):
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
-        self.dbe = DBE(C.SETTA_FILES_FOLDER)
-        seed_llm_config_example_file(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
-            self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
+        self.dbe = DBE(C.SETTA_FILES_FOLDER)
+        seed_llm_config_example_file(self.dbe)
         self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
@@ -93,7 +91,7 @@ class SettaFastAPIState:
             "wmh_python_script_receiver"
         )
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
-        self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
+        self.mcp_client: MCPClient = self._defer_attr("mcp_client")
         self.chat_manager: LLMChatManager = self._defer_attr("chat_manager")
         self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
@@ -187,7 +185,6 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.wmh_python_script_sender,
                 self.project_manager_switcher,
-                self.dbe,
             )
             self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
 
@@ -202,18 +199,10 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.dbe,
             )
-            llm_config = load_llm_config(self.dbe)
-            self.mcp_client = MultiMCPClient(
-                llm_config.mcpServers,
-                frontend_sender=self.wmh_frontend_sender,
-            )
+            self.mcp_client = MCPClient(f"{C.BACKEND}/mcp")
             self.chat_manager = LLMChatManager(
-                self.dbe,
-                self.mcp_client,
-                self.wmh_frontend_sender,
-                self.project_manager_switcher,
+                self.dbe, self.mcp_client, self.wmh_frontend_sender
             )
-            self.chat_manager.update_config(llm_config)
             self.dotenv_watcher = DotEnvWatcher(
                 self.specific_file_watcher,
                 self.chat_manager,
@@ -233,7 +222,7 @@ class SettaFastAPIState:
             await self._maybe_delay()
             if self.mcp_client:
                 spawn_background_task(
-                    self.mcp_client.connect_to_servers(),
+                    self.mcp_client.connect_to_server(),
                     label="mcp-client-connect",
                     request_id="boot",
                     extra_values={"service": "mcp-client"},

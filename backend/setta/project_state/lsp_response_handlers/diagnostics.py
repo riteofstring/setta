@@ -1,5 +1,4 @@
 import re
-from bisect import bisect_right
 from typing import Callable
 
 from lsprotocol import types as LSPTypes
@@ -13,53 +12,23 @@ from setta.types.dependency_key import (
     SectionParamDependencyKey,
 )
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
-from setta.types.id import ID
-from setta.types.lsp import SettaLSPPosition, SettaSectionTypeErrors
-from setta.types.section_impls import TypeErrorIgnoreState
-
-RangeIndex = tuple[list[int], list[tuple[int, int, BaseDependencyKeyUnion]]]
+from setta.types.lsp import SettaGenCodeDiagnostic, SettaLSPPosition
 
 
 def process_gen_code_diagnostics(
     diagnostics: list[LSPTypes.Diagnostic],
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
-    ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None = None,
 ):
     positions = convert_diagnostic_line_cols_to_positions(
         code_generator.code, diagnostics
     )
-    range_index = build_dep_key_range_index(code_generator)
-    output: dict[ID, SettaSectionTypeErrors] = {}
+    output: list[SettaGenCodeDiagnostic] = []
     for i, d in enumerate(diagnostics):
-        for section_id, param_id, message in process_gen_code_diagnostic(
-            d, positions[i], code_generator, dep_graph, range_index
-        ):
-            if should_ignore_type_error(
-                section_id,
-                param_id,
-                ignored_type_errors_by_section,
-            ):
-                continue
-            add_error_message(output, section_id, param_id, message)
+        output.extend(
+            process_gen_code_diagnostic(d, positions[i], code_generator, dep_graph)
+        )
     return output
-
-
-def should_ignore_type_error(
-    section_id: ID,
-    param_id: ID | None,
-    ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None,
-) -> bool:
-    if ignored_type_errors_by_section is None:
-        return False
-    if section_id not in ignored_type_errors_by_section:
-        return False
-    ignore_state = ignored_type_errors_by_section[section_id]
-    if param_id is None:
-        return ignore_state.callable
-    if param_id in ignore_state.params:
-        return ignore_state.params[param_id]
-    return False
 
 
 def process_gen_code_diagnostic(
@@ -67,7 +36,6 @@ def process_gen_code_diagnostic(
     position: SettaLSPPosition,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
-    range_index: RangeIndex,
 ):
     message = d.message
     if d.code == "reportArgumentType":
@@ -76,10 +44,8 @@ def process_gen_code_diagnostic(
         )
     elif d.code == "reportCallIssue":
         return process_report_call_issue(
-            position.start, message, code_generator, dep_graph, range_index
+            position.start, message, code_generator, dep_graph
         )
-    elif is_undefined_symbol_diagnostic(d):
-        return process_undefined_symbol(position, message, code_generator, range_index)
     return []
 
 
@@ -101,48 +67,14 @@ def process_report_call_issue(
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
-    range_index: RangeIndex,
 ):
     if "positional argument" in message:
         return process_positional_argument_issue(
-            start, message, code_generator, dep_graph, range_index
+            start, message, code_generator, dep_graph
         )
     elif "parameter" in message:
-        return process_named_argument_issue(
-            start, message, code_generator, dep_graph, range_index
-        )
+        return process_named_argument_issue(start, message, code_generator, dep_graph)
     return []
-
-
-def is_undefined_symbol_diagnostic(d: LSPTypes.Diagnostic) -> bool:
-    code = d.code if isinstance(d.code, str) else ""
-    if code in {
-        "reportUndefinedVariable",
-        "reportUnboundVariable",
-        "reportUndefinedFunction",
-        "reportUndefinedClass",
-    }:
-        return True
-
-    message = d.message.lower()
-    undefined_message_patterns = (
-        "is not defined",
-        "has no attribute",
-        "cannot access member",
-    )
-    return any(pattern in message for pattern in undefined_message_patterns)
-
-
-def process_undefined_symbol(
-    position: SettaLSPPosition,
-    message: str,
-    code_generator: PythonCodeGenerator,
-    range_index: RangeIndex,
-):
-    dep_key = find_dep_key_for_range(position, code_generator, range_index)
-    if not dep_key:
-        return []
-    return [get_message_with_ids(message, dep_key)]
 
 
 def _process_argument_issue(
@@ -151,7 +83,6 @@ def _process_argument_issue(
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
     param_filter: Callable[[ParamNode], bool],
-    range_index: RangeIndex,
 ):
     """
     Helper function to process argument issues.
@@ -164,12 +95,6 @@ def _process_argument_issue(
         param_filter: Function that takes a param and returns True if it should be included
     """
     dep_key = code_generator.value_pos_start_to_dep_key.get(start)
-    if not dep_key:
-        dep_key = find_dep_key_for_range(
-            SettaLSPPosition(start=start, end=start + 1),
-            code_generator,
-            range_index,
-        )
     if not dep_key:
         return []
     node = dep_graph.graph.get(dep_key)
@@ -193,7 +118,6 @@ def process_positional_argument_issue(
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
-    range_index: RangeIndex,
 ):
     return _process_argument_issue(
         start,
@@ -201,7 +125,6 @@ def process_positional_argument_issue(
         code_generator,
         dep_graph,
         lambda param: param.passing_style == ParameterPassingStyle.POSITIONAL_ONLY,
-        range_index,
     )
 
 
@@ -210,7 +133,6 @@ def process_named_argument_issue(
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
-    range_index: RangeIndex,
 ):
     missing_param_names = extract_parameters(message)
     return _process_argument_issue(
@@ -219,7 +141,6 @@ def process_named_argument_issue(
         code_generator,
         dep_graph,
         lambda param: param.name in missing_param_names,
-        range_index,
     )
 
 
@@ -234,66 +155,17 @@ def get_message_with_ids(message: str, dep_key: BaseDependencyKeyUnion):
         raise TypeError(
             f"Unsupported dependency key type {type(dep_key)} in diagnostics message"
         )
-    return section_id, param_id, message
+    return SettaGenCodeDiagnostic(
+        sectionId=section_id,
+        paramInfoId=param_id,
+        message=message,
+    )
 
 
 def extract_parameters(error_string: str):
     pattern = r'"([^"]+)"'
     parameters = re.findall(pattern, error_string)
     return set(parameters)
-
-
-def add_error_message(
-    errors: dict[ID, SettaSectionTypeErrors],
-    section_id: ID,
-    param_id: ID | None,
-    message: str,
-):
-    section_errors = errors.get(section_id)
-    if not section_errors:
-        section_errors = SettaSectionTypeErrors(callable=[], params={})
-        errors[section_id] = section_errors
-    if param_id is None:
-        section_errors.callable.append(message)
-        return
-    if param_id not in section_errors.params:
-        section_errors.params[param_id] = []
-    section_errors.params[param_id].append(message)
-
-
-def build_dep_key_range_index(
-    code_generator: PythonCodeGenerator,
-) -> RangeIndex:
-    ranges: list[tuple[int, int, BaseDependencyKeyUnion]] = []
-    for key, line in code_generator.lines.items():
-        if line.pos is None:
-            continue
-        value_start = line.pos + line.prefix_len
-        value_end = value_start + line.value_len
-        ranges.append((value_start, value_end, key))
-    ranges.sort(key=lambda entry: entry[0])
-    starts = [entry[0] for entry in ranges]
-    return starts, ranges
-
-
-def find_dep_key_for_range(
-    position: SettaLSPPosition,
-    code_generator: PythonCodeGenerator,
-    range_index: RangeIndex,
-):
-    dep_key = code_generator.value_pos_start_to_dep_key.get(position.start)
-    if dep_key:
-        return dep_key
-    starts, ranges = range_index
-    if not ranges:
-        return None
-    idx = bisect_right(starts, position.start) - 1
-    for candidate_idx in (idx, idx + 1):
-        if 0 <= candidate_idx < len(ranges):
-            value_start, value_end, key = ranges[candidate_idx]
-            if position.start < value_end and position.end > value_start:
-                return key
-    return None
 
 
 def convert_diagnostic_line_cols_to_positions(

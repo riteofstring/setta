@@ -2,7 +2,6 @@ import inspect
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
-from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
@@ -15,10 +14,9 @@ from setta.mcp.tool_metadata import (
     attach_ai_follow_tool_arguments,
     attach_ai_follow_tool_result,
     attach_tool_argument_preview,
-    attach_tool_search_category,
-    attach_tool_search_tags,
 )
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
+from setta.server_state import SettaFastAPIState
 from setta.utils.constants import C
 
 if TYPE_CHECKING:
@@ -32,8 +30,6 @@ def project_state_tool(
     ai_follow_tool_result: AIFollowToolResultMetadata | None = None,
     ai_follow_tool_arguments: AIFollowToolArgumentsMetadata | None = None,
     tool_argument_preview: ToolArgumentPreviewMetadata | None = None,
-    search_tags: list[str] | None = None,
-    search_category: str | None = None,
 ):
     """Decorator used on BaseProjectManager coroutines to expose them as MCP tools."""
 
@@ -50,8 +46,6 @@ def project_state_tool(
         attach_ai_follow_tool_result(tool_fn, ai_follow_tool_result)
         attach_ai_follow_tool_arguments(tool_fn, ai_follow_tool_arguments)
         attach_tool_argument_preview(tool_fn, tool_argument_preview)
-        attach_tool_search_tags(tool_fn, search_tags)
-        attach_tool_search_category(tool_fn, search_category)
         register = setta_init_tool if tool_type == SettaToolType.init else setta_tool
         register(tool_fn)
         return method
@@ -67,11 +61,9 @@ def _build_tool_callable(
     docstring: str | None,
 ):
     async def tool_callable(**raw_kwargs: Any):
-        ctx: Context = raw_kwargs.pop("ctx")
+        setta_state: SettaFastAPIState = raw_kwargs.pop(C.MCP_SETTA_STATE_ARG_NAME)
         request = request_model(**raw_kwargs)
-        manager = ctx.fastmcp.state.project_manager_switcher.get(
-            request.projectConfigId
-        )
+        manager = setta_state.project_manager_switcher.get(request.projectConfigId)
         manager_method = getattr(manager, manager_method_name)
         result = manager_method(request)
         if inspect.isawaitable(result):
@@ -82,7 +74,6 @@ def _build_tool_callable(
     if docstring:
         tool_callable.__doc__ = docstring
     tool_callable.__signature__ = _build_signature(request_model)
-    tool_callable.__annotations__ = _build_annotations(request_model)
     return tool_callable
 
 
@@ -125,22 +116,12 @@ def _build_signature(request_model: type[BaseModel]) -> inspect.Signature:
         )
     parameters.append(
         inspect.Parameter(
-            "ctx",
+            C.MCP_SETTA_STATE_ARG_NAME,
             kind=inspect.Parameter.KEYWORD_ONLY,
-            annotation=Context,
+            annotation=SettaFastAPIState,
         )
     )
     return inspect.Signature(parameters=parameters)
-
-
-def _build_annotations(request_model: type[BaseModel]) -> dict[str, Any]:
-    annotations: dict[str, Any] = {}
-    for field_name, field in request_model.model_fields.items():
-        if _field_hidden_from_mcp(field):
-            continue
-        annotations[field_name] = field.annotation
-    annotations["ctx"] = Context
-    return annotations
 
 
 def _field_hidden_from_mcp(field: FieldInfo) -> bool:

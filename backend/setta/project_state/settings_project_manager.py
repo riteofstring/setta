@@ -3,15 +3,11 @@ from pathlib import Path
 from typing import Any
 
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.project_state.jsonSource.load import (
-    load_json_sources_into_data_structures,
-)
 from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
-from setta.project_state.settings_project import apply_settings_display_names
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
@@ -28,7 +24,6 @@ class SettingsProjectManager(BaseProjectManager):
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):
-        self._flush_code_files_for_all_configs()
         default_id = self.project_state_backend.defaultProjectConfigId
         if not default_id:
             raise ValueError
@@ -45,24 +40,10 @@ class SettingsProjectManager(BaseProjectManager):
     async def save_as_new_project_config(self, _x: SaveAsNewProjectConfigRequest):
         raise ValueError
 
-    @BaseProjectManager.enqueue_method
     async def load_json_sources(
         self,
         json_sources: dict[Path, Any],
         section_variants_to_load: list[tuple[str, str]],
     ):
-        p = self.project_state_backend
-        existing_code_obj_ids = set(p.codeObjs.keys())
-        load_json_sources_into_data_structures(
-            p,
-            json_sources,
-            section_variants_to_load,
-        )
-        apply_settings_display_names(p, existing_code_obj_ids=existing_code_obj_ids)
-
-        for config_id in p.projectConfigs.keys():
-            single_config = convert_backend_to_single_config(p, config_id)
-            await self.update_and_broadcast_project_state(
-                single_config, updateFileWatcher=False
-            )
+        await super().load_json_sources(json_sources, section_variants_to_load)
         await self.settings_file.load_and_broadcast_settings()

@@ -4,6 +4,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_toggle_position_lock } from "utils/generatedEndpoints";
@@ -47,11 +48,10 @@ export function LockPositionButton({
   function onClick() {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        const section = state.sections[sectionId];
-        if (!section) {
-          return;
-        }
-        section.positionAndSizeLocked = !section.positionAndSizeLocked;
+        const impl = getCurrEffectiveSectionImpl(state, sectionId);
+        setCurrEffectiveSectionImplValue(state, sectionId, {
+          positionAndSizeLocked: !impl.positionAndSizeLocked,
+        });
       },
       send: (frontendOpId) =>
         route_toggle_position_lock({

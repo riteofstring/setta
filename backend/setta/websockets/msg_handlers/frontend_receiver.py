@@ -3,14 +3,9 @@ from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
 )
-from setta.types.listener import (
-    ListenerRealtimeDelta,
-    RealtimeActionEventContent,
-    RealtimeUIChangeContent,
-)
+from setta.types.listener import ListenerRealtimeDelta, RealtimeUIChangeContent
 from setta.types.websocket import (
     WebsocketMsgCurrentAddressUpdate,
-    WebsocketMsgRealtimeActionEvent,
     WebsocketMsgRealtimeUIChange,
 )
 from setta.websockets.msg_handlers.base import (
@@ -42,10 +37,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgRealtimeUIChange):
             await self._handle_realtime_ui_change(m.content)
-            return
-
-        if isinstance(m, WebsocketMsgRealtimeActionEvent):
-            await self._handle_realtime_action_event(m.content)
 
     async def on_connect(self, _websocket_id: str):
         await self.project_manager.broadcast_all_project_metadata()
@@ -57,13 +48,4 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         await self.realtime_event_hub.emit_realtime_delta(
             project_config_id=content.projectConfigId,
             deltas=[delta],
-        )
-
-    async def _handle_realtime_action_event(
-        self,
-        content: RealtimeActionEventContent,
-    ) -> None:
-        await self.realtime_event_hub.emit_action_event(
-            project_config_id=content.projectConfigId,
-            action_events=[content.actionEvent],
         )

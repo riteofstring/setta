@@ -15,7 +15,6 @@ from setta.api.listener import (
 )
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.code_gen.value_codec import PythonValueCodec
-from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.types.code_obj_impls import CodeObjType, ParameterPassingStyle
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -136,7 +135,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -189,52 +187,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         callback_payloads = list(register_payload["content"]["callbacks"].values())
         self.assertEqual(callback_payloads[0]["debounceMs"], 50)
 
-    async def test_refresh_callbacks_respect_concurrency_limit(self) -> None:
-        project_state = self._build_project_state()
-        concurrency = 2
-        listener = SettaListener(
-            project_name=project_state.projectConfig.name,
-            refresh_concurrency=concurrency,
-        )
-        active = 0
-        max_active = 0
-        completed = 0
-        active_lock = asyncio.Lock()
-        ready_event = asyncio.Event()
-        release_event = asyncio.Event()
-        completed_event = asyncio.Event()
-        total_callbacks = 4
-
-        async def on_refresh(state, ctx) -> None:
-            nonlocal active, max_active, completed
-            async with active_lock:
-                active += 1
-                if active > max_active:
-                    max_active = active
-                if active >= concurrency:
-                    ready_event.set()
-            await release_event.wait()
-            async with active_lock:
-                active -= 1
-                completed += 1
-                if completed == total_callbacks:
-                    completed_event.set()
-
-        for _ in range(total_callbacks):
-            listener.listen(deps=("Welcome",), run_on_refresh=True)(on_refresh)
-
-        await listener._process_snapshot(
-            project_state,
-            refresh_kind="force_refresh",
-        )
-        try:
-            await asyncio.wait_for(ready_event.wait(), timeout=1.0)
-            self.assertEqual(concurrency, max_active)
-        finally:
-            release_event.set()
-
-        await asyncio.wait_for(completed_event.wait(), timeout=1.0)
-
     async def test_force_refresh_replays_snapshot_and_resets_sequence(self) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(
@@ -255,7 +207,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(run_on_refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(standard_calls, [{"Welcome": "Hello"}])
@@ -294,7 +245,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
         )
-        await asyncio.sleep(0)
 
         self.assertIsNone(listener._last_realtime_sequence)
         self.assertEqual(
@@ -327,7 +277,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(refresh_calls, [{"Welcome": "Hello"}])
         self.assertEqual(realtime_calls, [{"Welcome": "Hello"}])
@@ -365,7 +314,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_force_refresh(
             ListenerForceRefreshContent(projectState=refreshed_state)
         )
-        await asyncio.sleep(0)
 
         self.assertEqual(
             refresh_calls,
@@ -394,7 +342,6 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         _attach_stub_websocket(listener, websocket)
 
         await listener._refresh_from_snapshot(project_state)
-        await asyncio.sleep(0)
 
         self.assertEqual(any_calls, [{}])
         self.assertEqual(specific_calls, [{"Welcome": "Hello"}])
@@ -490,21 +437,10 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         state = SimpleNamespace(section__slider=1, section__switch=False)
 
-        dep_graph = cast(
-            "DependencyGraph",
-            SimpleNamespace(
-                graph=graph,
-                full_path_name_to_dep_key={
-                    slider_node.full_path_name: slider_key,
-                    switch_node.full_path_name: switch_key,
-                },
-            ),
-        )
+        dep_graph = cast("DependencyGraph", SimpleNamespace(graph=graph))
         value_codec = PythonValueCodec(
             dep_graph,
-            lambda key: (
-                f"{GEN_CODE_INSTANCE_NAME}.{dep_graph.graph[key].full_path_name}"
-            ),
+            lambda key: f"s.{dep_graph.graph[key].full_path_name}",
         )
 
         code_generator = cast(
@@ -589,31 +525,15 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         root_logger = logging.getLogger()
         module_logger = logging.getLogger("setta.api.listener")
-        setta_logger = logging.getLogger("setta")
 
         root_handlers = list(root_logger.handlers)
         module_handlers = list(module_logger.handlers)
-        setta_handlers = list(setta_logger.handlers)
         original_propagate = module_logger.propagate
-        original_module_level = module_logger.level
-        original_setta_propagate = setta_logger.propagate
-        original_setta_level = setta_logger.level
-        last_resort = logging.lastResort
-        last_resort_level = last_resort.level if last_resort is not None else None
 
         for handler in module_handlers:
             module_logger.removeHandler(handler)
         for handler in root_handlers:
             root_logger.removeHandler(handler)
-        for handler in setta_handlers:
-            setta_logger.removeHandler(handler)
-
-        module_logger.setLevel(logging.ERROR)
-        module_logger.propagate = True
-        setta_logger.setLevel(logging.ERROR)
-        setta_logger.propagate = True
-        if last_resort is not None:
-            last_resort.setLevel(logging.ERROR)
 
         stream = io.StringIO()
         try:
@@ -623,15 +543,8 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             for handler in module_handlers:
                 module_logger.addHandler(handler)
             module_logger.propagate = original_propagate
-            module_logger.setLevel(original_module_level)
-            for handler in setta_handlers:
-                setta_logger.addHandler(handler)
-            setta_logger.propagate = original_setta_propagate
-            setta_logger.setLevel(original_setta_level)
             for handler in root_handlers:
                 root_logger.addHandler(handler)
-            if last_resort is not None and last_resort_level is not None:
-                last_resort.setLevel(last_resort_level)
 
         output = stream.getvalue()
         self.assertIn(
@@ -686,9 +599,7 @@ class SettaListenerBootstrapFailureTests(unittest.IsolatedAsyncioTestCase):
         async def capture_payload(payload: str) -> None:
             register_payloads.append(json.loads(payload))
 
-        listener._instantiate_state = MagicMock(
-            side_effect=ValueError("math domain error")
-        )
+        listener._instantiate_s = MagicMock(side_effect=ValueError("math domain error"))
         listener._send_websocket_payload = AsyncMock(side_effect=capture_payload)
 
         await listener._refresh_from_snapshot(project_state)

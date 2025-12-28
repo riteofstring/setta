@@ -9,18 +9,15 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.utils import (
     CLASS_DEF,
-    GEN_CODE_INSTANCE_NAME,
+    SELF_IDENTIFIER,
 )
 from setta.code_gen.value_codec import PythonValueCodec
 from setta.code_gen.value_mode import PythonValueMode
-from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.dependency_keys import BaseDependencyKeyUnion
 from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 GEN_CODE_SEPARATOR = "\n" * C.GEN_CODE_SEPARATOR_NEWLINES
-GEN_CODE_BODY_INDENT = "        "
-GEN_CODE_MULTILINE_CONTINUATION_INDENT = f"{GEN_CODE_BODY_INDENT}    "
 
 
 @dataclass
@@ -57,8 +54,6 @@ class PythonCodeGenerator:
             self.dep_graph,
             self._lookup_var_name,
             mode=value_mode,
-            collection_item_indent=GEN_CODE_MULTILINE_CONTINUATION_INDENT,
-            collection_close_indent=GEN_CODE_BODY_INDENT,
         )
         self.reset()
 
@@ -149,7 +144,7 @@ class PythonCodeGenerator:
         helper_block = self._helper_import_block()
         if helper_block:
             code = f"{helper_block}\n{code}"
-        indent = GEN_CODE_BODY_INDENT
+        indent = "        "
         indent_len = len(indent)
 
         # no sections or params? Then just pass.
@@ -180,31 +175,13 @@ class PythonCodeGenerator:
         value = self.get_value(node)
         if not value:
             return
-        if self._should_wrap_multiline(node) and "\n" in value:
-            value = self._wrap_multiline_expression(value)
         var_name = self.create_var_name(dep_key, node)
         prefix = f"{var_name} = "
         final_str = f"{prefix}{value}"
         self.lines[dep_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
-    def _should_wrap_multiline(self, node: Node) -> bool:
-        if isinstance(node, ParamNode):
-            return node.type == CodeObjType.CodeParam
-        if isinstance(node, SectionNode):
-            return node.control_code_obj_type == CodeObjType.CodeParam
-        return False
-
-    def _wrap_multiline_expression(self, value: str) -> str:
-        lines = value.splitlines()
-        if not lines:
-            return value
-        indented_lines = [
-            f"{GEN_CODE_MULTILINE_CONTINUATION_INDENT}{line}" for line in lines
-        ]
-        return "(\n" + "\n".join(indented_lines) + f"\n{GEN_CODE_BODY_INDENT})"
-
     def create_var_name(self, dep_key, node: Node):
-        var_name = f"{GEN_CODE_INSTANCE_NAME}.{node.full_path_name}"
+        var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
         self.var_name_mapping[dep_key] = var_name
         self.reverse_var_name_mapping[var_name] = dep_key
         return var_name

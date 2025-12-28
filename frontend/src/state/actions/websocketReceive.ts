@@ -18,8 +18,6 @@ import {
   Base64DependencyValue,
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
-  CodeObjType,
-  ControlActionEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
@@ -29,7 +27,6 @@ import {
   SectionParamDependencyKey,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
-  WebsocketMsgRealtimeActionEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
@@ -200,39 +197,6 @@ function emitRealtimeDependencyValue(
   sendMessage(message);
 }
 
-type ControlActionEventInput = {
-  controlName: string;
-  actionId: string;
-  actionControlType: CodeObjType;
-  payload?: string | null;
-};
-
-export function sendRealtimeControlAction(
-  action: ControlActionEventInput,
-): void {
-  const projectConfigId = getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-
-  const actionEvent: ControlActionEvent = {
-    controlName: action.controlName,
-    actionId: action.actionId,
-    actionControlType: action.actionControlType,
-    payload: action.payload ?? null,
-    timestampMs: Date.now(),
-  };
-  const message: WebsocketMsgRealtimeActionEvent = {
-    id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeActionEvent,
-    content: {
-      projectConfigId,
-      actionEvent,
-    },
-  };
-  sendMessage(message);
-}
-
 export function sendRealtimeSectionParamLiteral(
   sectionId: string,
   codeObjId: string,
@@ -242,18 +206,6 @@ export function sendRealtimeSectionParamLiteral(
     type: DependencyKeyTypeEnum.SectionParam,
     sectionId,
     codeObjId,
-  };
-  const dependencyValue: LiteralDependencyValue = {
-    payload: value,
-    type: DependencyValueTypeEnum.Literal,
-  };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
-}
-
-export function sendRealtimeSectionLiteral(sectionId: string, value: string) {
-  const dependencyKey: SectionDependencyKey = {
-    type: DependencyKeyTypeEnum.Section,
-    sectionId,
   };
   const dependencyValue: LiteralDependencyValue = {
     payload: value,

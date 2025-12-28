@@ -5,8 +5,8 @@ import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import {
+  getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
-  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -36,7 +36,7 @@ function _ParamContainer({
       );
       return {
         description: codeObjImpl.description,
-        name: getParamDisplayName(x, sectionId, paramInfoId),
+        name: getCodeObjCore(x, paramInfoId).name,
       };
     },
     _.isEqual,
@@ -44,14 +44,11 @@ function _ParamContainer({
 
   const columnWidth = "var(--param-column-width, 200px)";
 
-  const errorMessage = maybeErrorMessage ?? "";
-  const hasError = errorMessage.length > 0;
-
   // TODO: fix quick hacky solution below. shouldn't use !important everywhere.
-  const tooltipContentArray = hasError
+  const tooltipContentArray = maybeErrorMessage
     ? [
         {
-          content: errorMessage,
+          content: maybeErrorMessage,
           wrapperClassName:
             "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
           contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
@@ -87,12 +84,10 @@ function _ParamContainer({
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfoId}
-          maybeErrorMessage={errorMessage}
+          maybeErrorMessage={maybeErrorMessage}
         />
         <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {hasError && (
-          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-        )}
+        {!!maybeErrorMessage && <ErrorSection paramInfoId={paramInfoId} />}
       </article>
     </>
   ) : (
@@ -120,15 +115,9 @@ function _ParamContainer({
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
 
-function ErrorSection({
-  sectionId,
-  paramInfoId,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-}) {
-  function onContextMenu(e: React.MouseEvent<SVGElement>) {
-    openTypeErrorContextMenu(e, sectionId, paramInfoId);
+function ErrorSection({ paramInfoId }) {
+  function onContextMenu(e) {
+    openTypeErrorContextMenu(e, paramInfoId);
   }
 
   return (
