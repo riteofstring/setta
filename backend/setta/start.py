@@ -686,6 +686,54 @@ def _emit_connect_info_json(payload: dict) -> None:
     click.echo(f"{_CONNECT_INFO_JSON_PREFIX}{encoded}")
 
 
+def _select_local_stop_targets(
+    sessions: list[SessionMetadata],
+    session_id: str | None,
+    latest: bool,
+    stop_all: bool,
+) -> list[SessionMetadata]:
+    if stop_all:
+        return sessions
+    if session_id:
+        target = next(
+            (session for session in sessions if session.id == session_id), None
+        )
+        if target is None:
+            raise click.ClickException(f"Session {session_id} not found.")
+        return [target]
+    if latest:
+        return [max(sessions, key=lambda session: session.startedAt)]
+    if len(sessions) == 1:
+        return sessions
+    raise click.ClickException(
+        "Multiple sessions found; use --session <id>, --latest, or --all."
+    )
+
+
+def _select_remote_stop_targets(
+    sessions: list[RemoteSessionSummary],
+    session_id: str | None,
+    latest: bool,
+    stop_all: bool,
+) -> list[RemoteSessionSummary]:
+    if stop_all:
+        return sessions
+    if session_id:
+        target = next(
+            (session for session in sessions if session.id == session_id), None
+        )
+        if target is None:
+            raise click.ClickException(f"Session {session_id} not found.")
+        return [target]
+    if latest:
+        return [max(sessions, key=lambda session: session.started_at)]
+    if len(sessions) == 1:
+        return sessions
+    raise click.ClickException(
+        "Multiple sessions found; use --session <id>, --latest, or --all."
+    )
+
+
 @click.command()
 def version() -> None:
     click.echo(f"setta version {__version__}")
@@ -824,6 +872,66 @@ def status(
             token,
         )
     )
+
+
+@click.command()
+@click.argument("ssh_target", required=False)
+@click.option("--workspace", required=True)
+@click.option("--session", "session_id", default=None)
+@click.option("--latest", is_flag=True)
+@click.option("--all", "stop_all", is_flag=True)
+@click.option("--ssh-args", default=None)
+@click.option("--remote-cmd", default=None)
+def stop(
+    ssh_target: str | None,
+    workspace: str,
+    session_id: str | None,
+    latest: bool,
+    stop_all: bool,
+    ssh_args: str | None,
+    remote_cmd: str | None,
+) -> None:
+    if session_id and latest:
+        raise click.ClickException("Use either --session or --latest, not both.")
+    if stop_all and (session_id or latest):
+        raise click.ClickException("Use --all by itself.")
+
+    if ssh_target is None:
+        registry = SessionRegistry()
+        sessions = registry.find_sessions_by_workspace(workspace)
+        if not sessions:
+            raise click.ClickException("No matching Setta sessions found.")
+        targets = _select_local_stop_targets(sessions, session_id, latest, stop_all)
+        for session in targets:
+            _stop_session_process(session.pid)
+            registry.delete_session(session.id)
+            click.echo(f"Stopped session {session.id}.")
+        return
+
+    ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
+    shell = _resolve_remote_shell(ssh_target, ssh_args_list)
+    remote_workspace = _resolve_remote_workspace(
+        ssh_target, ssh_args_list, shell, workspace
+    )
+    setta_command = _resolve_remote_setta_command(
+        ssh_target, ssh_args_list, shell, remote_workspace, remote_cmd
+    )
+    sessions = _fetch_remote_sessions(
+        ssh_target, ssh_args_list, shell, remote_workspace, setta_command
+    )
+    if not sessions:
+        raise click.ClickException("No matching Setta sessions found.")
+    targets = _select_remote_stop_targets(sessions, session_id, latest, stop_all)
+    for session in targets:
+        _delete_remote_session(
+            ssh_target,
+            ssh_args_list,
+            shell,
+            remote_workspace,
+            setta_command,
+            session.id,
+        )
+        click.echo(f"Stopped session {session.id}.")
 
 
 @click.command()
@@ -1096,4 +1204,5 @@ def cli(
 cli.add_command(version)
 cli.add_command(export_db)
 cli.add_command(status)
+cli.add_command(stop)
 cli.add_command(connect)
