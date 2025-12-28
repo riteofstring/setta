@@ -27,10 +27,7 @@ def process_gen_code_diagnostics(
     ignored_type_errors_by_section: dict[ID, TypeErrorIgnoreState] | None = None,
 ):
     positions = convert_diagnostic_line_cols_to_positions(
-        code_generator.code,
-        diagnostics,
-        code_generator.line_starts,
-        code_generator.line_lengths,
+        code_generator.code, diagnostics
     )
     range_index = build_dep_key_range_index(code_generator)
     output: dict[ID, SettaSectionTypeErrors] = {}
@@ -260,8 +257,6 @@ def add_error_message(
 def build_dep_key_range_index(
     code_generator: PythonCodeGenerator,
 ) -> RangeIndex:
-    if code_generator.dep_key_range_index is not None:
-        return code_generator.dep_key_range_index
     ranges: list[tuple[int, int, BaseDependencyKeyUnion]] = []
     for key, line in code_generator.lines.items():
         if line.pos is None:
@@ -271,8 +266,7 @@ def build_dep_key_range_index(
         ranges.append((value_start, value_end, key))
     ranges.sort(key=lambda entry: entry[0])
     starts = [entry[0] for entry in ranges]
-    code_generator.dep_key_range_index = (starts, ranges)
-    return code_generator.dep_key_range_index
+    return starts, ranges
 
 
 def find_dep_key_for_range(
@@ -296,10 +290,7 @@ def find_dep_key_for_range(
 
 
 def convert_diagnostic_line_cols_to_positions(
-    code: str,
-    diagnostics: list[LSPTypes.Diagnostic],
-    line_starts: list[int] | None = None,
-    line_lengths: list[int] | None = None,
+    code: str, diagnostics: list[LSPTypes.Diagnostic]
 ):
     line_cols = []
     for d in diagnostics:
@@ -308,7 +299,7 @@ def convert_diagnostic_line_cols_to_positions(
         x = d.range.end
         line_cols.append((x.line, x.character))
 
-    positions = line_col_to_position_batch(code, line_cols, line_starts, line_lengths)
+    positions = line_col_to_position_batch(code, line_cols)
 
     output: list[SettaLSPPosition] = []
     for i in range(0, len(positions), 2):
