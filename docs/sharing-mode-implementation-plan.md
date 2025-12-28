@@ -85,7 +85,7 @@ Implemented:
   policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
-Status: mostly completed. ShareProjectManager + session store exist and share-mode mutation routes are wired to per-session overlays; remaining items are session TTL cleanup and artifact cache init.
+Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, and session cleanup/artifact caching are in place.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -107,6 +107,8 @@ Implemented:
   state on updates.
 - `ShareProjectManager` tracks per-session artifacts and applies listener emits,
   broadcasting project state/artifact updates to the correct session(s).
+- `ShareProjectManager` preloads per-session artifact caches from the snapshot
+  and share artifact routes load from disk on cache misses.
 - `ShareProjectManager` applies listener isolation defaults from `manifest.json`
   when present.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
@@ -119,13 +121,10 @@ Implemented:
   wires share-mode project manager access to per-session managers.
 - `backend/setta/share/session_store.py` provides `MemorySessionStore` and a
   `RedisSessionStore` stub.
+- Share session TTL cleanup is scheduled at share boot and prunes session state
+  and managers.
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
-Remaining:
-- Share mode does not initialize `state.artifacts`, so cached artifact load
-  routes fail unless artifacts arrive via listener emits.
-- Session TTL cleanup is not scheduled; `ShareSessionStore.cleanup_expired` is
-  never invoked.
 
 ## 5) Policy enforcement
 Status: mostly completed. Policy checks are wired, and share-mode mutations now

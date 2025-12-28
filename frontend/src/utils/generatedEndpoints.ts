@@ -193,73 +193,66 @@ export async function route_type_check(
   return await post("/typeCheck", x);
 }
 
-export async function route_get_llm_config(
-  share_session_id: string | null,
-): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
-  return await get("/llm/config", { share_session_id });
+export async function route_get_llm_config(): Promise<
+  ResponseDataAndStatus<gt.AllLLMConfigs>
+> {
+  return await get("/llm/config");
 }
 
 async function route_set_llm_config(
   config: gt.AllLLMConfigsInput,
-  share_session_id: string | null,
 ): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
-  return await post("/llm/config", { config, share_session_id });
+  return await post("/llm/config", config);
 }
 
-export async function route_get_llm_api_keys(
-  share_session_id: string | null,
-): Promise<ResponseDataAndStatus<Record<string, string>>> {
-  return await get("/llm/apiKeys", { share_session_id });
+export async function route_get_llm_api_keys(): Promise<
+  ResponseDataAndStatus<Record<string, string>>
+> {
+  return await get("/llm/apiKeys");
 }
 
 async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequestInput,
-  share_session_id: string | null,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
-  return await post("/llm/apiKeys", { payload, share_session_id });
+  return await post("/llm/apiKeys", payload);
 }
 
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequestInput,
-  share_session_id: string | null,
 ): Promise<ResponseDataAndStatus<string | null>> {
-  return await post("/getLLMResponse", { x, share_session_id });
+  return await post("/getLLMResponse", x);
 }
 
-export async function route_get_all_llm_chat_metadata(
-  share_session_id: string | null,
-): Promise<ResponseDataAndStatus<Array<gt.ChatMetadata>>> {
-  return await post("/getAllLLMChatMetadata", share_session_id);
+export async function route_get_all_llm_chat_metadata(): Promise<
+  ResponseDataAndStatus<Array<gt.ChatMetadata>>
+> {
+  return await post("/getAllLLMChatMetadata", null);
 }
 
 export async function route_delete_llm_chat(
   x: gt.DeleteLLMChatRequestInput,
-  share_session_id: string | null,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteLLMChat", { x, share_session_id });
+  return await post("/deleteLLMChat", x);
 }
 
 export async function route_stop_llm_chat(
   x: gt.StopLLMChatRequestInput,
-  share_session_id: string | null,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/stopLLMChat", { x, share_session_id });
+  return await post("/stopLLMChat", x);
 }
 
 export async function route_get_llm_chat(
   x: gt.GetLLMChatRequestInput,
-  share_session_id: string | null,
 ): Promise<ResponseDataAndStatus<gt.GetLLMChatRequestResponse>> {
-  return await post("/getLLMChat", { x, share_session_id });
+  return await post("/getLLMChat", x);
 }
 
 export async function route_get_ai_follow_snapshot(
   x: gt.GetAIFollowSnapshotRequestInput,
-  share_session_id: string | null,
 ): Promise<
   ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
 > {
-  return await post("/getAIFollowSnapshot", { x, share_session_id });
+  return await post("/getAIFollowSnapshot", x);
 }
 
 export async function route_clear_text_field_completion(

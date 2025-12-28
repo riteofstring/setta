@@ -28,7 +28,7 @@ class ShareSessionStore:
     def delete_session(self, session_id: str) -> None:
         raise NotImplementedError("ShareSessionStore.delete_session is not implemented")
 
-    def cleanup_expired(self) -> None:
+    def cleanup_expired(self) -> list[str]:
         raise NotImplementedError(
             "ShareSessionStore.cleanup_expired is not implemented"
         )
@@ -72,7 +72,7 @@ class MemorySessionStore(ShareSessionStore):
             raise KeyError(f"Unknown share session id: {session_id}")
         del self._sessions[session_id]
 
-    def cleanup_expired(self) -> None:
+    def cleanup_expired(self) -> list[str]:
         now = get_now_timestamp()
         expired_ids: list[str] = []
         for session_id, session in self._sessions.items():
@@ -80,6 +80,7 @@ class MemorySessionStore(ShareSessionStore):
                 expired_ids.append(session_id)
         for session_id in expired_ids:
             del self._sessions[session_id]
+        return expired_ids
 
 
 class RedisSessionStore(ShareSessionStore):
@@ -98,5 +99,5 @@ class RedisSessionStore(ShareSessionStore):
     def delete_session(self, session_id: str) -> None:
         raise NotImplementedError("RedisSessionStore is not implemented")
 
-    def cleanup_expired(self) -> None:
+    def cleanup_expired(self) -> list[str]:
         raise NotImplementedError("RedisSessionStore is not implemented")

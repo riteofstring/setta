@@ -39,6 +39,11 @@ class ShareSessionProjectManagerSwitcher:
         self._session_managers[share_session_id] = manager
         return manager
 
+    def drop_session_manager(self, share_session_id: str) -> None:
+        if share_session_id not in self._session_managers:
+            return
+        del self._session_managers[share_session_id]
+
     def get(
         self,
         project_identifier: Union[str, "ProjectStateSingleConfig"],

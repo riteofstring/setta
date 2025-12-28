@@ -73,6 +73,7 @@ class ShareProjectManager:
             raise KeyError(f"Share session already exists: {session_id}")
         project_state = self._build_base_state()
         self._session_states[session_id] = project_state
+        self._initialize_session_artifacts(session_id, project_state)
         return project_state
 
     def get_session_state(self, session_id: str) -> "ProjectStateSingleConfig":
@@ -111,8 +112,17 @@ class ShareProjectManager:
         self._session_artifacts[session_id] = artifacts
         return artifacts
 
+    def _initialize_session_artifacts(
+        self, session_id: str, project_state: "ProjectStateSingleConfig"
+    ) -> None:
+        artifacts = self.get_session_artifacts(session_id)
+        artifacts.load_from_project_state(project_state)
+
     def get_session_ids(self) -> list[str]:
         return list(self._session_states.keys())
+
+    def has_session_state(self, session_id: str) -> bool:
+        return session_id in self._session_states
 
     def register_session_manager(
         self, session_id: str, manager: "ShareSessionProjectManager"

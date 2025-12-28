@@ -30,6 +30,7 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeSectionImpl,
+    ImageSectionImpl,
     TextBlockSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
@@ -168,6 +169,42 @@ def _build_code_project_state(
     )
 
 
+def _build_image_project_state(
+    project_config_id: ID,
+    section_id: ID,
+    image_path: Path,
+) -> ProjectStateSingleConfig:
+    image_impl = ImageSectionImpl(
+        id=ID("image-impl"),
+        name="Image",
+        imagePath=str(image_path),
+    )
+    variant = Variant(
+        id=ID("image-variant"),
+        name="Variant",
+        impl=image_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(image_impl),
+    )
+    section = Core(
+        id=section_id,
+        name="Image",
+        variants=[variant.id],
+        defaultVariant=variant.id,
+    )
+    project_config = ProjectConfig(
+        id=project_config_id,
+        name="Share Project",
+        sectionVariantMap={section.id: variant.id},
+        topLevelSections={section.id: TopLevelSectionLayout()},
+    )
+    return ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections={section.id: section},
+        sectionImpls={image_impl.id: image_impl},
+        sectionVariants={variant.id: variant},
+    )
+
+
 def _write_project_with_state(
     root: Path, project_state: ProjectStateSingleConfig
 ) -> DBE:
@@ -231,6 +268,28 @@ class ShareProjectManagerTests(unittest.TestCase):
 
             with self.assertRaises(KeyError):
                 ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
+
+    def test_session_state_preloads_artifacts(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            image_path = root / "artifacts" / "preview.png"
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            image_path.write_bytes(b"fake-image")
+            project_config_id = ID("image-project")
+            section_id = ID("image-section")
+            project_state = _build_image_project_state(
+                project_config_id, section_id, image_path
+            )
+            dbe = _write_project_with_state(root, project_state)
+            frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+
+            manager.create_session_state("session-a")
+            artifacts = manager.get_session_artifacts("session-a")
+            cached = artifacts.get_cached_image(image_path)
+
+            self.assertIsNotNone(cached)
+            self.assertEqual(str(normalize_path(image_path)), cached.id)
 
     def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:

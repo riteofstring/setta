@@ -19,6 +19,7 @@ from typing import (
 )
 
 from fastapi import BackgroundTasks, Request, Response
+from fastapi.params import Depends as DependsParam
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.server import app
@@ -58,7 +59,7 @@ def get_path_input_output_types():
 
         # Get function signature and type hints
         sig = inspect.signature(route.endpoint)
-        type_hints = get_type_hints(route.endpoint)
+        type_hints = get_type_hints(route.endpoint, include_extras=True)
 
         # Extract input parameters (excluding Depends)
         for param_name, param in sig.parameters.items():
@@ -71,6 +72,8 @@ def get_path_input_output_types():
 
             # Get the raw type hint for this parameter
             param_type = type_hints.get(param_name, param.annotation)
+            if _is_depends_annotation(param_type) or param_type is BackgroundTasks:
+                continue
             if param_type is inspect.Parameter.empty:
                 param_type = type(None)
 
@@ -86,6 +89,15 @@ def get_path_input_output_types():
         output[route.endpoint.__name__] = route_info
 
     return output
+
+
+def _is_depends_annotation(param_type) -> bool:
+    if get_origin(param_type) is Annotated:
+        args = get_args(param_type)
+        for meta in args[1:]:
+            if isinstance(meta, DependsParam):
+                return True
+    return False
 
 
 def create_args(inputs):

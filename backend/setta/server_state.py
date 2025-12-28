@@ -31,6 +31,11 @@ from setta.share.run_cleanup import (
     DEFAULT_SHARE_RUN_TTL_SECONDS,
     run_share_run_cleanup_loop,
 )
+from setta.share.session_cleanup import (
+    DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
+    DEFAULT_SHARE_SESSION_TTL_SECONDS,
+    run_share_session_cleanup_loop,
+)
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
@@ -325,7 +330,9 @@ class SettaFastAPIState:
         await self._maybe_delay()
         if self.share_deployment_root is None:
             raise ValueError("Share deployment root must be set in share mode")
-        self.share_session_store = MemorySessionStore()
+        self.share_session_store = MemorySessionStore(
+            ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
+        )
         self.share_project_manager = ShareProjectManager(
             self.dbe,
             self.share_deployment_root,
@@ -336,6 +343,16 @@ class SettaFastAPIState:
             self.share_project_manager,
             self.settings_file,
             self.wmh_python_script_sender,
+        )
+        spawn_background_task(
+            run_share_session_cleanup_loop(
+                self.share_session_store,
+                self.share_project_manager,
+                self.project_manager_switcher,
+                interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
+            ),
+            label="share-session-cleanup",
+            extra_values={"deployment_id": self.share_project_manager.deployment_id},
         )
         if self.share_project_manager.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
