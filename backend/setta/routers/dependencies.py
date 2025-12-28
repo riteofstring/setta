@@ -1,8 +1,12 @@
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, Request, WebSocket
 
 from setta.server_state import SettaFastAPIState
+
+if TYPE_CHECKING:
+    from setta.share.session_store import ShareSession
+    from setta.types.project_state import ProjectStateSingleConfig
 
 
 def get_app_state_from_request(request: Request) -> SettaFastAPIState:
@@ -25,6 +29,59 @@ async def get_ready_app_state_from_websocket(websocket: WebSocket) -> SettaFastA
     return state
 
 
+def _extract_share_session_id(headers, cookies, query_params) -> str:
+    session_id = headers.get("x-share-session-id")
+    if not session_id:
+        session_id = cookies.get("shareSessionId")
+    if not session_id:
+        session_id = query_params.get("shareSessionId")
+    if not session_id:
+        raise KeyError("Missing share session id")
+    return session_id
+
+
+def get_share_session_id_from_request(request: Request) -> str:
+    return _extract_share_session_id(
+        request.headers, request.cookies, request.query_params
+    )
+
+
+def get_share_session_id_from_websocket(websocket: WebSocket) -> str:
+    return _extract_share_session_id(
+        websocket.headers, websocket.cookies, websocket.query_params
+    )
+
+
+async def get_share_session_from_request(request: Request) -> "ShareSession":
+    state = await get_ready_app_state_from_request(request)
+    session_id = get_share_session_id_from_request(request)
+    return state.share_session_store.get_session(session_id)
+
+
+async def get_share_session_from_websocket(websocket: WebSocket) -> "ShareSession":
+    state = await get_ready_app_state_from_websocket(websocket)
+    session_id = get_share_session_id_from_websocket(websocket)
+    return state.share_session_store.get_session(session_id)
+
+
+async def get_share_session_state_from_request(
+    request: Request,
+) -> "ProjectStateSingleConfig":
+    state = await get_ready_app_state_from_request(request)
+    session_id = get_share_session_id_from_request(request)
+    state.share_session_store.get_session(session_id)
+    return state.share_project_manager.get_or_create_session_state(session_id)
+
+
+async def get_share_session_state_from_websocket(
+    websocket: WebSocket,
+) -> "ProjectStateSingleConfig":
+    state = await get_ready_app_state_from_websocket(websocket)
+    session_id = get_share_session_id_from_websocket(websocket)
+    state.share_session_store.get_session(session_id)
+    return state.share_project_manager.get_or_create_session_state(session_id)
+
+
 AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]
 ReadyAppStateFromRequest = Annotated[
     SettaFastAPIState, Depends(get_ready_app_state_from_request)
@@ -34,4 +91,20 @@ AppStateFromWebsocket = Annotated[
 ]
 ReadyAppStateFromWebsocket = Annotated[
     SettaFastAPIState, Depends(get_ready_app_state_from_websocket)
+]
+ShareSessionIdFromRequest = Annotated[str, Depends(get_share_session_id_from_request)]
+ShareSessionIdFromWebsocket = Annotated[
+    str, Depends(get_share_session_id_from_websocket)
+]
+ShareSessionFromRequest = Annotated[
+    "ShareSession", Depends(get_share_session_from_request)
+]
+ShareSessionFromWebsocket = Annotated[
+    "ShareSession", Depends(get_share_session_from_websocket)
+]
+ShareSessionStateFromRequest = Annotated[
+    "ProjectStateSingleConfig", Depends(get_share_session_state_from_request)
+]
+ShareSessionStateFromWebsocket = Annotated[
+    "ProjectStateSingleConfig", Depends(get_share_session_state_from_websocket)
 ]

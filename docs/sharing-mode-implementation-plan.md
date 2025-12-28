@@ -78,7 +78,7 @@ Implemented:
   deployment root, and skips watchers/LSP/MCP/LLM boot.
 
 ## 4) Share project manager + per-viewer overlays
-Status: in progress. Stubs exist; overlay logic and no-op persistence are pending.
+Status: in progress. Per-viewer overlays, manifest selection, and session dependencies are implemented; share run root overrides remain pending.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -93,7 +93,13 @@ Status: in progress. Stubs exist; overlay logic and no-op persistence are pendin
   share session id from header/cookie/query and to load the per-viewer overlay.
 - Keep explicit KeyError checks for missing sessions/ids (no `.get` side effects).
 Implemented:
-- `backend/setta/project_state/share_project_manager.py` loads `project.json`.
+- `backend/setta/project_state/share_project_manager.py` loads `project.json`,
+  consumes optional `manifest.json`, selects the share project config, and
+  manages per-viewer overlay state in memory.
+- `ShareProjectManager` keeps persistence/watchers as no-ops and only validates
+  state on updates.
+- `backend/setta/routers/dependencies.py` resolves share session ids from
+  header/cookie/query and exposes session/overlay dependencies.
 - `backend/setta/share/session_store.py` provides `MemorySessionStore` and a
   `RedisSessionStore` stub.
 
@@ -186,3 +192,7 @@ Implemented:
 - `tests/routers/test_share_deployments.py` covers deployment publishing.
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
   guardrails, and no settings/LLM seed writes.
+- `tests/project_state/test_share_project_manager.py` covers manifest selection,
+  session isolation, and missing session errors.
+- `tests/routers/test_share_dependencies.py` covers share session id extraction
+  precedence for HTTP and websocket requests.
