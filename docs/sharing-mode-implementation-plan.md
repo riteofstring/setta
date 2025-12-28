@@ -76,6 +76,8 @@ Implemented:
 - `backend/setta/server.py` now constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, and skips watchers/LSP/MCP/LLM boot.
+- `backend/setta/server_state.py` initializes `WMHFrontendReceiver` in share mode
+  for share websocket traffic.
 
 ## 4) Share project manager + per-viewer overlays
 Status: in progress. Per-viewer overlays, manifest selection, and session dependencies are implemented; share run root overrides remain pending.
@@ -127,6 +129,7 @@ across share mode mutations.
   `backend/setta/websockets/msg_handlers/frontend_sender.py`.
 
 ## 6) Websocket scoping + realtime events
+Status: completed. Share websocket sessions are scoped end-to-end.
 - Extend `backend/setta/types/websocket.py` to include optional `shareSessionId`
   on `WebsocketConnectionInfo`.
 - Update `backend/setta/websockets/websocket_manager.py`:
@@ -137,6 +140,20 @@ across share mode mutations.
   the session id through realtime events.
 - Update `backend/setta/websockets/realtime_event_hub.py` to key sequences by
   `(project_config_id, share_session_id)`.
+Implemented:
+- `backend/setta/types/websocket.py` adds `shareSessionId` to
+  `WebsocketConnectionInfo`.
+- `backend/setta/websockets/websocket_manager.py` stores the session id on
+  connect, exposes `broadcast_to_session`, and includes session ids in
+  `WebsocketMsgAllConnections`.
+- `backend/setta/websockets/msg_handlers/frontend_sender.py` sends session-scoped
+  broadcasts in share mode.
+- `backend/setta/websockets/msg_handlers/frontend_receiver.py` requires a share
+  session id in share mode and forwards it to realtime events.
+- `backend/setta/websockets/realtime_event_hub.py` keys sequences by
+  `(project_config_id, share_session_id)` and passes session ids through.
+- `backend/setta/routers/websocket.py` passes share session ids on connect and
+  adds the `/share/frontend` websocket route.
 
 ## 7) Listener runtime + isolation
 - Add `backend/setta/share/listener_runtime.py` to load and run
@@ -196,7 +213,7 @@ Status: partially complete. Share router registered in `backend/setta/server.py`
 - Do not manually edit anything under `backend/setta/types/generated`.
 
 ## 12) Tests + verification
-Status: partially complete. Added publish deployment tests, share runtime boot tests, and policy enforcement tests.
+Status: partially complete. Added publish deployment tests, share runtime boot tests, policy enforcement tests, and share websocket scoping tests.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).
@@ -216,3 +233,9 @@ Implemented:
 - `tests/share/test_policy.py` covers policy guard helpers.
 - `tests/routers/test_share_policy_routes.py` covers policy enforcement in LLM
   and run/terminal routes.
+- `tests/websockets/test_websocket_manager_sessions.py` covers session-scoped
+  websocket broadcasts and connection listings.
+- `tests/websockets/test_realtime_event_hub_sessions.py` covers per-session
+  realtime sequencing.
+- `tests/websockets/test_frontend_receiver_share_mode.py` covers share websocket
+  session enforcement and realtime forwarding.
