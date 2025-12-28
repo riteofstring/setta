@@ -29,6 +29,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
+from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import (
     ListenerIsolationMode,
     ShareDeploymentListenerConfig,
@@ -56,6 +57,7 @@ class SharePolicyOverrides(BaseModel, extra="forbid"):
     allowRun: bool | None = None
     allowLLM: bool | None = None
     allowMCP: bool | None = None
+    runSnapshotMode: RunSnapshotMode | None = None
     listenerIsolation: ListenerIsolationMode | None = None
     allowedSections: list[ID] | None = None
 

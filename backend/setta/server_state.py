@@ -22,8 +22,14 @@ from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.share_project_manager import ShareProjectManager
 from setta.share.listener_runtime import ShareListenerRuntime
+from setta.share.run_cleanup import (
+    DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
+    DEFAULT_SHARE_RUN_TTL_SECONDS,
+    run_share_run_cleanup_loop,
+)
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
+from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
 from setta.utils.init_status import BackendInitializationStatus
 from setta.websockets.listener_registry import ListenerRegistry
@@ -319,6 +325,21 @@ class SettaFastAPIState:
             self.share_deployment_root,
             self.wmh_frontend_sender,
         )
+        if (
+            self.share_project_manager.share_policy.runSnapshotMode
+            == RunSnapshotMode.ephemeral
+        ):
+            spawn_background_task(
+                run_share_run_cleanup_loop(
+                    self.share_project_manager.deployment_id,
+                    ttl_seconds=DEFAULT_SHARE_RUN_TTL_SECONDS,
+                    interval_seconds=DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
+                ),
+                label="share-run-cleanup",
+                extra_values={
+                    "deployment_id": self.share_project_manager.deployment_id
+                },
+            )
         self.share_listener_runtime = ShareListenerRuntime(
             deployment_root=self.share_deployment_root,
             manifest=self.share_project_manager.manifest,

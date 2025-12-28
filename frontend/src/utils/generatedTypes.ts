@@ -417,6 +417,12 @@ export const RenameRefactorModeEnum = {
 
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
+const RunSnapshotModeEnum = {
+  always: "always",
+  ephemeral: "ephemeral",
+  never: "never",
+} as const;
+
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
 
 const ListenerIsolationModeEnum = {
@@ -3243,6 +3249,9 @@ const SettingsBackendSchema = z.object({
     .enum(RenameRefactorModeEnum)
     .default(RenameRefactorModeEnum.ALWAYS_ASK),
   saveRenderedValues: z.boolean().default(false),
+  runSnapshotMode: z
+    .enum(RunSnapshotModeEnum)
+    .default(RunSnapshotModeEnum.ephemeral),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -4838,6 +4847,9 @@ const SharePolicySchema = z.object({
   allowRun: z.boolean().default(false),
   allowLLM: z.boolean().default(false),
   allowMCP: z.boolean().default(false),
+  runSnapshotMode: z
+    .enum(RunSnapshotModeEnum)
+    .default(RunSnapshotModeEnum.ephemeral),
   listenerIsolation: z
     .enum(ListenerIsolationModeEnum)
     .default(ListenerIsolationModeEnum.per_viewer),
@@ -6003,6 +6015,9 @@ const SharePolicyOverridesSchema = z.object({
   allowRun: z.union([z.boolean(), z.null()]).default(null),
   allowLLM: z.union([z.boolean(), z.null()]).default(null),
   allowMCP: z.union([z.boolean(), z.null()]).default(null),
+  runSnapshotMode: z
+    .union([z.enum(RunSnapshotModeEnum), z.null()])
+    .default(null),
   listenerIsolation: z
     .union([z.enum(ListenerIsolationModeEnum), z.null()])
     .default(null),

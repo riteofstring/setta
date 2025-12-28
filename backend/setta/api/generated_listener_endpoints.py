@@ -268,12 +268,6 @@ class ListenerRedoRequestPayload(TypedDict):
     steps: int
 
 
-class ListenerRunCodeRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
-    sectionId: ID | None
-    cliId: NotRequired[str | None]
-
-
 class ListenerSetActiveIdsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -760,9 +754,6 @@ class RouterEndpointAPI:
 
     async def redo(self, payload: ListenerRedoRequestPayload) -> None:
         return await self._caller("route_redo", payload)
-
-    async def run_code(self, payload: ListenerRunCodeRequestPayload) -> None:
-        return await self._caller("route_run_code", payload)
 
     async def set_active_ids(self, payload: ListenerSetActiveIdsRequestPayload) -> None:
         return await self._caller("route_set_active_ids", payload)

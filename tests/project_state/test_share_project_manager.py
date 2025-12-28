@@ -1,5 +1,6 @@
 import asyncio
 import json
+import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +11,7 @@ from starlette.websockets import WebSocket
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.utils import convert_path_to_module_path
 from setta.types.artifact import ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -22,8 +24,16 @@ from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.section_impls import TextBlockSectionImpl
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeSectionImpl,
+    TextBlockSectionImpl,
+)
+from setta.types.settings_state import RunSnapshotMode
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.utils.constants import C
+from setta.utils.utils import normalize_path
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -112,6 +122,48 @@ def _build_project_state(
     )
 
 
+def _build_code_project_state(
+    project_config_id: ID,
+    section_id: ID,
+    binding_path: Path,
+) -> ProjectStateSingleConfig:
+    code_binding = CodeFileBinding(
+        canonical_path=normalize_path(binding_path),
+        access_mode=CodeFileAccessMode.read_write,
+    )
+    code_impl = CodeSectionImpl(
+        id=ID("code-impl"),
+        name="Runner",
+        code="print('hello')",
+        codeFileBinding=code_binding,
+    )
+    variant = Variant(
+        id=ID("code-variant"),
+        name="Variant",
+        impl=code_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+    )
+    section = Core(
+        id=section_id,
+        name="Runner",
+        variants=[variant.id],
+        defaultVariant=variant.id,
+    )
+    project_config = ProjectConfig(
+        id=project_config_id,
+        name="Share Project",
+        sectionVariantMap={section.id: variant.id},
+        topLevelSections={section.id: TopLevelSectionLayout()},
+        entryCodeBlockId=section.id,
+    )
+    return ProjectStateSingleConfig(
+        projectConfig=project_config,
+        sections={section.id: section},
+        sectionImpls={code_impl.id: code_impl},
+        sectionVariants={variant.id: variant},
+    )
+
+
 def _write_project_with_state(
     root: Path, project_state: ProjectStateSingleConfig
 ) -> DBE:
@@ -175,6 +227,80 @@ class ShareProjectManagerTests(unittest.TestCase):
 
             with self.assertRaises(KeyError):
                 ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
+
+    def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
+        with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
+            root = Path(tmpdir)
+            project_config_id = ID("share-run-project")
+            section_id = ID("code-section")
+            binding_path = root / "code" / "runner.py"
+            project_state = _build_code_project_state(
+                project_config_id, section_id, binding_path
+            )
+            dbe = _write_project_with_state(root, project_state)
+            dbe.write_json(
+                root / "share_policy.json",
+                SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
+            )
+            frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+            session_id = "session-ephemeral"
+            manager.create_session_state(session_id)
+            self.addCleanup(
+                lambda: shutil.rmtree(
+                    C.SHARE_RUNS_FOLDER / manager.deployment_id, ignore_errors=True
+                )
+            )
+
+            command = self._loop.run_until_complete(
+                manager.create_run_command(session_id, section_id)
+            )
+
+            run_root = C.SHARE_RUNS_FOLDER / manager.deployment_id / session_id
+            self.assertTrue(run_root.exists())
+            run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
+            self.assertEqual(1, len(run_dirs))
+            run_dir = run_dirs[0]
+            runner_path = run_dir / "runner.py"
+            gen_path = run_dir / "setta_gen.py"
+            self.assertTrue(runner_path.exists())
+            self.assertTrue(gen_path.exists())
+            self.assertEqual("print('hello')", runner_path.read_text(encoding="utf-8"))
+            self.assertIn("python -m", command)
+            self.assertIn("runner", command)
+
+    def test_run_command_never_avoids_share_snapshot(self) -> None:
+        with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
+            root = Path(tmpdir)
+            project_config_id = ID("share-run-project")
+            section_id = ID("code-section")
+            binding_path = root / "code" / "runner.py"
+            project_state = _build_code_project_state(
+                project_config_id, section_id, binding_path
+            )
+            dbe = _write_project_with_state(root, project_state)
+            dbe.write_json(
+                root / "share_policy.json",
+                SharePolicy(runSnapshotMode=RunSnapshotMode.never).model_dump(),
+            )
+            frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+            session_id = "session-never"
+            manager.create_session_state(session_id)
+            self.addCleanup(
+                lambda: shutil.rmtree(
+                    C.SHARE_RUNS_FOLDER / manager.deployment_id, ignore_errors=True
+                )
+            )
+
+            command = self._loop.run_until_complete(
+                manager.create_run_command(session_id, section_id)
+            )
+
+            run_root = C.SHARE_RUNS_FOLDER / manager.deployment_id / session_id
+            self.assertFalse(run_root.exists())
+            expected_module = convert_path_to_module_path(normalize_path(binding_path))
+            self.assertEqual(f"python -m {expected_module}", command)
 
     def test_session_state_isolation(self) -> None:
         with TemporaryDirectory() as tmpdir:

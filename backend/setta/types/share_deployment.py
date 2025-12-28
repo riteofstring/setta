@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from setta.types.id import ID
+from setta.types.settings_state import RunSnapshotMode
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
@@ -44,6 +45,7 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowRun: bool = False
     allowLLM: bool = False
     allowMCP: bool = False
+    runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
     listenerIsolation: ListenerIsolationMode = ListenerIsolationMode.per_viewer
     allowedSections: list[ID] | None = None
 

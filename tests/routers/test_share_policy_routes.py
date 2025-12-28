@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
+from starlette.requests import Request
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -36,6 +37,23 @@ def _write_share_project(root: Path) -> ID:
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
     dbe.write_json(root / "share_policy.json", policy.model_dump())
+
+
+def _build_share_request(session_id: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/runCode",
+            "raw_path": b"/runCode",
+            "query_string": b"",
+            "headers": [(b"x-share-session-id", session_id.encode("utf-8"))],
+            "client": ("testclient", 123),
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "root_path": "",
+        }
+    )
 
 
 class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
@@ -81,14 +99,16 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             project_config_id = _write_share_project(root)
             _write_share_policy(root, SharePolicy(allowRun=False))
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
             run_request = RunCodeRequest(
                 projectConfigId=project_config_id,
                 sectionId=create_new_id(),
                 cliId=None,
             )
+            request = _build_share_request(session.id)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_run_code(run_request, state)
+                await route_run_code(run_request, state, request)
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -100,6 +120,34 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 await route_kill_subprocesses(kill_request, state)
 
             self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_run_routes_blocked_by_allowed_sections(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project_config_id = _write_share_project(root)
+            allowed_section_id = create_new_id()
+            blocked_section_id = create_new_id()
+            _write_share_policy(
+                root,
+                SharePolicy(
+                    allowRun=True,
+                    allowedSections=[allowed_section_id],
+                ),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            run_request = RunCodeRequest(
+                projectConfigId=project_config_id,
+                sectionId=blocked_section_id,
+                cliId=None,
+            )
+            request = _build_share_request(session.id)
+
+            with self.assertRaises(HTTPException) as ctx:
+                await route_run_code(run_request, state, request)
+
+            self.assertEqual(403, ctx.exception.status_code)
+            self.assertIn("Share policy disallows changes to sections", ctx.exception.detail)
 
 
 if __name__ == "__main__":

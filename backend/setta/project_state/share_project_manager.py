@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.code_generator import PythonCodeGenerator
+from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
@@ -10,19 +13,29 @@ from setta.project_state.listener_artifact_updates import (
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
+from setta.project_state.utils import (
+    convert_path_to_module_path,
+    create_timestamped_folder,
+)
 from setta.share.policy import (
     ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
 )
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateBackend
+from setta.types.section_impls import CodeLanguage, CodeSectionImpl
+from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
+from setta.utils.constants import C
+from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.types.project_state import ProjectStateSingleConfig
+    from setta.types.section_impls import CodeFileBinding
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -36,6 +49,7 @@ class ShareProjectManager:
     ) -> None:
         self.dbe = dbe
         self.deployment_root = deployment_root
+        self.deployment_id = deployment_root.name
         self.frontend_sender = frontend_sender
         self.project_state_backend = self.load_initial_state()
         self.manifest = self._load_manifest()
@@ -109,6 +123,45 @@ class ShareProjectManager:
     def watch_code_files(self) -> None:
         return None
 
+    async def create_run_command(
+        self,
+        share_session_id: str,
+        section_id: ID | None,
+    ) -> str:
+        project_state = self.get_session_state(share_session_id)
+        run_snapshot_mode = self._resolve_run_snapshot_mode()
+        gen_binding = self._get_gen_code_binding(project_state)
+        code_sections = self._collect_code_sections(project_state)
+
+        if not section_id:
+            section_id = project_state.projectConfig.entryCodeBlockId
+
+        if run_snapshot_mode == RunSnapshotMode.never:
+            gen_code_path = gen_binding.canonical_path
+            code_paths = {
+                sid: binding.canonical_path
+                for sid, (_, binding, _) in code_sections.items()
+            }
+        else:
+            gen_code = self._generate_gen_code(project_state)
+            target_folder = self._create_share_run_folder(share_session_id)
+            gen_code_path = self._write_snapshot_file(
+                target_folder, gen_binding, gen_code
+            )
+            code_paths: dict[ID, Path] = {}
+            for sid, (code, binding, _) in code_sections.items():
+                code_paths[sid] = self._write_snapshot_file(
+                    target_folder, binding, code
+                )
+
+        if section_id:
+            if section_id not in code_sections:
+                raise KeyError(f"Missing code section for run: {section_id}")
+            _, _, language = code_sections[section_id]
+            return self._build_run_command(language, code_paths[section_id])
+
+        return self._build_python_run_command(gen_code_path)
+
     def _load_manifest(self) -> ShareDeploymentManifest | None:
         manifest_path = self.deployment_root / "manifest.json"
         if not manifest_path.exists():
@@ -154,6 +207,72 @@ class ShareProjectManager:
         project_state.validate_shown_param_ids()
         project_state.validate_yaml_values()
         project_state.validate_required_decoded_images()
+
+    def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
+        return self.share_policy.runSnapshotMode
+
+    def _get_gen_code_binding(
+        self, project_state: "ProjectStateSingleConfig"
+    ) -> "CodeFileBinding":
+        gen_binding = project_state.genCodeBinding
+        if gen_binding is None:
+            raise KeyError("Share run missing generated code binding")
+        return gen_binding
+
+    def _collect_code_sections(
+        self, project_state: "ProjectStateSingleConfig"
+    ) -> dict[ID, tuple[str, "CodeFileBinding", CodeLanguage]]:
+        output: dict[ID, tuple[str, "CodeFileBinding", CodeLanguage]] = {}
+        for section_id in project_state.sections.keys():
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if not isinstance(section_impl, CodeSectionImpl):
+                continue
+            if section_impl.codeFileBinding is None:
+                raise KeyError(f"Missing code binding for section {section_id}")
+            output[section_id] = (
+                section_impl.code,
+                section_impl.codeFileBinding,
+                section_impl.codeLanguage,
+            )
+        return output
+
+    def _generate_gen_code(self, project_state: "ProjectStateSingleConfig") -> str:
+        dep_graph = DependencyGraph(project_state)
+        project_config = project_state.projectConfig
+        code_generator = PythonCodeGenerator(
+            dep_graph,
+            project_config.genCodePrefix,
+            project_config.genCodeSuffix,
+            value_mode=PythonValueMode.PACKAGED_RUNTIME,
+        )
+        code_generator.generate_code()
+        return code_generator.code
+
+    def _create_share_run_folder(self, share_session_id: str) -> Path:
+        run_root = C.SHARE_RUNS_FOLDER / self.deployment_id / share_session_id
+        return create_timestamped_folder(run_root)
+
+    def _write_snapshot_file(
+        self, target_folder: Path, binding: "CodeFileBinding", code: str
+    ) -> Path:
+        target_folder.mkdir(parents=True, exist_ok=True)
+        target_path = target_folder / binding.canonical_path.name
+        target_path.write_text(code, encoding="utf-8")
+        return target_path
+
+    def _build_run_command(self, language: CodeLanguage, path: Path) -> str:
+        if language == CodeLanguage.python:
+            return self._build_python_run_command(path)
+        return self._build_bash_run_command(path)
+
+    def _build_python_run_command(self, path: Path) -> str:
+        normalized = normalize_path(path)
+        module_path = convert_path_to_module_path(normalized)
+        return f"python -m {module_path}"
+
+    def _build_bash_run_command(self, path: Path) -> str:
+        normalized = normalize_path(path)
+        return f"bash {normalized}"
 
     async def apply_listener_emit_updates(
         self,

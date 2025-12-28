@@ -32,7 +32,7 @@ Status: completed. Implemented in `backend/setta/types/share_deployment.py`, add
 in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (version, projectConfigId, createdAt, listener config).
-  - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, listenerIsolation, allowedSections).
+  - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, listenerIsolation, allowedSections).
   - `ShareDeploymentMetadata` (deployment id, path, policy path).
   - `ShareDeploymentSessionResponse` (deployment id, session id, config id, policy, manifest).
 - Add constants in `backend/setta/utils/constants.py`:
@@ -83,7 +83,7 @@ Implemented:
   `WMHPythonScriptReceiver` for listener websocket traffic.
 
 ## 4) Share project manager + per-viewer overlays
-Status: in progress. Per-viewer overlays, manifest selection, and session dependencies are implemented; share run root overrides remain pending.
+Status: completed. Per-viewer overlays, manifest selection, session dependencies, and share run root overrides are implemented.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -170,8 +170,7 @@ Implemented:
 
 ## 7) Listener runtime + isolation
 Status: in progress. Listener runtime, session scoping, and share-mode listener
-websocket handling are implemented; remaining work includes run flow and frontend
-UX.
+websocket handling are implemented; remaining work is frontend UX.
 - Add `backend/setta/share/listener_runtime.py` to load and run
   `listener/app.py` from the deployment root.
 - Implement isolation modes:
@@ -206,7 +205,7 @@ Implemented:
   avoid accumulating `sys.modules` entries.
 
 ## 8) Run flow changes
-Status: in progress. Policy gating is done; share run roots/TTL are pending.
+Status: completed. Run snapshot mode, share run roots, and TTL cleanup are implemented.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
 - Override `create_run_command` in share mode to write into
@@ -219,6 +218,11 @@ Implemented:
   `allowRun` is false.
 - Run/terminal routes also block if the share runtime did not initialize
   terminal services.
+- Added `RunSnapshotMode` to settings + share policy, and use it in IDE/share
+  run command creation.
+- Share run output writes to `setta_files/share_runs/<deployment>/<session>/<timestamp>`
+  and uses per-session snapshots or canonical files based on snapshot mode.
+- Share run output cleanup runs in the background for ephemeral snapshots.
 
 ## 9) LLM + MCP gating
 Status: in progress. Share boot skips MCP/LLM; LLM policy gating is done; per-viewer chat store and MCP gating remain.
@@ -255,7 +259,7 @@ frontend bindings include share session/state endpoints.
 - Do not manually edit anything under `backend/setta/types/generated`.
 
 ## 12) Tests + verification
-Status: partially complete. Added publish deployment tests, share runtime boot tests, policy enforcement tests, share session/state tests, and share websocket scoping tests.
+Status: partially complete. Added publish deployment tests, share runtime boot tests, policy enforcement tests, share session/state tests, share run snapshot tests, cleanup tests, and share websocket scoping tests.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).
@@ -272,13 +276,18 @@ Implemented:
   session isolation, and missing session errors.
 - `tests/project_state/test_share_project_manager.py` covers listener emit
   updates for per-session project state and artifact broadcasts.
+- `tests/project_state/test_share_project_manager.py` covers share run snapshot
+  creation for `ephemeral` and canonical runs for `never`.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
   precedence for HTTP and websocket requests.
 - `tests/share/test_policy.py` covers policy guard helpers.
 - `tests/routers/test_share_policy_routes.py` covers policy enforcement in LLM
   and run/terminal routes.
+- `tests/routers/test_share_policy_routes.py` covers allowed-section gating for
+  run routes.
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
+- `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
 - `tests/websockets/test_websocket_manager_sessions.py` covers session-scoped
   websocket broadcasts and connection listings.
 - `tests/websockets/test_realtime_event_hub_sessions.py` covers per-session

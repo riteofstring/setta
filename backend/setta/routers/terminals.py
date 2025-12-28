@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import WebSocket
+from fastapi import HTTPException, Request, WebSocket
 from pydantic import BaseModel
 
 from setta.logging.context_bindings import bind_websocket_logging_context
@@ -9,10 +9,11 @@ from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
     ReadyAppStateFromRequest,
+    get_share_session_id_from_request,
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.share.policy import ensure_share_run_allowed, ensure_share_run_allowed_ws
-from setta.terminals.run_code import run_code
+from setta.terminals.run_code import run_code, run_command
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -127,23 +128,52 @@ async def route_kill_subprocesses(
 async def route_run_code(
     x: RunCodeRequest,
     state: ReadyAppStateFromRequest,
+    request: Request,
 ):
+    share_session_id = None
+    if state.share_mode:
+        try:
+            share_session_id = get_share_session_id_from_request(request)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=400, detail="Missing share session id."
+            ) from exc
+        state.share_session_store.get_session(share_session_id)
+        state.share_project_manager.get_or_create_session_state(share_session_id)
+
     await ensure_share_run_allowed(
         state,
         project_config_id=x.projectConfigId,
+        share_session_id=share_session_id,
         section_ids=[x.sectionId] if x.sectionId else None,
     )
-    await run_code(
-        x.projectConfigId,
-        x.sectionId,
-        x.cliId,
-        state.project_manager_switcher.get(x.projectConfigId),
-        state.terminals,
-        state.wmh_cli_sender,
-    )
+
+    if state.share_mode:
+        command = await state.share_project_manager.create_run_command(
+            share_session_id, x.sectionId
+        )
+        await run_command(
+            command,
+            x.projectConfigId,
+            x.sectionId,
+            x.cliId,
+            None,
+            state.terminals,
+            state.wmh_cli_sender,
+        )
+    else:
+        await run_code(
+            x.projectConfigId,
+            x.sectionId,
+            x.cliId,
+            state.project_manager_switcher.get(x.projectConfigId),
+            state.terminals,
+            state.wmh_cli_sender,
+        )
 
     await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "Started command",
         project_config_id=x.projectConfigId,
         severity=SettaBackendLogEventSeverity.info,
+        share_session_id=share_session_id,
     )

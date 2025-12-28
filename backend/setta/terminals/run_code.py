@@ -14,9 +14,29 @@ async def run_code(
     terminals: Terminals,
     websocket_msg_handler: WMHCLISender,
 ):
+    command = await project_manager.create_run_command(projectConfigId, sectionId)
+    return await run_command(
+        command,
+        projectConfigId,
+        sectionId,
+        cliId,
+        project_manager,
+        terminals,
+        websocket_msg_handler,
+    )
+
+
+async def run_command(
+    command: str,
+    projectConfigId: ID,
+    sectionId: ID | None,
+    cliId: str | None,
+    project_manager: BaseProjectManager | None,
+    terminals: Terminals,
+    websocket_msg_handler: WMHCLISender,
+):
     terminal_id = None
 
-    command = await project_manager.create_run_command(projectConfigId, sectionId)
     if cliId:
         await websocket_msg_handler.send_command(command, cliId)
     else:
@@ -25,9 +45,10 @@ async def run_code(
         if not terminal_id:
             terminal_id = create_new_id()
             terminals.new_terminal(projectConfigId, terminal_id)
-            await project_manager.create_temporary_terminal(
-                projectConfigId, terminal_id
-            )
+            if project_manager is not None:
+                await project_manager.create_temporary_terminal(
+                    projectConfigId, terminal_id
+                )
 
         spawn_background_task(
             terminals.run_command_in_terminal(terminal_id, command),
