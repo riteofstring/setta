@@ -51,6 +51,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetSectionColumnWidthRequest,
     SetSectionHideUnpinnedParamsRequest,
@@ -536,6 +537,15 @@ async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
 @router.post(Route.SET_SECTION_NAME)
 async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_section_name(x)
+
+
+@router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)
+async def route_set_meta_control_show_section_title(
+    x: SetMetaControlShowSectionTitleRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_meta_control_show_section_title(x)
 
 
 @router.post(Route.ACCEPT_RENAME_REFACTOR)

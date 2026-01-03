@@ -103,6 +103,7 @@ class CoreArgs(TypedDict):
                 "positionAndSizeLocked",
                 "renderedValue",
                 "selectedParams",
+                "showSectionTitle",
                 "size",
                 "step",
                 "text",
@@ -409,6 +410,7 @@ class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
     metaControlParamId: NotRequired[ID | None]
     codeObjVariantMap: NotRequired[dict[ID, ID]]
+    showSectionTitle: NotRequired[bool]
 
 
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -420,6 +422,7 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     codeObjVariantMap: NotRequired[
         dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
     ]
+    showSectionTitle: NotRequired[bool | Callable[[bool], bool]]
 
 
 class SocialSectionImplArgs(BaseSectionImplArgs):

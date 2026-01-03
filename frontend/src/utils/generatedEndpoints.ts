@@ -583,6 +583,12 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
+export async function route_set_meta_control_show_section_title(
+  x: gt.SetMetaControlShowSectionTitleRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setMetaControlShowSectionTitle", x);
+}
+
 export async function route_accept_rename_refactor(
   x: gt.AcceptRenameRefactorRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

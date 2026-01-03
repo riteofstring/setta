@@ -526,6 +526,14 @@ class SetSectionNameRequest(ProjectManagerRequestWithSection):
     )
 
 
+class SetMetaControlShowSectionTitleRequest(ProjectManagerRequestWithSection):
+    """Request payload for toggling a meta control section title."""
+
+    showSectionTitle: bool = Field(
+        description="True to display the meta control title inline with the control.",
+    )
+
+
 class AcceptRenameRefactorRequest(ProjectManagerRequestWithProjectConfig):
     pass
 

@@ -115,6 +115,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
@@ -199,6 +200,7 @@ from setta.types.helpers_lvl2 import (
     set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
+    set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -1564,6 +1566,22 @@ class BaseProjectManager(ABC):
         """Rename a section and broadcast the updated project state."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_name(project_state, x.sectionId, x.name)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_meta_control_show_section_title(
+        self, x: SetMetaControlShowSectionTitleRequest
+    ):
+        """Toggle meta control title visibility and broadcast the updated project state."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_meta_control_show_section_title(
+            project_state, x.sectionId, x.showSectionTitle
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

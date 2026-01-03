@@ -1588,6 +1588,19 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
         p.sections[sectionId].name = name
 
 
+def set_meta_control_show_section_title(
+    p: "ProjectStateSingleConfig", sectionId: ID, showSectionTitle: bool
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, MetaControlSectionImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        MetaControlSectionImplArgsWithCallable(showSectionTitle=showSectionTitle),
+    )
+
+
 def set_text_block_display_mode(
     p: "ProjectStateSingleConfig",
     sectionId: ID,

@@ -404,6 +404,13 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     imagePath: str
 
 
+class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    showSectionTitle: bool
+
+
 class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -857,6 +864,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetImageAreaImagePathRequestPayload
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
+
+    async def set_meta_control_show_section_title(
+        self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload
+    ) -> None:
+        return await self._caller("route_set_meta_control_show_section_title", payload)
 
     async def set_param_entered_value(
         self, payload: ListenerSetParamEnteredValueRequestPayload

@@ -650,6 +650,7 @@ export const RouteEnum = {
   SET_ACTIVE_IDS: "/setActiveIds",
   SET_VIEWPORT: "/setViewport",
   SET_SECTION_NAME: "/setSectionName",
+  SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
@@ -1788,6 +1789,7 @@ export const AllImplFieldsSchema = z.literal([
   "positionAndSizeLocked",
   "renderedValue",
   "selectedParams",
+  "showSectionTitle",
   "size",
   "step",
   "text",
@@ -2073,6 +2075,7 @@ export const SharedModifierSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   renderedValue: z.union([z.string(), z.null()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
+  showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
   text: z.string().optional(),
@@ -2162,6 +2165,7 @@ export const CoreSchema = z.object({
         "positionAndSizeLocked",
         "renderedValue",
         "selectedParams",
+        "showSectionTitle",
         "size",
         "step",
         "text",
@@ -2488,6 +2492,7 @@ export const MetaControlSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   metaControlParamId: z.union([IDSchema, z.null()]).default(null),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
+  showSectionTitle: z.boolean().default(false),
 });
 
 export type MetaControlSectionImpl = z.infer<
@@ -4869,6 +4874,7 @@ export const MetaControlSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
+  showSectionTitle: z.boolean().optional(),
 });
 
 export type MetaControlSectionImplArgs = z.infer<
@@ -6652,6 +6658,7 @@ export const UserDefaultMetaControlSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
+  showSectionTitle: z.boolean().default(false),
 });
 
 export type UserDefaultMetaControlSectionImpl = z.infer<
@@ -9437,6 +9444,7 @@ export const MetaControlSectionImplArgsWithCallableSchema = z.object({
   codeObjVariantMap: z
     .union([z.record(IDSchema, IDSchema), z.any()])
     .optional(),
+  showSectionTitle: z.union([z.boolean(), z.any()]).optional(),
 });
 
 export type MetaControlSectionImplArgsWithCallable = z.infer<
@@ -9823,6 +9831,7 @@ export const CoreArgsSchema = z.object({
         "positionAndSizeLocked",
         "renderedValue",
         "selectedParams",
+        "showSectionTitle",
         "size",
         "step",
         "text",
@@ -12138,6 +12147,27 @@ export function createSetImageAreaImagePathRequest(
   options: Partial<SetImageAreaImagePathRequest> = {},
 ): SetImageAreaImagePathRequest {
   return SetImageAreaImagePathRequestSchema.parse(options);
+}
+
+export const SetMetaControlShowSectionTitleRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  showSectionTitle: z.boolean(),
+});
+
+export type SetMetaControlShowSectionTitleRequest = z.infer<
+  typeof SetMetaControlShowSectionTitleRequestSchema
+>;
+
+export type SetMetaControlShowSectionTitleRequestInput = z.input<
+  typeof SetMetaControlShowSectionTitleRequestSchema
+>;
+
+export function createSetMetaControlShowSectionTitleRequest(
+  options: Partial<SetMetaControlShowSectionTitleRequest> = {},
+): SetMetaControlShowSectionTitleRequest {
+  return SetMetaControlShowSectionTitleRequestSchema.parse(options);
 }
 
 export const SetParamEnteredValueRequestSchema = z.object({
