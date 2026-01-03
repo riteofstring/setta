@@ -28,8 +28,10 @@ from setta.routers.project_manager import (
 )
 from setta.routers.sections import (
     CreateFileRequest,
+    GetJSONSourcePathToBeDeleted,
     NewJSONVersionNameRequest,
     route_create_file,
+    route_get_json_source_path_to_be_deleted,
     route_new_json_version_name,
 )
 from setta.server_state import SettaFastAPIState
@@ -125,6 +127,27 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as ctx:
                 route_new_json_version_name(
                     NewJSONVersionNameRequest(filename=str(allowed_path)),
+                    state,
+                )
+            self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_get_json_source_path_to_be_deleted_restricts_share_paths(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-filesystem-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _seed_share_dirs(root)
+            state = await self._build_state(root)
+
+            with self.assertRaises(HTTPException) as ctx:
+                route_get_json_source_path_to_be_deleted(
+                    GetJSONSourcePathToBeDeleted(variantName="data.json"),
                     state,
                 )
             self.assertEqual(403, ctx.exception.status_code)

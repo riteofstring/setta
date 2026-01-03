@@ -4,10 +4,15 @@ from fastapi import Depends, HTTPException, Request, WebSocket, status
 
 from setta.server_state import SettaFastAPIState
 from setta.share.session_context import reset_share_session_id, set_share_session_id
+from setta.utils.constants import C
 
 
 def get_app_state_from_request(request: Request) -> SettaFastAPIState:
     return request.app.state.setta
+
+
+def maybe_get_app_state_from_request(request: Request) -> SettaFastAPIState | None:
+    return getattr(request.app.state, "setta", None)
 
 
 def get_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
@@ -68,6 +73,17 @@ def maybe_get_share_session_id_from_websocket(websocket: WebSocket) -> str | Non
     return _maybe_extract_share_session_id(
         websocket.headers, websocket.cookies, websocket.query_params
     )
+
+
+def require_ide_mode(
+    state: SettaFastAPIState | None = Depends(maybe_get_app_state_from_request),
+) -> None:
+    share_mode = state.share_mode if state is not None else C.SHARE_MODE
+    if share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow this endpoint.",
+        )
 
 
 def require_share_session_id(

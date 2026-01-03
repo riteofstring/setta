@@ -30,6 +30,10 @@ lists the implemented work, and there are no pending items.
   (`backend/setta/database/settings_file.py`). Share mode now initializes
   settings with `allow_write=False` so deployments remain write-free (missing
   settings slices fall back to defaults without writing to disk).
+- `DBE` writes file locks and the temporary id map. Share mode now points
+  `runtime_root`/`lock_root` at
+  `setta_files/share_runtime/<project_config_name>/<version>` so deployment
+  roots remain immutable.
 - Artifact caches are populated by file watchers; `get_cached_*` does not read
   from disk (`backend/setta/project_state/artifacts.py`). Share mode now
   preloads artifacts on session creation and share artifact routes load from
@@ -112,6 +116,9 @@ Implemented:
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, and skips watchers/LSP boot.
+- Share mode uses `setta_files/share_runtime/<project_config_name>/<version>`
+  as a runtime root for file locks + temporary id maps (via
+  `DBE.runtime_root`/`lock_root`) so deployments stay immutable.
 - `backend/setta/server_state.py` initializes share settings, terminals only
   when `allowRun`, and share listener runtime + share websocket receivers.
 - `backend/setta/server_state.py` initializes MCP + LLM only when allowed by
@@ -349,8 +356,13 @@ Implemented:
   (via `setta share` CLI flags).
 - Websocket auth checks are bypassed in share mode so share frontend and listener
   websockets follow the same public access policy.
+- Non-share routers now require IDE mode via `require_ide_mode`, so IDE-only
+  endpoints (`projects`, `lsp`, `bootstrap`, `code_info`) return 403 in share
+  mode.
 - Share filesystem mutation routes return 403 (no writes to deployment roots),
   and cached artifact loads are restricted to deployment subpaths.
+- Settings save and JSON source deletion path resolution are blocked in share
+  mode to avoid writes or path leakage.
 - Share deployment discovery endpoints are blocked in share mode, and latest
   deployment metadata returns redacted paths to avoid leaking host paths.
 Pending updates: none.
@@ -403,7 +415,8 @@ Implemented:
 - `tests/routers/test_share_deployments.py` covers versioned deployment publishing
   plus latest/version list endpoints.
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
-  guardrails, settings file creation, and policy-gated services.
+  guardrails, settings file creation, runtime root usage, and policy-gated
+  services.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
   session isolation, and missing session errors.
 - `tests/project_state/test_share_project_manager.py` covers json-source
@@ -444,7 +457,10 @@ Implemented:
   session-scoped state fetch behavior.
 - `tests/routers/test_share_filesystem_routes.py` covers share-mode filesystem
   path restrictions for share file endpoints and cached artifact loads (image,
-  chart, brush strokes, transforms) plus share-mode variant deletion blocks.
+  chart, brush strokes, transforms) plus share-mode variant deletion and JSON
+  source path blocking.
+- `tests/routers/test_share_mode_blocks_ide_routes.py` covers share-mode
+  `require_ide_mode` enforcement and settings save blocking.
 - `tests/routers/test_share_sessions.py` covers share-mode deployment listing
   blocks and latest metadata redaction.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
@@ -485,19 +501,22 @@ Implemented:
 - Keep deployments immutable + tighten file access: share filesystem mutation
   routes return 403, and cached artifact loads are restricted to deployment
   paths with test coverage for all artifact types.
+- Keep share runtime writes out of deployment roots by moving file locks +
+  temporary id maps into `setta_files/share_runtime/<project_config_name>/<version>`.
 - Fill policy gaps / allowed mutations: `route_set_callable` is gated by
   `allowParamChanges`/`allowedSections`, while code obj name/display-name and
   code file binding changes are gated by `allowStructuralChanges`, with tests.
 - Share-mode endpoint hardening: publish endpoints return 403 in share mode so
   public share servers cannot create deployments.
+- Share-mode endpoint hardening: non-share routers require IDE mode, and share
+  mode blocks settings saves + JSON source delete-path resolution to avoid
+  writes or path leaks.
 
 ## Open questions
 - Should OSS share mode be open-by-default or require auth/bootstrap tokens?
 - What is the default share policy for new deployments?
 - Should terminals/run remain disabled by default in share mode?
 - Do we want an IDE-side "record run" toggle for run snapshot mode?
-- Should share deployments remain strictly write-free (settings files are
-  currently written on share boot)?
 - How should we simplify dev-mode share testing (single `pnpm start`)?
 
 ## Next improvements

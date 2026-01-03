@@ -38,6 +38,7 @@ export function DeleteOrHideButton({
   ...props
 }: DeleteOrHideButtonProps) {
   const allowStructuralChanges = useSharePolicyFlag("allowStructuralChanges");
+  const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
   const { visibility, isEditingViewMode } = useProjectState((state) => {
     const viewMode = getActiveViewModeConfig(state);
     const visibility = viewMode.visibilityBySectionId[sectionId];
@@ -52,8 +53,12 @@ export function DeleteOrHideButton({
     };
   });
 
+  const canToggleVisibility = isEditingViewMode
+    ? allowVariantChanges
+    : allowStructuralChanges;
+
   const onClick = () => {
-    if (!isEditingViewMode && !allowStructuralChanges) {
+    if (!canToggleVisibility) {
       return;
     }
     if (isEditingViewMode) {
@@ -88,7 +93,10 @@ export function DeleteOrHideButton({
   const defaultIcon = getDeleteOrHideIcon(isEditingViewMode, visibility);
   const resolvedOnClick = onClickOverride ?? onClick;
   const resolvedIcon = icon ?? defaultIcon;
-  const isDisabled = !isEditingViewMode && !allowStructuralChanges;
+  const isDisabled = !canToggleVisibility;
+  const cursorClass = isDisabled
+    ? "cursor-not-allowed opacity-50"
+    : "cursor-pointer";
 
   if (render) {
     return render({
@@ -104,13 +112,13 @@ export function DeleteOrHideButton({
     <button
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
-      } nodrag flex cursor-pointer justify-center ${
+      } nodrag flex justify-center ${
         bg ?? "bg-transparent hover:bg-red-500"
       } ${color ?? "text-setta-600 hover:text-white"} ${
         rounded ?? "rounded-full"
-      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${
-        isDisabled ? "cursor-not-allowed opacity-50" : ""
-      } ${twClasses ?? ""}`}
+      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${cursorClass} ${
+        twClasses ?? ""
+      }`}
       {...buttonProps}
       onClick={resolvedOnClick}
       disabled={buttonProps.disabled || isDisabled}

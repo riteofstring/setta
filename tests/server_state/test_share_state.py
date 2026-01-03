@@ -109,6 +109,26 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNotNone(state.settings_file)
 
+    async def test_share_state_uses_runtime_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share_test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            state = await self._build_state(root)
+
+            deployment_root = root.resolve()
+            runtime_root = state.dbe.runtime_root
+            self.assertNotEqual(runtime_root, deployment_root)
+            self.assertTrue(
+                runtime_root.is_relative_to(Path(tmpdir).resolve() / "share_runtime")
+            )
+            self.assertTrue(state.dbe.temporary_id_map.is_relative_to(runtime_root))
+            self.assertFalse(state.dbe.temporary_id_map.is_relative_to(deployment_root))
+
     def test_share_state_requires_project_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

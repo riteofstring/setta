@@ -52,5 +52,12 @@ def route_create_file(x: CreateFileRequest, state: AppStateFromRequest):
 
 
 @router.post(Route.GET_JSON_SOURCE_PATH_TO_BE_DELETED)
-def route_get_json_source_path_to_be_deleted(x: GetJSONSourcePathToBeDeleted) -> str:
+def route_get_json_source_path_to_be_deleted(
+    x: GetJSONSourcePathToBeDeleted, state: AppStateFromRequest
+) -> str:
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow resolving JSON source paths.",
+        )
     return os.path.abspath(x.variantName)

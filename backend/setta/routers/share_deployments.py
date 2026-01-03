@@ -19,6 +19,7 @@ from setta.routers.dependencies import (
     require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.share.deployment_utils import iter_share_deployment_versions
 from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
 from setta.types.id import ID
@@ -72,33 +73,12 @@ class PublishShareDeploymentRequest(BaseModel, extra="forbid"):
     listenerIsolation: ListenerIsolationMode | None = None
 
 
-def _parse_deployment_version(value: str) -> int | None:
-    if not value.startswith("v"):
-        return None
-    suffix = value[1:]
-    if not suffix.isdigit():
-        return None
-    return int(suffix)
-
-
-def _iter_deployment_versions(project_root: Path) -> list[tuple[int, Path]]:
-    versions: list[tuple[int, Path]] = []
-    if not project_root.exists():
-        return versions
-    for entry in project_root.iterdir():
-        if not entry.is_dir():
-            continue
-        version_number = _parse_deployment_version(entry.name)
-        if version_number is None:
-            continue
-        versions.append((version_number, entry))
-    return versions
-
-
 def _create_deployment_root(project_config_name: str) -> tuple[str, Path]:
     project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / project_config_name)
     project_root.mkdir(parents=True, exist_ok=True)
-    version_numbers = [number for number, _ in _iter_deployment_versions(project_root)]
+    version_numbers = [
+        number for number, _ in iter_share_deployment_versions(project_root)
+    ]
     next_number = max(version_numbers, default=0) + 1
     deployment_version = f"v{next_number}"
     deployment_root = normalize_path(project_root / deployment_version)
@@ -444,7 +424,7 @@ def route_list_share_deployments(
     for project_root in sorted(deployments_root.iterdir()):
         if not project_root.is_dir():
             continue
-        for _, version_root in _iter_deployment_versions(project_root):
+        for _, version_root in iter_share_deployment_versions(project_root):
             manifest = _read_share_manifest(version_root)
             if manifest is None:
                 continue
@@ -469,7 +449,7 @@ def route_list_share_deployment_versions(
     if not project_root.exists():
         return []
     versions = sorted(
-        _iter_deployment_versions(project_root),
+        iter_share_deployment_versions(project_root),
         key=lambda item: item[0],
         reverse=True,
     )
@@ -518,7 +498,7 @@ def route_get_latest_share_deployment(
             status_code=404,
             detail=f"Share deployment not found: {projectConfigName}",
         )
-    versions = _iter_deployment_versions(project_root)
+    versions = iter_share_deployment_versions(project_root)
     if not versions:
         raise HTTPException(
             status_code=404,

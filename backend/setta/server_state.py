@@ -86,13 +86,18 @@ class SettaFastAPIState:
         self.share_deployment_root = self._resolve_share_deployment_root(
             share_mode, share_deployment_root
         )
+        self.share_runtime_root = self._resolve_share_runtime_root(
+            self.share_deployment_root
+        )
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.dbe = DBE(
             self.share_deployment_root
             if self.share_deployment_root is not None
-            else C.SETTA_FILES_FOLDER
+            else C.SETTA_FILES_FOLDER,
+            runtime_root=self.share_runtime_root,
+            lock_root=self.share_runtime_root,
         )
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
@@ -466,6 +471,22 @@ class SettaFastAPIState:
                 f"Share deployment missing project.json: {project_path}"
             )
         return resolved
+
+    def _resolve_share_runtime_root(
+        self, share_deployment_root: Path | None
+    ) -> Path | None:
+        if not self.share_mode or share_deployment_root is None:
+            return None
+        project_config_name = share_deployment_root.parent.name
+        deployment_version = share_deployment_root.name
+        base_root = share_deployment_root.parent.parent
+        if base_root.name == "share_deployments":
+            base_root = base_root.parent
+        runtime_root = (
+            base_root / "share_runtime" / project_config_name / deployment_version
+        ).resolve()
+        runtime_root.mkdir(parents=True, exist_ok=True)
+        return runtime_root
 
     async def _maybe_delay(self) -> None:
         delay = C.BACKEND_INIT_DELAY_SECONDS

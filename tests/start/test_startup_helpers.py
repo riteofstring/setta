@@ -11,9 +11,9 @@ from setta.start import (
     _build_ssh_tunnel_command,
     _ensure_background_process_started,
     _format_remote_path,
-    _parse_share_deployment_version,
     _resolve_share_deployment_root,
 )
+from setta.share.deployment_utils import parse_share_deployment_version
 from setta.types.routes import Route
 from setta.utils.constants import C
 from setta.utils.network import (
@@ -98,11 +98,11 @@ class ShareStartupHelperTests(unittest.TestCase):
         return path
 
     def test_parse_share_deployment_version(self) -> None:
-        self.assertEqual(_parse_share_deployment_version("v3"), 3)
-        self.assertEqual(_parse_share_deployment_version("v0"), 0)
-        self.assertIsNone(_parse_share_deployment_version("3"))
-        self.assertIsNone(_parse_share_deployment_version("v"))
-        self.assertIsNone(_parse_share_deployment_version("v3x"))
+        self.assertEqual(parse_share_deployment_version("v3"), 3)
+        self.assertEqual(parse_share_deployment_version("v0"), 0)
+        self.assertIsNone(parse_share_deployment_version("3"))
+        self.assertIsNone(parse_share_deployment_version("v"))
+        self.assertIsNone(parse_share_deployment_version("v3x"))
 
     def test_resolve_share_deployment_root_uses_explicit_root(self) -> None:
         root = self._create_deployment("alpha", "v1")

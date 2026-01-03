@@ -23,6 +23,10 @@ from setta.logging.config import configure_logging
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
+from setta.share.deployment_utils import (
+    iter_share_deployment_versions,
+    parse_share_deployment_version,
+)
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls, format_host_for_ssh_tunnel
@@ -555,29 +559,6 @@ def _resolve_port(host: str, port: int | None) -> int:
     return port
 
 
-def _parse_share_deployment_version(value: str) -> int | None:
-    if not value.startswith("v"):
-        return None
-    suffix = value[1:]
-    if not suffix.isdigit():
-        return None
-    return int(suffix)
-
-
-def _iter_share_deployment_versions(project_root: Path) -> list[tuple[int, Path]]:
-    versions: list[tuple[int, Path]] = []
-    if not project_root.exists():
-        return versions
-    for entry in project_root.iterdir():
-        if not entry.is_dir():
-            continue
-        version_number = _parse_share_deployment_version(entry.name)
-        if version_number is None:
-            continue
-        versions.append((version_number, entry))
-    return versions
-
-
 def _resolve_share_deployment_root(
     *,
     deployment_root: Path | None,
@@ -606,14 +587,14 @@ def _resolve_share_deployment_root(
     if not project_root.exists():
         raise click.ClickException(f"Share deployment not found: {project_config_name}")
     if latest:
-        versions = _iter_share_deployment_versions(project_root)
+        versions = iter_share_deployment_versions(project_root)
         if not versions:
             raise click.ClickException(
                 f"Share deployment not found: {project_config_name}"
             )
         _, latest_root = max(versions, key=lambda item: item[0])
         return latest_root.resolve()
-    if _parse_share_deployment_version(deployment_version) is None:
+    if parse_share_deployment_version(deployment_version) is None:
         raise click.ClickException(
             "Invalid --version value. Expected vN (for example v3)."
         )

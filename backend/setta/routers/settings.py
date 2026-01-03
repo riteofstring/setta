@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from setta.routers.dependencies import (
@@ -17,6 +18,11 @@ class SaveSettingsRequest(BaseModel):
 
 @router.post(Route.SAVE_SETTINGS)
 async def route_save_settings(x: SaveSettingsRequest, state: ReadyAppStateFromRequest):
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow updating settings.",
+        )
     previous_autosave = state.settings_file.settings.backend.autosave
     await state.settings_file.save_settings(x.settings)
     if previous_autosave and not state.settings_file.settings.backend.autosave:
