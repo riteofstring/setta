@@ -24,6 +24,10 @@ workspace.
 - Listener isolation defaults to per_viewer, but is configurable.
 - Run snapshots should be configurable (not always-on).
 - Terminals/run code are opt-in for share mode.
+- Share URLs support `/share/<project_config_name>` and
+  `/share/<project_config_name>/vN` (latest resolves to the highest vN).
+- Share URLs support `/share/<deployment_id>` and `/share/<project_name>`; project
+  name resolves to the latest deployment (by `createdAt`).
 
 ## Architecture Overview
 
@@ -40,10 +44,12 @@ Share mode should still support:
 ### 2) Share deployment artifact (published snapshot)
 Share mode loads a published snapshot instead of the live workspace. This keeps
 share runtime stateless and predictable.
+Snapshots are organized by project config name and version (vN).
+Version numbers increment per publish within each project config.
 
 Example (OSS local folder):
 ```
-setta_files/share_deployments/myproj_v3/
+setta_files/share_deployments/my_project/v3/
   manifest.json
   project.json
   artifacts/
@@ -57,6 +63,8 @@ Example `manifest.json`:
 ```json
 {
   "version": 1,
+  "projectConfigName": "my_project",
+  "deploymentVersion": "v3",
   "projectConfigId": "abc123",
   "createdAt": "2025-01-10T12:34:56Z",
   "listener": {
@@ -69,7 +77,9 @@ Example `manifest.json`:
 ```
 
 In SaaS, the same folder can be zipped or stored in object storage. The share
-runtime only needs a `deployment_root` path.
+runtime is started via CLI flags (no env vars) and can target a deployment root
+or resolve `/share/<project_config_name>` to the latest version for that
+project config.
 
 ### 3) Per-viewer overlay
 All share-mode mutations apply to a per-viewer overlay, never the base snapshot.
@@ -136,8 +146,8 @@ Suggested defaults:
 - IDE mode: `ephemeral` with a UI toggle to "record run".
 - Share mode: `ephemeral` only (with opt-in allowRun).
 
-Share mode should redirect run output to a share run root (per deployment,
-per session, per run) rather than `setta_files/code`.
+Share mode should redirect run output to a share run root (per project config,
+per version, per session, per run) rather than `setta_files/code`.
 
 ### 9) LLM + MCP in share mode
 Default: disabled. Opt-in via share policy.
@@ -156,8 +166,8 @@ Artifacts and code can be cached in memory or under a share-specific root.
 ## OSS vs SaaS Behavior
 
 ### OSS (local sharing)
-- Share deployments stored under `setta_files/share_deployments`.
-- Share run output under `setta_files/share_runs/<deployment>/<session>/<timestamp>`.
+- Share deployments stored under `setta_files/share_deployments/<project_config_name>/vN`.
+- Share run output under `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`.
 - In-memory session store with TTL cleanup.
 - Open by default; optional share token can be added later.
 
@@ -187,7 +197,7 @@ Frontend:
 ## Phased Rollout
 Phase 1: Share runtime skeleton
 - Share deployment artifact format + loader.
-- Share mode flag + startup path.
+- Share mode CLI flags + startup path.
 - Disable persistence, LSP, and watchers.
 - In-memory session store + per-viewer overlay.
 

@@ -33,16 +33,19 @@ Status: completed. Implemented in `backend/setta/types/share_deployment.py`, add
 `C.SHARE_DEPLOYMENTS_FOLDER`/`C.SHARE_RUNS_FOLDER`, and registered share routes
 in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
-  - `ShareDeploymentManifest` (version, projectConfigId, createdAt, listener config).
+  - `ShareDeploymentManifest` (version (schema), projectConfigId, projectConfigName, deploymentVersion, createdAt, listener config).
   - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, listenerIsolation, allowedSections).
-  - `ShareDeploymentMetadata` (deployment id, path, policy path).
-  - `ShareDeploymentSessionResponse` (deployment id, session id, config id, policy, manifest).
+  - `ShareDeploymentMetadata` (projectConfigName, deploymentVersion, createdAt, path, policy path).
+  - `ShareDeploymentSessionResponse` (projectConfigName, deploymentVersion, session id, config id, policy, manifest).
 - Add constants in `backend/setta/utils/constants.py`:
   - `SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"`.
   - `SHARE_RUNS_FOLDER = C.SETTA_FILES_FOLDER / "share_runs"`.
 - Add route entries in `backend/setta/types/routes.py` for share APIs and websockets
-  (for example `/share/deployments`, `/share/deployments/{deploymentId}/session`,
-  `/share/deployments/{deploymentId}/state`, `/share/frontend`).
+  (for example `/share/deployments`, `/share/deployments/{projectConfigName}/versions`,
+  `/share/deployments/{projectConfigName}/{version}/session`,
+  `/share/deployments/{projectConfigName}/{version}/state`,
+  `/share/deployments/{projectConfigName}/latest`, `/share/frontend`).
+  `version` is `vN` (for example `v1`, `v2`).
 
 ## 2) Publish share deployment (IDE mode)
 Status: completed. Implemented in `backend/setta/routers/share_deployments.py`.
@@ -53,6 +56,8 @@ Status: completed. Implemented in `backend/setta/routers/share_deployments.py`.
   - Use `ProjectManager` from `backend/setta/project_state/project_manager.py` to
     flush code (`_flush_code_files_for_all_configs`) before exporting.
   - Read project state from `DBE.read_project()` in `backend/setta/database/db_objs.py`.
+  - Choose the next deployment version (vN) under
+    `setta_files/share_deployments/<project_config_name>/vN/`.
   - Copy referenced artifacts from `setta_files/artifacts` into the deployment
     root under `artifacts/`, and rebase artifact paths in the exported
     `project.json` if necessary.
@@ -60,11 +65,13 @@ Status: completed. Implemented in `backend/setta/routers/share_deployments.py`.
   - Copy code files into `code/` and rebase `CodeFileBinding.canonical_path`.
   - Copy listener entrypoint (if present) into `listener/` inside the deployment.
   - Write `project.json`, `manifest.json`, and `share_policy.json`.
+  - Include `projectConfigName` + `deploymentVersion` in the manifest/metadata
+    so `/share/<project_config_name>` can resolve the latest version.
   - Avoid any writes back to the developer workspace state.
 
 ## 3) Share runtime server/state
 Status: completed. Share runtime boots with a mode flag and deployment root, and skips IDE-only services.
-- Introduce a share mode flag (env or CLI) and branch in
+- Introduce a share mode CLI flag (no env vars) and branch in
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
   - Loads from a deployment root (not `C.SETTA_FILES_FOLDER`).
@@ -73,9 +80,9 @@ Status: completed. Share runtime boots with a mode flag and deployment root, and
 - Ensure share routers are included in `backend/setta/server.py` so endpoint
   generation in `frontend/generation/convert_endpoints.py` can see them.
 Implemented:
-- Share mode flag + deployment root resolution via `SETTA_SHARE_MODE`,
-  `SETTA_SHARE_DEPLOYMENT_ROOT`, and `SETTA_SHARE_DEPLOYMENT_ID` in
-  `backend/setta/utils/constants.py`.
+- Share mode flag + deployment root resolution via CLI flags (no env vars),
+  wired into `backend/setta/server.py`, with optional
+  `--project-config-name <name>` + `--version vN|--latest` selection.
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, and skips watchers/LSP boot.
@@ -197,7 +204,7 @@ websocket handling are implemented.
   `listener/app.py` from the deployment root.
 - Implement isolation modes:
   - `per_viewer`: one listener instance per share session.
-  - `shared`: one listener instance per deployment.
+  - `shared`: one listener instance per deployment version.
 - Extend `backend/setta/websockets/listener_registry.py` to index registrations
   by session id; filter emits in `WMHPythonScriptSender` and updates in
   `WMHPythonScriptReceiver`.
@@ -233,7 +240,7 @@ isolation are implemented.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
 - Override `create_run_command` in share mode to write into
-  `setta_files/share_runs/<deployment>/<session>/<timestamp>`.
+  `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`.
 - Add TTL cleanup (background task) for share run output.
 - Gate run and terminal endpoints in `backend/setta/routers/terminals.py`
   against `SharePolicy.allowRun`.
@@ -247,7 +254,7 @@ Implemented:
 - Run/terminal HTTP routes require share session ids in share mode.
 - Added `RunSnapshotMode` to settings + share policy, and use it in IDE/share
   run command creation.
-- Share run output writes to `setta_files/share_runs/<deployment>/<session>/<timestamp>`
+- Share run output writes to `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`
   and uses per-session snapshots or canonical files based on snapshot mode.
 - Share run output cleanup runs in the background for ephemeral snapshots.
 - Terminals are keyed by share session + section id to prevent PTY collisions
@@ -281,7 +288,7 @@ Implemented:
 ## 10) Share access + auth model
 Status: completed. Share mode is public by default and skips auth checks.
 Implemented:
-- `backend/setta/server.py` skips `AuthMiddleware` when `SETTA_SHARE_MODE` is true.
+- `backend/setta/server.py` skips `AuthMiddleware` when share mode is enabled via CLI flags.
 - Websocket auth checks are bypassed in share mode so share frontend and listener
   websockets follow the same public access policy.
 
@@ -289,7 +296,9 @@ Implemented:
 Status: completed. Share session bootstrap, websocket scoping, UI gating, and
 IDE-side publish/redeploy UX are in place.
 Implemented:
-- Added `/share/:deploymentId` routing with share wrapper/container components.
+- Added `/share/:projectConfigName` and `/share/:projectConfigName/:version`
+  routing with share wrapper/container components; `version` is `vN`, and
+  projectConfigName resolves to the highest `vN` when version is omitted.
 - Added share session bootstrap (`route_create_share_session` + state fetch) and
   share session store + hooks.
 - Websocket connections include `shareSessionId` and use `/share/frontend` in
@@ -303,7 +312,8 @@ Implemented:
  - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
    and run snapshot mode.
  - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
-   and shows deployment id + share URL with copy/open actions + recent list.
+   and shows deployment version + share URL (`/share/<project_config_name>/vN`)
+   with copy/open actions + recent list.
  - Publish/redeploy UI: shows share-backend startup instructions.
 
 ## 12) Generated endpoints + types
@@ -325,10 +335,10 @@ cleanup tests, and share websocket scoping tests.
   - Run output routing (no writes to `setta_files/project.json`).
   - Websocket scoping (messages only reach matching session).
 - Manual checks:
-  - Publish a deployment, open two share sessions, and verify isolation.
+  - Publish a versioned deployment, open two share sessions, and verify isolation.
   - Verify UI controls match `share_policy.json` settings.
 Implemented:
-- `tests/routers/test_share_deployments.py` covers deployment publishing.
+- `tests/routers/test_share_deployments.py` covers versioned deployment publishing.
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
   guardrails, settings file creation, and policy-gated services.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
@@ -387,9 +397,10 @@ Implemented:
 - Should share deployments remain strictly write-free (settings files are
   currently written on share boot)?
 - How should we simplify dev-mode share testing (single `pnpm start`)?
-- Should we add a `setta share` CLI entrypoint for end users?
 
 ## Next improvements
 - Dev mode: run share backend alongside IDE backend (single `pnpm start`),
   and route `/share/*` traffic + websockets to the share backend.
-- CLI: add `setta share --deployment <id> --port <port>` to avoid raw env vars.
+- CLI: add `setta share --project-config-name <name> --version vN` and
+  `setta share --project-config-name <name> --latest` as shorthand selectors,
+  alongside deployment-root flags.
