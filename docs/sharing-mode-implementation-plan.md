@@ -224,8 +224,8 @@ Implemented:
 - Share session cleanup stops per-session listener runtimes when sessions expire.
 
 ## 8) Run flow changes
-Status: partial. Run snapshot mode and share run roots are implemented, but
-terminal/run isolation is not yet per-viewer.
+Status: completed. Run snapshot mode, share run roots, and per-viewer terminal
+isolation are implemented.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
 - Override `create_run_command` in share mode to write into
@@ -246,9 +246,9 @@ Implemented:
 - Share run output writes to `setta_files/share_runs/<deployment>/<session>/<timestamp>`
   and uses per-session snapshots or canonical files based on snapshot mode.
 - Share run output cleanup runs in the background for ephemeral snapshots.
-Remaining:
-- Terminals are still keyed by `sectionId`, so share sessions can collide on
-  PTY state and output. Add a per-session terminal namespace or ids.
+- Terminals are keyed by share session + section id to prevent PTY collisions
+  across viewers; run/delete/kill routes and terminal websockets use the
+  session-scoped ids.
 
 ## 9) LLM + MCP gating
 Status: completed. Share boot gates MCP/LLM by policy, and per-viewer chat state
@@ -275,14 +275,11 @@ Implemented:
 - Share session cleanup prunes per-session chat manager state.
 
 ## 10) Share access + auth model
-Status: in progress. Auth middleware still blocks share endpoints; share mode
-currently requires a bootstrap token.
-- Decide on public-by-default share access vs tokenized share URLs for OSS.
-- Either exempt share routes from auth in `backend/setta/middleware/auth.py`
-  when `SETTA_SHARE_MODE` is true, or run a share-only app without auth
-  middleware.
-- Ensure websocket access (`/share/frontend` + listener websockets) follows the
-  same policy as HTTP routes.
+Status: completed. Share mode is public by default and skips auth checks.
+Implemented:
+- `backend/setta/server.py` skips `AuthMiddleware` when `SETTA_SHARE_MODE` is true.
+- Websocket auth checks are bypassed in share mode so share frontend and listener
+  websockets follow the same public access policy.
 
 ## 11) Frontend share mode UX
 Status: in progress. Share session bootstrap, websocket scoping, and UI gating
@@ -352,11 +349,14 @@ Implemented:
   run routes.
 - `tests/routers/test_share_policy_routes.py` covers share-mode LLM config/API
   key update blocking.
+- `tests/routers/test_share_terminals.py` covers session-scoped terminal deletes.
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
 - `tests/share/test_session_cleanup.py` covers listener/chat cleanup on session
   expiry.
+- `tests/terminals/test_terminals_session_filter.py` covers session filtering for
+  terminal listings.
 - `tests/websockets/test_websocket_manager_sessions.py` covers session-scoped
   websocket broadcasts and connection listings.
 - `tests/websockets/test_realtime_event_hub_sessions.py` covers per-session

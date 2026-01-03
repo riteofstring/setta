@@ -117,7 +117,8 @@ app = FastAPI(
 )
 
 app.add_middleware(LoggingContextMiddleware)
-app.add_middleware(AuthMiddleware)
+if not C.SHARE_MODE:
+    app.add_middleware(AuthMiddleware)
 # Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
     CORSMiddleware,

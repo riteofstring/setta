@@ -93,6 +93,23 @@ def _mint_auth_cookie(sessions_root: Path) -> tuple[str, str]:
 
 
 class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
+    async def test_share_frontend_allows_missing_auth_cookie(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_share_project(root)
+            state = await _build_state(root)
+            session = state.share_session_store.create_session()
+            headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
+            messages: list[Message] = []
+            websocket = await _build_websocket(messages, headers=headers)
+
+            await route_websocket_share_frontend(websocket, state)
+
+            self.assertIsNone(_close_code(messages))
+            self.assertTrue(
+                any(message.get("type") == "websocket.accept" for message in messages)
+            )
+
     async def test_missing_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

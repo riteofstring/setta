@@ -55,6 +55,14 @@ async def _authenticate_websocket(websocket: WebSocket) -> bool:
     return False
 
 
+async def _maybe_authenticate_websocket(
+    websocket: WebSocket, *, share_mode: bool
+) -> bool:
+    if share_mode:
+        return True
+    return await _authenticate_websocket(websocket)
+
+
 async def _close_unauthorized(websocket: WebSocket) -> None:
     if websocket.application_state == WebSocketState.CONNECTING:
         await websocket.accept()
@@ -156,7 +164,7 @@ async def websocket_route_loop(
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebsocket):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
     share_session_id = None
     if state.share_mode:
@@ -178,7 +186,7 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
 async def route_websocket_share_frontend(
     websocket: WebSocket, state: AppStateFromWebsocket
 ):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
     if not state.share_mode:
         raise ValueError("Share websocket route requires share mode")
@@ -203,7 +211,7 @@ async def route_websocket_cli(
     state: AppStateFromWebsocket,
     id: str | None = None,
 ):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
     await websocket_route_loop(
         websocket,
@@ -221,7 +229,7 @@ async def route_websocket_python_script(
     state: AppStateFromWebsocket,
     id: str,
 ):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
     share_session_id = None
     if state.share_mode:
