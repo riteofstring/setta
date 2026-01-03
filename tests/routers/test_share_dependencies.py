@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from datetime import timedelta
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket
 from starlette.types import Scope
@@ -222,6 +223,26 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(400, ctx.exception.status_code)
             finally:
                 await context.aclose()
+
+    async def test_share_session_context_touches_session(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_share_project(root)
+            app, state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            old_timestamp = session.last_accessed_at - timedelta(seconds=120)
+            session.last_accessed_at = old_timestamp
+            request = _make_app_request(
+                app,
+                headers=[(b"x-share-session-id", session.id.encode())],
+            )
+            context = share_session_context_from_request(request)
+            try:
+                await context.__anext__()
+            finally:
+                await context.aclose()
+
+            self.assertGreater(session.last_accessed_at, old_timestamp)
 
 
 if __name__ == "__main__":

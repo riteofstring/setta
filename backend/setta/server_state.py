@@ -344,16 +344,6 @@ class SettaFastAPIState:
             self.settings_file,
             self.wmh_python_script_sender,
         )
-        spawn_background_task(
-            run_share_session_cleanup_loop(
-                self.share_session_store,
-                self.share_project_manager,
-                self.project_manager_switcher,
-                interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
-            ),
-            label="share-session-cleanup",
-            extra_values={"deployment_id": self.share_project_manager.deployment_id},
-        )
         if self.share_project_manager.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         if (
@@ -429,6 +419,19 @@ class SettaFastAPIState:
                 mcp_client=self.mcp_client if share_policy.allowMCP else None,
                 llm_config=llm_config,
             )
+        share_chat_manager = self.chat_manager if share_policy.allowLLM else None
+        spawn_background_task(
+            run_share_session_cleanup_loop(
+                self.share_session_store,
+                self.share_project_manager,
+                self.project_manager_switcher,
+                share_listener_runtime=self.share_listener_runtime,
+                share_chat_manager=share_chat_manager,
+                interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
+            ),
+            label="share-session-cleanup",
+            extra_values={"deployment_id": self.share_project_manager.deployment_id},
+        )
         self._ready_event.set()
         self.init_status.record("Share backend ready")
         self.init_status.mark_ready()

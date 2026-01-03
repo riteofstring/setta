@@ -160,6 +160,11 @@ class ShareListenerRuntime:
         handle.task.cancel()
         self._drop_module(handle.module)
 
+    def drop_session_listener(self, session_id: str) -> None:
+        if session_id not in self._session_handles:
+            return
+        self.stop_session_listener(session_id)
+
     def stop_shared_listener(self) -> None:
         if self._shared_handle is None:
             return

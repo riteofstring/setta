@@ -83,13 +83,12 @@ def require_share_session_id(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing share session id.",
         )
-    try:
-        state.share_session_store.get_session(share_session_id)
-    except KeyError as exc:
+    if not state.share_session_store.has_session(share_session_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+            detail=f"Unknown share session id: {share_session_id}",
+        )
+    state.share_session_store.touch_session(share_session_id)
     if create_session_state:
         state.share_project_manager.get_or_create_session_state(share_session_id)
     return share_session_id

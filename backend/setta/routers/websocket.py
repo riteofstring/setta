@@ -12,7 +12,6 @@ from setta.routers.dependencies import (
     ReadyAppStateFromWebsocket as AppStateFromWebsocket,
 )
 from setta.routers.dependencies import (
-    get_share_session_id_from_websocket,
     maybe_get_share_session_id_from_websocket,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -60,6 +59,33 @@ async def _close_unauthorized(websocket: WebSocket) -> None:
     if websocket.application_state == WebSocketState.CONNECTING:
         await websocket.accept()
     await websocket.close(code=4401)
+
+
+async def _close_with_code(websocket: WebSocket, code: int) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=code)
+
+
+async def _require_share_session_id(
+    websocket: WebSocket,
+    state: AppStateFromWebsocket,
+    *,
+    create_session_state: bool = True,
+) -> str | None:
+    if not state.share_mode:
+        return None
+    share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+    if share_session_id is None:
+        await _close_with_code(websocket, 4400)
+        return None
+    if not state.share_session_store.has_session(share_session_id):
+        await _close_with_code(websocket, 4404)
+        return None
+    state.share_session_store.touch_session(share_session_id)
+    if create_session_state:
+        state.share_project_manager.get_or_create_session_state(share_session_id)
+    return share_session_id
 
 
 async def websocket_route_loop(
@@ -134,10 +160,9 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
         return
     share_session_id = None
     if state.share_mode:
-        await state.wait_until_ready()
-        share_session_id = get_share_session_id_from_websocket(websocket)
-        state.share_session_store.get_session(share_session_id)
-        state.share_project_manager.get_or_create_session_state(share_session_id)
+        share_session_id = await _require_share_session_id(websocket, state)
+        if share_session_id is None:
+            return
         await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
     await websocket_route_loop(
         websocket,
@@ -157,9 +182,9 @@ async def route_websocket_share_frontend(
         return
     if not state.share_mode:
         raise ValueError("Share websocket route requires share mode")
-    share_session_id = get_share_session_id_from_websocket(websocket)
-    state.share_session_store.get_session(share_session_id)
-    state.share_project_manager.get_or_create_session_state(share_session_id)
+    share_session_id = await _require_share_session_id(websocket, state)
+    if share_session_id is None:
+        return
     await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
     await websocket_route_loop(
         websocket,
@@ -200,16 +225,20 @@ async def route_websocket_python_script(
         return
     share_session_id = None
     if state.share_mode:
-        await state.wait_until_ready()
         share_session_id = maybe_get_share_session_id_from_websocket(websocket)
         if share_session_id is None:
             if (
                 state.share_project_manager.share_policy.listenerIsolation
                 is ListenerIsolationMode.per_viewer
             ):
-                raise KeyError("Missing share session id for listener websocket")
+                await _close_with_code(websocket, 4400)
+                return
         else:
-            state.share_session_store.get_session(share_session_id)
+            if not state.share_session_store.has_session(share_session_id):
+                await _close_with_code(websocket, 4404)
+                return
+            state.share_session_store.touch_session(share_session_id)
+            state.share_project_manager.get_or_create_session_state(share_session_id)
     await websocket_route_loop(
         websocket,
         state.websocket_manager,

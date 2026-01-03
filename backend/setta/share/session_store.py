@@ -19,6 +19,9 @@ class ShareSessionStore:
     def get_session(self, session_id: str) -> ShareSession:
         raise NotImplementedError("ShareSessionStore.get_session is not implemented")
 
+    def has_session(self, session_id: str) -> bool:
+        raise NotImplementedError("ShareSessionStore.has_session is not implemented")
+
     def update_session(self, session_id: str, session: ShareSession) -> None:
         raise NotImplementedError("ShareSessionStore.update_session is not implemented")
 
@@ -56,6 +59,9 @@ class MemorySessionStore(ShareSessionStore):
         self.touch_session(session_id)
         return self._sessions[session_id]
 
+    def has_session(self, session_id: str) -> bool:
+        return session_id in self._sessions
+
     def update_session(self, session_id: str, session: ShareSession) -> None:
         if session_id not in self._sessions:
             raise KeyError(f"Unknown share session id: {session_id}")
@@ -88,6 +94,9 @@ class RedisSessionStore(ShareSessionStore):
         raise NotImplementedError("RedisSessionStore is not implemented")
 
     def get_session(self, session_id: str) -> ShareSession:
+        raise NotImplementedError("RedisSessionStore is not implemented")
+
+    def has_session(self, session_id: str) -> bool:
         raise NotImplementedError("RedisSessionStore is not implemented")
 
     def update_session(self, session_id: str, session: ShareSession) -> None:

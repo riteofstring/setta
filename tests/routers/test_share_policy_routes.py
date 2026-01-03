@@ -15,8 +15,10 @@ from setta.routers.llm import (
     route_set_llm_config,
 )
 from setta.routers.terminals import (
+    DeleteTerminalsRequest,
     KillSubprocessesRequest,
     RunCodeRequest,
+    route_delete_terminals,
     route_kill_subprocesses,
     route_run_code,
 )
@@ -160,7 +162,11 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_kill_subprocesses(kill_request, state)
+                await route_kill_subprocesses(
+                    kill_request,
+                    state,
+                    share_session_id=session.id,
+                )
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -191,6 +197,46 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(403, ctx.exception.status_code)
             self.assertIn("Share policy disallows changes to sections", ctx.exception.detail)
+
+    async def test_terminal_routes_require_share_session_id(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project_config_id = _write_share_project(root)
+            state = await self._build_state(root)
+
+            delete_request = DeleteTerminalsRequest(sectionIds=[create_new_id()])
+            with self.assertRaises(HTTPException) as ctx:
+                await route_delete_terminals(
+                    delete_request,
+                    state,
+                    share_session_id=None,
+                )
+            self.assertEqual(400, ctx.exception.status_code)
+
+            with self.assertRaises(HTTPException) as ctx:
+                await route_delete_terminals(
+                    delete_request,
+                    state,
+                    share_session_id="missing-session",
+                )
+            self.assertEqual(404, ctx.exception.status_code)
+
+            kill_request = KillSubprocessesRequest(projectConfigId=project_config_id)
+            with self.assertRaises(HTTPException) as ctx:
+                await route_kill_subprocesses(
+                    kill_request,
+                    state,
+                    share_session_id=None,
+                )
+            self.assertEqual(400, ctx.exception.status_code)
+
+            with self.assertRaises(HTTPException) as ctx:
+                await route_kill_subprocesses(
+                    kill_request,
+                    state,
+                    share_session_id="missing-session",
+                )
+            self.assertEqual(404, ctx.exception.status_code)
 
 
 if __name__ == "__main__":

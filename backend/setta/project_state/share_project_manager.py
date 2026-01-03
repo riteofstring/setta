@@ -310,6 +310,7 @@ class ShareProjectManager:
             policy=self.share_policy,
             frontend_sender=self.frontend_sender,
             project_config_id=self.project_config_id,
+            share_session_id=share_session_id,
         )
 
         if share_session_id is None:

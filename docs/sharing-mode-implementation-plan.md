@@ -85,7 +85,7 @@ Implemented:
   policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
-Status: mostly completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, and session cleanup/artifact caching are in place.
+Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, and session validation/cleanup/artifact caching are in place.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -113,6 +113,8 @@ Implemented:
   when present.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
   header/cookie/query and exposes session/overlay dependencies.
+- Share session ids are validated/touched against the session store before
+  creating overlays; missing/unknown ids return 400/404.
 - `backend/setta/routers/project_manager.py` now binds a per-request share
   session context so share-mode mutations use session-scoped managers.
 - `backend/setta/project_state/share_session_project_manager.py` provides a
@@ -125,14 +127,10 @@ Implemented:
   and managers.
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
-Remaining:
-- Share session context does not validate against `ShareSessionStore`; unknown
-  session ids can create overlays that are never tracked or cleaned up. Ensure
-  session ids are verified/touched when entering share-mode routes.
 
 ## 5) Policy enforcement
-Status: mostly completed. Policy checks are wired, and share-mode mutations now
-route through per-session managers.
+Status: completed. Policy checks are wired, and share-mode mutations now route
+through per-session managers.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
 - Load the share policy in `backend/setta/project_state/share_project_manager.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
@@ -156,11 +154,8 @@ Implemented:
 - Policy violations broadcast to the active share session (or all share
   sessions if the request is not session-scoped).
 - Run and LLM routes also block when share runtime services are not initialized.
-Remaining:
-- Missing share session ids currently raise `KeyError` (500) in some share-only
-  routes; convert to HTTP 400/404 responses.
-- Share policy enforcement in project-manager routes does not pass the active
-  share session id, so denial messages can broadcast to all sessions.
+- Policy helpers now resolve the active share session id from request context
+  when one is not passed explicitly.
 
 ## 6) Websocket scoping + realtime events
 Status: completed. Share websocket sessions are scoped end-to-end.
@@ -188,9 +183,8 @@ Implemented:
   `(project_config_id, share_session_id)` and passes session ids through.
 - `backend/setta/routers/websocket.py` passes share session ids on connect and
   adds the `/share/frontend` websocket route.
-Remaining:
-- `/share/frontend` does not wait for share initialization; mirror the readiness
-  wait used in the IDE websocket route to avoid connect-time races.
+- Share websocket routes validate share session ids and close with 4400/4404
+  when missing or unknown.
 
 ## 7) Listener runtime + isolation
 Status: completed. Listener runtime, session scoping, and share-mode listener
@@ -227,9 +221,7 @@ Implemented:
   notifications by share session and resets realtime sequences per session.
 - `backend/setta/share/listener_runtime.py` drops per-session modules on stop to
   avoid accumulating `sys.modules` entries.
-Remaining:
-- Session cleanup does not stop per-session listener runtimes; hook cleanup to
-  stop session listeners when sessions expire.
+- Share session cleanup stops per-session listener runtimes when sessions expire.
 
 ## 8) Run flow changes
 Status: partial. Run snapshot mode and share run roots are implemented, but
@@ -246,6 +238,9 @@ Implemented:
   `allowRun` is false.
 - Run/terminal routes also block if the share runtime did not initialize
   terminal services.
+- Terminal websocket connections validate share session ids and close with
+  4400/4404 when missing or unknown.
+- Run/terminal HTTP routes require share session ids in share mode.
 - Added `RunSnapshotMode` to settings + share policy, and use it in IDE/share
   run command creation.
 - Share run output writes to `setta_files/share_runs/<deployment>/<session>/<timestamp>`
@@ -277,9 +272,7 @@ Implemented:
   require a share session id in share mode, and are blocked when `allowLLM` is
   false or share LLM is not initialized.
 - `/llm/config` and `/llm/apiKeys` updates are blocked in share mode.
-Remaining:
-- Share chat managers are cached per session and not pruned on session cleanup;
-  add cleanup wiring so expired sessions drop their chat manager state.
+- Share session cleanup prunes per-session chat manager state.
 
 ## 10) Share access + auth model
 Status: in progress. Auth middleware still blocks share endpoints; share mode
@@ -348,7 +341,8 @@ Implemented:
 - `tests/project_state/test_share_project_manager.py` covers share run snapshot
   creation for `ephemeral` and canonical runs for `never`.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
-  precedence for HTTP and websocket requests plus share session context setup.
+  precedence for HTTP and websocket requests plus share session context setup
+  and touch behavior.
 - `tests/project_state/test_share_session_project_manager_switcher.py` covers
   per-session share manager routing and session context requirements.
 - `tests/share/test_policy.py` covers policy guard helpers.
@@ -361,12 +355,16 @@ Implemented:
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
+- `tests/share/test_session_cleanup.py` covers listener/chat cleanup on session
+  expiry.
 - `tests/websockets/test_websocket_manager_sessions.py` covers session-scoped
   websocket broadcasts and connection listings.
 - `tests/websockets/test_realtime_event_hub_sessions.py` covers per-session
   realtime sequencing.
 - `tests/websockets/test_frontend_receiver_share_mode.py` covers share websocket
   session enforcement and realtime forwarding.
+- `tests/routers/test_share_websocket_requirements.py` covers share frontend and
+  terminal websocket session requirements (4400/4404).
 - `tests/websockets/test_python_script_sender_share_sessions.py` covers
   listener realtime/force refresh filtering by share session id.
 - `tests/websockets/test_python_script_receiver_share_mode.py` covers share-mode

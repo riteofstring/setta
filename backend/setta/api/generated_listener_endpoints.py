@@ -235,10 +235,6 @@ class ListenerGroupSectionsRequestPayload(TypedDict):
     sectionIds: list[ID]
 
 
-class ListenerKillSubprocessesRequestPayload(TypedDict):
-    projectConfigId: NotRequired[ID]
-
-
 class ListenerMoveSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -733,11 +729,6 @@ class RouterEndpointAPI:
         self, payload: ListenerGroupSectionsRequestPayload
     ) -> None:
         return await self._caller("route_group_sections", payload)
-
-    async def kill_subprocesses(
-        self, payload: ListenerKillSubprocessesRequestPayload
-    ) -> None:
-        return await self._caller("route_kill_subprocesses", payload)
 
     async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
         return await self._caller("route_move_section", payload)

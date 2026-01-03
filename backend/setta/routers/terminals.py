@@ -2,14 +2,17 @@ import logging
 
 from fastapi import Request, WebSocket
 from pydantic import BaseModel
+from starlette.websockets import WebSocketState
 
 from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
+    MaybeShareSessionIdFromRequest,
     ReadyAppStateFromRequest,
     maybe_get_share_session_id_from_request,
+    maybe_get_share_session_id_from_websocket,
     require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
@@ -38,6 +41,12 @@ class RunCodeRequest(BaseModel):
     cliId: str | None = None
 
 
+async def _close_with_code(websocket: WebSocket, code: int) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=code)
+
+
 @terminals_ws_router.websocket(Route.TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
@@ -46,10 +55,21 @@ async def terminal_websocket_endpoint(
     id: str,
     state: AppStateFromWebsocket,
 ):
+    share_session_id = None
+    if state.share_mode:
+        share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+        if share_session_id is None:
+            await _close_with_code(websocket, 4400)
+            return
+        if not state.share_session_store.has_session(share_session_id):
+            await _close_with_code(websocket, 4404)
+            return
+        state.share_session_store.touch_session(share_session_id)
     allowed = await ensure_share_run_allowed_ws(
         state,
         websocket,
         project_config_id=projectConfigId,
+        share_session_id=share_session_id,
         section_ids=[sectionId],
     )
     if not allowed:
@@ -92,10 +112,16 @@ async def terminal_websocket_endpoint(
 
 
 @terminals_http_router.post(Route.DELETE_TERMINALS)
-async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromRequest):
+async def route_delete_terminals(
+    x: DeleteTerminalsRequest,
+    state: AppStateFromRequest,
+    share_session_id: MaybeShareSessionIdFromRequest,
+):
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_run_allowed(
         state,
         project_config_id=None,
+        share_session_id=share_session_id,
         section_ids=x.sectionIds,
     )
     await state.terminals.delete_terminals(x.sectionIds)
@@ -106,10 +132,13 @@ async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromR
 async def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     state: AppStateFromRequest,
+    share_session_id: MaybeShareSessionIdFromRequest,
 ):
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_run_allowed(
         state,
         project_config_id=x.projectConfigId,
+        share_session_id=share_session_id,
     )
     ids = state.terminals.get_existing_terminals(x.projectConfigId)
     num_killed = state.terminals.kill_processes(ids)
@@ -121,6 +150,7 @@ async def route_kill_subprocesses(
     await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         msg,
         project_config_id=x.projectConfigId,
+        share_session_id=share_session_id,
     )
 
 
