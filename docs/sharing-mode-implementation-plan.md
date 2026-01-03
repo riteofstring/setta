@@ -105,7 +105,7 @@ Implemented:
   policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
-Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, and session validation/cleanup/artifact caching are in place.
+Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, session validation/cleanup/artifact caching are in place, and share artifact updates broadcast to the active share session after caching.
 - Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
@@ -147,13 +147,11 @@ Implemented:
   and managers.
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
-Pending updates:
-- Share artifact update routes now broadcast artifact updates to the active
-  share session after caching so other viewers in the same session stay in sync.
+Pending updates: none.
 
 ## 5) Policy enforcement
-Status: mostly complete. Content mutation routes and rename refactor decisions
-are now gated; param selection gating is still open.
+Status: completed. Content mutation routes and rename refactor decisions are gated,
+and param selection routes are gated.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
 - Load the share policy in `backend/setta/project_state/share_project_manager.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
@@ -186,9 +184,7 @@ Implemented:
 - Run and LLM routes also block when share runtime services are not initialized.
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
-Pending updates:
-- Param selection routes (`route_toggle_param_selected`,
-  `route_unselect_all_params`) are gated by `allowParamChanges` in share mode.
+Pending updates: none.
 
 ## 6) Websocket scoping + realtime events
 Status: completed. Share websocket sessions are scoped end-to-end.
@@ -308,18 +304,14 @@ Implemented:
 - Share session cleanup prunes per-session chat manager state.
 
 ## 10) Share access + auth model
-Status: partially complete. Share mode is public by default and skips auth
-checks, but filesystem endpoints still need share-safe restrictions.
+Status: completed. Share mode is public by default and skips auth checks, and
+filesystem endpoints are restricted to share deployment subpaths.
 Implemented:
 - `backend/setta/server.py` skips `AuthMiddleware` when share mode is enabled
   (via `setta share` CLI flags).
 - Websocket auth checks are bypassed in share mode so share frontend and listener
   websockets follow the same public access policy.
-Pending updates:
-- Filesystem-touching endpoints (`/createFile`, `/newJSONVersionName`,
-  `/getFolderContents`, `/checkIfFileExists`) are constrained to share deployment
-  subpaths (artifacts/json_sources/code) in share mode, so draw/JSON edits remain
-  allowed without exposing the host filesystem.
+Pending updates: none.
 
 ## 11) Frontend share mode UX
 Status: completed. Project-config name/version routing is in place.
@@ -353,8 +345,9 @@ frontend bindings include share session/state endpoints.
 
 ## 13) Tests + verification
 Status: completed. Added publish deployment tests, share runtime boot tests,
-policy enforcement tests, share session/state tests, share run snapshot tests,
-cleanup tests, and share websocket scoping tests.
+policy enforcement tests (including param selection gating), share session/state
+tests, share run snapshot tests, cleanup tests, share websocket scoping tests,
+and share filesystem path restriction tests.
 - Add backend tests under `tests/` for:
   - Session isolation (changes in session A never affect session B).
   - Policy enforcement (mutations blocked, reads allowed).
@@ -394,6 +387,8 @@ Implemented:
 - `tests/routers/test_share_terminals.py` covers session-scoped terminal deletes.
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
+- `tests/routers/test_share_filesystem_routes.py` covers share-mode filesystem
+  path restrictions for share file endpoints.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
 - `tests/share/test_session_cleanup.py` covers listener/chat cleanup on session
   expiry.
@@ -419,9 +414,7 @@ Implemented:
 - `tests/llm/test_chat_store.py` covers `MemoryChatStore` persistence behavior.
 - `tests/start/test_startup_helpers.py` covers share CLI deployment root
   resolution and version parsing.
-Pending updates:
-- Add tests that share-mode filesystem endpoints reject paths outside the share
-  deployment root.
+Pending updates: none.
 
 ## Open questions
 - Should OSS share mode be open-by-default or require auth/bootstrap tokens?
