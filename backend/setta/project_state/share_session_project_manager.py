@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.logging.context import LoggingContextInput
 from setta.project_state.base_project_manager import BaseProjectManager
@@ -7,9 +9,13 @@ from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequ
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity, SettaNotification
-from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateBackend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+
+if TYPE_CHECKING:
+    from setta.lsp.managers import LSPWriters
+    from setta.types.project_state import ProjectStateSingleConfig
 
 
 class ShareSessionFrontendSender:
@@ -19,7 +25,7 @@ class ShareSessionFrontendSender:
 
     async def broadcast_project_state(
         self,
-        projectState: ProjectStateSingleConfig,
+        projectState: "ProjectStateSingleConfig",
         completedOpIds: list[str],
         pendingOpIds: list[str],
     ) -> None:
@@ -130,9 +136,11 @@ class ShareSessionProjectManager(BaseProjectManager):
         share_session_id: str,
         settings_file,
         python_script_sender: WMHPythonScriptSender,
+        lsp_writers: "LSPWriters | None" = None,
     ) -> None:
         self.share_project_manager = share_project_manager
         self.share_session_id = share_session_id
+        self._allow_lsp = lsp_writers is not None
         self._frontend_sender = ShareSessionFrontendSender(
             share_project_manager.frontend_sender,
             share_session_id,
@@ -150,8 +158,9 @@ class ShareSessionProjectManager(BaseProjectManager):
             specific_file_watcher,
             share_project_manager.dbe,
         )
+        resolved_lsp_writers = lsp_writers or _NoopLSPWriters()
         super().__init__(
-            lsp_writers=_NoopLSPWriters(),
+            lsp_writers=resolved_lsp_writers,
             websocket_msg_handler=self._frontend_sender,
             python_script_sender=python_script_sender,
             settings_file=settings_file,
@@ -187,13 +196,26 @@ class ShareSessionProjectManager(BaseProjectManager):
         return None
 
     def add_new_history_entry(self, trigger_autosave: bool = True) -> None:
+        _ = trigger_autosave
         self.history.add_current_copy()
 
     async def update(
         self,
-        projectState: ProjectStateSingleConfig,
+        projectState: "ProjectStateSingleConfig",
         updateFileWatcher: bool = True,
     ) -> None:
+        _ = updateFileWatcher
+        if self._allow_lsp:
+            await BaseProjectManager.update(
+                self,
+                projectState,
+                updateFileWatcher=False,
+            )
+            self.share_project_manager.update_session_state(
+                self.share_session_id,
+                projectState,
+            )
+            return
         async with self._project_state_lock.write_lock():
             self.share_project_manager.update_session_state(
                 self.share_session_id,
@@ -204,12 +226,32 @@ class ShareSessionProjectManager(BaseProjectManager):
             )
 
     async def replace_session_state(
-        self, projectState: ProjectStateSingleConfig
+        self, projectState: "ProjectStateSingleConfig"
     ) -> None:
+        if self._allow_lsp:
+            await BaseProjectManager.update(
+                self,
+                projectState,
+                updateFileWatcher=False,
+            )
+            return
         async with self._project_state_lock.write_lock():
             self.project_state_backend = self.get_new_project_state_backend(
                 projectState
             )
+
+    async def ensure_gen_code_ready(self) -> None:
+        if not self._allow_lsp:
+            return
+        project_config_id = self.share_project_manager.project_config_id
+        if project_config_id in self.gen_code:
+            return
+        project_state = self.get_single_config_state(project_config_id)
+        await BaseProjectManager.update(
+            self,
+            project_state,
+            updateFileWatcher=False,
+        )
 
     def shutdown(self) -> None:
         self.autosave_debouncer.cancel()

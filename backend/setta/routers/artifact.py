@@ -12,7 +12,11 @@ from setta.routers.dependencies import (
 )
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.share.path_guard import ensure_share_deployment_path
-from setta.share.policy import ensure_share_param_changes_allowed
+from setta.share.policy import (
+    ensure_share_artifact_paths_scoped,
+    ensure_share_param_changes_allowed,
+    resolve_section_ids_for_artifacts,
+)
 from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,
@@ -215,10 +219,23 @@ async def route_update_artifacts(
 ) -> list[ArtifactSaveResult]:
     if state.share_mode:
         session_id = require_share_session_id(state, share_session_id)
+        project_state = state.share_project_manager.get_session_state(session_id)
+        section_ids, unknown_paths = resolve_section_ids_for_artifacts(
+            project_state, x.artifacts
+        )
+        await ensure_share_artifact_paths_scoped(
+            share_mode=state.share_mode,
+            policy=state.share_project_manager.share_policy,
+            frontend_sender=state.wmh_frontend_sender,
+            project_config_id=None,
+            share_session_id=session_id,
+            unknown_paths=unknown_paths,
+        )
         await ensure_share_param_changes_allowed(
             state,
             project_config_id=None,
             share_session_id=session_id,
+            section_ids=section_ids if section_ids else None,
         )
         artifacts = state.share_project_manager.get_session_artifacts(session_id)
         results: list[ArtifactSaveResult] = []

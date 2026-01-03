@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,8 +22,10 @@ from setta.project_state.utils import (
 )
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
+    ensure_share_artifact_paths_scoped,
     ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
+    resolve_section_ids_for_artifacts,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -94,8 +97,9 @@ class ShareProjectManager:
         if session_id in self._session_states:
             raise KeyError(f"Share session already exists: {session_id}")
         project_state = self._build_base_state()
+        if self.share_policy.allowLSP:
+            self._rebase_session_code_paths(project_state, session_id)
         self._session_states[session_id] = project_state
-        self._initialize_session_artifacts(session_id, project_state)
         return project_state
 
     def get_session_state(self, session_id: str) -> "ProjectStateSingleConfig":
@@ -126,6 +130,10 @@ class ShareProjectManager:
             del self._session_artifacts[session_id]
         if session_id in self._session_managers:
             del self._session_managers[session_id]
+        if self.share_policy.allowLSP:
+            session_root = self._resolve_session_code_root(session_id)
+            if session_root.exists():
+                shutil.rmtree(session_root)
 
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
@@ -133,12 +141,6 @@ class ShareProjectManager:
         artifacts = Artifacts(self.frontend_sender, self._artifact_watcher, self.dbe)
         self._session_artifacts[session_id] = artifacts
         return artifacts
-
-    def _initialize_session_artifacts(
-        self, session_id: str, project_state: "ProjectStateSingleConfig"
-    ) -> None:
-        artifacts = self.get_session_artifacts(session_id)
-        artifacts.load_from_project_state(project_state)
 
     def get_session_ids(self) -> list[str]:
         return list(self._session_states.keys())
@@ -347,6 +349,28 @@ class ShareProjectManager:
             access_mode=binding.access_mode,
         )
 
+    def _resolve_session_code_root(self, session_id: str) -> Path:
+        return (self.dbe.runtime_root / "share_sessions" / session_id).resolve()
+
+    def _resolve_session_code_binding(
+        self,
+        binding: CodeFileBinding,
+        session_root: Path,
+    ) -> CodeFileBinding:
+        path = binding.canonical_path
+        if path.is_absolute():
+            if path.is_relative_to(self.deployment_root):
+                relative = path.relative_to(self.deployment_root)
+            else:
+                relative = Path(path.name)
+        else:
+            relative = path
+        resolved = normalize_path((session_root / relative).resolve())
+        return CodeFileBinding(
+            canonical_path=resolved,
+            access_mode=binding.access_mode,
+        )
+
     def _rebase_deployment_paths(self, project_state: ProjectStateBackend) -> None:
         rewrite_project_state_paths(
             project_state,
@@ -354,6 +378,27 @@ class ShareProjectManager:
             resolve_code_binding=self._resolve_code_binding,
             resolve_json_source_name=self._resolve_deployment_path,
         )
+
+    def _rebase_session_code_paths(
+        self,
+        project_state: "ProjectStateSingleConfig",
+        session_id: str,
+    ) -> None:
+        session_root = self._resolve_session_code_root(session_id)
+        session_root.mkdir(parents=True, exist_ok=True)
+
+        def resolve_code_binding(binding: CodeFileBinding) -> CodeFileBinding:
+            return self._resolve_session_code_binding(binding, session_root)
+
+        rewrite_project_state_paths(
+            project_state,
+            resolve_artifact_path=lambda path_str: path_str,
+            resolve_code_binding=resolve_code_binding,
+            resolve_json_source_name=lambda path_str: path_str,
+        )
+        gen_binding = project_state.genCodeBinding
+        if gen_binding is not None:
+            project_state.genCodeBinding = resolve_code_binding(gen_binding)
 
     def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
         return self.share_policy.runSnapshotMode
@@ -433,13 +478,9 @@ class ShareProjectManager:
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")
 
-        await ensure_share_listener_emits_allowed(
-            share_mode=True,
-            policy=self.share_policy,
-            frontend_sender=self.frontend_sender,
-            project_config_id=self.project_config_id,
-            share_session_id=share_session_id,
-        )
+        dependency_section_ids = [
+            update.dependencyKey.sectionId for update in dependency_updates
+        ]
 
         if share_session_id is None:
             raise KeyError("Share listener emit missing share session id")
@@ -448,6 +489,30 @@ class ShareProjectManager:
         session_id = share_session_id
         project_state = self._session_states[session_id]
         artifact_payloads = []
+
+        artifact_section_ids: list[ID] = []
+        if artifact_updates:
+            artifact_section_ids, unknown_paths = resolve_section_ids_for_artifacts(
+                project_state, artifact_updates
+            )
+            await ensure_share_artifact_paths_scoped(
+                share_mode=True,
+                policy=self.share_policy,
+                frontend_sender=self.frontend_sender,
+                project_config_id=self.project_config_id,
+                share_session_id=share_session_id,
+                unknown_paths=unknown_paths,
+            )
+
+        combined_section_ids = dependency_section_ids + artifact_section_ids
+        await ensure_share_listener_emits_allowed(
+            share_mode=True,
+            policy=self.share_policy,
+            frontend_sender=self.frontend_sender,
+            project_config_id=self.project_config_id,
+            share_session_id=share_session_id,
+            section_ids=combined_section_ids if combined_section_ids else None,
+        )
 
         if dependency_updates:
             apply_listener_dependency_updates(

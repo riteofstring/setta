@@ -33,12 +33,13 @@ Note: Share runtime is started via CLI flags (no env vars).
 
 ### 1) Two runtimes
 - IDE mode: full persistence, LSP, file watchers, autosave/manual save.
-- Share mode: read-only, no LSP, no file watchers, no writes to developer state.
+- Share mode: read-only by default, optional LSP via share policy, no file watchers, no writes to developer state.
 
 Share mode should still support:
 - Realtime UI changes (params, variants, layout, view modes, etc.) within a
   per-viewer overlay.
 - Optional listener execution per-viewer.
+- Optional LSP (completions + callable search) when allowed by policy.
 - Optional LLM and MCP (disabled by default).
 
 ### 2) Share deployment artifact (published snapshot)
@@ -93,6 +94,7 @@ A share policy defines what can be modified in share mode:
 - structural changes (add/delete sections)
 - params, variants, layouts, view modes
 - run/terminals
+- language server access (completions + callable search)
 - LLM or MCP access
 - allowed sections or controls
 
@@ -103,7 +105,8 @@ Example `share_policy.json`:
   "allowParamChanges": true,
   "allowVariantChanges": true,
   "allowLayoutChanges": true,
-  "allowRun": false
+  "allowRun": false,
+  "allowLSP": false
 }
 ```
 
@@ -197,7 +200,7 @@ Frontend:
 Phase 1: Share runtime skeleton
 - Share deployment artifact format + loader.
 - Share mode CLI flags + startup path.
-- Disable persistence, LSP, and watchers.
+- Disable persistence and watchers; LSP optional via policy.
 - In-memory session store + per-viewer overlay.
 
 Phase 2: Policy + listeners

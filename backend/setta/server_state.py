@@ -350,10 +350,17 @@ class SettaFastAPIState:
             allow_write=False,
         )
         self.share_project_manager.initialize_share_state(self.settings_file)
+        lsp_writers = None
+        if self.share_project_manager.share_policy.allowLSP:
+            self.lsps = LSPServers(self.settings_file.settings.languageServer)
+            self.lsp_writers = LSPWriters(self.lsps)
+            self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
+            lsp_writers = self.lsp_writers
         self.project_manager_switcher = ShareSessionProjectManagerSwitcher(
             self.share_project_manager,
             self.settings_file,
             self.wmh_python_script_sender,
+            lsp_writers=lsp_writers,
         )
         if self.share_project_manager.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
@@ -449,6 +456,13 @@ class SettaFastAPIState:
                 "deployment_version": self.share_project_manager.deployment_version,
             },
         )
+        if self.lsps and self.lsp_readers and self.lsp_writers:
+            spawn_background_task(
+                start_lsps(self.lsps, self.lsp_readers, self.lsp_writers),
+                label="lsp-startup",
+                request_id="boot",
+                extra_values={"service": "language-servers"},
+            )
         self._ready_event.set()
         self.init_status.record("Share backend ready")
         self.init_status.mark_ready()

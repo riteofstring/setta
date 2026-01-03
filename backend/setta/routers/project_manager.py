@@ -95,6 +95,7 @@ from setta.routers.dependencies import (
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.share.policy import (
     ensure_share_layout_changes_allowed,
+    ensure_share_lsp_allowed,
     ensure_share_param_changes_allowed,
     ensure_share_run_allowed,
     ensure_share_structural_changes_allowed,
@@ -130,61 +131,99 @@ def _resolve_section_id_for_variant(
     )
 
 
+async def _ensure_share_lsp_ready(
+    state: AppStateFromRequest,
+    manager: "BaseProjectManager",
+) -> None:
+    if not state.share_mode:
+        return
+    if not state.share_project_manager.share_policy.allowLSP:
+        return
+    await manager.ensure_gen_code_ready()
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
 ) -> None:
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).clear_text_field_completion(x)
+    await ensure_share_lsp_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    await _ensure_share_lsp_ready(state, manager)
+    await manager.clear_text_field_completion(x)
 
 
 @router.post(Route.SET_CALLABLE)
 async def route_set_callable(
     x: SetCallableRequest, state: AppStateFromRequest
 ) -> SetCallableResponse:
+    await ensure_share_lsp_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        share_session_id=get_share_session_id(),
+    )
     await ensure_share_param_changes_allowed(
         state,
         project_config_id=x.projectConfigId,
         section_ids=[x.sectionId],
     )
-    return await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    await _ensure_share_lsp_ready(state, manager)
+    return await manager.set_callable(x)
 
 
 @router.post(Route.TEXT_FIELD_COMPLETION)
 async def route_text_field_completion(
     x: TextFieldCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).text_field_completion(x)
+    await ensure_share_lsp_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    await _ensure_share_lsp_ready(state, manager)
+    return await manager.text_field_completion(x)
 
 
 @router.post(Route.CODE_AREA_COMPLETION)
 async def route_code_area_completion(
     x: CodeAreaCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).code_area_completion(x)
+    await ensure_share_lsp_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    await _ensure_share_lsp_ready(state, manager)
+    return await manager.code_area_completion(x)
 
 
 @router.post(Route.GEN_CODE_PREFIX_COMPLETION)
 async def route_gen_code_prefix_completion(
     x: GenCodePrefixCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).gen_code_prefix_completion(x)
+    await ensure_share_lsp_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    await _ensure_share_lsp_ready(state, manager)
+    return await manager.gen_code_prefix_completion(x)
 
 
 @router.post(Route.GEN_CODE_SUFFIX_COMPLETION)
 async def route_gen_code_suffix_completion(
     x: GenCodeSuffixCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
-    return await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).gen_code_suffix_completion(x)
+    await ensure_share_lsp_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    await _ensure_share_lsp_ready(state, manager)
+    return await manager.gen_code_suffix_completion(x)
 
 
 @router.post(Route.CHANGE_PARAM_IMPL)

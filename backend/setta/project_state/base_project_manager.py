@@ -151,8 +151,10 @@ from setta.project_state.project_manager_types import (
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.share.policy import (
+    ensure_share_artifact_paths_scoped,
     ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
+    resolve_section_ids_for_artifacts,
 )
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -1672,16 +1674,31 @@ class BaseProjectManager(ABC):
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")
 
+        project_state = self.get_single_config_state(projectConfigId)
+
         if C.SHARE_MODE:
             policy = load_share_policy_from_dbe(self.dbe)
+            dependency_section_ids = [
+                update.dependencyKey.sectionId for update in dependency_updates
+            ]
+            artifact_section_ids, unknown_paths = resolve_section_ids_for_artifacts(
+                project_state, artifact_updates
+            )
+            await ensure_share_artifact_paths_scoped(
+                share_mode=C.SHARE_MODE,
+                policy=policy,
+                frontend_sender=self.websocket_msg_handler,
+                project_config_id=projectConfigId,
+                unknown_paths=unknown_paths,
+            )
+            combined_section_ids = dependency_section_ids + artifact_section_ids
             await ensure_share_listener_emits_allowed(
                 share_mode=C.SHARE_MODE,
                 policy=policy,
                 frontend_sender=self.websocket_msg_handler,
                 project_config_id=projectConfigId,
+                section_ids=combined_section_ids if combined_section_ids else None,
             )
-
-        project_state = self.get_single_config_state(projectConfigId)
         artifact_payloads: list[BaseArtifactUnion] = []
 
         if dependency_updates:

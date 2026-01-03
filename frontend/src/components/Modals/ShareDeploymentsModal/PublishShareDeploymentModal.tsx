@@ -30,6 +30,7 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
     allowLayoutChanges: true,
     allowStructuralChanges: true,
     allowRun: false,
+    allowLSP: false,
     allowLLM: false,
     allowMCP: false,
     runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
@@ -207,6 +208,12 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             description="Allow code execution in share mode."
             checked={policyOverrides.allowRun}
             onChange={(checked) => setPolicyFlag("allowRun", checked)}
+          />
+          <ToggleRow
+            label="Language server (LSP)"
+            description="Enable completions + callable search."
+            checked={policyOverrides.allowLSP}
+            onChange={(checked) => setPolicyFlag("allowLSP", checked)}
           />
           <ToggleRow
             label="LLM access"

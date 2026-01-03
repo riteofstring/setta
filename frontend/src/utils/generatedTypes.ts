@@ -4850,6 +4850,7 @@ const SharePolicySchema = z.object({
   allowLayoutChanges: z.boolean().default(true),
   allowStructuralChanges: z.boolean().default(true),
   allowRun: z.boolean().default(false),
+  allowLSP: z.boolean().default(false),
   allowLLM: z.boolean().default(false),
   allowMCP: z.boolean().default(false),
   runSnapshotMode: z
@@ -6019,6 +6020,7 @@ const SharePolicyOverridesSchema = z.object({
   allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
   allowStructuralChanges: z.union([z.boolean(), z.null()]).default(null),
   allowRun: z.union([z.boolean(), z.null()]).default(null),
+  allowLSP: z.union([z.boolean(), z.null()]).default(null),
   allowLLM: z.union([z.boolean(), z.null()]).default(null),
   allowMCP: z.union([z.boolean(), z.null()]).default(null),
   runSnapshotMode: z

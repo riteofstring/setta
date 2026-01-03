@@ -6,6 +6,7 @@ from setta.types.helpers_lvl2 import ProjectNotFound
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
+    from setta.lsp.managers import LSPWriters
     from setta.project_state.share_project_manager import ShareProjectManager
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.python_script_sender import (
@@ -19,10 +20,12 @@ class ShareSessionProjectManagerSwitcher:
         share_project_manager: "ShareProjectManager",
         settings_file: "SettingsFile",
         python_script_sender: "WMHPythonScriptSender",
+        lsp_writers: "LSPWriters | None" = None,
     ) -> None:
         self.share_project_manager = share_project_manager
         self.settings_file = settings_file
         self.python_script_sender = python_script_sender
+        self.lsp_writers = lsp_writers
         self._session_managers: dict[str, ShareSessionProjectManager] = {}
 
     def _get_or_create_manager(
@@ -35,6 +38,7 @@ class ShareSessionProjectManagerSwitcher:
             share_session_id=share_session_id,
             settings_file=self.settings_file,
             python_script_sender=self.python_script_sender,
+            lsp_writers=self.lsp_writers,
         )
         self._session_managers[share_session_id] = manager
         return manager

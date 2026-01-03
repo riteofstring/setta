@@ -39,6 +39,7 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowLayoutChanges: bool = True
     allowStructuralChanges: bool = True
     allowRun: bool = False
+    allowLSP: bool = False
     allowLLM: bool = False
     allowMCP: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral

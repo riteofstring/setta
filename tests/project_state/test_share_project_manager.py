@@ -349,7 +349,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
 
-    def test_session_state_preloads_artifacts(self) -> None:
+    def test_session_state_does_not_preload_artifacts(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             relative_image_path = Path("artifacts") / "preview.png"
@@ -369,8 +369,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             artifacts = manager.get_session_artifacts("session-a")
             cached = artifacts.get_cached_image(image_path)
 
-            self.assertIsNotNone(cached)
-            self.assertEqual(str(normalize_path(image_path)), cached.id)
+            self.assertIsNone(cached)
 
     def test_relative_canvas_paths_are_rebased(self) -> None:
         with TemporaryDirectory() as tmpdir:

@@ -5,12 +5,21 @@ from starlette.websockets import WebSocketState
 
 from setta.database.db_objs import DBE
 from setta.share.session_context import get_share_session_id
+from setta.types.helpers_lvl1 import get_variant_effective_section_impl
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.section_impls import (
+    ChartSectionImpl,
+    DrawSectionImpl,
+    ImageSectionImpl,
+)
 from setta.types.share_deployment import SharePolicy
+from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.server_state import SettaFastAPIState
+    from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+    from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
@@ -36,6 +45,58 @@ def _disallowed_sections(section_ids: list[ID], allowed_sections: list[ID]) -> l
         if section_id not in allowed_sections:
             disallowed.append(section_id)
     return disallowed
+
+
+def _register_artifact_path(
+    mapping: dict[str, set[ID]],
+    path_str: str,
+    section_id: ID,
+) -> None:
+    if not path_str:
+        return
+    normalized = str(normalize_path(path_str))
+    if normalized not in mapping:
+        mapping[normalized] = set()
+    mapping[normalized].add(section_id)
+
+
+def resolve_section_ids_for_artifacts(
+    project_state: "ProjectStateSingleConfig",
+    artifacts: list["BaseArtifactUnionWithDiscriminator"],
+) -> tuple[list[ID], list[str]]:
+    if not artifacts:
+        return [], []
+    path_to_sections: dict[str, set[ID]] = {}
+    for section_id, section in project_state.sections.items():
+        for variant_id in section.variants:
+            impl = get_variant_effective_section_impl(
+                project_state, section_id, variant_id
+            )
+            if isinstance(impl, ImageSectionImpl):
+                _register_artifact_path(path_to_sections, impl.imagePath, section_id)
+                continue
+            if isinstance(impl, ChartSectionImpl):
+                _register_artifact_path(path_to_sections, impl.dataPath, section_id)
+                continue
+            if isinstance(impl, DrawSectionImpl):
+                for layer in impl.layers:
+                    for element in layer.elements:
+                        _register_artifact_path(
+                            path_to_sections, element.dataPath, section_id
+                        )
+                        _register_artifact_path(
+                            path_to_sections, element.transformId, section_id
+                        )
+    resolved_ids: set[ID] = set()
+    unknown_paths: list[str] = []
+    for artifact in artifacts:
+        normalized = str(normalize_path(artifact.id))
+        section_ids = path_to_sections.get(normalized)
+        if section_ids:
+            resolved_ids.update(section_ids)
+        else:
+            unknown_paths.append(normalized)
+    return list(resolved_ids), unknown_paths
 
 
 async def _notify_and_raise(
@@ -355,6 +416,7 @@ async def ensure_share_listener_emits_allowed(
     frontend_sender: "WMHFrontendSender",
     project_config_id: ID | None,
     share_session_id: str | None = None,
+    section_ids: list[ID] | None = None,
 ) -> None:
     await enforce_share_policy(
         share_mode=share_mode,
@@ -363,5 +425,58 @@ async def ensure_share_listener_emits_allowed(
         policy_flag="allowParamChanges",
         denied_message="Share policy disallows listener updates.",
         project_config_id=project_config_id,
+        share_session_id=share_session_id,
+        section_ids=section_ids,
+    )
+
+
+async def ensure_share_lsp_allowed(
+    state: "SettaFastAPIState",
+    *,
+    project_config_id: ID | None,
+    share_session_id: str | None = None,
+) -> None:
+    await enforce_share_policy(
+        share_mode=state.share_mode,
+        policy=_policy_from_state(state),
+        frontend_sender=state.wmh_frontend_sender,
+        policy_flag="allowLSP",
+        denied_message="Share policy disallows language server features.",
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+    )
+    if state.share_mode and not state.lsp_writers:
+        await _notify_and_raise(
+            state.wmh_frontend_sender,
+            message="Share LSP support is not enabled.",
+            project_config_id=project_config_id,
+            share_mode=state.share_mode,
+            share_session_id=share_session_id,
+        )
+
+
+async def ensure_share_artifact_paths_scoped(
+    *,
+    share_mode: bool,
+    policy: SharePolicy,
+    frontend_sender: "WMHFrontendSender",
+    project_config_id: ID | None,
+    share_session_id: str | None = None,
+    unknown_paths: list[str] | None = None,
+) -> None:
+    if not share_mode:
+        return
+    if policy.allowedSections is None:
+        return
+    if not unknown_paths:
+        return
+    message = "Share policy disallows changes to unscoped artifacts: " + ", ".join(
+        unknown_paths
+    )
+    await _notify_and_raise(
+        frontend_sender,
+        message=message,
+        project_config_id=project_config_id,
+        share_mode=share_mode,
         share_session_id=share_session_id,
     )

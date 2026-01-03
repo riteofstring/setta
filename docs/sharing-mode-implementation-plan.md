@@ -58,9 +58,9 @@ Latest completion updates (this branch):
   folder derived from the deployment root (standard layout resolves under
   `setta_files/`) so deployment roots remain immutable.
 - Artifact caches are populated by file watchers; `get_cached_*` does not read
-  from disk (`backend/setta/project_state/artifacts.py`). Share mode now
-  preloads artifacts on session creation and share artifact routes load from
-  disk on cache misses.
+  from disk (`backend/setta/project_state/artifacts.py`). Share mode skips
+  per-session artifact preloads; share artifact routes load from disk on cache
+  misses.
 - `SharePolicy` is defined in `backend/setta/types/share_deployment.py` and
   enforced via helpers in `backend/setta/share/policy.py`.
 
@@ -72,7 +72,7 @@ in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (schema version, projectConfigId,
     projectConfigName, deploymentVersion, createdAt, listener config).
-  - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, allowedSections).
+  - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLSP, allowLLM, allowMCP, runSnapshotMode, allowedSections).
   - `ShareDeploymentMetadata` (projectConfigName, deploymentVersion, createdAt,
     path, policy path).
   - `ShareDeploymentSessionResponse` (projectConfigName, deploymentVersion,
@@ -128,7 +128,7 @@ Status: completed. CLI-flag startup + name/version selection are implemented.
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
   - Loads from a deployment root (not `C.SETTA_FILES_FOLDER`).
-  - Skips `SpecificFileWatcher`, LSP startup, MCP, and LLM watchers unless allowed.
+  - Skips `SpecificFileWatcher`, LSP startup, MCP, and LLM watchers unless allowed by policy.
   - Initializes a share session store and share project manager.
 - Ensure share routers are included in `backend/setta/server.py` so endpoint
   generation in `frontend/generation/convert_endpoints.py` can see them.
@@ -139,7 +139,7 @@ Implemented:
 - Removed share env-var startup; share mode is configured by CLI at launch.
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
-  deployment root, and skips watchers/LSP boot.
+  deployment root, skips watchers, and only boots LSP when allowed by policy.
 - Share CLI derives project config name/version from `manifest.json` so the
   share URL stays correct even when `--deployment-root` is relocated.
 - Share mode uses `setta_files/share_runtime/<project_config_name>/<version>`
@@ -156,7 +156,7 @@ Status: completed. ShareProjectManager + session store exist, share-mode mutatio
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
   - `watch_json_source_files`, `watch_artifact_files`, `watch_code_files` are no-ops.
-  - Override `update` to avoid writing canonical files or touching LSPs.
+  - Override `update` to avoid writing canonical files; only touch LSPs when allowed by policy.
   - Override `create_run_command` to use a share run root (see step 8).
 - Add `ShareSessionStore` in `backend/setta/share/session_store.py`:
   - Methods: `create_session`, `get_session`, `update_session`, `touch_session`,
@@ -175,13 +175,15 @@ Implemented:
   state on updates.
 - `ShareProjectManager` tracks per-session artifacts and applies listener emits,
   broadcasting project state/artifact updates to the correct session(s).
-- `ShareProjectManager` preloads per-session artifact caches from the snapshot
-  and share artifact routes load from disk on cache misses.
+- `ShareProjectManager` skips per-session artifact preloads; share artifact routes
+  load from disk on cache misses.
 - `ShareProjectManager` rehydrates json-source values from `json_sources/` on
   share boot (option 2) so stripped values are restored in session overlays.
 - `ShareProjectManager` rebases deployment-relative paths for image/chart/draw
   artifacts, draw transforms, code bindings, and json-source variant names to
   runtime paths on share boot.
+- Share sessions optionally rebase code bindings to per-session runtime roots
+  when LSP is enabled by policy.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
   header/cookie/query and exposes session/overlay dependencies.
 - Share session ids are validated/touched against the session store before
@@ -218,6 +220,8 @@ and param selection routes are gated.
   - Run/terminals: `route_run_code`, `route_kill_subprocesses`,
     `route_delete_terminals`, and terminal websocket in
     `backend/setta/routers/terminals.py`.
+  - LSP routes: text/code completions and `route_set_callable` in
+    `backend/setta/routers/project_manager.py`.
   - Listener emits: `apply_listener_emit_updates` in
     `backend/setta/project_state/base_project_manager.py`.
   - LLM routes: `backend/setta/routers/ai.py` + `backend/setta/routers/llm.py`.
@@ -237,6 +241,8 @@ Implemented:
   `allowParamChanges` in share mode.
 - Rename refactor accept/decline routes are gated by `allowStructuralChanges`.
 - Run and LLM routes also block when share runtime services are not initialized.
+- LSP routes are gated by `allowLSP`, and share mode checks LSP initialization
+  before servicing LSP requests.
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
 - Additional gating covers kwarg add/delete, section renames, callable hide params,
