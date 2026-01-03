@@ -22,7 +22,7 @@ from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -166,7 +166,6 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             listener_runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=None,
-                policy=SharePolicy(),
                 project_config_id=share_project_manager.project_config_id,
             )
             module_name = f"share_listener_{session.id}"

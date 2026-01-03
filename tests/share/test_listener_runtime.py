@@ -6,10 +6,8 @@ from tempfile import TemporaryDirectory
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.types.id import ID
 from setta.types.share_deployment import (
-    ListenerIsolationMode,
     ShareDeploymentListenerConfig,
     ShareDeploymentManifest,
-    SharePolicy,
 )
 
 
@@ -55,11 +53,10 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 ShareListenerRuntime(
                     deployment_root=root,
                     manifest=manifest,
-                    policy=SharePolicy(),
                     project_config_id=project_config_id,
                 )
 
-    async def test_per_viewer_requires_session_id(self) -> None:
+    async def test_requires_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             _write_listener_entrypoint(root)
@@ -71,43 +68,11 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=manifest,
-                policy=SharePolicy(
-                    listenerIsolation=ListenerIsolationMode.per_viewer
-                ),
                 project_config_id=project_config_id,
             )
 
             with self.assertRaises(KeyError):
                 await runtime.ensure_listener_for_session(None)
-
-    async def test_shared_listener_reuses_handle(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_listener_entrypoint(root)
-            project_config_id = ID("proj-shared")
-            manifest = _build_manifest(
-                project_config_id,
-                entrypoint="listener.py",
-            )
-            runtime = ShareListenerRuntime(
-                deployment_root=root,
-                manifest=manifest,
-                policy=SharePolicy(listenerIsolation=ListenerIsolationMode.shared),
-                project_config_id=project_config_id,
-            )
-
-            await runtime.ensure_listener_for_session(None)
-            handle = runtime._shared_handle
-            if handle is None:
-                raise AssertionError("expected shared listener handle")
-            self.assertEqual([None], handle.module.BUILT)
-
-            await runtime.ensure_listener_for_session(None)
-            self.assertIs(handle, runtime._shared_handle)
-            self.assertEqual([None], handle.module.BUILT)
-
-            runtime.stop_shared_listener()
-            await asyncio.gather(handle.task, return_exceptions=True)
 
     async def test_stop_session_listener_and_stop_all(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -121,9 +86,6 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
             runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=manifest,
-                policy=SharePolicy(
-                    listenerIsolation=ListenerIsolationMode.per_viewer
-                ),
                 project_config_id=project_config_id,
             )
 
@@ -142,7 +104,6 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
             runtime.stop_all()
             self.assertFalse(runtime._session_handles)
-            self.assertIsNone(runtime._shared_handle)
 
             await asyncio.gather(
                 handle_a.task,

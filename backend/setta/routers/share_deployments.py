@@ -7,6 +7,7 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
+from setta.project_state.jsonSource.save import build_json_source_payloads
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -30,7 +31,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import (
-    ListenerIsolationMode,
     ShareDeploymentListenerConfig,
     ShareDeploymentManifest,
     ShareDeploymentMetadata,
@@ -57,7 +57,6 @@ class SharePolicyOverrides(BaseModel, extra="forbid"):
     allowLLM: bool | None = None
     allowMCP: bool | None = None
     runSnapshotMode: RunSnapshotMode | None = None
-    listenerIsolation: ListenerIsolationMode | None = None
     allowedSections: list[ID] | None = None
 
 
@@ -66,7 +65,6 @@ class PublishShareDeploymentRequest(BaseModel, extra="forbid"):
     sharePolicyOverrides: SharePolicyOverrides | None = None
     listenerEntrypoint: str | None = None
     listenerEnabled: bool = True
-    listenerIsolation: ListenerIsolationMode | None = None
 
 
 def _create_deployment_root(project_config_name: str) -> tuple[str, Path]:
@@ -158,7 +156,6 @@ def _copy_json_source_path(
         return path_map[path_str]
     source_path = _resolve_source_path(path_str)
     target_path = _json_source_target_path(source_path, json_root)
-    _copy_file(source_path, target_path)
     rebased = _share_relative_path(target_path, deployment_root)
     path_map[path_str] = rebased
     return rebased
@@ -188,13 +185,10 @@ def _copy_code_file_binding(
 
 def _apply_share_policy_overrides(
     overrides: SharePolicyOverrides | None,
-    listener_isolation: ListenerIsolationMode | None,
 ) -> SharePolicy:
     policy = SharePolicy()
     if overrides:
         policy = policy.model_copy(update=overrides.model_dump(exclude_none=True))
-    if listener_isolation is not None:
-        policy.listenerIsolation = listener_isolation
     return policy
 
 
@@ -264,22 +258,24 @@ def _rebase_project_state_paths(
     )
 
 
+def _resolve_deployment_relative_path(path: Path, deployment_root: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return (deployment_root / path).resolve()
+
+
 def _copy_listener_entrypoint(
     source_path: str,
     deployment_root: Path,
-    policy: SharePolicy,
     *,
     enabled: bool,
-    isolation: ListenerIsolationMode | None,
 ) -> ShareDeploymentListenerConfig:
     listener_root = deployment_root / "listener"
     target_path = listener_root / "app.py"
     _copy_file(_resolve_source_path(source_path), target_path)
-    listener_isolation = isolation or policy.listenerIsolation
     return ShareDeploymentListenerConfig(
         entrypoint=Path("listener/app.py").as_posix(),
         enabled=enabled,
-        isolation=listener_isolation,
     )
 
 
@@ -488,7 +484,7 @@ async def route_publish_share_deployment(
 
     project_config = project_state_backend.projectConfigs[x.projectConfigId]
     deployment_version, deployment_root = _create_deployment_root(project_config.name)
-    policy = _apply_share_policy_overrides(x.sharePolicyOverrides, x.listenerIsolation)
+    policy = _apply_share_policy_overrides(x.sharePolicyOverrides)
     if policy.runSnapshotMode == RunSnapshotMode.never:
         raise HTTPException(
             status_code=400,
@@ -499,13 +495,15 @@ async def route_publish_share_deployment(
         listener_config = _copy_listener_entrypoint(
             x.listenerEntrypoint,
             deployment_root,
-            policy,
             enabled=x.listenerEnabled,
-            isolation=x.listenerIsolation,
         )
 
     snapshot = project_state_backend.model_copy(deep=True)
     _rebase_project_state_paths(snapshot, deployment_root)
+    json_source_payloads = build_json_source_payloads(snapshot)
+    for filename, data in json_source_payloads.items():
+        target_path = _resolve_deployment_relative_path(filename, deployment_root)
+        state.dbe.write_json(target_path, data)
 
     manifest = ShareDeploymentManifest(
         version=1,

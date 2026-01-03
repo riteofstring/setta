@@ -5,12 +5,17 @@ steps based on the current code layout.
 
 Note: Share startup uses CLI flags (no env vars).
 
-Current status: All steps below are completed in this branch. Each section
-lists the implemented work, and there are no pending items.
+Current status: Most steps below are completed in this branch. Known gaps to track:
+- Share runtime root is derived from the deployment root's parent chain, so
+  relocated deployments can change the runtime location.
+- Share session cleanup does not terminate terminals for expired sessions.
+- Draw-layer artifact publishing still copies all layers after the first change.
 
 Latest completion updates (this branch):
 - Share deployment publish now uses the in-memory project manager state after
   draining ops, so snapshots reflect the latest edits even without a DB save.
+- JSON source publishing uses in-memory values instead of on-disk JSON source files.
+- Listener execution is per-session only; shared listener isolation was removed.
 - Share startup derives the share URL from `manifest.json`, so relocated
   deployment roots still produce the correct `/share/<name>/<version>` URL.
 - Share deployment roots can be relocated without name/version directory
@@ -19,7 +24,8 @@ Latest completion updates (this branch):
   into deployment roots.
 - Path rebasing for share deployments is centralized in
   `rewrite_project_state_paths` and reused by publish + share boot.
-- New tests cover manager-state publishing and relocated deployment roots.
+- New tests cover manager-state publishing, in-memory JSON source publishing,
+  and relocated deployment roots.
 
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
@@ -33,8 +39,8 @@ Latest completion updates (this branch):
 - `ProjectManager.save()` strips JSON source values and writes them into
   JSON source files (`backend/setta/project_state/project_manager.py`,
   `backend/setta/project_state/jsonSource/save.py`). Share deployment export now
-  includes those JSON source files and rebases their paths so values can be
-  rehydrated on share boot.
+  writes JSON source payloads from in-memory state and rebases their paths so
+  values can be rehydrated on share boot.
 - Code file bindings point at canonical paths (`backend/setta/project_state/project_code.py`,
   `backend/setta/project_state/code_files.py`). Share deployment export now
   copies code files into `code/` and rebases bindings to deployment-relative
@@ -44,9 +50,9 @@ Latest completion updates (this branch):
   settings with `allow_write=False` so deployments remain write-free (missing
   settings slices fall back to defaults without writing to disk).
 - `DBE` writes file locks and the temporary id map. Share mode now points
-  `runtime_root`/`lock_root` at
-  `setta_files/share_runtime/<project_config_name>/<version>` so deployment
-  roots remain immutable.
+  `runtime_root`/`lock_root` at a `share_runtime/<project_config_name>/<version>`
+  folder derived from the deployment root (standard layout resolves under
+  `setta_files/`) so deployment roots remain immutable.
 - Artifact caches are populated by file watchers; `get_cached_*` does not read
   from disk (`backend/setta/project_state/artifacts.py`). Share mode now
   preloads artifacts on session creation and share artifact routes load from
@@ -62,7 +68,7 @@ in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (schema version, projectConfigId,
     projectConfigName, deploymentVersion, createdAt, listener config).
-  - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, listenerIsolation, allowedSections).
+  - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, allowedSections).
   - `ShareDeploymentMetadata` (projectConfigName, deploymentVersion, createdAt,
     path, policy path).
   - `ShareDeploymentSessionResponse` (projectConfigName, deploymentVersion,
@@ -98,8 +104,8 @@ Implemented in `backend/setta/routers/share_deployments.py`.
   - Copy referenced artifacts from `setta_files/artifacts` into the deployment
     root under `artifacts/`, and rebase artifact paths in the exported
     `project.json` to deployment-relative paths.
-  - Copy JSON source files into `json_sources/` and rebase `variant.name` paths
-    to deployment-relative paths.
+  - Write JSON source files from in-memory state into `json_sources/` and rebase
+    `variant.name` paths to deployment-relative paths.
   - Copy code files into `code/` and rebase `CodeFileBinding.canonical_path` to
     deployment-relative paths.
   - Copy listener entrypoint (if present) into `listener/` inside the deployment.
@@ -172,8 +178,6 @@ Implemented:
 - `ShareProjectManager` rebases deployment-relative paths for image/chart/draw
   artifacts, draw transforms, code bindings, and json-source variant names to
   runtime paths on share boot.
-- `ShareProjectManager` applies listener isolation defaults from `manifest.json`
-  when present.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
   header/cookie/query and exposes session/overlay dependencies.
 - Share session ids are validated/touched against the session store before
@@ -268,14 +272,11 @@ Implemented:
 - Share websocket routes validate share session ids and close with 4400/4404
   when missing or unknown.
 
-## 7) Listener runtime + isolation
+## 7) Listener runtime
 Status: completed. Listener runtime, session scoping, and share-mode listener
 websocket handling are implemented.
 - Add `backend/setta/share/listener_runtime.py` to load and run
   `listener/app.py` from the deployment root.
-- Implement isolation modes:
-  - `per_viewer`: one listener instance per share session.
-  - `shared`: one listener instance per deployment version.
 - Extend `backend/setta/websockets/listener_registry.py` to index registrations
   by session id; filter emits in `WMHPythonScriptSender` and updates in
   `WMHPythonScriptReceiver`.
@@ -283,8 +284,7 @@ websocket handling are implemented.
   `BaseProjectManager.apply_listener_emit_updates`.
 Implemented:
 - `backend/setta/share/listener_runtime.py` loads the share listener entrypoint
-  and runs `SettaListener` instances per session or shared, depending on
-  `SharePolicy.listenerIsolation`.
+  and runs `SettaListener` instances per session.
 - `backend/setta/api/listener.py` appends `shareSessionId` to listener websocket
   URLs when provided.
 - `backend/setta/types/listener.py` adds `shareSessionId` to realtime/action/force
@@ -294,7 +294,7 @@ Implemented:
   session and resets them per session on refresh payloads.
 - `backend/setta/routers/websocket.py` ensures share session state exists and
   starts the share listener runtime on frontend connections; listener websockets
-  accept optional share session ids and enforce `per_viewer` requirements.
+  require share session ids in share mode.
 - `backend/setta/routers/listener.py` scopes listener coverage snapshots to the
   share session in share mode.
 - `backend/setta/websockets/listener_registry.py` stores share session ids per
@@ -302,8 +302,8 @@ Implemented:
 - `backend/setta/websockets/msg_handlers/python_script_receiver.py` handles
   share-mode listener init/register/emit flows, uses share session state and
   artifacts, and broadcasts listener coverage snapshots per session.
-- Shared-mode listener emits resolve dependency updates per session before
-  applying to all overlays.
+- Listener emits resolve dependency updates per session before applying to
+  per-viewer overlays.
 - `backend/setta/websockets/msg_handlers/python_script_sender.py` filters listener
   notifications by share session and resets realtime sequences per session.
 - `backend/setta/share/listener_runtime.py` drops per-session modules on stop to
@@ -402,8 +402,8 @@ Implemented:
  - Publish/redeploy UI: IDE entry point (File menu) and modal with policy toggles
    (allowStructuralChanges, allowParamChanges, allowVariantChanges,
    allowLayoutChanges, allowRun, allowLLM, allowMCP).
- - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
-   and run snapshot mode.
+ - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag) and run
+   snapshot mode.
  - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
    and shows config/version + share URL with copy/open actions + recent list.
  - Publish/redeploy UI: shows share-backend startup instructions.
@@ -435,6 +435,8 @@ Implemented:
   plus latest/version list endpoints.
 - `tests/routers/test_share_deployments.py` covers publishing from the latest
   in-memory project manager state (no DB write required).
+- `tests/routers/test_share_deployments.py` covers publishing JSON source values
+  from in-memory state.
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
   guardrails, settings file creation, runtime root usage, and policy-gated
   services.
@@ -502,9 +504,9 @@ Implemented:
 - `tests/websockets/test_python_script_sender_share_sessions.py` covers
   listener realtime/force refresh filtering by share session id.
 - `tests/websockets/test_python_script_receiver_share_mode.py` covers share-mode
-  listener errors and listener coverage fan-out.
+  listener errors and listener coverage broadcasts.
 - `tests/share/test_listener_runtime.py` covers listener runtime lifecycle
-  behavior in shared and per-viewer modes.
+  behavior in per-viewer mode.
 - `tests/api/test_listener_realtime.py` covers per-session realtime/action
   sequence tracking in the listener.
 - `tests/api/test_listener_websocket_endpoint.py` covers listener websocket URL

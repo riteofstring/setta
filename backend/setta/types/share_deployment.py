@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -9,15 +8,9 @@ from setta.types.settings_state import RunSnapshotMode
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
-class ListenerIsolationMode(str, Enum):
-    per_viewer = "per_viewer"
-    shared = "shared"
-
-
 class ShareDeploymentListenerConfig(BaseModel, extra="forbid"):
     entrypoint: str
     enabled: bool = True
-    isolation: ListenerIsolationMode = ListenerIsolationMode.per_viewer
 
 
 class ShareDeploymentManifest(BaseModel, extra="forbid"):
@@ -49,7 +42,6 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowLLM: bool = False
     allowMCP: bool = False
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
-    listenerIsolation: ListenerIsolationMode = ListenerIsolationMode.per_viewer
     allowedSections: list[ID] | None = None
 
 

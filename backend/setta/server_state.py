@@ -376,7 +376,6 @@ class SettaFastAPIState:
         self.share_listener_runtime = ShareListenerRuntime(
             deployment_root=self.share_deployment_root,
             manifest=self.share_project_manager.manifest,
-            policy=self.share_project_manager.share_policy,
             project_config_id=self.share_project_manager.project_config_id,
         )
         self.wmh_frontend_receiver = WMHFrontendReceiver(

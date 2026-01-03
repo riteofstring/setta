@@ -21,7 +21,7 @@ workspace.
 ## Decisions (Confirmed)
 - Share mode uses a published snapshot and does not track live IDE edits.
 - Public sharing is open by default; optional auth is supported.
-- Listener isolation defaults to per_viewer, but is configurable.
+- Listener execution is per-viewer (isolated state).
 - Run snapshots should be configurable (not always-on).
 - Terminals/run code are opt-in for share mode.
 - Share URLs support `/share/<project_config_name>` and
@@ -38,7 +38,7 @@ Note: Share runtime is started via CLI flags (no env vars).
 Share mode should still support:
 - Realtime UI changes (params, variants, layout, view modes, etc.) within a
   per-viewer overlay.
-- Optional listener execution (shared or per_viewer).
+- Optional listener execution per-viewer.
 - Optional LLM and MCP (disabled by default).
 
 ### 2) Share deployment artifact (published snapshot)
@@ -69,8 +69,7 @@ Example `manifest.json`:
   "createdAt": "2025-01-10T12:34:56Z",
   "listener": {
     "entrypoint": "listener/app.py",
-    "enabled": true,
-    "isolation": "per_viewer"
+    "enabled": true
   },
   "sharePolicyPath": "share_policy.json"
 }
@@ -104,8 +103,7 @@ Example `share_policy.json`:
   "allowParamChanges": true,
   "allowVariantChanges": true,
   "allowLayoutChanges": true,
-  "allowRun": false,
-  "listenerIsolation": "per_viewer"
+  "allowRun": false
 }
 ```
 
@@ -126,12 +124,9 @@ broadcasts only target a single viewer.
 - Filter broadcasts in `backend/setta/websockets/msg_handlers/frontend_sender.py`.
 - Add session id in realtime events if listener support is enabled.
 
-### 7) Listener runtime (shared vs per_viewer)
+### 7) Listener runtime (per_viewer)
 Share mode must run listeners to support interactive apps.
-- per_viewer: safest, isolates global state, higher cost.
-- shared: cheapest, suitable for pure/stateless listeners.
-
-Default: `per_viewer`, configurable in share policy or manifest.
+- per_viewer: isolates global state, higher cost.
 
 ### 8) Run flow
 Current behavior writes code to a timestamped folder on every run. This is
@@ -203,7 +198,7 @@ Phase 1: Share runtime skeleton
 
 Phase 2: Policy + listeners
 - Share policy enforcement in backend + UI.
-- Listener isolation (per_viewer + shared modes).
+- Listener isolation (per_viewer mode).
 - Websocket scoping for per-viewer broadcasts.
 
 Phase 3: Run flow + UX

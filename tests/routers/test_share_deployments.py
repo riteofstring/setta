@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import SetShowParamDisplayNamesRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
     route_get_latest_share_deployment,
@@ -16,6 +17,7 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_section_impl_with_type_guard,
 )
+from setta.types.helpers_lvl2 import set_param_entered_value
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend
@@ -193,6 +195,125 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     updated_value,
                     snapshot.projectConfigs[project_config_id].showParamDisplayNames,
                 )
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+    async def test_publish_share_deployment_uses_in_memory_json_sources(self) -> None:
+        try:
+            async with (
+                real_project_manager() as project_fixture,
+                real_settings_manager() as settings_fixture,
+            ):
+                original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
+                C.SHARE_DEPLOYMENTS_FOLDER = (
+                    project_fixture.setta_root / "share_deployments"
+                )
+                self.addCleanup(
+                    setattr, C, "SHARE_DEPLOYMENTS_FOLDER", original_share_root
+                )
+
+                project_config_id = (
+                    project_fixture.manager.project_state_backend.defaultProjectConfigId
+                )
+                if project_config_id is None:
+                    self.fail("Expected a default project config id for publishing.")
+
+                project_config = ProjectConfig(
+                    id=project_config_id,
+                    name="json_source_publish_project",
+                )
+
+                json_source_path = (
+                    project_fixture.setta_root / "json_sources" / "source.json"
+                ).resolve()
+                _write_text(json_source_path, '{"foo": 1}')
+
+                dict_impl = DictSectionImpl(isJsonSource=True)
+                dict_section_id, dict_core, dict_variant = _create_section(
+                    dict_impl,
+                    variant_name=str(json_source_path),
+                )
+                project_config.sectionVariantMap = {
+                    dict_section_id: dict_variant.id
+                }
+                project_config.topLevelSections = {
+                    dict_section_id: TopLevelSectionLayout()
+                }
+
+                project_state_backend = ProjectStateBackend(
+                    projectConfigs={project_config_id: project_config},
+                    defaultProjectConfigId=project_config_id,
+                    sections={dict_section_id: dict_core},
+                    sectionImpls={dict_impl.id: dict_impl},
+                    sectionVariants={dict_variant.id: dict_variant},
+                )
+                single_state = convert_backend_to_single_config(
+                    project_state_backend,
+                    project_config_id,
+                )
+                processed = project_fixture.json_source.process_json_object(
+                    {"foo": 1}
+                )
+                load_json_sources_into_data_structures(
+                    single_state,
+                    {json_source_path: processed},
+                    [(dict_section_id, dict_variant.id)],
+                )
+
+                _, _, dict_effective = (
+                    get_variant_base_and_effective_section_impl_with_type_guard(
+                        single_state,
+                        single_state.sections[dict_section_id],
+                        dict_variant.id,
+                        DictSectionImpl,
+                    )
+                )
+                target_code_obj_id = None
+                for code_obj_id in dict_effective.codeObjVariantMap.keys():
+                    if single_state.codeObjs[code_obj_id].name == "foo":
+                        target_code_obj_id = code_obj_id
+                        break
+                if target_code_obj_id is None:
+                    self.fail("Expected json source to include param 'foo'.")
+
+                set_param_entered_value(
+                    single_state,
+                    dict_section_id,
+                    target_code_obj_id,
+                    "999",
+                )
+                await project_fixture.manager.update(
+                    single_state,
+                    updateFileWatcher=False,
+                )
+
+                persisted_json = project_fixture.dbe.read_json(json_source_path)
+                self.assertEqual({"foo": 1}, persisted_json)
+
+                switcher = ProjectManagerSwitcher(
+                    project_fixture.manager,
+                    settings_fixture.manager,
+                )
+                state = SimpleNamespace(
+                    dbe=project_fixture.dbe,
+                    project_manager_switcher=switcher,
+                    share_mode=False,
+                )
+                metadata = await route_publish_share_deployment(
+                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    state,
+                )
+                snapshot = ProjectStateBackend.model_validate(
+                    project_fixture.dbe.read_json(
+                        metadata.deploymentRoot / "project.json"
+                    )
+                )
+                dict_variant_id = snapshot.sections[dict_section_id].variants[0]
+                dict_variant_snapshot = snapshot.sectionVariants[dict_variant_id]
+                deployed_json = project_fixture.dbe.read_json(
+                    metadata.deploymentRoot / dict_variant_snapshot.name
+                )
+                self.assertEqual({"foo": 999}, deployed_json)
         except RuntimeError as exc:
             self.skipTest(str(exc))
 

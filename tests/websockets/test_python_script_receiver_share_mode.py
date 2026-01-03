@@ -20,11 +20,7 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
-from setta.types.share_deployment import (
-    ListenerIsolationMode,
-    ShareDeploymentManifest,
-    SharePolicy,
-)
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgListenerError,
@@ -208,16 +204,10 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
 
             await websocket.close()
 
-    async def test_listener_coverage_broadcasts_to_all_sessions(self) -> None:
+    async def test_listener_coverage_broadcasts_to_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             dbe = _write_project(root)
-            dbe.write_json(
-                root / "share_policy.json",
-                SharePolicy(
-                    listenerIsolation=ListenerIsolationMode.shared
-                ).model_dump(),
-            )
             websocket_manager = WebsocketManager()
             listener_registry = ListenerRegistry()
             frontend_sender = WMHFrontendSender(
@@ -265,7 +255,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                 listener_socket,
                 WebsocketConnectionType.PYTHON_SCRIPT,
                 id="listener-shared",
-                shareSessionId=None,
+                shareSessionId="session-a",
             )
             listener_registry.upsert_registration(
                 websocket_id=listener_id,
@@ -277,12 +267,12 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                         actions=None,
                     )
                 },
-                share_session_id=None,
+                share_session_id="session-a",
             )
 
             await receiver._sync_listener_coverage(
                 share_manager.project_config_id,
-                share_session_id=None,
+                share_session_id="session-a",
             )
 
             types_a = [
@@ -295,7 +285,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             ]
 
             self.assertIn("ListenerCoverageSnapshot", types_a)
-            self.assertIn("ListenerCoverageSnapshot", types_b)
+            self.assertNotIn("ListenerCoverageSnapshot", types_b)
 
             await websocket_a.close()
             await websocket_b.close()

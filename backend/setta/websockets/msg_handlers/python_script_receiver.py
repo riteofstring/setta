@@ -49,7 +49,6 @@ from setta.types.listener import (
     ListenerRouterEndpointResultContent,
 )
 from setta.types.notifications import SettaBackendLogEventSeverity
-from setta.types.share_deployment import ListenerIsolationMode
 from setta.types.websocket import (
     WebsocketMsgListenerError,
     WebsocketMsgListenerFrontendEmit,
@@ -108,14 +107,9 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             return None
         share_session_id = self.websocket_manager.get_share_session_id(websocket_id)
         if share_session_id is None:
-            manager = self._require_share_project_manager()
-            if (
-                manager.share_policy.listenerIsolation
-                is ListenerIsolationMode.per_viewer
-            ):
-                raise KeyError(
-                    f"Missing share session id for listener websocket {websocket_id}"
-                )
+            raise KeyError(
+                f"Missing share session id for listener websocket {websocket_id}"
+            )
         return share_session_id
 
     @staticmethod
@@ -266,12 +260,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 share_session_id,
             )
             try:
-                if share_session_id is None:
-                    project_state = manager.build_base_state()
-                else:
-                    project_state = manager.get_or_create_session_state(
-                        share_session_id
-                    )
+                project_state = manager.get_or_create_session_state(share_session_id)
             except KeyError:
                 logger.warning(
                     "failed to load share state for listener websocket %s (project %s)",
@@ -523,21 +512,15 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             )
             return
 
-        if self.share_mode:
-            manager = self._require_share_project_manager()
-            if (
-                share_session_id is None
-                and manager.share_policy.listenerIsolation
-                is ListenerIsolationMode.per_viewer
-            ):
-                await self._send_listener_error(
-                    websocket_id,
-                    error="share_session_missing",
-                    details={"websocketId": websocket_id},
-                    project_config_id=project_config_id,
-                    share_session_id=share_session_id,
-                )
-                return
+        if self.share_mode and share_session_id is None:
+            await self._send_listener_error(
+                websocket_id,
+                error="share_session_missing",
+                details={"websocketId": websocket_id},
+                project_config_id=project_config_id,
+                share_session_id=share_session_id,
+            )
+            return
 
         dependency_values = content.dependencyValues
         artifact_updates = content.artifactUpdates
@@ -679,11 +662,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             share_manager = self._require_share_project_manager()
             try:
                 if share_session_id is None:
-                    session_ids = share_manager.get_session_ids()
-                    if not session_ids:
-                        raise KeyError("Share listener emit missing active sessions")
-                else:
-                    session_ids = [share_session_id]
+                    raise KeyError("Share listener emit missing share session id")
+                session_ids = [share_session_id]
             except KeyError as exc:
                 logger.warning(
                     "failed to load share state for listener emit (project %s)",
@@ -1078,16 +1058,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             ),
         )
         if snapshot is not None:
-            if not self.share_mode or share_session_id is not None:
-                await self.frontend_sender.broadcast_listener_coverage_snapshot(
-                    snapshot,
-                    share_session_id=share_session_id,
-                )
-                return
-            manager = self._require_share_project_manager()
-            session_ids = manager.get_session_ids()
-            for session_id in session_ids:
-                await self.frontend_sender.broadcast_listener_coverage_snapshot(
-                    snapshot,
-                    share_session_id=session_id,
-                )
+            await self.frontend_sender.broadcast_listener_coverage_snapshot(
+                snapshot,
+                share_session_id=share_session_id,
+            )

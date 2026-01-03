@@ -19,7 +19,6 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
-from setta.types.share_deployment import ListenerIsolationMode
 from setta.types.websocket import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import (
@@ -257,18 +256,13 @@ async def route_websocket_python_script(
     if state.share_mode:
         share_session_id = maybe_get_share_session_id_from_websocket(websocket)
         if share_session_id is None:
-            if (
-                state.share_project_manager.share_policy.listenerIsolation
-                is ListenerIsolationMode.per_viewer
-            ):
-                await _close_with_code(websocket, 4400)
-                return
-        else:
-            if not state.share_session_store.has_session(share_session_id):
-                await _close_with_code(websocket, 4404)
-                return
-            state.share_session_store.touch_session(share_session_id)
-            state.share_project_manager.get_or_create_session_state(share_session_id)
+            await _close_with_code(websocket, 4400)
+            return
+        if not state.share_session_store.has_session(share_session_id):
+            await _close_with_code(websocket, 4404)
+            return
+        state.share_session_store.touch_session(share_session_id)
+        state.share_project_manager.get_or_create_session_state(share_session_id)
     await websocket_route_loop(
         websocket,
         state.websocket_manager,

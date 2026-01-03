@@ -71,8 +71,6 @@ class ShareProjectManager:
         self._validate_deployment_root()
         self.project_config_id = self._resolve_project_config_id()
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
-        if self.manifest.listener is not None:
-            self.share_policy.listenerIsolation = self.manifest.listener.isolation
         if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
             raise ValueError(
                 "Share deployments do not support runSnapshotMode=never. "
@@ -436,13 +434,10 @@ class ShareProjectManager:
         )
 
         if share_session_id is None:
-            session_ids = self.get_session_ids()
-            if not session_ids:
-                raise KeyError("Share listener emit missing active sessions")
-        else:
-            if share_session_id not in self._session_states:
-                raise KeyError(f"Unknown share session state: {share_session_id}")
-            session_ids = [share_session_id]
+            raise KeyError("Share listener emit missing share session id")
+        if share_session_id not in self._session_states:
+            raise KeyError(f"Unknown share session state: {share_session_id}")
+        session_ids = [share_session_id]
 
         for session_id in session_ids:
             project_state = self._session_states[session_id]

@@ -20,10 +20,8 @@ type SharePolicyOverridesInput = NonNullable<
   PublishShareDeploymentRequestInput["sharePolicyOverrides"]
 >;
 type RunSnapshotMode = SharePolicy["runSnapshotMode"];
-type ListenerIsolationMode = SharePolicy["listenerIsolation"];
 
 const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
-const DEFAULT_LISTENER_ISOLATION: ListenerIsolationMode = "per_viewer";
 
 function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
   return {
@@ -35,7 +33,6 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
     allowLLM: false,
     allowMCP: false,
     runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
-    listenerIsolation: null,
     allowedSections: null,
   };
 }
@@ -46,8 +43,6 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     useState<SharePolicyOverridesInput>(createDefaultPolicyOverrides);
   const [listenerEntrypoint, setListenerEntrypoint] = useState("");
   const [listenerEnabled, setListenerEnabled] = useState(true);
-  const [listenerIsolation, setListenerIsolation] =
-    useState<ListenerIsolationMode>(DEFAULT_LISTENER_ISOLATION);
   const [publishedDeployment, setPublishedDeployment] =
     useState<ShareDeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
@@ -90,7 +85,6 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setPolicyOverrides(createDefaultPolicyOverrides());
     setListenerEntrypoint("");
     setListenerEnabled(true);
-    setListenerIsolation(DEFAULT_LISTENER_ISOLATION);
     setPublishedDeployment(null);
     setErrorMessage(null);
   }
@@ -119,7 +113,6 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
       sharePolicyOverrides: policyOverrides,
       listenerEntrypoint: entrypointValue,
       listenerEnabled: entrypointValue ? listenerEnabled : false,
-      listenerIsolation,
     };
 
     const res = await route_publish_share_deployment(payload);
@@ -259,16 +252,6 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             checked={listenerEnabled}
             onChange={setListenerEnabled}
             disabled={listenerEntrypoint.trim().length === 0}
-          />
-          <SelectRow
-            label="Listener isolation"
-            description="Choose shared vs per-viewer runtime."
-            value={listenerIsolation}
-            options={[
-              { value: "per_viewer", label: "per_viewer" },
-              { value: "shared", label: "shared" },
-            ]}
-            onChange={setListenerIsolation}
           />
         </SectionCard>
 

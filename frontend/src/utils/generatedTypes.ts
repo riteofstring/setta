@@ -429,11 +429,6 @@ const RunSnapshotModeEnum = {
 
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
 
-const ListenerIsolationModeEnum = {
-  per_viewer: "per_viewer",
-  shared: "shared",
-} as const;
-
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -4820,9 +4815,6 @@ export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
 const ShareDeploymentListenerConfigSchema = z.object({
   entrypoint: z.string(),
   enabled: z.boolean().default(true),
-  isolation: z
-    .enum(ListenerIsolationModeEnum)
-    .default(ListenerIsolationModeEnum.per_viewer),
 });
 
 const ShareDeploymentManifestSchema = z.object({
@@ -4863,9 +4855,6 @@ const SharePolicySchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
-  listenerIsolation: z
-    .enum(ListenerIsolationModeEnum)
-    .default(ListenerIsolationModeEnum.per_viewer),
   allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
 });
 
@@ -6035,9 +6024,6 @@ const SharePolicyOverridesSchema = z.object({
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),
-  listenerIsolation: z
-    .union([z.enum(ListenerIsolationModeEnum), z.null()])
-    .default(null),
   allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
 });
 
@@ -6048,9 +6034,6 @@ const PublishShareDeploymentRequestSchema = z.object({
     .default(null),
   listenerEntrypoint: z.union([z.string(), z.null()]).default(null),
   listenerEnabled: z.boolean().default(true),
-  listenerIsolation: z
-    .union([z.enum(ListenerIsolationModeEnum), z.null()])
-    .default(null),
 });
 
 export type PublishShareDeploymentRequestInput = z.input<

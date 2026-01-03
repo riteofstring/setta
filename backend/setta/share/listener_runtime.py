@@ -10,9 +10,7 @@ from setta.api.listener import SettaListener
 from setta.logging.tasks import spawn_background_task
 from setta.types.id import ID
 from setta.types.share_deployment import (
-    ListenerIsolationMode,
     ShareDeploymentManifest,
-    SharePolicy,
 )
 
 _ListenerBuilder = Callable[[SettaListener], None]
@@ -32,17 +30,13 @@ class ShareListenerRuntime:
         *,
         deployment_root: Path,
         manifest: ShareDeploymentManifest | None,
-        policy: SharePolicy,
         project_config_id: ID,
     ) -> None:
         self._deployment_root = deployment_root
         self._manifest = manifest
-        self._policy = policy
         self._project_config_id = project_config_id
         self._listener_config = None if manifest is None else manifest.listener
         self._entrypoint_path = self._resolve_entrypoint_path()
-        self._shared_handle: _ListenerHandle | None = None
-        self._shared_module: ModuleType | None = None
         self._session_handles: dict[str, _ListenerHandle] = {}
 
     def _resolve_entrypoint_path(self) -> Path | None:
@@ -109,11 +103,8 @@ class ShareListenerRuntime:
     async def ensure_listener_for_session(self, session_id: str | None) -> None:
         if not self._is_enabled():
             return
-        if self._policy.listenerIsolation is ListenerIsolationMode.shared:
-            await self._ensure_shared_listener()
-            return
         if session_id is None:
-            raise KeyError("Share listener session id is required for per_viewer mode")
+            raise KeyError("Share listener session id is required in share mode")
         if session_id in self._session_handles:
             return
         module = self._load_module(session_id)
@@ -134,24 +125,6 @@ class ShareListenerRuntime:
             module=module,
         )
 
-    async def _ensure_shared_listener(self) -> None:
-        if self._shared_handle is not None:
-            return
-        module = self._shared_module or self._load_module(None)
-        self._shared_module = module
-        builder = self._resolve_builder(module)
-        listener = SettaListener(project_config_id=self._project_config_id)
-        builder(listener)
-        task = spawn_background_task(
-            listener.run_forever,
-            label="share-listener-shared",
-        )
-        self._shared_handle = _ListenerHandle(
-            listener=listener,
-            task=task,
-            module=module,
-        )
-
     def stop_session_listener(self, session_id: str) -> None:
         if session_id not in self._session_handles:
             raise KeyError(f"Unknown share listener session: {session_id}")
@@ -165,18 +138,7 @@ class ShareListenerRuntime:
             return
         self.stop_session_listener(session_id)
 
-    def stop_shared_listener(self) -> None:
-        if self._shared_handle is None:
-            return
-        handle = self._shared_handle
-        self._shared_handle = None
-        handle.listener.stop()
-        handle.task.cancel()
-        self._drop_module(handle.module)
-        self._shared_module = None
-
     def stop_all(self) -> None:
         session_ids = list(self._session_handles.keys())
         for session_id in session_ids:
             self.stop_session_listener(session_id)
-        self.stop_shared_listener()
