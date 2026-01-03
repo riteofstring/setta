@@ -23,6 +23,7 @@ from setta.share.policy import (
     ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
 )
+from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
@@ -32,9 +33,14 @@ from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
+    BaseCodeSectionImpl,
     BaseDictSectionImpl,
+    ChartSectionImpl,
+    CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
+    DrawSectionImpl,
+    ImageSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -48,7 +54,6 @@ if TYPE_CHECKING:
     )
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.types.project_state import ProjectStateSingleConfig
-    from setta.types.section_impls import CodeFileBinding
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -84,7 +89,9 @@ class ShareProjectManager:
         self._base_state: "ProjectStateSingleConfig | None" = None
 
     def load_initial_state(self) -> ProjectStateBackend:
-        return self.dbe.read_project()
+        project_state = self.dbe.read_project()
+        self._rebase_deployment_paths(project_state)
+        return project_state
 
     def create_session_state(self, session_id: str) -> "ProjectStateSingleConfig":
         if session_id in self._session_states:
@@ -317,6 +324,102 @@ class ShareProjectManager:
             json_sources,
             section_variant_ids,
         )
+
+    def _resolve_deployment_path(self, path_str: str) -> str:
+        if not path_str:
+            return path_str
+        path = Path(path_str)
+        if path.is_absolute():
+            return str(normalize_path(path))
+        resolved = (self.deployment_root / path).resolve()
+        return str(normalize_path(resolved))
+
+    def _resolve_code_binding(self, binding: CodeFileBinding) -> CodeFileBinding:
+        path = binding.canonical_path
+        if path.is_absolute():
+            return CodeFileBinding(
+                canonical_path=normalize_path(path),
+                access_mode=binding.access_mode,
+            )
+        resolved = normalize_path((self.deployment_root / path).resolve())
+        return CodeFileBinding(
+            canonical_path=resolved,
+            access_mode=binding.access_mode,
+        )
+
+    def _rebase_deployment_paths(self, project_state: ProjectStateBackend) -> None:
+        for section in project_state.sections.values():
+            for variant_id in section.variants:
+                variant, base_impl, impl = get_variant_base_and_effective_section_impl(
+                    project_state, section, variant_id
+                )
+
+                if isinstance(impl, ImageSectionImpl) and impl.imagePath:
+                    new_path = self._resolve_deployment_path(impl.imagePath)
+                    if new_path != impl.imagePath:
+                        set_effective_impl_value(
+                            base_impl, section, variant, {"imagePath": new_path}
+                        )
+
+                if isinstance(impl, ChartSectionImpl) and impl.dataPath:
+                    new_path = self._resolve_deployment_path(impl.dataPath)
+                    if new_path != impl.dataPath:
+                        set_effective_impl_value(
+                            base_impl, section, variant, {"dataPath": new_path}
+                        )
+
+                if isinstance(impl, DrawSectionImpl) and impl.layers:
+                    updated_layers = []
+                    layers_changed = False
+                    for layer in impl.layers:
+                        updated_elements = []
+                        for element in layer.elements:
+                            new_data_path = self._resolve_deployment_path(
+                                element.dataPath
+                            )
+                            new_transform_id = self._resolve_deployment_path(
+                                element.transformId
+                            )
+                            if (
+                                new_data_path != element.dataPath
+                                or new_transform_id != element.transformId
+                            ):
+                                layers_changed = True
+                                updated_elements.append(
+                                    element.model_copy(
+                                        update={
+                                            "dataPath": new_data_path,
+                                            "transformId": new_transform_id,
+                                        }
+                                    )
+                                )
+                            else:
+                                updated_elements.append(element)
+                        if layers_changed:
+                            updated_layers.append(
+                                layer.model_copy(update={"elements": updated_elements})
+                            )
+                        else:
+                            updated_layers.append(layer)
+                    if layers_changed:
+                        set_effective_impl_value(
+                            base_impl, section, variant, {"layers": updated_layers}
+                        )
+
+                if isinstance(impl, BaseCodeSectionImpl) and impl.codeFileBinding:
+                    updated_binding = self._resolve_code_binding(impl.codeFileBinding)
+                    if updated_binding != impl.codeFileBinding:
+                        set_effective_impl_value(
+                            base_impl,
+                            section,
+                            variant,
+                            {"codeFileBinding": updated_binding},
+                        )
+
+                if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
+                    new_name = self._resolve_deployment_path(variant.name)
+                    if new_name != variant.name:
+                        variant.name = new_name
 
     def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
         return self.share_policy.runSnapshotMode

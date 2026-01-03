@@ -467,6 +467,11 @@ async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
 async def route_delete_section_variant_or_ask(
     x: DeleteSectionVariantOrAskRequest, state: AppStateFromRequest
 ) -> str | None:
+    if state.share_mode:
+        raise HTTPException(
+            status_code=403,
+            detail="Share mode does not allow deleting section variants.",
+        )
     await ensure_share_variant_changes_allowed(
         state,
         project_config_id=x.projectConfigId,
@@ -497,6 +502,11 @@ async def route_toggle_variant_json_source(
 async def route_delete_json_source_file_and_variant(
     x: DeleteJSONSourceFileAndVariantRequest, state: AppStateFromRequest
 ):
+    if state.share_mode:
+        raise HTTPException(
+            status_code=403,
+            detail="Share mode does not allow deleting section variants.",
+        )
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).delete_json_source_file_and_variant(x)

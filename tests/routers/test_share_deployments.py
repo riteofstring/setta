@@ -281,10 +281,12 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
                 image_target = Path(image_effective.imagePath)
+                self.assertFalse(image_target.is_absolute())
+                resolved_image = (deployment_root / image_target).resolve()
                 self.assertTrue(
-                    image_target.is_relative_to(deployment_root / "artifacts")
+                    resolved_image.is_relative_to(deployment_root / "artifacts")
                 )
-                self.assertTrue(image_target.exists())
+                self.assertTrue(resolved_image.exists())
 
                 self.assertIn(chart_section_id, snapshot.sections)
                 chart_variant_id = snapshot.sections[chart_section_id].variants[0]
@@ -297,10 +299,12 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
                 chart_target = Path(chart_effective.dataPath)
+                self.assertFalse(chart_target.is_absolute())
+                resolved_chart = (deployment_root / chart_target).resolve()
                 self.assertTrue(
-                    chart_target.is_relative_to(deployment_root / "artifacts")
+                    resolved_chart.is_relative_to(deployment_root / "artifacts")
                 )
-                self.assertTrue(chart_target.exists())
+                self.assertTrue(resolved_chart.exists())
 
                 self.assertIn(draw_section_id, snapshot.sections)
                 draw_variant_id = snapshot.sections[draw_section_id].variants[0]
@@ -316,14 +320,20 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 draw_element = draw_layer.elements[0]
                 draw_data_target = Path(draw_element.dataPath)
                 draw_transform_target = Path(draw_element.transformId)
+                self.assertFalse(draw_data_target.is_absolute())
+                self.assertFalse(draw_transform_target.is_absolute())
+                resolved_draw_data = (deployment_root / draw_data_target).resolve()
+                resolved_draw_transform = (
+                    deployment_root / draw_transform_target
+                ).resolve()
                 self.assertTrue(
-                    draw_data_target.is_relative_to(deployment_root / "artifacts")
+                    resolved_draw_data.is_relative_to(deployment_root / "artifacts")
                 )
                 self.assertTrue(
-                    draw_transform_target.is_relative_to(deployment_root / "artifacts")
+                    resolved_draw_transform.is_relative_to(deployment_root / "artifacts")
                 )
-                self.assertTrue(draw_data_target.exists())
-                self.assertTrue(draw_transform_target.exists())
+                self.assertTrue(resolved_draw_data.exists())
+                self.assertTrue(resolved_draw_transform.exists())
 
                 self.assertIn(code_section_id, snapshot.sections)
                 code_variant_id = snapshot.sections[code_section_id].variants[0]
@@ -338,18 +348,22 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 if code_effective.codeFileBinding is None:
                     self.fail("Expected code file binding in published snapshot.")
                 code_target = Path(code_effective.codeFileBinding.canonical_path)
-                self.assertTrue(code_target.is_relative_to(deployment_root / "code"))
-                self.assertTrue(code_target.exists())
+                self.assertFalse(code_target.is_absolute())
+                resolved_code = (deployment_root / code_target).resolve()
+                self.assertTrue(resolved_code.is_relative_to(deployment_root / "code"))
+                self.assertTrue(resolved_code.exists())
 
                 self.assertIn(dict_section_id, snapshot.sections)
                 dict_variant_id = snapshot.sections[dict_section_id].variants[0]
                 self.assertIn(dict_variant_id, snapshot.sectionVariants)
                 dict_variant = snapshot.sectionVariants[dict_variant_id]
                 dict_target = Path(dict_variant.name)
+                self.assertFalse(dict_target.is_absolute())
+                resolved_dict = (deployment_root / dict_target).resolve()
                 self.assertTrue(
-                    dict_target.is_relative_to(deployment_root / "json_sources")
+                    resolved_dict.is_relative_to(deployment_root / "json_sources")
                 )
-                self.assertTrue(dict_target.exists())
+                self.assertTrue(resolved_dict.exists())
         except RuntimeError as exc:
             self.skipTest(str(exc))
 

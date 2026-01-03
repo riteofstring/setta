@@ -6,6 +6,11 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI, HTTPException
 
 from setta.database.db_objs import DBE
+from setta.database.utils import create_new_id
+from setta.project_state.project_manager_types import (
+    DeleteJSONSourceFileAndVariantRequest,
+    DeleteSectionVariantOrAskRequest,
+)
 from setta.routers.artifact import (
     CheckIfFileExistsRequests,
     GetFolderContentsRequest,
@@ -16,6 +21,10 @@ from setta.routers.artifact import (
     route_load_cached_image_artifacts,
     route_check_if_file_exists,
     route_get_folder_contents,
+)
+from setta.routers.project_manager import (
+    route_delete_json_source_file_and_variant,
+    route_delete_section_variant_or_ask,
 )
 from setta.routers.sections import (
     CreateFileRequest,
@@ -199,11 +208,49 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(1, len(result))
             self.assertIsNotNone(result[0])
 
-            blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
+    async def test_delete_section_variant_blocked_in_share_mode(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-filesystem-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _seed_share_dirs(root)
+            state = await self._build_state(root)
+            request = DeleteSectionVariantOrAskRequest(
+                projectConfigId=create_new_id(),
+                sectionId=create_new_id(),
+                variantId=create_new_id(),
+            )
+
             with self.assertRaises(HTTPException) as ctx:
-                route_load_cached_image_artifacts(
-                    blocked_payload, state, share_session_id=session.id
-                )
+                await route_delete_section_variant_or_ask(request, state)
+
+            self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_delete_json_source_variant_blocked_in_share_mode(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-filesystem-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _seed_share_dirs(root)
+            state = await self._build_state(root)
+            request = DeleteJSONSourceFileAndVariantRequest(
+                projectConfigId=create_new_id(),
+                sectionId=create_new_id(),
+                variantId=create_new_id(),
+                filepath="some-file.json",
+            )
+
+            with self.assertRaises(HTTPException) as ctx:
+                await route_delete_json_source_file_and_variant(request, state)
+
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_load_cached_chart_data_restricts_share_paths(self) -> None:

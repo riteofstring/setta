@@ -12,7 +12,7 @@ import {
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useSharePolicyFlag } from "state/hooks/share";
 import { res200 } from "utils/endpointUtils";
@@ -33,6 +33,8 @@ import {
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
   const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const allowVariantDeletion = allowVariantChanges && !isShareMode;
   const isEditingEnabled = allowVariantChanges && isEditing;
   const actionButtonClasses = `flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${
     allowVariantChanges
@@ -91,6 +93,7 @@ export function VariantList({ sectionId }) {
           sectionId={sectionId}
           isEditing={isEditingEnabled}
           allowVariantChanges={allowVariantChanges}
+          allowVariantDeletion={allowVariantDeletion}
         />
       </ul>
     </section>
@@ -101,10 +104,12 @@ function VariantListCore({
   sectionId,
   isEditing,
   allowVariantChanges,
+  allowVariantDeletion,
 }: {
   sectionId: string;
   isEditing: boolean;
   allowVariantChanges: boolean;
+  allowVariantDeletion: boolean;
 }) {
   const { currVariantId, variantIds, defaultVariantId } = useProjectState(
     (x) => {
@@ -128,6 +133,7 @@ function VariantListCore({
         id={e}
         deletable={variantIds.length > 1}
         allowVariantChanges={allowVariantChanges}
+        allowVariantDeletion={allowVariantDeletion}
       />
     ));
   }
@@ -332,11 +338,13 @@ function OneVariantEditing({
   id,
   deletable,
   allowVariantChanges,
+  allowVariantDeletion,
 }: {
   sectionId: string;
   id: string;
   deletable: boolean;
   allowVariantChanges: boolean;
+  allowVariantDeletion: boolean;
 }) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
 
@@ -374,6 +382,9 @@ function OneVariantEditing({
 
   async function onClickDelete(e) {
     e.stopPropagation();
+    if (!allowVariantDeletion) {
+      return;
+    }
     const res = await route_delete_section_variant_or_ask({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
@@ -399,13 +410,13 @@ function OneVariantEditing({
         disabled={!allowVariantChanges}
       />
 
-      {deletable && (
+      {deletable && allowVariantDeletion && (
         <button
           className={
             "cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/versionitem:text-setta-400/50"
           }
           onClick={onClickDelete}
-          disabled={!allowVariantChanges}
+          disabled={!allowVariantDeletion}
         >
           <i className="gg-trash" />
         </button>

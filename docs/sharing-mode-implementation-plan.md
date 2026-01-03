@@ -5,6 +5,9 @@ steps based on the current code layout.
 
 Note: Share startup uses CLI flags (no env vars).
 
+Current status: All steps below are completed in this branch. Each section
+lists the implemented work, and there are no pending items.
+
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
   websockets (`backend/setta/routers/websocket.py`). Share endpoints will need
@@ -16,23 +19,24 @@ Note: Share startup uses CLI flags (no env vars).
   deployment root so draw/JSON edits remain possible without exposing the host.
 - `ProjectManager.save()` strips JSON source values and writes them into
   JSON source files (`backend/setta/project_state/project_manager.py`,
-  `backend/setta/project_state/jsonSource/save.py`). A deployment export must
-  include those JSON source files (and rebase their paths) or values will be
-  missing from the snapshot.
+  `backend/setta/project_state/jsonSource/save.py`). Share deployment export now
+  includes those JSON source files and rebases their paths so values can be
+  rehydrated on share boot.
 - Code file bindings point at canonical paths (`backend/setta/project_state/project_code.py`,
-  `backend/setta/project_state/code_files.py`). If share deployments need to be
-  self-contained, export code files and rebase bindings.
+  `backend/setta/project_state/code_files.py`). Share deployment export now
+  copies code files into `code/` and rebases bindings to deployment-relative
+  paths, which are resolved at share boot.
 - `SettingsFile.load_settings()` creates default files when missing
   (`backend/setta/database/settings_file.py`). Share mode currently initializes
   settings on boot, which writes `setta-settings.json` and
   `setta-settings-project.json` into the deployment root; revisit this if share
   deployments must remain write-free.
 - Artifact caches are populated by file watchers; `get_cached_*` does not read
-  from disk (`backend/setta/project_state/artifacts.py`). If share mode disables
-  watchers, add a one-time load path or a separate cache strategy.
-- The doc currently calls out both `backend/setta/types/share_deployment.py` and
-  `backend/setta/types/share_policy.py` for `SharePolicy`. Prefer a single source
-  of truth to avoid divergence.
+  from disk (`backend/setta/project_state/artifacts.py`). Share mode now
+  preloads artifacts on session creation and share artifact routes load from
+  disk on cache misses.
+- `SharePolicy` is defined in `backend/setta/types/share_deployment.py` and
+  enforced via helpers in `backend/setta/share/policy.py`.
 
 ## 1) Share deployment data model + constants
 Status: completed. Project-config name/version models and routes are implemented.
@@ -72,10 +76,14 @@ Implemented in `backend/setta/routers/share_deployments.py`.
     `setta_files/share_deployments/<project_config_name>/vN/`.
   - Copy referenced artifacts from `setta_files/artifacts` into the deployment
     root under `artifacts/`, and rebase artifact paths in the exported
-    `project.json` if necessary.
-  - Copy JSON source files into `json_sources/` and rebase `variant.name` paths.
-  - Copy code files into `code/` and rebase `CodeFileBinding.canonical_path`.
+    `project.json` to deployment-relative paths.
+  - Copy JSON source files into `json_sources/` and rebase `variant.name` paths
+    to deployment-relative paths.
+  - Copy code files into `code/` and rebase `CodeFileBinding.canonical_path` to
+    deployment-relative paths.
   - Copy listener entrypoint (if present) into `listener/` inside the deployment.
+  - Store deployment-root-relative paths in the snapshot so deployments can be
+    relocated; share boot rebases them to runtime paths.
   - Write `project.json`, `manifest.json`, and `share_policy.json`.
   - Include `projectConfigName` + `deploymentVersion` in the manifest/metadata
     so `/share/<project_config_name>` can resolve the latest version.
@@ -133,6 +141,9 @@ Implemented:
   and share artifact routes load from disk on cache misses.
 - `ShareProjectManager` rehydrates json-source values from `json_sources/` on
   share boot (option 2) so stripped values are restored in session overlays.
+- `ShareProjectManager` rebases deployment-relative paths for image/chart/draw
+  artifacts, draw transforms, code bindings, and json-source variant names to
+  runtime paths on share boot.
 - `ShareProjectManager` applies listener isolation defaults from `manifest.json`
   when present.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
@@ -184,6 +195,8 @@ Implemented:
   `backend/setta/routers/project_manager.py`.
 - Content mutations now enforce `allowParamChanges` (text/code/draw/image/chart
   updates), and paste operations enforce `allowStructuralChanges`.
+- Section variant deletion is blocked in share mode regardless of
+  `allowVariantChanges`.
 - Artifact updates in `backend/setta/routers/artifact.py` are gated by
   `allowParamChanges` in share mode.
 - Rename refactor accept/decline routes are gated by `allowStructuralChanges`.
@@ -344,6 +357,7 @@ Implemented:
   share mode.
 - UI controls are gated by policy (run, param edits, variant/view edits, layout
   moves/resizes, structural edits, and lock-position edits).
+- Variant deletion is disabled in share mode.
  - Header shows a "Sharing Mode" indicator and share search behavior.
  - Publish/redeploy UI: IDE entry point (File menu) and modal with policy toggles
    (allowStructuralChanges, allowParamChanges, allowVariantChanges,
@@ -385,6 +399,8 @@ Implemented:
   session isolation, and missing session errors.
 - `tests/project_state/test_share_project_manager.py` covers json-source
   rehydration during share boot.
+- `tests/project_state/test_share_project_manager.py` covers deployment-relative
+  artifact path rebasing (image/chart/draw) and json-source path rebasing.
 - `tests/project_state/test_share_project_manager.py` covers listener emit
   updates for per-session project state and artifact broadcasts.
 - `tests/project_state/test_share_project_manager.py` covers listener emit sync
@@ -419,7 +435,7 @@ Implemented:
   session-scoped state fetch behavior.
 - `tests/routers/test_share_filesystem_routes.py` covers share-mode filesystem
   path restrictions for share file endpoints and cached artifact loads (image,
-  chart, brush strokes, transforms).
+  chart, brush strokes, transforms) plus share-mode variant deletion blocks.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
 - `tests/share/test_session_cleanup.py` covers listener/chat cleanup on session
   expiry.

@@ -13,7 +13,12 @@ from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
 from setta.project_state.share_project_manager import ShareProjectManager
 from setta.project_state.share_session_project_manager import ShareSessionProjectManager
-from setta.types.artifact import ImageArtifact
+from setta.types.artifact import (
+    ArtifactType,
+    DrawAreaLayer,
+    DrawAreaLayerItem,
+    ImageArtifact,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -30,7 +35,9 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeSectionImpl,
+    ChartSectionImpl,
     DictSectionImpl,
+    DrawSectionImpl,
     ImageSectionImpl,
     TextBlockSectionImpl,
 )
@@ -150,7 +157,7 @@ def _build_code_project_state(
     binding_path: Path,
 ) -> ProjectStateSingleConfig:
     code_binding = CodeFileBinding(
-        canonical_path=normalize_path(binding_path),
+        canonical_path=binding_path,
         access_mode=CodeFileAccessMode.read_write,
     )
     code_impl = CodeSectionImpl(
@@ -309,13 +316,14 @@ class ShareProjectManagerTests(unittest.TestCase):
     def test_session_state_preloads_artifacts(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
-            image_path = root / "artifacts" / "preview.png"
+            relative_image_path = Path("artifacts") / "preview.png"
+            image_path = root / relative_image_path
             image_path.parent.mkdir(parents=True, exist_ok=True)
             image_path.write_bytes(b"fake-image")
             project_config_id = ID("image-project")
             section_id = ID("image-section")
             project_state = _build_image_project_state(
-                project_config_id, section_id, image_path
+                project_config_id, section_id, relative_image_path
             )
             dbe = _write_project_with_state(root, project_state)
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
@@ -328,12 +336,116 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertIsNotNone(cached)
             self.assertEqual(str(normalize_path(image_path)), cached.id)
 
+    def test_relative_canvas_paths_are_rebased(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = _build_share_deployment_root(tmpdir, "Share Project")
+            project_config_id = ID("canvas-project")
+            chart_section_id = ID("chart-section")
+            draw_section_id = ID("draw-section")
+            chart_rel_path = Path("artifacts") / "chart.csv"
+            draw_rel_path = Path("artifacts") / "draw.json"
+            transform_rel_path = Path("artifacts") / "draw-transform.json"
+
+            chart_impl = ChartSectionImpl(
+                id=ID("chart-impl"),
+                name="Chart",
+                dataPath=str(chart_rel_path),
+            )
+            chart_variant = Variant(
+                id=ID("chart-variant"),
+                name="Variant",
+                impl=chart_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(chart_impl),
+            )
+            chart_section = Core(
+                id=chart_section_id,
+                name="Chart",
+                variants=[chart_variant.id],
+                defaultVariant=chart_variant.id,
+            )
+
+            draw_item = DrawAreaLayerItem(
+                type=ArtifactType.BrushStroke,
+                dataPath=str(draw_rel_path),
+                transformId=str(transform_rel_path),
+            )
+            draw_impl = DrawSectionImpl(
+                id=ID("draw-impl"),
+                name="Draw",
+                layers=[DrawAreaLayer(elements=[draw_item])],
+            )
+            draw_variant = Variant(
+                id=ID("draw-variant"),
+                name="Variant",
+                impl=draw_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(draw_impl),
+            )
+            draw_section = Core(
+                id=draw_section_id,
+                name="Draw",
+                variants=[draw_variant.id],
+                defaultVariant=draw_variant.id,
+            )
+
+            project_config = ProjectConfig(
+                id=project_config_id,
+                name="Share Project",
+                sectionVariantMap={
+                    chart_section_id: chart_variant.id,
+                    draw_section_id: draw_variant.id,
+                },
+                topLevelSections={
+                    chart_section_id: TopLevelSectionLayout(),
+                    draw_section_id: TopLevelSectionLayout(),
+                },
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={
+                    chart_section_id: chart_section,
+                    draw_section_id: draw_section,
+                },
+                sectionImpls={
+                    chart_impl.id: chart_impl,
+                    draw_impl.id: draw_impl,
+                },
+                sectionVariants={
+                    chart_variant.id: chart_variant,
+                    draw_variant.id: draw_variant,
+                },
+            )
+            dbe = _write_project_with_state(root, project_state)
+            frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+
+            session_state = manager.create_session_state("session-a")
+            chart_session_impl = get_curr_effective_section_impl_with_type_guard(
+                session_state,
+                chart_section_id,
+                ChartSectionImpl,
+            )
+            draw_session_impl = get_curr_effective_section_impl_with_type_guard(
+                session_state,
+                draw_section_id,
+                DrawSectionImpl,
+            )
+
+            expected_chart = str(normalize_path(root / chart_rel_path))
+            expected_draw = str(normalize_path(root / draw_rel_path))
+            expected_transform = str(normalize_path(root / transform_rel_path))
+            self.assertEqual(expected_chart, chart_session_impl.dataPath)
+            self.assertEqual(1, len(draw_session_impl.layers))
+            self.assertEqual(1, len(draw_session_impl.layers[0].elements))
+            element = draw_session_impl.layers[0].elements[0]
+            self.assertEqual(expected_draw, element.dataPath)
+            self.assertEqual(expected_transform, element.transformId)
+
     def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
-            binding_path = root / "code" / "runner.py"
+            binding_path = Path("code") / "runner.py"
             project_state = _build_code_project_state(
                 project_config_id, section_id, binding_path
             )
@@ -380,7 +492,8 @@ class ShareProjectManagerTests(unittest.TestCase):
     def test_json_source_values_are_rehydrated(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
-            json_path = root / "json_sources" / "source.json"
+            relative_json_path = Path("json_sources") / "source.json"
+            json_path = root / relative_json_path
             json_path.parent.mkdir(parents=True, exist_ok=True)
             json_path.write_text('{"foo": 123}', encoding="utf-8")
 
@@ -393,7 +506,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             )
             variant = Variant(
                 id=ID("dict-variant"),
-                name=str(json_path),
+                name=str(relative_json_path),
                 impl=dict_impl.id,
                 nonPresetImpls=compute_initial_nonPresetImpls(dict_impl),
             )
@@ -449,7 +562,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
-            binding_path = root / "code" / "runner.py"
+            binding_path = Path("code") / "runner.py"
             project_state = _build_code_project_state(
                 project_config_id, section_id, binding_path
             )

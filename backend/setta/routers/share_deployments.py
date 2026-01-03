@@ -145,8 +145,18 @@ def _copy_file(source_path: Path, target_path: Path) -> None:
     shutil.copy2(source_path, target_path)
 
 
+def _share_relative_path(target_path: Path, deployment_root: Path) -> str:
+    try:
+        return target_path.relative_to(deployment_root).as_posix()
+    except ValueError:
+        return target_path.as_posix()
+
+
 def _copy_artifact_path(
-    path_str: str, artifacts_root: Path, path_map: dict[str, str]
+    path_str: str,
+    artifacts_root: Path,
+    deployment_root: Path,
+    path_map: dict[str, str],
 ) -> str:
     if not path_str:
         return path_str
@@ -155,13 +165,16 @@ def _copy_artifact_path(
     source_path = _resolve_source_path(path_str)
     target_path = _artifact_target_path(source_path, artifacts_root)
     _copy_file(source_path, target_path)
-    rebased = normalize_path(target_path).as_posix()
+    rebased = _share_relative_path(target_path, deployment_root)
     path_map[path_str] = rebased
     return rebased
 
 
 def _copy_json_source_path(
-    path_str: str, json_root: Path, path_map: dict[str, str]
+    path_str: str,
+    json_root: Path,
+    deployment_root: Path,
+    path_map: dict[str, str],
 ) -> str:
     if not path_str:
         return path_str
@@ -170,7 +183,7 @@ def _copy_json_source_path(
     source_path = _resolve_source_path(path_str)
     target_path = _json_source_target_path(source_path, json_root)
     _copy_file(source_path, target_path)
-    rebased = normalize_path(target_path).as_posix()
+    rebased = _share_relative_path(target_path, deployment_root)
     path_map[path_str] = rebased
     return rebased
 
@@ -178,6 +191,7 @@ def _copy_json_source_path(
 def _copy_code_file_binding(
     binding: CodeFileBinding,
     code_root: Path,
+    deployment_root: Path,
     path_map: dict[str, CodeFileBinding],
 ) -> CodeFileBinding:
     path_key = str(binding.canonical_path)
@@ -187,8 +201,9 @@ def _copy_code_file_binding(
     source_path = _resolve_source_path(path_key)
     target_path = _code_target_path(source_path, code_root)
     _copy_file(source_path, target_path)
+    rebased = _share_relative_path(target_path, deployment_root)
     new_binding = CodeFileBinding(
-        canonical_path=normalize_path(target_path),
+        canonical_path=Path(rebased),
         access_mode=binding.access_mode,
     )
     path_map[path_key] = new_binding
@@ -258,7 +273,10 @@ def _rebase_project_state_paths(
 
             if isinstance(impl, ImageSectionImpl) and impl.imagePath:
                 new_path = _copy_artifact_path(
-                    impl.imagePath, artifacts_root, artifact_path_map
+                    impl.imagePath,
+                    artifacts_root,
+                    deployment_root,
+                    artifact_path_map,
                 )
                 if new_path != impl.imagePath:
                     set_effective_impl_value(
@@ -267,7 +285,10 @@ def _rebase_project_state_paths(
 
             if isinstance(impl, ChartSectionImpl) and impl.dataPath:
                 new_path = _copy_artifact_path(
-                    impl.dataPath, artifacts_root, artifact_path_map
+                    impl.dataPath,
+                    artifacts_root,
+                    deployment_root,
+                    artifact_path_map,
                 )
                 if new_path != impl.dataPath:
                     set_effective_impl_value(
@@ -281,10 +302,16 @@ def _rebase_project_state_paths(
                     updated_elements = []
                     for element in layer.elements:
                         new_data_path = _copy_artifact_path(
-                            element.dataPath, artifacts_root, artifact_path_map
+                            element.dataPath,
+                            artifacts_root,
+                            deployment_root,
+                            artifact_path_map,
                         )
                         new_transform_id = _copy_artifact_path(
-                            element.transformId, artifacts_root, artifact_path_map
+                            element.transformId,
+                            artifacts_root,
+                            deployment_root,
+                            artifact_path_map,
                         )
                         if (
                             new_data_path != element.dataPath
@@ -314,7 +341,10 @@ def _rebase_project_state_paths(
 
             if isinstance(impl, BaseCodeSectionImpl) and impl.codeFileBinding:
                 updated_binding = _copy_code_file_binding(
-                    impl.codeFileBinding, code_root, code_path_map
+                    impl.codeFileBinding,
+                    code_root,
+                    deployment_root,
+                    code_path_map,
                 )
                 if updated_binding != impl.codeFileBinding:
                     set_effective_impl_value(
@@ -326,7 +356,10 @@ def _rebase_project_state_paths(
 
             if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
                 new_name = _copy_json_source_path(
-                    variant.name, json_root, json_path_map
+                    variant.name,
+                    json_root,
+                    deployment_root,
+                    json_path_map,
                 )
                 if new_name != variant.name:
                     variant.name = new_name
