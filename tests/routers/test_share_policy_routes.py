@@ -14,10 +14,14 @@ from setta.project_state.project_manager_types import (
     DeclineRenameRefactorRequest,
     DeleteSectionsRequest,
     PasteSectionsRequest,
+    SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeRequest,
+    SetCodeFileBindingRequest,
+    SetCodeObjDisplayNameRequest,
+    SetCodeObjNameRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
@@ -39,16 +43,24 @@ from setta.routers.project_manager import (
     route_delete_sections,
     route_decline_rename_refactor,
     route_paste_sections,
+    route_set_callable,
     route_set_chart_area_data_path,
     route_set_chart_settings,
     route_set_chart_type,
     route_set_code,
+    route_set_code_file_binding,
+    route_set_code_obj_display_name,
+    route_set_code_obj_name,
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
     route_set_image_area_image_path,
     route_set_text_block_text,
     route_toggle_param_selected,
     route_unselect_all_params,
+)
+from setta.routers.share_deployments import (
+    PublishShareDeploymentRequest,
+    route_publish_share_deployment,
 )
 from setta.routers.terminals import (
     DeleteTerminalsRequest,
@@ -72,7 +84,7 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateBackend, ProjectStateCore
-from setta.types.section_impls import SectionType
+from setta.types.section_impls import CodeFileAccessMode, SectionType
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
 
@@ -181,6 +193,23 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as ctx:
                 await route_get_llm_config(state, share_session_id=session.id)
 
+            self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_publish_share_deployment_blocked_in_share_mode(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            state = await self._build_state(root)
+            request = PublishShareDeploymentRequest(
+                projectConfigId=project_config_id,
+            )
+            with self.assertRaises(HTTPException) as ctx:
+                await route_publish_share_deployment(request, state)
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_llm_updates_blocked_in_share_mode(self) -> None:
@@ -320,6 +349,36 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(HTTPException) as ctx:
                     await route_delete_sections(delete_request, state)
                 self.assertEqual(403, ctx.exception.status_code)
+
+                code_obj_request = SetCodeObjNameRequest(
+                    projectConfigId=project_config_id,
+                    codeObjId=create_new_id(),
+                    name="renamed",
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_code_obj_name(code_obj_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                display_request = SetCodeObjDisplayNameRequest(
+                    projectConfigId=project_config_id,
+                    codeObjId=create_new_id(),
+                    displayName="Display",
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_code_obj_display_name(display_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                binding_request = SetCodeFileBindingRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=create_new_id(),
+                    binding={
+                        "canonical_path": "code.py",
+                        "access_mode": CodeFileAccessMode.read_write,
+                    },
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_code_file_binding(binding_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
             finally:
                 reset_share_session_id(token)
 
@@ -360,6 +419,16 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     SetGenCodePrefixRequest(
                         projectConfigId=project_config_id,
                         genCodePrefix="prefix",
+                    ),
+                ),
+                (
+                    "set_callable",
+                    route_set_callable,
+                    SetCallableRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        callableName="module.fn",
+                        refetchParams=False,
                     ),
                 ),
                 (

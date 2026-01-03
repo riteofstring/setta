@@ -7,6 +7,8 @@ from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.jsonSource.jsonSource import JSONSource, ProcessedJSONInfo
+from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.listener_artifact_updates import (
     apply_listener_artifact_updates,
 )
@@ -21,18 +23,26 @@ from setta.share.policy import (
     ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_variant_base_and_effective_section_impl,
+)
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateBackend
-from setta.types.section_impls import CodeLanguage, CodeSectionImpl
+from setta.types.section_impls import (
+    BaseDictSectionImpl,
+    CodeLanguage,
+    CodeSectionImpl,
+)
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
+    from setta.database.settings_file import SettingsFile
     from setta.project_state.share_session_project_manager import (
         ShareSessionProjectManager,
     )
@@ -71,6 +81,7 @@ class ShareProjectManager:
         self._session_artifacts: dict[str, Artifacts] = {}
         self._session_managers: dict[str, "ShareSessionProjectManager"] = {}
         self._artifact_watcher = SpecificFileWatcher()
+        self._base_state: "ProjectStateSingleConfig | None" = None
 
     def load_initial_state(self) -> ProjectStateBackend:
         return self.dbe.read_project()
@@ -235,15 +246,28 @@ class ShareProjectManager:
             )
 
     def _build_base_state(self) -> "ProjectStateSingleConfig":
-        base_state = convert_backend_to_single_config(
-            self.project_state_backend, self.project_config_id
-        )
-        session_state = base_state.model_copy(deep=True)
-        self._validate_project_state(session_state)
-        return session_state
+        if self._base_state is not None:
+            return self._base_state.model_copy(deep=True)
+        base_state = (
+            convert_backend_to_single_config(
+                self.project_state_backend, self.project_config_id
+            )
+        ).model_copy(deep=True)
+        self._validate_project_state(base_state)
+        return base_state
 
     def build_base_state(self) -> "ProjectStateSingleConfig":
         return self._build_base_state()
+
+    def initialize_share_state(self, settings_file: "SettingsFile") -> None:
+        base_state = (
+            convert_backend_to_single_config(
+                self.project_state_backend, self.project_config_id
+            )
+        ).model_copy(deep=True)
+        self._hydrate_json_sources(base_state, settings_file)
+        self._validate_project_state(base_state)
+        self._base_state = base_state
 
     def _validate_project_state(
         self, project_state: "ProjectStateSingleConfig"
@@ -254,6 +278,45 @@ class ShareProjectManager:
         project_state.validate_shown_param_ids()
         project_state.validate_yaml_values()
         project_state.validate_required_decoded_images()
+
+    def _hydrate_json_sources(
+        self,
+        project_state: "ProjectStateSingleConfig",
+        settings_file: "SettingsFile",
+    ) -> None:
+        section_variant_ids: list[tuple[ID, ID]] = []
+        json_source_paths: set[Path] = set()
+        for section in project_state.sections.values():
+            for variant_id in section.variants:
+                variant, _, impl = get_variant_base_and_effective_section_impl(
+                    project_state, section, variant_id
+                )
+                if not isinstance(impl, BaseDictSectionImpl) or not impl.isJsonSource:
+                    continue
+                section_variant_ids.append((section.id, variant_id))
+                json_source_paths.add(normalize_path(variant.name))
+
+        if not section_variant_ids:
+            return
+
+        json_source = JSONSource(
+            self.frontend_sender,
+            settings_file,
+            SpecificFileWatcher(),
+            self.dbe,
+        )
+        json_sources: dict[Path, ProcessedJSONInfo] = {}
+        for path in json_source_paths:
+            if not path.exists():
+                continue
+            payload = self.dbe.read_json(path)
+            json_sources[path] = json_source.process_json_object(payload)
+
+        load_json_sources_into_data_structures(
+            project_state,
+            json_sources,
+            section_variant_ids,
+        )
 
     def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
         return self.share_policy.runSnapshotMode

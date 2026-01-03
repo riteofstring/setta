@@ -18,6 +18,7 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
 from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl_with_type_guard,
 )
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
@@ -29,9 +30,11 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeSectionImpl,
+    DictSectionImpl,
     ImageSectionImpl,
     TextBlockSectionImpl,
 )
+from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.utils.constants import C
@@ -373,6 +376,73 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertEqual("print('hello')", runner_path.read_text(encoding="utf-8"))
             self.assertIn("python -m", command)
             self.assertIn("runner", command)
+
+    def test_json_source_values_are_rehydrated(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = _build_share_deployment_root(tmpdir, "Share Project")
+            json_path = root / "json_sources" / "source.json"
+            json_path.parent.mkdir(parents=True, exist_ok=True)
+            json_path.write_text('{"foo": 123}', encoding="utf-8")
+
+            project_config_id = ID("json-project")
+            section_id = ID("json-section")
+            dict_impl = DictSectionImpl(
+                id=ID("dict-impl"),
+                name="Data",
+                isJsonSource=True,
+            )
+            variant = Variant(
+                id=ID("dict-variant"),
+                name=str(json_path),
+                impl=dict_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(dict_impl),
+            )
+            section = Core(
+                id=section_id,
+                name="Data",
+                variants=[variant.id],
+                defaultVariant=variant.id,
+            )
+            project_config = ProjectConfig(
+                id=project_config_id,
+                name="Share Project",
+                sectionVariantMap={section_id: variant.id},
+                topLevelSections={section_id: TopLevelSectionLayout()},
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={section_id: section},
+                sectionImpls={dict_impl.id: dict_impl},
+                sectionVariants={variant.id: variant},
+            )
+            dbe = _write_project_with_state(root, project_state)
+            frontend_sender = WMHFrontendSender(
+                WebsocketManager(), share_mode=True
+            )
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            manager.initialize_share_state(settings_file)
+
+            session_state = manager.create_session_state("session-a")
+            impl = get_curr_effective_section_impl_with_type_guard(
+                session_state,
+                section_id,
+                DictSectionImpl,
+            )
+            self.assertFalse(impl.jsonSourceMissing)
+            target_code_obj_id = None
+            for code_obj_id in impl.codeObjVariantMap.keys():
+                if session_state.codeObjs[code_obj_id].name == "foo":
+                    target_code_obj_id = code_obj_id
+                    break
+            self.assertIsNotNone(target_code_obj_id)
+            code_impl = get_curr_effective_code_obj_impl_with_type_guard(
+                session_state,
+                section_id,
+                target_code_obj_id,
+                CodeParamCodeObjImpl,
+            )
+            self.assertEqual("123", code_impl.value)
 
     def test_run_snapshot_mode_never_is_rejected(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:

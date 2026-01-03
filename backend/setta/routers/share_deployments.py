@@ -501,6 +501,11 @@ async def route_get_share_deployment_state(
 async def route_publish_share_deployment(
     x: PublishShareDeploymentRequest, state: AppStateFromRequest
 ) -> ShareDeploymentMetadata:
+    if getattr(state, "share_mode", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Share mode does not allow publishing deployments.",
+        )
     project_state_backend = state.dbe.read_project()
     if x.projectConfigId not in project_state_backend.projectConfigs:
         raise HTTPException(

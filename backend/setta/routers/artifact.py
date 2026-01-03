@@ -60,46 +60,52 @@ def _get_artifacts(state: AppStateFromRequest, share_session_id: str | None):
     return state.artifacts
 
 
-def _load_share_cached_image(artifacts, path: str) -> ImageArtifact | None:
+def _load_share_cached_image(
+    artifacts, path: str, deployment_root: Path | None
+) -> ImageArtifact | None:
     cached = artifacts.get_cached_image(path)
     if cached is not None:
         return cached
-    normalized = normalize_path(path)
-    if not normalized.exists():
+    resolved = ensure_share_deployment_path(path, deployment_root)
+    if not resolved.exists():
         return None
-    return artifacts.read_image_from_disk(normalized)
+    return artifacts.read_image_from_disk(resolved)
 
 
-def _load_share_cached_chart_data(artifacts, path: str) -> ChartDataArtifact | None:
+def _load_share_cached_chart_data(
+    artifacts, path: str, deployment_root: Path | None
+) -> ChartDataArtifact | None:
     cached = artifacts.get_cached_chart_data(path)
     if cached is not None:
         return cached
-    normalized = normalize_path(path)
-    if not normalized.exists():
+    resolved = ensure_share_deployment_path(path, deployment_root)
+    if not resolved.exists():
         return None
-    return artifacts.read_chart_data_from_disk(normalized)
+    return artifacts.read_chart_data_from_disk(resolved)
 
 
-def _load_share_cached_brush_stroke(artifacts, path: str) -> BrushStrokeArtifact | None:
+def _load_share_cached_brush_stroke(
+    artifacts, path: str, deployment_root: Path | None
+) -> BrushStrokeArtifact | None:
     cached = artifacts.get_cached_brush_stroke(path)
     if cached is not None:
         return cached
-    normalized = normalize_path(path)
-    if not normalized.exists():
+    resolved = ensure_share_deployment_path(path, deployment_root)
+    if not resolved.exists():
         return None
-    return artifacts.read_brush_stroke_from_disk(normalized)
+    return artifacts.read_brush_stroke_from_disk(resolved)
 
 
 def _load_share_cached_transform(
-    artifacts, path: str
+    artifacts, path: str, deployment_root: Path | None
 ) -> DrawAreaLayerItemTransformArtifact | None:
     cached = artifacts.get_cached_draw_area_layer_item_transform(path)
     if cached is not None:
         return cached
-    normalized = normalize_path(path)
-    if not normalized.exists():
+    resolved = ensure_share_deployment_path(path, deployment_root)
+    if not resolved.exists():
         return None
-    return artifacts.read_transform_from_disk(normalized)
+    return artifacts.read_transform_from_disk(resolved)
 
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)
@@ -148,7 +154,10 @@ def route_load_cached_image_artifacts(
 ) -> list[ImageArtifact | None]:
     artifacts = _get_artifacts(state, share_session_id)
     if state.share_mode:
-        return [_load_share_cached_image(artifacts, i) for i in x.paths]
+        return [
+            _load_share_cached_image(artifacts, i, state.share_deployment_root)
+            for i in x.paths
+        ]
     return [artifacts.get_cached_image(i) for i in x.paths]
 
 
@@ -160,7 +169,10 @@ def route_load_cached_chart_data(
 ) -> list[ChartDataArtifact | None]:
     artifacts = _get_artifacts(state, share_session_id)
     if state.share_mode:
-        return [_load_share_cached_chart_data(artifacts, i) for i in x.paths]
+        return [
+            _load_share_cached_chart_data(artifacts, i, state.share_deployment_root)
+            for i in x.paths
+        ]
     return [artifacts.get_cached_chart_data(i) for i in x.paths]
 
 
@@ -172,7 +184,10 @@ def route_load_cached_brush_strokes(
 ) -> list[BrushStrokeArtifact | None]:
     artifacts = _get_artifacts(state, share_session_id)
     if state.share_mode:
-        return [_load_share_cached_brush_stroke(artifacts, i) for i in x.paths]
+        return [
+            _load_share_cached_brush_stroke(artifacts, i, state.share_deployment_root)
+            for i in x.paths
+        ]
     return [artifacts.get_cached_brush_stroke(i) for i in x.paths]
 
 
@@ -184,7 +199,10 @@ def route_load_cached_draw_area_layer_item_transform(
 ) -> list[DrawAreaLayerItemTransformArtifact | None]:
     artifacts = _get_artifacts(state, share_session_id)
     if state.share_mode:
-        return [_load_share_cached_transform(artifacts, i) for i in x.paths]
+        return [
+            _load_share_cached_transform(artifacts, i, state.share_deployment_root)
+            for i in x.paths
+        ]
     return [artifacts.get_cached_draw_area_layer_item_transform(i) for i in x.paths]
 
 

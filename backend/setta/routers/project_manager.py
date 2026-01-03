@@ -123,6 +123,11 @@ async def route_clear_text_field_completion(
 async def route_set_callable(
     x: SetCallableRequest, state: AppStateFromRequest
 ) -> SetCallableResponse:
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     return await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
 
 
@@ -565,6 +570,10 @@ async def route_set_type_error_ignore(
 
 @router.post(Route.SET_CODE_OBJ_NAME)
 async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromRequest):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_code_obj_name(x)
 
 
@@ -572,6 +581,10 @@ async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromR
 async def route_set_code_obj_display_name(
     x: SetCodeObjDisplayNameRequest, state: AppStateFromRequest
 ):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_code_obj_display_name(x)
@@ -581,6 +594,11 @@ async def route_set_code_obj_display_name(
 async def route_set_code_file_binding(
     x: SetCodeFileBindingRequest, state: AppStateFromRequest
 ):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_code_file_binding(x)
 
 

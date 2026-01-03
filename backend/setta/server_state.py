@@ -343,6 +343,7 @@ class SettaFastAPIState:
             self.wmh_frontend_sender,
             allow_write=False,
         )
+        self.share_project_manager.initialize_share_state(self.settings_file)
         self.project_manager_switcher = ShareSessionProjectManagerSwitcher(
             self.share_project_manager,
             self.settings_file,

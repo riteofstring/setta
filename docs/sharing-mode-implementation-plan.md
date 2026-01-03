@@ -416,6 +416,32 @@ Implemented:
   resolution and version parsing.
 Pending updates: none.
 
+## Post-review patch plan (share hardening)
+- Share JSON sources (option 2):
+  - On share boot, load `json_sources/` files into `JSONSource` and call
+    `load_json_sources_into_data_structures` for all json-source variants so
+    share state rehydrates values even though `project.json` is stripped.
+  - Add coverage in `tests/project_state/test_share_project_manager.py` to
+    assert json-source values are present after share boot.
+- Keep deployments immutable + tighten file access:
+  - Do not write to the share deployment root in share mode. Update
+    `route_create_file` / `route_new_json_version_name` to either 403 or write
+    to a per-session scratch root under `setta_files/share_runs/.../scratch`.
+  - Guard cached artifact loads (`LOAD_CACHED_*` routes) with
+    `ensure_share_deployment_path` so share clients cannot read arbitrary
+    host files.
+  - Add tests for cached artifact path restrictions.
+- Fill policy gaps / allowed mutations:
+  - Gate `route_set_callable` with `allowParamChanges` + `allowedSections`
+    (callable changes should be allowed in share mode).
+  - Block or gate `route_set_code_file_binding` and code obj
+    name/display-name changes in share mode (treat as structural unless we
+    add a dedicated policy flag).
+  - Add tests for these routes.
+- Share-mode endpoint hardening:
+  - Block share deployment publish endpoints when running `setta share` so
+    public share servers cannot publish new snapshots.
+
 ## Open questions
 - Should OSS share mode be open-by-default or require auth/bootstrap tokens?
 - What is the default share policy for new deployments?
