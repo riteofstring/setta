@@ -38,6 +38,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     TextBlockSectionImplArgs,
 )
 from setta.types.id import ID
+from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.project_config import (
     Position,
     TopLevelSectionLayout,
@@ -235,6 +236,14 @@ class ListenerGroupSectionsRequestPayload(TypedDict):
     sectionIds: list[ID]
 
 
+class ListenerKillSubprocessesRequestPayload(TypedDict):
+    projectConfigId: NotRequired[ID]
+
+
+class ListenerListenerCoverageRequestPayload(TypedDict):
+    projectConfigId: NotRequired[ID]
+
+
 class ListenerMoveSectionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -262,6 +271,12 @@ class ListenerRedoRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     steps: int
+
+
+class ListenerRunCodeRequestPayload(TypedDict):
+    projectConfigId: NotRequired[ID]
+    sectionId: ID | None
+    cliId: NotRequired[str | None]
 
 
 class ListenerSetActiveIdsRequestPayload(TypedDict):
@@ -389,6 +404,13 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     imagePath: str
 
 
+class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    showSectionTitle: bool
+
+
 class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -477,6 +499,13 @@ class ListenerSetTextBlockFormatRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     format: TextBlockFormat
+
+
+class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    metaControlStyle: bool
 
 
 class ListenerSetTextBlockTextRequestPayload(TypedDict):
@@ -725,10 +754,20 @@ class RouterEndpointAPI:
     ) -> ProjectStateSingleConfigWithCompletedOpIds:
         return await self._caller("route_get_latest_project_state", payload)
 
+    async def get_listener_coverage(
+        self, payload: ListenerListenerCoverageRequestPayload
+    ) -> ListenerCoverageSnapshot:
+        return await self._caller("route_get_listener_coverage", payload)
+
     async def group_sections(
         self, payload: ListenerGroupSectionsRequestPayload
     ) -> None:
         return await self._caller("route_group_sections", payload)
+
+    async def kill_subprocesses(
+        self, payload: ListenerKillSubprocessesRequestPayload
+    ) -> None:
+        return await self._caller("route_kill_subprocesses", payload)
 
     async def move_section(self, payload: ListenerMoveSectionRequestPayload) -> None:
         return await self._caller("route_move_section", payload)
@@ -745,6 +784,9 @@ class RouterEndpointAPI:
 
     async def redo(self, payload: ListenerRedoRequestPayload) -> None:
         return await self._caller("route_redo", payload)
+
+    async def run_code(self, payload: ListenerRunCodeRequestPayload) -> None:
+        return await self._caller("route_run_code", payload)
 
     async def set_active_ids(self, payload: ListenerSetActiveIdsRequestPayload) -> None:
         return await self._caller("route_set_active_ids", payload)
@@ -830,6 +872,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
 
+    async def set_meta_control_show_section_title(
+        self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload
+    ) -> None:
+        return await self._caller("route_set_meta_control_show_section_title", payload)
+
     async def set_param_entered_value(
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
@@ -892,6 +939,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTextBlockFormatRequestPayload
     ) -> None:
         return await self._caller("route_set_text_block_format", payload)
+
+    async def set_text_block_meta_control_style(
+        self, payload: ListenerSetTextBlockMetaControlStyleRequestPayload
+    ) -> None:
+        return await self._caller("route_set_text_block_meta_control_style", payload)
 
     async def set_text_block_text(
         self, payload: ListenerSetTextBlockTextRequestPayload

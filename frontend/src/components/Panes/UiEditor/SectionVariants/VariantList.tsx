@@ -14,7 +14,6 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { useSharePolicyFlag } from "state/hooks/share";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
@@ -32,25 +31,12 @@ import {
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
-  const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
-  const isEditingEnabled = allowVariantChanges && isEditing;
-  const actionButtonClasses = `flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${
-    allowVariantChanges
-      ? "cursor-pointer text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
-      : "cursor-not-allowed text-setta-300 opacity-60 dark:text-setta-700"
-  }`;
 
   function onClickEditButton() {
-    if (!allowVariantChanges) {
-      return;
-    }
     setIsEditing(!isEditing);
   }
 
   function onClickAddVariantButton() {
-    if (!allowVariantChanges) {
-      return;
-    }
     route_create_new_section_variant({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
@@ -63,20 +49,18 @@ export function VariantList({ sectionId }) {
         {/* <p className="text-xs text-setta-400 dark:text-setta-600">Name</p> */}
         {!isEditing && (
           <button
-            className={actionButtonClasses}
+            className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
             onClick={onClickAddVariantButton}
-            disabled={!allowVariantChanges}
           >
             Add Variant
           </button>
         )}
         <button
-          className={actionButtonClasses}
+          className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
           onClick={onClickEditButton}
-          disabled={!allowVariantChanges}
         >
           <i className="gg-pen" />
-          {isEditingEnabled ? "Done Editing" : "Edit"}
+          {isEditing ? "Done Editing" : "Edit"}
         </button>
       </header>
       <ul
@@ -87,11 +71,7 @@ export function VariantList({ sectionId }) {
           })
         }
       >
-        <VariantListCore
-          sectionId={sectionId}
-          isEditing={isEditingEnabled}
-          allowVariantChanges={allowVariantChanges}
-        />
+        <VariantListCore sectionId={sectionId} isEditing={isEditing} />
       </ul>
     </section>
   );
@@ -100,11 +80,9 @@ export function VariantList({ sectionId }) {
 function VariantListCore({
   sectionId,
   isEditing,
-  allowVariantChanges,
 }: {
   sectionId: string;
   isEditing: boolean;
-  allowVariantChanges: boolean;
 }) {
   const { currVariantId, variantIds, defaultVariantId } = useProjectState(
     (x) => {
@@ -127,7 +105,6 @@ function VariantListCore({
         sectionId={sectionId}
         id={e}
         deletable={variantIds.length > 1}
-        allowVariantChanges={allowVariantChanges}
       />
     ));
   }
@@ -139,7 +116,6 @@ function VariantListCore({
       id={e}
       isCurr={currVariantId === e}
       isDefault={e === defaultVariantId}
-      allowVariantChanges={allowVariantChanges}
     />
   ));
 }
@@ -149,13 +125,11 @@ function OneVariant({
   id,
   isCurr,
   isDefault,
-  allowVariantChanges,
 }: {
   sectionId: string;
   id: string;
   isCurr: boolean;
   isDefault: boolean;
-  allowVariantChanges: boolean;
 }) {
   const { name, isFrozen, isJsonSource, canUseJsonSource } = useProjectState(
     (x) => {
@@ -183,29 +157,21 @@ function OneVariant({
           x.previewSectionVariantMap[sectionId] = id;
         })
       }
-      onClick={
-        allowVariantChanges
-          ? () =>
-              dispatchOptimisticProjectStateUpdate({
-                apply: (state) => {
-                  state.projectConfig.sectionVariantMap[sectionId] = id;
-                },
-                send: (frontendOpId) =>
-                  route_set_section_variant({
-                    projectConfigId: getCurrProjectConfigId(),
-                    sectionId,
-                    variantId: id,
-                    frontendOpId,
-                  }),
-              })
-          : undefined
+      onClick={() =>
+        dispatchOptimisticProjectStateUpdate({
+          apply: (state) => {
+            state.projectConfig.sectionVariantMap[sectionId] = id;
+          },
+          send: (frontendOpId) =>
+            route_set_section_variant({
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              variantId: id,
+              frontendOpId,
+            }),
+        })
       }
-      aria-disabled={!allowVariantChanges}
-      className={`section-key-value group/versionitem -my-[0.125rem] flex h-min items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs ${
-        allowVariantChanges
-          ? "cursor-pointer hover:bg-setta-200/30 dark:hover:bg-setta-700/50"
-          : "cursor-not-allowed opacity-60"
-      } ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
+      className={`section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-700/50 ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >
       <p
         className={`section-key truncate ${
@@ -224,9 +190,6 @@ function OneVariant({
               : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
-            if (!allowVariantChanges) {
-              return;
-            }
             e.stopPropagation(); // so that you can click on it without clicking on the variant
             dispatchOptimisticProjectStateUpdate({
               apply: (state) => {
@@ -241,7 +204,6 @@ function OneVariant({
                 }),
             });
           }}
-          disabled={!allowVariantChanges}
         >
           <HiHome />
         </button>
@@ -252,9 +214,6 @@ function OneVariant({
               : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
-            if (!allowVariantChanges) {
-              return;
-            }
             e.stopPropagation(); // so that you can click on it without clicking on the variant
             dispatchOptimisticProjectStateUpdate({
               apply: (state) => {
@@ -269,7 +228,6 @@ function OneVariant({
                 }),
             });
           }}
-          disabled={!allowVariantChanges}
         >
           <FaRegSnowflake />
         </button>
@@ -281,9 +239,6 @@ function OneVariant({
                 : "text-transparent hover:!text-orange-400 group-hover/versionitem:text-setta-400/50"
             }`}
             onClick={(e) => {
-              if (!allowVariantChanges) {
-                return;
-              }
               e.stopPropagation(); // so that you can click on it without clicking on the variant
               dispatchOptimisticProjectStateUpdate({
                 apply: (state) => {
@@ -317,7 +272,6 @@ function OneVariant({
                   }),
               });
             }}
-            disabled={!allowVariantChanges}
           >
             <FiFileText />
           </button>
@@ -331,12 +285,10 @@ function OneVariantEditing({
   sectionId,
   id,
   deletable,
-  allowVariantChanges,
 }: {
   sectionId: string;
   id: string;
   deletable: boolean;
-  allowVariantChanges: boolean;
 }) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
 
@@ -396,7 +348,6 @@ function OneVariantEditing({
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         className="flex-1 truncate text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-200"
-        disabled={!allowVariantChanges}
       />
 
       {deletable && (
@@ -405,7 +356,6 @@ function OneVariantEditing({
             "cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/versionitem:text-setta-400/50"
           }
           onClick={onClickDelete}
-          disabled={!allowVariantChanges}
         >
           <i className="gg-trash" />
         </button>

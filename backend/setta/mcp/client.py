@@ -5,7 +5,7 @@ import os
 import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Sequence
 from urllib.parse import parse_qs, urlparse
 
 import mcp.types as types
@@ -223,13 +223,7 @@ class MultiMCPClient:
             tasks.append(task)
         await asyncio.gather(*tasks)
 
-    async def call_tool(
-        self,
-        tool_name: str,
-        tool_args: dict,
-        *,
-        meta: dict[str, Any] | None = None,
-    ) -> types.CallToolResult:
+    async def call_tool(self, tool_name: str, tool_args: dict) -> types.CallToolResult:
         route = self.routing.get(tool_name)
         if not route:
             raise KeyError(f"MCP tool '{tool_name}' is not registered")
@@ -237,7 +231,7 @@ class MultiMCPClient:
         session = self._sessions.get(server_id)
         if not session:
             raise ValueError(f"MCP session for server '{server_id}' is not initialized")
-        return await session.call_tool(tool_id, tool_args, meta=meta)
+        return await session.call_tool(tool_id, tool_args)
 
     async def stop(self) -> None:
         self._is_shutting_down = True
