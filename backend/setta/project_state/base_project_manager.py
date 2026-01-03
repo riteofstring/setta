@@ -130,6 +130,7 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
@@ -214,6 +215,7 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
+    set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
     toggle_group_orientation,
@@ -1588,6 +1590,16 @@ class BaseProjectManager(ABC):
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_text_block_meta_control_style(
+        self, x: SetTextBlockMetaControlStyleRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_meta_control_style(
+            project_state, x.sectionId, x.metaControlStyle
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

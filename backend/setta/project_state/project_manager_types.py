@@ -553,6 +553,10 @@ class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
 
 
+class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
+    metaControlStyle: bool
+
+
 class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
     displayMode: SectionWithParamsDisplayMode
 

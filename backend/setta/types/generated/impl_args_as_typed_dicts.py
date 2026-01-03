@@ -94,6 +94,7 @@ class CoreArgs(TypedDict):
                 "layers",
                 "max",
                 "metaControlParamId",
+                "metaControlStyle",
                 "min",
                 "name",
                 "paramFilter",
@@ -389,6 +390,7 @@ class TextBlockSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
+    metaControlStyle: NotRequired[bool]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     text: NotRequired[str]
 
@@ -400,6 +402,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     format: NotRequired[TextBlockFormat | Callable[[TextBlockFormat], TextBlockFormat]]
     headingAsSectionName: NotRequired[bool | Callable[[bool], bool]]
+    metaControlStyle: NotRequired[bool | Callable[[bool], bool]]
     textDisplayMode: NotRequired[
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]

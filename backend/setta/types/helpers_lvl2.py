@@ -1613,6 +1613,19 @@ def set_text_block_display_mode(
     )
 
 
+def set_text_block_meta_control_style(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    metaControlStyle: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        TextBlockSectionImplArgsWithCallable(metaControlStyle=metaControlStyle),
+    )
+
+
 def set_section_with_params_display_mode(
     p: "ProjectStateSingleConfig",
     sectionId: ID,

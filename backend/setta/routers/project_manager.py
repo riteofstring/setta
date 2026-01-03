@@ -65,6 +65,7 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
@@ -573,6 +574,15 @@ async def route_set_text_block_display_mode(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_text_block_display_mode(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_META_CONTROL_STYLE)
+async def route_set_text_block_meta_control_style(
+    x: SetTextBlockMetaControlStyleRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_text_block_meta_control_style(x)
 
 
 @router.post(Route.SET_SECTION_WITH_PARAMS_DISPLAY_MODE)

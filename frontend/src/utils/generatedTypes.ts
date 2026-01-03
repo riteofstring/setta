@@ -652,6 +652,7 @@ export const RouteEnum = {
   SET_SECTION_NAME: "/setSectionName",
   SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
+  SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
@@ -1780,6 +1781,7 @@ export const AllImplFieldsSchema = z.literal([
   "layers",
   "max",
   "metaControlParamId",
+  "metaControlStyle",
   "min",
   "name",
   "paramFilter",
@@ -2066,6 +2068,7 @@ export const SharedModifierSchema = z.object({
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.union([z.number(), z.int()]).optional(),
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
+  metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
   name: z.string().optional(),
   paramFilter: z.string().optional(),
@@ -2156,6 +2159,7 @@ export const CoreSchema = z.object({
         "layers",
         "max",
         "metaControlParamId",
+        "metaControlStyle",
         "min",
         "name",
         "paramFilter",
@@ -2458,6 +2462,7 @@ export const TextBlockSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
+  metaControlStyle: z.boolean().default(false),
   textDisplayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.Render),
@@ -4841,6 +4846,7 @@ export const TextBlockSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
+  metaControlStyle: z.boolean().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   text: z.string().optional(),
 });
@@ -6730,6 +6736,7 @@ export const UserDefaultTextBlockSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
+  metaControlStyle: z.boolean().default(false),
   textDisplayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.Render),
@@ -9714,6 +9721,7 @@ export const TextBlockSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   format: z.union([z.enum(TextBlockFormatEnum), z.any()]).optional(),
   headingAsSectionName: z.union([z.boolean(), z.any()]).optional(),
+  metaControlStyle: z.union([z.boolean(), z.any()]).optional(),
   textDisplayMode: z
     .union([z.enum(TextBlockDisplayModeEnum), z.any()])
     .optional(),
@@ -9822,6 +9830,7 @@ export const CoreArgsSchema = z.object({
         "layers",
         "max",
         "metaControlParamId",
+        "metaControlStyle",
         "min",
         "name",
         "paramFilter",
@@ -12436,6 +12445,27 @@ export function createSetTextBlockFormatRequest(
   options: Partial<SetTextBlockFormatRequest> = {},
 ): SetTextBlockFormatRequest {
   return SetTextBlockFormatRequestSchema.parse(options);
+}
+
+export const SetTextBlockMetaControlStyleRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  metaControlStyle: z.boolean(),
+});
+
+export type SetTextBlockMetaControlStyleRequest = z.infer<
+  typeof SetTextBlockMetaControlStyleRequestSchema
+>;
+
+export type SetTextBlockMetaControlStyleRequestInput = z.input<
+  typeof SetTextBlockMetaControlStyleRequestSchema
+>;
+
+export function createSetTextBlockMetaControlStyleRequest(
+  options: Partial<SetTextBlockMetaControlStyleRequest> = {},
+): SetTextBlockMetaControlStyleRequest {
+  return SetTextBlockMetaControlStyleRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({
