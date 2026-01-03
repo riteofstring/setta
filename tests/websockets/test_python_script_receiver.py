@@ -154,7 +154,6 @@ class _StubPythonScriptSender:
         projectState: ProjectStateSingleConfig | None = None,
         projectConfigId: ID | None = None,
         targetWebsocketIds: Iterable[str] | None = None,
-        share_session_id: str | None = None,
     ) -> None:
         self.force_refresh_calls.append(
             {
@@ -163,7 +162,6 @@ class _StubPythonScriptSender:
                 "targetWebsocketIds": tuple(targetWebsocketIds)
                 if targetWebsocketIds is not None
                 else None,
-                "shareSessionId": share_session_id,
             }
         )
 

@@ -84,7 +84,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectConfigId: ID,
         deltas: list[ListenerRealtimeDelta],
         sequence: int,
-        share_session_id: str | None = None,
     ):
         if not deltas:
             raise ValueError("deltas must contain at least one entry")
@@ -94,10 +93,9 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             sequence=sequence,
         )
         logger.debug(
-            "sending listener realtime event for project config %s (sequence=%s session=%s)",
+            "sending listener realtime event for project config %s (sequence=%s)",
             projectConfigId,
             sequence,
-            share_session_id,
         )
         sockets_to_notify = set()
         for (
@@ -106,7 +104,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         ) in self.listener_registry.iter_callbacks_matching_dependencies(
             project_config_id=projectConfigId,
             dependency_keys=(delta.dependency for delta in deltas),
-            share_session_id=share_session_id,
         ):
             if matching_callbacks:
                 sockets_to_notify.add(registration.websocket_id)
@@ -141,7 +138,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectConfigId: ID,
         actionEvents: list[ControlActionEvent],
         sequence: int,
-        share_session_id: str | None = None,
     ):
         if not actionEvents:
             raise ValueError("actionEvents must contain at least one entry")
@@ -151,10 +147,9 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             sequence=sequence,
         )
         logger.debug(
-            "sending listener action event for project config %s (sequence=%s session=%s)",
+            "sending listener action event for project config %s (sequence=%s)",
             projectConfigId,
             sequence,
-            share_session_id,
         )
         sockets_to_notify = set()
         for (
@@ -163,7 +158,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         ) in self.listener_registry.iter_callbacks_matching_actions(
             project_config_id=projectConfigId,
             action_ids=(event.actionId for event in actionEvents),
-            share_session_id=share_session_id,
         ):
             if matching_callbacks:
                 sockets_to_notify.add(registration.websocket_id)
@@ -197,7 +191,6 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
         projectState: ProjectStateSingleConfig | None = None,
         projectConfigId: ID | None = None,
         targetWebsocketIds: Iterable[str] | None = None,
-        share_session_id: str | None = None,
     ):
         project_config_id = projectConfigId
         if projectState is not None:
@@ -212,10 +205,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             socket_ids = list(targetWebsocketIds)
         else:
             socket_ids = list(
-                self.listener_registry.iter_socket_ids_for_project(
-                    project_config_id,
-                    share_session_id=share_session_id,
-                )
+                self.listener_registry.iter_socket_ids_for_project(project_config_id)
             )
 
         if not socket_ids:
@@ -224,17 +214,11 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
                 project_config_id,
             )
             if self._realtime_event_hub is not None:
-                self._realtime_event_hub.reset_sequence(
-                    project_config_id,
-                    share_session_id=share_session_id,
-                )
+                self._realtime_event_hub.reset_sequence(project_config_id)
             return
 
         if self._realtime_event_hub is not None:
-            self._realtime_event_hub.reset_sequence(
-                project_config_id,
-                share_session_id=share_session_id,
-            )
+            self._realtime_event_hub.reset_sequence(project_config_id)
 
         content = ListenerForceRefreshContent(
             projectState=projectState,
