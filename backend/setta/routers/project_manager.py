@@ -96,6 +96,8 @@ from setta.share.policy import (
     ensure_share_param_changes_allowed,
     ensure_share_variant_changes_allowed,
 )
+from setta.share.session_context import get_share_session_id
+from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
@@ -194,7 +196,13 @@ async def route_create_top_level_section(
         x.projectConfigId
     ).create_top_level_section(x)
     if x.implType == SectionType.Terminal:
-        state.terminals.new_terminal(x.projectConfigId, result.sectionId)
+        share_session_id = get_share_session_id()
+        terminal_id = build_terminal_id(result.sectionId, share_session_id)
+        state.terminals.new_terminal(
+            x.projectConfigId,
+            terminal_id,
+            share_session_id=share_session_id,
+        )
     return result
 
 

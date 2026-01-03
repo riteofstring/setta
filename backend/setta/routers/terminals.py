@@ -18,6 +18,7 @@ from setta.routers.dependencies import (
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.share.policy import ensure_share_run_allowed, ensure_share_run_allowed_ws
 from setta.terminals.run_code import run_code, run_command
+from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -74,12 +75,19 @@ async def terminal_websocket_endpoint(
     )
     if not allowed:
         return
-    state.terminals.new_terminal(projectConfigId, sectionId)
+    terminal_id = build_terminal_id(sectionId, share_session_id)
+    state.terminals.new_terminal(
+        projectConfigId,
+        terminal_id,
+        share_session_id=share_session_id,
+    )
 
     extra_values = {
         "section_id": sectionId,
         "client_id": id,
     }
+    if share_session_id is not None:
+        extra_values["share_session_id"] = share_session_id
 
     async with bind_websocket_logging_context(
         websocket,
@@ -91,11 +99,13 @@ async def terminal_websocket_endpoint(
             "terminal_section_id": str(sectionId),
             "terminal_client_id": id,
         }
+        if share_session_id is not None:
+            context["terminal_share_session_id"] = share_session_id
         try:
-            did_connect = await state.terminals.connect(websocket, sectionId, id)
+            did_connect = await state.terminals.connect(websocket, terminal_id, id)
             if not did_connect:
                 return
-            await state.terminals.write_to_terminal(websocket, sectionId)
+            await state.terminals.write_to_terminal(websocket, terminal_id)
         except Exception as exc:
             await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
                 exc,
@@ -108,7 +118,7 @@ async def terminal_websocket_endpoint(
             raise
         finally:
             logger.debug("terminal_websocket_endpoint disconnect: %s", id)
-            state.terminals.disconnect(sectionId, id)
+            state.terminals.disconnect(terminal_id, id)
 
 
 @terminals_http_router.post(Route.DELETE_TERMINALS)
@@ -124,7 +134,10 @@ async def route_delete_terminals(
         share_session_id=share_session_id,
         section_ids=x.sectionIds,
     )
-    await state.terminals.delete_terminals(x.sectionIds)
+    terminal_ids = [
+        build_terminal_id(section_id, share_session_id) for section_id in x.sectionIds
+    ]
+    await state.terminals.delete_terminals(terminal_ids)
 
 
 @terminals_http_router.post(Route.KILL_SUBPROCESSES)
@@ -140,7 +153,10 @@ async def route_kill_subprocesses(
         project_config_id=x.projectConfigId,
         share_session_id=share_session_id,
     )
-    ids = state.terminals.get_existing_terminals(x.projectConfigId)
+    ids = state.terminals.get_existing_terminals(
+        x.projectConfigId,
+        share_session_id=share_session_id,
+    )
     num_killed = state.terminals.kill_processes(ids)
     msg = (
         f"Killed {num_killed} processes"
@@ -185,6 +201,7 @@ async def route_run_code(
             None,
             state.terminals,
             state.wmh_cli_sender,
+            share_session_id=share_session_id,
         )
     else:
         await run_code(
