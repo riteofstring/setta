@@ -105,19 +105,42 @@ function getNumericSectionSizeValue(
   return null;
 }
 
-function getGroupResizeSizeFromRef(
-  ref: HTMLDivElement | null,
+function getScaledSizeFromElement(
+  element: HTMLElement | null,
 ): SectionSize | null {
-  if (!ref) {
+  if (!element) {
     return null;
   }
   const zoom = useReactFlow.getState().transform[2] ?? 1;
   const safeZoom = zoom > 0 ? zoom : 1;
-  const rect = ref.getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
   return {
     width: Math.round(rect.width / safeZoom),
     height: Math.round(rect.height / safeZoom),
   };
+}
+
+function getElementContentSize(
+  element: HTMLElement | null,
+): SectionSize | null {
+  const size = getScaledSizeFromElement(element);
+  if (!size || !element) {
+    return null;
+  }
+  const style = window.getComputedStyle(element);
+  const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+  const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+  const width = Math.max(0, size.width - paddingLeft - paddingRight);
+  const height = Math.max(0, size.height - paddingTop - paddingBottom);
+  return { width, height };
+}
+
+function getGroupResizeSizeFromRef(
+  ref: HTMLDivElement | null,
+): SectionSize | null {
+  return getScaledSizeFromElement(ref);
 }
 
 function didResizeWidth(direction: string): boolean {
@@ -302,12 +325,19 @@ function ContainerGroup({
     const resizeHeight = didResizeHeight(direction);
     const shouldSyncCrossAxis =
       crossAxis === "width" ? resizeWidth : resizeHeight;
+    const contentSize = shouldSyncCrossAxis
+      ? getElementContentSize(overflowRefInternal.current)
+      : null;
+    const contentAxisSize =
+      crossAxis === "width" ? contentSize?.width : contentSize?.height;
+    let axisSize = crossAxis === "width" ? nextSize.width : nextSize.height;
+    if (typeof contentAxisSize === "number") {
+      axisSize = contentAxisSize;
+    }
 
     useProjectState.setState((state) => {
       setSectionSize(sectionId, nextSize, state);
       if (shouldSyncCrossAxis) {
-        const axisSize =
-          crossAxis === "width" ? nextSize.width : nextSize.height;
         setOverflowGroupCrossAxisSize({
           groupId: sectionId,
           axis: crossAxis,
@@ -349,6 +379,15 @@ function ContainerGroup({
     const resizeHeight = didResizeHeight(direction);
     const shouldSyncCrossAxis =
       crossAxis === "width" ? resizeWidth : resizeHeight;
+    const contentSize = shouldSyncCrossAxis
+      ? getElementContentSize(overflowRefInternal.current)
+      : null;
+    const contentAxisSize =
+      crossAxis === "width" ? contentSize?.width : contentSize?.height;
+    let axisSize = crossAxis === "width" ? changedSize.width : changedSize.height;
+    if (typeof contentAxisSize === "number") {
+      axisSize = contentAxisSize;
+    }
 
     let updatedSectionSizes: Record<string, SectionSize> = {};
     dispatchOptimisticProjectStateUpdate({
@@ -356,8 +395,6 @@ function ContainerGroup({
         const nextSize = setSectionSize(sectionId, changedSize, state);
         updatedSectionSizes = { [sectionId]: nextSize };
         if (shouldSyncCrossAxis) {
-          const axisSize =
-            crossAxis === "width" ? changedSize.width : changedSize.height;
           if (typeof axisSize === "number") {
             mergeSizeUpdates(
               updatedSectionSizes,

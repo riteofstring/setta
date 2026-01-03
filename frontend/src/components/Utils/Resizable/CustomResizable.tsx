@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -14,6 +15,7 @@ import {
   useMisc,
   useProjectState,
   useResizeEvent,
+  useSectionRefs,
   useSettings,
   type ZustandProjectState,
 } from "state/definitions";
@@ -29,6 +31,7 @@ import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   applyOverflowParentSizeUpdates,
+  type CrossAxis,
   getClosestOverflowGroupIdForAxis,
   setOverflowGroupCrossAxisSize,
 } from "./overflowResizeUtils";
@@ -62,6 +65,67 @@ function mergeSizeUpdates(
   }
 }
 
+function getScaledSizeFromElement(
+  element: HTMLElement | null,
+): SectionSize | null {
+  if (!element) {
+    return null;
+  }
+  const zoom = useReactFlow.getState().transform[2] ?? 1;
+  const safeZoom = zoom > 0 ? zoom : 1;
+  const rect = element.getBoundingClientRect();
+  return {
+    width: Math.round(rect.width / safeZoom),
+    height: Math.round(rect.height / safeZoom),
+  };
+}
+
+function getElementContentSize(
+  element: HTMLElement | null,
+): SectionSize | null {
+  const size = getScaledSizeFromElement(element);
+  if (!size || !element) {
+    return null;
+  }
+  const style = window.getComputedStyle(element);
+  const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+  const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+  const width = Math.max(0, size.width - paddingLeft - paddingRight);
+  const height = Math.max(0, size.height - paddingTop - paddingBottom);
+  return { width, height };
+}
+
+function getOverflowGroupAxisOffset({
+  groupId,
+  axis,
+}: {
+  groupId: string;
+  axis: CrossAxis;
+}): number {
+  const { withNested, overflowElement } = useSectionRefs.getState();
+  const outer = withNested[groupId] as HTMLElement | undefined;
+  const inner = overflowElement?.[groupId] as HTMLElement | undefined;
+  if (!outer || !inner) {
+    return 0;
+  }
+  const outerSize = getScaledSizeFromElement(outer);
+  const innerContentSize = getElementContentSize(inner);
+  if (!outerSize || !innerContentSize) {
+    return 0;
+  }
+  const outerAxisSize =
+    axis === "width" ? outerSize.width : outerSize.height;
+  const innerAxisSize =
+    axis === "width" ? innerContentSize.width : innerContentSize.height;
+  const offset = Math.round(outerAxisSize - innerAxisSize);
+  if (!Number.isFinite(offset) || offset < 0) {
+    return 0;
+  }
+  return offset;
+}
+
 function applyOverflowSectionResizeUpdates({
   sectionId,
   width,
@@ -82,6 +146,11 @@ function applyOverflowSectionResizeUpdates({
       state,
     });
     if (widthGroupId) {
+      const widthOffset = getOverflowGroupAxisOffset({
+        groupId: widthGroupId,
+        axis: "width",
+      });
+      const groupWidth = width + widthOffset;
       mergeSizeUpdates(
         updates,
         setOverflowGroupCrossAxisSize({
@@ -90,6 +159,17 @@ function applyOverflowSectionResizeUpdates({
           axisSize: width,
           state,
           includeChildren: true,
+          includeGroup: false,
+        }),
+      );
+      mergeSizeUpdates(
+        updates,
+        setOverflowGroupCrossAxisSize({
+          groupId: widthGroupId,
+          axis: "width",
+          axisSize: groupWidth,
+          state,
+          includeChildren: false,
           includeGroup: true,
         }),
       );
@@ -97,7 +177,7 @@ function applyOverflowSectionResizeUpdates({
         updates,
         applyOverflowParentSizeUpdates({
           sectionId: widthGroupId,
-          newWidth: width,
+          newWidth: groupWidth,
           newHeight: undefined,
           state,
         }),
@@ -112,6 +192,11 @@ function applyOverflowSectionResizeUpdates({
       state,
     });
     if (heightGroupId) {
+      const heightOffset = getOverflowGroupAxisOffset({
+        groupId: heightGroupId,
+        axis: "height",
+      });
+      const groupHeight = height + heightOffset;
       mergeSizeUpdates(
         updates,
         setOverflowGroupCrossAxisSize({
@@ -120,6 +205,17 @@ function applyOverflowSectionResizeUpdates({
           axisSize: height,
           state,
           includeChildren: true,
+          includeGroup: false,
+        }),
+      );
+      mergeSizeUpdates(
+        updates,
+        setOverflowGroupCrossAxisSize({
+          groupId: heightGroupId,
+          axis: "height",
+          axisSize: groupHeight,
+          state,
+          includeChildren: false,
           includeGroup: true,
         }),
       );
@@ -128,7 +224,7 @@ function applyOverflowSectionResizeUpdates({
         applyOverflowParentSizeUpdates({
           sectionId: heightGroupId,
           newWidth: undefined,
-          newHeight: height,
+          newHeight: groupHeight,
           state,
         }),
       );
