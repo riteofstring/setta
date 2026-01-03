@@ -27,44 +27,28 @@ type OverflowSizeUpdateInput = {
   element: HTMLDivElement | null | undefined;
   size: SectionSize;
   zoom: number;
-  isHorizontalOrientation: boolean;
 };
 
 function getOverflowSizeUpdate({
   element,
   size,
   zoom,
-  isHorizontalOrientation,
 }: OverflowSizeUpdateInput): SectionSize | null {
-  // Only capture the scroll axis dimension:
-  // - Vertical groups: scroll vertically, so capture height
-  // - Horizontal groups: scroll horizontally, so capture width
-  // Cross-axis is determined by content, so set to "auto"
+  // Capture both dimensions when entering overflow mode
+  // Both axes are resizable in overflow mode
   if (element) {
     const rect = element.getBoundingClientRect();
     const safeZoom = zoom > 0 ? zoom : 1;
-    if (isHorizontalOrientation) {
-      return createSectionSize({
-        width: Math.round(rect.width / safeZoom),
-        height: "auto",
-      });
-    } else {
-      return createSectionSize({
-        width: "auto",
-        height: Math.round(rect.height / safeZoom),
-      });
-    }
+    return createSectionSize({
+      width: Math.round(rect.width / safeZoom),
+      height: Math.round(rect.height / safeZoom),
+    });
   }
 
   // Fallback to existing size if element not available
-  if (isHorizontalOrientation && typeof size.width === "number") {
+  if (typeof size.width === "number" && typeof size.height === "number") {
     return createSectionSize({
       width: size.width,
-      height: "auto",
-    });
-  } else if (!isHorizontalOrientation && typeof size.height === "number") {
-    return createSectionSize({
-      width: "auto",
       height: size.height,
     });
   }
@@ -75,20 +59,18 @@ function getOverflowSizeUpdate({
 export function ToggleGroupOverflowMode({
   sectionId,
 }: ToggleGroupOverflowModeProps) {
-  const { overflowMode, isFrozen, size, isHorizontalOrientation } =
-    useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        x,
-        sectionId,
-        SectionTypeEnum.Group,
-      );
-      return {
-        overflowMode: impl.overflowMode ?? false,
-        isFrozen: impl.isFrozen,
-        size: impl.size,
-        isHorizontalOrientation: impl.isHorizontalOrientation ?? false,
-      };
-    }, _.isEqual);
+  const { overflowMode, isFrozen, size } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Group,
+    );
+    return {
+      overflowMode: impl.overflowMode ?? false,
+      isFrozen: impl.isFrozen,
+      size: impl.size,
+    };
+  }, _.isEqual);
   const sectionElement = useSectionRefs((x) => x.withNested[sectionId]);
 
   function onClick() {
@@ -99,7 +81,6 @@ export function ToggleGroupOverflowMode({
           element: sectionElement,
           size,
           zoom,
-          isHorizontalOrientation,
         })
       : null;
     const nextOverflowMinSize = nextOverflowMode ? overflowSizeSnapshot : null;

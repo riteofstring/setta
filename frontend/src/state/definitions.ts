@@ -319,6 +319,7 @@ export const useSectionRefs = withProjectState(
         withResetFn(() => ({
           withNested: {},
           selfOnly: {},
+          overflowElement: {},
         })),
       ),
     ),

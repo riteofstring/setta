@@ -14,8 +14,8 @@ import {
   useMisc,
   useProjectState,
   useResizeEvent,
-  useSectionRefs,
   useSettings,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
@@ -25,90 +25,114 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { route_set_section_sizes } from "utils/generatedEndpoints";
-import { SectionSize, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
+import {
+  applyOverflowParentSizeUpdates,
+  getClosestOverflowGroupIdForAxis,
+  setOverflowGroupCrossAxisSize,
+} from "./overflowResizeUtils";
 import { getChangedSize, SIZE_MODE } from "./utils";
 
-type OverflowParentResizeInput = {
-  sectionId: string;
-  didResizeWidth: boolean;
-  didResizeHeight: boolean;
-};
+function getNumericResizeSize(
+  changedSize: Partial<SectionSize>,
+): Partial<SectionSize> {
+  const numericSize: Partial<SectionSize> = {};
+  if (
+    typeof changedSize.width === "number" &&
+    Number.isFinite(changedSize.width)
+  ) {
+    numericSize.width = changedSize.width;
+  }
+  if (
+    typeof changedSize.height === "number" &&
+    Number.isFinite(changedSize.height)
+  ) {
+    numericSize.height = changedSize.height;
+  }
+  return numericSize;
+}
 
-function getOverflowParentSizeUpdates({
+function mergeSizeUpdates(
+  target: Record<string, SectionSize>,
+  updates: Record<string, SectionSize>,
+) {
+  for (const [sectionId, size] of Object.entries(updates)) {
+    target[sectionId] = size;
+  }
+}
+
+function applyOverflowSectionResizeUpdates({
   sectionId,
-  didResizeWidth,
-  didResizeHeight,
-}: OverflowParentResizeInput): Record<string, Partial<SectionSize>> {
-  const updates: Record<string, Partial<SectionSize>> = {};
-  if (!didResizeWidth && !didResizeHeight) {
-    return updates;
+  width,
+  height,
+  state,
+}: {
+  sectionId: string;
+  width: number | undefined;
+  height: number | undefined;
+  state: ZustandProjectState;
+}): Record<string, SectionSize> {
+  const updates: Record<string, SectionSize> = {};
+
+  if (typeof width === "number") {
+    const widthGroupId = getClosestOverflowGroupIdForAxis({
+      sectionId,
+      axis: "width",
+      state,
+    });
+    if (widthGroupId) {
+      mergeSizeUpdates(
+        updates,
+        setOverflowGroupCrossAxisSize({
+          groupId: widthGroupId,
+          axis: "width",
+          axisSize: width,
+          state,
+          includeChildren: true,
+          includeGroup: true,
+        }),
+      );
+      mergeSizeUpdates(
+        updates,
+        applyOverflowParentSizeUpdates({
+          sectionId: widthGroupId,
+          newWidth: width,
+          newHeight: undefined,
+          state,
+        }),
+      );
+    }
   }
 
-  const state = useProjectState.getState();
-  const refs = useSectionRefs.getState().withNested;
-  let currentId: string | null = sectionId;
-
-  while (currentId) {
-    const impl = getCurrEffectiveSectionImpl(state, currentId);
-    const parentId = impl.parentId ?? null;
-    if (!parentId) {
-      break;
+  if (typeof height === "number") {
+    const heightGroupId = getClosestOverflowGroupIdForAxis({
+      sectionId,
+      axis: "height",
+      state,
+    });
+    if (heightGroupId) {
+      mergeSizeUpdates(
+        updates,
+        setOverflowGroupCrossAxisSize({
+          groupId: heightGroupId,
+          axis: "height",
+          axisSize: height,
+          state,
+          includeChildren: true,
+          includeGroup: true,
+        }),
+      );
+      mergeSizeUpdates(
+        updates,
+        applyOverflowParentSizeUpdates({
+          sectionId: heightGroupId,
+          newWidth: undefined,
+          newHeight: height,
+          state,
+        }),
+      );
     }
-
-    const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
-    if (parentImpl.type !== SectionTypeEnum.Group) {
-      currentId = parentId;
-      continue;
-    }
-
-    if (!parentImpl.overflowMode) {
-      currentId = parentId;
-      continue;
-    }
-
-    // In overflow mode:
-    // - Vertical groups (isHorizontalOrientation=false): cross-axis is width, which is "auto"
-    // - Horizontal groups (isHorizontalOrientation=true): cross-axis is height, which is "auto"
-    // Skip updating dimensions that are "auto" since they're determined by content naturally
-    const shouldResizeWidth =
-      didResizeWidth &&
-      !parentImpl.isHorizontalOrientation &&
-      parentImpl.size.width !== "auto";
-    const shouldResizeHeight =
-      didResizeHeight &&
-      parentImpl.isHorizontalOrientation &&
-      parentImpl.size.height !== "auto";
-    if (!shouldResizeWidth && !shouldResizeHeight) {
-      currentId = parentId;
-      continue;
-    }
-
-    const parentElement = refs[parentId];
-    if (!parentElement) {
-      currentId = parentId;
-      continue;
-    }
-
-    const parentUpdate: Partial<SectionSize> = {};
-    if (shouldResizeWidth) {
-      const nextWidth = Math.round(parentElement.scrollWidth);
-      if (nextWidth > 0 && parentImpl.size.width !== nextWidth) {
-        parentUpdate.width = nextWidth;
-      }
-    }
-    if (shouldResizeHeight) {
-      const nextHeight = Math.round(parentElement.scrollHeight);
-      if (nextHeight > 0 && parentImpl.size.height !== nextHeight) {
-        parentUpdate.height = nextHeight;
-      }
-    }
-
-    if (parentUpdate.width !== undefined || parentUpdate.height !== undefined) {
-      updates[parentId] = parentUpdate;
-    }
-
-    currentId = parentId;
   }
 
   return updates;
@@ -192,22 +216,39 @@ function CustomResizableCore({
     useMisc.setState({ mouseDownDraggingSection: true });
   }
 
-  function onResizeStop(...props) {
-    const [, direction] = props;
+  function onResize(...props: unknown[]) {
     const changedSize = getChangedSize({
       props,
       sizeMode,
       aspectRatio,
     });
-    const didResizeWidth =
-      direction === "right" || direction === "bottomRight";
-    const didResizeHeight =
-      direction === "bottom" || direction === "bottomRight";
-    const overflowParentUpdates = getOverflowParentSizeUpdates({
-      sectionId,
-      didResizeWidth,
-      didResizeHeight,
+    const numericSize = getNumericResizeSize(changedSize);
+
+    if (_.size(numericSize) === 0) {
+      return;
+    }
+
+    useProjectState.setState((state) => {
+      const overflowUpdates = applyOverflowSectionResizeUpdates({
+        sectionId,
+        width: numericSize.width,
+        height: numericSize.height,
+        state,
+      });
+      if (_.size(overflowUpdates) === 0) {
+        return;
+      }
+      setSectionSize(sectionId, numericSize, state);
     });
+  }
+
+  function onResizeStop(...props: unknown[]) {
+    const changedSize = getChangedSize({
+      props,
+      sizeMode,
+      aspectRatio,
+    });
+    const numericSize = getNumericResizeSize(changedSize);
     let updatedSectionSizes: Record<string, SectionSize> = {};
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -216,12 +257,13 @@ function CustomResizableCore({
           changedSize,
           state,
         );
-        for (const [parentId, parentUpdate] of Object.entries(
-          overflowParentUpdates,
-        )) {
-          const nextParentSize = setSectionSize(parentId, parentUpdate, state);
-          updatedSectionSizes[parentId] = nextParentSize;
-        }
+        const overflowUpdates = applyOverflowSectionResizeUpdates({
+          sectionId,
+          width: numericSize.width,
+          height: numericSize.height,
+          state,
+        });
+        mergeSizeUpdates(updatedSectionSizes, overflowUpdates);
       },
       send: (frontendOpId) =>
         route_set_section_sizes({
@@ -262,6 +304,7 @@ function CustomResizableCore({
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
       onResizeStart={onResizeStart}
+      onResize={onResize}
       onResizeStop={onResizeStop}
       aspectRatio={aspectRatio}
       aspectRatioExtraHeight={aspectRatioExtraHeight}
@@ -292,6 +335,7 @@ function CustomResizableSuperCore({
   widthResizable,
   positionAndSizeLocked,
   onResizeStart,
+  onResize,
   onResizeStop,
   aspectRatio,
   aspectRatioExtraHeight,
@@ -396,6 +440,7 @@ function CustomResizableSuperCore({
       minWidth={minWidth}
       maxWidth={maxWidth}
       onResizeStart={handleResizeStart}
+      onResize={onResize}
       onResizeStop={handleResizeStop}
       lockAspectRatio={aspectRatio}
       lockAspectRatioExtraHeight={aspectRatioExtraHeight}

@@ -1,3 +1,8 @@
+import {
+  applyOverflowParentSizeUpdates,
+  type CrossAxis,
+  setOverflowGroupCrossAxisSize,
+} from "components/Utils/Resizable/overflowResizeUtils";
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -100,6 +105,45 @@ function getNumericSectionSizeValue(
   return null;
 }
 
+function getGroupResizeSizeFromRef(
+  ref: HTMLDivElement | null,
+): SectionSize | null {
+  if (!ref) {
+    return null;
+  }
+  const zoom = useReactFlow.getState().transform[2] ?? 1;
+  const safeZoom = zoom > 0 ? zoom : 1;
+  const rect = ref.getBoundingClientRect();
+  return {
+    width: Math.round(rect.width / safeZoom),
+    height: Math.round(rect.height / safeZoom),
+  };
+}
+
+function didResizeWidth(direction: string): boolean {
+  return direction.includes("left") || direction.includes("right");
+}
+
+function didResizeHeight(direction: string): boolean {
+  return direction.includes("top") || direction.includes("bottom");
+}
+
+function getCrossAxis(isHorizontalOrientation: boolean): CrossAxis {
+  if (isHorizontalOrientation) {
+    return "height";
+  }
+  return "width";
+}
+
+function mergeSizeUpdates(
+  target: Record<string, SectionSize>,
+  updates: Record<string, SectionSize>,
+) {
+  for (const [sectionId, size] of Object.entries(updates)) {
+    target[sectionId] = size;
+  }
+}
+
 function ContainerGroup({
   sectionId,
   commonProps,
@@ -137,9 +181,17 @@ function ContainerGroup({
   }, _.isEqual);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
-  const { ref: overflowRef, isScrollable } = useIsScrollable();
+  const { ref: overflowRefInternal, isScrollable } = useIsScrollable();
   const { minHeight, maxHeight, minWidth, maxWidth } =
     useSectionMinMaxDims(sectionId);
+
+  // Callback ref that registers the overflow element for scrollWidth reading
+  const overflowRef = (element: HTMLDivElement | null) => {
+    overflowRefInternal.current = element;
+    if (element && overflowMode) {
+      setSectionRef({ sectionId, overflowElement: element });
+    }
+  };
   let effectiveMinHeight = minHeight;
   let effectiveMinWidth = minWidth;
   if (overflowMode) {
@@ -171,37 +223,28 @@ function ContainerGroup({
 
   const groupStyle = { ...(style ?? {}) };
   if (overflowMode) {
-    // Only fix the scroll-axis dimension, let the cross-axis expand with content
-    // Vertical groups: scroll vertically (fix height), expand horizontally (width auto)
-    // Horizontal groups: scroll horizontally (fix width), expand vertically (height auto)
-    if (isHorizontalOrientation) {
-      // Horizontal group: fix width (scroll axis), let height expand (cross axis)
-      if (size.width !== "auto") {
-        groupStyle.width = size.width;
-      }
-    } else {
-      // Vertical group: fix height (scroll axis), let width expand (cross axis)
-      if (size.height !== "auto") {
-        groupStyle.height = size.height;
-      }
+    // Set both dimensions - both axes are now resizable
+    if (size.width !== "auto") {
+      groupStyle.width = size.width;
+    }
+    if (size.height !== "auto") {
+      groupStyle.height = size.height;
     }
   }
 
   let contentClassName = "z-10";
   if (overflowMode) {
     // Scroll axis: auto (allows scrolling when content exceeds container)
-    // Cross axis: visible (content determines size, no clipping)
-    // Note: CSS converts visible to auto when other axis is scroll/auto,
-    // but since cross-axis container is not constrained, this works naturally.
+    // Cross axis: hidden (no scrollbar, but scrollWidth still reports actual content width
+    // for getOverflowParentSizeUpdates to expand the group when sections are resized)
     const overflowAxisClassName = isHorizontalOrientation
-      ? "overflow-x-auto overflow-y-visible"
-      : "overflow-y-auto overflow-x-visible";
+      ? "overflow-x-auto overflow-y-hidden"
+      : "overflow-y-auto overflow-x-hidden";
 
     // Padding to prevent scrollbar from crowding sections
-    // Also adds padding on cross-axis edges to ensure section outlines (4px) are visible
     const overflowPaddingClassName = isHorizontalOrientation
-      ? "pb-4 -mb-4 pt-1 -mt-1" // Bottom for scrollbar, top for outlines
-      : "pr-4 -mr-4 pl-1 -ml-1"; // Right for scrollbar, left for outlines
+      ? "pb-4 -mb-4" // Bottom for scrollbar
+      : "pr-4 -mr-4"; // Right for scrollbar
 
     contentClassName =
       `z-10 flex min-h-0 min-w-0 flex-1 flex-col ${overflowAxisClassName} ${overflowPaddingClassName}`.trim();
@@ -212,26 +255,19 @@ function ContainerGroup({
 
   const heightResizable = effectiveMinHeight !== maxHeight;
   const widthResizable = effectiveMinWidth !== maxWidth;
-  // In overflow mode, only allow resizing on the scroll axis:
-  // - Vertical groups: resize height (bottom handle only)
-  // - Horizontal groups: resize width (right handle only)
-  // Cross-axis is determined by content, so no resize handles needed there.
-  const scrollAxisHeightResizable = isHorizontalOrientation
-    ? false
-    : heightResizable;
-  const scrollAxisWidthResizable = isHorizontalOrientation
-    ? widthResizable
-    : false;
+  // In overflow mode, allow resizing on both axes:
+  // - Scroll axis: controls how much content is visible before scrolling
+  // - Cross axis: resizes group, and children conform to the new size
   const enableResize =
     disablePointerEvents || positionAndSizeLocked
       ? false
       : {
           top: false,
           left: false,
-          bottom: scrollAxisHeightResizable,
-          right: scrollAxisWidthResizable,
+          bottom: heightResizable,
+          right: widthResizable,
           topRight: false,
-          bottomRight: false, // No corner resize since only one axis is resizable
+          bottomRight: heightResizable && widthResizable,
           topLeft: false,
           bottomLeft: false,
         };
@@ -250,25 +286,114 @@ function ContainerGroup({
     useMisc.setState({ mouseDownDraggingSection: true });
   }
 
-  function onResizeStop(...props) {
-    const [, , ref] = props;
-    let changedSize: Partial<SectionSize> = {};
-    if (ref) {
-      const zoom = useReactFlow.getState().transform[2] ?? 1;
-      const safeZoom = zoom > 0 ? zoom : 1;
-      const rect = ref.getBoundingClientRect();
-      // Only save the scroll axis dimension; cross-axis is determined by content
-      if (isHorizontalOrientation) {
-        changedSize = { width: Math.round(rect.width / safeZoom) };
-      } else {
-        changedSize = { height: Math.round(rect.height / safeZoom) };
-      }
+  function onResize(...props: unknown[]) {
+    const [, direction, ref] = props as [
+      unknown,
+      string,
+      HTMLDivElement | null,
+    ];
+    const nextSize = getGroupResizeSizeFromRef(ref);
+    if (!nextSize) {
+      return;
     }
+
+    const crossAxis = getCrossAxis(isHorizontalOrientation);
+    const resizeWidth = didResizeWidth(direction);
+    const resizeHeight = didResizeHeight(direction);
+    const shouldSyncCrossAxis =
+      crossAxis === "width" ? resizeWidth : resizeHeight;
+
+    useProjectState.setState((state) => {
+      setSectionSize(sectionId, nextSize, state);
+      if (shouldSyncCrossAxis) {
+        const axisSize =
+          crossAxis === "width" ? nextSize.width : nextSize.height;
+        setOverflowGroupCrossAxisSize({
+          groupId: sectionId,
+          axis: crossAxis,
+          axisSize,
+          state,
+          includeChildren: true,
+          includeGroup: false,
+        });
+      }
+      if (resizeWidth) {
+        applyOverflowParentSizeUpdates({
+          sectionId,
+          newWidth: nextSize.width,
+          newHeight: undefined,
+          state,
+        });
+      }
+      if (resizeHeight) {
+        applyOverflowParentSizeUpdates({
+          sectionId,
+          newWidth: undefined,
+          newHeight: nextSize.height,
+          state,
+        });
+      }
+    });
+  }
+
+  function onResizeStop(...props: unknown[]) {
+    const [, direction, ref] = props as [
+      unknown,
+      string,
+      HTMLDivElement | null,
+    ];
+    const nextSize = getGroupResizeSizeFromRef(ref);
+    const changedSize: Partial<SectionSize> = nextSize ?? {};
+    const crossAxis = getCrossAxis(isHorizontalOrientation);
+    const resizeWidth = didResizeWidth(direction);
+    const resizeHeight = didResizeHeight(direction);
+    const shouldSyncCrossAxis =
+      crossAxis === "width" ? resizeWidth : resizeHeight;
+
     let updatedSectionSizes: Record<string, SectionSize> = {};
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         const nextSize = setSectionSize(sectionId, changedSize, state);
         updatedSectionSizes = { [sectionId]: nextSize };
+        if (shouldSyncCrossAxis) {
+          const axisSize =
+            crossAxis === "width" ? changedSize.width : changedSize.height;
+          if (typeof axisSize === "number") {
+            mergeSizeUpdates(
+              updatedSectionSizes,
+              setOverflowGroupCrossAxisSize({
+                groupId: sectionId,
+                axis: crossAxis,
+                axisSize,
+                state,
+                includeChildren: true,
+                includeGroup: false,
+              }),
+            );
+          }
+        }
+        if (resizeWidth) {
+          mergeSizeUpdates(
+            updatedSectionSizes,
+            applyOverflowParentSizeUpdates({
+              sectionId,
+              newWidth: changedSize.width,
+              newHeight: undefined,
+              state,
+            }),
+          );
+        }
+        if (resizeHeight) {
+          mergeSizeUpdates(
+            updatedSectionSizes,
+            applyOverflowParentSizeUpdates({
+              sectionId,
+              newWidth: undefined,
+              newHeight: changedSize.height,
+              state,
+            }),
+          );
+        }
       },
       send: (frontendOpId) =>
         route_set_section_sizes({
@@ -283,18 +408,13 @@ function ContainerGroup({
     useMisc.setState({ mouseDownDraggingSection: false });
   }
 
-  // For overflow mode, only constrain the scroll axis:
-  // - Vertical groups: h-full (scroll axis), let width be natural
-  // - Horizontal groups: w-full (scroll axis), let height be natural
+  // For overflow mode, constrain both axes since both are resizable
   const overflowContainerClassName = overflowMode
-    ? isHorizontalOrientation
-      ? "min-h-0 min-w-0 w-full" // Horizontal: fix width, let height expand
-      : "min-h-0 min-w-0 h-full" // Vertical: fix height, let width expand
+    ? "min-h-0 min-w-0 h-full w-full"
     : "";
   const containerClassName = `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${overflowContainerClassName} ${className}`;
-  const dropAreaBaseClassName =
-    "z-10 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500";
-  const dropAreaClassName = `${dropAreaBaseClassName} -mx-4`;
+  const dropAreaClassName =
+    "z-10 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500 -mx-4";
 
   const containerBody = (
     <>
@@ -324,8 +444,13 @@ function ContainerGroup({
         )}
       </div>
 
+      {/* In overflow mode, put drop area outside scroll container to prevent clipping */}
+      {overflowMode && !hasNested && (
+        <div className={dropAreaClassName}>Drop A Section Here.</div>
+      )}
+
       <div className={contentClassName} ref={overflowRef}>
-        {!hasNested && (
+        {!overflowMode && !hasNested && (
           <div className={dropAreaClassName}>Drop A Section Here.</div>
         )}
         {children}
@@ -350,25 +475,17 @@ function ContainerGroup({
     );
   }
 
-  // Only set the scroll axis size; cross-axis is determined by content
-  const overflowSize = isHorizontalOrientation
-    ? { width: size.width, height: "auto" }
-    : { width: "auto", height: size.height };
-  // For scroll axis constraints, use effective min/max
-  // For cross-axis, use undefined to allow natural sizing
-  const effectiveMaxHeight = isHorizontalOrientation ? undefined : maxHeight;
-  const effectiveMaxWidth = isHorizontalOrientation ? maxWidth : undefined;
-
   return (
     <ResizableWithScale
       className="relative"
       style={groupStyle}
-      size={overflowSize}
-      minHeight={isHorizontalOrientation ? undefined : effectiveMinHeight}
-      maxHeight={effectiveMaxHeight}
-      minWidth={isHorizontalOrientation ? effectiveMinWidth : undefined}
-      maxWidth={effectiveMaxWidth}
+      size={size}
+      minHeight={effectiveMinHeight}
+      maxHeight={maxHeight}
+      minWidth={effectiveMinWidth}
+      maxWidth={maxWidth}
       onResizeStart={onResizeStart}
+      onResize={onResize}
       onResizeStop={onResizeStop}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enableResize}
