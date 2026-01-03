@@ -18,7 +18,6 @@ from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
 from setta.project_state.utils import (
-    convert_path_to_module_path,
     create_timestamped_folder,
 )
 from setta.share.deployment_utils import rewrite_project_state_paths
@@ -327,14 +326,14 @@ class ShareProjectManager:
         ).resolve()
         if deployment_path.exists():
             return CodeFileBinding(
-                canonical_path=normalize_path(deployment_path),
+                canonical_path=deployment_path,
                 access_mode=CodeFileAccessMode.write_only,
             )
         runtime_path = (
             self.dbe.runtime_root / "code" / "sections" / project_slug / "setta_gen.py"
         ).resolve()
         return CodeFileBinding(
-            canonical_path=normalize_path(runtime_path),
+            canonical_path=runtime_path,
             access_mode=CodeFileAccessMode.write_only,
         )
 
@@ -382,18 +381,18 @@ class ShareProjectManager:
             return path_str
         path = Path(path_str)
         if path.is_absolute():
-            return str(normalize_path(path))
+            return str(path.resolve())
         resolved = (self.deployment_root / path).resolve()
-        return str(normalize_path(resolved))
+        return str(resolved)
 
     def _resolve_code_binding(self, binding: CodeFileBinding) -> CodeFileBinding:
         path = binding.canonical_path
         if path.is_absolute():
             return CodeFileBinding(
-                canonical_path=normalize_path(path),
+                canonical_path=path.resolve(),
                 access_mode=binding.access_mode,
             )
-        resolved = normalize_path((self.deployment_root / path).resolve())
+        resolved = (self.deployment_root / path).resolve()
         return CodeFileBinding(
             canonical_path=resolved,
             access_mode=binding.access_mode,
@@ -415,7 +414,7 @@ class ShareProjectManager:
                 relative = Path(path.name)
         else:
             relative = path
-        resolved = normalize_path((session_root / relative).resolve())
+        resolved = (session_root / relative).resolve()
         return CodeFileBinding(
             canonical_path=resolved,
             access_mode=binding.access_mode,
@@ -508,15 +507,10 @@ class ShareProjectManager:
         return self._build_bash_run_command(path)
 
     def _build_python_run_command(self, path: Path) -> str:
-        normalized = normalize_path(path)
-        if normalized.is_absolute():
-            return f"python {normalized}"
-        module_path = convert_path_to_module_path(normalized)
-        return f"python -m {module_path}"
+        return f"python {path.resolve()}"
 
     def _build_bash_run_command(self, path: Path) -> str:
-        normalized = normalize_path(path)
-        return f"bash {normalized}"
+        return f"bash {path.resolve()}"
 
     async def apply_listener_emit_updates(
         self,

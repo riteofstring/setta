@@ -16,8 +16,8 @@ Latest completion updates (this branch):
   deployment roots still produce the correct `/share/<name>/<version>` URL.
 - Share runtime roots use the manifest name/version and avoid root-level
   `share_runtime` when deployments are relocated.
-- Share run commands fall back to `python <absolute path>` for relocated
-  deployments so absolute snapshots run without invalid `python -m` paths.
+- Share run commands always use `python <absolute path>` in share mode so
+  session snapshots avoid invalid `python -m` module paths and CWD assumptions.
 - Share session cleanup now cancels per-session project manager queue tasks.
 - Share settings load waits for backend readiness in share mode.
 - Share session cleanup now terminates terminals associated with expired sessions.
@@ -33,6 +33,8 @@ Latest completion updates (this branch):
   generated code section, so run/LSP paths stay rooted in the share runtime.
 - Share path guards now resolve relative paths against the deployment root
   instead of the server CWD.
+- Share deployment path rebasing keeps absolute runtime paths in memory so share
+  file access checks do not double-join deployment-relative paths.
 - Code editors are read-only in share mode when `allowParamChanges` is false.
 - New tests cover manager-state publishing, in-memory JSON source publishing,
   relocated deployment roots, gen-code rebasing, share path guarding, and
@@ -356,7 +358,8 @@ Implemented:
   `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
   (default root: `setta_files/share_runtime/...`) and uses per-session snapshots
   or canonical files based on snapshot mode.
-- Share run commands use `python <absolute path>` when snapshots are outside CWD.
+- Share run commands always use `python <absolute path>` (and `bash <absolute path>`)
+  in share mode to avoid invalid module paths.
 - Share run output cleanup runs in the background for ephemeral snapshots.
 - Terminals are keyed by share session + section id to prevent PTY collisions
   across viewers; run/delete/kill routes and terminal websockets use the

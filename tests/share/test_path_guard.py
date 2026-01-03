@@ -21,6 +21,17 @@ class SharePathGuardTests(unittest.TestCase):
                 resolved,
             )
 
+    def test_absolute_path_resolves_under_deployment_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "share_deployment"
+            artifact_path = root / "artifacts" / "example.png"
+            artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            resolved = ensure_share_deployment_path(
+                str(artifact_path),
+                root,
+            )
+            self.assertEqual(artifact_path.resolve(), resolved)
+
     def test_path_outside_deployment_root_is_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir) / "share_deployment"

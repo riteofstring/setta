@@ -1,1 +1,1 @@
-python -m unittest discover
+. ./activate.sh && python -m unittest discover
