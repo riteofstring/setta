@@ -25,6 +25,7 @@ from setta.project_state.share_session_project_manager_switcher import (
     ShareSessionProjectManagerSwitcher,
 )
 from setta.share.chat_manager import ShareChatManager
+from setta.share.deployment_utils import read_share_deployment_manifest
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.run_cleanup import (
     DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
@@ -432,6 +433,7 @@ class SettaFastAPIState:
                 llm_config=llm_config,
             )
         share_chat_manager = self.chat_manager if share_policy.allowLLM else None
+        share_terminals = self.terminals if share_policy.allowRun else None
         spawn_background_task(
             run_share_session_cleanup_loop(
                 self.share_session_store,
@@ -439,6 +441,7 @@ class SettaFastAPIState:
                 self.project_manager_switcher,
                 share_listener_runtime=self.share_listener_runtime,
                 share_chat_manager=share_chat_manager,
+                terminals=share_terminals,
                 interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
             ),
             label="share-session-cleanup",
@@ -477,11 +480,22 @@ class SettaFastAPIState:
     ) -> Path | None:
         if not self.share_mode or share_deployment_root is None:
             return None
-        project_config_name = share_deployment_root.parent.name
-        deployment_version = share_deployment_root.name
-        base_root = share_deployment_root.parent.parent
-        if base_root.name == "share_deployments":
-            base_root = base_root.parent
+        manifest = read_share_deployment_manifest(share_deployment_root)
+        if manifest is None:
+            raise FileNotFoundError(
+                f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"
+            )
+        project_config_name = manifest.projectConfigName
+        deployment_version = manifest.deploymentVersion
+        share_deployments_root = share_deployment_root.parent.parent
+        if share_deployments_root.name == "share_deployments":
+            default_share_root = C.SHARE_DEPLOYMENTS_FOLDER.resolve()
+            if share_deployments_root.resolve() == default_share_root:
+                base_root = default_share_root.parent
+            else:
+                base_root = share_deployments_root
+        else:
+            base_root = share_deployment_root.parent
         runtime_root = (
             base_root / "share_runtime" / project_config_name / deployment_version
         ).resolve()

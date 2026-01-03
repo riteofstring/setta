@@ -5,11 +5,7 @@ steps based on the current code layout.
 
 Note: Share startup uses CLI flags (no env vars).
 
-Current status: Most steps below are completed in this branch. Known gaps to track:
-- Share runtime root is derived from the deployment root's parent chain, so
-  relocated deployments can change the runtime location.
-- Share session cleanup does not terminate terminals for expired sessions.
-- Draw-layer artifact publishing still copies all layers after the first change.
+Current status: Most steps below are completed in this branch. No known gaps tracked here.
 
 Latest completion updates (this branch):
 - Share deployment publish now uses the in-memory project manager state after
@@ -18,6 +14,10 @@ Latest completion updates (this branch):
 - Listener execution is per-session only; shared listener isolation was removed.
 - Share startup derives the share URL from `manifest.json`, so relocated
   deployment roots still produce the correct `/share/<name>/<version>` URL.
+- Share runtime roots use the manifest name/version and avoid root-level
+  `share_runtime` when deployments are relocated.
+- Share session cleanup now terminates terminals associated with expired sessions.
+- Draw-layer artifact rebasing only copies layers with path changes.
 - Share deployment roots can be relocated without name/version directory
   matching; the manifest is the source of truth.
 - Share LLM config loads from the share runtime DBE without writing defaults
@@ -49,7 +49,7 @@ Latest completion updates (this branch):
   (`backend/setta/database/settings_file.py`). Share mode now initializes
   settings with `allow_write=False` so deployments remain write-free (missing
   settings slices fall back to defaults without writing to disk).
-- `DBE` writes file locks and the temporary id map. Share mode now points
+- `DBE` writes file locks and the temporary id map. Share mode points
   `runtime_root`/`lock_root` at a `share_runtime/<project_config_name>/<version>`
   folder derived from the deployment root (standard layout resolves under
   `setta_files/`) so deployment roots remain immutable.

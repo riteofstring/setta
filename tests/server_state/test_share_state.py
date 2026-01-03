@@ -111,23 +111,48 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_state_uses_runtime_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            project_config_name = "share_test"
+            project_config_name = "share_test_dir"
             root = _build_share_deployment_root(tmpdir, project_config_name)
+            manifest_name = "share_test_manifest"
+            manifest_version = "v99"
             _write_share_project(
                 root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
+                project_config_name=manifest_name,
+                deployment_version=manifest_version,
             )
             state = await self._build_state(root)
 
             deployment_root = root.resolve()
             runtime_root = state.dbe.runtime_root
             self.assertNotEqual(runtime_root, deployment_root)
-            self.assertTrue(
-                runtime_root.is_relative_to(Path(tmpdir).resolve() / "share_runtime")
+            self.assertEqual(
+                Path(tmpdir).resolve()
+                / "share_deployments"
+                / "share_runtime"
+                / manifest_name
+                / manifest_version,
+                runtime_root,
             )
             self.assertTrue(state.dbe.temporary_id_map.is_relative_to(runtime_root))
             self.assertFalse(state.dbe.temporary_id_map.is_relative_to(deployment_root))
+
+    async def test_share_state_uses_manifest_for_relocated_runtime_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "relocated_root" / "project_alpha" / "v1"
+            root.mkdir(parents=True, exist_ok=True)
+            manifest_name = "relocated_manifest"
+            manifest_version = "v42"
+            _write_share_project(
+                root,
+                project_config_name=manifest_name,
+                deployment_version=manifest_version,
+            )
+            state = await self._build_state(root)
+
+            expected = (
+                root.parent / "share_runtime" / manifest_name / manifest_version
+            ).resolve()
+            self.assertEqual(expected, state.dbe.runtime_root)
 
     def test_share_state_requires_project_file(self) -> None:
         with TemporaryDirectory() as tmpdir:

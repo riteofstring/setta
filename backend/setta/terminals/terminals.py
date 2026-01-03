@@ -264,6 +264,19 @@ class Terminals:
                 output.append(k)
         return output
 
+    def get_terminals_for_share_session(self, share_session_id: str) -> list[str]:
+        output: list[str] = []
+        for terminal_id, info in self.PTY_PIDS.items():
+            if info.get("shareSessionId") == share_session_id:
+                output.append(terminal_id)
+        return output
+
+    async def delete_terminals_for_share_session(self, share_session_id: str) -> None:
+        terminal_ids = self.get_terminals_for_share_session(share_session_id)
+        if not terminal_ids:
+            return
+        await self.delete_terminals(terminal_ids)
+
     async def run_command_in_terminal(self, terminal_id, command):
         info = self.PTY_PIDS[terminal_id]
         await info["terminalPromptIsReady"].wait()

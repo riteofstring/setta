@@ -91,6 +91,7 @@ def rewrite_project_state_paths(
                 layers_changed = False
                 for layer in impl.layers:
                     updated_elements = []
+                    layer_changed = False
                     for element in layer.elements:
                         new_data_path = resolve_artifact_path(element.dataPath)
                         new_transform_id = resolve_artifact_path(element.transformId)
@@ -98,7 +99,7 @@ def rewrite_project_state_paths(
                             new_data_path != element.dataPath
                             or new_transform_id != element.transformId
                         ):
-                            layers_changed = True
+                            layer_changed = True
                             updated_elements.append(
                                 element.model_copy(
                                     update={
@@ -109,7 +110,8 @@ def rewrite_project_state_paths(
                             )
                         else:
                             updated_elements.append(element)
-                    if layers_changed:
+                    if layer_changed:
+                        layers_changed = True
                         updated_layers.append(
                             layer.model_copy(update={"elements": updated_elements})
                         )

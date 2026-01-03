@@ -13,17 +13,21 @@ if TYPE_CHECKING:
     )
     from setta.share.chat_manager import ShareChatManager
     from setta.share.listener_runtime import ShareListenerRuntime
+    from setta.terminals.terminals import Terminals
 
 
-def cleanup_expired_share_sessions(
+async def cleanup_expired_share_sessions(
     share_session_store: ShareSessionStore,
     share_project_manager: "ShareProjectManager",
     session_manager_switcher: "ShareSessionProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     share_chat_manager: "ShareChatManager | None" = None,
+    terminals: "Terminals | None" = None,
 ) -> list[str]:
     expired_ids = share_session_store.cleanup_expired()
     for session_id in expired_ids:
+        if terminals is not None:
+            await terminals.delete_terminals_for_share_session(session_id)
         if share_listener_runtime is not None:
             share_listener_runtime.drop_session_listener(session_id)
         if share_chat_manager is not None:
@@ -41,15 +45,17 @@ async def run_share_session_cleanup_loop(
     session_manager_switcher: "ShareSessionProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     share_chat_manager: "ShareChatManager | None" = None,
+    terminals: "Terminals | None" = None,
     *,
     interval_seconds: int = DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
 ) -> None:
     while True:
-        cleanup_expired_share_sessions(
+        await cleanup_expired_share_sessions(
             share_session_store,
             share_project_manager,
             session_manager_switcher,
             share_listener_runtime,
             share_chat_manager,
+            terminals,
         )
         await asyncio.sleep(interval_seconds)

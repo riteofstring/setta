@@ -18,11 +18,14 @@ from setta.share.listener_runtime import ShareListenerRuntime, _ListenerHandle
 from setta.share.session_cleanup import cleanup_expired_share_sessions
 from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.share.session_store import MemorySessionStore
+from setta.terminals.terminal_ids import build_terminal_id
+from setta.terminals.terminals import Terminals
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.id import ID
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -108,7 +111,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             await manager._process_queue_task_started.wait()
 
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
-            expired_ids = cleanup_expired_share_sessions(
+            expired_ids = await cleanup_expired_share_sessions(
                 session_store,
                 share_project_manager,
                 switcher,
@@ -188,7 +191,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(session.id, listener_runtime._session_handles)
 
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
-            expired_ids = cleanup_expired_share_sessions(
+            expired_ids = await cleanup_expired_share_sessions(
                 session_store,
                 share_project_manager,
                 share_listener_runtime=listener_runtime,
@@ -202,6 +205,47 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(module_name, sys.modules)
 
             await asyncio.gather(task, return_exceptions=True)
+
+    async def test_cleanup_terminates_share_terminals(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-session-cleanup"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            dbe, _ = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
+            settings_file = SettingsFile(dbe, frontend_sender)
+            share_project_manager = ShareProjectManager(
+                dbe,
+                root,
+                frontend_sender,
+            )
+            session_store = MemorySessionStore(ttl_seconds=1)
+            session = session_store.create_session()
+            share_project_manager.create_session_state(session.id)
+
+            terminals = Terminals(frontend_sender, settings_file)
+            terminal_id = build_terminal_id(ID("terminal-section"), session.id)
+            created = terminals.new_terminal(
+                share_project_manager.project_config_id,
+                terminal_id,
+                share_session_id=session.id,
+            )
+            self.assertTrue(created)
+            self.assertIn(terminal_id, terminals.PTY_PIDS)
+
+            session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
+            expired_ids = await cleanup_expired_share_sessions(
+                session_store,
+                share_project_manager,
+                terminals=terminals,
+            )
+
+            self.assertIn(session.id, expired_ids)
+            self.assertNotIn(terminal_id, terminals.PTY_PIDS)
 
 
 if __name__ == "__main__":
