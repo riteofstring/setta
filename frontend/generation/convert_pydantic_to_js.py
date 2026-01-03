@@ -43,6 +43,7 @@ TYPE_ALIAS_EXCLUSIONS = [
     "CoreSchema",
     "Sequence",
     "Callable",
+    "AsyncGenerator",
     "AppStateFromRequest",
     "AppStateFromWebsocket",
     "ReadyAppStateFromRequest",

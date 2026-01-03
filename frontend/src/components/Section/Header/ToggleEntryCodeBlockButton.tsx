@@ -1,5 +1,5 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { FaFlag, FaRegFlag } from "react-icons/fa";
+import { MdMemory } from "react-icons/md";
 import { useProjectState } from "state/definitions";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
@@ -37,7 +37,7 @@ export function ToggleEntryCodeBlockButton({
       onClick={onClick}
       {...getFloatingBoxHandlers({ title: "Toggle Entry Code Block" })}
     >
-      {isEntryCodeBlock ? <FaFlag /> : <FaRegFlag />}
+      <MdMemory />
     </button>
   );
 }

@@ -4,6 +4,8 @@ from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
+from setta.share.session_context import get_share_session_id
+from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.id import ID
 
 
@@ -41,7 +43,11 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
     Args:
         sectionId: The id of the terminal.
     """
-    return ctx.fastmcp.state.terminals.get_terminal_history(sectionId)
+    share_session_id = get_share_session_id() if ctx.fastmcp.state.share_mode else None
+    if ctx.fastmcp.state.share_mode and share_session_id is None:
+        raise KeyError("Missing share session id")
+    terminal_id = build_terminal_id(sectionId, share_session_id)
+    return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
 
 
 @setta_init_tool
