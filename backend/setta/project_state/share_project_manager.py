@@ -414,6 +414,8 @@ class ShareProjectManager:
 
     def _build_python_run_command(self, path: Path) -> str:
         normalized = normalize_path(path)
+        if normalized.is_absolute():
+            return f"python {normalized}"
         module_path = convert_path_to_module_path(normalized)
         return f"python -m {module_path}"
 
@@ -443,40 +445,37 @@ class ShareProjectManager:
             raise KeyError("Share listener emit missing share session id")
         if share_session_id not in self._session_states:
             raise KeyError(f"Unknown share session state: {share_session_id}")
-        session_ids = [share_session_id]
+        session_id = share_session_id
+        project_state = self._session_states[session_id]
+        artifact_payloads = []
 
-        for session_id in session_ids:
-            project_state = self._session_states[session_id]
-            artifact_payloads = []
+        if dependency_updates:
+            apply_listener_dependency_updates(
+                project_state=project_state,
+                updates=dependency_updates,
+            )
 
-            if dependency_updates:
-                apply_listener_dependency_updates(
-                    project_state=project_state,
-                    updates=dependency_updates,
-                )
+        if artifact_updates:
+            artifact_payloads = apply_listener_artifact_updates(
+                artifacts=self.get_session_artifacts(session_id),
+                updates=artifact_updates,
+            )
 
-            if artifact_updates:
-                artifact_payloads = apply_listener_artifact_updates(
-                    artifacts=self.get_session_artifacts(session_id),
-                    updates=artifact_updates,
-                )
+        if dependency_updates:
+            self.update(project_state)
+            session_manager = self._session_managers.get(session_id)
+            if session_manager is not None:
+                await session_manager.replace_session_state(project_state)
+            await self.frontend_sender.broadcast_project_state(
+                project_state,
+                completedOpIds=[],
+                pendingOpIds=[],
+                share_session_id=session_id,
+            )
 
-            if dependency_updates:
-                self.update(project_state)
-                if session_id in self._session_managers:
-                    await self._session_managers[session_id].replace_session_state(
-                        project_state
-                    )
-                await self.frontend_sender.broadcast_project_state(
-                    project_state,
-                    completedOpIds=[],
-                    pendingOpIds=[],
-                    share_session_id=session_id,
-                )
-
-            if artifact_payloads:
-                await self.frontend_sender.broadcast_artifacts_update(
-                    artifacts=artifact_payloads,
-                    updateType="update",
-                    share_session_id=session_id,
-                )
+        if artifact_payloads:
+            await self.frontend_sender.broadcast_artifacts_update(
+                artifacts=artifact_payloads,
+                updateType="update",
+                share_session_id=session_id,
+            )

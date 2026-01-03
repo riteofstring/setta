@@ -143,6 +143,9 @@ Suggested defaults:
 
 Share mode should redirect run output to a share run root (per project config,
 per version, per session, per run) rather than `setta_files/code`.
+When share run snapshots live outside the project root (relocated deployments),
+run commands should execute with `python <absolute path>` instead of `python -m`
+module paths that assume a CWD-relative layout.
 
 ### 9) LLM + MCP in share mode
 Default: disabled. Opt-in via share policy.

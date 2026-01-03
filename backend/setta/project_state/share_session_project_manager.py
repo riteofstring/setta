@@ -211,6 +211,10 @@ class ShareSessionProjectManager(BaseProjectManager):
                 projectState
             )
 
+    def shutdown(self) -> None:
+        self.autosave_debouncer.cancel()
+        self.queue_task.cancel()
+
     @BaseProjectManager.enqueue_method
     async def create_run_command(
         self,

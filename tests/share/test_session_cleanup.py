@@ -121,8 +121,8 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(share_project_manager.has_session_state(session.id))
             self.assertEqual([], switcher.project_managers)
 
-            manager.queue_task.cancel()
             await asyncio.gather(manager.queue_task, return_exceptions=True)
+            self.assertTrue(manager.queue_task.cancelled())
 
     async def test_cleanup_drops_listener_and_chat_state(self) -> None:
         with TemporaryDirectory() as tmpdir:

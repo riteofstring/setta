@@ -16,6 +16,10 @@ Latest completion updates (this branch):
   deployment roots still produce the correct `/share/<name>/<version>` URL.
 - Share runtime roots use the manifest name/version and avoid root-level
   `share_runtime` when deployments are relocated.
+- Share run commands fall back to `python <absolute path>` for relocated
+  deployments so absolute snapshots run without invalid `python -m` paths.
+- Share session cleanup now cancels per-session project manager queue tasks.
+- Share settings load waits for backend readiness in share mode.
 - Share session cleanup now terminates terminals associated with expired sessions.
 - Draw-layer artifact rebasing only copies layers with path changes.
 - Share deployment roots can be relocated without name/version directory
@@ -191,7 +195,7 @@ Implemented:
 - `backend/setta/share/session_store.py` provides `MemorySessionStore` and a
   `RedisSessionStore` stub.
 - Share session TTL cleanup is scheduled at share boot and prunes session state
-  and managers.
+  and managers (including per-session manager queues).
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
 Pending updates: none.
@@ -340,6 +344,7 @@ Implemented:
   `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
   (default root: `setta_files/share_runtime/...`) and uses per-session snapshots
   or canonical files based on snapshot mode.
+- Share run commands use `python <absolute path>` when snapshots are outside CWD.
 - Share run output cleanup runs in the background for ephemeral snapshots.
 - Terminals are keyed by share session + section id to prevent PTY collisions
   across viewers; run/delete/kill routes and terminal websockets use the
@@ -456,7 +461,8 @@ Implemented:
 - `tests/project_state/test_share_project_manager.py` covers listener emit sync
   with per-session managers.
 - `tests/project_state/test_share_project_manager.py` covers share run snapshot
-  creation for `ephemeral` and canonical runs for `never`.
+  creation for `ephemeral` and canonical runs for `never`, including absolute
+  run command paths for relocated deployments.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
   precedence for HTTP and websocket requests plus share session context setup
   and touch behavior.

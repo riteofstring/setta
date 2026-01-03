@@ -516,6 +516,37 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertIn("python -m", command)
             self.assertIn("runner", command)
 
+    def test_run_command_ephemeral_outside_cwd_uses_absolute_path(self) -> None:
+        with TemporaryDirectory(dir=Path.cwd().parent) as tmpdir:
+            root = _build_share_deployment_root(tmpdir, "Share Project")
+            project_config_id = ID("share-run-project")
+            section_id = ID("code-section")
+            binding_path = Path("code") / "runner.py"
+            project_state = _build_code_project_state(
+                project_config_id, section_id, binding_path
+            )
+            dbe = _write_project_with_state(root, project_state)
+            dbe.write_json(
+                root / "share_policy.json",
+                SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
+            )
+            frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+            session_id = "session-absolute"
+            manager.create_session_state(session_id)
+
+            command = self._loop.run_until_complete(
+                manager.create_run_command(session_id, section_id)
+            )
+
+            self.assertTrue(manager.share_runs_root.is_absolute())
+            run_root = manager.share_runs_root / session_id
+            run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
+            self.assertEqual(1, len(run_dirs))
+            runner_path = run_dirs[0] / "runner.py"
+            self.assertTrue(runner_path.is_absolute())
+            self.assertEqual(f"python {normalize_path(runner_path)}", command)
+
     def test_json_source_values_are_rehydrated(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")

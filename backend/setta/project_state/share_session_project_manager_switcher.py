@@ -40,9 +40,10 @@ class ShareSessionProjectManagerSwitcher:
         return manager
 
     def drop_session_manager(self, share_session_id: str) -> None:
-        if share_session_id not in self._session_managers:
+        manager = self._session_managers.pop(share_session_id, None)
+        if manager is None:
             return
-        del self._session_managers[share_session_id]
+        manager.shutdown()
 
     def get(
         self,
