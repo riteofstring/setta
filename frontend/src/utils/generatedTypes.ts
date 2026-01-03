@@ -391,10 +391,6 @@ export const RouteEnum = {
   SET_CHART_SETTINGS: "/setChartSettings",
   LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
   LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM: "/loadDrawAreaLayerItemTransform",
-  SHARE_DEPLOYMENTS: "/share/deployments",
-  SHARE_DEPLOYMENT_SESSION: "/share/deployments/{deploymentId}/session",
-  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentId}/state",
-  WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
 } as const;
 
 export const BackgroundVariantEnum = {
@@ -417,18 +413,7 @@ export const RenameRefactorModeEnum = {
 
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
-const RunSnapshotModeEnum = {
-  always: "always",
-  ephemeral: "ephemeral",
-  never: "never",
-} as const;
-
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
-
-const ListenerIsolationModeEnum = {
-  per_viewer: "per_viewer",
-  shared: "shared",
-} as const;
 
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
@@ -2810,7 +2795,6 @@ const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),
   currentAddress: z.union([z.string(), z.null()]),
-  shareSessionId: z.union([z.string(), z.null()]).default(null),
 });
 
 export type WebsocketConnectionInfo = z.infer<
@@ -3249,9 +3233,6 @@ const SettingsBackendSchema = z.object({
     .enum(RenameRefactorModeEnum)
     .default(RenameRefactorModeEnum.ALWAYS_ASK),
   saveRenderedValues: z.boolean().default(false),
-  runSnapshotMode: z
-    .enum(RunSnapshotModeEnum)
-    .default(RunSnapshotModeEnum.ephemeral),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -4813,67 +4794,6 @@ const BrowserAreaItemSchema = z.object({
 
 export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
 
-const ShareDeploymentListenerConfigSchema = z.object({
-  entrypoint: z.string(),
-  enabled: z.boolean().default(true),
-  isolation: z
-    .enum(ListenerIsolationModeEnum)
-    .default(ListenerIsolationModeEnum.per_viewer),
-});
-
-const ShareDeploymentManifestSchema = z.object({
-  version: z.int(),
-  projectConfigId: IDSchema,
-  createdAt: z.iso.datetime().default(get_now_timestamp),
-  listener: z
-    .union([ShareDeploymentListenerConfigSchema, z.null()])
-    .default(null),
-});
-
-export type ShareDeploymentManifest = z.infer<
-  typeof ShareDeploymentManifestSchema
->;
-
-const ShareDeploymentMetadataSchema = z.object({
-  deploymentId: z.string(),
-  deploymentRoot: z.string(),
-  sharePolicyPath: z.string(),
-});
-
-export type ShareDeploymentMetadata = z.infer<
-  typeof ShareDeploymentMetadataSchema
->;
-
-const SharePolicySchema = z.object({
-  allowParamChanges: z.boolean().default(true),
-  allowVariantChanges: z.boolean().default(true),
-  allowLayoutChanges: z.boolean().default(true),
-  allowRun: z.boolean().default(false),
-  allowLLM: z.boolean().default(false),
-  allowMCP: z.boolean().default(false),
-  runSnapshotMode: z
-    .enum(RunSnapshotModeEnum)
-    .default(RunSnapshotModeEnum.ephemeral),
-  listenerIsolation: z
-    .enum(ListenerIsolationModeEnum)
-    .default(ListenerIsolationModeEnum.per_viewer),
-  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
-});
-
-export type SharePolicy = z.infer<typeof SharePolicySchema>;
-
-const ShareDeploymentSessionResponseSchema = z.object({
-  deploymentId: z.string(),
-  shareSessionId: z.string(),
-  projectConfigId: IDSchema,
-  sharePolicy: SharePolicySchema,
-  manifest: z.union([ShareDeploymentManifestSchema, z.null()]).default(null),
-});
-
-export type ShareDeploymentSessionResponse = z.infer<
-  typeof ShareDeploymentSessionResponseSchema
->;
-
 const WebsocketMsgSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -6012,38 +5932,6 @@ const SaveSettingsRequestSchema = z.object({
 
 export type SaveSettingsRequestInput = z.input<
   typeof SaveSettingsRequestSchema
->;
-
-const SharePolicyOverridesSchema = z.object({
-  allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowVariantChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowRun: z.union([z.boolean(), z.null()]).default(null),
-  allowLLM: z.union([z.boolean(), z.null()]).default(null),
-  allowMCP: z.union([z.boolean(), z.null()]).default(null),
-  runSnapshotMode: z
-    .union([z.enum(RunSnapshotModeEnum), z.null()])
-    .default(null),
-  listenerIsolation: z
-    .union([z.enum(ListenerIsolationModeEnum), z.null()])
-    .default(null),
-  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
-});
-
-const PublishShareDeploymentRequestSchema = z.object({
-  projectConfigId: IDSchema,
-  sharePolicyOverrides: z
-    .union([SharePolicyOverridesSchema, z.null()])
-    .default(null),
-  listenerEntrypoint: z.union([z.string(), z.null()]).default(null),
-  listenerEnabled: z.boolean().default(true),
-  listenerIsolation: z
-    .union([z.enum(ListenerIsolationModeEnum), z.null()])
-    .default(null),
-});
-
-export type PublishShareDeploymentRequestInput = z.input<
-  typeof PublishShareDeploymentRequestSchema
 >;
 
 const BackendInitEventSchema = z.object({

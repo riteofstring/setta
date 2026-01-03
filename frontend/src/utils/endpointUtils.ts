@@ -1,9 +1,5 @@
+import { C_ADDRESSES } from "./c_addresses";
 import { RouteEnum } from "./generatedTypes";
-import {
-  getBackendBase,
-  getBackendOrigin,
-  shouldUseShareBackend,
-} from "./backendRouting";
 
 export type ResponseDataAndStatus<T> = {
   data: T | undefined;
@@ -18,11 +14,10 @@ export function res200<T>(
 }
 
 function resolveBackendUrl(address: string): string {
-  const useShareBackend = shouldUseShareBackend();
   if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
-    return `${getBackendOrigin(useShareBackend)}${address}`;
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
-  return `${getBackendBase(useShareBackend)}${address}`;
+  return `${C_ADDRESSES.BACKEND}${address}`;
 }
 
 async function parseResponse<T>(response: Response): Promise<T | undefined> {
@@ -75,11 +70,9 @@ export async function get<T>(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
-  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = replaceAddressParams(address, addressParams);
   try {
-    const response = await fetch(resolveBackendUrl(fullAddress), {
+    const response = await fetch(resolveBackendUrl(address), {
       method: "POST",
       credentials: "include",
       headers: {

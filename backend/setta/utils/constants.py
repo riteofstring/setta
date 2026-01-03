@@ -10,13 +10,6 @@ CWD = Path.cwd()
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
-_SHARE_MODE_ENV = os.environ.get("SETTA_SHARE_MODE", "")
-_SHARE_DEPLOYMENT_ROOT_ENV = os.environ.get("SETTA_SHARE_DEPLOYMENT_ROOT")
-_SHARE_DEPLOYMENT_ID_ENV = os.environ.get("SETTA_SHARE_DEPLOYMENT_ID")
-
-
-def _parse_bool_env(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 class classproperty:
@@ -49,19 +42,6 @@ class C:
     RUN_FOLDER = SETTA_FILES_FOLDER / "run"
     RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
     RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
-    SHARE_DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "share_deployments"
-    SHARE_RUNS_FOLDER = SETTA_FILES_FOLDER / "share_runs"
-    SHARE_MODE = _parse_bool_env(_SHARE_MODE_ENV)
-    SHARE_DEPLOYMENT_ID = _SHARE_DEPLOYMENT_ID_ENV
-    SHARE_DEPLOYMENT_ROOT = (
-        Path(_SHARE_DEPLOYMENT_ROOT_ENV)
-        if _SHARE_DEPLOYMENT_ROOT_ENV
-        else (
-            SHARE_DEPLOYMENTS_FOLDER / _SHARE_DEPLOYMENT_ID_ENV
-            if _SHARE_DEPLOYMENT_ID_ENV
-            else None
-        )
-    )
 
     AUTH_COOKIE_NAME = "setta_auth"
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12

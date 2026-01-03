@@ -20,7 +20,6 @@ from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
-from setta.llm.chat_store import ChatStore, DBEChatStore
 from setta.llm.config import AllLLMConfigs, merge_chat_llm_configs
 from setta.llm.tool_preunlocker import ToolPreunlocker
 from setta.logging.tasks import spawn_background_task
@@ -45,6 +44,14 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_existing_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
+)
+from setta.project_state.chats.load import load_all_chat_metadata, load_chat
+from setta.project_state.chats.save import (
+    create_new_chat,
+    save_messages,
+)
+from setta.project_state.chats.save import (
+    delete_chat as delete_chat_record,
 )
 from setta.project_state.project_manager_types import (
     GetLatestProjectStateSummaryRequest,
@@ -178,10 +185,8 @@ class LLMChatManager:
         mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
         project_manager_switcher: "ProjectManagerSwitcher",
-        chat_store: ChatStore | None = None,
     ) -> None:
         self.dbe = dbe
-        self.chat_store = chat_store or DBEChatStore(dbe)
         self.mcp_client = mcp_client
         self.tool_preunlocker = ToolPreunlocker()
         self.websocket_msg_handler = websocket_msg_handler
@@ -198,9 +203,8 @@ class LLMChatManager:
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
-    def get_chat(self, chat_id: ID, share_session_id: str | None = None) -> Chat | None:
-        _ = share_session_id
-        return self.chat_store.get_chat(chat_id)
+    def get_chat(self, chat_id: ID) -> Chat | None:
+        return load_chat(self.dbe, chat_id)
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = self._hydrate_config(config)
@@ -217,35 +221,31 @@ class LLMChatManager:
         message: BaseChatMessageUnion,
         llm_config_id: str,
         project_config_id: ID,
-        share_session_id: str | None = None,
     ) -> Chat:
-        _ = share_session_id
         if chat_id:
-            chat = self.chat_store.get_chat(chat_id)
+            chat = load_chat(self.dbe, chat_id)
             if chat:
-                updated = self.chat_store.save_messages(chat.id, [message])
+                updated = save_messages(self.dbe, chat.id, [message])
                 return updated or chat
         llm_config = self.config.resolve_config(llm_config_id)
-        return self.chat_store.create_new_chat(
+        return create_new_chat(
+            self.dbe,
             message,
             llm_config,
             project_config_id=project_config_id,
         )
 
-    def get_all_chat_metadata(self, share_session_id: str | None = None):
-        _ = share_session_id
-        return self.chat_store.get_all_chat_metadata()
+    def get_all_chat_metadata(self):
+        return load_all_chat_metadata(self.dbe)
 
-    def delete_chat(self, chat_id: ID, share_session_id: str | None = None) -> None:
-        _ = share_session_id
-        self.chat_store.delete_chat(chat_id)
+    def delete_chat(self, chat_id: ID) -> None:
+        delete_chat_record(self.dbe, chat_id)
         self._chat_tool_states.pop(chat_id, None)
         self._ai_follow_state.pop(chat_id, None)
 
     def get_ai_follow_snapshot(
-        self, project_config_id: ID, share_session_id: str | None = None
+        self, project_config_id: ID
     ) -> list[AIFollowToolArgumentsUpdateContent]:
-        _ = share_session_id
         snapshot: list[AIFollowToolArgumentsUpdateContent] = []
         for chat_id, state in self._ai_follow_state.items():
             if state.project_config_id != project_config_id:
@@ -276,9 +276,7 @@ class LLMChatManager:
         self,
         chat: Chat,
         deepThink: bool,
-        share_session_id: str | None = None,
     ) -> None:
-        _ = share_session_id
         existing = self._tasks.get(chat.id)
         if existing and not existing.done():
             logger.info(
@@ -369,7 +367,7 @@ class LLMChatManager:
                         len(tool_results),
                         chat.id,
                     )
-                saved_chat = self.chat_store.save_messages(chat.id, new_messages)
+                saved_chat = save_messages(self.dbe, chat.id, new_messages)
 
                 await self.websocket_msg_handler.send_streaming_response(
                     chat.id,
@@ -389,7 +387,7 @@ class LLMChatManager:
                         chat.id,
                         chat.projectConfigId,
                     )
-                    self.chat_store.save_messages(chat.id, [assistant_message])
+                    save_messages(self.dbe, chat.id, [assistant_message])
                     await self.websocket_msg_handler.send_streaming_response(
                         chat.id,
                         MessageFinalizedEvent(message=assistant_message),
@@ -441,10 +439,7 @@ class LLMChatManager:
                     )
                 break
 
-    async def request_stop_streaming(
-        self, chat_id: ID, share_session_id: str | None = None
-    ) -> None:
-        _ = share_session_id
+    async def request_stop_streaming(self, chat_id: ID) -> None:
         task = self._tasks.get(chat_id)
         if not task:
             logger.info("Stop requested for chat %s but no active task exists", chat_id)
@@ -452,16 +447,10 @@ class LLMChatManager:
         task.cancel()
         self._tasks.pop(chat_id, None)
 
-    def is_waiting_for_response(
-        self, chat_id: ID, share_session_id: str | None = None
-    ) -> bool:
-        _ = share_session_id
+    def is_waiting_for_response(self, chat_id: ID) -> bool:
         return chat_id in self._sessions
 
-    def get_current_stream(
-        self, chat_id: ID, share_session_id: str | None = None
-    ) -> list[BaseChatMessageUnion]:
-        _ = share_session_id
+    def get_current_stream(self, chat_id: ID) -> list[BaseChatMessageUnion]:
         session = self._sessions.get(chat_id)
         if not session:
             return []

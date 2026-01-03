@@ -14,7 +14,6 @@ from typing import (
     Mapping,
     Sequence,
 )
-from urllib.parse import urlencode
 from uuid import uuid4
 
 import websockets
@@ -257,7 +256,6 @@ class SettaListener:
         *,
         project_name: str | None = None,
         project_config_id: "ID | None" = None,
-        share_session_id: str | None = None,
         use_temporary_ids: bool = False,
         refresh_concurrency: int = 8,
         host: str = C.HOST,
@@ -270,7 +268,6 @@ class SettaListener:
             raise ValueError("refresh_concurrency must be >= 1")
         self._project_name = project_name
         self._project_config_id: "ID | None" = project_config_id
-        self._share_session_id = share_session_id
         self._use_temporary_ids = use_temporary_ids
         self._refresh_concurrency = refresh_concurrency
         self._refresh_callback_semaphore = asyncio.Semaphore(refresh_concurrency)
@@ -315,11 +312,7 @@ class SettaListener:
         else:
             base = f"ws://{self._host}:{self._port}{Route.PREFIX.value}"
         route = Route.WEBSOCKET_PYTHON_SCRIPT.value.format(id=self._socket_id)
-        endpoint = f"{base}{route}"
-        if self._share_session_id is None:
-            return endpoint
-        query = urlencode({"shareSessionId": self._share_session_id})
-        return f"{endpoint}?{query}"
+        return f"{base}{route}"
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
