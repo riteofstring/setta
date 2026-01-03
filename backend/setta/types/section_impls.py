@@ -189,8 +189,6 @@ class ListRootSectionImpl(BaseParentSectionImpl):
 class GroupSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.Group] = SectionType.Group
     isHorizontalOrientation: bool = False
-    overflowMode: bool = False
-    overflowMinSize: SectionSize | None = None
 
 
 class ImageSectionImpl(BaseSectionImpl):
@@ -227,7 +225,6 @@ class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
@@ -236,7 +233,6 @@ class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
     metaControlParamId: ID | None = None
     codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
-    showSectionTitle: bool = False
 
 
 class SocialSectionImpl(BaseSectionImpl):

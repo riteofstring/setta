@@ -193,7 +193,7 @@ class PythonValueCodecTest(TestCase):
             isTopLevel=True,
             deps={},
             value=LiteralDependencyValue("secret"),
-            control_code_obj_type=CodeObjType.TextParam,
+            control_code_obj_type=CodeObjType.TextAreaParam,
         )
         rendered = codec.format_section(section_node)
         self.assertEqual(rendered, "'secret'")

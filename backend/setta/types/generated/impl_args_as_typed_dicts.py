@@ -94,11 +94,8 @@ class CoreArgs(TypedDict):
                 "layers",
                 "max",
                 "metaControlParamId",
-                "metaControlStyle",
                 "min",
                 "name",
-                "overflowMinSize",
-                "overflowMode",
                 "paramFilter",
                 "passingStyle",
                 "pinnedAreaHeight",
@@ -106,7 +103,6 @@ class CoreArgs(TypedDict):
                 "positionAndSizeLocked",
                 "renderedValue",
                 "selectedParams",
-                "showSectionTitle",
                 "size",
                 "step",
                 "text",
@@ -305,8 +301,6 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
 class GroupSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.Group]]
     isHorizontalOrientation: NotRequired[bool]
-    overflowMode: NotRequired[bool]
-    overflowMinSize: NotRequired[SectionSize | None]
 
 
 class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -315,10 +309,6 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Group]], Literal[SectionType.Group]]
     ]
     isHorizontalOrientation: NotRequired[bool | Callable[[bool], bool]]
-    overflowMode: NotRequired[bool | Callable[[bool], bool]]
-    overflowMinSize: NotRequired[
-        SectionSize | None | Callable[[SectionSize | None], SectionSize | None]
-    ]
 
 
 class ImageSectionImplArgs(BaseSectionImplArgs):
@@ -398,7 +388,6 @@ class TextBlockSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
-    metaControlStyle: NotRequired[bool]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     text: NotRequired[str]
 
@@ -410,7 +399,6 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     format: NotRequired[TextBlockFormat | Callable[[TextBlockFormat], TextBlockFormat]]
     headingAsSectionName: NotRequired[bool | Callable[[bool], bool]]
-    metaControlStyle: NotRequired[bool | Callable[[bool], bool]]
     textDisplayMode: NotRequired[
         TextBlockDisplayMode | Callable[[TextBlockDisplayMode], TextBlockDisplayMode]
     ]
@@ -421,7 +409,6 @@ class MetaControlSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.MetaControl]]
     metaControlParamId: NotRequired[ID | None]
     codeObjVariantMap: NotRequired[dict[ID, ID]]
-    showSectionTitle: NotRequired[bool]
 
 
 class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -433,7 +420,6 @@ class MetaControlSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     codeObjVariantMap: NotRequired[
         dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
     ]
-    showSectionTitle: NotRequired[bool | Callable[[bool], bool]]
 
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
