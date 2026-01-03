@@ -60,7 +60,9 @@ class Terminals:
         self.settings_file = settings_file
         # asyncio.create_task(self.monitor_child_processes())
 
-    def new_terminal(self, projectConfigId, sectionId):
+    def new_terminal(
+        self, projectConfigId, sectionId, share_session_id: str | None = None
+    ):
         if sectionId not in self.PTY_PIDS:
             terminal_shell = get_terminal_shell(
                 self.settings_file.settings.backend.defaultTerminalShell
@@ -70,6 +72,7 @@ class Terminals:
                 "pid": pty_process.pid,
                 "start": time.time(),
                 "projectConfigId": projectConfigId,
+                "shareSessionId": share_session_id,
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
@@ -230,20 +233,26 @@ class Terminals:
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
 
-    def get_free_terminal(self, projectConfigId):
+    def get_free_terminal(self, projectConfigId, share_session_id: str | None = None):
         for k, v in self.PTY_PIDS.items():
             if (
                 v["projectConfigId"] == projectConfigId
+                and v.get("shareSessionId") == share_session_id
                 and not has_child_processes(v["pid"])
                 and time.time() - v["start"] > 1
             ):
                 return k
         return None
 
-    def get_existing_terminals(self, projectConfigId):
+    def get_existing_terminals(
+        self, projectConfigId, share_session_id: str | None = None
+    ):
         output: list[str] = []
         for k, v in self.PTY_PIDS.items():
-            if v["projectConfigId"] == projectConfigId:
+            if (
+                v["projectConfigId"] == projectConfigId
+                and v.get("shareSessionId") == share_session_id
+            ):
                 output.append(k)
         return output
 
@@ -288,10 +297,13 @@ class Terminals:
     def _terminal_context_kwargs(self, section_id: str) -> dict[str, Any]:
         info = self.PTY_PIDS.get(section_id, {})
         project_config_id = info.get("projectConfigId")
+        share_session_id = info.get("shareSessionId")
         normalized_project_id = (
             str(project_config_id) if project_config_id is not None else None
         )
         extra_values = {"section_id": str(section_id)}
+        if share_session_id is not None:
+            extra_values["share_session_id"] = share_session_id
         kwargs: dict[str, Any] = {
             "project_config_id": normalized_project_id,
             "extra_values": extra_values,
@@ -304,6 +316,9 @@ class Terminals:
         project_config_id = info.get("projectConfigId")
         if project_config_id is not None:
             context["terminal_project_id"] = str(project_config_id)
+        share_session_id = info.get("shareSessionId")
+        if share_session_id is not None:
+            context["terminal_share_session_id"] = share_session_id
         return context
 
     async def monitor_child_processes(self):

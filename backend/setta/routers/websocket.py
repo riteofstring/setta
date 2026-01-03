@@ -11,10 +11,14 @@ from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.routers.dependencies import (
     ReadyAppStateFromWebsocket as AppStateFromWebsocket,
 )
+from setta.routers.dependencies import (
+    maybe_get_share_session_id_from_websocket,
+)
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
+from setta.types.share_deployment import ListenerIsolationMode
 from setta.types.websocket import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import (
@@ -51,10 +55,45 @@ async def _authenticate_websocket(websocket: WebSocket) -> bool:
     return False
 
 
+async def _maybe_authenticate_websocket(
+    websocket: WebSocket, *, share_mode: bool
+) -> bool:
+    if share_mode:
+        return True
+    return await _authenticate_websocket(websocket)
+
+
 async def _close_unauthorized(websocket: WebSocket) -> None:
     if websocket.application_state == WebSocketState.CONNECTING:
         await websocket.accept()
     await websocket.close(code=4401)
+
+
+async def _close_with_code(websocket: WebSocket, code: int) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=code)
+
+
+async def _require_share_session_id(
+    websocket: WebSocket,
+    state: AppStateFromWebsocket,
+    *,
+    create_session_state: bool = True,
+) -> str | None:
+    if not state.share_mode:
+        return None
+    share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+    if share_session_id is None:
+        await _close_with_code(websocket, 4400)
+        return None
+    if not state.share_session_store.has_session(share_session_id):
+        await _close_with_code(websocket, 4404)
+        return None
+    state.share_session_store.touch_session(share_session_id)
+    if create_session_state:
+        state.share_project_manager.get_or_create_session_state(share_session_id)
+    return share_session_id
 
 
 async def websocket_route_loop(
@@ -64,6 +103,7 @@ async def websocket_route_loop(
     frontend_sender: WMHFrontendSender,
     connectionType: WebsocketConnectionType,
     id: str | None = None,
+    share_session_id: str | None = None,
 ):
     extra_context: dict[str, str] = {
         "connection_type": connectionType.value,
@@ -78,7 +118,7 @@ async def websocket_route_loop(
         fromWebsocketId = None
         try:
             fromWebsocketId = await websocket_manager.on_connect(
-                websocket, connectionType, id=id
+                websocket, connectionType, id=id, shareSessionId=share_session_id
             )
             if fromWebsocketId:
                 push_logging_context(connection_id=fromWebsocketId)
@@ -124,14 +164,43 @@ async def websocket_route_loop(
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebsocket):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
+    share_session_id = None
+    if state.share_mode:
+        share_session_id = await _require_share_session_id(websocket, state)
+        if share_session_id is None:
+            return
+        await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
     await websocket_route_loop(
         websocket,
         state.websocket_manager,
         state.wmh_frontend_receiver,
         state.wmh_frontend_sender,
         WebsocketConnectionType.FRONTEND,
+        share_session_id=share_session_id,
+    )
+
+
+@router.websocket(Route.WEBSOCKET_SHARE_FRONTEND)
+async def route_websocket_share_frontend(
+    websocket: WebSocket, state: AppStateFromWebsocket
+):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
+        return
+    if not state.share_mode:
+        raise ValueError("Share websocket route requires share mode")
+    share_session_id = await _require_share_session_id(websocket, state)
+    if share_session_id is None:
+        return
+    await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
+    await websocket_route_loop(
+        websocket,
+        state.websocket_manager,
+        state.wmh_frontend_receiver,
+        state.wmh_frontend_sender,
+        WebsocketConnectionType.FRONTEND,
+        share_session_id=share_session_id,
     )
 
 
@@ -142,7 +211,7 @@ async def route_websocket_cli(
     state: AppStateFromWebsocket,
     id: str | None = None,
 ):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
     await websocket_route_loop(
         websocket,
@@ -160,8 +229,24 @@ async def route_websocket_python_script(
     state: AppStateFromWebsocket,
     id: str,
 ):
-    if not await _authenticate_websocket(websocket):
+    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
         return
+    share_session_id = None
+    if state.share_mode:
+        share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+        if share_session_id is None:
+            if (
+                state.share_project_manager.share_policy.listenerIsolation
+                is ListenerIsolationMode.per_viewer
+            ):
+                await _close_with_code(websocket, 4400)
+                return
+        else:
+            if not state.share_session_store.has_session(share_session_id):
+                await _close_with_code(websocket, 4404)
+                return
+            state.share_session_store.touch_session(share_session_id)
+            state.share_project_manager.get_or_create_session_state(share_session_id)
     await websocket_route_loop(
         websocket,
         state.websocket_manager,
@@ -169,4 +254,5 @@ async def route_websocket_python_script(
         state.wmh_frontend_sender,
         WebsocketConnectionType.PYTHON_SCRIPT,
         id=id,
+        share_session_id=share_session_id,
     )

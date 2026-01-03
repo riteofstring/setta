@@ -23,6 +23,7 @@ import {
   useRunControl,
   ZustandProjectState,
 } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import {
   isBaseParentSectionImpl,
   SectionTypeEnum,
@@ -34,6 +35,7 @@ import {
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 
 export function RunInstructions() {
+  const allowRun = useSharePolicyFlag("allowRun");
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
@@ -47,8 +49,19 @@ export function RunInstructions() {
   const runnableCodeBlocks = useRunnableCodeBlockListing();
 
   React.useEffect(() => {
+    if (!allowRun) {
+      return;
+    }
     ensureDefaultCustomRuns(projectConfigId);
-  }, [projectConfigId]);
+  }, [projectConfigId, allowRun]);
+
+  if (!allowRun) {
+    return (
+      <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
+        Run controls are disabled in sharing mode.
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">

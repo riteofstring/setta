@@ -143,3 +143,7 @@ class Route(str, Enum):
     SET_CHART_SETTINGS = "/setChartSettings"
     LOAD_CACHED_BRUSH_STROKES = "/loadCachedBrushStrokes"
     LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM = "/loadDrawAreaLayerItemTransform"
+    SHARE_DEPLOYMENTS = "/share/deployments"
+    SHARE_DEPLOYMENT_SESSION = "/share/deployments/{deploymentId}/session"
+    SHARE_DEPLOYMENT_STATE = "/share/deployments/{deploymentId}/state"
+    WEBSOCKET_SHARE_FRONTEND = "/share/frontend"
