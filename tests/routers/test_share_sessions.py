@@ -14,6 +14,9 @@ from setta.project_state.project_manager_types import (
 from setta.routers.share_deployments import (
     route_create_share_session,
     route_get_share_deployment_state,
+    route_get_latest_share_deployment,
+    route_list_share_deployment_versions,
+    route_list_share_deployments,
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
@@ -199,6 +202,49 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                     state,
                 )
             self.assertEqual(404, ctx.exception.status_code)
+
+    async def test_share_mode_blocks_deployment_lists(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-test"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
+
+            with self.assertRaises(HTTPException) as ctx:
+                route_list_share_deployments(state)
+            self.assertEqual(403, ctx.exception.status_code)
+
+            with self.assertRaises(HTTPException) as ctx:
+                route_list_share_deployment_versions(project_config_name, state)
+            self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_share_mode_latest_redacts_paths(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-test"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
+
+            latest = route_get_latest_share_deployment(project_config_name, state)
+            self.assertEqual(project_config_name, latest.projectConfigName)
+            self.assertEqual(Path("redacted"), latest.deploymentRoot)
+            self.assertEqual(Path("redacted"), latest.sharePolicyPath)
 
 
 if __name__ == "__main__":

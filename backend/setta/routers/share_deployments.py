@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
@@ -405,8 +405,20 @@ def _manifest_matches_root(
 
 
 def _metadata_from_manifest(
-    manifest: ShareDeploymentManifest, deployment_root: Path
+    manifest: ShareDeploymentManifest,
+    deployment_root: Path,
+    *,
+    redact_paths: bool = False,
 ) -> ShareDeploymentMetadata:
+    if redact_paths:
+        redacted = Path("redacted")
+        return ShareDeploymentMetadata(
+            projectConfigName=manifest.projectConfigName,
+            deploymentVersion=manifest.deploymentVersion,
+            createdAt=manifest.createdAt,
+            deploymentRoot=redacted,
+            sharePolicyPath=redacted,
+        )
     return ShareDeploymentMetadata(
         projectConfigName=manifest.projectConfigName,
         deploymentVersion=manifest.deploymentVersion,
@@ -417,7 +429,14 @@ def _metadata_from_manifest(
 
 
 @router.get(Route.SHARE_DEPLOYMENTS)
-def route_list_share_deployments() -> list[ShareDeploymentMetadata]:
+def route_list_share_deployments(
+    state: AppStateFromRequest,
+) -> list[ShareDeploymentMetadata]:
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow listing deployments.",
+        )
     deployments_root = C.SHARE_DEPLOYMENTS_FOLDER
     if not deployments_root.exists():
         return []
@@ -439,7 +458,13 @@ def route_list_share_deployments() -> list[ShareDeploymentMetadata]:
 @router.get(Route.SHARE_DEPLOYMENT_VERSIONS)
 def route_list_share_deployment_versions(
     projectConfigName: str,
+    state: AppStateFromRequest,
 ) -> list[ShareDeploymentMetadata]:
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow listing deployment versions.",
+        )
     project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / projectConfigName)
     if not project_root.exists():
         return []
@@ -462,7 +487,31 @@ def route_list_share_deployment_versions(
 @router.get(Route.SHARE_DEPLOYMENT_LATEST)
 def route_get_latest_share_deployment(
     projectConfigName: str,
+    state: AppStateFromRequest,
 ) -> ShareDeploymentMetadata:
+    if state.share_mode:
+        expected_name = state.share_project_manager.project_config_name
+        if projectConfigName != expected_name:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Share deployment not found: {projectConfigName}",
+            )
+        manifest = state.share_project_manager.manifest
+        if manifest is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Share deployment not found: {projectConfigName}",
+            )
+        if state.share_deployment_root is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Share deployment not found: {projectConfigName}",
+            )
+        return _metadata_from_manifest(
+            manifest,
+            state.share_deployment_root,
+            redact_paths=True,
+        )
     project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / projectConfigName)
     if not project_root.exists():
         raise HTTPException(

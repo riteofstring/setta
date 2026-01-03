@@ -27,10 +27,9 @@ lists the implemented work, and there are no pending items.
   copies code files into `code/` and rebases bindings to deployment-relative
   paths, which are resolved at share boot.
 - `SettingsFile.load_settings()` creates default files when missing
-  (`backend/setta/database/settings_file.py`). Share mode currently initializes
-  settings on boot, which writes `setta-settings.json` and
-  `setta-settings-project.json` into the deployment root; revisit this if share
-  deployments must remain write-free.
+  (`backend/setta/database/settings_file.py`). Share mode now initializes
+  settings with `allow_write=False` so deployments remain write-free (missing
+  settings slices fall back to defaults without writing to disk).
 - Artifact caches are populated by file watchers; `get_cached_*` does not read
   from disk (`backend/setta/project_state/artifacts.py`). Share mode now
   preloads artifacts on session creation and share artifact routes load from
@@ -60,6 +59,10 @@ in `backend/setta/types/routes.py`.
   `/share/deployments/{projectConfigName}/{version}/state`,
   `/share/deployments/{projectConfigName}/latest`, `/share/frontend`).
   `version` is `vN` (for example `v1`, `v2`).
+Implementation notes:
+- Share mode blocks deployment listing endpoints to avoid exposing filesystem
+  metadata (`route_list_share_deployments`, `route_list_share_deployment_versions`).
+- Share mode `latest` resolution returns redacted paths for metadata.
 
 ## 2) Publish share deployment (IDE mode)
 Status: completed. Versioned exports are published under project-config names.
@@ -87,9 +90,9 @@ Implemented in `backend/setta/routers/share_deployments.py`.
   - Write `project.json`, `manifest.json`, and `share_policy.json`.
   - Include `projectConfigName` + `deploymentVersion` in the manifest/metadata
     so `/share/<project_config_name>` can resolve the latest version.
-  - Avoid any writes back to the developer workspace state.
-  - In share mode, `route_publish_share_deployment` returns 403 to prevent
-    public share servers from publishing deployments.
+- Avoid any writes back to the developer workspace state.
+- In share mode, `route_publish_share_deployment` returns 403 to prevent
+  public share servers from publishing deployments.
 
 ## 3) Share runtime server/state
 Status: completed. CLI-flag startup + name/version selection are implemented.
@@ -203,6 +206,10 @@ Implemented:
 - Run and LLM routes also block when share runtime services are not initialized.
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
+- Additional gating covers kwarg add/delete, section renames, callable hide params,
+  and type-error ignore updates.
+- Variant-only routes (freeze/rename) now enforce `allowedSections` by resolving
+  the owning section.
 Pending updates: none.
 
 ## 6) Websocket scoping + realtime events
@@ -344,6 +351,8 @@ Implemented:
   websockets follow the same public access policy.
 - Share filesystem mutation routes return 403 (no writes to deployment roots),
   and cached artifact loads are restricted to deployment subpaths.
+- Share deployment discovery endpoints are blocked in share mode, and latest
+  deployment metadata returns redacted paths to avoid leaking host paths.
 Pending updates: none.
 
 ## 11) Frontend share mode UX
@@ -436,6 +445,8 @@ Implemented:
 - `tests/routers/test_share_filesystem_routes.py` covers share-mode filesystem
   path restrictions for share file endpoints and cached artifact loads (image,
   chart, brush strokes, transforms) plus share-mode variant deletion blocks.
+- `tests/routers/test_share_sessions.py` covers share-mode deployment listing
+  blocks and latest metadata redaction.
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
 - `tests/share/test_session_cleanup.py` covers listener/chat cleanup on session
   expiry.

@@ -9,11 +9,14 @@ from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
+    AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
     CreateTopLevelSectionRequest,
     DeclineRenameRefactorRequest,
+    DeleteKwargRequest,
     DeleteSectionsRequest,
     PasteSectionsRequest,
+    SetCallableHideParamsRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
@@ -25,8 +28,12 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetSectionNameRequest,
+    SetSectionVariantNameRequest,
     SetTextBlockTextRequest,
+    SetTypeErrorIgnoreRequest,
     ToggleParamSelectedRequest,
+    ToggleVariantFrozenRequest,
     UnselectAllParamsRequest,
 )
 from setta.routers.ai import GetLLMResponseRequest, route_get_llm_response
@@ -39,10 +46,13 @@ from setta.routers.llm import (
 from setta.routers.project_manager import (
     route_accept_rename_refactor,
     route_append_draw_area_layer_item,
+    route_add_kwarg,
     route_create_top_level_section,
     route_delete_sections,
+    route_delete_kwarg,
     route_decline_rename_refactor,
     route_paste_sections,
+    route_set_callable_hide_params,
     route_set_callable,
     route_set_chart_area_data_path,
     route_set_chart_settings,
@@ -54,8 +64,12 @@ from setta.routers.project_manager import (
     route_set_gen_code_prefix,
     route_set_gen_code_suffix,
     route_set_image_area_image_path,
+    route_set_section_name,
+    route_set_section_variant_name,
     route_set_text_block_text,
+    route_set_type_error_ignore,
     route_toggle_param_selected,
+    route_toggle_variant_frozen,
     route_unselect_all_params,
 )
 from setta.routers.share_deployments import (
@@ -78,13 +92,18 @@ from setta.types.artifact import (
     DrawAreaLayerItem,
     LineChartSettings,
 )
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateBackend, ProjectStateCore
-from setta.types.section_impls import CodeFileAccessMode, SectionType
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    SectionType,
+    TextBlockSectionImpl,
+)
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
 
@@ -124,6 +143,48 @@ def _write_share_project(
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config.id
+
+
+def _write_share_project_with_section(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> tuple[ID, ID, ID]:
+    dbe = DBE(root)
+    project_config = ProjectConfig(name=project_config_name)
+    section_impl = TextBlockSectionImpl()
+    section_id = create_new_id()
+    variant_id = create_new_id()
+    variant = Variant(
+        id=variant_id,
+        name="Variant",
+        impl=section_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+    )
+    core = Core(
+        id=section_id,
+        variants=[variant_id],
+        defaultVariant=variant_id,
+    )
+    project_config.topLevelSections = {section_id: Position()}
+    project_config.sectionVariantMap = {section_id: variant_id}
+    project_state = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+        sections={section_id: core},
+        sectionImpls={section_impl.id: section_impl},
+        sectionVariants={variant_id: variant},
+    )
+    dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return project_config.id, section_id, variant_id
 
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
@@ -418,6 +479,15 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(HTTPException) as ctx:
                     await route_set_code_file_binding(binding_request, state)
                 self.assertEqual(403, ctx.exception.status_code)
+
+                rename_request = SetSectionNameRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=create_new_id(),
+                    name="Renamed",
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_section_name(rename_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
             finally:
                 reset_share_session_id(token)
 
@@ -534,6 +604,32 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                         changedSettings=[],
                     ),
                 ),
+                (
+                    "add_kwarg",
+                    route_add_kwarg,
+                    AddKwargRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                    ),
+                ),
+                (
+                    "delete_kwarg",
+                    route_delete_kwarg,
+                    DeleteKwargRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                    ),
+                ),
+                (
+                    "set_type_error_ignore",
+                    route_set_type_error_ignore,
+                    SetTypeErrorIgnoreRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        paramInfoId=create_new_id(),
+                        ignoreTypeErrors=True,
+                    ),
+                ),
             ]
 
             try:
@@ -580,6 +676,72 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     "Share policy disallows changes to sections",
                     ctx.exception.detail,
                 )
+            finally:
+                reset_share_session_id(token)
+
+    async def test_layout_routes_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowLayoutChanges=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            try:
+                request = SetCallableHideParamsRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=create_new_id(),
+                    hideParams=True,
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_callable_hide_params(request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+            finally:
+                reset_share_session_id(token)
+
+    async def test_variant_routes_blocked_by_allowed_sections(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, _section_id, variant_id = _write_share_project_with_section(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(
+                    allowVariantChanges=True,
+                    allowedSections=[create_new_id()],
+                ),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            try:
+                frozen_request = ToggleVariantFrozenRequest(
+                    projectConfigId=project_config_id,
+                    variantId=variant_id,
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_toggle_variant_frozen(frozen_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                name_request = SetSectionVariantNameRequest(
+                    projectConfigId=project_config_id,
+                    variantId=variant_id,
+                    name="New Name",
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_section_variant_name(name_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
             finally:
                 reset_share_session_id(token)
 

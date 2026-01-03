@@ -81,6 +81,7 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
                     project_manager_switcher=switcher,
+                    share_mode=False,
                 )
                 project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -259,6 +260,7 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
                     project_manager_switcher=switcher,
+                    share_mode=False,
                 )
                 request = PublishShareDeploymentRequest(
                     projectConfigId=project_config_id
@@ -388,6 +390,7 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
                     project_manager_switcher=switcher,
+                    share_mode=False,
                 )
                 project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -409,7 +412,10 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     state,
                 )
 
-                versions = route_list_share_deployment_versions(project_config.name)
+                versions = route_list_share_deployment_versions(
+                    project_config.name,
+                    state,
+                )
                 self.assertEqual(
                     [second.deploymentVersion, first.deploymentVersion],
                     [entry.deploymentVersion for entry in versions],
@@ -421,7 +427,7 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
 
-                latest = route_get_latest_share_deployment(project_config.name)
+                latest = route_get_latest_share_deployment(project_config.name, state)
                 self.assertEqual(second.deploymentVersion, latest.deploymentVersion)
                 self.assertEqual(project_config.name, latest.projectConfigName)
         except RuntimeError as exc:

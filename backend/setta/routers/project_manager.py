@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import Depends, HTTPException
 
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
@@ -101,13 +103,31 @@ from setta.share.policy import (
 from setta.share.session_context import get_share_session_id
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
+from setta.types.id import ID
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
+
+if TYPE_CHECKING:
+    from setta.project_state.base_project_manager import BaseProjectManager
 
 router = SettaProjectContextAPIRouter(
     require_project_context_by_default=True,
     dependencies=[Depends(share_session_context_from_request)],
 )
+
+
+def _resolve_section_id_for_variant(
+    manager: "BaseProjectManager",
+    project_config_id: ID,
+    variant_id: ID,
+) -> ID:
+    project_state = manager.get_single_config_state(project_config_id)
+    for section_id, section in project_state.sections.items():
+        if variant_id in section.variants:
+            return section_id
+    raise KeyError(
+        f"Variant {variant_id} not found in project config {project_config_id}"
+    )
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
@@ -455,11 +475,21 @@ async def route_auto_layout_top_level_sections(
 
 @router.post(Route.ADD_KWARG)
 async def route_add_kwarg(x: AddKwargRequest, state: AppStateFromRequest):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).add_kwarg(x)
 
 
 @router.post(Route.DELETE_KWARG)
 async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).delete_kwarg(x)
 
 
@@ -577,6 +607,11 @@ async def route_set_param_entered_value(
 async def route_set_type_error_ignore(
     x: SetTypeErrorIgnoreRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_type_error_ignore(x)
 
 
@@ -704,9 +739,20 @@ async def route_set_default_section_variant(
 async def route_toggle_variant_frozen(
     x: ToggleVariantFrozenRequest, state: AppStateFromRequest
 ):
+    section_ids = None
+    if state.share_mode:
+        manager = state.project_manager_switcher.get(x.projectConfigId)
+        section_ids = [
+            _resolve_section_id_for_variant(
+                manager,
+                x.projectConfigId,
+                x.variantId,
+            )
+        ]
     await ensure_share_variant_changes_allowed(
         state,
         project_config_id=x.projectConfigId,
+        section_ids=section_ids,
     )
     await state.project_manager_switcher.get(x.projectConfigId).toggle_variant_frozen(x)
 
@@ -715,9 +761,20 @@ async def route_toggle_variant_frozen(
 async def route_set_section_variant_name(
     x: SetSectionVariantNameRequest, state: AppStateFromRequest
 ):
+    section_ids = None
+    if state.share_mode:
+        manager = state.project_manager_switcher.get(x.projectConfigId)
+        section_ids = [
+            _resolve_section_id_for_variant(
+                manager,
+                x.projectConfigId,
+                x.variantId,
+            )
+        ]
     await ensure_share_variant_changes_allowed(
         state,
         project_config_id=x.projectConfigId,
+        section_ids=section_ids,
     )
     await state.project_manager_switcher.get(
         x.projectConfigId
@@ -752,6 +809,11 @@ async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
 
 @router.post(Route.SET_SECTION_NAME)
 async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRequest):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_section_name(x)
 
 
@@ -813,6 +875,11 @@ async def route_set_section_with_params_display_mode(
 async def route_set_callable_hide_params(
     x: SetCallableHideParamsRequest, state: AppStateFromRequest
 ):
+    await ensure_share_layout_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_callable_hide_params(x)
