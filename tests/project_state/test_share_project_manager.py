@@ -57,6 +57,21 @@ def _write_project(
     return dbe
 
 
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 async def _build_websocket(messages: list[Message]) -> WebSocket:
     receive_queue: list[Message] = [{"type": "websocket.connect"}]
 
@@ -205,7 +220,9 @@ def _build_image_project_state(
 
 
 def _write_project_with_state(
-    root: Path, project_state: ProjectStateSingleConfig
+    root: Path,
+    project_state: ProjectStateSingleConfig,
+    deployment_version: str = "v1",
 ) -> DBE:
     backend = merge_single_config_into_backend(
         ProjectStateBackend(),
@@ -214,6 +231,13 @@ def _write_project_with_state(
     backend.defaultProjectConfigId = project_state.projectConfig.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_state.projectConfig.id,
+        projectConfigName=project_state.projectConfig.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return dbe
 
 
@@ -228,13 +252,15 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_manifest_project_config_selection(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             config_a = ProjectConfig(name="alpha")
             config_b = ProjectConfig(name="beta")
+            root = _build_share_deployment_root(tmpdir, config_b.name)
             dbe = _write_project(root, [config_a, config_b], config_a.id)
             manifest = ShareDeploymentManifest(
                 version=1,
                 projectConfigId=config_b.id,
+                projectConfigName=config_b.name,
+                deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
@@ -247,12 +273,14 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_manifest_missing_project_config_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             config = ProjectConfig(name="alpha")
+            root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             manifest = ShareDeploymentManifest(
                 version=1,
                 projectConfigId=create_new_id(),
+                projectConfigName=config.name,
+                deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
@@ -261,16 +289,23 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_missing_project_configs_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = _build_share_deployment_root(tmpdir, "missing")
             dbe = DBE(root)
             dbe.write_project(ProjectStateBackend())
+            manifest = ShareDeploymentManifest(
+                version=1,
+                projectConfigId=create_new_id(),
+                projectConfigName="missing",
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
 
             with self.assertRaises(KeyError):
                 ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_session_state_preloads_artifacts(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = _build_share_deployment_root(tmpdir, "Share Project")
             image_path = root / "artifacts" / "preview.png"
             image_path.parent.mkdir(parents=True, exist_ok=True)
             image_path.write_bytes(b"fake-image")
@@ -292,7 +327,7 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
-            root = Path(tmpdir)
+            root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
             binding_path = root / "code" / "runner.py"
@@ -310,7 +345,10 @@ class ShareProjectManagerTests(unittest.TestCase):
             manager.create_session_state(session_id)
             self.addCleanup(
                 lambda: shutil.rmtree(
-                    C.SHARE_RUNS_FOLDER / manager.deployment_id, ignore_errors=True
+                    C.SHARE_RUNS_FOLDER
+                    / manager.project_config_name
+                    / manager.deployment_version,
+                    ignore_errors=True,
                 )
             )
 
@@ -318,7 +356,12 @@ class ShareProjectManagerTests(unittest.TestCase):
                 manager.create_run_command(session_id, section_id)
             )
 
-            run_root = C.SHARE_RUNS_FOLDER / manager.deployment_id / session_id
+            run_root = (
+                C.SHARE_RUNS_FOLDER
+                / manager.project_config_name
+                / manager.deployment_version
+                / session_id
+            )
             self.assertTrue(run_root.exists())
             run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
             self.assertEqual(1, len(run_dirs))
@@ -333,7 +376,7 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_run_snapshot_mode_never_is_rejected(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
-            root = Path(tmpdir)
+            root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
             binding_path = root / "code" / "runner.py"
@@ -351,9 +394,16 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_session_state_isolation(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             config = ProjectConfig(name="alpha")
+            root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                projectConfigId=config.id,
+                projectConfigName=config.name,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
             manager = ShareProjectManager(
                 dbe, root, WMHFrontendSender(WebsocketManager())
             )
@@ -369,9 +419,16 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_unknown_session_state_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             config = ProjectConfig(name="alpha")
+            root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                projectConfigId=config.id,
+                projectConfigName=config.name,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
             manager = ShareProjectManager(
                 dbe, root, WMHFrontendSender(WebsocketManager())
             )
@@ -388,10 +445,10 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_listener_emit_requires_updates(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             project_config_id = ID("listener-project")
             section_id = ID("section-a")
             state = _build_project_state(project_config_id, section_id)
+            root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
             frontend_sender = WMHFrontendSender(
                 WebsocketManager(), share_mode=True
@@ -409,10 +466,10 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_listener_emit_requires_active_sessions(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             project_config_id = ID("listener-project")
             section_id = ID("section-a")
             state = _build_project_state(project_config_id, section_id)
+            root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
             frontend_sender = WMHFrontendSender(
                 WebsocketManager(), share_mode=True
@@ -437,10 +494,10 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_listener_emit_broadcasts_dependency_updates(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             project_config_id = ID("listener-project")
             section_id = ID("section-a")
             state = _build_project_state(project_config_id, section_id)
+            root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(
@@ -524,10 +581,10 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_listener_emit_updates_registered_session_manager(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             project_config_id = ID("listener-project")
             section_id = ID("section-a")
             state = _build_project_state(project_config_id, section_id)
+            root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(
@@ -585,10 +642,10 @@ class ShareProjectManagerTests(unittest.TestCase):
 
     def test_listener_emit_broadcasts_artifact_updates(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
             project_config_id = ID("listener-project")
             section_id = ID("section-a")
             state = _build_project_state(project_config_id, section_id)
+            root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(

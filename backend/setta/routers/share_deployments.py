@@ -1,3 +1,4 @@
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -40,7 +41,6 @@ from setta.types.share_deployment import (
     SharePolicy,
 )
 from setta.utils.constants import CWD, C
-from setta.utils.timestamps import get_now_timestamp, timestamp_to_filename
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 logger = logging.getLogger(__name__)
@@ -72,18 +72,38 @@ class PublishShareDeploymentRequest(BaseModel, extra="forbid"):
     listenerIsolation: ListenerIsolationMode | None = None
 
 
-def _create_deployment_root(project_config_id: ID) -> tuple[str, Path]:
-    timestamp = timestamp_to_filename(get_now_timestamp())
-    base_id = f"{project_config_id}_{timestamp}"
-    deployment_id = base_id
-    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / deployment_id)
-    counter = 1
-    while deployment_root.exists():
-        deployment_id = f"{base_id}_{counter}"
-        deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / deployment_id)
-        counter += 1
+def _parse_deployment_version(value: str) -> int | None:
+    if not value.startswith("v"):
+        return None
+    suffix = value[1:]
+    if not suffix.isdigit():
+        return None
+    return int(suffix)
+
+
+def _iter_deployment_versions(project_root: Path) -> list[tuple[int, Path]]:
+    versions: list[tuple[int, Path]] = []
+    if not project_root.exists():
+        return versions
+    for entry in project_root.iterdir():
+        if not entry.is_dir():
+            continue
+        version_number = _parse_deployment_version(entry.name)
+        if version_number is None:
+            continue
+        versions.append((version_number, entry))
+    return versions
+
+
+def _create_deployment_root(project_config_name: str) -> tuple[str, Path]:
+    project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / project_config_name)
+    project_root.mkdir(parents=True, exist_ok=True)
+    version_numbers = [number for number, _ in _iter_deployment_versions(project_root)]
+    next_number = max(version_numbers, default=0) + 1
+    deployment_version = f"v{next_number}"
+    deployment_root = normalize_path(project_root / deployment_version)
     deployment_root.mkdir(parents=True, exist_ok=False)
-    return deployment_id, deployment_root
+    return deployment_version, deployment_root
 
 
 def _resolve_source_path(path_str: str) -> Path:
@@ -195,25 +215,28 @@ def _require_share_mode(state: AppStateFromRequest) -> None:
         )
 
 
-def _expected_share_deployment_id(state: AppStateFromRequest) -> str:
+def _expected_share_deployment(state: AppStateFromRequest) -> tuple[str, str]:
     if state.share_deployment_root is None:
         raise HTTPException(
             status_code=400,
             detail="Share deployment root is not configured.",
         )
-    if C.SHARE_DEPLOYMENT_ID:
-        return C.SHARE_DEPLOYMENT_ID
-    return state.share_deployment_root.name
+    return (
+        state.share_project_manager.project_config_name,
+        state.share_project_manager.deployment_version,
+    )
 
 
-def _require_matching_deployment_id(
-    state: AppStateFromRequest, deployment_id: str
+def _require_matching_deployment(
+    state: AppStateFromRequest,
+    project_config_name: str,
+    version: str,
 ) -> None:
-    expected_id = _expected_share_deployment_id(state)
-    if deployment_id != expected_id:
+    expected_name, expected_version = _expected_share_deployment(state)
+    if project_config_name != expected_name or version != expected_version:
         raise HTTPException(
             status_code=404,
-            detail=f"Share deployment not found: {deployment_id}",
+            detail=(f"Share deployment not found: {project_config_name}/{version}"),
         )
 
 
@@ -328,36 +351,120 @@ def _copy_listener_entrypoint(
     )
 
 
+def _read_share_manifest(deployment_root: Path) -> ShareDeploymentManifest | None:
+    manifest_path = deployment_root / "manifest.json"
+    if not manifest_path.exists():
+        return None
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not payload:
+        return None
+    return ShareDeploymentManifest.model_validate(payload)
+
+
+def _manifest_matches_root(
+    manifest: ShareDeploymentManifest, deployment_root: Path
+) -> bool:
+    if deployment_root.name != manifest.deploymentVersion:
+        return False
+    if deployment_root.parent.name != manifest.projectConfigName:
+        return False
+    return True
+
+
+def _metadata_from_manifest(
+    manifest: ShareDeploymentManifest, deployment_root: Path
+) -> ShareDeploymentMetadata:
+    return ShareDeploymentMetadata(
+        projectConfigName=manifest.projectConfigName,
+        deploymentVersion=manifest.deploymentVersion,
+        createdAt=manifest.createdAt,
+        deploymentRoot=normalize_path(deployment_root),
+        sharePolicyPath=normalize_path(deployment_root / "share_policy.json"),
+    )
+
+
 @router.get(Route.SHARE_DEPLOYMENTS)
 def route_list_share_deployments() -> list[ShareDeploymentMetadata]:
     deployments_root = C.SHARE_DEPLOYMENTS_FOLDER
     if not deployments_root.exists():
         return []
     deployments: list[ShareDeploymentMetadata] = []
-    for entry in sorted(deployments_root.iterdir()):
-        if not entry.is_dir():
+    for project_root in sorted(deployments_root.iterdir()):
+        if not project_root.is_dir():
             continue
-        deployments.append(
-            ShareDeploymentMetadata(
-                deploymentId=entry.name,
-                deploymentRoot=normalize_path(entry),
-                sharePolicyPath=normalize_path(entry / "share_policy.json"),
-            )
-        )
+        for _, version_root in _iter_deployment_versions(project_root):
+            manifest = _read_share_manifest(version_root)
+            if manifest is None:
+                continue
+            if not _manifest_matches_root(manifest, version_root):
+                continue
+            deployments.append(_metadata_from_manifest(manifest, version_root))
+    deployments.sort(key=lambda item: item.createdAt, reverse=True)
     return deployments
+
+
+@router.get(Route.SHARE_DEPLOYMENT_VERSIONS)
+def route_list_share_deployment_versions(
+    projectConfigName: str,
+) -> list[ShareDeploymentMetadata]:
+    project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / projectConfigName)
+    if not project_root.exists():
+        return []
+    versions = sorted(
+        _iter_deployment_versions(project_root),
+        key=lambda item: item[0],
+        reverse=True,
+    )
+    deployments: list[ShareDeploymentMetadata] = []
+    for _, version_root in versions:
+        manifest = _read_share_manifest(version_root)
+        if manifest is None:
+            continue
+        if not _manifest_matches_root(manifest, version_root):
+            continue
+        deployments.append(_metadata_from_manifest(manifest, version_root))
+    return deployments
+
+
+@router.get(Route.SHARE_DEPLOYMENT_LATEST)
+def route_get_latest_share_deployment(
+    projectConfigName: str,
+) -> ShareDeploymentMetadata:
+    project_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / projectConfigName)
+    if not project_root.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Share deployment not found: {projectConfigName}",
+        )
+    versions = _iter_deployment_versions(project_root)
+    if not versions:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Share deployment not found: {projectConfigName}",
+        )
+    _, latest_root = max(versions, key=lambda item: item[0])
+    manifest = _read_share_manifest(latest_root)
+    if manifest is None or not _manifest_matches_root(manifest, latest_root):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Share deployment not found: {projectConfigName}",
+        )
+    return _metadata_from_manifest(manifest, latest_root)
 
 
 @router.post(Route.SHARE_DEPLOYMENT_SESSION)
 async def route_create_share_session(
-    deploymentId: str,
+    projectConfigName: str,
+    version: str,
     state: AppStateFromRequest,
 ) -> ShareDeploymentSessionResponse:
     _require_share_mode(state)
-    _require_matching_deployment_id(state, deploymentId)
+    _require_matching_deployment(state, projectConfigName, version)
     session = state.share_session_store.create_session()
     state.share_project_manager.create_session_state(session.id)
     return ShareDeploymentSessionResponse(
-        deploymentId=deploymentId,
+        projectConfigName=state.share_project_manager.project_config_name,
+        deploymentVersion=state.share_project_manager.deployment_version,
         shareSessionId=session.id,
         projectConfigId=state.share_project_manager.project_config_id,
         sharePolicy=state.share_project_manager.share_policy,
@@ -367,12 +474,13 @@ async def route_create_share_session(
 
 @router.get(Route.SHARE_DEPLOYMENT_STATE)
 async def route_get_share_deployment_state(
-    deploymentId: str,
+    projectConfigName: str,
+    version: str,
     state: AppStateFromRequest,
     request: Request,
 ) -> ProjectStateSingleConfigWithCompletedOpIds:
     _require_share_mode(state)
-    _require_matching_deployment_id(state, deploymentId)
+    _require_matching_deployment(state, projectConfigName, version)
     share_session_id = require_share_session_id(
         state,
         maybe_get_share_session_id_from_request(request),
@@ -403,7 +511,8 @@ async def route_publish_share_deployment(
     await project_manager.finish_pending_operations()
     project_manager._flush_code_files_for_all_configs()
 
-    deployment_id, deployment_root = _create_deployment_root(x.projectConfigId)
+    project_config = project_state_backend.projectConfigs[x.projectConfigId]
+    deployment_version, deployment_root = _create_deployment_root(project_config.name)
     policy = _apply_share_policy_overrides(x.sharePolicyOverrides, x.listenerIsolation)
     if policy.runSnapshotMode == RunSnapshotMode.never:
         raise HTTPException(
@@ -426,6 +535,8 @@ async def route_publish_share_deployment(
     manifest = ShareDeploymentManifest(
         version=1,
         projectConfigId=x.projectConfigId,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
         listener=listener_config,
     )
     state.dbe.write_json(deployment_root / "project.json", snapshot.model_dump())
@@ -434,11 +545,13 @@ async def route_publish_share_deployment(
 
     logger.info(
         "Published share deployment %s for project %s",
-        deployment_id,
+        deployment_version,
         x.projectConfigId,
     )
     return ShareDeploymentMetadata(
-        deploymentId=deployment_id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+        createdAt=manifest.createdAt,
         deploymentRoot=deployment_root,
         sharePolicyPath=deployment_root / "share_policy.json",
     )

@@ -61,7 +61,10 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     if (!publishedDeployment) {
       return null;
     }
-    return buildShareUrl(publishedDeployment.deploymentId);
+    return buildShareUrl(
+      publishedDeployment.projectConfigName,
+      publishedDeployment.deploymentVersion,
+    );
   }, [publishedDeployment]);
 
   useEffect(() => {
@@ -272,16 +275,23 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
         <SectionCard title="Deployment" subtitle="Share link + instructions.">
           {!publishedDeployment ? (
             <div className="rounded-md border border-dashed border-setta-200 bg-white/70 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
-              Publish to generate a deployment id and share URL.
+              Publish to generate a deployment version and share URL.
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               <div className="text-xs text-setta-500 dark:text-setta-400">
-                Deployment id
+                Project config
               </div>
               <ShareValueRow
-                value={publishedDeployment.deploymentId}
-                onCopy={() => handleCopy(publishedDeployment.deploymentId)}
+                value={publishedDeployment.projectConfigName}
+                onCopy={() => handleCopy(publishedDeployment.projectConfigName)}
+              />
+              <div className="text-xs text-setta-500 dark:text-setta-400">
+                Deployment version
+              </div>
+              <ShareValueRow
+                value={publishedDeployment.deploymentVersion}
+                onCopy={() => handleCopy(publishedDeployment.deploymentVersion)}
               />
               {shareUrl && (
                 <>
@@ -307,9 +317,9 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             </div>
             <code className="block whitespace-pre-wrap rounded-md bg-white/80 px-2 py-1 font-mono text-[11px] text-setta-600 dark:bg-setta-950 dark:text-setta-300">
               SETTA_SHARE_MODE=1{" "}
-              {publishedDeployment?.deploymentId
-                ? `SETTA_SHARE_DEPLOYMENT_ID=${publishedDeployment.deploymentId} `
-                : "SETTA_SHARE_DEPLOYMENT_ID=<deployment-id> "}
+              {publishedDeployment
+                ? `SETTA_SHARE_DEPLOYMENT_ROOT=${publishedDeployment.deploymentRoot} `
+                : "SETTA_SHARE_DEPLOYMENT_ROOT=setta_files/share_deployments/<project-config-name>/<version> "}
               setta --port 8001
             </code>
           </div>
@@ -514,14 +524,17 @@ function RecentDeploymentList({
       </div>
       <div className="flex flex-col gap-2">
         {deployments.slice(0, 5).map((deployment) => {
-          const url = buildShareUrl(deployment.deploymentId);
+          const url = buildShareUrl(
+            deployment.projectConfigName,
+            deployment.deploymentVersion,
+          );
           return (
             <div
-              key={deployment.deploymentId}
+              key={`${deployment.projectConfigName}-${deployment.deploymentVersion}`}
               className="rounded-md border border-setta-200 bg-white/70 px-3 py-2 text-[11px] text-setta-500 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-400"
             >
               <div className="font-mono text-[11px] text-setta-600 dark:text-setta-300">
-                {deployment.deploymentId}
+                {deployment.projectConfigName}/{deployment.deploymentVersion}
               </div>
               <div className="mb-2 truncate text-[10px] text-setta-400 dark:text-setta-500">
                 {deployment.deploymentRoot}
@@ -529,9 +542,13 @@ function RecentDeploymentList({
               <div className="flex flex-wrap gap-2">
                 <button
                   className="cursor-pointer rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                  onClick={() => onCopy(deployment.deploymentId)}
+                  onClick={() =>
+                    onCopy(
+                      `${deployment.projectConfigName}/${deployment.deploymentVersion}`,
+                    )
+                  }
                 >
-                  Copy id
+                  Copy version
                 </button>
                 <button
                   className="cursor-pointer rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
@@ -554,11 +571,15 @@ function RecentDeploymentList({
   );
 }
 
-function buildShareUrl(deploymentId: string): string {
+function buildShareUrl(
+  projectConfigName: string,
+  deploymentVersion: string,
+): string {
+  const sharePath = `/share/${projectConfigName}/${deploymentVersion}`;
   if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/share/${deploymentId}`;
+    return `${window.location.origin}${sharePath}`;
   }
-  return `/share/${deploymentId}`;
+  return sharePath;
 }
 
 function extractErrorMessage(

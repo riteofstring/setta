@@ -18,16 +18,30 @@ from setta.routers.share_deployments import (
 from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import ShareDeploymentManifest
 
 
-def _write_share_project(root: Path) -> ProjectConfig:
-    dbe = DBE(root)
-    project_config = ProjectConfig(name="share-session-test")
+def _write_share_project(
+    deployment_root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> ProjectConfig:
+    deployment_root.mkdir(parents=True, exist_ok=True)
+    dbe = DBE(deployment_root)
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
     return project_config
 
 
@@ -70,13 +84,30 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_create_session_and_fetch_state(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config = _write_share_project(root)
-            state = await self._build_state(root)
-            deployment_id = root.name
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-test"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            project_config = _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
 
-            session_response = await route_create_share_session(deployment_id, state)
-            self.assertEqual(deployment_id, session_response.deploymentId)
+            session_response = await route_create_share_session(
+                project_config_name,
+                deployment_version,
+                state,
+            )
+            self.assertEqual(
+                project_config_name, session_response.projectConfigName
+            )
+            self.assertEqual(
+                deployment_version, session_response.deploymentVersion
+            )
             self.assertEqual(
                 project_config.id, session_response.projectConfigId
             )
@@ -84,7 +115,8 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
 
             request = _make_request(session_response.shareSessionId)
             response = await route_get_share_deployment_state(
-                deployment_id,
+                project_config_name,
+                deployment_version,
                 state,
                 request,
             )
@@ -97,15 +129,24 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_state_requires_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
-            state = await self._build_state(root)
-            deployment_id = root.name
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-test"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
 
             request = _make_request(None)
             with self.assertRaises(HTTPException) as ctx:
                 await route_get_share_deployment_state(
-                    deployment_id,
+                    project_config_name,
+                    deployment_version,
                     state,
                     request,
                 )
@@ -113,28 +154,50 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unknown_session_id_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
-            state = await self._build_state(root)
-            deployment_id = root.name
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-test"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
 
             request = _make_request("missing-session")
             with self.assertRaises(HTTPException) as ctx:
                 await route_get_share_deployment_state(
-                    deployment_id,
+                    project_config_name,
+                    deployment_version,
                     state,
                     request,
                 )
             self.assertEqual(404, ctx.exception.status_code)
 
-    async def test_deployment_id_mismatch_returns_404(self) -> None:
+    async def test_deployment_mismatch_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
-            state = await self._build_state(root)
+            share_root = Path(tmpdir) / "share_deployments"
+            project_config_name = "share-session-test"
+            deployment_version = "v1"
+            deployment_root = (
+                share_root / project_config_name / deployment_version
+            )
+            _write_share_project(
+                deployment_root,
+                project_config_name=project_config_name,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_create_share_session("wrong-deployment", state)
+                await route_create_share_session(
+                    "wrong-config",
+                    deployment_version,
+                    state,
+                )
             self.assertEqual(404, ctx.exception.status_code)
 
 

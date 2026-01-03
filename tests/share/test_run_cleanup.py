@@ -10,8 +10,11 @@ from setta.utils.constants import C
 
 class ShareRunCleanupTests(unittest.TestCase):
     def test_cleanup_removes_expired_runs(self) -> None:
-        deployment_id = f"cleanup-{create_new_id()}"
-        runs_root = C.SHARE_RUNS_FOLDER / deployment_id
+        project_config_name = f"cleanup-{create_new_id()}"
+        deployment_version = "v1"
+        runs_root = (
+            C.SHARE_RUNS_FOLDER / project_config_name / deployment_version
+        )
         session_keep = create_new_id()
         session_prune = create_new_id()
 
@@ -35,7 +38,11 @@ class ShareRunCleanupTests(unittest.TestCase):
 
         self.addCleanup(lambda: shutil.rmtree(runs_root, ignore_errors=True))
 
-        removed = cleanup_share_run_output(deployment_id, ttl_seconds=60)
+        removed = cleanup_share_run_output(
+            project_config_name,
+            deployment_version,
+            ttl_seconds=60,
+        )
 
         self.assertEqual(2, removed)
         self.assertFalse(old_run.exists())

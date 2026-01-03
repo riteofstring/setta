@@ -19,21 +19,48 @@ from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketMsgCurrentAddressUpdate
 from setta.utils.timestamps import get_now_timestamp
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.utils.constants import C
 
 
-def _write_share_project(root: Path) -> None:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> None:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share-websocket-test")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
 
 
 async def _build_state(root: Path) -> SettaFastAPIState:
@@ -145,8 +172,13 @@ def _mint_auth_cookie(sessions_root: Path) -> tuple[str, str]:
 class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
     async def test_share_frontend_allows_missing_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await _build_state(root)
             session = state.share_session_store.create_session()
             headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
@@ -162,8 +194,13 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await _build_state(root)
             session_id, auth_cookie = _mint_auth_cookie(root / "sessions")
             headers = [
@@ -195,8 +232,13 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unknown_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await _build_state(root)
             session_id, auth_cookie = _mint_auth_cookie(root / "sessions")
             headers = [
@@ -229,8 +271,13 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_frontend_message_touches_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await _build_state(root)
             session = state.share_session_store.create_session()
             headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
@@ -265,8 +312,13 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await _build_state(root)
             messages: list[Message] = []
             websocket = await _build_websocket(messages)
@@ -283,8 +335,13 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unknown_share_session_closes(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await _build_state(root)
             messages: list[Message] = []
             websocket = await _build_websocket(
@@ -304,8 +361,13 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_terminal_activity_touches_share_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-websocket-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             DBE(root).write_json(
                 root / "share_policy.json",
                 SharePolicy(allowRun=True).model_dump(),

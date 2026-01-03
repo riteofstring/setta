@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { initializeShareDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_get_latest_share_deployment } from "utils/generatedEndpoints";
 import type { SharePolicy } from "utils/generatedTypes";
 
 export function useLoadShareDeployment() {
-  const { deploymentId } = useParams();
+  const { projectConfigName, version } = useParams();
+  const navigate = useNavigate();
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
 
@@ -13,11 +16,34 @@ export function useLoadShareDeployment() {
     let isMounted = true;
 
     async function load() {
-      if (!deploymentId) {
+      if (!projectConfigName) {
         return;
       }
       setDoneLoading(false);
-      await initializeShareDeployment(deploymentId);
+      useProjectLoading.setState({
+        projectIsLoading: true,
+        projectIs404: false,
+      });
+      if (!version) {
+        const latestRes =
+          await route_get_latest_share_deployment(projectConfigName);
+        if (!res200(latestRes)) {
+          useProjectLoading.setState({
+            projectIsLoading: false,
+            projectIs404: true,
+          });
+          if (isMounted) {
+            setDoneLoading(true);
+          }
+          return;
+        }
+        const resolvedVersion = latestRes.data.deploymentVersion;
+        navigate(`/share/${projectConfigName}/${resolvedVersion}`, {
+          replace: true,
+        });
+        return;
+      }
+      await initializeShareDeployment(projectConfigName, version);
       if (!isMounted) {
         return;
       }
@@ -28,7 +54,7 @@ export function useLoadShareDeployment() {
     return () => {
       isMounted = false;
     };
-  }, [deploymentId]);
+  }, [navigate, projectConfigName, version]);
 
   return [doneLoading, is404] as const;
 }

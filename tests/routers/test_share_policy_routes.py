@@ -38,17 +38,44 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import SectionType
-from setta.types.share_deployment import SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
 
-def _write_share_project(root: Path) -> ID:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> ID:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share-policy-route-test")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config.id
 
 
@@ -87,8 +114,13 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_llm_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config_id = _write_share_project(root)
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             _write_share_policy(root, SharePolicy(allowLLM=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
@@ -118,8 +150,13 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_llm_updates_blocked_in_share_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             _write_share_policy(root, SharePolicy(allowLLM=True))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
@@ -150,8 +187,13 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_run_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config_id = _write_share_project(root)
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             _write_share_policy(root, SharePolicy(allowRun=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
@@ -182,8 +224,13 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_run_routes_blocked_by_allowed_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config_id = _write_share_project(root)
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             allowed_section_id = create_new_id()
             blocked_section_id = create_new_id()
             _write_share_policy(
@@ -210,8 +257,13 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_structural_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config_id = _write_share_project(root)
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
@@ -238,8 +290,13 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_terminal_routes_require_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config_id = _write_share_project(root)
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await self._build_state(root)
 
             delete_request = DeleteTerminalsRequest(sectionIds=[create_new_id()])

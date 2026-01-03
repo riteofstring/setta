@@ -35,6 +35,8 @@ def _build_manifest(
     return ShareDeploymentManifest(
         version=1,
         projectConfigId=project_config_id,
+        projectConfigName=str(project_config_id),
+        deploymentVersion="v1",
         listener=ShareDeploymentListenerConfig(entrypoint=entrypoint),
     )
 

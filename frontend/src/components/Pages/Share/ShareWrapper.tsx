@@ -38,13 +38,17 @@ function useShareWebsocket() {
 }
 
 function useShareHTMLTitle() {
-  const { deploymentId } = useParams();
+  const { projectConfigName, version } = useParams();
 
   useEffect(() => {
-    if (deploymentId) {
-      document.title = `Share ${deploymentId}`;
+    if (projectConfigName && version) {
+      document.title = `Share ${projectConfigName}/${version}`;
+      return;
+    }
+    if (projectConfigName) {
+      document.title = `Share ${projectConfigName}`;
       return;
     }
     document.title = "Sharing Mode";
-  }, [deploymentId]);
+  }, [projectConfigName, version]);
 }

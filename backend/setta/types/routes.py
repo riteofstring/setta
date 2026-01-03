@@ -144,6 +144,10 @@ class Route(str, Enum):
     LOAD_CACHED_BRUSH_STROKES = "/loadCachedBrushStrokes"
     LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM = "/loadDrawAreaLayerItemTransform"
     SHARE_DEPLOYMENTS = "/share/deployments"
-    SHARE_DEPLOYMENT_SESSION = "/share/deployments/{deploymentId}/session"
-    SHARE_DEPLOYMENT_STATE = "/share/deployments/{deploymentId}/state"
+    SHARE_DEPLOYMENT_VERSIONS = "/share/deployments/{projectConfigName}/versions"
+    SHARE_DEPLOYMENT_LATEST = "/share/deployments/{projectConfigName}/latest"
+    SHARE_DEPLOYMENT_SESSION = (
+        "/share/deployments/{projectConfigName}/{version}/session"
+    )
+    SHARE_DEPLOYMENT_STATE = "/share/deployments/{projectConfigName}/{version}/state"
     WEBSOCKET_SHARE_FRONTEND = "/share/frontend"

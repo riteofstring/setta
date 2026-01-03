@@ -52,13 +52,15 @@ class ShareProjectManager:
     ) -> None:
         self.dbe = dbe
         self.deployment_root = deployment_root
-        self.deployment_id = deployment_root.name
         self.frontend_sender = frontend_sender
         self.project_state_backend = self.load_initial_state()
         self.manifest = self._load_manifest()
+        self.project_config_name = self._resolve_project_config_name()
+        self.deployment_version = self._resolve_deployment_version()
+        self._validate_deployment_root()
         self.project_config_id = self._resolve_project_config_id()
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
-        if self.manifest is not None and self.manifest.listener is not None:
+        if self.manifest.listener is not None:
             self.share_policy.listenerIsolation = self.manifest.listener.isolation
         if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
             raise ValueError(
@@ -188,30 +190,49 @@ class ShareProjectManager:
 
         return self._build_python_run_command(gen_code_path)
 
-    def _load_manifest(self) -> ShareDeploymentManifest | None:
+    def _load_manifest(self) -> ShareDeploymentManifest:
         manifest_path = self.deployment_root / "manifest.json"
         if not manifest_path.exists():
-            return None
+            raise FileNotFoundError(
+                f"Share deployment manifest not found: {manifest_path}"
+            )
         payload = self.dbe.read_json(manifest_path)
         if not payload:
-            return None
+            raise ValueError(f"Share deployment manifest is empty: {manifest_path}")
         return ShareDeploymentManifest.model_validate(payload)
 
     def _resolve_project_config_id(self) -> ID:
-        if self.manifest is not None:
-            project_config_id = self.manifest.projectConfigId
-            if project_config_id not in self.project_state_backend.projectConfigs:
-                raise KeyError(
-                    "Share deployment manifest references missing project config: "
-                    f"{project_config_id}"
-                )
-            return project_config_id
-        default_id = self.project_state_backend.defaultProjectConfigId
-        if default_id is not None:
-            return default_id
-        if not self.project_state_backend.projectConfigs:
-            raise KeyError("Share deployment missing project configs")
-        return next(iter(self.project_state_backend.projectConfigs))
+        project_config_id = self.manifest.projectConfigId
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            raise KeyError(
+                "Share deployment manifest references missing project config: "
+                f"{project_config_id}"
+            )
+        return project_config_id
+
+    def _resolve_project_config_name(self) -> str:
+        project_config_name = self.manifest.projectConfigName
+        if not project_config_name:
+            raise ValueError("Share deployment manifest missing projectConfigName")
+        return project_config_name
+
+    def _resolve_deployment_version(self) -> str:
+        deployment_version = self.manifest.deploymentVersion
+        if not deployment_version:
+            raise ValueError("Share deployment manifest missing deploymentVersion")
+        return deployment_version
+
+    def _validate_deployment_root(self) -> None:
+        if self.deployment_root.name != self.deployment_version:
+            raise ValueError(
+                "Share deployment root does not match deploymentVersion: "
+                f"{self.deployment_root.name}"
+            )
+        if self.deployment_root.parent.name != self.project_config_name:
+            raise ValueError(
+                "Share deployment root does not match projectConfigName: "
+                f"{self.deployment_root.parent.name}"
+            )
 
     def _build_base_state(self) -> "ProjectStateSingleConfig":
         base_state = convert_backend_to_single_config(
@@ -275,7 +296,12 @@ class ShareProjectManager:
         return code_generator.code
 
     def _create_share_run_folder(self, share_session_id: str) -> Path:
-        run_root = C.SHARE_RUNS_FOLDER / self.deployment_id / share_session_id
+        run_root = (
+            C.SHARE_RUNS_FOLDER
+            / self.project_config_name
+            / self.deployment_version
+            / share_session_id
+        )
         return create_timestamped_folder(run_root)
 
     def _write_snapshot_file(

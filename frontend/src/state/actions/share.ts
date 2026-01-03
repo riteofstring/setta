@@ -9,12 +9,16 @@ import {
 } from "utils/generatedEndpoints";
 
 export async function initializeShareDeployment(
-  deploymentId: string,
+  projectConfigName: string,
+  deploymentVersion: string,
 ): Promise<boolean> {
   resetProjectStores();
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
 
-  const sessionRes = await route_create_share_session(deploymentId);
+  const sessionRes = await route_create_share_session(
+    projectConfigName,
+    deploymentVersion,
+  );
   if (!res200(sessionRes)) {
     useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
     return false;
@@ -24,14 +28,18 @@ export async function initializeShareDeployment(
   setShareSessionCookie(session.shareSessionId);
   useShareSession.setState({
     isShareMode: true,
-    deploymentId,
+    projectConfigName: session.projectConfigName,
+    deploymentVersion: session.deploymentVersion,
     shareSessionId: session.shareSessionId,
     projectConfigId: session.projectConfigId,
     sharePolicy: session.sharePolicy,
     manifest: session.manifest,
   });
 
-  const stateRes = await route_get_share_deployment_state(deploymentId);
+  const stateRes = await route_get_share_deployment_state(
+    session.projectConfigName,
+    session.deploymentVersion,
+  );
   if (!res200(stateRes)) {
     useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
     return false;

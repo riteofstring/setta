@@ -13,17 +13,44 @@ from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
 
-def _write_share_project(root: Path) -> ProjectConfig:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> ProjectConfig:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share_test")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config
 
 
@@ -45,8 +72,13 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_state_boots_without_watchers(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config = _write_share_project(root)
+            project_config_name = "share_test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await self._build_state(root)
 
             self.assertIsInstance(state.share_session_store, MemorySessionStore)
@@ -61,8 +93,13 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_state_does_not_seed_settings_or_llm_files(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share_test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await self._build_state(root)
 
             self.assertFalse((root / "setta-settings.json").exists())
@@ -118,8 +155,13 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
         for label, policy, expect_llm, expect_mcp, expect_run in scenarios:
             with self.subTest(label=label):
                 with TemporaryDirectory() as tmpdir:
-                    root = Path(tmpdir)
-                    _write_share_project(root)
+                    project_config_name = "share_test"
+                    root = _build_share_deployment_root(tmpdir, project_config_name)
+                    _write_share_project(
+                        root,
+                        project_config_name=project_config_name,
+                        deployment_version=root.name,
+                    )
                     _write_share_policy(root, policy)
                     state = await self._build_state(root)
 

@@ -17,6 +17,7 @@ from setta.database.db_objs import DBE
 from setta.share.session_context import get_share_session_id
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import ShareDeploymentManifest
 
 
 def _make_request(
@@ -82,14 +83,41 @@ def _make_websocket(
     return WebSocket(scope, empty_receive, empty_send)
 
 
-def _write_share_project(root: Path) -> ProjectConfig:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> ProjectConfig:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share-dependency-test")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config
 
 
@@ -190,8 +218,13 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_session_context_sets_and_resets(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-dependency-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             app, state = await self._build_state(root)
             session = state.share_session_store.create_session()
             request = _make_app_request(
@@ -212,8 +245,13 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_session_context_requires_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-dependency-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             app, _state = await self._build_state(root)
             request = _make_app_request(app)
             context = share_session_context_from_request(request)
@@ -226,8 +264,13 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_session_context_touches_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-dependency-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             app, state = await self._build_state(root)
             session = state.share_session_store.create_session()
             old_timestamp = session.last_accessed_at - timedelta(seconds=120)

@@ -40,7 +40,6 @@ export class C {
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SETTINGS_PROJECT_NAME = "settings";
   static SHARE_DEPLOYMENTS_FOLDER = "setta_files/share_deployments";
-  static SHARE_DEPLOYMENT_ID = null;
   static SHARE_DEPLOYMENT_ROOT = null;
   static SHARE_MODE = false;
   static SHARE_RUNS_FOLDER = "setta_files/share_runs";

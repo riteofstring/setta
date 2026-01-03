@@ -6,6 +6,8 @@ from setta.database.utils import create_new_id
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
+    route_get_latest_share_deployment,
+    route_list_share_deployment_versions,
     route_publish_share_deployment,
 )
 from setta.types.artifact import ArtifactType, DrawAreaLayer, DrawAreaLayerItem
@@ -105,9 +107,17 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 policy = SharePolicy.model_validate(
                     project_fixture.dbe.read_json(policy_path)
                 )
+                project_config = project_fixture.manager.project_state_backend.projectConfigs[
+                    project_config_id
+                ]
 
                 self.assertEqual(1, manifest.version)
                 self.assertEqual(project_config_id, manifest.projectConfigId)
+                self.assertEqual(project_config.name, manifest.projectConfigName)
+                self.assertEqual(metadata.projectConfigName, manifest.projectConfigName)
+                self.assertEqual(
+                    metadata.deploymentVersion, manifest.deploymentVersion
+                )
                 self.assertIsNone(manifest.listener)
                 self.assertFalse(policy.allowRun)
                 self.assertFalse(policy.allowLLM)
@@ -340,5 +350,65 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     dict_target.is_relative_to(deployment_root / "json_sources")
                 )
                 self.assertTrue(dict_target.exists())
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+    async def test_list_versions_and_latest(self) -> None:
+        try:
+            async with (
+                real_project_manager() as project_fixture,
+                real_settings_manager() as settings_fixture,
+            ):
+                original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
+                C.SHARE_DEPLOYMENTS_FOLDER = (
+                    project_fixture.setta_root / "share_deployments"
+                )
+                self.addCleanup(
+                    setattr, C, "SHARE_DEPLOYMENTS_FOLDER", original_share_root
+                )
+
+                switcher = ProjectManagerSwitcher(
+                    project_fixture.manager,
+                    settings_fixture.manager,
+                )
+                state = SimpleNamespace(
+                    dbe=project_fixture.dbe,
+                    project_manager_switcher=switcher,
+                )
+                project_config_id = (
+                    project_fixture.manager.project_state_backend.defaultProjectConfigId
+                )
+                if project_config_id is None:
+                    self.fail("Expected a default project config id for publishing.")
+                project_config = (
+                    project_fixture.manager.project_state_backend.projectConfigs[
+                        project_config_id
+                    ]
+                )
+
+                first = await route_publish_share_deployment(
+                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    state,
+                )
+                second = await route_publish_share_deployment(
+                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    state,
+                )
+
+                versions = route_list_share_deployment_versions(project_config.name)
+                self.assertEqual(
+                    [second.deploymentVersion, first.deploymentVersion],
+                    [entry.deploymentVersion for entry in versions],
+                )
+                self.assertTrue(
+                    all(
+                        entry.projectConfigName == project_config.name
+                        for entry in versions
+                    )
+                )
+
+                latest = route_get_latest_share_deployment(project_config.name)
+                self.assertEqual(second.deploymentVersion, latest.deploymentVersion)
+                self.assertEqual(project_config.name, latest.projectConfigName)
         except RuntimeError as exc:
             self.skipTest(str(exc))

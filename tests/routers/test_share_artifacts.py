@@ -10,16 +10,44 @@ from setta.server_state import SettaFastAPIState
 from setta.types.artifact import BrushStroke, BrushStrokeArtifact, DrawAreaBrushShape
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import ShareDeploymentManifest
 
 
-def _write_share_project(root: Path) -> None:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> None:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share-artifacts-test")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
 
 
 class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
@@ -35,8 +63,13 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_share_updates_are_in_memory_only(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-artifacts-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
 

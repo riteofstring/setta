@@ -356,13 +356,15 @@ class SettaFastAPIState:
         ):
             spawn_background_task(
                 run_share_run_cleanup_loop(
-                    self.share_project_manager.deployment_id,
+                    self.share_project_manager.project_config_name,
+                    self.share_project_manager.deployment_version,
                     ttl_seconds=DEFAULT_SHARE_RUN_TTL_SECONDS,
                     interval_seconds=DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
                 ),
                 label="share-run-cleanup",
                 extra_values={
-                    "deployment_id": self.share_project_manager.deployment_id
+                    "project_config_name": self.share_project_manager.project_config_name,
+                    "deployment_version": self.share_project_manager.deployment_version,
                 },
             )
         self.share_listener_runtime = ShareListenerRuntime(
@@ -434,7 +436,10 @@ class SettaFastAPIState:
                 interval_seconds=DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS,
             ),
             label="share-session-cleanup",
-            extra_values={"deployment_id": self.share_project_manager.deployment_id},
+            extra_values={
+                "project_config_name": self.share_project_manager.project_config_name,
+                "deployment_version": self.share_project_manager.deployment_version,
+            },
         )
         self._ready_event.set()
         self.init_status.record("Share backend ready")
@@ -450,10 +455,7 @@ class SettaFastAPIState:
         if not share_mode:
             return None
         if share_deployment_root is None:
-            raise ValueError(
-                "Share mode requires SETTA_SHARE_DEPLOYMENT_ROOT or "
-                "SETTA_SHARE_DEPLOYMENT_ID"
-            )
+            raise ValueError("Share mode requires SETTA_SHARE_DEPLOYMENT_ROOT")
         resolved = share_deployment_root.expanduser().resolve()
         if not resolved.exists():
             raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")

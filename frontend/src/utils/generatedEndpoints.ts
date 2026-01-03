@@ -737,20 +737,43 @@ export async function route_list_share_deployments(): Promise<
   return await get("/share/deployments");
 }
 
-export async function route_create_share_session(
-  deploymentId: string,
-): Promise<ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>> {
-  return await post("/share/deployments/{deploymentId}/session", null, {
-    deploymentId,
+async function route_list_share_deployment_versions(
+  projectConfigName: string,
+): Promise<ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>> {
+  return await get("/share/deployments/{projectConfigName}/versions", {
+    projectConfigName,
   });
 }
 
+export async function route_get_latest_share_deployment(
+  projectConfigName: string,
+): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
+  return await get("/share/deployments/{projectConfigName}/latest", {
+    projectConfigName,
+  });
+}
+
+export async function route_create_share_session(
+  projectConfigName: string,
+  version: string,
+): Promise<ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>> {
+  return await post(
+    "/share/deployments/{projectConfigName}/{version}/session",
+    null,
+    { projectConfigName, version },
+  );
+}
+
 export async function route_get_share_deployment_state(
-  deploymentId: string,
+  projectConfigName: string,
+  version: string,
 ): Promise<
   ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
 > {
-  return await get("/share/deployments/{deploymentId}/state", { deploymentId });
+  return await get("/share/deployments/{projectConfigName}/{version}/state", {
+    projectConfigName,
+    version,
+  });
 }
 
 export async function route_publish_share_deployment(

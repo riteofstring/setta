@@ -3,8 +3,7 @@
 This document translates `docs/sharing-mode-plan.md` into concrete implementation
 steps based on the current code layout.
 
-Note: CLI-flag startup and project-config name/version URLs are planned and not
-implemented yet; deployment-id routes are temporary and should be replaced.
+Note: CLI-flag startup is planned and not implemented yet.
 
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
@@ -36,11 +35,10 @@ implemented yet; deployment-id routes are temporary and should be replaced.
   of truth to avoid divergence.
 
 ## 1) Share deployment data model + constants
-Status: in progress. Deployment-id model exists; migrate to project-config
-name/version URL shape and metadata.
-Implemented in `backend/setta/types/share_deployment.py` (deployment-id model),
-added `C.SHARE_DEPLOYMENTS_FOLDER`/`C.SHARE_RUNS_FOLDER`, and registered share
-routes in `backend/setta/types/routes.py`.
+Status: completed. Project-config name/version models and routes are implemented.
+Implemented in `backend/setta/types/share_deployment.py`, added
+`C.SHARE_DEPLOYMENTS_FOLDER`/`C.SHARE_RUNS_FOLDER`, and registered share routes
+in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (schema version, projectConfigId,
     projectConfigName, deploymentVersion, createdAt, listener config).
@@ -58,16 +56,14 @@ routes in `backend/setta/types/routes.py`.
   `/share/deployments/{projectConfigName}/{version}/state`,
   `/share/deployments/{projectConfigName}/latest`, `/share/frontend`).
   `version` is `vN` (for example `v1`, `v2`).
-Pending updates:
-- Remove deployment-id fields/routes once name/version is implemented.
 
 ## 2) Publish share deployment (IDE mode)
-Status: in progress. Deployment-id exports exist; project-config versioned
-exports are the target. Implemented in `backend/setta/routers/share_deployments.py`
-for deployment-id.
+Status: completed. Versioned exports are published under project-config names.
+Implemented in `backend/setta/routers/share_deployments.py`.
 - Add a new router in `backend/setta/routers/share_deployments.py` with endpoints:
   - `route_publish_share_deployment` (inputs: projectConfigId, policy overrides).
-  - `route_list_share_deployments` / `route_get_share_deployment` as needed.
+  - `route_list_share_deployments`, `route_list_share_deployment_versions`,
+    `route_get_latest_share_deployment` for discovery.
 - Implementation details:
   - Use `ProjectManager` from `backend/setta/project_state/project_manager.py` to
     flush code (`_flush_code_files_for_all_configs`) before exporting.
@@ -84,11 +80,6 @@ for deployment-id.
   - Include `projectConfigName` + `deploymentVersion` in the manifest/metadata
     so `/share/<project_config_name>` can resolve the latest version.
   - Avoid any writes back to the developer workspace state.
-Pending updates:
-- Migrate publish output from deployment-id folders to
-  `share_deployments/<project_config_name>/vN`.
-- Return `projectConfigName` + `deploymentVersion` in metadata and session
-  responses (drop deploymentId).
 
 ## 3) Share runtime server/state
 Status: in progress. Env-var startup exists; CLI-flag startup + name/version
@@ -103,7 +94,7 @@ selection are pending.
   generation in `frontend/generation/convert_endpoints.py` can see them.
 Implemented:
 - Share mode flag + deployment root resolution via env vars
-  (`SETTA_SHARE_MODE`, `SETTA_SHARE_DEPLOYMENT_ROOT`, `SETTA_SHARE_DEPLOYMENT_ID`)
+  (`SETTA_SHARE_MODE`, `SETTA_SHARE_DEPLOYMENT_ROOT`)
   wired into `backend/setta/server.py`.
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
@@ -115,7 +106,6 @@ Implemented:
 Pending updates (not implemented yet):
 - Replace env-var startup with CLI flags (no env vars) and add
   `--project-config-name <name>` + `--version vN|--latest` selection.
-- Remove `SETTA_SHARE_DEPLOYMENT_ID` usage once name/version selection exists.
 
 ## 4) Share project manager + per-viewer overlays
 Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, and session validation/cleanup/artifact caching are in place.
@@ -134,8 +124,8 @@ Status: completed. ShareProjectManager + session store exist, share-mode mutatio
 - Keep explicit KeyError checks for missing sessions/ids (no `.get` side effects).
 Implemented:
 - `backend/setta/project_state/share_project_manager.py` loads `project.json`,
-  consumes optional `manifest.json`, selects the share project config, and
-  manages per-viewer overlay state in memory.
+  consumes `manifest.json`, selects the share project config, and manages
+  per-viewer overlay state in memory.
 - `ShareProjectManager` keeps persistence/watchers as no-ops and only validates
   state on updates.
 - `ShareProjectManager` tracks per-session artifacts and applies listener emits,
@@ -338,12 +328,12 @@ Pending updates:
   without exposing the host filesystem.
 
 ## 11) Frontend share mode UX
-Status: in progress. Deployment-id URLs exist; project-config name/version URLs
-are the target and should replace deployment-id routing.
+Status: completed. Project-config name/version routing is in place.
 Implemented:
-- Added `/share/:deploymentId` routing with share wrapper/container components.
-- Added share session bootstrap (`route_create_share_session` + state fetch) and
-  share session store + hooks.
+- Added `/share/:projectConfigName` and `/share/:projectConfigName/:version`
+  routing with share wrapper/container components and latest-version resolution.
+- Added share session bootstrap (`route_create_share_session` + state fetch)
+  plus share session store + hooks.
 - Websocket connections include `shareSessionId` and use `/share/frontend` in
   share mode.
 - UI controls are gated by policy (run, param edits, variant/view edits, layout
@@ -355,14 +345,8 @@ Implemented:
  - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
    and run snapshot mode.
  - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
-   and shows deployment id + share URL with copy/open actions + recent list.
+   and shows config/version + share URL with copy/open actions + recent list.
  - Publish/redeploy UI: shows share-backend startup instructions.
-Pending updates (not implemented yet):
-- Add `/share/:projectConfigName` and `/share/:projectConfigName/:version`
-  routing; `version` is `vN`, and projectConfigName resolves to the highest `vN`
-  when version is omitted.
-- Update publish/redeploy UI to show `/share/<project_config_name>/vN` URLs.
-- Remove deployment-id share routes/UI once name/version routing lands.
 
 ## 12) Generated endpoints + types
 Status: completed. Share router registered in `backend/setta/server.py`, and
@@ -386,7 +370,8 @@ cleanup tests, and share websocket scoping tests.
   - Publish a versioned deployment, open two share sessions, and verify isolation.
   - Verify UI controls match `share_policy.json` settings.
 Implemented:
-- `tests/routers/test_share_deployments.py` covers versioned deployment publishing.
+- `tests/routers/test_share_deployments.py` covers versioned deployment publishing
+  plus latest/version list endpoints.
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
   guardrails, settings file creation, and policy-gated services.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
@@ -437,7 +422,6 @@ Implemented:
 - `tests/share/test_chat_manager.py` covers share session chat isolation.
 - `tests/llm/test_chat_store.py` covers `MemoryChatStore` persistence behavior.
 Pending updates:
-- Add tests for name/version deployment routing and publish output.
 - Add tests that share-mode filesystem endpoints reject paths outside the share
   deployment root.
 - Add tests that policy enforcement blocks the remaining mutating routes.

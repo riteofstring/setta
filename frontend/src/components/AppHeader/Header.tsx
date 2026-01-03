@@ -2,7 +2,7 @@ import { useProjectLoading, useShareSession } from "state/definitions";
 import {
   HOME_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
-  SHARE_DEPLOYMENT_ROUTER_PATH,
+  SHARE_PROJECT_ROUTER_PATH,
 } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { HelpText } from "./HelpText";
@@ -50,7 +50,7 @@ function SearchSwitch({ path }: { path: string }) {
       return <HomePageSearchBar />;
     case PROJECT_CONFIG_ROUTER_PATH:
       return <ProjectPageSearchBar />;
-    case SHARE_DEPLOYMENT_ROUTER_PATH:
+    case SHARE_PROJECT_ROUTER_PATH:
       return <ProjectPageSearchBar />;
     default:
       return null;

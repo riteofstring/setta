@@ -22,6 +22,7 @@ from setta.types.project_state import ProjectStateBackend, ProjectStateSingleCon
 from setta.types.section_impls import TextBlockSectionImpl
 from setta.types.share_deployment import (
     ListenerIsolationMode,
+    ShareDeploymentManifest,
     SharePolicy,
 )
 from setta.types.websocket import (
@@ -108,6 +109,20 @@ def _build_project_state() -> ProjectStateSingleConfig:
         sectionVariants={variant.id: variant},
     )
 
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
 
 def _write_project(root: Path) -> DBE:
     state = _build_project_state()
@@ -115,13 +130,20 @@ def _write_project(root: Path) -> DBE:
     backend.defaultProjectConfigId = state.projectConfig.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=state.projectConfig.id,
+        projectConfigName=state.projectConfig.name,
+        deploymentVersion=root.name,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return dbe
 
 
 class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
     async def test_frontend_emit_without_share_session_reports_error(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = _build_share_deployment_root(tmpdir, "Share Project")
             dbe = _write_project(root)
             websocket_manager = WebsocketManager()
             listener_registry = ListenerRegistry()
@@ -188,7 +210,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_listener_coverage_broadcasts_to_all_sessions(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
+            root = _build_share_deployment_root(tmpdir, "Share Project")
             dbe = _write_project(root)
             dbe.write_json(
                 root / "share_policy.json",

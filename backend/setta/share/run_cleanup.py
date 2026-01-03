@@ -9,11 +9,12 @@ DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS = 60 * 5
 
 
 def cleanup_share_run_output(
-    deployment_id: str,
+    project_config_name: str,
+    deployment_version: str,
     *,
     ttl_seconds: int = DEFAULT_SHARE_RUN_TTL_SECONDS,
 ) -> int:
-    runs_root = C.SHARE_RUNS_FOLDER / deployment_id
+    runs_root = C.SHARE_RUNS_FOLDER / project_config_name / deployment_version
     if not runs_root.exists():
         return 0
     cutoff = time.time() - ttl_seconds
@@ -33,11 +34,16 @@ def cleanup_share_run_output(
 
 
 async def run_share_run_cleanup_loop(
-    deployment_id: str,
+    project_config_name: str,
+    deployment_version: str,
     *,
     ttl_seconds: int = DEFAULT_SHARE_RUN_TTL_SECONDS,
     interval_seconds: int = DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
 ) -> None:
     while True:
-        cleanup_share_run_output(deployment_id, ttl_seconds=ttl_seconds)
+        cleanup_share_run_output(
+            project_config_name,
+            deployment_version,
+            ttl_seconds=ttl_seconds,
+        )
         await asyncio.sleep(interval_seconds)

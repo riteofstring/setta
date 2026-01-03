@@ -22,29 +22,61 @@ from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-def _write_share_project(root: Path) -> tuple[DBE, ProjectConfig]:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> tuple[DBE, ProjectConfig]:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share-session-cleanup")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return dbe, project_config
 
 
 class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
     async def test_cleanup_removes_session_state_and_manager(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            dbe, _ = _write_share_project(root)
+            project_config_name = "share-session-cleanup"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            dbe, _ = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
             listener_registry = ListenerRegistry()
@@ -91,8 +123,13 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_cleanup_drops_listener_and_chat_state(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            dbe, _ = _write_share_project(root)
+            project_config_name = "share-session-cleanup"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            dbe, _ = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
             share_project_manager = ShareProjectManager(

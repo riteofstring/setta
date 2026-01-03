@@ -27,10 +27,7 @@ workspace.
 - Share URLs support `/share/<project_config_name>` and
   `/share/<project_config_name>/vN` (latest resolves to the highest vN).
 
-Note: The CLI-flag startup and versioned share URLs described below are planned
-and not implemented yet.
-- Share URLs support `/share/<deployment_id>` and `/share/<project_name>`; project
-  name resolves to the latest deployment (by `createdAt`).
+Note: CLI-flag startup is planned and not implemented yet.
 
 ## Architecture Overview
 

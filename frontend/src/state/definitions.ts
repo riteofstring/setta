@@ -112,7 +112,8 @@ export const useProjectState = withProjectState(
 
 type ShareSessionState = {
   isShareMode: boolean;
-  deploymentId: string | null;
+  projectConfigName: string | null;
+  deploymentVersion: string | null;
   shareSessionId: string | null;
   projectConfigId: string | null;
   sharePolicy: SharePolicy | null;
@@ -123,7 +124,8 @@ export const useShareSession = withProjectState(
   createWithEqualityFn(
     withResetFn<ShareSessionState>(() => ({
       isShareMode: false,
-      deploymentId: null,
+      projectConfigName: null,
+      deploymentVersion: null,
       shareSessionId: null,
       projectConfigId: null,
       sharePolicy: null,

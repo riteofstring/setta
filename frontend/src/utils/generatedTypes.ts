@@ -392,8 +392,12 @@ export const RouteEnum = {
   LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
   LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM: "/loadDrawAreaLayerItemTransform",
   SHARE_DEPLOYMENTS: "/share/deployments",
-  SHARE_DEPLOYMENT_SESSION: "/share/deployments/{deploymentId}/session",
-  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentId}/state",
+  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{projectConfigName}/versions",
+  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{projectConfigName}/latest",
+  SHARE_DEPLOYMENT_SESSION:
+    "/share/deployments/{projectConfigName}/{version}/session",
+  SHARE_DEPLOYMENT_STATE:
+    "/share/deployments/{projectConfigName}/{version}/state",
   WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
 } as const;
 
@@ -4824,6 +4828,8 @@ const ShareDeploymentListenerConfigSchema = z.object({
 const ShareDeploymentManifestSchema = z.object({
   version: z.int(),
   projectConfigId: IDSchema,
+  projectConfigName: z.string(),
+  deploymentVersion: z.string(),
   createdAt: z.iso.datetime().default(get_now_timestamp),
   listener: z
     .union([ShareDeploymentListenerConfigSchema, z.null()])
@@ -4835,7 +4841,9 @@ export type ShareDeploymentManifest = z.infer<
 >;
 
 const ShareDeploymentMetadataSchema = z.object({
-  deploymentId: z.string(),
+  projectConfigName: z.string(),
+  deploymentVersion: z.string(),
+  createdAt: z.iso.datetime(),
   deploymentRoot: z.string(),
   sharePolicyPath: z.string(),
 });
@@ -4864,7 +4872,8 @@ const SharePolicySchema = z.object({
 export type SharePolicy = z.infer<typeof SharePolicySchema>;
 
 const ShareDeploymentSessionResponseSchema = z.object({
-  deploymentId: z.string(),
+  projectConfigName: z.string(),
+  deploymentVersion: z.string(),
   shareSessionId: z.string(),
   projectConfigId: IDSchema,
   sharePolicy: SharePolicySchema,

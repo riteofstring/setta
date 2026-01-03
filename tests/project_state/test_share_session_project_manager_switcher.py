@@ -12,20 +12,48 @@ from setta.project_state.share_session_project_manager_switcher import (
 from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-def _write_share_project(root: Path) -> ProjectConfig:
+def _build_share_deployment_root(
+    tmpdir: str,
+    project_config_name: str,
+    deployment_version: str = "v1",
+) -> Path:
+    root = (
+        Path(tmpdir)
+        / "share_deployments"
+        / project_config_name
+        / deployment_version
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_share_project(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+) -> ProjectConfig:
     dbe = DBE(root)
-    project_config = ProjectConfig(name="share-switcher-test")
+    project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
     return project_config
 
 
@@ -52,8 +80,13 @@ def _build_switcher(
 class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
     async def test_switcher_requires_session_context(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            _write_share_project(root)
+            project_config_name = "share-switcher-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             switcher, share_manager = _build_switcher(root)
 
             with self.assertRaises(KeyError):
@@ -61,8 +94,13 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_switcher_scopes_managers_by_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            project_config = _write_share_project(root)
+            project_config_name = "share-switcher-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
             switcher, _share_manager = _build_switcher(root)
 
             token_a = set_share_session_id("session-a")
