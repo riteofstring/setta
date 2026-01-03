@@ -109,13 +109,12 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    showSectionTitle: bool = False
+    pass
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
