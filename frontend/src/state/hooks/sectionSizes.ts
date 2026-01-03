@@ -2,7 +2,6 @@ import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import {
-  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
   getSectionType,
 } from "state/actions/sectionInfos";
@@ -17,74 +16,12 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import {
-  CodeObjTypeEnum,
   SectionSize,
   SectionSizingPolicy,
   SectionType,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
-
-type SizeMode = {
-  height: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
-  width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
-};
-
-function getMetaControlSizeMode({
-  projectState,
-  sectionId,
-  controlParamId,
-}: {
-  projectState: ZustandProjectState;
-  sectionId: string;
-  controlParamId: string | null | undefined;
-}): SizeMode | null {
-  if (!controlParamId) {
-    return null;
-  }
-
-  const controlImpl = getCurrEffectiveCodeObjImpl(
-    projectState,
-    sectionId,
-    controlParamId,
-  );
-
-  if (
-    controlImpl.type === CodeObjTypeEnum.DropdownParam ||
-    controlImpl.type === CodeObjTypeEnum.SliderParam ||
-    controlImpl.type === CodeObjTypeEnum.PasswordParam
-  ) {
-    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
-  }
-
-  return null;
-}
-
-function getMetaControlMinHeight({
-  projectState,
-  sectionId,
-  controlParamId,
-}: {
-  projectState: ZustandProjectState;
-  sectionId: string;
-  controlParamId: string | null | undefined;
-}): number | null {
-  if (!controlParamId) {
-    return null;
-  }
-
-  const controlImpl = getCurrEffectiveCodeObjImpl(
-    projectState,
-    sectionId,
-    controlParamId,
-  );
-
-  if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-    return 32;
-  }
-
-  return null;
-}
 
 function getMinSectionHeight({
   sectionType,
@@ -164,17 +101,11 @@ function getSizeMode({
   sectionType,
   hideParams,
   isTwitter,
-  metaControlSizeMode,
 }: {
   sectionType: SectionType;
   hideParams?: boolean;
   isTwitter: boolean;
-  metaControlSizeMode: SizeMode | null;
 }) {
-  if (sectionType === SectionTypeEnum.MetaControl && metaControlSizeMode) {
-    return metaControlSizeMode;
-  }
-
   if (sectionType === SectionTypeEnum.Callable) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
@@ -202,7 +133,7 @@ export function useSectionMinMaxDims(sectionId: string) {
     const hideParams = impl.hideParams;
     const isMinimized = impl.isMinimized;
 
-    let minHeight = getMinSectionHeight({
+    const minHeight = getMinSectionHeight({
       sectionType,
       hideSearch,
       hideParams,
@@ -216,7 +147,7 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
-    let minWidth = getMinSectionWidth({
+    const minWidth = getMinSectionWidth({
       sectionType,
       sizingPolicy,
     });
@@ -225,38 +156,7 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
-    if (
-      !isMinimized &&
-      (sectionType === SectionTypeEnum.MetaControl ||
-        sectionType === SectionTypeEnum.TextBlock)
-    ) {
-      minHeight *= 0.5;
-      minWidth *= 0.5;
-    }
-
-    let metaControlSizeMode: SizeMode | null = null;
-    if (sectionType === SectionTypeEnum.MetaControl) {
-      const metaControlMinHeight = getMetaControlMinHeight({
-        projectState: x,
-        sectionId,
-        controlParamId: impl.metaControlParamId,
-      });
-      if (metaControlMinHeight !== null) {
-        minHeight = Math.max(minHeight, metaControlMinHeight);
-      }
-      metaControlSizeMode = getMetaControlSizeMode({
-        projectState: x,
-        sectionId,
-        controlParamId: impl.metaControlParamId,
-      });
-    }
-
-    const sizeMode = getSizeMode({
-      sectionType,
-      hideParams,
-      isTwitter,
-      metaControlSizeMode,
-    });
+    const sizeMode = getSizeMode({ sectionType, hideParams, isTwitter });
 
     return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
   }, _.isEqual);

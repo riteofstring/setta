@@ -26,7 +26,7 @@ class MetaControlDependencyGraphTests(TestCase):
             project_state,
             SectionType.MetaControl,
             Position(),
-            control_code_obj_type=CodeObjType.TextParam,
+            control_code_obj_type=CodeObjType.TextAreaParam,
         )
         control_param_id = get_meta_control_param_id(project_state, section_id)
         set_param_entered_value(project_state, section_id, control_param_id, "notes")
@@ -38,4 +38,4 @@ class MetaControlDependencyGraphTests(TestCase):
         self.assertIsInstance(node.value, LiteralDependencyValue)
         assert node.value is not None
         self.assertEqual(node.value.payload, "notes")
-        self.assertEqual(node.control_code_obj_type, CodeObjType.TextParam)
+        self.assertEqual(node.control_code_obj_type, CodeObjType.TextAreaParam)

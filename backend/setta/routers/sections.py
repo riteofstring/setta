@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel
 
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.generate_new_filename import generate_new_filename
@@ -23,7 +25,14 @@ class GetJSONSourcePathToBeDeleted(BaseModel):
 
 
 @router.post(Route.NEW_JSON_VERSION_NAME)
-def route_new_json_version_name(x: NewJSONVersionNameRequest):
+def route_new_json_version_name(
+    x: NewJSONVersionNameRequest, state: AppStateFromRequest
+):
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow creating JSON source files.",
+        )
     new_filename = generate_new_filename(x.filename)
     Path(new_filename).parent.mkdir(parents=True, exist_ok=True)
     Path(new_filename).touch()
@@ -31,9 +40,15 @@ def route_new_json_version_name(x: NewJSONVersionNameRequest):
 
 
 @router.post(Route.CREATE_FILE)
-def route_create_file(x: CreateFileRequest):
-    Path(x.filepath).parent.mkdir(parents=True, exist_ok=True)
-    Path(x.filepath).touch()
+def route_create_file(x: CreateFileRequest, state: AppStateFromRequest):
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Share mode does not allow creating files.",
+        )
+    target_path = Path(x.filepath)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.touch()
 
 
 @router.post(Route.GET_JSON_SOURCE_PATH_TO_BE_DELETED)
