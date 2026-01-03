@@ -282,8 +282,8 @@ Implemented:
   websockets follow the same public access policy.
 
 ## 11) Frontend share mode UX
-Status: in progress. Share session bootstrap, websocket scoping, and UI gating
-are in place, but IDE-side publish/redeploy UX is still missing.
+Status: completed. Share session bootstrap, websocket scoping, UI gating, and
+IDE-side publish/redeploy UX are in place.
 Implemented:
 - Added `/share/:deploymentId` routing with share wrapper/container components.
 - Added share session bootstrap (`route_create_share_session` + state fetch) and
@@ -293,16 +293,14 @@ Implemented:
 - UI controls are gated by policy (run, param edits, variant/view edits, layout
   moves/resizes, and lock-position edits).
 - Header shows a "Sharing Mode" indicator and share search behavior.
-Remaining:
-- Publish/redeploy UI: add an IDE entry point (header or Project menu).
-- Publish/redeploy UI: modal with policy toggles (allowParamChanges,
-  allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP).
-- Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
-  and run snapshot mode.
-- Publish/redeploy UI: call `route_publish_share_deployment` and surface errors.
-- Publish/redeploy UI: show deployment id + share URL with copy/open actions and
-  optionally list recent deployments.
-- Publish/redeploy UI: show instructions when the share backend is not running.
+ - Publish/redeploy UI: IDE entry point (File menu) and modal with policy toggles
+   (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun,
+   allowLLM, allowMCP).
+ - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
+   and run snapshot mode.
+ - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
+   and shows deployment id + share URL with copy/open actions + recent list.
+ - Publish/redeploy UI: shows share-backend startup instructions.
 
 ## 12) Generated endpoints + types
 Status: completed. Share router registered in `backend/setta/server.py`, and
@@ -383,3 +381,10 @@ Implemented:
 - Do we want an IDE-side "record run" toggle for run snapshot mode?
 - Should share deployments remain strictly write-free (settings files are
   currently written on share boot)?
+- How should we simplify dev-mode share testing (single `pnpm start`)?
+- Should we add a `setta share` CLI entrypoint for end users?
+
+## Next improvements
+- Dev mode: run share backend alongside IDE backend (single `pnpm start`),
+  and route `/share/*` traffic + websockets to the share backend.
+- CLI: add `setta share --deployment <id> --port <port>` to avoid raw env vars.
