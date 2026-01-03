@@ -53,6 +53,7 @@ AllImplFields = Literal[
     "metaControlStyle",
     "min",
     "name",
+    "overflowMinSize",
     "overflowMode",
     "paramFilter",
     "passingStyle",

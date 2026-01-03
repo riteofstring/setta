@@ -1,5 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -24,64 +25,91 @@ type ToggleGroupOverflowModeProps = {
 
 type OverflowSizeUpdateInput = {
   element: HTMLDivElement | null | undefined;
-  nextOverflowMode: boolean;
   size: SectionSize;
+  zoom: number;
+  isHorizontalOrientation: boolean;
 };
 
 function getOverflowSizeUpdate({
   element,
-  nextOverflowMode,
   size,
+  zoom,
+  isHorizontalOrientation,
 }: OverflowSizeUpdateInput): SectionSize | null {
-  if (!nextOverflowMode || !element) {
-    return null;
+  // Only capture the scroll axis dimension:
+  // - Vertical groups: scroll vertically, so capture height
+  // - Horizontal groups: scroll horizontally, so capture width
+  // Cross-axis is determined by content, so set to "auto"
+  if (element) {
+    const rect = element.getBoundingClientRect();
+    const safeZoom = zoom > 0 ? zoom : 1;
+    if (isHorizontalOrientation) {
+      return createSectionSize({
+        width: Math.round(rect.width / safeZoom),
+        height: "auto",
+      });
+    } else {
+      return createSectionSize({
+        width: "auto",
+        height: Math.round(rect.height / safeZoom),
+      });
+    }
   }
 
-  const widthIsAuto = size.width === "auto";
-  const heightIsAuto = size.height === "auto";
-  if (!widthIsAuto && !heightIsAuto) {
-    return null;
+  // Fallback to existing size if element not available
+  if (isHorizontalOrientation && typeof size.width === "number") {
+    return createSectionSize({
+      width: size.width,
+      height: "auto",
+    });
+  } else if (!isHorizontalOrientation && typeof size.height === "number") {
+    return createSectionSize({
+      width: "auto",
+      height: size.height,
+    });
   }
 
-  const rect = element.getBoundingClientRect();
-  const nextWidth = widthIsAuto ? Math.round(rect.width) : size.width;
-  const nextHeight = heightIsAuto ? Math.round(rect.height) : size.height;
-
-  return createSectionSize({
-    width: nextWidth,
-    height: nextHeight,
-  });
+  return null;
 }
 
 export function ToggleGroupOverflowMode({
   sectionId,
 }: ToggleGroupOverflowModeProps) {
-  const { overflowMode, isFrozen, size } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Group,
-    );
-    return {
-      overflowMode: impl.overflowMode ?? false,
-      isFrozen: impl.isFrozen,
-      size: impl.size,
-    };
-  }, _.isEqual);
+  const { overflowMode, isFrozen, size, isHorizontalOrientation } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        x,
+        sectionId,
+        SectionTypeEnum.Group,
+      );
+      return {
+        overflowMode: impl.overflowMode ?? false,
+        isFrozen: impl.isFrozen,
+        size: impl.size,
+        isHorizontalOrientation: impl.isHorizontalOrientation ?? false,
+      };
+    }, _.isEqual);
   const sectionElement = useSectionRefs((x) => x.withNested[sectionId]);
 
   function onClick() {
     const nextOverflowMode = !overflowMode;
-    const nextSize = getOverflowSizeUpdate({
-      element: sectionElement,
-      nextOverflowMode,
-      size,
-    });
+    const zoom = useReactFlow.getState().transform[2] ?? 1;
+    const overflowSizeSnapshot = nextOverflowMode
+      ? getOverflowSizeUpdate({
+          element: sectionElement,
+          size,
+          zoom,
+          isHorizontalOrientation,
+        })
+      : null;
+    const nextOverflowMinSize = nextOverflowMode ? overflowSizeSnapshot : null;
+    const nextSize = nextOverflowMode ? overflowSizeSnapshot : null;
 
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
           overflowMode: nextOverflowMode,
+          overflowMinSize: nextOverflowMinSize,
         });
         if (nextSize) {
           setSectionSize(sectionId, nextSize, state);
@@ -98,6 +126,7 @@ export function ToggleGroupOverflowMode({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           overflowMode: nextOverflowMode,
+          overflowMinSize: nextOverflowMinSize,
           frontendOpId,
         });
       },

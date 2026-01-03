@@ -461,6 +461,10 @@ class SetGroupOverflowModeRequest(ProjectManagerRequestWithSection):
     overflowMode: bool = Field(
         description="True to keep group contents in a scrollable viewport.",
     )
+    overflowMinSize: SectionSize | None = Field(
+        default=None,
+        description="Minimum size snapshot to enforce when overflow mode is active.",
+    )
 
 
 class SetCodeRequest(ProjectManagerRequestWithSection):

@@ -86,6 +86,7 @@ class SharedModifier(TypedDict):
     metaControlStyle: NotRequired[bool]
     min: NotRequired[float | int]
     name: NotRequired[str]
+    overflowMinSize: NotRequired[SectionSize | None]
     overflowMode: NotRequired[bool]
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]

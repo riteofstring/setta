@@ -963,7 +963,12 @@ class BaseProjectManager(ABC):
     async def set_group_overflow_mode(self, x: SetGroupOverflowModeRequest):
         """Set whether a group section constrains its children in a scrollable area."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
+        set_group_overflow_mode(
+            project_state,
+            x.sectionId,
+            x.overflowMode,
+            x.overflowMinSize,
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

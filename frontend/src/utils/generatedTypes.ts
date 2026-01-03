@@ -1786,6 +1786,7 @@ export const AllImplFieldsSchema = z.literal([
   "metaControlStyle",
   "min",
   "name",
+  "overflowMinSize",
   "overflowMode",
   "paramFilter",
   "passingStyle",
@@ -2074,6 +2075,7 @@ export const SharedModifierSchema = z.object({
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
   name: z.string().optional(),
+  overflowMinSize: z.union([SectionSizeSchema, z.null()]).optional(),
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
@@ -2166,6 +2168,7 @@ export const CoreSchema = z.object({
         "metaControlStyle",
         "min",
         "name",
+        "overflowMinSize",
         "overflowMode",
         "paramFilter",
         "passingStyle",
@@ -2341,6 +2344,7 @@ export const GroupSectionImplSchema = z.object({
   children: z.array(IDSchema).default([]),
   isHorizontalOrientation: z.boolean().default(false),
   overflowMode: z.boolean().default(false),
+  overflowMinSize: z.union([SectionSizeSchema, z.null()]).default(null),
 });
 
 export type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
@@ -4702,6 +4706,7 @@ export const GroupSectionImplArgsSchema = z.object({
   children: z.array(IDSchema).optional(),
   isHorizontalOrientation: z.boolean().optional(),
   overflowMode: z.boolean().optional(),
+  overflowMinSize: z.union([SectionSizeSchema, z.null()]).optional(),
 });
 
 export type GroupSectionImplArgs = z.infer<typeof GroupSectionImplArgsSchema>;
@@ -6583,6 +6588,7 @@ export const UserDefaultGroupSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isHorizontalOrientation: z.boolean().default(false),
   overflowMode: z.boolean().default(false),
+  overflowMinSize: z.union([SectionSizeSchema, z.null()]).default(null),
 });
 
 export type UserDefaultGroupSectionImpl = z.infer<
@@ -9338,6 +9344,7 @@ export const GroupSectionImplArgsWithCallableSchema = z.object({
   children: z.union([z.array(IDSchema), z.any()]).optional(),
   isHorizontalOrientation: z.union([z.boolean(), z.any()]).optional(),
   overflowMode: z.union([z.boolean(), z.any()]).optional(),
+  overflowMinSize: z.union([SectionSizeSchema, z.null(), z.any()]).optional(),
 });
 
 export type GroupSectionImplArgsWithCallable = z.infer<
@@ -9842,6 +9849,7 @@ export const CoreArgsSchema = z.object({
         "metaControlStyle",
         "min",
         "name",
+        "overflowMinSize",
         "overflowMode",
         "paramFilter",
         "passingStyle",
@@ -12152,6 +12160,7 @@ export const SetGroupOverflowModeRequestSchema = z.object({
   projectConfigId: IDSchema,
   sectionId: IDSchema,
   overflowMode: z.boolean(),
+  overflowMinSize: z.union([SectionSizeSchema, z.null()]).default(null),
 });
 
 export type SetGroupOverflowModeRequest = z.infer<

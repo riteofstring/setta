@@ -190,6 +190,7 @@ class GroupSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.Group] = SectionType.Group
     isHorizontalOrientation: bool = False
     overflowMode: bool = False
+    overflowMinSize: SectionSize | None = None
 
 
 class ImageSectionImpl(BaseSectionImpl):

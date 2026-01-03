@@ -402,6 +402,7 @@ class ListenerSetGroupOverflowModeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     overflowMode: bool
+    overflowMinSize: NotRequired[SectionSize | None]
 
 
 class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
