@@ -31,8 +31,10 @@ import {
   useMisc,
   useProjectState,
   useResizeEvent,
+  useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
@@ -302,9 +304,13 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const completionsFn = useCallback(getPythonCodeAreaCompletionsFn(sectionId), [
-    sectionId,
-  ]);
+  const isShareMode = useShareSession((state) => state.isShareMode);
+  const allowLsp = useSharePolicyFlag("allowLSP", true);
+  const lspEnabled = !isShareMode || allowLsp;
+  const completionsFn = useCallback(
+    getPythonCodeAreaCompletionsFn(sectionId, lspEnabled),
+    [sectionId, lspEnabled],
+  );
 
   return (
     <CoreCodeArea
@@ -348,9 +354,12 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 
   const theme = useCodeMirrorStyle();
 
+  const isShareMode = useShareSession((state) => state.isShareMode);
+  const allowLsp = useSharePolicyFlag("allowLSP", true);
+  const lspEnabled = !isShareMode || allowLsp;
   const completionsFn = useCallback(
-    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue),
-    [generatedCodeForValue],
+    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, lspEnabled),
+    [generatedCodeForValue, lspEnabled],
   );
 
   function onChange(nextValue: string) {
@@ -725,8 +734,11 @@ const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   });
 }, 50);
 
-function getPythonCodeAreaCompletionsFn(sectionId) {
+function getPythonCodeAreaCompletionsFn(sectionId: string, allowLsp: boolean) {
   const fn = async (fullText: string, position: number) => {
+    if (!allowLsp) {
+      return [];
+    }
     const projectConfigId = getCurrProjectConfigId();
     const res = await route_code_area_completion({
       projectConfigId,
@@ -744,8 +756,14 @@ function getPythonCodeAreaCompletionsFn(sectionId) {
   return wrappedCompletionsFn(fn);
 }
 
-function getGenPythonCodeAreaCompletionsFn(generatedCode: string) {
+function getGenPythonCodeAreaCompletionsFn(
+  generatedCode: string,
+  allowLsp: boolean,
+) {
   const fn = async (fullText: string, position: number) => {
+    if (!allowLsp) {
+      return [];
+    }
     const docParts = splitGenPythonDoc(fullText, generatedCode);
     if (!docParts.isValid) {
       return [];

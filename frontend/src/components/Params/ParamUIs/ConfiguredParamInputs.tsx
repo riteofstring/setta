@@ -180,7 +180,6 @@ type ConfiguredDropdownInputProps = {
   value: string | null;
   onChange: ParamValueChange;
   outerDivClasses: string;
-  inputOuterClasses?: string;
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
@@ -192,7 +191,6 @@ export function ConfiguredDropdownInput({
   value,
   onChange,
   outerDivClasses,
-  inputOuterClasses,
   isDisabled,
   placeholder,
   small,
@@ -209,7 +207,6 @@ export function ConfiguredDropdownInput({
       value={value}
       onChange={onChange}
       outerDivClasses={outerDivClasses}
-      inputOuterClasses={inputOuterClasses}
       isDisabled={isDisabled}
       placeholder={placeholder}
       small={small}

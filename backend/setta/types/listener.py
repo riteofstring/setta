@@ -37,6 +37,7 @@ class ListenerInitContent(BaseModel):
 
 class ListenerRealtimeEventContent(BaseModel):
     projectConfigId: ID
+    shareSessionId: str | None = None
     deltas: list["ListenerRealtimeDelta"]
     sequence: int
 
@@ -56,11 +57,13 @@ class RealtimeActionEventContent(BaseModel):
 
 class ListenerActionEventContent(BaseModel):
     projectConfigId: ID
+    shareSessionId: str | None = None
     actionEvents: list[ControlActionEvent]
     sequence: int
 
 
 class ListenerForceRefreshContent(BaseModel):
+    shareSessionId: str | None = None
     projectState: ProjectStateSingleConfig | None = None
 
 

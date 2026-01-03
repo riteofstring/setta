@@ -1,0 +1,54 @@
+import { useEffect } from "react";
+import { useLocation, useParams } from "react-router-dom";
+import { useLoadSettings } from "state/actions/settings";
+import { openWebSocket } from "state/actions/websocketReceive";
+import { useShareSession } from "state/definitions";
+
+export function ShareWrapper({ children }) {
+  useShareWebsocket();
+  useShareHTMLTitle();
+  const settingsLoaded = useLoadSettings();
+  if (!settingsLoaded) {
+    return (
+      <div className="app-shell flex min-h-screen min-w-full flex-col items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-3 text-xs text-setta-500 dark:text-setta-200">
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-setta-500/70 border-t-transparent dark:border-setta-600 dark:border-t-transparent" />
+          <p>Loading share settings…</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="app-base flex min-h-0 min-w-full flex-1 flex-col bg-setta-light dark:bg-setta-dark">
+      {children}
+    </div>
+  );
+}
+
+function useShareWebsocket() {
+  const location = useLocation();
+  const shareSessionId = useShareSession((x) => x.shareSessionId);
+
+  useEffect(() => {
+    if (!shareSessionId) {
+      return;
+    }
+    openWebSocket(location.pathname, shareSessionId);
+  }, [location.pathname, shareSessionId]);
+}
+
+function useShareHTMLTitle() {
+  const { projectConfigName, version } = useParams();
+
+  useEffect(() => {
+    if (projectConfigName && version) {
+      document.title = `Share ${projectConfigName}/${version}`;
+      return;
+    }
+    if (projectConfigName) {
+      document.title = `Share ${projectConfigName}`;
+      return;
+    }
+    document.title = "Sharing Mode";
+  }, [projectConfigName, version]);
+}

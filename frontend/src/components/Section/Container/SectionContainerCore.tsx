@@ -27,7 +27,6 @@ function _SectionContainerCore({
     // jsonSourceMissing,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
-    textBlockMetaControlStyle,
     projectConfigId,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
@@ -37,8 +36,6 @@ function _SectionContainerCore({
       // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       positionAndSizeLocked: impl.positionAndSizeLocked,
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       projectConfigId: x.projectConfig.id,
     };
   }, _.isEqual);
@@ -49,7 +46,6 @@ function _SectionContainerCore({
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
-  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
 
   // const boxShadow = !positionAndSizeLocked
   //   ? isActiveSection
@@ -67,16 +63,16 @@ function _SectionContainerCore({
     isInOtherProjectConfigs,
     // jsonSourceMissing,
   });
-  const containerBgClass = useMetaControlStyle
+  const containerBgClass = isMetaControl
     ? "bg-transparent dark:bg-transparent"
     : "bg-white dark:bg-setta-925";
-  const containerBorderClass = useMetaControlStyle
+  const containerBorderClass = isMetaControl
     ? "!border-transparent dark:!border-transparent"
     : "";
-  const outlineClassName = useMetaControlStyle
+  const outlineClassName = isMetaControl
     ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
     : outlineColor;
-  const outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+  const outlineSizeClassName = isMetaControl ? "outline-2" : "outline-4";
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
