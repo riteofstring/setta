@@ -222,7 +222,6 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             options={[
               { value: "ephemeral", label: "ephemeral" },
               { value: "always", label: "always" },
-              { value: "never", label: "never" },
             ]}
             onChange={setPolicyRunSnapshotMode}
             disabled={!policyOverrides.allowRun}

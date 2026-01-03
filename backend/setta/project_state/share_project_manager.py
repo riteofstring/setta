@@ -60,6 +60,11 @@ class ShareProjectManager:
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
         if self.manifest is not None and self.manifest.listener is not None:
             self.share_policy.listenerIsolation = self.manifest.listener.isolation
+        if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
+            raise ValueError(
+                "Share deployments do not support runSnapshotMode=never. "
+                "Use ephemeral or always."
+            )
         self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
         self._session_managers: dict[str, "ShareSessionProjectManager"] = {}

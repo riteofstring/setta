@@ -1,4 +1,5 @@
 import logging
+from typing import TYPE_CHECKING
 
 from fastapi import WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
@@ -26,6 +27,9 @@ from setta.websockets.msg_handlers.base import (
 )
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
+
+if TYPE_CHECKING:
+    from setta.share.session_store import ShareSessionStore
 
 router = SettaAPIRouter()
 logger = logging.getLogger(__name__)
@@ -104,6 +108,7 @@ async def websocket_route_loop(
     connectionType: WebsocketConnectionType,
     id: str | None = None,
     share_session_id: str | None = None,
+    share_session_store: "ShareSessionStore | None" = None,
 ):
     extra_context: dict[str, str] = {
         "connection_type": connectionType.value,
@@ -126,6 +131,8 @@ async def websocket_route_loop(
             while True:
                 try:
                     json_str = await websocket.receive_text()
+                    if share_session_id is not None and share_session_store is not None:
+                        share_session_store.touch_session(share_session_id)
                     await websocket_msg_handler.process_json_str(
                         json_str, fromWebsocketId
                     )
@@ -179,6 +186,7 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
         state.wmh_frontend_sender,
         WebsocketConnectionType.FRONTEND,
         share_session_id=share_session_id,
+        share_session_store=state.share_session_store if state.share_mode else None,
     )
 
 
@@ -201,6 +209,7 @@ async def route_websocket_share_frontend(
         state.wmh_frontend_sender,
         WebsocketConnectionType.FRONTEND,
         share_session_id=share_session_id,
+        share_session_store=state.share_session_store,
     )
 
 
@@ -220,6 +229,7 @@ async def route_websocket_cli(
         state.wmh_frontend_sender,
         WebsocketConnectionType.CLI,
         id=id,
+        share_session_store=state.share_session_store if state.share_mode else None,
     )
 
 
@@ -255,4 +265,5 @@ async def route_websocket_python_script(
         WebsocketConnectionType.PYTHON_SCRIPT,
         id=id,
         share_session_id=share_session_id,
+        share_session_store=state.share_session_store if state.share_mode else None,
     )

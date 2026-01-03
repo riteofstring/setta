@@ -8,7 +8,7 @@ import shlex
 import time
 from asyncio import CancelledError
 from collections import defaultdict, deque
-from typing import Any
+from typing import Any, Callable
 
 import psutil
 from fastapi import WebSocket, WebSocketDisconnect
@@ -203,12 +203,20 @@ class Terminals:
                     break
 
     # Function to write to the terminal
-    async def write_to_terminal(self, websocket, sectionId):
+    async def write_to_terminal(
+        self,
+        websocket,
+        sectionId,
+        *,
+        on_activity: Callable[[], None] | None = None,
+    ):
         pty_info = self.PTY_PIDS[sectionId]
         pty_process = pty_info["process"]
         while True:
             try:
                 input_data = await websocket.receive_text()
+                if on_activity is not None:
+                    on_activity()
                 try:
                     json_val = json.loads(input_data)
                 except json.decoder.JSONDecodeError:

@@ -338,7 +338,11 @@ class SettaFastAPIState:
             self.share_deployment_root,
             self.wmh_frontend_sender,
         )
-        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
+        self.settings_file = SettingsFile(
+            self.dbe,
+            self.wmh_frontend_sender,
+            allow_write=False,
+        )
         self.project_manager_switcher = ShareSessionProjectManagerSwitcher(
             self.share_project_manager,
             self.settings_file,

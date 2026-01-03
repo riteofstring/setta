@@ -105,7 +105,17 @@ async def terminal_websocket_endpoint(
             did_connect = await state.terminals.connect(websocket, terminal_id, id)
             if not did_connect:
                 return
-            await state.terminals.write_to_terminal(websocket, terminal_id)
+            touch_session = None
+            if share_session_id is not None:
+
+                def touch_session() -> None:
+                    state.share_session_store.touch_session(share_session_id)
+
+            await state.terminals.write_to_terminal(
+                websocket,
+                terminal_id,
+                on_activity=touch_session,
+            )
         except Exception as exc:
             await state.wmh_frontend_sender.log_failure_and_broadcast_backend_log_event(
                 exc,

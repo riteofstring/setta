@@ -65,8 +65,8 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             _write_share_project(root)
             state = await self._build_state(root)
 
-            self.assertTrue((root / "setta-settings.json").exists())
-            self.assertTrue((root / "setta-settings-project.json").exists())
+            self.assertFalse((root / "setta-settings.json").exists())
+            self.assertFalse((root / "setta-settings-project.json").exists())
             self.assertFalse((root / "llm_config.json").exists())
             self.assertFalse((root / "llm_config.example.json").exists())
 

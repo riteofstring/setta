@@ -69,12 +69,14 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
+const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
 let currentRoute: string | null = null;
+let shareHeartbeatTimer: number | null = null;
 
 export const openWebSocket = _.debounce(
   (pathname: string, shareSessionId: string | null = null) => {
@@ -84,6 +86,9 @@ export const openWebSocket = _.debounce(
     lastPathname = pathname;
     lastShareSessionId = shareSessionId;
     const isShareMode = Boolean(shareSessionId);
+    if (!isShareMode) {
+      stopShareHeartbeat();
+    }
     const route = isShareMode
       ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
       : RouteEnum.WEBSOCKET_FRONTEND;
@@ -114,6 +119,9 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
+        if (isShareMode) {
+          startShareHeartbeat();
+        }
         if (!isShareMode) {
           const projectConfigId = getCurrProjectConfigId();
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
@@ -135,6 +143,7 @@ export const openWebSocket = _.debounce(
       wss.addEventListener("error", closeWebSocket);
 
       wss.addEventListener("close", (event: CloseEvent) => {
+        stopShareHeartbeat();
         wss = null;
         currentShareSessionId = null;
         currentRoute = null;
@@ -206,10 +215,33 @@ function closeWebSocket() {
     wss.close();
     wss = null;
   }
+  stopShareHeartbeat();
 }
 
 function wssReady(wss: WebSocket | null): wss is WebSocket {
   return wss !== null && wss.readyState === 1;
+}
+
+function startShareHeartbeat() {
+  stopShareHeartbeat();
+  shareHeartbeatTimer = window.setInterval(() => {
+    if (currentShareSessionId === null || !wssReady(wss)) {
+      return;
+    }
+    const currentAddress = lastPathname;
+    if (!currentAddress) {
+      return;
+    }
+    sendCurrentAddress(currentAddress);
+  }, SHARE_HEARTBEAT_INTERVAL_MS);
+}
+
+function stopShareHeartbeat() {
+  if (shareHeartbeatTimer === null) {
+    return;
+  }
+  window.clearInterval(shareHeartbeatTimer);
+  shareHeartbeatTimer = null;
 }
 
 function receiveMessage(message: string) {

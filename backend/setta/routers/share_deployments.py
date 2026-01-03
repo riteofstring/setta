@@ -404,6 +404,11 @@ async def route_publish_share_deployment(
 
     deployment_id, deployment_root = _create_deployment_root(x.projectConfigId)
     policy = _apply_share_policy_overrides(x.sharePolicyOverrides, x.listenerIsolation)
+    if policy.runSnapshotMode == RunSnapshotMode.never:
+        raise HTTPException(
+            status_code=400,
+            detail="Share deployments do not support runSnapshotMode=never.",
+        )
     listener_config: ShareDeploymentListenerConfig | None = None
     if x.listenerEntrypoint:
         listener_config = _copy_listener_entrypoint(

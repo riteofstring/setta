@@ -1,5 +1,7 @@
+import asyncio
 import os
 import unittest
+from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -17,6 +19,10 @@ from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.share_deployment import SharePolicy
+from setta.types.websocket import WebsocketMsgCurrentAddressUpdate
+from setta.utils.timestamps import get_now_timestamp
+from setta.terminals.terminal_ids import build_terminal_id
 from setta.utils.constants import C
 
 
@@ -58,6 +64,50 @@ async def _build_websocket(
     async def receive() -> Message:
         if receive_queue:
             return receive_queue.pop(0)
+        return {"type": "websocket.disconnect", "code": 1000}
+
+    async def send(message: Message) -> None:
+        messages.append(message)
+
+    scope: Scope = {
+        "type": "websocket",
+        "asgi": {"version": "3.0"},
+        "scheme": "ws",
+        "path": "/",
+        "raw_path": b"/",
+        "query_string": b"",
+        "headers": headers or [],
+        "client": ("testclient", 0),
+        "server": ("testserver", 80),
+        "subprotocols": [],
+        "state": {},
+    }
+    return WebSocket(scope=scope, receive=receive, send=send)
+
+
+async def _build_websocket_with_text_messages(
+    messages: list[Message],
+    *,
+    text_messages: list[str],
+    headers: list[tuple[bytes, bytes]] | None = None,
+    message_delay_seconds: float = 0.0,
+    message_ready_event: asyncio.Event | None = None,
+    message_gate: asyncio.Event | None = None,
+) -> WebSocket:
+    receive_queue: list[Message] = [{"type": "websocket.connect"}]
+    text_queue = list(text_messages)
+
+    async def receive() -> Message:
+        if receive_queue:
+            return receive_queue.pop(0)
+        if text_queue:
+            if message_delay_seconds:
+                await asyncio.sleep(message_delay_seconds)
+            if message_ready_event is not None:
+                message_ready_event.set()
+            if message_gate is not None:
+                await message_gate.wait()
+            return {"type": "websocket.receive", "text": text_queue.pop(0)}
         return {"type": "websocket.disconnect", "code": 1000}
 
     async def send(message: Message) -> None:
@@ -177,6 +227,40 @@ class ShareFrontendWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(4404, _close_code(messages))
 
+    async def test_share_frontend_message_touches_session(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_share_project(root)
+            state = await _build_state(root)
+            session = state.share_session_store.create_session()
+            headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
+            messages: list[Message] = []
+            payload = WebsocketMsgCurrentAddressUpdate(
+                content="/share/demo"
+            ).model_dump_json()
+            ready_event = asyncio.Event()
+            gate_event = asyncio.Event()
+            websocket = await _build_websocket_with_text_messages(
+                messages,
+                text_messages=[payload],
+                headers=headers,
+                message_ready_event=ready_event,
+                message_gate=gate_event,
+            )
+
+            task = asyncio.create_task(
+                route_websocket_share_frontend(websocket, state)
+            )
+            await ready_event.wait()
+            threshold = get_now_timestamp()
+            session.last_accessed_at = threshold - timedelta(minutes=5)
+            state.share_session_store.update_session(session.id, session)
+            gate_event.set()
+            await task
+
+            touched = state.share_session_store._sessions[session.id].last_accessed_at
+            self.assertGreater(touched, threshold)
+
 
 class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_share_session_closes(self) -> None:
@@ -217,6 +301,53 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
             )
 
             self.assertEqual(4404, _close_code(messages))
+
+    async def test_terminal_activity_touches_share_session(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_share_project(root)
+            DBE(root).write_json(
+                root / "share_policy.json",
+                SharePolicy(allowRun=True).model_dump(),
+            )
+            state = await _build_state(root)
+            state.settings_file.settings.backend.clearTerminalBeforeMarkingAsReady = (
+                False
+            )
+            session = state.share_session_store.create_session()
+            headers = [(b"x-share-session-id", session.id.encode("utf-8"))]
+            section_id = create_new_id()
+            terminal_id = build_terminal_id(section_id, session.id)
+            self.addAsyncCleanup(state.terminals.delete_terminal, terminal_id)
+            ready_event = asyncio.Event()
+            gate_event = asyncio.Event()
+            messages: list[Message] = []
+            websocket = await _build_websocket_with_text_messages(
+                messages,
+                text_messages=["echo test\n"],
+                headers=headers,
+                message_delay_seconds=0.05,
+                message_ready_event=ready_event,
+                message_gate=gate_event,
+            )
+
+            task = asyncio.create_task(
+                terminal_websocket_endpoint(
+                    websocket,
+                    state.share_project_manager.project_config_id,
+                    section_id,
+                    "client-keepalive",
+                    state,
+                )
+            )
+
+            await ready_event.wait()
+            threshold = get_now_timestamp()
+            gate_event.set()
+            await task
+
+            touched = state.share_session_store._sessions[session.id].last_accessed_at
+            self.assertGreater(touched, threshold)
 
 
 if __name__ == "__main__":

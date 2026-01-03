@@ -13,7 +13,6 @@ from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
 from setta.project_state.share_project_manager import ShareProjectManager
 from setta.project_state.share_session_project_manager import ShareSessionProjectManager
-from setta.project_state.utils import convert_path_to_module_path
 from setta.types.artifact import ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -332,7 +331,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertIn("python -m", command)
             self.assertIn("runner", command)
 
-    def test_run_command_never_avoids_share_snapshot(self) -> None:
+    def test_run_snapshot_mode_never_is_rejected(self) -> None:
         with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
             root = Path(tmpdir)
             project_config_id = ID("share-run-project")
@@ -347,23 +346,8 @@ class ShareProjectManagerTests(unittest.TestCase):
                 SharePolicy(runSnapshotMode=RunSnapshotMode.never).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
-            manager = ShareProjectManager(dbe, root, frontend_sender)
-            session_id = "session-never"
-            manager.create_session_state(session_id)
-            self.addCleanup(
-                lambda: shutil.rmtree(
-                    C.SHARE_RUNS_FOLDER / manager.deployment_id, ignore_errors=True
-                )
-            )
-
-            command = self._loop.run_until_complete(
-                manager.create_run_command(session_id, section_id)
-            )
-
-            run_root = C.SHARE_RUNS_FOLDER / manager.deployment_id / session_id
-            self.assertFalse(run_root.exists())
-            expected_module = convert_path_to_module_path(normalize_path(binding_path))
-            self.assertEqual(f"python -m {expected_module}", command)
+            with self.assertRaises(ValueError):
+                ShareProjectManager(dbe, root, frontend_sender)
 
     def test_session_state_isolation(self) -> None:
         with TemporaryDirectory() as tmpdir:
