@@ -242,6 +242,11 @@ Implemented:
   `SharePolicy.listenerIsolation`.
 - `backend/setta/api/listener.py` appends `shareSessionId` to listener websocket
   URLs when provided.
+- `backend/setta/types/listener.py` adds `shareSessionId` to realtime/action/force
+  refresh payloads, and `backend/setta/websockets/msg_handlers/python_script_sender.py`
+  includes it on listener events.
+- `backend/setta/api/listener.py` tracks realtime/action sequences per share
+  session and resets them per session on refresh payloads.
 - `backend/setta/routers/websocket.py` ensures share session state exists and
   starts the share listener runtime on frontend connections; listener websockets
   accept optional share session ids and enforce `per_viewer` requirements.
@@ -280,6 +285,9 @@ Implemented:
 - Terminal websocket connections validate share session ids and close with
   4400/4404 when missing or unknown.
 - Run/terminal HTTP routes require share session ids in share mode.
+- Share-mode run routes create temporary terminal sections through the
+  session-scoped project manager, and terminal section IDs stay unprefixed
+  while PTY ids include the share session prefix.
 - Added `RunSnapshotMode` to settings + share policy, and use it in IDE/share
   run command creation.
 - Share run output writes to `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`
@@ -431,6 +439,8 @@ Implemented:
   listener errors and listener coverage fan-out.
 - `tests/share/test_listener_runtime.py` covers listener runtime lifecycle
   behavior in shared and per-viewer modes.
+- `tests/api/test_listener_realtime.py` covers per-session realtime/action
+  sequence tracking in the listener.
 - `tests/api/test_listener_websocket_endpoint.py` covers listener websocket URL
   query handling for share sessions.
 - `tests/share/test_chat_manager.py` covers share session chat isolation.

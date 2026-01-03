@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import Request, WebSocket
+from fastapi import Depends, Request, WebSocket
 from pydantic import BaseModel
 from starlette.websockets import WebSocketState
 
@@ -14,6 +14,7 @@ from setta.routers.dependencies import (
     maybe_get_share_session_id_from_request,
     maybe_get_share_session_id_from_websocket,
     require_share_session_id,
+    share_session_context_from_request,
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.share.policy import ensure_share_run_allowed, ensure_share_run_allowed_ws
@@ -23,7 +24,9 @@ from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 
-terminals_http_router = SettaProjectContextAPIRouter()
+terminals_http_router = SettaProjectContextAPIRouter(
+    dependencies=[Depends(share_session_context_from_request)],
+)
 terminals_ws_router = SettaAPIRouter()
 logger = logging.getLogger(__name__)
 
@@ -203,12 +206,13 @@ async def route_run_code(
         command = await state.share_project_manager.create_run_command(
             share_session_id, x.sectionId
         )
+        session_manager = state.project_manager_switcher.get(x.projectConfigId)
         await run_command(
             command,
             x.projectConfigId,
             x.sectionId,
             x.cliId,
-            None,
+            session_manager,
             state.terminals,
             state.wmh_cli_sender,
             share_session_id=share_session_id,

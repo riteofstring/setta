@@ -423,6 +423,7 @@ async def route_force_refresh_listener(
 
     await state.wmh_python_script_sender.send_force_refresh(
         projectState=project_state,
+        share_session_id=get_share_session_id(),
     )
 
 

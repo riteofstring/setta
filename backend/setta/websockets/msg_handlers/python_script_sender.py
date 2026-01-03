@@ -90,6 +90,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             raise ValueError("deltas must contain at least one entry")
         content = ListenerRealtimeEventContent(
             projectConfigId=projectConfigId,
+            shareSessionId=share_session_id,
             deltas=deltas,
             sequence=sequence,
         )
@@ -147,6 +148,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             raise ValueError("actionEvents must contain at least one entry")
         content = ListenerActionEventContent(
             projectConfigId=projectConfigId,
+            shareSessionId=share_session_id,
             actionEvents=actionEvents,
             sequence=sequence,
         )
@@ -237,6 +239,7 @@ class WMHPythonScriptSender(BaseWebsocketMsgSender):
             )
 
         content = ListenerForceRefreshContent(
+            shareSessionId=share_session_id,
             projectState=projectState,
         )
         message = WebsocketMsgListenerForceRefresh(content=content)

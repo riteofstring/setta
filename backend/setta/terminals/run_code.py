@@ -59,7 +59,7 @@ async def run_command(
             )
             if project_manager is not None:
                 await project_manager.create_temporary_terminal(
-                    projectConfigId, terminal_id
+                    projectConfigId, raw_terminal_id
                 )
 
         spawn_background_task(
