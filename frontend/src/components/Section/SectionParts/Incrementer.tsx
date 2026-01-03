@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useSharePolicyFlag } from "state/hooks/share";
 import {
   route_create_child_sections_via_incrementer,
   route_delete_child_sections_via_decrementer,
@@ -19,7 +18,6 @@ export function Incrementer({
 }) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
-  const allowStructuralChanges = useSharePolicyFlag("allowStructuralChanges");
 
   const [numSections, setNumSections] = useState<number | "">(1);
 
@@ -42,9 +40,6 @@ export function Incrementer({
   };
 
   const addSections = () => {
-    if (!allowStructuralChanges) {
-      return;
-    }
     if (typeof numSections === "string") return;
     route_create_child_sections_via_incrementer({
       projectConfigId: getCurrProjectConfigId(),
@@ -55,9 +50,6 @@ export function Incrementer({
   };
 
   const deleteChildren = () => {
-    if (!allowStructuralChanges) {
-      return;
-    }
     if (typeof numSections === "string") return;
     route_delete_child_sections_via_decrementer({
       projectConfigId: getCurrProjectConfigId(),
@@ -93,21 +85,21 @@ export function Incrementer({
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         onBlur={numSectionsOnBlur}
-        disabled={variantIsFrozen || !allowStructuralChanges}
+        disabled={variantIsFrozen}
       />
 
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={deleteChildren}
         role="button"
-        disabled={variantIsFrozen || !allowStructuralChanges}
+        disabled={variantIsFrozen}
       />
 
       <button
         className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={addSections}
         role="button"
-        disabled={variantIsFrozen || !allowStructuralChanges}
+        disabled={variantIsFrozen}
       />
     </div>
   );

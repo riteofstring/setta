@@ -59,6 +59,7 @@ AllImplFields = Literal[
     "positionAndSizeLocked",
     "renderedValue",
     "selectedParams",
+    "showSectionTitle",
     "size",
     "step",
     "text",

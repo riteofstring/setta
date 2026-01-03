@@ -54,6 +54,8 @@ export function SectionContainerCoreResizable({
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
   const shouldRenderMetaMenu = isMetaControl && !isUserView;
+  const showMetaControlDragHandle =
+    isMetaControl && !isUserView && !positionAndSizeLocked;
   const metaControlFrameClassName = isMetaControl
     ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
     : undefined;
@@ -67,10 +69,16 @@ export function SectionContainerCoreResizable({
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
+      isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
     >
+      {showMetaControlDragHandle && (
+        <div className="absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 pointer-events-none transition-opacity group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto">
+          <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
+        </div>
+      )}
       {isMetaControl ? (
         shouldRenderMetaMenu && (
           <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">

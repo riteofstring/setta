@@ -92,6 +92,7 @@ class SharedModifier(TypedDict):
     positionAndSizeLocked: NotRequired[bool]
     renderedValue: NotRequired[str | None]
     selectedParams: NotRequired[list[ID]]
+    showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
     text: NotRequired[str]
