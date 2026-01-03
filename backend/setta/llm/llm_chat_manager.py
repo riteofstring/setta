@@ -179,6 +179,8 @@ class LLMChatManager:
         websocket_msg_handler: WMHFrontendSender,
         project_manager_switcher: "ProjectManagerSwitcher",
         chat_store: ChatStore | None = None,
+        *,
+        share_session_id: str | None = None,
     ) -> None:
         self.dbe = dbe
         self.chat_store = chat_store or DBEChatStore(dbe)
@@ -186,6 +188,7 @@ class LLMChatManager:
         self.tool_preunlocker = ToolPreunlocker()
         self.websocket_msg_handler = websocket_msg_handler
         self.project_manager_switcher = project_manager_switcher
+        self.share_session_id = share_session_id
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
         self._raw_env_vars: APIKeys = {}
@@ -1722,7 +1725,12 @@ class LLMChatManager:
             )
         else:
             try:
-                call_result = await self.mcp_client.call_tool(tool_name, arguments)
+                meta = None
+                if self.share_session_id and self._is_setta_tool_name(tool_name):
+                    meta = {"shareSessionId": self.share_session_id}
+                call_result = await self.mcp_client.call_tool(
+                    tool_name, arguments, meta=meta
+                )
             except Exception:
                 logger.exception(
                     "MCP tool invocation failed for chat %s (tool=%s)",

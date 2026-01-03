@@ -176,6 +176,7 @@ class ShareChatManager:
                 session_sender,
                 project_switcher,
                 chat_store=MemoryChatStore(),
+                share_session_id=share_session_id,
             )
             manager.update_config(self.config)
             manager.update_api_keys(self._raw_env_vars)

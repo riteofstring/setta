@@ -226,6 +226,25 @@ async def ensure_share_layout_changes_allowed(
     )
 
 
+async def ensure_share_structural_changes_allowed(
+    state: "SettaFastAPIState",
+    *,
+    project_config_id: ID | None,
+    share_session_id: str | None = None,
+    section_ids: list[ID] | None = None,
+) -> None:
+    await enforce_share_policy(
+        share_mode=state.share_mode,
+        policy=_policy_from_state(state),
+        frontend_sender=state.wmh_frontend_sender,
+        policy_flag="allowStructuralChanges",
+        denied_message="Share policy disallows structural changes.",
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+        section_ids=section_ids,
+    )
+
+
 async def ensure_share_run_allowed(
     state: "SettaFastAPIState",
     *,

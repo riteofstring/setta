@@ -5,6 +5,7 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import {
   route_delete_sections,
   route_toggle_section_visibility,
@@ -36,6 +37,7 @@ export function DeleteOrHideButton({
   sectionId,
   ...props
 }: DeleteOrHideButtonProps) {
+  const allowStructuralChanges = useSharePolicyFlag("allowStructuralChanges");
   const { visibility, isEditingViewMode } = useProjectState((state) => {
     const viewMode = getActiveViewModeConfig(state);
     const visibility = viewMode.visibilityBySectionId[sectionId];
@@ -51,6 +53,9 @@ export function DeleteOrHideButton({
   });
 
   const onClick = () => {
+    if (!isEditingViewMode && !allowStructuralChanges) {
+      return;
+    }
     if (isEditingViewMode) {
       route_toggle_section_visibility({
         projectConfigId: getCurrProjectConfigId(),
@@ -83,6 +88,7 @@ export function DeleteOrHideButton({
   const defaultIcon = getDeleteOrHideIcon(isEditingViewMode, visibility);
   const resolvedOnClick = onClickOverride ?? onClick;
   const resolvedIcon = icon ?? defaultIcon;
+  const isDisabled = !isEditingViewMode && !allowStructuralChanges;
 
   if (render) {
     return render({
@@ -102,9 +108,12 @@ export function DeleteOrHideButton({
         bg ?? "bg-transparent hover:bg-red-500"
       } ${color ?? "text-setta-600 hover:text-white"} ${
         rounded ?? "rounded-full"
-      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${twClasses ?? ""}`}
+      } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${
+        isDisabled ? "cursor-not-allowed opacity-50" : ""
+      } ${twClasses ?? ""}`}
       {...buttonProps}
       onClick={resolvedOnClick}
+      disabled={buttonProps.disabled || isDisabled}
     >
       {resolvedIcon}
       {children}

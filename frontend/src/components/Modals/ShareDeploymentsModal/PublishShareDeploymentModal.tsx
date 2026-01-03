@@ -30,6 +30,7 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
     allowParamChanges: true,
     allowVariantChanges: true,
     allowLayoutChanges: true,
+    allowStructuralChanges: true,
     allowRun: false,
     allowLLM: false,
     allowMCP: false,
@@ -198,6 +199,14 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             onChange={(checked) => setPolicyFlag("allowLayoutChanges", checked)}
           />
           <ToggleRow
+            label="Structural changes"
+            description="Allow creating + deleting sections."
+            checked={policyOverrides.allowStructuralChanges}
+            onChange={(checked) =>
+              setPolicyFlag("allowStructuralChanges", checked)
+            }
+          />
+          <ToggleRow
             label="Run & terminals"
             description="Allow code execution in share mode."
             checked={policyOverrides.allowRun}
@@ -339,6 +348,7 @@ type PolicyFlag =
   | "allowParamChanges"
   | "allowVariantChanges"
   | "allowLayoutChanges"
+  | "allowStructuralChanges"
   | "allowRun"
   | "allowLLM"
   | "allowMCP";

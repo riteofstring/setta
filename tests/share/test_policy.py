@@ -10,6 +10,7 @@ from setta.server_state import SettaFastAPIState
 from setta.share.policy import (
     ensure_share_layout_changes_allowed,
     ensure_share_param_changes_allowed,
+    ensure_share_structural_changes_allowed,
     ensure_share_variant_changes_allowed,
 )
 from setta.types.id import ID
@@ -86,6 +87,22 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
 
             with self.assertRaises(HTTPException) as ctx:
                 await ensure_share_layout_changes_allowed(
+                    state,
+                    project_config_id=project_config_id,
+                    section_ids=[create_new_id()],
+                )
+
+            self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_structural_changes_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project_config_id = _write_share_project(root)
+            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
+            state = await self._build_state(root)
+
+            with self.assertRaises(HTTPException) as ctx:
+                await ensure_share_structural_changes_allowed(
                     state,
                     project_config_id=project_config_id,
                     section_ids=[create_new_id()],

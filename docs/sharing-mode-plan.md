@@ -81,6 +81,7 @@ Key requirement: viewer A never sees viewer B's changes.
 
 ### 4) Sharing policy
 A share policy defines what can be modified in share mode:
+- structural changes (add/delete sections)
 - params, variants, layouts, view modes
 - run/terminals
 - LLM or MCP access
@@ -89,6 +90,7 @@ A share policy defines what can be modified in share mode:
 Example `share_policy.json`:
 ```json
 {
+  "allowStructuralChanges": false,
   "allowParamChanges": true,
   "allowVariantChanges": true,
   "allowLayoutChanges": true,

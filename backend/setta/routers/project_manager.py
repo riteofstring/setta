@@ -94,6 +94,8 @@ from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.share.policy import (
     ensure_share_layout_changes_allowed,
     ensure_share_param_changes_allowed,
+    ensure_share_run_allowed,
+    ensure_share_structural_changes_allowed,
     ensure_share_variant_changes_allowed,
 )
 from setta.share.session_context import get_share_session_id
@@ -192,10 +194,18 @@ async def route_update_param_impl_config(
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, state: AppStateFromRequest
 ) -> CreateTopLevelSectionResponse:
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     result = await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_top_level_section(x)
     if x.implType == SectionType.Terminal:
+        await ensure_share_run_allowed(
+            state,
+            project_config_id=x.projectConfigId,
+        )
         share_session_id = get_share_session_id()
         terminal_id = build_terminal_id(result.sectionId, share_session_id)
         state.terminals.new_terminal(
@@ -210,6 +220,11 @@ async def route_create_top_level_section(
 async def route_create_child_sections(
     x: CreateChildSectionsRequest, state: AppStateFromRequest
 ):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.parentId],
+    )
     return await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_child_sections(x)
@@ -219,6 +234,11 @@ async def route_create_child_sections(
 async def route_create_child_sections_via_incrementer(
     x: CreateChildSectionsViaIncrementerRequest, state: AppStateFromRequest
 ):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.calledBy],
+    )
     return await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_child_sections_via_incrementer(x)
@@ -226,6 +246,11 @@ async def route_create_child_sections_via_incrementer(
 
 @router.post(Route.DELETE_SECTIONS)
 async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromRequest):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=x.sectionIds,
+    )
     return await state.project_manager_switcher.get(x.projectConfigId).delete_sections(
         x
     )
@@ -235,6 +260,11 @@ async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromReq
 async def route_delete_child_sections_via_decrementer(
     x: DeleteChildSectionsViaDecrementerRequest, state: AppStateFromRequest
 ):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.calledBy],
+    )
     return await state.project_manager_switcher.get(
         x.projectConfigId
     ).delete_child_sections_via_decrementer(x)

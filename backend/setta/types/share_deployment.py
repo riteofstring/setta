@@ -42,6 +42,7 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowParamChanges: bool = True
     allowVariantChanges: bool = True
     allowLayoutChanges: bool = True
+    allowStructuralChanges: bool = True
     allowRun: bool = False
     allowLLM: bool = False
     allowMCP: bool = False

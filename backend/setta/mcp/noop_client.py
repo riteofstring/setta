@@ -23,7 +23,14 @@ class NoopMCPClient:
     ) -> dict[str, SettaToolAnnotations | None]:
         return {}
 
-    async def call_tool(self, tool_name: str, _tool_args: dict) -> CallToolResult:
+    async def call_tool(
+        self,
+        tool_name: str,
+        _tool_args: dict,
+        *,
+        meta: dict | None = None,
+    ) -> CallToolResult:
+        _ = meta
         raise ValueError(f"MCP tool calls are disabled (attempted {tool_name}).")
 
     async def connect_to_servers(self, _retry_delay: int = 1) -> None:

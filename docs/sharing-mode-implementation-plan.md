@@ -34,7 +34,7 @@ Status: completed. Implemented in `backend/setta/types/share_deployment.py`, add
 in `backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (version, projectConfigId, createdAt, listener config).
-  - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, listenerIsolation, allowedSections).
+  - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, allowMCP, runSnapshotMode, listenerIsolation, allowedSections).
   - `ShareDeploymentMetadata` (deployment id, path, policy path).
   - `ShareDeploymentSessionResponse` (deployment id, session id, config id, policy, manifest).
 - Add constants in `backend/setta/utils/constants.py`:
@@ -135,6 +135,8 @@ through per-session managers.
 - Load the share policy in `backend/setta/project_state/share_project_manager.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
 - Enforce policy in share routes and listeners:
+  - Structural: create/delete sections and incrementer add/remove flows in
+    `backend/setta/routers/project_manager.py`.
   - Params: `route_change_param_impl`, `route_update_param_impl_config`,
     `route_set_param_entered_value` in `backend/setta/routers/project_manager.py`.
   - Variants/view modes: create/delete/toggle variants + view mode edits in
@@ -153,6 +155,8 @@ through per-session managers.
 Implemented:
 - Policy violations broadcast to the active share session (or all share
   sessions if the request is not session-scoped).
+- Structural mutations are blocked via `allowStructuralChanges` in
+  `backend/setta/routers/project_manager.py`.
 - Run and LLM routes also block when share runtime services are not initialized.
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
@@ -291,11 +295,11 @@ Implemented:
 - Websocket connections include `shareSessionId` and use `/share/frontend` in
   share mode.
 - UI controls are gated by policy (run, param edits, variant/view edits, layout
-  moves/resizes, and lock-position edits).
-- Header shows a "Sharing Mode" indicator and share search behavior.
+  moves/resizes, structural edits, and lock-position edits).
+ - Header shows a "Sharing Mode" indicator and share search behavior.
  - Publish/redeploy UI: IDE entry point (File menu) and modal with policy toggles
-   (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun,
-   allowLLM, allowMCP).
+   (allowStructuralChanges, allowParamChanges, allowVariantChanges,
+   allowLayoutChanges, allowRun, allowLLM, allowMCP).
  - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag, isolation)
    and run snapshot mode.
  - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
@@ -345,6 +349,7 @@ Implemented:
   and run/terminal routes.
 - `tests/routers/test_share_policy_routes.py` covers allowed-section gating for
   run routes.
+- `tests/routers/test_share_policy_routes.py` covers structural route blocking.
 - `tests/routers/test_share_policy_routes.py` covers share-mode LLM config/API
   key update blocking.
 - `tests/routers/test_share_terminals.py` covers session-scoped terminal deletes.
