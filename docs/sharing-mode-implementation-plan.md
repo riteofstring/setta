@@ -8,6 +8,19 @@ Note: Share startup uses CLI flags (no env vars).
 Current status: All steps below are completed in this branch. Each section
 lists the implemented work, and there are no pending items.
 
+Latest completion updates (this branch):
+- Share deployment publish now uses the in-memory project manager state after
+  draining ops, so snapshots reflect the latest edits even without a DB save.
+- Share startup derives the share URL from `manifest.json`, so relocated
+  deployment roots still produce the correct `/share/<name>/<version>` URL.
+- Share deployment roots can be relocated without name/version directory
+  matching; the manifest is the source of truth.
+- Share LLM config loads from the share runtime DBE without writing defaults
+  into deployment roots.
+- Path rebasing for share deployments is centralized in
+  `rewrite_project_state_paths` and reused by publish + share boot.
+- New tests cover manager-state publishing and relocated deployment roots.
+
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
   websockets (`backend/setta/routers/websocket.py`). Share endpoints will need
@@ -76,9 +89,10 @@ Implemented in `backend/setta/routers/share_deployments.py`.
   - `route_list_share_deployments`, `route_list_share_deployment_versions`,
     `route_get_latest_share_deployment` for discovery.
 - Implementation details:
-  - Use `ProjectManager` from `backend/setta/project_state/project_manager.py` to
-    flush code (`_flush_code_files_for_all_configs`) before exporting.
-  - Read project state from `DBE.read_project()` in `backend/setta/database/db_objs.py`.
+- Use `ProjectManager` from `backend/setta/project_state/project_manager.py` to
+  flush code (`_flush_code_files_for_all_configs`) before exporting.
+- Use the project manager's in-memory `project_state_backend` after draining
+  pending operations to capture the latest state.
   - Choose the next deployment version (vN) under
     `setta_files/share_deployments/<project_config_name>/vN/`.
   - Copy referenced artifacts from `setta_files/artifacts` into the deployment
@@ -116,6 +130,8 @@ Implemented:
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, and skips watchers/LSP boot.
+- Share CLI derives project config name/version from `manifest.json` so the
+  share URL stays correct even when `--deployment-root` is relocated.
 - Share mode uses `setta_files/share_runtime/<project_config_name>/<version>`
   as a runtime root for file locks + temporary id maps (via
   `DBE.runtime_root`/`lock_root`) so deployments stay immutable.
@@ -143,6 +159,8 @@ Implemented:
 - `backend/setta/project_state/share_project_manager.py` loads `project.json`,
   consumes `manifest.json`, selects the share project config, and manages
   per-viewer overlay state in memory.
+- Share deployments no longer require directory names to match the manifest
+  (relocated deployment roots are accepted).
 - `ShareProjectManager` keeps persistence/watchers as no-ops and only validates
   state on updates.
 - `ShareProjectManager` tracks per-session artifacts and applies listener emits,
@@ -335,7 +353,8 @@ is isolated in memory.
 - Block `/llm/config` and `/llm/apiKeys` updates in share mode.
 Implemented:
 - Share state only initializes MCP/LLM when policy allows, and loads LLM config
-  only when `allowLLM` or `allowMCP` is true.
+  only when `allowLLM` or `allowMCP` is true, using the share runtime DBE with
+  `allow_write=False` to keep deployment roots immutable.
 - `backend/setta/llm/chat_store.py` introduces `ChatStore` plus `DBEChatStore`
   and `MemoryChatStore` so share sessions can avoid disk writes.
 - `backend/setta/share/chat_manager.py` provides a per-session `ShareChatManager`
@@ -414,11 +433,15 @@ and share filesystem path restriction tests.
 Implemented:
 - `tests/routers/test_share_deployments.py` covers versioned deployment publishing
   plus latest/version list endpoints.
+- `tests/routers/test_share_deployments.py` covers publishing from the latest
+  in-memory project manager state (no DB write required).
 - `tests/server_state/test_share_state.py` covers share boot, missing deployment
   guardrails, settings file creation, runtime root usage, and policy-gated
   services.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
   session isolation, and missing session errors.
+- `tests/project_state/test_share_project_manager.py` covers relocated
+  deployment roots where directory names do not match the manifest.
 - `tests/project_state/test_share_project_manager.py` covers json-source
   rehydration during share boot.
 - `tests/project_state/test_share_project_manager.py` covers deployment-relative

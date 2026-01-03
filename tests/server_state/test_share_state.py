@@ -184,6 +184,8 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                     )
                     _write_share_policy(root, policy)
                     state = await self._build_state(root)
+                    self.assertFalse((root / "llm_config.json").exists())
+                    self.assertFalse((root / "llm_config.example.json").exists())
 
                     if expect_llm:
                         self.assertIsInstance(state.chat_manager, ShareChatManager)

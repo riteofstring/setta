@@ -19,11 +19,11 @@ from setta.project_state.utils import (
     convert_path_to_module_path,
     create_timestamped_folder,
 )
+from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
 )
-from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
@@ -33,14 +33,10 @@ from setta.types.id import ID
 from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
-    BaseCodeSectionImpl,
     BaseDictSectionImpl,
-    ChartSectionImpl,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
-    DrawSectionImpl,
-    ImageSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -241,16 +237,11 @@ class ShareProjectManager:
         return deployment_version
 
     def _validate_deployment_root(self) -> None:
-        if self.deployment_root.name != self.deployment_version:
-            raise ValueError(
-                "Share deployment root does not match deploymentVersion: "
-                f"{self.deployment_root.name}"
-            )
-        if self.deployment_root.parent.name != self.project_config_name:
-            raise ValueError(
-                "Share deployment root does not match projectConfigName: "
-                f"{self.deployment_root.parent.name}"
-            )
+        if (
+            self.deployment_root.name == self.deployment_version
+            and self.deployment_root.parent.name == self.project_config_name
+        ):
+            return
 
     def _build_base_state(self) -> "ProjectStateSingleConfig":
         if self._base_state is not None:
@@ -348,78 +339,12 @@ class ShareProjectManager:
         )
 
     def _rebase_deployment_paths(self, project_state: ProjectStateBackend) -> None:
-        for section in project_state.sections.values():
-            for variant_id in section.variants:
-                variant, base_impl, impl = get_variant_base_and_effective_section_impl(
-                    project_state, section, variant_id
-                )
-
-                if isinstance(impl, ImageSectionImpl) and impl.imagePath:
-                    new_path = self._resolve_deployment_path(impl.imagePath)
-                    if new_path != impl.imagePath:
-                        set_effective_impl_value(
-                            base_impl, section, variant, {"imagePath": new_path}
-                        )
-
-                if isinstance(impl, ChartSectionImpl) and impl.dataPath:
-                    new_path = self._resolve_deployment_path(impl.dataPath)
-                    if new_path != impl.dataPath:
-                        set_effective_impl_value(
-                            base_impl, section, variant, {"dataPath": new_path}
-                        )
-
-                if isinstance(impl, DrawSectionImpl) and impl.layers:
-                    updated_layers = []
-                    layers_changed = False
-                    for layer in impl.layers:
-                        updated_elements = []
-                        for element in layer.elements:
-                            new_data_path = self._resolve_deployment_path(
-                                element.dataPath
-                            )
-                            new_transform_id = self._resolve_deployment_path(
-                                element.transformId
-                            )
-                            if (
-                                new_data_path != element.dataPath
-                                or new_transform_id != element.transformId
-                            ):
-                                layers_changed = True
-                                updated_elements.append(
-                                    element.model_copy(
-                                        update={
-                                            "dataPath": new_data_path,
-                                            "transformId": new_transform_id,
-                                        }
-                                    )
-                                )
-                            else:
-                                updated_elements.append(element)
-                        if layers_changed:
-                            updated_layers.append(
-                                layer.model_copy(update={"elements": updated_elements})
-                            )
-                        else:
-                            updated_layers.append(layer)
-                    if layers_changed:
-                        set_effective_impl_value(
-                            base_impl, section, variant, {"layers": updated_layers}
-                        )
-
-                if isinstance(impl, BaseCodeSectionImpl) and impl.codeFileBinding:
-                    updated_binding = self._resolve_code_binding(impl.codeFileBinding)
-                    if updated_binding != impl.codeFileBinding:
-                        set_effective_impl_value(
-                            base_impl,
-                            section,
-                            variant,
-                            {"codeFileBinding": updated_binding},
-                        )
-
-                if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-                    new_name = self._resolve_deployment_path(variant.name)
-                    if new_name != variant.name:
-                        variant.name = new_name
+        rewrite_project_state_paths(
+            project_state,
+            resolve_artifact_path=self._resolve_deployment_path,
+            resolve_code_binding=self._resolve_code_binding,
+            resolve_json_source_name=self._resolve_deployment_path,
+        )
 
     def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
         return self.share_policy.runSnapshotMode

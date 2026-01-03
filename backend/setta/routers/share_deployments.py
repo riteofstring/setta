@@ -1,4 +1,3 @@
-import json
 import logging
 import shutil
 from pathlib import Path
@@ -19,18 +18,15 @@ from setta.routers.dependencies import (
     require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.share.deployment_utils import iter_share_deployment_versions
-from setta.types.generated.effective_impls import set_effective_impl_value
-from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
+from setta.share.deployment_utils import (
+    iter_share_deployment_versions,
+    read_share_deployment_manifest,
+    rewrite_project_state_paths,
+)
 from setta.types.id import ID
 from setta.types.routes import Route
 from setta.types.section_impls import (
-    BaseCodeSectionImpl,
-    BaseDictSectionImpl,
-    ChartSectionImpl,
     CodeFileBinding,
-    DrawSectionImpl,
-    ImageSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import (
@@ -245,104 +241,27 @@ def _rebase_project_state_paths(
     json_path_map: dict[str, str] = {}
     code_path_map: dict[str, CodeFileBinding] = {}
 
-    for section in project_state.sections.values():
-        for variant_id in section.variants:
-            variant, base_impl, impl = get_variant_base_and_effective_section_impl(
-                project_state, section, variant_id
-            )
-
-            if isinstance(impl, ImageSectionImpl) and impl.imagePath:
-                new_path = _copy_artifact_path(
-                    impl.imagePath,
-                    artifacts_root,
-                    deployment_root,
-                    artifact_path_map,
-                )
-                if new_path != impl.imagePath:
-                    set_effective_impl_value(
-                        base_impl, section, variant, {"imagePath": new_path}
-                    )
-
-            if isinstance(impl, ChartSectionImpl) and impl.dataPath:
-                new_path = _copy_artifact_path(
-                    impl.dataPath,
-                    artifacts_root,
-                    deployment_root,
-                    artifact_path_map,
-                )
-                if new_path != impl.dataPath:
-                    set_effective_impl_value(
-                        base_impl, section, variant, {"dataPath": new_path}
-                    )
-
-            if isinstance(impl, DrawSectionImpl) and impl.layers:
-                updated_layers = []
-                layers_changed = False
-                for layer in impl.layers:
-                    updated_elements = []
-                    for element in layer.elements:
-                        new_data_path = _copy_artifact_path(
-                            element.dataPath,
-                            artifacts_root,
-                            deployment_root,
-                            artifact_path_map,
-                        )
-                        new_transform_id = _copy_artifact_path(
-                            element.transformId,
-                            artifacts_root,
-                            deployment_root,
-                            artifact_path_map,
-                        )
-                        if (
-                            new_data_path != element.dataPath
-                            or new_transform_id != element.transformId
-                        ):
-                            layers_changed = True
-                            updated_elements.append(
-                                element.model_copy(
-                                    update={
-                                        "dataPath": new_data_path,
-                                        "transformId": new_transform_id,
-                                    }
-                                )
-                            )
-                        else:
-                            updated_elements.append(element)
-                    if layers_changed:
-                        updated_layers.append(
-                            layer.model_copy(update={"elements": updated_elements})
-                        )
-                    else:
-                        updated_layers.append(layer)
-                if layers_changed:
-                    set_effective_impl_value(
-                        base_impl, section, variant, {"layers": updated_layers}
-                    )
-
-            if isinstance(impl, BaseCodeSectionImpl) and impl.codeFileBinding:
-                updated_binding = _copy_code_file_binding(
-                    impl.codeFileBinding,
-                    code_root,
-                    deployment_root,
-                    code_path_map,
-                )
-                if updated_binding != impl.codeFileBinding:
-                    set_effective_impl_value(
-                        base_impl,
-                        section,
-                        variant,
-                        {"codeFileBinding": updated_binding},
-                    )
-
-            if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-                new_name = _copy_json_source_path(
-                    variant.name,
-                    json_root,
-                    deployment_root,
-                    json_path_map,
-                )
-                if new_name != variant.name:
-                    variant.name = new_name
+    rewrite_project_state_paths(
+        project_state,
+        resolve_artifact_path=lambda path_str: _copy_artifact_path(
+            path_str,
+            artifacts_root,
+            deployment_root,
+            artifact_path_map,
+        ),
+        resolve_code_binding=lambda binding: _copy_code_file_binding(
+            binding,
+            code_root,
+            deployment_root,
+            code_path_map,
+        ),
+        resolve_json_source_name=lambda path_str: _copy_json_source_path(
+            path_str,
+            json_root,
+            deployment_root,
+            json_path_map,
+        ),
+    )
 
 
 def _copy_listener_entrypoint(
@@ -362,16 +281,6 @@ def _copy_listener_entrypoint(
         enabled=enabled,
         isolation=listener_isolation,
     )
-
-
-def _read_share_manifest(deployment_root: Path) -> ShareDeploymentManifest | None:
-    manifest_path = deployment_root / "manifest.json"
-    if not manifest_path.exists():
-        return None
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not payload:
-        return None
-    return ShareDeploymentManifest.model_validate(payload)
 
 
 def _manifest_matches_root(
@@ -425,7 +334,7 @@ def route_list_share_deployments(
         if not project_root.is_dir():
             continue
         for _, version_root in iter_share_deployment_versions(project_root):
-            manifest = _read_share_manifest(version_root)
+            manifest = read_share_deployment_manifest(version_root)
             if manifest is None:
                 continue
             if not _manifest_matches_root(manifest, version_root):
@@ -455,7 +364,7 @@ def route_list_share_deployment_versions(
     )
     deployments: list[ShareDeploymentMetadata] = []
     for _, version_root in versions:
-        manifest = _read_share_manifest(version_root)
+        manifest = read_share_deployment_manifest(version_root)
         if manifest is None:
             continue
         if not _manifest_matches_root(manifest, version_root):
@@ -505,7 +414,7 @@ def route_get_latest_share_deployment(
             detail=f"Share deployment not found: {projectConfigName}",
         )
     _, latest_root = max(versions, key=lambda item: item[0])
-    manifest = _read_share_manifest(latest_root)
+    manifest = read_share_deployment_manifest(latest_root)
     if manifest is None or not _manifest_matches_root(manifest, latest_root):
         raise HTTPException(
             status_code=404,
@@ -568,15 +477,14 @@ async def route_publish_share_deployment(
             status_code=403,
             detail="Share mode does not allow publishing deployments.",
         )
-    project_state_backend = state.dbe.read_project()
+    project_manager = state.project_manager_switcher.get(x.projectConfigId)
+    await project_manager.finish_pending_operations()
+    project_manager._flush_code_files_for_all_configs()
+    project_state_backend = project_manager.project_state_backend
     if x.projectConfigId not in project_state_backend.projectConfigs:
         raise HTTPException(
             status_code=404, detail=f"Project config not found: {x.projectConfigId}"
         )
-
-    project_manager = state.project_manager_switcher.get(x.projectConfigId)
-    await project_manager.finish_pending_operations()
-    project_manager._flush_code_files_for_all_configs()
 
     project_config = project_state_backend.projectConfigs[x.projectConfigId]
     deployment_version, deployment_root = _create_deployment_root(project_config.name)

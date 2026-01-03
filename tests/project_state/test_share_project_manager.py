@@ -281,6 +281,28 @@ class ShareProjectManagerTests(unittest.TestCase):
             session_state = manager.create_session_state("session-a")
             self.assertEqual(config_b.id, session_state.projectConfig.id)
 
+    def test_manifest_allows_relocated_deployment_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            config = ProjectConfig(name="alpha")
+            root = Path(tmpdir) / "relocated" / "deployment_root"
+            root.mkdir(parents=True, exist_ok=True)
+            dbe = _write_project(root, [config], config.id)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                projectConfigId=config.id,
+                projectConfigName=config.name,
+                deploymentVersion="v42",
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            self.assertNotEqual(root.name, manifest.deploymentVersion)
+            self.assertNotEqual(root.parent.name, manifest.projectConfigName)
+
+            frontend_sender = WMHFrontendSender(WebsocketManager())
+            manager = ShareProjectManager(dbe, root, frontend_sender)
+            self.assertEqual(config.name, manager.project_config_name)
+            self.assertEqual(manifest.deploymentVersion, manager.deployment_version)
+
     def test_manifest_missing_project_config_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
             config = ProjectConfig(name="alpha")

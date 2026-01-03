@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from setta.database.utils import create_new_id
+from setta.project_state.project_manager_types import SetShowParamDisplayNamesRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
@@ -15,6 +16,7 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_section_impl_with_type_guard,
 )
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
@@ -124,6 +126,73 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(policy.allowLLM)
                 self.assertFalse(policy.allowMCP)
                 self.assertEqual(policy_path, metadata.sharePolicyPath)
+        except RuntimeError as exc:
+            self.skipTest(str(exc))
+
+    async def test_publish_share_deployment_uses_latest_manager_state(self) -> None:
+        try:
+            async with (
+                real_project_manager() as project_fixture,
+                real_settings_manager() as settings_fixture,
+            ):
+                original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
+                C.SHARE_DEPLOYMENTS_FOLDER = (
+                    project_fixture.setta_root / "share_deployments"
+                )
+                self.addCleanup(
+                    setattr, C, "SHARE_DEPLOYMENTS_FOLDER", original_share_root
+                )
+
+                switcher = ProjectManagerSwitcher(
+                    project_fixture.manager,
+                    settings_fixture.manager,
+                )
+                state = SimpleNamespace(
+                    dbe=project_fixture.dbe,
+                    project_manager_switcher=switcher,
+                    share_mode=False,
+                )
+                project_config_id = (
+                    project_fixture.manager.project_state_backend.defaultProjectConfigId
+                )
+                if project_config_id is None:
+                    self.fail("Expected a default project config id for publishing.")
+
+                project_config = project_fixture.manager.project_state_backend.projectConfigs[
+                    project_config_id
+                ]
+                initial_value = project_config.showParamDisplayNames
+                updated_value = not initial_value
+
+                await project_fixture.manager.set_show_param_display_names(
+                    SetShowParamDisplayNamesRequest(
+                        projectConfigId=project_config_id,
+                        showParamDisplayNames=updated_value,
+                    )
+                )
+                await project_fixture.manager.finish_pending_operations()
+
+                persisted_state = project_fixture.dbe.read_project()
+                self.assertEqual(
+                    initial_value,
+                    persisted_state.projectConfigs[
+                        project_config_id
+                    ].showParamDisplayNames,
+                )
+
+                metadata = await route_publish_share_deployment(
+                    PublishShareDeploymentRequest(projectConfigId=project_config_id),
+                    state,
+                )
+                snapshot = ProjectStateBackend.model_validate(
+                    project_fixture.dbe.read_json(
+                        metadata.deploymentRoot / "project.json"
+                    )
+                )
+                self.assertEqual(
+                    updated_value,
+                    snapshot.projectConfigs[project_config_id].showParamDisplayNames,
+                )
         except RuntimeError as exc:
             self.skipTest(str(exc))
 
@@ -251,7 +320,14 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                     sectionImpls=section_impls,
                     sectionVariants=section_variants,
                 )
-                project_fixture.dbe.write_project(project_state_backend)
+                single_state = convert_backend_to_single_config(
+                    project_state_backend,
+                    project_config_id,
+                )
+                await project_fixture.manager.update(
+                    single_state,
+                    updateFileWatcher=False,
+                )
 
                 switcher = ProjectManagerSwitcher(
                     project_fixture.manager,

@@ -396,9 +396,10 @@ class SettaFastAPIState:
             share_mode=True,
         )
         share_policy = self.share_project_manager.share_policy
+        llm_dbe = self._resolve_share_llm_dbe()
         llm_config = None
         if share_policy.allowLLM or share_policy.allowMCP:
-            llm_config = load_llm_config(self.dbe)
+            llm_config = load_llm_config(llm_dbe, allow_write=False)
         if share_policy.allowMCP:
             apply_fastmcp_preparse_patch()
             self.mcp_server = SettaFastMCP(
@@ -410,7 +411,7 @@ class SettaFastAPIState:
                 self.dbe,
             )
             if llm_config is None:
-                llm_config = load_llm_config(self.dbe)
+                llm_config = load_llm_config(llm_dbe, allow_write=False)
             self.mcp_client = MultiMCPClient(
                 llm_config.mcpServers,
                 frontend_sender=self.wmh_frontend_sender,
@@ -424,7 +425,7 @@ class SettaFastAPIState:
                 )
         if share_policy.allowLLM:
             self.chat_manager = ShareChatManager(
-                self.dbe,
+                llm_dbe,
                 self.wmh_frontend_sender,
                 self.share_project_manager,
                 self.share_session_store,
@@ -487,6 +488,15 @@ class SettaFastAPIState:
         ).resolve()
         runtime_root.mkdir(parents=True, exist_ok=True)
         return runtime_root
+
+    def _resolve_share_llm_dbe(self) -> DBE:
+        if not self.share_mode or self.share_runtime_root is None:
+            return self.dbe
+        return DBE(
+            self.share_runtime_root,
+            runtime_root=self.share_runtime_root,
+            lock_root=self.share_runtime_root,
+        )
 
     async def _maybe_delay(self) -> None:
         delay = C.BACKEND_INIT_DELAY_SECONDS

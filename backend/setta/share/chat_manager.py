@@ -144,7 +144,7 @@ class ShareChatManager:
         self._noop_mcp_client = NoopMCPClient()
         self._mcp_client = mcp_client
 
-        config = llm_config or load_llm_config(dbe)
+        config = llm_config or load_llm_config(dbe, allow_write=False)
         self.config = config
         self._raw_env_vars: "APIKeys" = (
             api_keys if api_keys is not None else dbe.read_dot_env()

@@ -26,6 +26,7 @@ from setta.sessions.utils import resolve_sessions_root
 from setta.share.deployment_utils import (
     iter_share_deployment_versions,
     parse_share_deployment_version,
+    read_share_deployment_manifest,
 )
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
@@ -922,13 +923,18 @@ def share(
         deployment_version=deployment_version,
         latest=latest,
     )
+    manifest = read_share_deployment_manifest(resolved_deployment_root)
+    if manifest is None:
+        raise click.ClickException(
+            f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
+        )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
 
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    resolved_project_name = resolved_deployment_root.parent.name
-    resolved_version = resolved_deployment_root.name
+    resolved_project_name = manifest.projectConfigName
+    resolved_version = manifest.deploymentVersion
     share_url = f"{C.BACKEND}/share/{resolved_project_name}/{resolved_version}"
     auto_open = _should_auto_open(no_open)
     C.OPEN_BROWSER_ON_START = share_url if auto_open else None
