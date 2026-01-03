@@ -316,7 +316,8 @@ isolation are implemented.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
 - Override `create_run_command` in share mode to write into
-  `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`.
+  `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
+  (default root: `setta_files/share_runtime/...`).
 - Add TTL cleanup (background task) for share run output.
 - Gate run and terminal endpoints in `backend/setta/routers/terminals.py`
   against `SharePolicy.allowRun`.
@@ -335,8 +336,10 @@ Implemented:
   while PTY ids include the share session prefix.
 - Added `RunSnapshotMode` to settings + share policy, and use it in IDE/share
   run command creation.
-- Share run output writes to `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`
-  and uses per-session snapshots or canonical files based on snapshot mode.
+- Share run output writes to
+  `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
+  (default root: `setta_files/share_runtime/...`) and uses per-session snapshots
+  or canonical files based on snapshot mode.
 - Share run output cleanup runs in the background for ephemeral snapshots.
 - Terminals are keyed by share session + section id to prevent PTY collisions
   across viewers; run/delete/kill routes and terminal websockets use the

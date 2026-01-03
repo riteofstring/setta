@@ -363,8 +363,7 @@ class SettaFastAPIState:
         ):
             spawn_background_task(
                 run_share_run_cleanup_loop(
-                    self.share_project_manager.project_config_name,
-                    self.share_project_manager.deployment_version,
+                    self.share_project_manager.share_runs_root,
                     ttl_seconds=DEFAULT_SHARE_RUN_TTL_SECONDS,
                     interval_seconds=DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
                 ),

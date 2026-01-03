@@ -10,6 +10,7 @@ from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
+    AutoLayoutTopLevelSectionsRequest,
     AppendDrawAreaLayerItemRequest,
     CreateTopLevelSectionRequest,
     DeclineRenameRefactorRequest,
@@ -29,6 +30,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetSectionNameRequest,
+    SetTopLevelSectionLayoutRequest,
     SetSectionVariantNameRequest,
     SetTextBlockTextRequest,
     SetTypeErrorIgnoreRequest,
@@ -47,6 +49,7 @@ from setta.routers.project_manager import (
     route_accept_rename_refactor,
     route_append_draw_area_layer_item,
     route_add_kwarg,
+    route_auto_layout_top_level_sections,
     route_create_top_level_section,
     route_delete_sections,
     route_delete_kwarg,
@@ -65,6 +68,7 @@ from setta.routers.project_manager import (
     route_set_gen_code_suffix,
     route_set_image_area_image_path,
     route_set_section_name,
+    route_set_top_level_section_layout,
     route_set_section_variant_name,
     route_set_text_block_text,
     route_set_type_error_ignore,
@@ -97,7 +101,11 @@ from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
-from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_config import (
+    Position,
+    ProjectConfig,
+    TopLevelSectionLayout,
+)
 from setta.types.project_state import ProjectStateBackend, ProjectStateCore
 from setta.types.section_impls import (
     CodeFileAccessMode,
@@ -701,6 +709,50 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 )
                 with self.assertRaises(HTTPException) as ctx:
                     await route_set_callable_hide_params(request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+            finally:
+                reset_share_session_id(token)
+
+    async def test_top_level_layout_routes_blocked_by_allowed_sections(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id, section_id, _variant_id = (
+                _write_share_project_with_section(
+                    root,
+                    project_config_name=project_config_name,
+                    deployment_version=root.name,
+                )
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(
+                    allowLayoutChanges=True,
+                    allowedSections=[create_new_id()],
+                ),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            try:
+                layout_request = SetTopLevelSectionLayoutRequest(
+                    projectConfigId=project_config_id,
+                    topLevelSections={
+                        section_id: TopLevelSectionLayout(),
+                    },
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_top_level_section_layout(layout_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                auto_layout_request = AutoLayoutTopLevelSectionsRequest(
+                    projectConfigId=project_config_id
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_auto_layout_top_level_sections(
+                        auto_layout_request, state
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
             finally:
                 reset_share_session_id(token)

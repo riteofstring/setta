@@ -44,7 +44,6 @@ from setta.types.section_impls import (
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
-from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.listener_registry import ListenerRegistry
@@ -335,6 +334,21 @@ class ShareProjectManagerTests(unittest.TestCase):
             with self.assertRaises(KeyError):
                 ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
 
+    def test_missing_project_json_raises(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = _build_share_deployment_root(tmpdir, "missing-project-json")
+            dbe = DBE(root)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                projectConfigId=create_new_id(),
+                projectConfigName="missing-project-json",
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            with self.assertRaises(FileNotFoundError):
+                ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
+
     def test_session_state_preloads_artifacts(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
@@ -480,25 +494,16 @@ class ShareProjectManagerTests(unittest.TestCase):
             manager = ShareProjectManager(dbe, root, frontend_sender)
             session_id = "session-ephemeral"
             manager.create_session_state(session_id)
+            runs_root = manager.share_runs_root
             self.addCleanup(
-                lambda: shutil.rmtree(
-                    C.SHARE_RUNS_FOLDER
-                    / manager.project_config_name
-                    / manager.deployment_version,
-                    ignore_errors=True,
-                )
+                lambda: shutil.rmtree(runs_root, ignore_errors=True)
             )
 
             command = self._loop.run_until_complete(
                 manager.create_run_command(session_id, section_id)
             )
 
-            run_root = (
-                C.SHARE_RUNS_FOLDER
-                / manager.project_config_name
-                / manager.deployment_version
-                / session_id
-            )
+            run_root = runs_root / session_id
             self.assertTrue(run_root.exists())
             run_dirs = [path for path in run_root.iterdir() if path.is_dir()]
             self.assertEqual(1, len(run_dirs))

@@ -162,7 +162,8 @@ Artifacts and code can be cached in memory or under a share-specific root.
 
 ### OSS (local sharing)
 - Share deployments stored under `setta_files/share_deployments/<project_config_name>/vN`.
-- Share run output under `setta_files/share_runs/<project_config_name>/vN/<session>/<timestamp>`.
+- Share run output under `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
+  (default root: `setta_files/share_runtime/...`).
 - In-memory session store with TTL cleanup.
 - Open by default; optional share token can be added later.
 

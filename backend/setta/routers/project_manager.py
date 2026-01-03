@@ -454,6 +454,7 @@ async def route_set_top_level_section_layout(
     await ensure_share_layout_changes_allowed(
         state,
         project_config_id=x.projectConfigId,
+        section_ids=list(x.topLevelSections.keys()),
     )
     await state.project_manager_switcher.get(
         x.projectConfigId
@@ -464,13 +465,18 @@ async def route_set_top_level_section_layout(
 async def route_auto_layout_top_level_sections(
     x: AutoLayoutTopLevelSectionsRequest, state: AppStateFromRequest
 ):
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    section_ids = list(
+        manager.get_single_config_state(
+            x.projectConfigId
+        ).projectConfig.topLevelSections.keys()
+    )
     await ensure_share_layout_changes_allowed(
         state,
         project_config_id=x.projectConfigId,
+        section_ids=section_ids,
     )
-    await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).auto_layout_top_level_sections(x)
+    await manager.auto_layout_top_level_sections(x)
 
 
 @router.post(Route.ADD_KWARG)

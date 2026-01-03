@@ -40,7 +40,6 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
-from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
@@ -81,6 +80,10 @@ class ShareProjectManager:
         self._session_managers: dict[str, "ShareSessionProjectManager"] = {}
         self._artifact_watcher = SpecificFileWatcher()
         self._base_state: "ProjectStateSingleConfig | None" = None
+
+    @property
+    def share_runs_root(self) -> Path:
+        return self.dbe.runtime_root / "share_runs"
 
     def load_initial_state(self) -> ProjectStateBackend:
         project_state = self.dbe.read_project()
@@ -235,11 +238,19 @@ class ShareProjectManager:
         return deployment_version
 
     def _validate_deployment_root(self) -> None:
-        if (
-            self.deployment_root.name == self.deployment_version
-            and self.deployment_root.parent.name == self.project_config_name
-        ):
-            return
+        if not self.deployment_root.exists():
+            raise FileNotFoundError(
+                f"Share deployment root does not exist: {self.deployment_root}"
+            )
+        if not self.deployment_root.is_dir():
+            raise NotADirectoryError(
+                f"Share deployment root is not a directory: {self.deployment_root}"
+            )
+        project_path = self.deployment_root / "project.json"
+        if not project_path.exists():
+            raise FileNotFoundError(
+                f"Share deployment missing project.json: {project_path}"
+            )
 
     def _build_base_state(self) -> "ProjectStateSingleConfig":
         if self._base_state is not None:
@@ -385,12 +396,7 @@ class ShareProjectManager:
         return code_generator.code
 
     def _create_share_run_folder(self, share_session_id: str) -> Path:
-        run_root = (
-            C.SHARE_RUNS_FOLDER
-            / self.project_config_name
-            / self.deployment_version
-            / share_session_id
-        )
+        run_root = self.share_runs_root / share_session_id
         return create_timestamped_folder(run_root)
 
     def _write_snapshot_file(
