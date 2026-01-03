@@ -22,6 +22,7 @@ type MetaControlContentButtonProps = {
   sectionId: string;
   controlParamId: string;
   sectionName: string;
+  paramDisplayName: string;
   codeObjType: CodeObjTypeEnum.ButtonParam;
   showSectionTitle: boolean;
   onAction: () => void;
@@ -31,6 +32,7 @@ type MetaControlContentValueProps = {
   sectionId: string;
   controlParamId: string;
   sectionName: string;
+  paramDisplayName: string;
   codeObjType: Exclude<
     CodeObjType,
     | CodeObjTypeEnum.ButtonParam
@@ -65,6 +67,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
     controlParamId,
     codeObjType,
     sectionName,
+    paramDisplayName,
     value,
     defaultVal,
     onValueChange,
@@ -115,6 +118,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
       return (
         <SwitchControl
           sectionName={sectionName}
+          controlLabel={paramDisplayName}
           value={value}
           showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
@@ -291,23 +295,35 @@ function SliderControl({
 
 function SwitchControl({
   sectionName,
+  controlLabel,
   value,
   showSectionTitle,
   onValueChange,
 }: {
   sectionName: string;
+  controlLabel: string;
   value: string;
   showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
+  const trimmedLabel = controlLabel.trim();
+  const showControlLabel = trimmedLabel.length > 0;
+
   return (
     <MetaControlTitleStack
       showSectionTitle={showSectionTitle}
       sectionName={sectionName}
       containerClassName="@container/meta-switch"
       titleClassName="hidden @[140px]/meta-switch:block"
-      contentClassName="items-center justify-start"
+      contentClassName="items-center justify-between gap-3"
     >
+      {showControlLabel && (
+        <span
+          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} min-w-0 truncate text-xs font-semibold text-setta-700 dark:text-setta-300`}
+        >
+          {trimmedLabel}
+        </span>
+      )}
       <SwitchInput
         value={value}
         onChange={onValueChange}
@@ -377,6 +393,7 @@ function DropdownControl({
         value={value}
         onChange={onValueChange}
         outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center [&_search]:my-auto`}
+        inputOuterClasses="!mx-0"
         placeholder="Choose"
       />
     </MetaControlTitleStack>

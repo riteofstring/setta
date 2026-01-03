@@ -8,6 +8,7 @@ import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getParamDisplayName,
   getSectionCore,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
@@ -59,9 +60,15 @@ function MetaControlValueArea({
   controlParamId: string;
   showSectionTitle: boolean;
 }) {
-  const { codeObjType, baseValue, defaultVal, sectionName } = useProjectState(
+  const { codeObjType, baseValue, defaultVal, sectionName, paramDisplayName } =
+    useProjectState(
     (x) => {
       const sectionName = getSectionCore(x, sectionId).name;
+      const paramDisplayName = getParamDisplayName(
+        x,
+        sectionId,
+        controlParamId,
+      );
       const controlImpl = getCurrEffectiveCodeObjImpl(
         x,
         sectionId,
@@ -73,6 +80,7 @@ function MetaControlValueArea({
           baseValue: "",
           defaultVal: "",
           sectionName,
+          paramDisplayName,
         };
       }
       const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -86,6 +94,7 @@ function MetaControlValueArea({
         baseValue: childlessImpl.value,
         defaultVal: childlessImpl.defaultVal,
         sectionName,
+        paramDisplayName,
       };
     },
     _.isEqual,
@@ -141,6 +150,7 @@ function MetaControlValueArea({
           sectionId={sectionId}
           controlParamId={controlParamId}
           sectionName={sectionName}
+          paramDisplayName={paramDisplayName}
           codeObjType={codeObjType}
           onAction={handleAction}
           showSectionTitle={showSectionTitle}
@@ -150,6 +160,7 @@ function MetaControlValueArea({
           sectionId={sectionId}
           controlParamId={controlParamId}
           sectionName={sectionName}
+          paramDisplayName={paramDisplayName}
           codeObjType={codeObjType}
           value={value}
           defaultVal={defaultVal}

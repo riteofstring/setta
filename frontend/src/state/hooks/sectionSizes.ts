@@ -60,6 +60,32 @@ function getMetaControlSizeMode({
   return null;
 }
 
+function getMetaControlMinHeight({
+  projectState,
+  sectionId,
+  controlParamId,
+}: {
+  projectState: ZustandProjectState;
+  sectionId: string;
+  controlParamId: string | null | undefined;
+}): number | null {
+  if (!controlParamId) {
+    return null;
+  }
+
+  const controlImpl = getCurrEffectiveCodeObjImpl(
+    projectState,
+    sectionId,
+    controlParamId,
+  );
+
+  if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
+    return 32;
+  }
+
+  return null;
+}
+
 function getMinSectionHeight({
   sectionType,
   hideSearch,
@@ -176,7 +202,7 @@ export function useSectionMinMaxDims(sectionId: string) {
     const hideParams = impl.hideParams;
     const isMinimized = impl.isMinimized;
 
-    const minHeight = getMinSectionHeight({
+    let minHeight = getMinSectionHeight({
       sectionType,
       hideSearch,
       hideParams,
@@ -190,7 +216,7 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
-    const minWidth = getMinSectionWidth({
+    let minWidth = getMinSectionWidth({
       sectionType,
       sizingPolicy,
     });
@@ -199,8 +225,25 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
+    if (
+      !isMinimized &&
+      (sectionType === SectionTypeEnum.MetaControl ||
+        sectionType === SectionTypeEnum.TextBlock)
+    ) {
+      minHeight *= 0.5;
+      minWidth *= 0.5;
+    }
+
     let metaControlSizeMode: SizeMode | null = null;
     if (sectionType === SectionTypeEnum.MetaControl) {
+      const metaControlMinHeight = getMetaControlMinHeight({
+        projectState: x,
+        sectionId,
+        controlParamId: impl.metaControlParamId,
+      });
+      if (metaControlMinHeight !== null) {
+        minHeight = Math.max(minHeight, metaControlMinHeight);
+      }
       metaControlSizeMode = getMetaControlSizeMode({
         projectState: x,
         sectionId,
