@@ -21,9 +21,9 @@ import {
   useLocalStorage,
   useProjectState,
   useRunControl,
-  useShareSession,
   ZustandProjectState,
 } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import {
   isBaseParentSectionImpl,
   SectionTypeEnum,
@@ -35,7 +35,7 @@ import {
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 
 export function RunInstructions() {
-  const allowRun = useShareSession((x) => x.sharePolicy?.allowRun ?? true);
+  const allowRun = useSharePolicyFlag("allowRun");
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],

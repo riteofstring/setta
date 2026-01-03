@@ -2,7 +2,8 @@ from fastapi import Request
 
 from setta.routers.dependencies import (
     AppStateFromRequest,
-    get_share_session_id_from_request,
+    maybe_get_share_session_id_from_request,
+    require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.listener import ListenerCoverageRequest, ListenerCoverageSnapshot
@@ -19,8 +20,11 @@ async def route_get_listener_coverage(
 ) -> ListenerCoverageSnapshot:
     share_session_id = None
     if state.share_mode:
-        share_session_id = get_share_session_id_from_request(request)
-        state.share_session_store.get_session(share_session_id)
+        share_session_id = require_share_session_id(
+            state,
+            maybe_get_share_session_id_from_request(request),
+            create_session_state=False,
+        )
     return state.wmh_python_script_receiver.listener_coverage_tracker.get_snapshot_for_project(
         x.projectConfigId,
         state.listener_registry.iter_registrations_for_project(

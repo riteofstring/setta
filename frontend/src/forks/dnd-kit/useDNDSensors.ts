@@ -5,12 +5,10 @@ import {
   useSensors,
 } from "forks/dnd-kit/CustomCore";
 import { sortableKeyboardCoordinates } from "forks/dnd-kit/CustomSortable";
-import { useShareSession } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 
 export function useDNDSensors() {
-  const allowLayoutChanges = useShareSession(
-    (x) => x.sharePolicy?.allowLayoutChanges ?? true,
-  );
+  const allowLayoutChanges = useSharePolicyFlag("allowLayoutChanges");
   const pointerSensor = useSensor(PointerSensor);
   const keyboardSensor = useSensor(KeyboardSensor, {
     coordinateGetter: sortableKeyboardCoordinates,

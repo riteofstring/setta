@@ -1,6 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useParams } from "react-router-dom";
 import { useShareSession } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import { EditMenu } from "./EditMenu";
 import { FileMenu } from "./FileMenu";
 import { FollowAIToggleButton } from "./FollowAIToggleButton";
@@ -18,11 +19,8 @@ export function ProjectNav() {
 
 function ProjectNavSwitch() {
   const { projectConfigName } = useParams();
-  const { isShareMode, sharePolicy } = useShareSession((x) => ({
-    isShareMode: x.isShareMode,
-    sharePolicy: x.sharePolicy,
-  }));
-  const allowRun = sharePolicy?.allowRun ?? true;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const allowRun = useSharePolicyFlag("allowRun");
 
   return (
     <div className="ml-4 flex gap-1">

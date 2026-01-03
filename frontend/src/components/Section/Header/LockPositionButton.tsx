@@ -6,7 +6,8 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import { route_toggle_position_locks } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -33,9 +34,7 @@ export function LockPositionButton({
       positionAndSizeLocked: impl.positionAndSizeLocked,
     };
   }, _.isEqual);
-  const allowLayoutChanges = useShareSession(
-    (x) => x.sharePolicy?.allowLayoutChanges ?? true,
-  );
+  const allowLayoutChanges = useSharePolicyFlag("allowLayoutChanges");
 
   const iconClassName = positionAndSizeLocked ? "gg-lock" : "gg-lock-unlock";
 

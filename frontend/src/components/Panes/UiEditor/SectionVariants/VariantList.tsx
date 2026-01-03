@@ -12,8 +12,9 @@ import {
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { useSharePolicyFlag } from "state/hooks/share";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
@@ -31,9 +32,7 @@ import {
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
-  const allowVariantChanges = useShareSession(
-    (x) => x.sharePolicy?.allowVariantChanges ?? true,
-  );
+  const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
   const isEditingEnabled = allowVariantChanges && isEditing;
   const actionButtonClasses = `flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${
     allowVariantChanges

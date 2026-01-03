@@ -5,6 +5,7 @@ from setta.llm.config import save_llm_config
 from setta.routers.dependencies import (
     AppStateFromRequest,
     MaybeShareSessionIdFromRequest,
+    require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.share.policy import ensure_share_llm_allowed
@@ -20,23 +21,16 @@ class UpdateAPIKeysRequest(BaseModel):
     apiKeys: APIKeys = Field(default_factory=dict)
 
 
-def _require_share_session(
-    state: AppStateFromRequest, share_session_id: str | None
-) -> str | None:
-    if not state.share_mode:
-        return None
-    if share_session_id is None:
-        raise KeyError("Missing share session id")
-    state.share_session_store.get_session(share_session_id)
-    return share_session_id
-
-
 @router.get(Route.LLM_CONFIG)
 async def route_get_llm_config(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> AllLLMConfigs:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(
+        state,
+        share_session_id,
+        create_session_state=False,
+    )
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,
@@ -51,7 +45,11 @@ async def route_set_llm_config(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> AllLLMConfigs:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(
+        state,
+        share_session_id,
+        create_session_state=False,
+    )
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,
@@ -72,7 +70,11 @@ async def route_get_llm_api_keys(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> APIKeys:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(
+        state,
+        share_session_id,
+        create_session_state=False,
+    )
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,
@@ -87,7 +89,11 @@ async def route_set_llm_api_keys(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> APIKeys:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(
+        state,
+        share_session_id,
+        create_session_state=False,
+    )
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,

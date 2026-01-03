@@ -14,7 +14,8 @@ from setta.routers.dependencies import (
     ReadyAppStateFromRequest as AppStateFromRequest,
 )
 from setta.routers.dependencies import (
-    get_share_session_id_from_request,
+    maybe_get_share_session_id_from_request,
+    require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.generated.effective_impls import set_effective_impl_value
@@ -371,20 +372,11 @@ async def route_get_share_deployment_state(
 ) -> ProjectStateSingleConfigWithCompletedOpIds:
     _require_share_mode(state)
     _require_matching_deployment_id(state, deploymentId)
-    try:
-        share_session_id = get_share_session_id_from_request(request)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail="Missing share session id.",
-        ) from exc
-    try:
-        state.share_session_store.get_session(share_session_id)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=str(exc),
-        ) from exc
+    share_session_id = require_share_session_id(
+        state,
+        maybe_get_share_session_id_from_request(request),
+        create_session_state=False,
+    )
     project_state = state.share_project_manager.get_or_create_session_state(
         share_session_id
     )

@@ -3,8 +3,9 @@ import { FiCheck, FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { useSharePolicyFlag } from "state/hooks/share";
 import {
   route_create_view_mode,
   route_delete_view_mode,
@@ -28,9 +29,7 @@ export function ViewingEditingMode() {
         isEditingViewMode,
       };
     }, _.isEqual);
-  const allowVariantChanges = useShareSession(
-    (x) => x.sharePolicy?.allowVariantChanges ?? true,
-  );
+  const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"

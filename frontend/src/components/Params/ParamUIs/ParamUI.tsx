@@ -4,8 +4,9 @@ import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
-import { useMisc, useProjectState, useShareSession } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { useSharePolicyFlag } from "state/hooks/share";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -85,9 +86,7 @@ export function ParamUI({
   maybeErrorMessage,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const allowParamChanges = useShareSession(
-    (x) => x.sharePolicy?.allowParamChanges ?? true,
-  );
+  const allowParamChanges = useSharePolicyFlag("allowParamChanges");
   const { codeObjType, configLanguage, defaultVal, disabledOrFrozen } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(

@@ -2,13 +2,13 @@ import os
 from pathlib import Path
 from typing import TypedDict
 
-from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from setta.project_state.artifacts import ArtifactSaveResult, SaveConflictStrategy
 from setta.routers.dependencies import (
     AppStateFromRequest,
     MaybeShareSessionIdFromRequest,
+    require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.artifact import (
@@ -49,20 +49,8 @@ class UpdateArtifactsRequest(BaseModel):
 def _get_share_session_artifacts(
     state: AppStateFromRequest, share_session_id: str | None
 ):
-    if share_session_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing share session id.",
-        )
-    try:
-        state.share_session_store.get_session(share_session_id)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    state.share_project_manager.get_or_create_session_state(share_session_id)
-    return state.share_project_manager.get_session_artifacts(share_session_id)
+    session_id = require_share_session_id(state, share_session_id)
+    return state.share_project_manager.get_session_artifacts(session_id)
 
 
 def _get_artifacts(state: AppStateFromRequest, share_session_id: str | None):

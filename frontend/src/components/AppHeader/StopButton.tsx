@@ -1,12 +1,6 @@
 import { RiStopFill } from "react-icons/ri";
 import { stopCode } from "state/actions/runOrImportCode";
-import { useShareSession } from "state/definitions";
-
 export function StopButton() {
-  const allowRun = useShareSession((x) => x.sharePolicy?.allowRun ?? true);
-  if (!allowRun) {
-    return null;
-  }
   return (
     <div className="flex justify-stretch">
       <button

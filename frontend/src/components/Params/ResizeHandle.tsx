@@ -1,10 +1,8 @@
-import { useShareSession } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
 export function ResizeHandle({ showResizeHandle, onMouseDown }) {
-  const allowLayoutChanges = useShareSession(
-    (x) => x.sharePolicy?.allowLayoutChanges ?? true,
-  );
+  const allowLayoutChanges = useSharePolicyFlag("allowLayoutChanges");
   if (!allowLayoutChanges) {
     return null;
   }

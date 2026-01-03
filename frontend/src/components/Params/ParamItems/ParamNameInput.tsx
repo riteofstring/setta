@@ -7,7 +7,8 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useProjectState } from "state/definitions";
+import { useSharePolicyFlag } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   route_set_code_obj_display_name,
@@ -61,9 +62,7 @@ export function ParamNameInput({
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
-  const allowParamChanges = useShareSession(
-    (x) => x.sharePolicy?.allowParamChanges ?? true,
-  );
+  const allowParamChanges = useSharePolicyFlag("allowParamChanges");
 
   function onChange(v: string) {
     if (!allowParamChanges) {

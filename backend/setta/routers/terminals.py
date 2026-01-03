@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import HTTPException, Request, WebSocket
+from fastapi import Request, WebSocket
 from pydantic import BaseModel
 
 from setta.logging.context_bindings import bind_websocket_logging_context
@@ -9,7 +9,8 @@ from setta.routers.dependencies import (
     AppStateFromRequest,
     AppStateFromWebsocket,
     ReadyAppStateFromRequest,
-    get_share_session_id_from_request,
+    maybe_get_share_session_id_from_request,
+    require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
 from setta.share.policy import ensure_share_run_allowed, ensure_share_run_allowed_ws
@@ -130,16 +131,10 @@ async def route_run_code(
     state: ReadyAppStateFromRequest,
     request: Request,
 ):
-    share_session_id = None
-    if state.share_mode:
-        try:
-            share_session_id = get_share_session_id_from_request(request)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=400, detail="Missing share session id."
-            ) from exc
-        state.share_session_store.get_session(share_session_id)
-        state.share_project_manager.get_or_create_session_state(share_session_id)
+    share_session_id = require_share_session_id(
+        state,
+        maybe_get_share_session_id_from_request(request),
+    )
 
     await ensure_share_run_allowed(
         state,

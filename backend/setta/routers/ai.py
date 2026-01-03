@@ -5,6 +5,7 @@ from setta.logging.project_id_route import require_project_context
 from setta.routers.dependencies import (
     AppStateFromRequest,
     MaybeShareSessionIdFromRequest,
+    require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.share.policy import ensure_share_llm_allowed
@@ -52,18 +53,6 @@ class GetAIFollowSnapshotRequest(BaseModel):
     projectConfigId: ID
 
 
-def _require_share_session(
-    state: AppStateFromRequest, share_session_id: str | None
-) -> str | None:
-    if not state.share_mode:
-        return None
-    if share_session_id is None:
-        raise KeyError("Missing share session id")
-    state.share_session_store.get_session(share_session_id)
-    state.share_project_manager.get_or_create_session_state(share_session_id)
-    return share_session_id
-
-
 @router.post(Route.GET_LLM_RESPONSE)
 @require_project_context()
 async def route_get_llm_response(
@@ -71,7 +60,7 @@ async def route_get_llm_response(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> str | None:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_llm_allowed(
         state,
         project_config_id=x.projectConfigId,
@@ -104,7 +93,7 @@ async def route_get_all_llm_chat_metadata(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> list[ChatMetadata]:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,
@@ -119,7 +108,7 @@ async def route_delete_llm_chat(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> None:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,
@@ -137,7 +126,7 @@ async def route_stop_llm_chat(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> None:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_llm_allowed(
         state,
         project_config_id=None,
@@ -155,7 +144,7 @@ async def route_get_llm_chat(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> GetLLMChatRequestResponse:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_llm_allowed(
         state,
         project_config_id=x.projectConfigId,
@@ -190,7 +179,7 @@ async def route_get_ai_follow_snapshot(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
-    share_session_id = _require_share_session(state, share_session_id)
+    share_session_id = require_share_session_id(state, share_session_id)
     await ensure_share_llm_allowed(
         state,
         project_config_id=x.projectConfigId,
