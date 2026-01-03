@@ -316,11 +316,14 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
               If the share URL is blank or errors, start a share backend:
             </div>
             <code className="block whitespace-pre-wrap rounded-md bg-white/80 px-2 py-1 font-mono text-[11px] text-setta-600 dark:bg-setta-950 dark:text-setta-300">
-              SETTA_SHARE_MODE=1{" "}
+              setta --port 8001 share --project-config-name{" "}
               {publishedDeployment
-                ? `SETTA_SHARE_DEPLOYMENT_ROOT=${publishedDeployment.deploymentRoot} `
-                : "SETTA_SHARE_DEPLOYMENT_ROOT=setta_files/share_deployments/<project-config-name>/<version> "}
-              setta --port 8001
+                ? publishedDeployment.projectConfigName
+                : "<project-config-name>"}{" "}
+              --version{" "}
+              {publishedDeployment
+                ? publishedDeployment.deploymentVersion
+                : "<version>"}
             </code>
           </div>
 

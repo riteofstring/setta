@@ -3,7 +3,7 @@
 This document translates `docs/sharing-mode-plan.md` into concrete implementation
 steps based on the current code layout.
 
-Note: CLI-flag startup is planned and not implemented yet.
+Note: Share startup uses CLI flags (no env vars).
 
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
@@ -82,8 +82,7 @@ Implemented in `backend/setta/routers/share_deployments.py`.
   - Avoid any writes back to the developer workspace state.
 
 ## 3) Share runtime server/state
-Status: in progress. Env-var startup exists; CLI-flag startup + name/version
-selection are pending.
+Status: completed. CLI-flag startup + name/version selection are implemented.
 - Introduce a share mode CLI flag (no env vars) and branch in
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
@@ -93,9 +92,10 @@ selection are pending.
 - Ensure share routers are included in `backend/setta/server.py` so endpoint
   generation in `frontend/generation/convert_endpoints.py` can see them.
 Implemented:
-- Share mode flag + deployment root resolution via env vars
-  (`SETTA_SHARE_MODE`, `SETTA_SHARE_DEPLOYMENT_ROOT`)
-  wired into `backend/setta/server.py`.
+- Share mode startup via `setta share` CLI flags (`--deployment-root` or
+  `--project-config-name` + `--version`/`--latest`) wired into
+  `backend/setta/start.py` and `backend/setta/server.py`.
+- Removed share env-var startup; share mode is configured by CLI at launch.
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
   deployment root, and skips watchers/LSP boot.
@@ -103,9 +103,6 @@ Implemented:
   when `allowRun`, and share listener runtime + share websocket receivers.
 - `backend/setta/server_state.py` initializes MCP + LLM only when allowed by
   policy (and wires share chat manager accordingly).
-Pending updates (not implemented yet):
-- Replace env-var startup with CLI flags (no env vars) and add
-  `--project-config-name <name>` + `--version vN|--latest` selection.
 
 ## 4) Share project manager + per-viewer overlays
 Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, and session validation/cleanup/artifact caching are in place.
@@ -318,7 +315,7 @@ Status: partially complete. Share mode is public by default and skips auth
 checks, but filesystem endpoints still need share-safe restrictions.
 Implemented:
 - `backend/setta/server.py` skips `AuthMiddleware` when share mode is enabled
-  (currently via env vars; update to CLI flags pending).
+  (via `setta share` CLI flags).
 - Websocket auth checks are bypassed in share mode so share frontend and listener
   websockets follow the same public access policy.
 Pending updates:
@@ -421,6 +418,8 @@ Implemented:
   query handling for share sessions.
 - `tests/share/test_chat_manager.py` covers share session chat isolation.
 - `tests/llm/test_chat_store.py` covers `MemoryChatStore` persistence behavior.
+- `tests/start/test_startup_helpers.py` covers share CLI deployment root
+  resolution and version parsing.
 Pending updates:
 - Add tests that share-mode filesystem endpoints reject paths outside the share
   deployment root.
@@ -438,6 +437,3 @@ Pending updates:
 ## Next improvements
 - Dev mode: run share backend alongside IDE backend (single `pnpm start`),
   and route `/share/*` traffic + websockets to the share backend.
-- CLI: add `setta share --project-config-name <name> --version vN` and
-  `setta share --project-config-name <name> --latest` as shorthand selectors,
-  alongside deployment-root flags.

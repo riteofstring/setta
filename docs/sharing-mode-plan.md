@@ -27,7 +27,7 @@ workspace.
 - Share URLs support `/share/<project_config_name>` and
   `/share/<project_config_name>/vN` (latest resolves to the highest vN).
 
-Note: CLI-flag startup is planned and not implemented yet.
+Note: Share runtime is started via CLI flags (no env vars).
 
 ## Architecture Overview
 
@@ -197,7 +197,7 @@ Frontend:
 ## Phased Rollout
 Phase 1: Share runtime skeleton
 - Share deployment artifact format + loader.
-- Share mode CLI flags + startup path (pending implementation).
+- Share mode CLI flags + startup path.
 - Disable persistence, LSP, and watchers.
 - In-memory session store + per-viewer overlay.
 

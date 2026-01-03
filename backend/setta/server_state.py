@@ -455,7 +455,7 @@ class SettaFastAPIState:
         if not share_mode:
             return None
         if share_deployment_root is None:
-            raise ValueError("Share mode requires SETTA_SHARE_DEPLOYMENT_ROOT")
+            raise ValueError("Share mode requires a share deployment root")
         resolved = share_deployment_root.expanduser().resolve()
         if not resolved.exists():
             raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
