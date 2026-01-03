@@ -30,7 +30,6 @@ export function CustomResizable({
   bgColor,
   isYouTube,
   isActiveSection,
-  isMetaControl,
   positionAndSizeLocked,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -45,7 +44,6 @@ export function CustomResizable({
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
-      isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
@@ -66,7 +64,6 @@ function CustomResizableCore({
   bgColor,
   isYouTube,
   isActiveSection,
-  isMetaControl,
   positionAndSizeLocked,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -145,7 +142,6 @@ function CustomResizableCore({
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
-      isMetaControl={isMetaControl}
       size={size}
       minHeight={minHeight}
       maxHeight={maxHeight}
@@ -175,7 +171,6 @@ function CustomResizableSuperCore({
   bgColor,
   isYouTube,
   isActiveSection,
-  isMetaControl,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   size,
@@ -219,40 +214,6 @@ function CustomResizableSuperCore({
     isActiveSection ? "z-[150]" : "z-10"
   } ${frameClassName}`;
 
-  const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
-  const handleBaseClasses = {
-    right: handleBaseClassName,
-    bottom: handleBaseClassName,
-    bottomRight: handleBaseClassName,
-  };
-  const metaControlHandleBaseClassName =
-    "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
-  const metaControlHandleRightClassName = `${metaControlHandleBaseClassName} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
-  const metaControlHandleBottomClassName = `${metaControlHandleBaseClassName} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
-  const metaControlHandleCornerClassName = `${metaControlHandleBaseClassName} cursor-nwse-resize after:inset-1`;
-
-  let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
-  let handleClasses = handleBaseClasses;
-
-  if (isMetaControl) {
-    handleStyles = {
-      right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
-      bottom: {
-        bottom: "-8px",
-        height: 16,
-        left: 0,
-        right: 0,
-        width: "100%",
-      },
-      bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
-    };
-    handleClasses = {
-      right: `${handleBaseClassName} ${metaControlHandleRightClassName}`,
-      bottom: `${handleBaseClassName} ${metaControlHandleBottomClassName}`,
-      bottomRight: `${handleBaseClassName} ${metaControlHandleCornerClassName}`,
-    };
-  }
-
   return (
     <ResizableWithScale
       id={`${sectionId}-CustomResizable`} // IMPORTANT, used as parent for codemirror autocomplete
@@ -270,8 +231,12 @@ function CustomResizableSuperCore({
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enable}
       className={inputClasses}
-      handleStyles={handleStyles}
-      handleClasses={handleClasses}
+      handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
+      handleClasses={{
+        // used in ZoomPane to allow resizing of sections that are inside a position-locked section
+        right: `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`,
+        bottom: `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`,
+      }}
       grid={snapToGrid ? snapGrid : null}
     >
       {children}

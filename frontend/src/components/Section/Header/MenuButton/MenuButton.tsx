@@ -1,7 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
@@ -15,8 +13,6 @@ import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
-import { ToggleHeadingAsSectionName } from "./ToggleHeadingAsSectionName";
-import { ToggleMetaControlLook } from "./ToggleMetaControlLook";
 import { UngroupButton } from "./UngroupButton";
 
 function MenuButton({
@@ -30,24 +26,10 @@ function MenuButton({
 }) {
   const menuItems = getMenuItems(sectionTypeName);
   const isListElement = useIsListElement(sectionId);
-  const textBlockMetaControlStyle = useProjectState((x) => {
-    if (sectionTypeName !== SectionTypeEnum.TextBlock) {
-      return false;
-    }
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.TextBlock,
-    );
-    return impl.metaControlStyle;
-  });
 
-  const metaControlIconVisibilityClassName = textBlockMetaControlStyle
-    ? "opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto"
-    : "";
-  const iconWrapperClassName = `nodrag w-[14px] h-[14px] flex cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 ${metaControlIconVisibilityClassName}`;
+  const iconWrapperClassName = `nodrag w-[14px] h-[14px] flex cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500`;
 
-  const unClickableIconWrapperClassName = `nodrag flex select-none items-center justify-center rounded-full ${!isListElement ? "p-0.5" : "ml-1 p-0.5"} mr-1 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200 ${metaControlIconVisibilityClassName}`;
+  const unClickableIconWrapperClassName = `nodrag flex select-none items-center justify-center rounded-full ${!isListElement ? "p-0.5" : "ml-1 p-0.5"} mr-1 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200`;
 
   if (menuItems.length === 0) {
     return (
@@ -106,8 +88,6 @@ function getMenuItems(uiTypeName) {
       return [
         RenderTextBlock,
         ConvertFormat,
-        ToggleHeadingAsSectionName,
-        ToggleMetaControlLook,
         CreateNewVariantButton,
         ResetToDefaultVersion,
       ];

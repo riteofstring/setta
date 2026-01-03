@@ -14,11 +14,9 @@ export function ComboboxInput({
   bg = "bg-white dark:bg-setta-900",
   isDisabled,
   inputRef,
-  inputOuterClasses = "",
 }) {
   return (
     <StandardSearch
-      outerClasses={inputOuterClasses}
       inputStyles={`flex-grow truncate outline-0 cursor-auto ${bg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-4 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
         small ? "h-4 my-auto" : "h-7"
       }`}

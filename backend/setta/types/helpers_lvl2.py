@@ -331,7 +331,7 @@ def add_meta_control_code_obj(
         type=code_obj_type,  # type: ignore
         defaults=get_user_default_code_obj_from_settings(settings, code_obj_type),  # type: ignore
     )
-    if code_obj_impl.type == CodeObjType.SliderParam:
+    if code_obj_impl.type in (CodeObjType.SliderParam, CodeObjType.RotaryParam):
         code_obj_impl.value = convert_code_obj_value(
             code_obj_impl,
             code_obj_impl.value,
@@ -1588,19 +1588,6 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
         p.sections[sectionId].name = name
 
 
-def set_meta_control_show_section_title(
-    p: "ProjectStateSingleConfig", sectionId: ID, showSectionTitle: bool
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, MetaControlSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        MetaControlSectionImplArgsWithCallable(showSectionTitle=showSectionTitle),
-    )
-
-
 def set_text_block_display_mode(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
@@ -1610,19 +1597,6 @@ def set_text_block_display_mode(
         p,
         sectionId,
         TextBlockSectionImplArgsWithCallable(textDisplayMode=textDisplayMode),
-    )
-
-
-def set_text_block_meta_control_style(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    metaControlStyle: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(metaControlStyle=metaControlStyle),
     )
 
 

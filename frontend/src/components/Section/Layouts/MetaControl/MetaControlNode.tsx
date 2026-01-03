@@ -2,6 +2,7 @@ import {
   ConfiguredButtonInput,
   ConfiguredColorPickerInput,
   ConfiguredDropdownInput,
+  ConfiguredRotaryInput,
   ConfiguredSliderInput,
   ParamValueChange,
 } from "components/Params/ParamUIs/ConfiguredParamInputs";
@@ -9,7 +10,6 @@ import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import type { ReactNode } from "react";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
@@ -22,9 +22,7 @@ type MetaControlContentButtonProps = {
   sectionId: string;
   controlParamId: string;
   sectionName: string;
-  paramDisplayName: string;
   codeObjType: CodeObjTypeEnum.ButtonParam;
-  showSectionTitle: boolean;
   onAction: () => void;
 };
 
@@ -32,16 +30,9 @@ type MetaControlContentValueProps = {
   sectionId: string;
   controlParamId: string;
   sectionName: string;
-  paramDisplayName: string;
-  codeObjType: Exclude<
-    CodeObjType,
-    | CodeObjTypeEnum.ButtonParam
-    | CodeObjTypeEnum.TextAreaParam
-    | CodeObjTypeEnum.RotaryParam
-  >;
+  codeObjType: Exclude<CodeObjType, CodeObjTypeEnum.ButtonParam>;
   value: string;
   defaultVal: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 };
 
@@ -55,8 +46,6 @@ export function MetaControlContent(props: MetaControlContentProps) {
       <ButtonControl
         sectionId={props.sectionId}
         controlParamId={props.controlParamId}
-        sectionName={props.sectionName}
-        showSectionTitle={props.showSectionTitle}
         onAction={props.onAction}
       />
     );
@@ -67,11 +56,9 @@ export function MetaControlContent(props: MetaControlContentProps) {
     controlParamId,
     codeObjType,
     sectionName,
-    paramDisplayName,
     value,
     defaultVal,
     onValueChange,
-    showSectionTitle,
   } = props;
 
   switch (codeObjType) {
@@ -80,10 +67,8 @@ export function MetaControlContent(props: MetaControlContentProps) {
         <TextInputControl
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           value={value}
           defaultVal={defaultVal}
-          showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
           language="python"
           singleLine={true}
@@ -94,13 +79,24 @@ export function MetaControlContent(props: MetaControlContentProps) {
         <TextInputControl
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           value={value}
           defaultVal={defaultVal}
-          showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
           language="python"
           singleLine={false}
+        />
+      );
+    case CodeObjTypeEnum.TextAreaParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          value={value}
+          defaultVal={defaultVal}
+          onValueChange={onValueChange}
+          language="markdown"
+          singleLine={false}
+          minHeightClassName="min-h-[96px]"
         />
       );
     case CodeObjTypeEnum.SliderParam:
@@ -108,9 +104,16 @@ export function MetaControlContent(props: MetaControlContentProps) {
         <SliderControl
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           value={value}
-          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <RotaryControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          value={value}
           onValueChange={onValueChange}
         />
       );
@@ -118,9 +121,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
       return (
         <SwitchControl
           sectionName={sectionName}
-          controlLabel={paramDisplayName}
           value={value}
-          showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
         />
       );
@@ -129,9 +130,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
         <ColorControl
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           value={value}
-          showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
         />
       );
@@ -140,30 +139,14 @@ export function MetaControlContent(props: MetaControlContentProps) {
         <DropdownControl
           sectionId={sectionId}
           controlParamId={controlParamId}
-          sectionName={sectionName}
           value={value}
-          showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
         />
       );
     case CodeObjTypeEnum.PasswordParam:
-      return (
-        <PasswordControl
-          sectionName={sectionName}
-          value={value}
-          showSectionTitle={showSectionTitle}
-          onValueChange={onValueChange}
-        />
-      );
+      return <PasswordControl value={value} onValueChange={onValueChange} />;
     case CodeObjTypeEnum.DropzoneParam:
-      return (
-        <DropzoneControl
-          sectionName={sectionName}
-          value={value}
-          showSectionTitle={showSectionTitle}
-          onValueChange={onValueChange}
-        />
-      );
+      return <DropzoneInput value={value} onChange={onValueChange} />;
     default:
       return null;
   }
@@ -172,40 +155,28 @@ export function MetaControlContent(props: MetaControlContentProps) {
 function ButtonControl({
   sectionId,
   controlParamId,
-  sectionName,
-  showSectionTitle,
   onAction,
 }: {
   sectionId: string;
   controlParamId: string;
-  sectionName: string;
-  showSectionTitle: boolean;
   onAction: () => void;
 }) {
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-stretch"
-    >
-      <ConfiguredButtonInput
-        sectionId={sectionId}
-        paramInfoId={controlParamId}
-        onClick={onAction}
-        wrapperClassName="flex h-full w-full items-stretch"
-        buttonClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex h-full min-h-8 w-full items-center justify-center rounded-lg border border-setta-600 bg-setta-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:border-setta-700 hover:bg-setta-700 active:translate-y-[2px] active:scale-[0.96] active:bg-setta-700 active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-setta-500 dark:bg-setta-700 dark:text-setta-50 dark:hover:border-setta-400 dark:hover:bg-setta-600 dark:active:bg-setta-600 cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60`}
-      />
-    </MetaControlTitleStack>
+    <ConfiguredButtonInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      onClick={onAction}
+      wrapperClassName="flex w-full items-center justify-center"
+      buttonClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex h-8 min-w-[120px] items-center justify-center rounded-lg border border-setta-600 bg-setta-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:border-setta-700 hover:bg-setta-700 active:translate-y-[2px] active:scale-[0.96] active:bg-setta-700 active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-setta-500 dark:bg-setta-700 dark:text-setta-50 dark:hover:border-setta-400 dark:hover:bg-setta-600 dark:active:bg-setta-600 cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60`}
+    />
   );
 }
 
 function TextInputControl({
   sectionId,
   controlParamId,
-  sectionName,
   value,
   defaultVal,
-  showSectionTitle,
   onValueChange,
   language,
   singleLine,
@@ -213,57 +184,45 @@ function TextInputControl({
 }: {
   sectionId: string;
   controlParamId: string;
-  sectionName: string;
   value: string;
   defaultVal: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
   language: "python" | "markdown";
   singleLine: boolean;
   minHeightClassName?: string;
 }) {
-  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-container h-full min-h-0 w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200`;
+  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-container w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200`;
   const sizeClassName = minHeightClassName ? ` ${minHeightClassName}` : "";
-  const inputClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child section-value block h-full w-full min-w-0 break-words px-3 py-2 leading-[1.4] cursor-text select-text${sizeClassName}`;
+  const inputClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child section-value block w-full min-w-0 break-words px-3 py-2 leading-[1.4] cursor-text select-text${sizeClassName}`;
   const realInputClassName = `${inputClassName} [&_*]:!outline-0 [&_.cm-content]:!px-0 [&_.cm-content]:!py-0 [&_.cm-line]:!px-0`;
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-stretch"
-    >
-      <div className={wrapperClassName}>
-        <TextInputCodeMirror
-          dummyDivId={`${sectionId}-${controlParamId}-MetaControl`}
-          sectionId={sectionId}
-          paramInfoId={controlParamId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onValueChange}
-          dummyCodeClassName={inputClassName}
-          realCodeClassName={realInputClassName}
-          language={language}
-          singleLine={singleLine}
-          autocomplete={false}
-        />
-      </div>
-    </MetaControlTitleStack>
+    <div className={wrapperClassName}>
+      <TextInputCodeMirror
+        dummyDivId={`${sectionId}-${controlParamId}-MetaControl`}
+        sectionId={sectionId}
+        paramInfoId={controlParamId}
+        value={value}
+        defaultVal={defaultVal}
+        onChange={onValueChange}
+        dummyCodeClassName={inputClassName}
+        realCodeClassName={realInputClassName}
+        language={language}
+        singleLine={singleLine}
+        autocomplete={false}
+      />
+    </div>
   );
 }
 
 function SliderControl({
   sectionId,
   controlParamId,
-  sectionName,
   value,
-  showSectionTitle,
   onValueChange,
 }: {
   sectionId: string;
   controlParamId: string;
-  sectionName: string;
   value: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
   const sliderRootClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
@@ -272,223 +231,134 @@ function SliderControl({
   const sliderThumbClassName = `${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
 
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-center"
-    >
-      <ConfiguredSliderInput
-        sectionId={sectionId}
-        paramInfoId={controlParamId}
-        value={value}
-        onChange={onValueChange}
-        wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`}
-        sliderRootClassName={sliderRootClassName}
-        sliderTrackClassName={sliderTrackClassName}
-        sliderRangeClassName={sliderRangeClassName}
-        sliderThumbClassName={sliderThumbClassName}
-        textInputClassName="hidden"
-      />
-    </MetaControlTitleStack>
+    <ConfiguredSliderInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      value={value}
+      onChange={onValueChange}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`}
+      sliderRootClassName={sliderRootClassName}
+      sliderTrackClassName={sliderTrackClassName}
+      sliderRangeClassName={sliderRangeClassName}
+      sliderThumbClassName={sliderThumbClassName}
+      textInputClassName="hidden"
+    />
+  );
+}
+
+function RotaryControl({
+  sectionId,
+  controlParamId,
+  value,
+  onValueChange,
+}: {
+  sectionId: string;
+  controlParamId: string;
+  value: string;
+  onValueChange: ParamValueChange;
+}) {
+  return (
+    <ConfiguredRotaryInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      value={value}
+      onChange={onValueChange}
+    />
   );
 }
 
 function SwitchControl({
   sectionName,
-  controlLabel,
   value,
-  showSectionTitle,
   onValueChange,
 }: {
   sectionName: string;
-  controlLabel: string;
   value: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
-  const trimmedLabel = controlLabel.trim();
-  const showControlLabel = trimmedLabel.length > 0;
+  const isOn = value === "true";
 
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      containerClassName="@container/meta-switch"
-      titleClassName="hidden @[140px]/meta-switch:block"
-      contentClassName="items-center justify-between gap-3"
-    >
-      {showControlLabel && (
-        <span
-          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} min-w-0 truncate text-xs font-semibold text-setta-700 dark:text-setta-300`}
-        >
-          {trimmedLabel}
+    <div className="flex w-full items-center justify-between gap-3">
+      <div className="flex flex-col">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
+          {sectionName}
         </span>
-      )}
+        <span className="font-mono text-xs text-setta-700 dark:text-setta-200">
+          {isOn ? "On" : "Off"}
+        </span>
+      </div>
       <SwitchInput
         value={value}
         onChange={onValueChange}
         outerDivClassName={`${NO_DRAG_CLASS_NAME} section-value flex justify-self-start self-center`}
       />
-    </MetaControlTitleStack>
+    </div>
   );
 }
 
 function ColorControl({
   sectionId,
   controlParamId,
-  sectionName,
   value,
-  showSectionTitle,
   onValueChange,
 }: {
   sectionId: string;
   controlParamId: string;
-  sectionName: string;
   value: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-stretch"
-    >
-      <ConfiguredColorPickerInput
-        sectionId={sectionId}
-        paramInfoId={controlParamId}
-        value={value}
-        onChange={onValueChange}
-        wrapperClassName={`${NO_DRAG_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
-        colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
-      />
-    </MetaControlTitleStack>
+    <ConfiguredColorPickerInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      value={value}
+      onChange={onValueChange}
+      wrapperClassName={`${NO_DRAG_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
+      colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+    />
   );
 }
 
 function DropdownControl({
   sectionId,
   controlParamId,
-  sectionName,
   value,
-  showSectionTitle,
   onValueChange,
 }: {
   sectionId: string;
   controlParamId: string;
-  sectionName: string;
   value: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-center"
-    >
-      <ConfiguredDropdownInput
-        sectionId={sectionId}
-        paramInfoId={controlParamId}
-        value={value}
-        onChange={onValueChange}
-        outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-start`}
-        inputOuterClasses="!mx-0"
-        placeholder="Choose"
-      />
-    </MetaControlTitleStack>
+    <ConfiguredDropdownInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      value={value}
+      onChange={onValueChange}
+      outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center [&_search]:my-auto`}
+      placeholder="Choose"
+    />
   );
 }
 
 function PasswordControl({
-  sectionName,
   value,
-  showSectionTitle,
   onValueChange,
 }: {
-  sectionName: string;
   value: string;
-  showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
   return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-stretch"
-    >
-      <div className="single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto]">
-        <PasswordInput
-          className={`${NO_DRAG_CLASS_NAME} single-cell-child flex h-full w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
-          value={value}
-          onChange={onValueChange}
-          gridArea="single-cell-child"
-        />
-        <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
-      </div>
-    </MetaControlTitleStack>
-  );
-}
-
-function DropzoneControl({
-  sectionName,
-  value,
-  showSectionTitle,
-  onValueChange,
-}: {
-  sectionName: string;
-  value: string;
-  showSectionTitle: boolean;
-  onValueChange: ParamValueChange;
-}) {
-  return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-stretch"
-    >
-      <DropzoneInput value={value} onChange={onValueChange} />
-    </MetaControlTitleStack>
-  );
-}
-
-function MetaControlTitleStack({
-  showSectionTitle,
-  sectionName,
-  children,
-  containerClassName,
-  contentClassName,
-  titleClassName,
-}: {
-  showSectionTitle: boolean;
-  sectionName: string;
-  children: ReactNode;
-  containerClassName?: string;
-  contentClassName?: string;
-  titleClassName?: string;
-}) {
-  const showTitle = showSectionTitle && sectionName.trim().length > 0;
-  const baseContainerClassName =
-    "relative h-full w-full min-h-0 min-w-0";
-  const containerClassNameToUse = `${baseContainerClassName} ${
-    containerClassName ?? ""
-  }`;
-  const contentClassNameToUse = `flex h-full w-full min-h-0 min-w-0 ${
-    contentClassName ?? ""
-  }`;
-
-  return (
-    <div className={containerClassNameToUse}>
-      {showTitle && (
-        <span
-          className={`pointer-events-none absolute left-0 top-0 z-10 -translate-y-full truncate text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400 ${
-            titleClassName ?? ""
-          }`}
-        >
-          {sectionName}
-        </span>
-      )}
-      <div className={contentClassNameToUse}>{children}</div>
+    <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
+      <PasswordInput
+        className={`${NO_DRAG_CLASS_NAME} single-cell-child flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
+        value={value}
+        onChange={onValueChange}
+        gridArea="single-cell-child"
+      />
+      <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
     </div>
   );
 }
