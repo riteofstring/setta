@@ -83,6 +83,9 @@ async def _require_share_session_id(
 ) -> str | None:
     if not state.share_mode:
         return None
+    if not state.share_project_manager or not state.share_session_store:
+        await _close_with_code(websocket, 4404)
+        return None
     share_session_id = maybe_get_share_session_id_from_websocket(websocket)
     if share_session_id is None:
         await _close_with_code(websocket, 4400)

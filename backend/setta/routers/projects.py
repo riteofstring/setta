@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
@@ -14,7 +14,15 @@ from setta.types.notifications import (
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
 
-router = SettaProjectContextAPIRouter()
+def _require_ide_mode(state: AppStateFromRequest) -> None:
+    if state.share_mode:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project management endpoints are not available in share mode.",
+        )
+
+
+router = SettaProjectContextAPIRouter(dependencies=[Depends(_require_ide_mode)])
 
 
 class ProjectLoadRequest(BaseModel):

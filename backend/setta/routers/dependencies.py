@@ -78,6 +78,11 @@ def require_share_session_id(
 ) -> str | None:
     if not state.share_mode:
         return None
+    if not state.share_project_manager:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Share deployment is not configured.",
+        )
     if share_session_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

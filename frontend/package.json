@@ -83,6 +83,7 @@
   },
   "scripts": {
     "start": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh\"",
+    "starts": "concurrently --kill-others \"VITE_SHARE_BACKEND_PORT=8001 vite\" \"bash ./backendStart.sh\" \"bash ./shareBackendStart.sh\"",
     "startr": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh --reload\"",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",

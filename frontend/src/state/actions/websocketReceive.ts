@@ -12,6 +12,7 @@ import {
 } from "state/actions/websocketConnectionList";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
+import { getWebsocketBase } from "utils/backendRouting";
 import { res200 } from "utils/endpointUtils";
 import {
   route_get_backend_init_status,
@@ -87,11 +88,12 @@ export const openWebSocket = _.debounce(
     const route = isShareMode
       ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
       : RouteEnum.WEBSOCKET_FRONTEND;
+    const websocketBase = getWebsocketBase(isShareMode);
     const targetUrl = isShareMode
-      ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
+      ? `${websocketBase}${route}?shareSessionId=${encodeURIComponent(
           shareSessionId ?? "",
         )}`
-      : `${C_ADDRESSES.WEBSOCKET}${route}`;
+      : `${websocketBase}${route}`;
     if (
       wss &&
       (currentRoute !== route || currentShareSessionId !== shareSessionId)

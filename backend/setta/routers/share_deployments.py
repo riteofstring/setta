@@ -350,8 +350,10 @@ def route_list_share_deployments() -> list[ShareDeploymentMetadata]:
 async def route_create_share_session(
     deploymentId: str,
     state: AppStateFromRequest,
+    request: Request,
 ) -> ShareDeploymentSessionResponse:
     _require_share_mode(state)
+    await state.ensure_share_runtime_loaded(request.app, deploymentId)
     _require_matching_deployment_id(state, deploymentId)
     session = state.share_session_store.create_session()
     state.share_project_manager.create_session_state(session.id)
@@ -371,6 +373,7 @@ async def route_get_share_deployment_state(
     request: Request,
 ) -> ProjectStateSingleConfigWithCompletedOpIds:
     _require_share_mode(state)
+    await state.ensure_share_runtime_loaded(request.app, deploymentId)
     _require_matching_deployment_id(state, deploymentId)
     share_session_id = require_share_session_id(
         state,

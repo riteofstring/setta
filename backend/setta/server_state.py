@@ -2,6 +2,8 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from fastapi import FastAPI, HTTPException
+
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -106,11 +108,10 @@ class SettaFastAPIState:
             None if self.share_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
+        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         if self.share_mode:
-            self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
         else:
-            self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
 
@@ -160,6 +161,7 @@ class SettaFastAPIState:
                 f"Simulating slow init (+{C.BACKEND_INIT_DELAY_SECONDS:.1f}s per step)"
             )
         self._ready_event: asyncio.Event = asyncio.Event()
+        self._share_runtime_lock: asyncio.Lock = asyncio.Lock()
 
         loop = asyncio.get_running_loop()
         self._initialization_task = spawn_background_task(
@@ -319,6 +321,22 @@ class SettaFastAPIState:
             raise
 
     async def _initialize_share_async(self, app) -> None:
+        self.init_status.record("Loading share deployment")
+        await self._maybe_delay()
+        self.share_session_store = MemorySessionStore(
+            ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
+        )
+        if self.share_deployment_root is None:
+            self.init_status.record("Share backend idle (no deployment configured)")
+            self._ready_event.set()
+            self.init_status.mark_ready()
+            return
+        self._initialize_share_runtime(app)
+        self._ready_event.set()
+        self.init_status.record("Share backend ready")
+        self.init_status.mark_ready()
+
+    def _initialize_share_runtime(self, app: FastAPI) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -326,19 +344,13 @@ class SettaFastAPIState:
             WMHPythonScriptReceiver,
         )
 
-        self.init_status.record("Loading share deployment")
-        await self._maybe_delay()
         if self.share_deployment_root is None:
-            raise ValueError("Share deployment root must be set in share mode")
-        self.share_session_store = MemorySessionStore(
-            ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
-        )
+            raise RuntimeError("Share deployment root missing during initialization.")
         self.share_project_manager = ShareProjectManager(
             self.dbe,
             self.share_deployment_root,
             self.wmh_frontend_sender,
         )
-        self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
         self.project_manager_switcher = ShareSessionProjectManagerSwitcher(
             self.share_project_manager,
             self.settings_file,
@@ -432,10 +444,64 @@ class SettaFastAPIState:
             label="share-session-cleanup",
             extra_values={"deployment_id": self.share_project_manager.deployment_id},
         )
-        self._ready_event.set()
-        self.init_status.record("Share backend ready")
-        self.init_status.mark_ready()
 
+    async def ensure_share_runtime_loaded(
+        self, app: FastAPI, deployment_id: str
+    ) -> None:
+        if not self.share_mode:
+            return
+        if self.share_project_manager:
+            if self.share_project_manager.deployment_id != deployment_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Share deployment not found: {deployment_id}",
+                )
+            return
+        async with self._share_runtime_lock:
+            if self.share_project_manager:
+                if self.share_project_manager.deployment_id != deployment_id:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Share deployment not found: {deployment_id}",
+                    )
+                return
+            if C.SHARE_DEPLOYMENT_ID and deployment_id != C.SHARE_DEPLOYMENT_ID:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Share deployment not found: {deployment_id}",
+                )
+            if self.share_deployment_root is None:
+                deployment_root = (
+                    C.SHARE_DEPLOYMENTS_FOLDER / deployment_id
+                ).expanduser()
+                if not deployment_root.exists():
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Share deployment not found: {deployment_id}",
+                    )
+                project_path = deployment_root / "project.json"
+                if not project_path.exists():
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Share deployment missing project.json: {project_path}",
+                    )
+                self.share_deployment_root = deployment_root.resolve()
+                self.dbe = DBE(self.share_deployment_root)
+                self.settings_file = SettingsFile(
+                    self.dbe, self.wmh_frontend_sender
+                )
+            else:
+                expected_id = C.SHARE_DEPLOYMENT_ID or self.share_deployment_root.name
+                if deployment_id != expected_id:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Share deployment not found: {deployment_id}",
+                    )
+            if not self.share_session_store:
+                self.share_session_store = MemorySessionStore(
+                    ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
+                )
+            self._initialize_share_runtime(app)
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
@@ -446,10 +512,19 @@ class SettaFastAPIState:
         if not share_mode:
             return None
         if share_deployment_root is None:
-            raise ValueError(
-                "Share mode requires SETTA_SHARE_DEPLOYMENT_ROOT or "
-                "SETTA_SHARE_DEPLOYMENT_ID"
-            )
+            deployments_root = C.SHARE_DEPLOYMENTS_FOLDER
+            if deployments_root.exists():
+                candidates = [path for path in deployments_root.iterdir() if path.is_dir()]
+            else:
+                candidates = []
+            if candidates:
+                share_deployment_root = max(
+                    candidates, key=lambda path: path.stat().st_mtime
+                )
+            else:
+                return None
+        if share_deployment_root is None:
+            return None
         resolved = share_deployment_root.expanduser().resolve()
         if not resolved.exists():
             raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
