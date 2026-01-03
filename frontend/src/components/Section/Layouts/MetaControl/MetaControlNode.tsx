@@ -2,6 +2,7 @@ import {
   ConfiguredButtonInput,
   ConfiguredColorPickerInput,
   ConfiguredDropdownInput,
+  ConfiguredRotaryInput,
   ConfiguredSliderInput,
   ParamValueChange,
 } from "components/Params/ParamUIs/ConfiguredParamInputs";
@@ -29,12 +30,7 @@ type MetaControlContentValueProps = {
   sectionId: string;
   controlParamId: string;
   sectionName: string;
-  codeObjType: Exclude<
-    CodeObjType,
-    | CodeObjTypeEnum.ButtonParam
-    | CodeObjTypeEnum.TextAreaParam
-    | CodeObjTypeEnum.RotaryParam
-  >;
+  codeObjType: Exclude<CodeObjType, CodeObjTypeEnum.ButtonParam>;
   value: string;
   defaultVal: string;
   onValueChange: ParamValueChange;
@@ -90,9 +86,31 @@ export function MetaControlContent(props: MetaControlContentProps) {
           singleLine={false}
         />
       );
+    case CodeObjTypeEnum.TextAreaParam:
+      return (
+        <TextInputControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          value={value}
+          defaultVal={defaultVal}
+          onValueChange={onValueChange}
+          language="markdown"
+          singleLine={false}
+          minHeightClassName="min-h-[96px]"
+        />
+      );
     case CodeObjTypeEnum.SliderParam:
       return (
         <SliderControl
+          sectionId={sectionId}
+          controlParamId={controlParamId}
+          value={value}
+          onValueChange={onValueChange}
+        />
+      );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <RotaryControl
           sectionId={sectionId}
           controlParamId={controlParamId}
           value={value}
@@ -224,6 +242,27 @@ function SliderControl({
       sliderRangeClassName={sliderRangeClassName}
       sliderThumbClassName={sliderThumbClassName}
       textInputClassName="hidden"
+    />
+  );
+}
+
+function RotaryControl({
+  sectionId,
+  controlParamId,
+  value,
+  onValueChange,
+}: {
+  sectionId: string;
+  controlParamId: string;
+  value: string;
+  onValueChange: ParamValueChange;
+}) {
+  return (
+    <ConfiguredRotaryInput
+      sectionId={sectionId}
+      paramInfoId={controlParamId}
+      value={value}
+      onChange={onValueChange}
     />
   );
 }

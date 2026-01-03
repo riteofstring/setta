@@ -331,7 +331,7 @@ def add_meta_control_code_obj(
         type=code_obj_type,  # type: ignore
         defaults=get_user_default_code_obj_from_settings(settings, code_obj_type),  # type: ignore
     )
-    if code_obj_impl.type == CodeObjType.SliderParam:
+    if code_obj_impl.type in (CodeObjType.SliderParam, CodeObjType.RotaryParam):
         code_obj_impl.value = convert_code_obj_value(
             code_obj_impl,
             code_obj_impl.value,

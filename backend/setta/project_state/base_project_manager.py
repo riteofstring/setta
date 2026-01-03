@@ -150,6 +150,10 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
+from setta.share.policy import (
+    ensure_share_listener_emits_allowed,
+    load_share_policy_from_dbe,
+)
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -252,7 +256,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     SectionType,
 )
-from setta.types.settings_state import RenameRefactorMode
+from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -553,12 +557,20 @@ class BaseProjectManager(ABC):
                 raise KeyError(
                     f"Missing generated code for project config {projectConfigId}"
                 )
-            target_folder = create_timestamped_folder(C.CODE_FOLDER)
-            gen_code_path = gen_code.write_to_folder(target_folder)
-
-            code_paths = {}
-            for sid, c in code_entries.items():
-                code_paths[sid] = c.write_to_folder(target_folder)
+            run_snapshot_mode = self.settings_file.settings.backend.runSnapshotMode
+            if run_snapshot_mode == RunSnapshotMode.never:
+                gen_code_path = gen_code.get_gen_python_code_path()
+                code_paths = {
+                    sid: c.binding.canonical_path for sid, c in code_entries.items()
+                }
+            else:
+                target_folder = create_timestamped_folder(
+                    self._resolve_run_snapshot_root(run_snapshot_mode)
+                )
+                gen_code_path = gen_code.write_to_folder(target_folder)
+                code_paths = {}
+                for sid, c in code_entries.items():
+                    code_paths[sid] = c.write_to_folder(target_folder)
 
             if not sectionId:
                 sectionId = self.project_state_backend.projectConfigs[
@@ -568,6 +580,13 @@ class BaseProjectManager(ABC):
             if sectionId:
                 return code_entries[sectionId].get_run_command(code_paths[sectionId])
             return gen_code.get_run_command(gen_code_path)
+
+    def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
+        if run_snapshot_mode == RunSnapshotMode.ephemeral:
+            return C.RUN_FOLDER
+        if run_snapshot_mode == RunSnapshotMode.always:
+            return C.CODE_FOLDER
+        raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
@@ -1652,6 +1671,15 @@ class BaseProjectManager(ABC):
     ) -> None:
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")
+
+        if C.SHARE_MODE:
+            policy = load_share_policy_from_dbe(self.dbe)
+            await ensure_share_listener_emits_allowed(
+                share_mode=C.SHARE_MODE,
+                policy=policy,
+                frontend_sender=self.websocket_msg_handler,
+                project_config_id=projectConfigId,
+            )
 
         project_state = self.get_single_config_state(projectConfigId)
         artifact_payloads: list[BaseArtifactUnion] = []

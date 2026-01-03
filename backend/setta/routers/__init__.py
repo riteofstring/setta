@@ -9,6 +9,7 @@ from .project_manager import router as project_manager_router
 from .projects import router as projects_router
 from .sections import router as sections_router
 from .settings import router as settings_router
+from .share_deployments import router as share_deployments_router
 from .status import router as status_router
 from .terminals import terminals_http_router, terminals_ws_router
 from .websocket import router as websocket_router

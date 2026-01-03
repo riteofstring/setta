@@ -71,16 +71,37 @@ const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
+let lastPathname: string | null = null;
+let lastShareSessionId: string | null = null;
+let currentShareSessionId: string | null = null;
+let currentRoute: string | null = null;
 
 export const openWebSocket = _.debounce(
-  (pathname: string) => {
+  (pathname: string, shareSessionId: string | null = null) => {
     if (authLost) {
       return;
     }
+    lastPathname = pathname;
+    lastShareSessionId = shareSessionId;
+    const isShareMode = Boolean(shareSessionId);
+    const route = isShareMode
+      ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
+      : RouteEnum.WEBSOCKET_FRONTEND;
+    const targetUrl = isShareMode
+      ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
+          shareSessionId ?? "",
+        )}`
+      : `${C_ADDRESSES.WEBSOCKET}${route}`;
+    if (
+      wss &&
+      (currentRoute !== route || currentShareSessionId !== shareSessionId)
+    ) {
+      closeWebSocket();
+    }
     if (!wss) {
-      wss = new WebSocket(
-        `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
-      );
+      wss = new WebSocket(targetUrl);
+      currentShareSessionId = shareSessionId;
+      currentRoute = route;
       wss.addEventListener("open", async () => {
         sendCurrentAddress(pathname);
         addTemporaryNotification("Connected to server");
@@ -89,17 +110,20 @@ export const openWebSocket = _.debounce(
             id: "main",
             connectionType: WebsocketConnectionTypeEnum.SERVER,
             currentAddress: pathname,
+            shareSessionId,
           }),
         );
         wasOpen = true;
-        const projectConfigId = getCurrProjectConfigId();
-        if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
-          const res = await route_get_latest_project_state({
-            projectConfigId: getCurrProjectConfigId(),
-          });
-          if (res200(res)) {
-            processProjectStateUpdateFromBackend(res.data);
-            await requestAIFollowSnapshot(projectConfigId);
+        if (!isShareMode) {
+          const projectConfigId = getCurrProjectConfigId();
+          if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
+            const res = await route_get_latest_project_state({
+              projectConfigId: getCurrProjectConfigId(),
+            });
+            if (res200(res)) {
+              processProjectStateUpdateFromBackend(res.data);
+              await requestAIFollowSnapshot(projectConfigId);
+            }
           }
         }
       });
@@ -112,6 +136,8 @@ export const openWebSocket = _.debounce(
 
       wss.addEventListener("close", (event: CloseEvent) => {
         wss = null;
+        currentShareSessionId = null;
+        currentRoute = null;
         if (event.code === AUTH_CLOSE_CODE) {
           authLost = true;
           wasOpen = false;
@@ -129,7 +155,7 @@ export const openWebSocket = _.debounce(
         clearAllWebsocketConnections();
         // Attempt to reconnect
         setTimeout(() => {
-          openWebSocket(pathname);
+          openWebSocket(pathname, shareSessionId);
         }, 3000);
       });
     }
@@ -169,7 +195,7 @@ async function attemptAuthRecovery(pathname: string) {
   if (res200(res)) {
     authLost = false;
     clearAuthRecoveryTimer();
-    openWebSocket(pathname);
+    openWebSocket(lastPathname ?? pathname, lastShareSessionId);
     return;
   }
   scheduleAuthRecovery(pathname);
