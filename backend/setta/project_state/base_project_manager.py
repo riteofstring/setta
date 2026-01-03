@@ -115,6 +115,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
@@ -129,6 +130,7 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
@@ -150,10 +152,6 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.share.policy import (
-    ensure_share_listener_emits_allowed,
-    load_share_policy_from_dbe,
-)
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -203,6 +201,7 @@ from setta.types.helpers_lvl2 import (
     set_code_file_binding,
     set_default_section_variant,
     set_image_area_image_path,
+    set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -216,6 +215,7 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
+    set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
     toggle_group_orientation,
@@ -256,7 +256,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     SectionType,
 )
-from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.settings_state import RenameRefactorMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -557,20 +557,12 @@ class BaseProjectManager(ABC):
                 raise KeyError(
                     f"Missing generated code for project config {projectConfigId}"
                 )
-            run_snapshot_mode = self.settings_file.settings.backend.runSnapshotMode
-            if run_snapshot_mode == RunSnapshotMode.never:
-                gen_code_path = gen_code.get_gen_python_code_path()
-                code_paths = {
-                    sid: c.binding.canonical_path for sid, c in code_entries.items()
-                }
-            else:
-                target_folder = create_timestamped_folder(
-                    self._resolve_run_snapshot_root(run_snapshot_mode)
-                )
-                gen_code_path = gen_code.write_to_folder(target_folder)
-                code_paths = {}
-                for sid, c in code_entries.items():
-                    code_paths[sid] = c.write_to_folder(target_folder)
+            target_folder = create_timestamped_folder(C.CODE_FOLDER)
+            gen_code_path = gen_code.write_to_folder(target_folder)
+
+            code_paths = {}
+            for sid, c in code_entries.items():
+                code_paths[sid] = c.write_to_folder(target_folder)
 
             if not sectionId:
                 sectionId = self.project_state_backend.projectConfigs[
@@ -580,13 +572,6 @@ class BaseProjectManager(ABC):
             if sectionId:
                 return code_entries[sectionId].get_run_command(code_paths[sectionId])
             return gen_code.get_run_command(gen_code_path)
-
-    def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
-        if run_snapshot_mode == RunSnapshotMode.ephemeral:
-            return C.RUN_FOLDER
-        if run_snapshot_mode == RunSnapshotMode.always:
-            return C.CODE_FOLDER
-        raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
@@ -1586,9 +1571,35 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_meta_control_show_section_title(
+        self, x: SetMetaControlShowSectionTitleRequest
+    ):
+        """Toggle meta control title visibility and broadcast the updated project state."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_meta_control_show_section_title(
+            project_state, x.sectionId, x.showSectionTitle
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_text_block_meta_control_style(
+        self, x: SetTextBlockMetaControlStyleRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_meta_control_style(
+            project_state, x.sectionId, x.metaControlStyle
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1671,15 +1682,6 @@ class BaseProjectManager(ABC):
     ) -> None:
         if not dependency_updates and not artifact_updates:
             raise ValueError("listener emits require dependency or artifact updates")
-
-        if C.SHARE_MODE:
-            policy = load_share_policy_from_dbe(self.dbe)
-            await ensure_share_listener_emits_allowed(
-                share_mode=C.SHARE_MODE,
-                policy=policy,
-                frontend_sender=self.websocket_msg_handler,
-                project_config_id=projectConfigId,
-            )
 
         project_state = self.get_single_config_state(projectConfigId)
         artifact_payloads: list[BaseArtifactUnion] = []

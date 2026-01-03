@@ -25,7 +25,7 @@ import {
 } from "utils/generatedTypes";
 
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
-  const { controlParamId } = useProjectState((x) => {
+  const { controlParamId, showSectionTitle } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -33,6 +33,7 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     );
     return {
       controlParamId: impl.metaControlParamId,
+      showSectionTitle: impl.showSectionTitle ?? false,
     };
   }, _.isEqual);
 
@@ -44,6 +45,7 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     <MetaControlValueArea
       sectionId={sectionId}
       controlParamId={controlParamId}
+      showSectionTitle={showSectionTitle}
     />
   );
 }
@@ -51,9 +53,11 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
 function MetaControlValueArea({
   sectionId,
   controlParamId,
+  showSectionTitle,
 }: {
   sectionId: string;
   controlParamId: string;
+  showSectionTitle: boolean;
 }) {
   const { codeObjType, baseValue, defaultVal, sectionName } = useProjectState(
     (x) => {
@@ -139,6 +143,7 @@ function MetaControlValueArea({
           sectionName={sectionName}
           codeObjType={codeObjType}
           onAction={handleAction}
+          showSectionTitle={showSectionTitle}
         />
       ) : (
         <MetaControlContent
@@ -149,6 +154,7 @@ function MetaControlValueArea({
           value={value}
           defaultVal={defaultVal}
           onValueChange={handleValueChange}
+          showSectionTitle={showSectionTitle}
         />
       )}
     </div>
