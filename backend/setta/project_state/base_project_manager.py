@@ -707,7 +707,8 @@ class BaseProjectManager(ABC):
             )
             if not new_gen_code.binding.canonical_path.exists():
                 new_gen_code.write_to_disk(new_gen_code.code)
-            await new_gen_code.sync_lsp(new_gen_code.code)
+            if self.lsp_writers.full is not None:
+                await new_gen_code.sync_lsp(new_gen_code.code)
             maybe_update_gen_python_code_section(
                 projectState, new_gen_code.generated_code
             )
@@ -731,7 +732,8 @@ class BaseProjectManager(ABC):
 
                     if not section_code.binding.canonical_path.exists():
                         section_code.write_to_disk(section_code.code)
-                    await section_code.sync_lsp(section_code.code)
+                    if self.lsp_writers.full is not None:
+                        await section_code.sync_lsp(section_code.code)
                     self.code_dict[projectConfigId][sectionId] = section_code
 
             self.project_state_backend = self.get_new_project_state_backend(

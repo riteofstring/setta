@@ -355,14 +355,19 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   const theme = useCodeMirrorStyle();
 
   const isShareMode = useShareSession((state) => state.isShareMode);
+  const allowParamChanges = useSharePolicyFlag("allowParamChanges", true);
   const allowLsp = useSharePolicyFlag("allowLSP", true);
   const lspEnabled = !isShareMode || allowLsp;
+  const isShareReadOnly = isShareMode && !allowParamChanges;
   const completionsFn = useCallback(
     getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, lspEnabled),
     [generatedCodeForValue, lspEnabled],
   );
 
   function onChange(nextValue: string) {
+    if (isShareReadOnly) {
+      return;
+    }
     setValue(nextValue);
     const nextParts = splitGenPythonDoc(nextValue, generatedCodeForValue);
     if (!nextParts.isValid) {
@@ -463,6 +468,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,
+    isDisabled: isShareReadOnly,
   }).concat(
     readOnlyGeneratedRange,
     readOnlyDecorations,
@@ -519,8 +525,15 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
+  const isShareMode = useShareSession((state) => state.isShareMode);
+  const allowParamChanges = useSharePolicyFlag("allowParamChanges", true);
+  const isShareReadOnly = isShareMode && !allowParamChanges;
+  const isDisabled = variantIsFrozen || isShareReadOnly;
 
   function onChange(v) {
+    if (isDisabled) {
+      return;
+    }
     debouncedSetCode(sectionId, v);
   }
 
@@ -534,7 +547,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: variantIsFrozen,
+    isDisabled,
   });
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant

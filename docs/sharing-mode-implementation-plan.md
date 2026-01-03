@@ -27,9 +27,16 @@ Latest completion updates (this branch):
 - Share LLM config loads from the share runtime DBE without writing defaults
   into deployment roots.
 - Path rebasing for share deployments is centralized in
-  `rewrite_project_state_paths` and reused by publish + share boot.
+  `rewrite_project_state_paths`, reused by publish + share boot, and now updates
+  `genCodeBinding` alongside section bindings.
+- Share sessions ensure a `genCodeBinding` even when the deployment lacks a
+  generated code section, so run/LSP paths stay rooted in the share runtime.
+- Share path guards now resolve relative paths against the deployment root
+  instead of the server CWD.
+- Code editors are read-only in share mode when `allowParamChanges` is false.
 - New tests cover manager-state publishing, in-memory JSON source publishing,
-  and relocated deployment roots.
+  relocated deployment roots, gen-code rebasing, share path guarding, and
+  share updates without LSP enabled.
 
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
@@ -67,8 +74,8 @@ Latest completion updates (this branch):
 ## 1) Share deployment data model + constants
 Status: completed. Project-config name/version models and routes are implemented.
 Implemented in `backend/setta/types/share_deployment.py`, added
-`C.SHARE_DEPLOYMENTS_FOLDER`/`C.SHARE_RUNS_FOLDER`, and registered share routes
-in `backend/setta/types/routes.py`.
+`C.SHARE_DEPLOYMENTS_FOLDER`, and registered share routes in
+`backend/setta/types/routes.py`.
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (schema version, projectConfigId,
     projectConfigName, deploymentVersion, createdAt, listener config).
@@ -79,7 +86,6 @@ in `backend/setta/types/routes.py`.
     session id, config id, policy, manifest).
 - Add constants in `backend/setta/utils/constants.py`:
   - `SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"`.
-  - `SHARE_RUNS_FOLDER = C.SETTA_FILES_FOLDER / "share_runs"`.
 - Add route entries in `backend/setta/types/routes.py` for share APIs and websockets
   (for example `/share/deployments`, `/share/deployments/{projectConfigName}/versions`,
   `/share/deployments/{projectConfigName}/{version}/session`,

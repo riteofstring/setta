@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.code_generator import PythonCodeGenerator
+from setta.code_gen.utils import sanitize_name
 from setta.code_gen.value_mode import PythonValueMode
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -29,6 +30,7 @@ from setta.share.policy import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
@@ -37,9 +39,11 @@ from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
     BaseDictSectionImpl,
+    CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionImpl,
+    GenPythonCodeSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -262,6 +266,7 @@ class ShareProjectManager:
                 self.project_state_backend, self.project_config_id
             )
         ).model_copy(deep=True)
+        self._ensure_gen_code_binding(base_state)
         self._validate_project_state(base_state)
         return base_state
 
@@ -275,6 +280,7 @@ class ShareProjectManager:
             )
         ).model_copy(deep=True)
         self._hydrate_json_sources(base_state, settings_file)
+        self._ensure_gen_code_binding(base_state)
         self._validate_project_state(base_state)
         self._base_state = base_state
 
@@ -287,6 +293,50 @@ class ShareProjectManager:
         project_state.validate_shown_param_ids()
         project_state.validate_yaml_values()
         project_state.validate_required_decoded_images()
+
+    def _ensure_gen_code_binding(
+        self, project_state: "ProjectStateSingleConfig"
+    ) -> None:
+        if project_state.genCodeBinding is not None:
+            return
+        gen_section_id = project_state.singletonSections.GenPythonCode
+        if gen_section_id is None:
+            project_state.genCodeBinding = self._build_fallback_gen_code_binding(
+                project_state
+            )
+            return
+        gen_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            gen_section_id,
+            GenPythonCodeSectionImpl,
+        )
+        if gen_impl.codeFileBinding is None:
+            project_state.genCodeBinding = self._build_fallback_gen_code_binding(
+                project_state
+            )
+            return
+        project_state.genCodeBinding = gen_impl.codeFileBinding
+
+    def _build_fallback_gen_code_binding(
+        self,
+        project_state: "ProjectStateSingleConfig",
+    ) -> CodeFileBinding:
+        project_slug = sanitize_name(project_state.projectConfig.name)
+        deployment_path = (
+            self.deployment_root / "code" / "sections" / project_slug / "setta_gen.py"
+        ).resolve()
+        if deployment_path.exists():
+            return CodeFileBinding(
+                canonical_path=normalize_path(deployment_path),
+                access_mode=CodeFileAccessMode.write_only,
+            )
+        runtime_path = (
+            self.dbe.runtime_root / "code" / "sections" / project_slug / "setta_gen.py"
+        ).resolve()
+        return CodeFileBinding(
+            canonical_path=normalize_path(runtime_path),
+            access_mode=CodeFileAccessMode.write_only,
+        )
 
     def _hydrate_json_sources(
         self,

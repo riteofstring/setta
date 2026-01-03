@@ -42,7 +42,6 @@ export class C {
   static SHARE_DEPLOYMENTS_FOLDER = "setta_files/share_deployments";
   static SHARE_DEPLOYMENT_ROOT = null;
   static SHARE_MODE = false;
-  static SHARE_RUNS_FOLDER = "setta_files/share_runs";
   static WS_RUN_CODE = "runCode";
   static WS_TERMINAL_RESIZE = "terminalResize";
 }

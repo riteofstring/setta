@@ -136,3 +136,9 @@ def rewrite_project_state_paths(
                 new_name = resolve_json_source_name(variant.name)
                 if new_name != variant.name:
                     variant.name = new_name
+
+    gen_binding = getattr(project_state, "genCodeBinding", None)
+    if gen_binding is not None:
+        updated_binding = resolve_code_binding(gen_binding)
+        if updated_binding != gen_binding:
+            project_state.genCodeBinding = updated_binding
