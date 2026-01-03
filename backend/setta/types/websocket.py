@@ -86,6 +86,7 @@ class WebsocketConnectionInfo(BaseModel):
     id: str
     connectionType: WebsocketConnectionType
     currentAddress: str | None
+    shareSessionId: str | None = None
 
 
 class WebsocketConnectionInfoWithSocket(WebsocketConnectionInfo):

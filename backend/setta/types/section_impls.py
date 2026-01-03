@@ -233,7 +233,6 @@ class MetaControlSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.MetaControl] = SectionType.MetaControl
     metaControlParamId: ID | None = None
     codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
-    showSectionTitle: bool = False
 
 
 class SocialSectionImpl(BaseSectionImpl):
