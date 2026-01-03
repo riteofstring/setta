@@ -501,6 +501,13 @@ class ListenerSetTextBlockFormatRequestPayload(TypedDict):
     format: TextBlockFormat
 
 
+class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    headingAsSectionName: bool
+
+
 class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -939,6 +946,13 @@ class RouterEndpointAPI:
         self, payload: ListenerSetTextBlockFormatRequestPayload
     ) -> None:
         return await self._caller("route_set_text_block_format", payload)
+
+    async def set_text_block_heading_as_section_name(
+        self, payload: ListenerSetTextBlockHeadingAsSectionNameRequestPayload
+    ) -> None:
+        return await self._caller(
+            "route_set_text_block_heading_as_section_name", payload
+        )
 
     async def set_text_block_meta_control_style(
         self, payload: ListenerSetTextBlockMetaControlStyleRequestPayload

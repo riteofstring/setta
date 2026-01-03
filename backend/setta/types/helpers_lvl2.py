@@ -1488,6 +1488,25 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
             p.sections[sectionId].name = first_heading
 
 
+def set_text_block_heading_as_section_name(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    headingAsSectionName: bool,
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, TextBlockSectionImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        TextBlockSectionImplArgsWithCallable(headingAsSectionName=headingAsSectionName),
+    )
+    if headingAsSectionName:
+        first_heading = get_first_heading_or_text(impl.text)
+        if first_heading:
+            p.sections[sectionId].name = first_heading
+
+
 def get_first_heading_or_text(markdown: str):
     trimmed_markdown = markdown.lstrip()
     heading_match = re.search(r"(^|\n)(#+)\s*(.*?)(?=\n|$)", trimmed_markdown)

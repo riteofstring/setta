@@ -553,6 +553,14 @@ class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
 
 
+class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
+    """Request payload for toggling text block heading-as-title behavior."""
+
+    headingAsSectionName: bool = Field(
+        description="True to use the first markdown heading as the section title.",
+    )
+
+
 class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
     metaControlStyle: bool
 

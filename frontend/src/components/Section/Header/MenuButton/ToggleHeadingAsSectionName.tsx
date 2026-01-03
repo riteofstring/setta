@@ -1,10 +1,13 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_text_block_heading_as_section_name } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type ToggleHeadingAsSectionNameProps = {
@@ -27,15 +30,20 @@ export function ToggleHeadingAsSectionName({
   }, _.isEqual);
 
   function onClick() {
-    useProjectState.setState((state) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.TextBlock,
-      );
-      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        headingAsSectionName: !impl.headingAsSectionName,
-      });
+    const nextValue = !headingAsSectionName;
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          headingAsSectionName: nextValue,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_heading_as_section_name({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          headingAsSectionName: nextValue,
+          frontendOpId,
+        }),
     });
   }
 

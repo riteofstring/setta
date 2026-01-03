@@ -9,11 +9,16 @@ import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_docstring_to_markdown,
+  route_set_text_block_heading_as_section_name,
   route_set_text_block_meta_control_style,
 } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
 
-export function TextBlockSettings({ sectionId }) {
+type TextBlockSettingsProps = {
+  sectionId: string;
+};
+
+export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const { format, text, isFrozen, headingAsSectionName, metaControlStyle } =
     useTextBlockTextAndEditability(sectionId);
 
@@ -35,11 +40,20 @@ export function TextBlockSettings({ sectionId }) {
     });
   }
 
-  async function onChangeHeadingAsSectionName(v: boolean) {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        headingAsSectionName: v,
-      });
+  function onChangeHeadingAsSectionName(v: boolean) {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          headingAsSectionName: v,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_heading_as_section_name({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          headingAsSectionName: v,
+          frontendOpId,
+        }),
     });
   }
 

@@ -116,6 +116,7 @@ class Route(str, Enum):
     SET_SECTION_NAME = "/setSectionName"
     SET_META_CONTROL_SHOW_SECTION_TITLE = "/setMetaControlShowSectionTitle"
     SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"
+    SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME = "/setTextBlockHeadingAsSectionName"
     SET_TEXT_BLOCK_META_CONTROL_STYLE = "/setTextBlockMetaControlStyle"
     SET_SECTION_WITH_PARAMS_DISPLAY_MODE = "/setSectionWithParamsDisplayMode"
     SET_CALLABLE_HIDE_PARAMS = "/setCallableHideParams"

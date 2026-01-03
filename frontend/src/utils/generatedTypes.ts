@@ -652,6 +652,7 @@ export const RouteEnum = {
   SET_SECTION_NAME: "/setSectionName",
   SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
+  SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
@@ -12445,6 +12446,27 @@ export function createSetTextBlockFormatRequest(
   options: Partial<SetTextBlockFormatRequest> = {},
 ): SetTextBlockFormatRequest {
   return SetTextBlockFormatRequestSchema.parse(options);
+}
+
+export const SetTextBlockHeadingAsSectionNameRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  headingAsSectionName: z.boolean(),
+});
+
+export type SetTextBlockHeadingAsSectionNameRequest = z.infer<
+  typeof SetTextBlockHeadingAsSectionNameRequestSchema
+>;
+
+export type SetTextBlockHeadingAsSectionNameRequestInput = z.input<
+  typeof SetTextBlockHeadingAsSectionNameRequestSchema
+>;
+
+export function createSetTextBlockHeadingAsSectionNameRequest(
+  options: Partial<SetTextBlockHeadingAsSectionNameRequest> = {},
+): SetTextBlockHeadingAsSectionNameRequest {
+  return SetTextBlockHeadingAsSectionNameRequestSchema.parse(options);
 }
 
 export const SetTextBlockMetaControlStyleRequestSchema = z.object({

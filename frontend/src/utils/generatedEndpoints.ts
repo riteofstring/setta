@@ -607,6 +607,12 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
+export async function route_set_text_block_heading_as_section_name(
+  x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockHeadingAsSectionName", x);
+}
+
 export async function route_set_text_block_meta_control_style(
   x: gt.SetTextBlockMetaControlStyleRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

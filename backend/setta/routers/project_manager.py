@@ -65,6 +65,7 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockHeadingAsSectionNameRequest,
     SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
@@ -574,6 +575,15 @@ async def route_set_text_block_display_mode(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_text_block_display_mode(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME)
+async def route_set_text_block_heading_as_section_name(
+    x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_text_block_heading_as_section_name(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_META_CONTROL_STYLE)
