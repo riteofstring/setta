@@ -54,14 +54,12 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     projectState: ProjectStateSingleConfig,
                     projectConfigId: ID | None = None,
                     targetWebsocketIds: tuple[str, ...] | list[str] | None = None,
-                    share_session_id: str | None = None,
                 ) -> None:
                     captured_calls.append(
                         {
                             "projectState": projectState,
                             "projectConfigId": projectConfigId,
                             "targetWebsocketIds": targetWebsocketIds,
-                            "shareSessionId": share_session_id,
                         }
                     )
 
@@ -88,7 +86,6 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertIsNone(call["projectConfigId"])
                 self.assertIsNone(call["targetWebsocketIds"])
-                self.assertIsNone(call["shareSessionId"])
         except RuntimeError as exc:
             self.skipTest(str(exc))
 
