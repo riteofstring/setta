@@ -109,6 +109,8 @@ async def websocket_route_loop(
     id: str | None = None,
     share_session_id: str | None = None,
     share_session_store: "ShareSessionStore | None" = None,
+    *,
+    broadcast_connections: bool = True,
 ):
     extra_context: dict[str, str] = {
         "connection_type": connectionType.value,
@@ -123,7 +125,11 @@ async def websocket_route_loop(
         fromWebsocketId = None
         try:
             fromWebsocketId = await websocket_manager.on_connect(
-                websocket, connectionType, id=id, shareSessionId=share_session_id
+                websocket,
+                connectionType,
+                id=id,
+                shareSessionId=share_session_id,
+                broadcast_connections=broadcast_connections,
             )
             if fromWebsocketId:
                 push_logging_context(connection_id=fromWebsocketId)
@@ -165,7 +171,10 @@ async def websocket_route_loop(
             raise
         finally:
             if fromWebsocketId:
-                await websocket_manager.on_disconnect(fromWebsocketId)
+                await websocket_manager.on_disconnect(
+                    fromWebsocketId,
+                    broadcast_connections=broadcast_connections,
+                )
                 await websocket_msg_handler.on_disconnect(fromWebsocketId)
 
 
@@ -187,6 +196,7 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
         WebsocketConnectionType.FRONTEND,
         share_session_id=share_session_id,
         share_session_store=state.share_session_store if state.share_mode else None,
+        broadcast_connections=not state.share_mode,
     )
 
 
@@ -210,6 +220,7 @@ async def route_websocket_share_frontend(
         WebsocketConnectionType.FRONTEND,
         share_session_id=share_session_id,
         share_session_store=state.share_session_store,
+        broadcast_connections=False,
     )
 
 
@@ -230,6 +241,7 @@ async def route_websocket_cli(
         WebsocketConnectionType.CLI,
         id=id,
         share_session_store=state.share_session_store if state.share_mode else None,
+        broadcast_connections=not state.share_mode,
     )
 
 
@@ -266,4 +278,5 @@ async def route_websocket_python_script(
         id=id,
         share_session_id=share_session_id,
         share_session_store=state.share_session_store if state.share_mode else None,
+        broadcast_connections=not state.share_mode,
     )

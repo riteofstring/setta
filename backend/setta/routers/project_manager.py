@@ -203,14 +203,15 @@ async def route_create_top_level_section(
         state,
         project_config_id=x.projectConfigId,
     )
-    result = await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).create_top_level_section(x)
     if x.implType == SectionType.Terminal:
         await ensure_share_run_allowed(
             state,
             project_config_id=x.projectConfigId,
         )
+    result = await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).create_top_level_section(x)
+    if x.implType == SectionType.Terminal:
         share_session_id = get_share_session_id()
         terminal_id = build_terminal_id(result.sectionId, share_session_id)
         state.terminals.new_terminal(

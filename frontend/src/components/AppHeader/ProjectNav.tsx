@@ -25,13 +25,14 @@ function ProjectNavSwitch() {
   return (
     <div className="ml-4 flex gap-1">
       {isShareMode ? (
-        <>
-          <Menubar.Root className="contents">
-            <WebsocketConnections />
-            {allowRun && <RunButton />}
-          </Menubar.Root>
-          {allowRun && <StopButton />}
-        </>
+        allowRun ? (
+          <>
+            <Menubar.Root className="contents">
+              <RunButton />
+            </Menubar.Root>
+            <StopButton />
+          </>
+        ) : null
       ) : projectConfigName ? (
         <>
           <Menubar.Root className="contents">

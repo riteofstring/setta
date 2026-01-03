@@ -28,6 +28,8 @@ class WebsocketManager:
         connectionType: WebsocketConnectionType,
         id: str | None = None,
         shareSessionId: str | None = None,
+        *,
+        broadcast_connections: bool = True,
     ):
         await websocket.accept()
         if id and id in self.sockets:
@@ -41,14 +43,16 @@ class WebsocketManager:
             currentAddress=None,
             shareSessionId=shareSessionId,
         )
-        await self.broadcast_connections()
+        if broadcast_connections:
+            await self.broadcast_connections()
         return id
 
-    async def on_disconnect(self, id: str):
+    async def on_disconnect(self, id: str, *, broadcast_connections: bool = True):
         removed = self.sockets.pop(id, None)
         if removed is None:
             return
-        await self.broadcast_connections()
+        if broadcast_connections:
+            await self.broadcast_connections()
 
     def update_current_address(self, currentAddress: str, websocketId: str):
         self.sockets[websocketId].currentAddress = currentAddress

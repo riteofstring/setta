@@ -104,6 +104,31 @@ class WebsocketManagerSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("session-a", connections["frontend-a"].shareSessionId)
         self.assertEqual("session-b", connections["frontend-b"].shareSessionId)
 
+    async def test_on_connect_can_skip_connection_broadcast(self) -> None:
+        messages_c: list[Message] = []
+        websocket_c = await _build_websocket(messages_c)
+        await self.websocket_manager.on_connect(
+            websocket_c,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-c",
+            shareSessionId="session-c",
+            broadcast_connections=False,
+        )
+
+        messages_a = _sent_text_messages(self.messages_by_socket["frontend-a"])
+        messages_b = _sent_text_messages(self.messages_by_socket["frontend-b"])
+        messages_c_text = _sent_text_messages(messages_c)
+
+        self.assertEqual(0, len(messages_a))
+        self.assertEqual(0, len(messages_b))
+        self.assertEqual(0, len(messages_c_text))
+
+        await self.websocket_manager.on_disconnect(
+            "frontend-c",
+            broadcast_connections=False,
+        )
+        await websocket_c.close()
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

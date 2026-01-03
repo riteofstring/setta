@@ -319,6 +319,45 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(403, ctx.exception.status_code)
             self.assertIn("Share policy disallows changes to sections", ctx.exception.detail)
 
+    async def test_terminal_section_blocked_when_run_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(
+                    allowRun=False,
+                    allowStructuralChanges=True,
+                ),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_project_manager.create_session_state(session.id)
+            token = set_share_session_id(session.id)
+
+            try:
+                baseline_sections = len(
+                    state.share_project_manager.get_session_state(session.id).sections
+                )
+                create_request = CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Terminal,
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_create_top_level_section(create_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+                updated_sections = len(
+                    state.share_project_manager.get_session_state(session.id).sections
+                )
+                self.assertEqual(baseline_sections, updated_sections)
+            finally:
+                reset_share_session_id(token)
+
     async def test_structural_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-route-test"

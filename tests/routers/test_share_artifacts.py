@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
@@ -13,7 +13,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.artifact import BrushStroke, BrushStrokeArtifact, DrawAreaBrushShape
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketConnectionType
 
 
@@ -132,6 +132,39 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
                 session.id
             ).get_cached_brush_stroke(artifact_path)
             self.assertIsNotNone(cached)
+
+    async def test_share_updates_blocked_by_policy(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-artifacts-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            dbe = DBE(root)
+            dbe.write_json(
+                root / "share_policy.json",
+                SharePolicy(allowParamChanges=False).model_dump(),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+
+            artifact_path = root / "artifacts" / "stroke.json"
+            artifact = BrushStrokeArtifact(
+                id=str(artifact_path),
+                value=BrushStroke(
+                    strokeStyle="#000000",
+                    lineWidth=2.0,
+                    lineCap=DrawAreaBrushShape.butt,
+                ),
+            )
+            request = UpdateArtifactsRequest(artifacts=[artifact])
+
+            with self.assertRaises(HTTPException) as ctx:
+                await route_update_artifacts(request, state, session.id)
+
+            self.assertEqual(403, ctx.exception.status_code)
 
     async def test_share_updates_broadcast_to_session(self) -> None:
         with TemporaryDirectory() as tmpdir:

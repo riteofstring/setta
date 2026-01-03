@@ -80,6 +80,8 @@ Implemented in `backend/setta/routers/share_deployments.py`.
   - Include `projectConfigName` + `deploymentVersion` in the manifest/metadata
     so `/share/<project_config_name>` can resolve the latest version.
   - Avoid any writes back to the developer workspace state.
+  - In share mode, `route_publish_share_deployment` returns 403 to prevent
+    public share servers from publishing deployments.
 
 ## 3) Share runtime server/state
 Status: completed. CLI-flag startup + name/version selection are implemented.
@@ -129,6 +131,8 @@ Implemented:
   broadcasting project state/artifact updates to the correct session(s).
 - `ShareProjectManager` preloads per-session artifact caches from the snapshot
   and share artifact routes load from disk on cache misses.
+- `ShareProjectManager` rehydrates json-source values from `json_sources/` on
+  share boot (option 2) so stripped values are restored in session overlays.
 - `ShareProjectManager` applies listener isolation defaults from `manifest.json`
   when present.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
@@ -180,6 +184,8 @@ Implemented:
   `backend/setta/routers/project_manager.py`.
 - Content mutations now enforce `allowParamChanges` (text/code/draw/image/chart
   updates), and paste operations enforce `allowStructuralChanges`.
+- Artifact updates in `backend/setta/routers/artifact.py` are gated by
+  `allowParamChanges` in share mode.
 - Rename refactor accept/decline routes are gated by `allowStructuralChanges`.
 - Run and LLM routes also block when share runtime services are not initialized.
 - Policy helpers now resolve the active share session id from request context
@@ -204,6 +210,8 @@ Implemented:
 - `backend/setta/websockets/websocket_manager.py` stores the session id on
   connect, exposes `broadcast_to_session`, and includes session ids in
   `WebsocketMsgAllConnections`.
+- Connection list broadcasts are disabled in share mode so share frontends do
+  not receive `WebsocketMsgAllConnections`.
 - `backend/setta/websockets/msg_handlers/frontend_sender.py` sends session-scoped
   broadcasts in share mode.
 - `backend/setta/websockets/msg_handlers/frontend_receiver.py` requires a share
@@ -267,6 +275,8 @@ Implemented:
   `allowRun` is false.
 - Run/terminal routes also block if the share runtime did not initialize
   terminal services.
+- Terminal section creation checks `allowRun` before mutating share session
+  state.
 - Terminal websocket connections validate share session ids and close with
   4400/4404 when missing or unknown.
 - Run/terminal HTTP routes require share session ids in share mode.
@@ -311,6 +321,8 @@ Implemented:
   (via `setta share` CLI flags).
 - Websocket auth checks are bypassed in share mode so share frontend and listener
   websockets follow the same public access policy.
+- Share filesystem mutation routes return 403 (no writes to deployment roots),
+  and cached artifact loads are restricted to deployment subpaths.
 Pending updates: none.
 
 ## 11) Frontend share mode UX
@@ -363,6 +375,8 @@ Implemented:
   guardrails, settings file creation, and policy-gated services.
 - `tests/project_state/test_share_project_manager.py` covers manifest selection,
   session isolation, and missing session errors.
+- `tests/project_state/test_share_project_manager.py` covers json-source
+  rehydration during share boot.
 - `tests/project_state/test_share_project_manager.py` covers listener emit
   updates for per-session project state and artifact broadcasts.
 - `tests/project_state/test_share_project_manager.py` covers listener emit sync
@@ -379,23 +393,32 @@ Implemented:
   and run/terminal routes.
 - `tests/routers/test_share_policy_routes.py` covers allowed-section gating for
   run routes.
-- `tests/routers/test_share_policy_routes.py` covers structural route blocking.
+- `tests/routers/test_share_policy_routes.py` covers structural route blocking
+  (including code obj name/display-name and code file binding changes).
+- `tests/routers/test_share_policy_routes.py` covers publish blocking in share
+  mode.
 - `tests/routers/test_share_policy_routes.py` covers share-mode LLM config/API
   key update blocking.
 - `tests/routers/test_share_policy_routes.py` covers content mutation gating
-  (text/code/draw/image/chart), paste blocking, and rename refactor blocking.
+  (text/code/draw/image/chart/callable), paste blocking, and rename refactor
+  blocking.
+- `tests/routers/test_share_policy_routes.py` covers terminal section creation
+  blocked by `allowRun`.
+- `tests/routers/test_share_artifacts.py` covers share artifact updates blocked
+  by `allowParamChanges`.
 - `tests/routers/test_share_terminals.py` covers session-scoped terminal deletes.
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
 - `tests/routers/test_share_filesystem_routes.py` covers share-mode filesystem
-  path restrictions for share file endpoints.
+  path restrictions for share file endpoints and cached artifact loads (image,
+  chart, brush strokes, transforms).
 - `tests/share/test_run_cleanup.py` covers cleanup of expired share run output.
 - `tests/share/test_session_cleanup.py` covers listener/chat cleanup on session
   expiry.
 - `tests/terminals/test_terminals_session_filter.py` covers session filtering for
   terminal listings.
 - `tests/websockets/test_websocket_manager_sessions.py` covers session-scoped
-  websocket broadcasts and connection listings.
+  websocket broadcasts and connection listing suppression.
 - `tests/websockets/test_realtime_event_hub_sessions.py` covers per-session
   realtime sequencing.
 - `tests/websockets/test_frontend_receiver_share_mode.py` covers share websocket
@@ -417,30 +440,19 @@ Implemented:
 Pending updates: none.
 
 ## Post-review patch plan (share hardening)
-- Share JSON sources (option 2):
-  - On share boot, load `json_sources/` files into `JSONSource` and call
-    `load_json_sources_into_data_structures` for all json-source variants so
-    share state rehydrates values even though `project.json` is stripped.
-  - Add coverage in `tests/project_state/test_share_project_manager.py` to
-    assert json-source values are present after share boot.
-- Keep deployments immutable + tighten file access:
-  - Do not write to the share deployment root in share mode. Update
-    `route_create_file` / `route_new_json_version_name` to either 403 or write
-    to a per-session scratch root under `setta_files/share_runs/.../scratch`.
-  - Guard cached artifact loads (`LOAD_CACHED_*` routes) with
-    `ensure_share_deployment_path` so share clients cannot read arbitrary
-    host files.
-  - Add tests for cached artifact path restrictions.
-- Fill policy gaps / allowed mutations:
-  - Gate `route_set_callable` with `allowParamChanges` + `allowedSections`
-    (callable changes should be allowed in share mode).
-  - Block or gate `route_set_code_file_binding` and code obj
-    name/display-name changes in share mode (treat as structural unless we
-    add a dedicated policy flag).
-  - Add tests for these routes.
-- Share-mode endpoint hardening:
-  - Block share deployment publish endpoints when running `setta share` so
-    public share servers cannot publish new snapshots.
+Status: completed. All items are implemented and covered by tests.
+Implemented:
+- Share JSON sources (option 2): share boot loads `json_sources/` through
+  `JSONSource` and `load_json_sources_into_data_structures` to rehydrate values,
+  with coverage in `tests/project_state/test_share_project_manager.py`.
+- Keep deployments immutable + tighten file access: share filesystem mutation
+  routes return 403, and cached artifact loads are restricted to deployment
+  paths with test coverage for all artifact types.
+- Fill policy gaps / allowed mutations: `route_set_callable` is gated by
+  `allowParamChanges`/`allowedSections`, while code obj name/display-name and
+  code file binding changes are gated by `allowStructuralChanges`, with tests.
+- Share-mode endpoint hardening: publish endpoints return 403 in share mode so
+  public share servers cannot create deployments.
 
 ## Open questions
 - Should OSS share mode be open-by-default or require auth/bootstrap tokens?
