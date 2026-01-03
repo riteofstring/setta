@@ -1,11 +1,13 @@
 import { get, post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
-async function route_bootstrap_page(): Promise<ResponseDataAndStatus<string>> {
+export async function route_bootstrap_page(): Promise<
+  ResponseDataAndStatus<string>
+> {
   return await get("/__setta__/bootstrap");
 }
 
-async function route_bootstrap_consume(
+export async function route_bootstrap_consume(
   payload: gt.BootstrapConsumeRequestInput | null,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/__setta__/bootstrap/consume", payload);
@@ -14,7 +16,7 @@ async function route_bootstrap_consume(
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
-  return await post("/loadAllProjectMetadata", null);
+  return await post("/loadAllProjectMetadata");
 }
 
 export async function route_load_project_config(
@@ -56,7 +58,7 @@ export async function route_set_project_config_name(
 export async function router_get_default_project_config_name(): Promise<
   ResponseDataAndStatus<string | null>
 > {
-  return await post("/getDefaultConfigName", null);
+  return await post("/getDefaultConfigName");
 }
 
 export async function router_set_as_default_project(
@@ -77,25 +79,25 @@ export async function route_delete_notification(
   return await post("/deleteNotification", x);
 }
 
-async function route_new_json_version_name(
+export async function route_new_json_version_name(
   x: gt.NewJSONVersionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/newJsonVersionName", x);
 }
 
-async function route_create_file(
+export async function route_create_file(
   x: gt.CreateFileRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createFile", x);
 }
 
-async function route_get_json_source_path_to_be_deleted(
+export async function route_get_json_source_path_to_be_deleted(
   x: gt.GetJSONSourcePathToBeDeletedInput,
 ): Promise<ResponseDataAndStatus<string>> {
   return await post("/getJsonSourcePathToBeDeleted", x);
 }
 
-async function route_delete_terminals(
+export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteTerminals", x);
@@ -128,7 +130,7 @@ export async function route_save_settings(
 export async function route_load_settings(): Promise<
   ResponseDataAndStatus<gt.SettingsState>
 > {
-  return await post("/loadSettings", null);
+  return await post("/loadSettings");
 }
 
 export async function route_check_if_file_exists(
@@ -184,7 +186,7 @@ export async function route_get_listener_coverage(
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
-  return await post("/restartLanguageServer", null);
+  return await post("/restartLanguageServer");
 }
 
 export async function route_type_check(
@@ -199,7 +201,7 @@ export async function route_get_llm_config(): Promise<
   return await get("/llm/config");
 }
 
-async function route_set_llm_config(
+export async function route_set_llm_config(
   config: gt.AllLLMConfigsInput,
 ): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
   return await post("/llm/config", config);
@@ -211,7 +213,7 @@ export async function route_get_llm_api_keys(): Promise<
   return await get("/llm/apiKeys");
 }
 
-async function route_set_llm_api_keys(
+export async function route_set_llm_api_keys(
   payload: gt.UpdateAPIKeysRequestInput,
 ): Promise<ResponseDataAndStatus<Record<string, string>>> {
   return await post("/llm/apiKeys", payload);
@@ -226,7 +228,7 @@ export async function route_get_llm_response(
 export async function route_get_all_llm_chat_metadata(): Promise<
   ResponseDataAndStatus<Array<gt.ChatMetadata>>
 > {
-  return await post("/getAllLLMChatMetadata", null);
+  return await post("/getAllLLMChatMetadata");
 }
 
 export async function route_delete_llm_chat(
@@ -309,7 +311,7 @@ export async function route_create_top_level_section(
   return await post("/createTopLevelSection", x);
 }
 
-async function route_create_child_sections(
+export async function route_create_child_sections(
   x: gt.CreateChildSectionsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createChildSections", x);
@@ -581,13 +583,13 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
-async function route_accept_rename_refactor(
+export async function route_accept_rename_refactor(
   x: gt.AcceptRenameRefactorRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/acceptRenameRefactor", x);
 }
 
-async function route_decline_rename_refactor(
+export async function route_decline_rename_refactor(
   x: gt.DeclineRenameRefactorRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/declineRenameRefactor", x);
@@ -729,32 +731,4 @@ export async function route_get_backend_init_status(): Promise<
   ResponseDataAndStatus<gt.BackendInitStatusResponse>
 > {
   return await get("/backendInitStatus");
-}
-
-export async function route_list_share_deployments(): Promise<
-  ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
-> {
-  return await get("/share/deployments");
-}
-
-export async function route_create_share_session(
-  deploymentId: string,
-): Promise<ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>> {
-  return await post("/share/deployments/{deploymentId}/session", null, {
-    deploymentId,
-  });
-}
-
-export async function route_get_share_deployment_state(
-  deploymentId: string,
-): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
-> {
-  return await get("/share/deployments/{deploymentId}/state", { deploymentId });
-}
-
-export async function route_publish_share_deployment(
-  x: gt.PublishShareDeploymentRequestInput,
-): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
-  return await post("/share/deployments", x);
 }

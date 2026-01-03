@@ -5,7 +5,6 @@ import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeletePro
 import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
-import { PublishShareDeploymentModal } from "./ShareDeploymentsModal/PublishShareDeploymentModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
@@ -46,8 +45,6 @@ function ModalContent({ open }: { open: boolean }) {
       return <FileMenuSaveProjectConfigAsModal open={open} />;
     case ModalTypeEnum.RENAME_REFERENCES:
       return <RenameReferencesModal />;
-    case ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT:
-      return <PublishShareDeploymentModal open={open} />;
     default:
       return modalInfo satisfies never;
   }
