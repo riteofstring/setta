@@ -26,6 +26,9 @@ workspace.
 - Terminals/run code are opt-in for share mode.
 - Share URLs support `/share/<project_config_name>` and
   `/share/<project_config_name>/vN` (latest resolves to the highest vN).
+
+Note: The CLI-flag startup and versioned share URLs described below are planned
+and not implemented yet.
 - Share URLs support `/share/<deployment_id>` and `/share/<project_name>`; project
   name resolves to the latest deployment (by `createdAt`).
 
@@ -77,9 +80,9 @@ Example `manifest.json`:
 ```
 
 In SaaS, the same folder can be zipped or stored in object storage. The share
-runtime is started via CLI flags (no env vars) and can target a deployment root
-or resolve `/share/<project_config_name>` to the latest version for that
-project config.
+runtime should be started via CLI flags (no env vars) and can target a
+deployment root or resolve `/share/<project_config_name>` to the latest version
+for that project config.
 
 ### 3) Per-viewer overlay
 All share-mode mutations apply to a per-viewer overlay, never the base snapshot.
@@ -197,7 +200,7 @@ Frontend:
 ## Phased Rollout
 Phase 1: Share runtime skeleton
 - Share deployment artifact format + loader.
-- Share mode CLI flags + startup path.
+- Share mode CLI flags + startup path (pending implementation).
 - Disable persistence, LSP, and watchers.
 - In-memory session store + per-viewer overlay.
 
