@@ -2,13 +2,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
-from setta.routers.dependencies import (
-    AppStateFromRequest,
-    MaybeShareSessionIdFromRequest,
-    require_share_session_id,
-)
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.share.policy import ensure_share_llm_allowed
 from setta.types.chat import ChatMetadata
 from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
@@ -58,21 +53,13 @@ class GetAIFollowSnapshotRequest(BaseModel):
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
 ) -> str | None:
-    share_session_id = require_share_session_id(state, share_session_id)
-    await ensure_share_llm_allowed(
-        state,
-        project_config_id=x.projectConfigId,
-        share_session_id=share_session_id,
-    )
     try:
         chat = state.chat_manager.get_or_create_chat(
             x.chatId,
             x.message,
             x.llmConfigId,
             x.projectConfigId,
-            share_session_id=share_session_id,
         )
     except Exception as exc:
         raise HTTPException(
@@ -83,86 +70,44 @@ async def route_get_llm_response(
         state.chat_manager.start_processing_query(
             chat,
             x.deepThink,
-            share_session_id=share_session_id,
         )
         return chat.id
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)
-async def route_get_all_llm_chat_metadata(
+def route_get_all_llm_chat_metadata(
     state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
 ) -> list[ChatMetadata]:
-    share_session_id = require_share_session_id(state, share_session_id)
-    await ensure_share_llm_allowed(
-        state,
-        project_config_id=None,
-        share_session_id=share_session_id,
-    )
-    return state.chat_manager.get_all_chat_metadata(share_session_id=share_session_id)
+    return state.chat_manager.get_all_chat_metadata()
 
 
 @router.post(Route.DELETE_LLM_CHAT)
-async def route_delete_llm_chat(
+def route_delete_llm_chat(
     x: DeleteLLMChatRequest,
     state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
 ) -> None:
-    share_session_id = require_share_session_id(state, share_session_id)
-    await ensure_share_llm_allowed(
-        state,
-        project_config_id=None,
-        share_session_id=share_session_id,
-    )
-    return state.chat_manager.delete_chat(
-        x.chatId,
-        share_session_id=share_session_id,
-    )
+    return state.chat_manager.delete_chat(x.chatId)
 
 
 @router.post(Route.STOP_LLM_CHAT)
 async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
 ) -> None:
-    share_session_id = require_share_session_id(state, share_session_id)
-    await ensure_share_llm_allowed(
-        state,
-        project_config_id=None,
-        share_session_id=share_session_id,
-    )
-    await state.chat_manager.request_stop_streaming(
-        x.chatId,
-        share_session_id=share_session_id,
-    )
+    await state.chat_manager.request_stop_streaming(x.chatId)
 
 
 @router.post(Route.GET_LLM_CHAT)
 async def route_get_llm_chat(
     x: GetLLMChatRequest,
     state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
 ) -> GetLLMChatRequestResponse:
-    share_session_id = require_share_session_id(state, share_session_id)
-    await ensure_share_llm_allowed(
-        state,
-        project_config_id=x.projectConfigId,
-        share_session_id=share_session_id,
-    )
-    chat = state.chat_manager.get_chat(
-        x.chatId,
-        share_session_id=share_session_id,
-    )
+    chat = state.chat_manager.get_chat(x.chatId)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    waiting_for_response = state.chat_manager.is_waiting_for_response(
-        x.chatId, share_session_id=share_session_id
-    )
-    current_stream = state.chat_manager.get_current_stream(
-        x.chatId, share_session_id=share_session_id
-    )
+    waiting_for_response = state.chat_manager.is_waiting_for_response(x.chatId)
+    current_stream = state.chat_manager.get_current_stream(x.chatId)
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
     return GetLLMChatRequestResponse(
@@ -174,20 +119,11 @@ async def route_get_llm_chat(
 
 @router.post(Route.GET_AI_FOLLOW_SNAPSHOT)
 @require_project_context()
-async def route_get_ai_follow_snapshot(
+def route_get_ai_follow_snapshot(
     x: GetAIFollowSnapshotRequest,
     state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
-    share_session_id = require_share_session_id(state, share_session_id)
-    await ensure_share_llm_allowed(
-        state,
-        project_config_id=x.projectConfigId,
-        share_session_id=share_session_id,
-    )
-    return state.chat_manager.get_ai_follow_snapshot(
-        x.projectConfigId, share_session_id=share_session_id
-    )
+    return state.chat_manager.get_ai_follow_snapshot(x.projectConfigId)
 
 
 def merge_db_messages_with_current_stream(
