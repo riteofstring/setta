@@ -11,6 +11,7 @@ from setta.routers.dependencies import (
     require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.share.path_guard import ensure_share_deployment_path
 from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,
@@ -102,15 +103,26 @@ def _load_share_cached_transform(
 
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)
-def route_check_if_file_exists(x: CheckIfFileExistsRequests) -> bool:
+def route_check_if_file_exists(
+    x: CheckIfFileExistsRequests, state: AppStateFromRequest
+) -> bool:
+    if state.share_mode:
+        target_path = ensure_share_deployment_path(
+            x.filepath, state.share_deployment_root
+        )
+        return target_path.exists()
     return os.path.exists(x.filepath)
 
 
 @router.post(Route.GET_FOLDER_CONTENTS)
 def route_get_folder_contents(
     x: GetFolderContentsRequest,
+    state: AppStateFromRequest,
 ) -> list[FolderContentItem]:
-    path = Path(x.folderPath)
+    if state.share_mode:
+        path = ensure_share_deployment_path(x.folderPath, state.share_deployment_root)
+    else:
+        path = Path(x.folderPath)
 
     # Check if path exists and is a directory
     if not path.exists():
@@ -182,9 +194,11 @@ async def route_update_artifacts(
     state: AppStateFromRequest,
     share_session_id: MaybeShareSessionIdFromRequest,
 ) -> list[ArtifactSaveResult]:
-    artifacts = _get_artifacts(state, share_session_id)
     if state.share_mode:
+        session_id = require_share_session_id(state, share_session_id)
+        artifacts = state.share_project_manager.get_session_artifacts(session_id)
         results: list[ArtifactSaveResult] = []
+        payloads: list[BaseArtifactUnion] = []
         for artifact in x.artifacts:
             normalized_id = str(normalize_path(artifact.id))
             if normalized_id != artifact.id:
@@ -194,6 +208,7 @@ async def route_update_artifacts(
                 compute_last_read_hash=False,
                 reset_conflict=True,
             )
+            payloads.append(artifact)
             results.append(
                 ArtifactSaveResult(
                     id=normalized_id,
@@ -201,7 +216,14 @@ async def route_update_artifacts(
                     status="saved",
                 )
             )
+        if payloads:
+            await state.wmh_frontend_sender.broadcast_artifacts_update(
+                artifacts=payloads,
+                updateType="update",
+                share_session_id=session_id,
+            )
         return results
+    artifacts = _get_artifacts(state, share_session_id)
     conflict_strategy = x.conflictStrategy or SaveConflictStrategy.backup
     results = await artifacts.apply_updates(x.artifacts, conflict_strategy)
     return results

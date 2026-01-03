@@ -22,6 +22,8 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
     SetTextBlockTextRequest,
+    ToggleParamSelectedRequest,
+    UnselectAllParamsRequest,
 )
 from setta.routers.ai import GetLLMResponseRequest, route_get_llm_response
 from setta.routers.llm import (
@@ -45,6 +47,8 @@ from setta.routers.project_manager import (
     route_set_gen_code_suffix,
     route_set_image_area_image_path,
     route_set_text_block_text,
+    route_toggle_param_selected,
+    route_unselect_all_params,
 )
 from setta.routers.terminals import (
     DeleteTerminalsRequest,
@@ -468,6 +472,39 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     "Share policy disallows changes to sections",
                     ctx.exception.detail,
                 )
+            finally:
+                reset_share_session_id(token)
+
+    async def test_param_selection_routes_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowParamChanges=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            try:
+                toggle_request = ToggleParamSelectedRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=create_new_id(),
+                    paramInfoId=create_new_id(),
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_toggle_param_selected(toggle_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                unselect_request = UnselectAllParamsRequest(
+                    projectConfigId=project_config_id,
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_unselect_all_params(unselect_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
             finally:
                 reset_share_session_id(token)
 

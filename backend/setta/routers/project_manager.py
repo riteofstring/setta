@@ -914,6 +914,11 @@ async def route_ungroup_groups(x: UngroupGroupsRequest, state: AppStateFromReque
 async def route_toggle_param_selected(
     x: ToggleParamSelectedRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).toggle_param_selected(x)
 
 
@@ -921,6 +926,10 @@ async def route_toggle_param_selected(
 async def route_unselect_all_params(
     x: UnselectAllParamsRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(x.projectConfigId).unselect_all_params(x)
 
 

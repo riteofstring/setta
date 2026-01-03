@@ -148,7 +148,7 @@ Implemented:
 - `backend/setta/routers/share_deployments.py` provides share session creation
   and per-session state fetch endpoints.
 Pending updates:
-- Share artifact update routes should broadcast artifact updates to the active
+- Share artifact update routes now broadcast artifact updates to the active
   share session after caching so other viewers in the same session stay in sync.
 
 ## 5) Policy enforcement
@@ -187,9 +187,8 @@ Implemented:
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
 Pending updates:
-- Decide whether param selection routes (`route_toggle_param_selected`,
-  `route_unselect_all_params`) should be blocked in share mode and gate them if
-  needed.
+- Param selection routes (`route_toggle_param_selected`,
+  `route_unselect_all_params`) are gated by `allowParamChanges` in share mode.
 
 ## 6) Websocket scoping + realtime events
 Status: completed. Share websocket sessions are scoped end-to-end.
@@ -317,10 +316,10 @@ Implemented:
 - Websocket auth checks are bypassed in share mode so share frontend and listener
   websockets follow the same public access policy.
 Pending updates:
-- Constrain filesystem-touching endpoints (`/createFile`, `/newJSONVersionName`,
-  `/getFolderContents`, `/checkIfFileExists`) to share deployment subpaths
-  (artifacts/json_sources/code) in share mode, so draw/JSON edits remain allowed
-  without exposing the host filesystem.
+- Filesystem-touching endpoints (`/createFile`, `/newJSONVersionName`,
+  `/getFolderContents`, `/checkIfFileExists`) are constrained to share deployment
+  subpaths (artifacts/json_sources/code) in share mode, so draw/JSON edits remain
+  allowed without exposing the host filesystem.
 
 ## 11) Frontend share mode UX
 Status: completed. Project-config name/version routing is in place.
