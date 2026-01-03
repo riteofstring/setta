@@ -523,6 +523,12 @@ export async function route_toggle_group_orientation(
   return await post("/toggleGroupOrientation", x);
 }
 
+export async function route_set_group_overflow_mode(
+  x: gt.SetGroupOverflowModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setGroupOverflowMode", x);
+}
+
 export async function route_set_code(
   x: gt.SetCodeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -86,6 +86,7 @@ class SharedModifier(TypedDict):
     metaControlStyle: NotRequired[bool]
     min: NotRequired[float | int]
     name: NotRequired[str]
+    overflowMode: NotRequired[bool]
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]
     pinnedAreaHeight: NotRequired[Literal[SectionSizeMode.auto] | float]

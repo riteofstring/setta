@@ -50,6 +50,7 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
@@ -471,6 +472,15 @@ async def route_toggle_group_orientation(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).toggle_group_orientation(x)
+
+
+@router.post(Route.SET_GROUP_OVERFLOW_MODE)
+async def route_set_group_overflow_mode(
+    x: SetGroupOverflowModeRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_group_overflow_mode(
+        x
+    )
 
 
 @router.post(Route.SET_CODE)

@@ -114,6 +114,7 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
@@ -201,6 +202,7 @@ from setta.types.helpers_lvl2 import (
     set_code,
     set_code_file_binding,
     set_default_section_variant,
+    set_group_overflow_mode,
     set_image_area_image_path,
     set_meta_control_show_section_title,
     set_param_entered_value,
@@ -950,6 +952,18 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_group_overflow_mode(self, x: SetGroupOverflowModeRequest):
+        """Set whether a group section constrains its children in a scrollable area."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

@@ -16,6 +16,7 @@ import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 import { ToggleHeadingAsSectionName } from "./ToggleHeadingAsSectionName";
+import { ToggleGroupOverflowMode } from "./ToggleGroupOverflowMode";
 import { ToggleMetaControlLook } from "./ToggleMetaControlLook";
 import { UngroupButton } from "./UngroupButton";
 
@@ -133,7 +134,7 @@ function getMenuItems(uiTypeName) {
     case SectionTypeEnum.Code:
       return [CreateNewVariantButton, ResetToDefaultVersion];
     case SectionTypeEnum.Group:
-      return [UngroupButton];
+      return [ToggleGroupOverflowMode, UngroupButton];
     case SectionTypeEnum.Draw:
     case SectionTypeEnum.Image:
     case SectionTypeEnum.Chart:

@@ -455,6 +455,14 @@ class ToggleGroupOrientationRequest(ProjectManagerRequestWithSection):
     """Switch a group section between horizontal and vertical layouts."""
 
 
+class SetGroupOverflowModeRequest(ProjectManagerRequestWithSection):
+    """Toggle whether a group section constrains its children with scrolling."""
+
+    overflowMode: bool = Field(
+        description="True to keep group contents in a scrollable viewport.",
+    )
+
+
 class SetCodeRequest(ProjectManagerRequestWithSection):
     """Submit inline code edits for a section."""
 

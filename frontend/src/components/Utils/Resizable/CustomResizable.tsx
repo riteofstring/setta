@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -196,6 +196,9 @@ function CustomResizableSuperCore({
   children,
 }) {
   const disablePointerEvents = useShouldDisablePointerEvents();
+  const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
+    null,
+  );
 
   const enable =
     disablePointerEvents || positionAndSizeLocked
@@ -227,12 +230,37 @@ function CustomResizableSuperCore({
   };
   const metaControlHandleBaseClassName =
     "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
-  const metaControlHandleRightClassName = `${metaControlHandleBaseClassName} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
-  const metaControlHandleBottomClassName = `${metaControlHandleBaseClassName} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
-  const metaControlHandleCornerClassName = `${metaControlHandleBaseClassName} cursor-nwse-resize after:inset-1`;
+
+  function getMetaControlHandleActiveClassName(direction: string) {
+    if (!isMetaControl) {
+      return "";
+    }
+    if (activeResizeHandle !== direction) {
+      return "";
+    }
+    return "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
+  }
+
+  const metaControlHandleRightClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("right")} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
+  const metaControlHandleBottomClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottom")} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
+  const metaControlHandleCornerClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottomRight")} cursor-nwse-resize after:inset-1`;
 
   let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
   let handleClasses = handleBaseClasses;
+
+  function handleResizeStart(event, direction, ref) {
+    setActiveResizeHandle(direction);
+    if (onResizeStart) {
+      onResizeStart(event, direction, ref);
+    }
+  }
+
+  function handleResizeStop(event, direction, ref, delta) {
+    setActiveResizeHandle(null);
+    if (onResizeStop) {
+      onResizeStop(event, direction, ref, delta);
+    }
+  }
 
   if (isMetaControl) {
     handleStyles = {
@@ -262,8 +290,8 @@ function CustomResizableSuperCore({
       maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
-      onResizeStart={onResizeStart}
-      onResizeStop={onResizeStop}
+      onResizeStart={handleResizeStart}
+      onResizeStop={handleResizeStop}
       lockAspectRatio={aspectRatio}
       lockAspectRatioExtraHeight={aspectRatioExtraHeight}
       lockAspectRatioExtraWidth={aspectRatioExtraWidth}

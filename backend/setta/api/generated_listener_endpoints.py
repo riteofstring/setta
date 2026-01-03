@@ -397,6 +397,13 @@ class ListenerSetGenCodeSuffixRequestPayload(TypedDict):
     genCodeSuffix: str
 
 
+class ListenerSetGroupOverflowModeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    overflowMode: bool
+
+
 class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -873,6 +880,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetGenCodeSuffixRequestPayload
     ) -> None:
         return await self._caller("route_set_gen_code_suffix", payload)
+
+    async def set_group_overflow_mode(
+        self, payload: ListenerSetGroupOverflowModeRequestPayload
+    ) -> None:
+        return await self._caller("route_set_group_overflow_mode", payload)
 
     async def set_image_area_image_path(
         self, payload: ListenerSetImageAreaImagePathRequestPayload

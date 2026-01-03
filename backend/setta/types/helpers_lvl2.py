@@ -1549,6 +1549,17 @@ def toggle_group_orientation(p: "ProjectStateSingleConfig", sectionId: ID):
     )
 
 
+def set_group_overflow_mode(
+    p: "ProjectStateSingleConfig", sectionId: ID, overflow_mode: bool
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, GroupSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        GroupSectionImplArgsWithCallable(overflowMode=overflow_mode),
+    )
+
+
 def set_code(p: "ProjectStateSingleConfig", sectionId: ID, code: str):
     set_curr_effective_section_impl_value(
         p,

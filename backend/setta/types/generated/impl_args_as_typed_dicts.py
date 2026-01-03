@@ -97,6 +97,7 @@ class CoreArgs(TypedDict):
                 "metaControlStyle",
                 "min",
                 "name",
+                "overflowMode",
                 "paramFilter",
                 "passingStyle",
                 "pinnedAreaHeight",
@@ -303,6 +304,7 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
 class GroupSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.Group]]
     isHorizontalOrientation: NotRequired[bool]
+    overflowMode: NotRequired[bool]
 
 
 class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -311,6 +313,7 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Group]], Literal[SectionType.Group]]
     ]
     isHorizontalOrientation: NotRequired[bool | Callable[[bool], bool]]
+    overflowMode: NotRequired[bool | Callable[[bool], bool]]
 
 
 class ImageSectionImplArgs(BaseSectionImplArgs):

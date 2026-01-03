@@ -53,6 +53,7 @@ AllImplFields = Literal[
     "metaControlStyle",
     "min",
     "name",
+    "overflowMode",
     "paramFilter",
     "passingStyle",
     "pinnedAreaHeight",

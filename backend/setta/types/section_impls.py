@@ -189,6 +189,7 @@ class ListRootSectionImpl(BaseParentSectionImpl):
 class GroupSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.Group] = SectionType.Group
     isHorizontalOrientation: bool = False
+    overflowMode: bool = False
 
 
 class ImageSectionImpl(BaseSectionImpl):

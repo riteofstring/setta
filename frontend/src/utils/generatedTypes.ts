@@ -641,6 +641,7 @@ export const RouteEnum = {
   TOGGLE_POSITION_LOCKS: "/togglePositionLocks",
   TOGGLE_MINIMIZED: "/toggleMinimized",
   TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
+  SET_GROUP_OVERFLOW_MODE: "/setGroupOverflowMode",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
@@ -1785,6 +1786,7 @@ export const AllImplFieldsSchema = z.literal([
   "metaControlStyle",
   "min",
   "name",
+  "overflowMode",
   "paramFilter",
   "passingStyle",
   "pinnedAreaHeight",
@@ -2072,6 +2074,7 @@ export const SharedModifierSchema = z.object({
   metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
   name: z.string().optional(),
+  overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
@@ -2163,6 +2166,7 @@ export const CoreSchema = z.object({
         "metaControlStyle",
         "min",
         "name",
+        "overflowMode",
         "paramFilter",
         "passingStyle",
         "pinnedAreaHeight",
@@ -2336,6 +2340,7 @@ export const GroupSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   children: z.array(IDSchema).default([]),
   isHorizontalOrientation: z.boolean().default(false),
+  overflowMode: z.boolean().default(false),
 });
 
 export type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
@@ -4696,6 +4701,7 @@ export const GroupSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   children: z.array(IDSchema).optional(),
   isHorizontalOrientation: z.boolean().optional(),
+  overflowMode: z.boolean().optional(),
 });
 
 export type GroupSectionImplArgs = z.infer<typeof GroupSectionImplArgsSchema>;
@@ -6576,6 +6582,7 @@ export const UserDefaultGroupSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isHorizontalOrientation: z.boolean().default(false),
+  overflowMode: z.boolean().default(false),
 });
 
 export type UserDefaultGroupSectionImpl = z.infer<
@@ -9330,6 +9337,7 @@ export const GroupSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   children: z.union([z.array(IDSchema), z.any()]).optional(),
   isHorizontalOrientation: z.union([z.boolean(), z.any()]).optional(),
+  overflowMode: z.union([z.boolean(), z.any()]).optional(),
 });
 
 export type GroupSectionImplArgsWithCallable = z.infer<
@@ -9834,6 +9842,7 @@ export const CoreArgsSchema = z.object({
         "metaControlStyle",
         "min",
         "name",
+        "overflowMode",
         "paramFilter",
         "passingStyle",
         "pinnedAreaHeight",
@@ -12136,6 +12145,27 @@ export function createSetGenCodeSuffixRequest(
   options: Partial<SetGenCodeSuffixRequest> = {},
 ): SetGenCodeSuffixRequest {
   return SetGenCodeSuffixRequestSchema.parse(options);
+}
+
+export const SetGroupOverflowModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  overflowMode: z.boolean(),
+});
+
+export type SetGroupOverflowModeRequest = z.infer<
+  typeof SetGroupOverflowModeRequestSchema
+>;
+
+export type SetGroupOverflowModeRequestInput = z.input<
+  typeof SetGroupOverflowModeRequestSchema
+>;
+
+export function createSetGroupOverflowModeRequest(
+  options: Partial<SetGroupOverflowModeRequest> = {},
+): SetGroupOverflowModeRequest {
+  return SetGroupOverflowModeRequestSchema.parse(options);
 }
 
 export const SetImageAreaImagePathRequestSchema = z.object({

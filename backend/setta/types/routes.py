@@ -105,6 +105,7 @@ class Route(str, Enum):
     TOGGLE_POSITION_LOCKS = "/togglePositionLocks"
     TOGGLE_MINIMIZED = "/toggleMinimized"
     TOGGLE_GROUP_ORIENTATION = "/toggleGroupOrientation"
+    SET_GROUP_OVERFLOW_MODE = "/setGroupOverflowMode"
     SET_SECTION_PARAM_FILTER = "/setSectionParamFilter"
     SET_SECTION_VARIANT = "/setSectionVariant"
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"

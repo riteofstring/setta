@@ -80,6 +80,7 @@ class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="fo
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     isHorizontalOrientation: bool = False
+    overflowMode: bool = False
 
 
 class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
