@@ -152,8 +152,8 @@ Pending updates:
   share session after caching so other viewers in the same session stay in sync.
 
 ## 5) Policy enforcement
-Status: partially complete. Policy checks are wired, but several mutating
-endpoints still bypass enforcement.
+Status: mostly complete. Content mutation routes and rename refactor decisions
+are now gated; param selection gating is still open.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
 - Load the share policy in `backend/setta/project_state/share_project_manager.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
@@ -180,18 +180,16 @@ Implemented:
   sessions if the request is not session-scoped).
 - Structural mutations are blocked via `allowStructuralChanges` in
   `backend/setta/routers/project_manager.py`.
+- Content mutations now enforce `allowParamChanges` (text/code/draw/image/chart
+  updates), and paste operations enforce `allowStructuralChanges`.
+- Rename refactor accept/decline routes are gated by `allowStructuralChanges`.
 - Run and LLM routes also block when share runtime services are not initialized.
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
 Pending updates:
-- Add missing enforcement (and `allowedSections` checks) for content mutation
-  routes like `route_set_text_block_text`, `route_set_gen_code_prefix`,
-  `route_set_gen_code_suffix`, `route_set_code`, `route_paste_sections`,
-  `route_append_draw_area_layer_item`, `route_set_image_area_image_path`,
-  `route_set_chart_area_data_path`, `route_set_chart_type`,
-  `route_set_chart_settings`.
-- Decide whether rename/selection routes (rename refactor accept/decline,
-  param selection) should be blocked in share mode and gate them if needed.
+- Decide whether param selection routes (`route_toggle_param_selected`,
+  `route_unselect_all_params`) should be blocked in share mode and gate them if
+  needed.
 
 ## 6) Websocket scoping + realtime events
 Status: completed. Share websocket sessions are scoped end-to-end.
@@ -392,6 +390,8 @@ Implemented:
 - `tests/routers/test_share_policy_routes.py` covers structural route blocking.
 - `tests/routers/test_share_policy_routes.py` covers share-mode LLM config/API
   key update blocking.
+- `tests/routers/test_share_policy_routes.py` covers content mutation gating
+  (text/code/draw/image/chart), paste blocking, and rename refactor blocking.
 - `tests/routers/test_share_terminals.py` covers session-scoped terminal deletes.
 - `tests/routers/test_share_sessions.py` covers share session creation and
   session-scoped state fetch behavior.
@@ -423,7 +423,6 @@ Implemented:
 Pending updates:
 - Add tests that share-mode filesystem endpoints reject paths outside the share
   deployment root.
-- Add tests that policy enforcement blocks the remaining mutating routes.
 
 ## Open questions
 - Should OSS share mode be open-by-default or require auth/bootstrap tokens?

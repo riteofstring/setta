@@ -8,8 +8,20 @@ from starlette.requests import Request
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import (
+    AcceptRenameRefactorRequest,
+    AppendDrawAreaLayerItemRequest,
     CreateTopLevelSectionRequest,
+    DeclineRenameRefactorRequest,
     DeleteSectionsRequest,
+    PasteSectionsRequest,
+    SetChartAreaDataPathRequest,
+    SetChartSettingsRequest,
+    SetChartTypeRequest,
+    SetCodeRequest,
+    SetGenCodePrefixRequest,
+    SetGenCodeSuffixRequest,
+    SetImageAreaImagePathRequest,
+    SetTextBlockTextRequest,
 )
 from setta.routers.ai import GetLLMResponseRequest, route_get_llm_response
 from setta.routers.llm import (
@@ -19,8 +31,20 @@ from setta.routers.llm import (
     route_set_llm_config,
 )
 from setta.routers.project_manager import (
+    route_accept_rename_refactor,
+    route_append_draw_area_layer_item,
     route_create_top_level_section,
     route_delete_sections,
+    route_decline_rename_refactor,
+    route_paste_sections,
+    route_set_chart_area_data_path,
+    route_set_chart_settings,
+    route_set_chart_type,
+    route_set_code,
+    route_set_gen_code_prefix,
+    route_set_gen_code_suffix,
+    route_set_image_area_image_path,
+    route_set_text_block_text,
 )
 from setta.routers.terminals import (
     DeleteTerminalsRequest,
@@ -32,11 +56,18 @@ from setta.routers.terminals import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.share.session_context import reset_share_session_id, set_share_session_id
+from setta.types.artifact import (
+    ArtifactType,
+    ChartType,
+    DrawAreaLayerItem,
+    LineChartSettings,
+)
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
+from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
-from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_config import Position, ProjectConfig
+from setta.types.project_state import ProjectStateBackend, ProjectStateCore
 from setta.types.section_impls import SectionType
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
@@ -284,6 +315,216 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 )
                 with self.assertRaises(HTTPException) as ctx:
                     await route_delete_sections(delete_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+            finally:
+                reset_share_session_id(token)
+
+    async def test_param_routes_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowParamChanges=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            section_id = create_new_id()
+            draw_item = DrawAreaLayerItem(
+                type=ArtifactType.BrushStroke,
+                dataPath="draw.json",
+                transformId="transform-1",
+            )
+            chart_settings = LineChartSettings()
+            requests = [
+                (
+                    "set_text_block_text",
+                    route_set_text_block_text,
+                    SetTextBlockTextRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        text="hello",
+                    ),
+                ),
+                (
+                    "set_gen_code_prefix",
+                    route_set_gen_code_prefix,
+                    SetGenCodePrefixRequest(
+                        projectConfigId=project_config_id,
+                        genCodePrefix="prefix",
+                    ),
+                ),
+                (
+                    "set_gen_code_suffix",
+                    route_set_gen_code_suffix,
+                    SetGenCodeSuffixRequest(
+                        projectConfigId=project_config_id,
+                        genCodeSuffix="suffix",
+                    ),
+                ),
+                (
+                    "set_code",
+                    route_set_code,
+                    SetCodeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        code="print('hi')",
+                    ),
+                ),
+                (
+                    "append_draw_area_layer_item",
+                    route_append_draw_area_layer_item,
+                    AppendDrawAreaLayerItemRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        layerIdx=0,
+                        element=draw_item,
+                    ),
+                ),
+                (
+                    "set_image_area_image_path",
+                    route_set_image_area_image_path,
+                    SetImageAreaImagePathRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        imagePath="image.png",
+                    ),
+                ),
+                (
+                    "set_chart_area_data_path",
+                    route_set_chart_area_data_path,
+                    SetChartAreaDataPathRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        dataPath="data.csv",
+                    ),
+                ),
+                (
+                    "set_chart_type",
+                    route_set_chart_type,
+                    SetChartTypeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        chartType=ChartType.line,
+                    ),
+                ),
+                (
+                    "set_chart_settings",
+                    route_set_chart_settings,
+                    SetChartSettingsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        chartSettings=chart_settings,
+                        changedSettings=[],
+                    ),
+                ),
+            ]
+
+            try:
+                for name, handler, request in requests:
+                    with self.subTest(name=name):
+                        with self.assertRaises(HTTPException) as ctx:
+                            await handler(request, state)
+                        self.assertEqual(403, ctx.exception.status_code)
+            finally:
+                reset_share_session_id(token)
+
+    async def test_param_routes_blocked_by_allowed_sections(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            allowed_section_id = create_new_id()
+            blocked_section_id = create_new_id()
+            _write_share_policy(
+                root,
+                SharePolicy(
+                    allowParamChanges=True,
+                    allowedSections=[allowed_section_id],
+                ),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            request = SetTextBlockTextRequest(
+                projectConfigId=project_config_id,
+                sectionId=blocked_section_id,
+                text="blocked",
+            )
+            try:
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_text_block_text(request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+                self.assertIn(
+                    "Share policy disallows changes to sections",
+                    ctx.exception.detail,
+                )
+            finally:
+                reset_share_session_id(token)
+
+    async def test_paste_sections_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            request = PasteSectionsRequest(
+                projectConfigId=project_config_id,
+                data=ProjectStateCoreWithSectionVariantMap(core=ProjectStateCore()),
+                position=Position(x=0, y=0),
+                asRef=False,
+            )
+            try:
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_paste_sections(request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+            finally:
+                reset_share_session_id(token)
+
+    async def test_rename_refactor_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            token = set_share_session_id(session.id)
+
+            accept_request = AcceptRenameRefactorRequest(
+                projectConfigId=project_config_id,
+            )
+            decline_request = DeclineRenameRefactorRequest(
+                projectConfigId=project_config_id,
+            )
+            try:
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_accept_rename_refactor(accept_request, state)
+                self.assertEqual(403, ctx.exception.status_code)
+
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_decline_rename_refactor(decline_request, state)
                 self.assertEqual(403, ctx.exception.status_code)
             finally:
                 reset_share_session_id(token)

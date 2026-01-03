@@ -499,6 +499,11 @@ async def route_delete_json_source_file_and_variant(
 async def route_set_text_block_text(
     x: SetTextBlockTextRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_text_block_text(x)
 
 
@@ -506,6 +511,10 @@ async def route_set_text_block_text(
 async def route_set_gen_code_prefix(
     x: SetGenCodePrefixRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_prefix(x)
 
 
@@ -513,6 +522,10 @@ async def route_set_gen_code_prefix(
 async def route_set_gen_code_suffix(
     x: SetGenCodeSuffixRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_suffix(x)
 
 
@@ -609,6 +622,11 @@ async def route_toggle_group_orientation(
 
 @router.post(Route.SET_CODE)
 async def route_set_code(x: SetCodeRequest, state: AppStateFromRequest):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_code(x)
 
 
@@ -711,6 +729,10 @@ async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRe
 async def route_accept_rename_refactor(
     x: AcceptRenameRefactorRequest, state: AppStateFromRequest
 ) -> None:
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(x.projectConfigId).accept_rename_refactor(
         x
     )
@@ -720,6 +742,10 @@ async def route_accept_rename_refactor(
 async def route_decline_rename_refactor(
     x: DeclineRenameRefactorRequest, state: AppStateFromRequest
 ) -> None:
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+    )
     await state.project_manager_switcher.get(x.projectConfigId).decline_rename_refactor(
         x
     )
@@ -909,6 +935,11 @@ async def route_prepare_sections_for_copy(
 
 @router.post(Route.PASTE_SECTIONS)
 async def route_paste_sections(x: PasteSectionsRequest, state: AppStateFromRequest):
+    await ensure_share_structural_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=list(x.data.core.sections.keys()),
+    )
     await state.project_manager_switcher.get(x.projectConfigId).paste_sections(x)
 
 
@@ -916,6 +947,11 @@ async def route_paste_sections(x: PasteSectionsRequest, state: AppStateFromReque
 async def route_append_draw_area_layer_item(
     x: AppendDrawAreaLayerItemRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).append_draw_area_layer_item(x)
@@ -925,6 +961,11 @@ async def route_append_draw_area_layer_item(
 async def route_set_image_area_image_path(
     x: SetImageAreaImagePathRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_image_area_image_path(x)
@@ -934,6 +975,11 @@ async def route_set_image_area_image_path(
 async def route_set_chart_area_data_path(
     x: SetChartAreaDataPathRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_chart_area_data_path(x)
@@ -941,6 +987,11 @@ async def route_set_chart_area_data_path(
 
 @router.post(Route.SET_CHART_TYPE)
 async def route_set_chart_type(x: SetChartTypeRequest, state: AppStateFromRequest):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_chart_type(x)
 
 
@@ -948,4 +999,9 @@ async def route_set_chart_type(x: SetChartTypeRequest, state: AppStateFromReques
 async def route_set_chart_settings(
     x: SetChartSettingsRequest, state: AppStateFromRequest
 ):
+    await ensure_share_param_changes_allowed(
+        state,
+        project_config_id=x.projectConfigId,
+        section_ids=[x.sectionId],
+    )
     await state.project_manager_switcher.get(x.projectConfigId).set_chart_settings(x)
