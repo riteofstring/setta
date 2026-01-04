@@ -1,11 +1,15 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { HomePage } from "components/Pages/Home/HomePage";
+import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
+import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
+  SHARE_PROJECT_ROUTER_PATH,
+  SHARE_PROJECT_VERSION_ROUTER_PATH,
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
@@ -55,8 +59,31 @@ const projectRoute = {
   ),
 };
 
+const shareRouteElement = (
+  <ShareWrapper>
+    <ModalContainer>
+      <HeaderContainer path={SHARE_PROJECT_ROUTER_PATH} />
+      <GridContainer>
+        <ShareMainContainer />
+      </GridContainer>
+    </ModalContainer>
+  </ShareWrapper>
+);
+
+const shareRoutes = [
+  {
+    path: SHARE_PROJECT_ROUTER_PATH,
+    element: shareRouteElement,
+  },
+  {
+    path: SHARE_PROJECT_VERSION_ROUTER_PATH,
+    element: shareRouteElement,
+  },
+];
+
 export const router = createBrowserRouter([
   indexRoute,
   homeRoute,
   projectRoute,
+  ...shareRoutes,
 ]);

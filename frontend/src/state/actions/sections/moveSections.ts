@@ -1,18 +1,13 @@
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { ZustandProjectState } from "state/definitions";
-import {
-  route_move_section,
-  route_set_section_sizes,
-} from "utils/generatedEndpoints";
-import { Position, SectionSize, SectionTypeEnum } from "utils/generatedTypes";
+import { route_move_section } from "utils/generatedEndpoints";
+import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setSectionChildren,
 } from "../sectionInfos";
-import { setSectionSize } from "./sectionSizes";
 
 function moveSections({
   sectionIds,
@@ -52,7 +47,7 @@ function moveSection({
   newIndex: number | null;
   position: Position | null;
   state: ZustandProjectState;
-}): Record<string, SectionSize> {
+}) {
   setChildrenAndParent({
     oldParentId,
     newParentId,
@@ -63,60 +58,7 @@ function moveSection({
     state,
   });
 
-  return syncSectionSizeToOverflowGroup(newParentId, newSectionId, state);
-}
-
-// Group container has px-6 = 24px left + 24px right = 48px total horizontal padding
-const GROUP_HORIZONTAL_PADDING = 48;
-
-/**
- * When a section is dropped into an overflow group, sync its width to match the group's children
- */
-function syncSectionSizeToOverflowGroup(
-  newParentId: string | null,
-  sectionId: string,
-  state: ZustandProjectState,
-): Record<string, SectionSize> {
-  const updates: Record<string, SectionSize> = {};
-
-  if (!newParentId) {
-    return updates;
-  }
-
-  // Check if parent is an overflow group
-  let parentImpl;
-  try {
-    parentImpl = getCurrEffectiveSectionImplOfType(
-      state,
-      newParentId,
-      SectionTypeEnum.Group,
-    );
-  } catch {
-    return updates;
-  }
-
-  if (!parentImpl.overflowMode) {
-    return updates;
-  }
-
-  // For vertical listing, sync width (cross-axis)
-  const isHorizontal = parentImpl.isHorizontalOrientation ?? false;
-  if (isHorizontal) {
-    // TODO: Handle horizontal listing (sync height)
-    return updates;
-  }
-
-  // Get the target width from the group (minus padding)
-  const groupWidth = parentImpl.size.width;
-  if (typeof groupWidth !== "number") {
-    return updates;
-  }
-
-  const childWidth = groupWidth - GROUP_HORIZONTAL_PADDING;
-  const newSize = setSectionSize(sectionId, { width: childWidth }, state);
-  updates[sectionId] = newSize;
-
-  return updates;
+  // setSectionSizeAfterMove(newParentId, newSectionId, state);
 }
 
 export function moveSectionWithBackend({
@@ -132,11 +74,9 @@ export function moveSectionWithBackend({
   newIndex: number | null;
   position: Position | null;
 }) {
-  let sizeUpdates: Record<string, SectionSize> = {};
-
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      sizeUpdates = moveSection({
+      moveSection({
         oldParentId,
         newParentId,
         oldSectionId: sectionId,
@@ -146,24 +86,15 @@ export function moveSectionWithBackend({
         state,
       });
     },
-    send: async (frontendOpId) => {
-      await route_move_section({
+    send: (frontendOpId) =>
+      route_move_section({
         projectConfigId: getCurrProjectConfigId(),
         sectionId,
         newParentId,
         newIndex,
         position,
         frontendOpId,
-      });
-      // Also persist size changes if any
-      if (Object.keys(sizeUpdates).length > 0) {
-        await route_set_section_sizes({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionSizes: sizeUpdates,
-          frontendOpId,
-        });
-      }
-    },
+      }),
   });
 }
 
