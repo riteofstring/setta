@@ -200,25 +200,6 @@ class Artifacts:
 
         return path_and_types, path_to_types
 
-    def load_from_project_state(self, project_state: "ProjectStateCore") -> None:
-        path_and_types, _ = self.get_artifact_files_to_watch(project_state)
-        for path, artifact_type in path_and_types:
-            if path in self.dict_for_artifact_type(artifact_type):
-                continue
-            if not path.exists():
-                continue
-            match artifact_type:
-                case ArtifactType.Image:
-                    self.read_image_from_disk(path)
-                case ArtifactType.ChartData:
-                    self.read_chart_data_from_disk(path)
-                case ArtifactType.BrushStroke:
-                    self.read_brush_stroke_from_disk(path)
-                case ArtifactType.DrawAreaLayerItemTransform:
-                    self.read_transform_from_disk(path)
-                case _:
-                    assert_never(artifact_type)
-
     def _compute_file_hash(self, path: Path):
         content = self.dbe.read(path, "rb")
         if content:
