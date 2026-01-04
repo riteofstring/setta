@@ -92,19 +92,6 @@ class RuntimeContext:
             section_ids=section_ids,
         )
 
-    async def enforce_param_changes_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
-    ) -> None:
-        await self.enforce_policy(
-            policy_flag="allowParamChanges",
-            denied_message="Share policy disallows parameter changes.",
-            project_config_id=project_config_id,
-            section_ids=section_ids,
-        )
-
     async def enforce_run_allowed(
         self,
         *,

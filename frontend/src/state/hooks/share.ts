@@ -4,7 +4,6 @@ import { initializeShareDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_share_deployment } from "utils/generatedEndpoints";
-import type { SharePolicy } from "utils/generatedTypes";
 
 type ShareRouteInfo = {
   deploymentName: string | null;
@@ -119,10 +118,6 @@ export function useLoadShareDeployment() {
   return [doneLoading, is404] as const;
 }
 
-type SharePolicyFlag = {
-  [K in keyof SharePolicy]-?: SharePolicy[K] extends boolean ? K : never;
-}[keyof SharePolicy];
-
 type ShareCapabilities = {
   canEditParams: boolean;
   canEditVariants: boolean;
@@ -130,40 +125,13 @@ type ShareCapabilities = {
   canRun: boolean;
 };
 
-function resolveSharePolicyFlag(
-  sharePolicy: SharePolicy | null,
-  flag: SharePolicyFlag,
-  defaultValue: boolean,
-): boolean {
-  if (!sharePolicy) {
-    return defaultValue;
-  }
-  const policyValue = sharePolicy[flag];
-  if (policyValue === undefined || policyValue === null) {
-    return defaultValue;
-  }
-  return policyValue;
-}
-
 export function useShareCapabilities(): ShareCapabilities {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const sharePolicy = useShareSession((x) => x.sharePolicy);
-  const allowParamChanges = resolveSharePolicyFlag(
-    sharePolicy,
-    "allowParamChanges",
-    true,
-  );
-  const allowVariantChanges = resolveSharePolicyFlag(
-    sharePolicy,
-    "allowVariantChanges",
-    true,
-  );
-  const allowLayoutChanges = resolveSharePolicyFlag(
-    sharePolicy,
-    "allowLayoutChanges",
-    true,
-  );
-  const allowRun = resolveSharePolicyFlag(sharePolicy, "allowRun", true);
+  const allowParamChanges = sharePolicy?.allowParamChanges ?? true;
+  const allowVariantChanges = sharePolicy?.allowVariantChanges ?? true;
+  const allowLayoutChanges = sharePolicy?.allowLayoutChanges ?? true;
+  const allowRun = sharePolicy?.allowRun ?? false;
 
   return {
     canEditParams: !isShareMode || allowParamChanges,

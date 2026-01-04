@@ -242,7 +242,9 @@ async def route_update_artifacts(
             share_session_id=session_id,
             unknown_paths=resolved_unknown_paths,
         )
-        await ctx.enforce_param_changes_allowed(
+        await ctx.enforce_policy(
+            policy_flag="allowParamChanges",
+            denied_message="Share policy disallows parameter changes.",
             project_config_id=None,
             section_ids=list(section_ids) if section_ids else None,
         )

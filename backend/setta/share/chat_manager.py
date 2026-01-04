@@ -19,6 +19,9 @@ if TYPE_CHECKING:
     from setta.types.generated.chat_messages import BaseChatMessageUnion
 
 
+_DISABLED_MCP_CLIENT = MultiMCPClient({}, disabled=True)
+
+
 class ShareChatManager:
     def __init__(
         self,
@@ -36,7 +39,7 @@ class ShareChatManager:
         self.share_runtime_state = share_runtime_state
         self.share_session_store = share_session_store
         self.project_manager_switcher = project_manager_switcher
-        self._mcp_client = MultiMCPClient({}, disabled=True)
+        self._mcp_client = _DISABLED_MCP_CLIENT
 
         config = llm_config or load_llm_config(dbe, allow_write=False)
         self.config = config

@@ -156,6 +156,23 @@ async def deny_in_share_mode(
     )
 
 
+async def ensure_share_code_param_allowed(
+    *,
+    frontend_sender: "WMHFrontendSender",
+    project_config_id: ID | None,
+    is_code_param: bool,
+    share_session_id: str | None = None,
+) -> None:
+    if not is_code_param:
+        return
+    await _notify_and_raise(
+        frontend_sender,
+        message="Share mode disallows CodeParam edits.",
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+    )
+
+
 async def enforce_share_policy(
     *,
     share_mode: bool,
@@ -310,13 +327,12 @@ async def ensure_share_param_value_allowed(
         section_ids=[section_id],
     )
     impl = get_curr_effective_code_obj_impl(project_state, section_id, param_info_id)
-    if isinstance(impl, CodeParamCodeObjImpl):
-        await _notify_and_raise(
-            frontend_sender,
-            message="Share mode disallows CodeParam edits.",
-            project_config_id=project_config_id,
-            share_session_id=share_session_id,
-        )
+    await ensure_share_code_param_allowed(
+        frontend_sender=frontend_sender,
+        project_config_id=project_config_id,
+        is_code_param=isinstance(impl, CodeParamCodeObjImpl),
+        share_session_id=share_session_id,
+    )
 
 
 async def ensure_share_llm_allowed(

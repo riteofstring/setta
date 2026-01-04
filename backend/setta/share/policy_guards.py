@@ -11,7 +11,6 @@ from setta.project_state.project_manager_types import (
     SetTopLevelSectionLayoutRequest,
     UngroupGroupsRequest,
 )
-from setta.share.policy import deny_in_share_mode
 from setta.types.id import ID
 
 if TYPE_CHECKING:
@@ -23,8 +22,6 @@ class SharePolicyGuard(str, Enum):
     param = "param"
     variant = "variant"
     layout = "layout"
-    structural = "structural"
-    lsp = "lsp"
 
 
 def _resolve_section_id_for_variant(
@@ -75,24 +72,6 @@ async def enforce_share_policy_guard(
     request: ProjectManagerRequestWithProjectConfig,
     guard: SharePolicyGuard,
 ) -> None:
-    if guard is SharePolicyGuard.lsp:
-        await deny_in_share_mode(
-            share_mode=ctx.share_mode,
-            frontend_sender=ctx.frontend_sender,
-            message="Share mode disallows language server features.",
-            project_config_id=request.projectConfigId,
-            share_session_id=ctx.share_session_id,
-        )
-        return
-    if guard is SharePolicyGuard.structural:
-        await deny_in_share_mode(
-            share_mode=ctx.share_mode,
-            frontend_sender=ctx.frontend_sender,
-            message="Share mode disallows structural changes.",
-            project_config_id=request.projectConfigId,
-            share_session_id=ctx.share_session_id,
-        )
-        return
     if not ctx.share_mode:
         return
     section_ids = None
