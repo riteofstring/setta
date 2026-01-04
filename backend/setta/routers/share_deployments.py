@@ -7,7 +7,7 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
-from setta.project_state.jsonSource.save import build_json_source_payloads
+from setta.project_state.jsonSource.save import build_json_source_dicts
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
@@ -501,7 +501,7 @@ async def route_publish_share_deployment(
 
     snapshot = project_state_backend.model_copy(deep=True)
     _rebase_project_state_paths(snapshot, deployment_root)
-    json_source_payloads = build_json_source_payloads(snapshot)
+    json_source_payloads = build_json_source_dicts(snapshot)
     for filename, data in json_source_payloads.items():
         target_path = _resolve_deployment_relative_path(filename, deployment_root)
         state.dbe.write_json(target_path, data)
