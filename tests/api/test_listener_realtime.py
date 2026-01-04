@@ -184,7 +184,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             [{"Welcome": "Hello"}, {"Welcome": "Updated-2"}],
         )
         self.assertEqual(listener._dependency_cache.get("Welcome"), "Updated-2")
-        self.assertEqual(listener._get_last_realtime_sequence(None), 2)
+        self.assertEqual(listener._get_last_realtime_sequence(), 2)
 
         register_payload = json.loads(websocket.sent[-1])
         self.assertIn("callbacks", register_payload["content"])
@@ -289,7 +289,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             standard_calls,
             [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
         )
-        self.assertEqual(listener._get_last_realtime_sequence(None), 1)
+        self.assertEqual(listener._get_last_realtime_sequence(), 1)
 
         refreshed_state = project_state.model_copy(deep=True)
         self._set_snapshot_section_text(refreshed_state, "Updated")
@@ -299,7 +299,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
 
-        self.assertIsNone(listener._get_last_realtime_sequence(None))
+        self.assertIsNone(listener._get_last_realtime_sequence())
         self.assertEqual(
             run_on_refresh_calls,
             [{"Welcome": "Hello"}, {"Welcome": "Updated"}, {}],
@@ -309,9 +309,12 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             [{"Welcome": "Hello"}, {"Welcome": "Updated"}],
         )
 
-    async def test_realtime_sequences_are_tracked_per_share_session(self) -> None:
+    async def test_realtime_sequences_are_tracked_for_share_session(self) -> None:
         project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
+        listener = SettaListener(
+            project_name=project_state.projectConfig.name,
+            share_session_id="session-a",
+        )
         realtime_calls: list[dict[str, Any]] = []
 
         @listener.listen(deps=("Welcome",))
@@ -321,7 +324,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._process_snapshot(
             project_state,
             refresh_kind="force_refresh",
-            share_session_id=None,
+            share_session_id="session-a",
         )
         await asyncio.sleep(0)
 
@@ -350,14 +353,14 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_realtime_event(
             ListenerRealtimeEventContent(
                 projectConfigId=project_state.projectConfig.id,
-                shareSessionId="session-b",
+                shareSessionId="session-a",
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
                         value=LiteralDependencyValue("Update-B"),
                     )
                 ],
-                sequence=1,
+                sequence=2,
             )
         )
         await listener._scheduler.flush(realtime_spec.callback_id)
@@ -366,12 +369,51 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
             realtime_calls,
             [{"Welcome": "Hello"}, {"Welcome": "Update-A"}, {"Welcome": "Update-B"}],
         )
-        self.assertEqual(listener._get_last_realtime_sequence("session-a"), 1)
-        self.assertEqual(listener._get_last_realtime_sequence("session-b"), 1)
+        self.assertEqual(listener._get_last_realtime_sequence(), 2)
 
-    async def test_action_sequences_are_tracked_per_share_session(self) -> None:
+    async def test_realtime_rejects_unconfigured_share_session(self) -> None:
         project_state = self._build_project_state()
         listener = SettaListener(project_name=project_state.projectConfig.name)
+
+        @listener.listen(deps=("Welcome",))
+        def on_realtime(state, ctx):
+            pass
+
+        await listener._process_snapshot(
+            project_state,
+            refresh_kind="force_refresh",
+            share_session_id=None,
+        )
+        await asyncio.sleep(0)
+
+        realtime_spec = next(
+            spec
+            for spec in listener._callbacks.values()
+            if spec.function is on_realtime
+        )
+        dependency_key = self._get_structured_dependency(realtime_spec)
+
+        with self.assertRaises(ValueError):
+            await listener._handle_realtime_event(
+                ListenerRealtimeEventContent(
+                    projectConfigId=project_state.projectConfig.id,
+                    shareSessionId="session-a",
+                    deltas=[
+                        ListenerRealtimeDelta(
+                            dependency=dependency_key,
+                            value=LiteralDependencyValue("Update-A"),
+                        )
+                    ],
+                    sequence=1,
+                )
+            )
+
+    async def test_action_sequences_are_tracked_for_share_session(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(
+            project_name=project_state.projectConfig.name,
+            share_session_id="session-a",
+        )
         action_calls: list[list[str]] = []
 
         @listener.listen(actions=("action-id",))
@@ -381,7 +423,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._process_snapshot(
             project_state,
             refresh_kind="force_refresh",
-            share_session_id=None,
+            share_session_id="session-a",
         )
         await asyncio.sleep(0)
 
@@ -412,7 +454,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await listener._handle_action_event(
             ListenerActionEventContent(
                 projectConfigId=project_state.projectConfig.id,
-                shareSessionId="session-b",
+                shareSessionId="session-a",
                 actionEvents=[
                     ControlActionEvent(
                         controlName="Control-B",
@@ -422,14 +464,49 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         timestampMs=2,
                     )
                 ],
-                sequence=1,
+                sequence=2,
             )
         )
         await listener._scheduler.flush(action_spec.callback_id)
 
         self.assertEqual(action_calls, [["Control-A"], ["Control-B"]])
-        self.assertEqual(listener._get_last_realtime_sequence("session-a"), 1)
-        self.assertEqual(listener._get_last_realtime_sequence("session-b"), 1)
+        self.assertEqual(listener._get_last_realtime_sequence(), 2)
+
+    async def test_action_rejects_mismatched_share_session(self) -> None:
+        project_state = self._build_project_state()
+        listener = SettaListener(
+            project_name=project_state.projectConfig.name,
+            share_session_id="session-a",
+        )
+
+        @listener.listen(actions=("action-id",))
+        def on_action(state, ctx):
+            pass
+
+        await listener._process_snapshot(
+            project_state,
+            refresh_kind="force_refresh",
+            share_session_id="session-a",
+        )
+        await asyncio.sleep(0)
+
+        with self.assertRaises(ValueError):
+            await listener._handle_action_event(
+                ListenerActionEventContent(
+                    projectConfigId=project_state.projectConfig.id,
+                    shareSessionId="session-b",
+                    actionEvents=[
+                        ControlActionEvent(
+                            controlName="Control-B",
+                            actionId="action-id",
+                            actionControlType=CodeObjType.ButtonParam,
+                            payload="payload-b",
+                            timestampMs=2,
+                        )
+                    ],
+                    sequence=1,
+                )
+            )
 
     async def test_refresh_only_callbacks_ignore_realtime(self) -> None:
         project_state = self._build_project_state()
@@ -702,7 +779,7 @@ class SettaListenerRealtimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(state.section__switch, bool)
         self.assertEqual(switch_events, [(True, True)])
         self.assertTrue(listener._dependency_cache["section__switch"])
-        self.assertEqual(listener._get_last_realtime_sequence(None), 1)
+        self.assertEqual(listener._get_last_realtime_sequence(), 1)
 
     async def test_listener_error_prints_when_logging_unconfigured(self) -> None:
         listener = SettaListener(project_name="Project Missing")
