@@ -6088,6 +6088,9 @@ const RunCodeRequestSchema = z.object({
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]),
   cliId: z.union([z.string(), z.null()]).default(null),
+  runSnapshotMode: z
+    .union([z.enum(RunSnapshotModeEnum), z.null()])
+    .default(null),
 });
 
 export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;

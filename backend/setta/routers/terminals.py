@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.logging.project_id_route import require_project_context
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.dependencies import (
     RuntimeContextFromRequest,
     RuntimeContextFromWebsocket,
@@ -27,12 +28,6 @@ class DeleteTerminalsRequest(BaseModel):
 
 class KillSubprocessesRequest(BaseModel):
     projectConfigId: ID
-
-
-class RunCodeRequest(BaseModel):
-    projectConfigId: ID
-    sectionId: ID | None
-    cliId: str | None = None
 
 
 @terminals_ws_router.websocket(Route.TERMINAL)
@@ -167,11 +162,14 @@ async def route_run_code(
         project_config_id=x.projectConfigId,
         section_ids=[resolved_section_id] if resolved_section_id else None,
     )
+    run_request = x
+    if ctx.share_mode:
+        run_request = x.model_copy(
+            update={"runSnapshotMode": ctx.policy.runSnapshotMode}
+        )
 
     await run_code(
-        x.projectConfigId,
-        x.sectionId,
-        x.cliId,
+        run_request,
         manager,
         ctx.state.terminals,
         ctx.state.wmh_cli_sender,

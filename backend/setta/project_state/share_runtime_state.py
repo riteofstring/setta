@@ -15,6 +15,7 @@ from setta.project_state.jsonSource.load import load_json_sources_into_data_stru
 from setta.project_state.utils import (
     create_timestamped_folder,
 )
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
@@ -200,9 +201,10 @@ class ShareRuntimeState:
     async def create_run_command(
         self,
         share_session_id: str,
-        project_config_id: ID,
-        section_id: ID | None,
+        x: RunCodeRequest,
     ) -> str:
+        project_config_id = x.projectConfigId
+        section_id = x.sectionId
         project_state = self.get_session_state(share_session_id, project_config_id)
         run_snapshot_mode = self._resolve_run_snapshot_mode()
         gen_binding = self._get_gen_code_binding(project_state)

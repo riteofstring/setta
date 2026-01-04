@@ -13,6 +13,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.artifact import (
@@ -533,9 +534,14 @@ class ShareRuntimeStateTests(unittest.TestCase):
             self.addCleanup(
                 lambda: shutil.rmtree(runs_root, ignore_errors=True)
             )
+            run_request = RunCodeRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                cliId=None,
+            )
 
             command = self._loop.run_until_complete(
-                manager.create_run_command(session_id, project_config_id, section_id)
+                manager.create_run_command(session_id, run_request)
             )
 
             run_root = runs_root / session_id
@@ -569,9 +575,14 @@ class ShareRuntimeStateTests(unittest.TestCase):
             manager = ShareRuntimeState(dbe, root, frontend_sender)
             session_id = "session-absolute"
             manager.create_session_backend(session_id)
+            run_request = RunCodeRequest(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                cliId=None,
+            )
 
             command = self._loop.run_until_complete(
-                manager.create_run_command(session_id, project_config_id, section_id)
+                manager.create_run_command(session_id, run_request)
             )
 
             self.assertTrue(manager.share_runs_root.is_absolute())

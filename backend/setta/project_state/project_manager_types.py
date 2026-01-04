@@ -30,7 +30,7 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
 )
-from setta.types.settings_state import RenameRefactorMode
+from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.constants import C
 
 
@@ -83,6 +83,23 @@ class ProjectManagerRequestWithSectionIds(ProjectManagerRequestWithProjectConfig
 
     sectionIds: list[ID] = Field(
         description="Identifiers of the sections targeted by the request.",
+    )
+
+
+class RunCodeRequest(BaseModel):
+    projectConfigId: ID = Field(
+        description="Project configuration to run.",
+    )
+    sectionId: ID | None = Field(
+        description="Optional section to run; defaults to the entry code block.",
+    )
+    cliId: str | None = Field(
+        default=None,
+        description="CLI client id to stream run output.",
+    )
+    runSnapshotMode: RunSnapshotMode | None = Field(
+        default=None,
+        description="Optional run snapshot mode override for this run.",
     )
 
 

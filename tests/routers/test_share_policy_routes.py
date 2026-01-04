@@ -80,9 +80,9 @@ from setta.routers.share_deployments import (
     PublishShareDeploymentRequest,
     route_publish_share_deployment,
 )
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.terminals import (
     KillSubprocessesRequest,
-    RunCodeRequest,
     route_kill_subprocesses,
     route_run_code,
 )

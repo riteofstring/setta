@@ -1,6 +1,7 @@
 from setta.database.utils import create_new_id
 from setta.logging.tasks import spawn_background_task
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.terminals.terminals import Terminals
 from setta.types.id import ID
@@ -8,20 +9,18 @@ from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 
 
 async def run_code(
-    projectConfigId: ID,
-    sectionId: ID | None,
-    cliId: str | None,
+    x: RunCodeRequest,
     project_manager: BaseProjectManager,
     terminals: Terminals,
     websocket_msg_handler: WMHCLISender,
     share_session_id: str | None = None,
 ):
-    command = await project_manager.create_run_command(projectConfigId, sectionId)
+    command = await project_manager.create_run_command(x)
     return await run_command(
         command,
-        projectConfigId,
-        sectionId,
-        cliId,
+        x.projectConfigId,
+        x.sectionId,
+        x.cliId,
         project_manager,
         terminals,
         websocket_msg_handler,

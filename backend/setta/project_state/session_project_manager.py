@@ -15,7 +15,10 @@ from setta.project_state.listener_artifact_updates import (
 from setta.project_state.listener_dependency_updates import (
     apply_listener_dependency_updates,
 )
-from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
+from setta.project_state.project_manager_types import (
+    RunCodeRequest,
+    SaveAsNewProjectConfigRequest,
+)
 from setta.project_state.settings_project import apply_settings_display_names
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.policy import ensure_share_listener_emit_updates_allowed
@@ -287,26 +290,24 @@ class SessionProjectManager(BaseProjectManager):
     @BaseProjectManager.enqueue_method
     async def create_run_command(
         self,
-        projectConfigId: ID,
-        sectionId: ID | None,
+        x: RunCodeRequest,
     ) -> str:
         if self.share_runtime_state is None:
             return await BaseProjectManager.create_run_command(
                 self,
-                projectConfigId=projectConfigId,
-                sectionId=sectionId,
+                x,
             )
         if self.share_session_id is None:
             raise KeyError("Missing share session id")
         session_backend = self.share_runtime_state.get_session_backend(
             self.share_session_id
         )
-        if projectConfigId not in session_backend.projectConfigs:
-            raise KeyError(f"Unknown share project config: {projectConfigId}")
+        project_config_id = x.projectConfigId
+        if project_config_id not in session_backend.projectConfigs:
+            raise KeyError(f"Unknown share project config: {project_config_id}")
         return await self.share_runtime_state.create_run_command(
             self.share_session_id,
-            projectConfigId,
-            sectionId,
+            x,
         )
 
     @BaseProjectManager.enqueue_method

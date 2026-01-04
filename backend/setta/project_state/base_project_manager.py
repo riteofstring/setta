@@ -148,6 +148,7 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
+    RunCodeRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.share.policy import (
@@ -549,37 +550,41 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def create_run_command(
         self,
-        projectConfigId: ID,
-        sectionId: ID | None,
+        x: RunCodeRequest,
     ):
+        project_config_id = x.projectConfigId
+        section_id = x.sectionId
+        run_snapshot_mode = x.runSnapshotMode
         async with self._project_state_lock.read_lock():
-            gen_code, code_entries = self._flush_code_files(projectConfigId)
+            gen_code, code_entries = self._flush_code_files(project_config_id)
             if gen_code is None:
                 raise KeyError(
-                    f"Missing generated code for project config {projectConfigId}"
+                    f"Missing generated code for project config {project_config_id}"
                 )
-            run_snapshot_mode = self.settings_file.settings.backend.runSnapshotMode
-            if run_snapshot_mode == RunSnapshotMode.never:
+            resolved_run_snapshot_mode = (
+                run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
+            )
+            if resolved_run_snapshot_mode == RunSnapshotMode.never:
                 gen_code_path = gen_code.get_gen_python_code_path()
                 code_paths = {
                     sid: c.binding.canonical_path for sid, c in code_entries.items()
                 }
             else:
                 target_folder = create_timestamped_folder(
-                    self._resolve_run_snapshot_root(run_snapshot_mode)
+                    self._resolve_run_snapshot_root(resolved_run_snapshot_mode)
                 )
                 gen_code_path = gen_code.write_to_folder(target_folder)
                 code_paths = {}
                 for sid, c in code_entries.items():
                     code_paths[sid] = c.write_to_folder(target_folder)
 
-            if not sectionId:
-                sectionId = self.project_state_backend.projectConfigs[
-                    projectConfigId
+            if not section_id:
+                section_id = self.project_state_backend.projectConfigs[
+                    project_config_id
                 ].entryCodeBlockId
 
-            if sectionId:
-                return code_entries[sectionId].get_run_command(code_paths[sectionId])
+            if section_id:
+                return code_entries[section_id].get_run_command(code_paths[section_id])
             return gen_code.get_run_command(gen_code_path)
 
     def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
