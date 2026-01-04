@@ -209,8 +209,7 @@ class LLMChatManager:
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
-    def get_chat(self, chat_id: ID, share_session_id: str | None = None) -> Chat | None:
-        _ = share_session_id
+    def get_chat(self, chat_id: ID) -> Chat | None:
         return self.chat_store.get_chat(chat_id)
 
     def update_config(self, config: AllLLMConfigs) -> None:
@@ -228,9 +227,7 @@ class LLMChatManager:
         message: BaseChatMessageUnion,
         llm_config_id: str,
         project_config_id: ID,
-        share_session_id: str | None = None,
     ) -> Chat:
-        _ = share_session_id
         if chat_id:
             chat = self.chat_store.get_chat(chat_id)
             if chat:
@@ -243,20 +240,17 @@ class LLMChatManager:
             project_config_id=project_config_id,
         )
 
-    def get_all_chat_metadata(self, share_session_id: str | None = None):
-        _ = share_session_id
+    def get_all_chat_metadata(self):
         return self.chat_store.get_all_chat_metadata()
 
-    def delete_chat(self, chat_id: ID, share_session_id: str | None = None) -> None:
-        _ = share_session_id
+    def delete_chat(self, chat_id: ID) -> None:
         self.chat_store.delete_chat(chat_id)
         self._chat_tool_states.pop(chat_id, None)
         self._ai_follow_state.pop(chat_id, None)
 
     def get_ai_follow_snapshot(
-        self, project_config_id: ID, share_session_id: str | None = None
+        self, project_config_id: ID
     ) -> list[AIFollowToolArgumentsUpdateContent]:
-        _ = share_session_id
         snapshot: list[AIFollowToolArgumentsUpdateContent] = []
         for chat_id, state in self._ai_follow_state.items():
             if state.project_config_id != project_config_id:
@@ -287,9 +281,7 @@ class LLMChatManager:
         self,
         chat: Chat,
         deepThink: bool,
-        share_session_id: str | None = None,
     ) -> None:
-        _ = share_session_id
         existing = self._tasks.get(chat.id)
         if existing and not existing.done():
             logger.info(
@@ -452,10 +444,7 @@ class LLMChatManager:
                     )
                 break
 
-    async def request_stop_streaming(
-        self, chat_id: ID, share_session_id: str | None = None
-    ) -> None:
-        _ = share_session_id
+    async def request_stop_streaming(self, chat_id: ID) -> None:
         task = self._tasks.get(chat_id)
         if not task:
             logger.info("Stop requested for chat %s but no active task exists", chat_id)
@@ -463,16 +452,10 @@ class LLMChatManager:
         task.cancel()
         self._tasks.pop(chat_id, None)
 
-    def is_waiting_for_response(
-        self, chat_id: ID, share_session_id: str | None = None
-    ) -> bool:
-        _ = share_session_id
+    def is_waiting_for_response(self, chat_id: ID) -> bool:
         return chat_id in self._sessions
 
-    def get_current_stream(
-        self, chat_id: ID, share_session_id: str | None = None
-    ) -> list[BaseChatMessageUnion]:
-        _ = share_session_id
+    def get_current_stream(self, chat_id: ID) -> list[BaseChatMessageUnion]:
         session = self._sessions.get(chat_id)
         if not session:
             return []

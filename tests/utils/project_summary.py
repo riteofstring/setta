@@ -25,6 +25,7 @@ class ProjectSummaryManager:
 @dataclass(slots=True)
 class ProjectSummarySwitcher:
     manager: ProjectSummaryManager
+    last_share_session_id: str | None = None
 
     def get(
         self,
@@ -32,7 +33,7 @@ class ProjectSummarySwitcher:
         *,
         share_session_id: str | None = None,
     ) -> ProjectSummaryManager:
-        _ = share_session_id
+        self.last_share_session_id = share_session_id
         return self.manager
 
 

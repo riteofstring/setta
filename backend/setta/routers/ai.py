@@ -17,6 +17,12 @@ from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 router = SettaProjectContextAPIRouter()
 
 
+def _chat_manager_kwargs(ctx: RuntimeContextFromRequest) -> dict[str, str]:
+    if ctx.share_mode:
+        return {"share_session_id": ctx.share_session_id}
+    return {}
+
+
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -54,17 +60,17 @@ async def route_get_llm_response(
     x: GetLLMResponseRequest,
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
-    share_session_id = ctx.share_session_id
     await ctx.enforce_llm_allowed(
         project_config_id=x.projectConfigId,
     )
+    chat_manager_kwargs = _chat_manager_kwargs(ctx)
     try:
         chat = ctx.state.chat_manager.get_or_create_chat(
             x.chatId,
             x.message,
             x.llmConfigId,
             x.projectConfigId,
-            share_session_id=share_session_id,
+            **chat_manager_kwargs,
         )
     except Exception as exc:
         raise HTTPException(
@@ -75,7 +81,7 @@ async def route_get_llm_response(
         ctx.state.chat_manager.start_processing_query(
             chat,
             x.deepThink,
-            share_session_id=share_session_id,
+            **chat_manager_kwargs,
         )
         return chat.id
 
@@ -84,13 +90,10 @@ async def route_get_llm_response(
 async def route_get_all_llm_chat_metadata(
     ctx: RuntimeContextFromRequest,
 ) -> list[ChatMetadata]:
-    share_session_id = ctx.share_session_id
     await ctx.enforce_llm_allowed(
         project_config_id=None,
     )
-    return ctx.state.chat_manager.get_all_chat_metadata(
-        share_session_id=share_session_id
-    )
+    return ctx.state.chat_manager.get_all_chat_metadata(**_chat_manager_kwargs(ctx))
 
 
 @router.post(Route.DELETE_LLM_CHAT)
@@ -98,13 +101,12 @@ async def route_delete_llm_chat(
     x: DeleteLLMChatRequest,
     ctx: RuntimeContextFromRequest,
 ) -> None:
-    share_session_id = ctx.share_session_id
     await ctx.enforce_llm_allowed(
         project_config_id=None,
     )
     return ctx.state.chat_manager.delete_chat(
         x.chatId,
-        share_session_id=share_session_id,
+        **_chat_manager_kwargs(ctx),
     )
 
 
@@ -113,13 +115,12 @@ async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     ctx: RuntimeContextFromRequest,
 ) -> None:
-    share_session_id = ctx.share_session_id
     await ctx.enforce_llm_allowed(
         project_config_id=None,
     )
     await ctx.state.chat_manager.request_stop_streaming(
         x.chatId,
-        share_session_id=share_session_id,
+        **_chat_manager_kwargs(ctx),
     )
 
 
@@ -128,22 +129,23 @@ async def route_get_llm_chat(
     x: GetLLMChatRequest,
     ctx: RuntimeContextFromRequest,
 ) -> GetLLMChatRequestResponse:
-    share_session_id = ctx.share_session_id
     await ctx.enforce_llm_allowed(
         project_config_id=x.projectConfigId,
     )
     chat = ctx.state.chat_manager.get_chat(
         x.chatId,
-        share_session_id=share_session_id,
+        **_chat_manager_kwargs(ctx),
     )
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
     waiting_for_response = ctx.state.chat_manager.is_waiting_for_response(
-        x.chatId, share_session_id=share_session_id
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
     )
     current_stream = ctx.state.chat_manager.get_current_stream(
-        x.chatId, share_session_id=share_session_id
+        x.chatId,
+        **_chat_manager_kwargs(ctx),
     )
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
@@ -160,12 +162,12 @@ async def route_get_ai_follow_snapshot(
     x: GetAIFollowSnapshotRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[AIFollowToolArgumentsUpdateContent]:
-    share_session_id = ctx.share_session_id
     await ctx.enforce_llm_allowed(
         project_config_id=x.projectConfigId,
     )
     return ctx.state.chat_manager.get_ai_follow_snapshot(
-        x.projectConfigId, share_session_id=share_session_id
+        x.projectConfigId,
+        **_chat_manager_kwargs(ctx),
     )
 
 

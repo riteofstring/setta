@@ -30,8 +30,9 @@ class NoopMCPClient:
         *,
         meta: dict | None = None,
     ) -> CallToolResult:
-        _ = meta
-        raise ValueError(f"MCP tool calls are disabled (attempted {tool_name}).")
+        raise ValueError(
+            f"MCP tool calls are disabled (attempted {tool_name}, meta={meta})."
+        )
 
     async def connect_to_servers(self, _retry_delay: int = 1) -> None:
         return None

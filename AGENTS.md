@@ -24,6 +24,7 @@
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
+- Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
 
 ## Testing Guidelines
 
