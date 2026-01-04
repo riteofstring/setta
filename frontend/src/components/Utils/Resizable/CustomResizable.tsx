@@ -62,6 +62,9 @@ function mergeSizeUpdates(
   }
 }
 
+// Group container has px-6 = 24px left + 24px right = 48px total horizontal padding
+const GROUP_HORIZONTAL_PADDING = 48;
+
 function applyOverflowSectionResizeUpdates({
   sectionId,
   width,
@@ -81,7 +84,13 @@ function applyOverflowSectionResizeUpdates({
       axis: "width",
       state,
     });
+    console.log("[DEBUG] Looking for overflow group:", {
+      sectionId,
+      width,
+      widthGroupId,
+    });
     if (widthGroupId) {
+      // Set all children (siblings) to match this section's width
       mergeSizeUpdates(
         updates,
         setOverflowGroupCrossAxisSize({
@@ -90,6 +99,19 @@ function applyOverflowSectionResizeUpdates({
           axisSize: width,
           state,
           includeChildren: true,
+          includeGroup: false,
+        }),
+      );
+      // Set the group width to section width + padding so children fit
+      const groupWidth = width + GROUP_HORIZONTAL_PADDING;
+      mergeSizeUpdates(
+        updates,
+        setOverflowGroupCrossAxisSize({
+          groupId: widthGroupId,
+          axis: "width",
+          axisSize: groupWidth,
+          state,
+          includeChildren: false,
           includeGroup: true,
         }),
       );
@@ -97,7 +119,7 @@ function applyOverflowSectionResizeUpdates({
         updates,
         applyOverflowParentSizeUpdates({
           sectionId: widthGroupId,
-          newWidth: width,
+          newWidth: groupWidth,
           newHeight: undefined,
           state,
         }),
@@ -228,16 +250,8 @@ function CustomResizableCore({
       return;
     }
 
+    // Only update this section during drag - sync group/siblings on stop to avoid rubber-banding
     useProjectState.setState((state) => {
-      const overflowUpdates = applyOverflowSectionResizeUpdates({
-        sectionId,
-        width: numericSize.width,
-        height: numericSize.height,
-        state,
-      });
-      if (_.size(overflowUpdates) === 0) {
-        return;
-      }
       setSectionSize(sectionId, numericSize, state);
     });
   }
@@ -262,6 +276,12 @@ function CustomResizableCore({
           width: numericSize.width,
           height: numericSize.height,
           state,
+        });
+        console.log("[DEBUG] Section resize stop:", {
+          sectionId,
+          numericSize,
+          overflowUpdatesCount: Object.keys(overflowUpdates).length,
+          overflowUpdates,
         });
         mergeSizeUpdates(updatedSectionSizes, overflowUpdates);
       },
