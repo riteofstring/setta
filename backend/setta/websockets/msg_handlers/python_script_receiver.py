@@ -112,7 +112,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 share_session_id = self.require_share_session_id(websocket_id)
             return self.project_manager_switcher.get_for_session(share_session_id)
         if project_config_id is None:
-            return self.project_manager_switcher.get_for_session("main")
+            return self.project_manager_switcher.main
         return self.project_manager_switcher.get(project_config_id)
 
     @staticmethod

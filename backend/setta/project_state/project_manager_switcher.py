@@ -66,17 +66,7 @@ class ProjectManagerSwitcher:
         if self.share_runtime_state is not None:
             if not share_session_id:
                 raise KeyError("Missing share session id")
-            manager = self.get_for_session(share_session_id)
-            if isinstance(project_identifier, str):
-                project_config_id = project_identifier
-            else:
-                project_config_id = project_identifier.projectConfig.id
-            session_backend = self.share_runtime_state.get_session_backend(
-                share_session_id
-            )
-            if project_config_id not in session_backend.projectConfigs:
-                raise KeyError(f"Unknown share project config: {project_config_id}")
-            return manager
+            return self.get_for_session(share_session_id)
         if isinstance(project_identifier, str):
             if self.settings is not None and (
                 project_identifier
@@ -103,14 +93,9 @@ class ProjectManagerSwitcher:
             session_backend = self.share_runtime_state.get_session_backend(
                 share_session_id
             )
-            for config_id, config in session_backend.projectConfigs.items():
-                if config.name == projectConfigName:
-                    return config_id
-            raise ProjectNotFound
+            return confirm_config_name(session_backend, projectConfigName)
         projectConfigId = None
-        for p in [self.main, self.settings]:
-            if p is None:
-                continue
+        for p in self.project_managers:
             try:
                 projectConfigId = confirm_config_name(
                     p.project_state_backend, projectConfigName
@@ -134,11 +119,7 @@ class ProjectManagerSwitcher:
 
     def get_for_session(self, share_session_id: str) -> BaseProjectManager:
         if self.share_runtime_state is None:
-            if self.main is None:
-                raise ProjectNotFound
-            if not share_session_id:
-                return self.main
-            return self.main
+            raise ValueError("Share mode requires share runtime state")
         if not share_session_id:
             raise KeyError("Missing share session id")
         if share_session_id in self._session_managers:
@@ -175,29 +156,7 @@ class ProjectManagerSwitcher:
         return manager
 
     def drop_session_manager(self, share_session_id: str) -> None:
-        if self.share_runtime_state is None:
-            return
         manager = self._session_managers.pop(share_session_id, None)
         if manager is None:
             return
         manager.shutdown()
-
-    @property
-    def main(self) -> BaseProjectManager:
-        if self.share_runtime_state is not None:
-            raise KeyError("Share mode requires a share session id")
-        if self._main is None:
-            raise ProjectNotFound
-        return self._main
-
-    @main.setter
-    def main(self, value: BaseProjectManager | None) -> None:
-        self._main = value
-
-    @property
-    def settings(self) -> BaseProjectManager | None:
-        return self._settings
-
-    @settings.setter
-    def settings(self, value: BaseProjectManager | None) -> None:
-        self._settings = value

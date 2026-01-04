@@ -109,6 +109,17 @@ class SessionProjectManager(BaseProjectManager):
             )
         return self.dbe.read_project()
 
+    def get_single_config_state(self, projectConfigId: ID):
+        if self.share_runtime_state is not None:
+            if self.share_session_id is None:
+                raise KeyError("Missing share session id")
+            session_backend = self.share_runtime_state.get_session_backend(
+                self.share_session_id
+            )
+            if projectConfigId not in session_backend.projectConfigs:
+                raise KeyError(f"Unknown share project config: {projectConfigId}")
+        return super().get_single_config_state(projectConfigId)
+
     def save(self) -> None:
         if self.share_runtime_state is not None:
             return None
