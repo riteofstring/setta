@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from setta.mcp.context_utils import require_share_session_id
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -70,12 +69,8 @@ def _build_tool_callable(
     async def tool_callable(**raw_kwargs: Any):
         ctx: Context = raw_kwargs.pop("ctx")
         request = request_model(**raw_kwargs)
-        share_session_id = None
-        if ctx.fastmcp.state.share_mode:
-            share_session_id = require_share_session_id(ctx)
         manager = ctx.fastmcp.state.project_manager_switcher.get(
-            request.projectConfigId,
-            share_session_id=share_session_id,
+            request.projectConfigId
         )
         manager_method = getattr(manager, manager_method_name)
         result = manager_method(request)

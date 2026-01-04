@@ -18,9 +18,9 @@ from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
 
 
-def build_json_source_payloads(
-    p: ProjectStateCore, section_variant_ids: list[str] | None = None
-) -> dict[Path, dict]:
+def save_json_source_data(
+    dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
+):
     to_be_saved: dict[Path, dict] = defaultdict(dict)
     processed = set()
     for section in p.sections.values():
@@ -59,14 +59,8 @@ def build_json_source_payloads(
             # (They might not be because they are completely empty)
             add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
 
-    return to_be_saved
-
-
-def save_json_source_data(
-    dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
-):
-    payloads = build_json_source_payloads(p, section_variant_ids)
-    for filename, data in payloads.items():
+    # Save each file
+    for filename, data in to_be_saved.items():
         dbe.write_json(filename, data)
 
 

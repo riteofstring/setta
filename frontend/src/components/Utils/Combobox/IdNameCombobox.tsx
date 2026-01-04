@@ -13,6 +13,7 @@ export function IdNameCombobox<T>({
   onSelectedItemChange,
   small,
   outerDivClasses = "",
+  inputOuterClasses,
   placeholder,
   bg,
   isDisabled,
@@ -25,6 +26,7 @@ export function IdNameCombobox<T>({
   onSelectedItemChange: OnSelectedItemChangeFnType<T>;
   small?: boolean;
   outerDivClasses?: string;
+  inputOuterClasses?: string;
   placeholder?: string;
   bg?: string;
   isDisabled?: boolean;
@@ -69,6 +71,7 @@ export function IdNameCombobox<T>({
         bg={bg}
         isDisabled={isDisabled}
         inputRef={inputRef}
+        inputOuterClasses={inputOuterClasses}
       />
 
       <ComboboxList

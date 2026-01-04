@@ -1,16 +1,28 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { setCurrEffectiveSectionImplValue } from "state/actions/sectionInfos";
+import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrProjectConfigId,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { res200 } from "utils/endpointUtils";
-import { route_docstring_to_markdown } from "utils/generatedEndpoints";
+import {
+  route_docstring_to_markdown,
+  route_set_text_block_heading_as_section_name,
+  route_set_text_block_meta_control_style,
+} from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
 
-export function TextBlockSettings({ sectionId }) {
-  const { format, text, isFrozen, headingAsSectionName } =
+type TextBlockSettingsProps = {
+  sectionId: string;
+};
+
+export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
+  const { format, text, isFrozen, headingAsSectionName, metaControlStyle } =
     useTextBlockTextAndEditability(sectionId);
 
-  async function onChangeRenderMarkdown(v) {
+  async function onChangeRenderMarkdown(v: boolean) {
     let newText;
     if (v) {
       const res = await route_docstring_to_markdown({ docstring: text });
@@ -28,11 +40,37 @@ export function TextBlockSettings({ sectionId }) {
     });
   }
 
-  async function onChangeHeadingAsSectionName(v) {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        headingAsSectionName: v,
-      });
+  function onChangeHeadingAsSectionName(v: boolean) {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          headingAsSectionName: v,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_heading_as_section_name({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          headingAsSectionName: v,
+          frontendOpId,
+        }),
+    });
+  }
+
+  function onChangeMetaControlStyle(v: boolean) {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          metaControlStyle: v,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_meta_control_style({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          metaControlStyle: v,
+          frontendOpId,
+        }),
     });
   }
 
@@ -51,12 +89,23 @@ export function TextBlockSettings({ sectionId }) {
       </div>
       <div className="flex w-full items-center justify-between gap-4">
         <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-          Heading As Section Name
+          Heading as Section Name
         </p>
         <SwitchInput
           isDisabled={isFrozen}
           value={headingAsSectionName} // Add your state value
           onChange={onChangeHeadingAsSectionName} // Add your onChange handler
+          outerDivClassName="flex items-center"
+        />
+      </div>
+      <div className="flex w-full items-center justify-between gap-4">
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Transparent Section
+        </p>
+        <SwitchInput
+          isDisabled={isFrozen}
+          value={metaControlStyle}
+          onChange={onChangeMetaControlStyle}
           outerDivClassName="flex items-center"
         />
       </div>
