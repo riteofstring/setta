@@ -31,6 +31,7 @@ import {
   useMisc,
   useProjectState,
   useResizeEvent,
+  useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -303,7 +304,8 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const { canUseLsp } = useShareCapabilities();
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const canUseLsp = !isShareMode;
   const completionsFn = useCallback(
     getPythonCodeAreaCompletionsFn(sectionId, canUseLsp),
     [sectionId, canUseLsp],
@@ -351,7 +353,9 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
 
   const theme = useCodeMirrorStyle();
 
-  const { canEditParams, canUseLsp } = useShareCapabilities();
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const { canEditParams } = useShareCapabilities();
+  const canUseLsp = !isShareMode;
   const isShareReadOnly = !canEditParams;
   const completionsFn = useCallback(
     getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),

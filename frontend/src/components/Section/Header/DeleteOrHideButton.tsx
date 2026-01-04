@@ -4,7 +4,7 @@ import {
   getActiveViewModeConfig,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   route_delete_sections,
@@ -37,7 +37,9 @@ export function DeleteOrHideButton({
   sectionId,
   ...props
 }: DeleteOrHideButtonProps) {
-  const { canEditStructure, canEditVariants } = useShareCapabilities();
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const { canEditVariants } = useShareCapabilities();
+  const canEditStructure = !isShareMode;
   const { visibility, isEditingViewMode } = useProjectState((state) => {
     const viewMode = getActiveViewModeConfig(state);
     const visibility = viewMode.visibilityBySectionId[sectionId];

@@ -5,7 +5,6 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI
 
 from setta.database.db_objs import DBE
-from setta.mcp.client import MultiMCPClient
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.server_state import SettaFastAPIState
@@ -207,7 +206,6 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                     else:
                         self.assertFalse(state.chat_manager)
 
-                    self.assertIsInstance(state.mcp_client, MultiMCPClient)
                     self.assertTrue(state.mcp_client.disabled)
 
                     if expect_run:

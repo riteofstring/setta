@@ -3,10 +3,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, WebSocket, status
 
-from setta.project_state.session_project_manager import SessionPersistenceMode
-from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.policy import (
-    deny_in_share_mode,
     enforce_share_policy,
     ensure_share_llm_allowed,
     ensure_share_run_allowed,
@@ -28,10 +25,6 @@ class RuntimeContext:
         self._share_session_id = share_session_id
         if state.share_mode and share_session_id is None:
             raise KeyError("Missing share session id")
-        self.scoped_frontend_sender = ScopedFrontendSender(
-            state.wmh_frontend_sender,
-            share_session_id if state.share_mode else None,
-        )
 
     @property
     def share_mode(self) -> bool:
@@ -54,12 +47,6 @@ class RuntimeContext:
         if self.state.share_mode:
             return self.state.share_runtime_state.share_policy
         return SharePolicy()
-
-    @property
-    def persistence_mode(self) -> SessionPersistenceMode:
-        if self.state.share_mode:
-            return SessionPersistenceMode.share
-        return SessionPersistenceMode.ide_main
 
     @property
     def deployment_root(self) -> Path | None:
@@ -146,19 +133,6 @@ class RuntimeContext:
             section_ids=section_ids,
         )
 
-    async def enforce_lsp_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-    ) -> None:
-        await deny_in_share_mode(
-            share_mode=self.state.share_mode,
-            frontend_sender=self.state.wmh_frontend_sender,
-            message="Share mode disallows language server features.",
-            project_config_id=project_config_id,
-            share_session_id=self.share_session_id,
-        )
-
     async def enforce_llm_allowed(
         self,
         *,
@@ -168,17 +142,4 @@ class RuntimeContext:
             self.state,
             project_config_id=project_config_id,
             share_session_id=self._share_session_id,
-        )
-
-    async def enforce_structural_changes_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-    ) -> None:
-        await deny_in_share_mode(
-            share_mode=self.state.share_mode,
-            frontend_sender=self.state.wmh_frontend_sender,
-            message="Share mode disallows structural changes.",
-            project_config_id=project_config_id,
-            share_session_id=self.share_session_id,
         )

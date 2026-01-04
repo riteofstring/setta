@@ -73,7 +73,6 @@ class SessionProjectManager(BaseProjectManager):
         self.persistence_mode = persistence_mode
         self.share_runtime_state = share_runtime_state
         self.share_session_id = share_session_id
-        self._allow_lsp = lsp_writers is not None
         resolved_lsp_writers = lsp_writers or NoopLSPWriters()
         resolved_sender = (
             ScopedFrontendSender(frontend_sender, share_session_id)
@@ -230,23 +229,6 @@ class SessionProjectManager(BaseProjectManager):
                 artifacts=artifact_payloads,
                 updateType="update",
             )
-
-    async def ensure_gen_code_ready(self, project_config_id: ID) -> None:
-        if self.share_runtime_state is None:
-            return
-        if not self._allow_lsp:
-            return
-        if project_config_id in self.gen_code:
-            return
-        if self.share_session_id is None:
-            raise KeyError("Missing share session id")
-        session_backend = self.share_runtime_state.get_session_backend(
-            self.share_session_id
-        )
-        if project_config_id not in session_backend.projectConfigs:
-            raise KeyError(f"Unknown share project config: {project_config_id}")
-        project_state = self.get_single_config_state(project_config_id)
-        await self.update(project_state, updateFileWatcher=False)
 
     @BaseProjectManager.enqueue_method
     async def create_run_command(

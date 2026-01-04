@@ -8,7 +8,7 @@ from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
-from setta.share.policy import resolve_section_ids_for_artifacts
+from setta.share.policy import deny_in_share_mode, resolve_section_ids_for_artifacts
 from setta.types.artifact import ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
@@ -191,8 +191,12 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
             with self.assertRaises(HTTPException) as raised:
-                await runtime_ctx.enforce_structural_changes_allowed(
-                    project_config_id=project_config_id
+                await deny_in_share_mode(
+                    share_mode=runtime_ctx.share_mode,
+                    frontend_sender=runtime_ctx.frontend_sender,
+                    message="Share mode disallows structural changes.",
+                    project_config_id=project_config_id,
+                    share_session_id=runtime_ctx.share_session_id,
                 )
 
             self.assertEqual(403, raised.exception.status_code)
@@ -210,8 +214,12 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
             with self.assertRaises(HTTPException) as raised:
-                await runtime_ctx.enforce_lsp_allowed(
-                    project_config_id=project_config_id
+                await deny_in_share_mode(
+                    share_mode=runtime_ctx.share_mode,
+                    frontend_sender=runtime_ctx.frontend_sender,
+                    message="Share mode disallows language server features.",
+                    project_config_id=project_config_id,
+                    share_session_id=runtime_ctx.share_session_id,
                 )
 
             self.assertEqual(403, raised.exception.status_code)

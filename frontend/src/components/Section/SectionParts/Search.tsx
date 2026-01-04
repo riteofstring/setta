@@ -19,12 +19,12 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useProjectState,
+  useShareSession,
   useToolArgumentPreview,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -41,8 +41,8 @@ export function SectionSearch({
   callable: string | null;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
-  const { canUseLsp } = useShareCapabilities();
-  const lspEnabled = canUseLsp;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const lspEnabled = !isShareMode;
 
   function onEnter(value: string) {
     setCallable(sectionId, value, lspEnabled);

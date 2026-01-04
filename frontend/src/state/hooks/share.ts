@@ -127,9 +127,7 @@ type ShareCapabilities = {
   canEditParams: boolean;
   canEditVariants: boolean;
   canEditLayout: boolean;
-  canEditStructure: boolean;
   canRun: boolean;
-  canUseLsp: boolean;
 };
 
 function resolveSharePolicyFlag(
@@ -171,8 +169,6 @@ export function useShareCapabilities(): ShareCapabilities {
     canEditParams: !isShareMode || allowParamChanges,
     canEditVariants: !isShareMode || allowVariantChanges,
     canEditLayout: !isShareMode || allowLayoutChanges,
-    canEditStructure: !isShareMode,
     canRun: !isShareMode || allowRun,
-    canUseLsp: !isShareMode,
   };
 }

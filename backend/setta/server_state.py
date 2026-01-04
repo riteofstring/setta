@@ -408,7 +408,6 @@ class SettaFastAPIState:
             self.project_manager_switcher,
             dbe=self.dbe,
         )
-        self.mcp_client = MultiMCPClient({}, disabled=True)
         share_policy = self.share_runtime_state.share_policy
         llm_dbe = self._resolve_share_llm_dbe()
         llm_config = None
@@ -420,7 +419,6 @@ class SettaFastAPIState:
                 self.share_runtime_state,
                 self.share_session_store,
                 self.project_manager_switcher,
-                mcp_client=self.mcp_client,
                 llm_config=llm_config,
             )
         share_chat_manager = self.chat_manager if share_policy.allowLLM else None

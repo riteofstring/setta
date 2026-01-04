@@ -10,8 +10,11 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useContextMenus, useProjectState } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
+import {
+  useContextMenus,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import {
   route_delete_sections,
   route_group_sections,
@@ -25,7 +28,8 @@ export function SelectionContextMenu() {
     (x) => x.selection,
     _.isEqual,
   );
-  const { canEditStructure } = useShareCapabilities();
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const canEditStructure = !isShareMode;
 
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {

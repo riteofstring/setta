@@ -28,7 +28,6 @@ class ShareChatManager:
         share_session_store: "ShareSessionStore",
         project_manager_switcher: "ProjectManagerSwitcher",
         *,
-        mcp_client: "MultiMCPClient | None" = None,
         llm_config: AllLLMConfigs | None = None,
         api_keys: "APIKeys | None" = None,
     ) -> None:
@@ -37,9 +36,7 @@ class ShareChatManager:
         self.share_runtime_state = share_runtime_state
         self.share_session_store = share_session_store
         self.project_manager_switcher = project_manager_switcher
-        self._mcp_client = (
-            mcp_client if mcp_client is not None else MultiMCPClient({}, disabled=True)
-        )
+        self._mcp_client = MultiMCPClient({}, disabled=True)
 
         config = llm_config or load_llm_config(dbe, allow_write=False)
         self.config = config
