@@ -151,6 +151,29 @@ def _write_share_project(
     return project_config.id
 
 
+def _write_share_project_with_configs(
+    root: Path,
+    *,
+    project_configs: list[ProjectConfig],
+    default_project_config_id: ID,
+    deployment_version: str,
+) -> None:
+    dbe = DBE(root)
+    project_state = ProjectStateBackend(
+        projectConfigs={config.id: config for config in project_configs},
+        defaultProjectConfigId=default_project_config_id,
+    )
+    dbe.write_project(project_state)
+    default_config = project_state.projectConfigs[default_project_config_id]
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=default_project_config_id,
+        projectConfigName=default_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+
 def _write_share_project_with_entry_code(
     root: Path,
     *,
@@ -695,6 +718,31 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                         with self.assertRaises(HTTPException) as ctx:
                             await handler(request, runtime_ctx)
                         self.assertEqual(403, ctx.exception.status_code)
+
+    async def test_param_policy_applies_to_all_configs(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            config_a = ProjectConfig(name="Share Config A")
+            config_b = ProjectConfig(name="Share Config B")
+            root = _build_share_deployment_root(tmpdir, config_a.name)
+            _write_share_project_with_configs(
+                root,
+                project_configs=[config_a, config_b],
+                default_project_config_id=config_a.id,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowParamChanges=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+
+            with runtime_context(state, session.id) as runtime_ctx:
+                request = SetTextBlockTextRequest(
+                    projectConfigId=config_b.id,
+                    sectionId=create_new_id(),
+                    text="blocked",
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    await route_set_text_block_text(request, runtime_ctx)
+                self.assertEqual(403, ctx.exception.status_code)
 
     async def test_param_routes_blocked_by_allowed_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:

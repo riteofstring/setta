@@ -109,3 +109,37 @@ class ShareListenerRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 handle_b.task,
                 return_exceptions=True,
             )
+
+    async def test_session_handles_are_scoped_by_config(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_listener_entrypoint(root)
+            config_a = ID("proj-a")
+            config_b = ID("proj-b")
+            manifest = _build_manifest(
+                config_a,
+                entrypoint="listener.py",
+            )
+            runtime = ShareListenerRuntime(
+                deployment_root=root,
+                manifest=manifest,
+            )
+
+            await runtime.ensure_listener_for_session("session-a", config_a)
+            await runtime.ensure_listener_for_session("session-a", config_b)
+
+            handle_a = runtime._session_handles.get(("session-a", config_a))
+            handle_b = runtime._session_handles.get(("session-a", config_b))
+            if handle_a is None or handle_b is None:
+                raise AssertionError("expected session listener handles")
+            self.assertEqual(["session-a"], handle_a.module.BUILT)
+            self.assertEqual(["session-a"], handle_b.module.BUILT)
+
+            runtime.drop_session_listener("session-a")
+            self.assertFalse(runtime._session_handles)
+
+            await asyncio.gather(
+                handle_a.task,
+                handle_b.task,
+                return_exceptions=True,
+            )

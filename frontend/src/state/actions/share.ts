@@ -11,10 +11,12 @@ import {
   route_create_share_session,
   route_load_share_project_config,
 } from "utils/generatedEndpoints";
+import type { ProjectConfig } from "utils/generatedTypes";
 
 export async function initializeShareDeployment(
   projectConfigName: string,
   deploymentVersion: string,
+  requestedProjectConfigName: string | null,
 ): Promise<boolean> {
   resetProjectStores();
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
@@ -43,10 +45,20 @@ export async function initializeShareDeployment(
     projectMetadata: session.projectMetadata,
   });
 
+  const resolvedConfigId = resolveProjectConfigId(
+    session.projectMetadata,
+    requestedProjectConfigName,
+    session.defaultProjectConfigId,
+  );
+  if (!resolvedConfigId) {
+    useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
+    return false;
+  }
+
   const stateRes = await route_load_share_project_config(
     session.projectConfigName,
     session.deploymentVersion,
-    { projectConfigId: session.defaultProjectConfigId },
+    { projectConfigId: resolvedConfigId },
   );
   if (!res200(stateRes)) {
     useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
@@ -55,7 +67,7 @@ export async function initializeShareDeployment(
 
   await loadProjectState(stateRes.data.projectState);
   if (session.sharePolicy.allowLLM) {
-    await requestAIFollowSnapshot(session.defaultProjectConfigId);
+    await requestAIFollowSnapshot(resolvedConfigId);
   }
   useProjectLoading.setState({ projectIsLoading: false, projectIs404: false });
   return true;
@@ -94,4 +106,20 @@ export async function loadShareProjectConfig(
 
 function setShareSessionCookie(shareSessionId: string) {
   document.cookie = `shareSessionId=${shareSessionId}; path=/; SameSite=Lax`;
+}
+
+function resolveProjectConfigId(
+  projectMetadata: ProjectConfig[],
+  requestedProjectConfigName: string | null,
+  defaultProjectConfigId: string | null,
+): string | null {
+  if (requestedProjectConfigName) {
+    for (const config of projectMetadata) {
+      if (config.name === requestedProjectConfigName) {
+        return config.id;
+      }
+    }
+    return null;
+  }
+  return defaultProjectConfigId;
 }

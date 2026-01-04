@@ -10,6 +10,7 @@ import {
   PROJECT_CONFIG_ROUTER_PATH,
   SHARE_PROJECT_ROUTER_PATH,
   SHARE_PROJECT_VERSION_ROUTER_PATH,
+  SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH,
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
@@ -73,6 +74,10 @@ const shareRouteElement = (
 const shareRoutes = [
   {
     path: SHARE_PROJECT_ROUTER_PATH,
+    element: shareRouteElement,
+  },
+  {
+    path: SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH,
     element: shareRouteElement,
   },
   {

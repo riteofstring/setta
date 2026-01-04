@@ -120,16 +120,20 @@ def _sent_text_messages(messages: list[Message]) -> list[str]:
 def _build_project_state(
     project_config_id: ID,
     section_id: ID,
+    project_config_name: str | None = None,
 ) -> ProjectStateSingleConfig:
+    resolved_name = project_config_name or "Share Project"
+    text_impl_id = ID(f"text-impl-{project_config_id}")
+    variant_id = ID(f"text-variant-{project_config_id}")
     text_impl = TextBlockSectionImpl(
-        id=ID("text-impl"),
+        id=text_impl_id,
         name="Headline",
         text="Initial text",
     )
     variant = Variant(
-        id=ID("text-variant"),
+        id=variant_id,
         name="Variant",
-        impl=text_impl.id,
+        impl=text_impl_id,
         nonPresetImpls=compute_initial_nonPresetImpls(text_impl),
     )
     section = Core(
@@ -140,15 +144,15 @@ def _build_project_state(
     )
     project_config = ProjectConfig(
         id=project_config_id,
-        name="Share Project",
+        name=resolved_name,
         sectionVariantMap={section.id: variant.id},
         topLevelSections={section.id: TopLevelSectionLayout()},
     )
     return ProjectStateSingleConfig(
         projectConfig=project_config,
         sections={section.id: section},
-        sectionImpls={text_impl.id: text_impl},
-        sectionVariants={variant.id: variant},
+        sectionImpls={text_impl_id: text_impl},
+        sectionVariants={variant_id: variant},
     )
 
 
@@ -246,6 +250,34 @@ def _write_project_with_state(
         version=1,
         projectConfigId=project_state.projectConfig.id,
         projectConfigName=project_state.projectConfig.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return dbe
+
+
+def _write_project_with_states(
+    root: Path,
+    project_states: list[ProjectStateSingleConfig],
+    default_project_config_id: ID | None = None,
+    deployment_version: str = "v1",
+) -> DBE:
+    backend = ProjectStateBackend()
+    for project_state in project_states:
+        backend = merge_single_config_into_backend(backend, project_state)
+    if not project_states:
+        raise ValueError("Expected at least one project state")
+    resolved_default_id = default_project_config_id or project_states[
+        0
+    ].projectConfig.id
+    backend.defaultProjectConfigId = resolved_default_id
+    dbe = DBE(root)
+    dbe.write_project(backend)
+    default_config = backend.projectConfigs[resolved_default_id]
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=resolved_default_id,
+        projectConfigName=default_config.name,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
@@ -672,6 +704,51 @@ class ShareRuntimeStateTests(unittest.TestCase):
                 session_a_after.projectConfig.name,
                 session_b_after.projectConfig.name,
             )
+
+    def test_update_session_state_targets_single_config(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            state_a = _build_project_state(
+                ID("share-project-a"),
+                ID("section-a"),
+                project_config_name="Share Project A",
+            )
+            state_b = _build_project_state(
+                ID("share-project-b"),
+                ID("section-b"),
+                project_config_name="Share Project B",
+            )
+            root = _build_share_deployment_root(tmpdir, state_a.projectConfig.name)
+            dbe = _write_project_with_states(
+                root,
+                [state_a, state_b],
+                default_project_config_id=state_a.projectConfig.id,
+            )
+            manager = ShareRuntimeState(
+                dbe, root, WMHFrontendSender(WebsocketManager())
+            )
+
+            manager.create_session_backend("session-a")
+            state_a_session = manager.get_session_state(
+                "session-a", state_a.projectConfig.id
+            )
+            state_b_session = manager.get_session_state(
+                "session-a", state_b.projectConfig.id
+            )
+            original_b_name = state_b_session.projectConfig.name
+
+            state_a_session.projectConfig.name = "Updated Project A"
+            manager.update_session_state(
+                "session-a", state_a.projectConfig.id, state_a_session
+            )
+
+            updated_a = manager.get_session_state(
+                "session-a", state_a.projectConfig.id
+            )
+            updated_b = manager.get_session_state(
+                "session-a", state_b.projectConfig.id
+            )
+            self.assertEqual("Updated Project A", updated_a.projectConfig.name)
+            self.assertEqual(original_b_name, updated_b.projectConfig.name)
 
     def test_unknown_session_state_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:

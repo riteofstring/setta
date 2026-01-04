@@ -50,10 +50,12 @@ def _build_project_state(
     project_config_id: ID,
     gen_section_id: ID,
     code_section_id: ID,
+    project_config_name: str | None = None,
 ) -> ProjectStateSingleConfig:
+    resolved_name = project_config_name or "Share Project"
     project_config = ProjectConfig(
         id=project_config_id,
-        name="Share Project",
+        name=resolved_name,
         entryCodeBlockId=code_section_id,
     )
     project_slug = sanitize_name(project_config.name)
@@ -63,15 +65,19 @@ def _build_project_state(
         canonical_path=code_root / "setta_gen.py",
         access_mode=CodeFileAccessMode.write_only,
     )
+    gen_impl_id = ID(f"gen-impl-{project_config_id}")
+    gen_variant_id = ID(f"gen-variant-{project_config_id}")
+    code_impl_id = ID(f"code-impl-{project_config_id}")
+    code_variant_id = ID(f"code-variant-{project_config_id}")
     gen_impl = GenPythonCodeSectionImpl(
-        id=ID("gen-impl"),
+        id=gen_impl_id,
         name="Generated",
         codeFileBinding=gen_binding,
     )
     gen_variant = Variant(
-        id=ID("gen-variant"),
+        id=gen_variant_id,
         name="Generated",
-        impl=gen_impl.id,
+        impl=gen_impl_id,
         nonPresetImpls=compute_initial_nonPresetImpls(gen_impl),
     )
     gen_section = Core(
@@ -86,15 +92,15 @@ def _build_project_state(
         access_mode=CodeFileAccessMode.read_write,
     )
     code_impl = CodeSectionImpl(
-        id=ID("code-impl"),
+        id=code_impl_id,
         name="Runner",
         code="print('hello')",
         codeFileBinding=code_binding,
     )
     code_variant = Variant(
-        id=ID("code-variant"),
+        id=code_variant_id,
         name="Runner",
-        impl=code_impl.id,
+        impl=code_impl_id,
         nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
     )
     code_section = Core(
@@ -117,12 +123,12 @@ def _build_project_state(
             code_section_id: code_section,
         },
         sectionImpls={
-            gen_impl.id: gen_impl,
-            code_impl.id: code_impl,
+            gen_impl_id: gen_impl,
+            code_impl_id: code_impl,
         },
         sectionVariants={
-            gen_variant.id: gen_variant,
-            code_variant.id: code_variant,
+            gen_variant_id: gen_variant,
+            code_variant_id: code_variant,
         },
         singletonSections=SingletonSections(GenPythonCode=gen_section_id),
         genCodeBinding=gen_binding,
@@ -148,7 +154,101 @@ def _write_project_with_state(
     return dbe
 
 
+def _write_project_with_states(
+    root: Path,
+    project_states: list[ProjectStateSingleConfig],
+    default_project_config_id: ID | None = None,
+    deployment_version: str = "v1",
+) -> DBE:
+    backend = ProjectStateBackend()
+    for project_state in project_states:
+        backend = merge_single_config_into_backend(backend, project_state)
+    if not project_states:
+        raise ValueError("Expected at least one project state")
+    resolved_default_id = default_project_config_id or project_states[
+        0
+    ].projectConfig.id
+    backend.defaultProjectConfigId = resolved_default_id
+    dbe = DBE(root)
+    dbe.write_project(backend)
+    default_config = backend.projectConfigs[resolved_default_id]
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=resolved_default_id,
+        projectConfigName=default_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return dbe
+
+
 class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_session_manager_supports_multiple_configs(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_state_a = _build_project_state(
+                ID("share-project-a"),
+                ID("gen-section-a"),
+                ID("code-section-a"),
+                project_config_name="Share Project A",
+            )
+            project_state_b = _build_project_state(
+                ID("share-project-b"),
+                ID("gen-section-b"),
+                ID("code-section-b"),
+                project_config_name="Share Project B",
+            )
+            root = _build_share_deployment_root(
+                tmpdir, project_state_a.projectConfig.name
+            )
+            dbe = _write_project_with_states(
+                root,
+                [project_state_a, project_state_b],
+                default_project_config_id=project_state_a.projectConfig.id,
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
+            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            share_manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
+            switcher = ProjectManagerSwitcher(
+                share_runtime_state=share_manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
+            session_manager = switcher.get_for_session("session-a")
+
+            try:
+                await session_manager._process_queue_task_started.wait()
+                state_a = session_manager.get_single_config_state(
+                    project_state_a.projectConfig.id
+                )
+                state_b = session_manager.get_single_config_state(
+                    project_state_b.projectConfig.id
+                )
+                self.assertEqual(
+                    project_state_a.projectConfig.name,
+                    state_a.projectConfig.name,
+                )
+                self.assertEqual(
+                    project_state_b.projectConfig.name,
+                    state_b.projectConfig.name,
+                )
+            finally:
+                session_manager.shutdown()
+                results = await asyncio.gather(
+                    session_manager.queue_task,
+                    return_exceptions=True,
+                )
+                self.assertEqual(1, len(results))
+                self.assertIsInstance(results[0], asyncio.CancelledError)
+
     async def test_update_without_lsp_does_not_raise(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")

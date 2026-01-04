@@ -6,8 +6,54 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_latest_share_deployment } from "utils/generatedEndpoints";
 import type { SharePolicy } from "utils/generatedTypes";
 
+type ShareRouteInfo = {
+  deploymentName: string | null;
+  deploymentVersion: string | null;
+  requestedConfigName: string | null;
+};
+
+function isShareVersionSegment(value: string): boolean {
+  return /^v\d+$/.test(value);
+}
+
+function resolveShareRouteInfo(
+  deploymentName: string | undefined,
+  version: string | undefined,
+  targetProjectConfigName: string | undefined,
+): ShareRouteInfo {
+  const resolvedDeploymentName = deploymentName ?? null;
+  const resolvedVersion = version ?? null;
+  const resolvedTargetConfig = targetProjectConfigName ?? null;
+  if (!resolvedDeploymentName) {
+    return {
+      deploymentName: null,
+      deploymentVersion: null,
+      requestedConfigName: null,
+    };
+  }
+  if (resolvedTargetConfig) {
+    return {
+      deploymentName: resolvedDeploymentName,
+      deploymentVersion: resolvedVersion,
+      requestedConfigName: resolvedTargetConfig,
+    };
+  }
+  if (resolvedVersion && !isShareVersionSegment(resolvedVersion)) {
+    return {
+      deploymentName: resolvedDeploymentName,
+      deploymentVersion: null,
+      requestedConfigName: resolvedVersion,
+    };
+  }
+  return {
+    deploymentName: resolvedDeploymentName,
+    deploymentVersion: resolvedVersion,
+    requestedConfigName: null,
+  };
+}
+
 export function useLoadShareDeployment() {
-  const { projectConfigName, version } = useParams();
+  const { projectConfigName, version, targetProjectConfigName } = useParams();
   const navigate = useNavigate();
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
@@ -16,7 +62,12 @@ export function useLoadShareDeployment() {
     let isMounted = true;
 
     async function load() {
-      if (!projectConfigName) {
+      const routeInfo = resolveShareRouteInfo(
+        projectConfigName,
+        version,
+        targetProjectConfigName,
+      );
+      if (!routeInfo.deploymentName) {
         return;
       }
       setDoneLoading(false);
@@ -24,9 +75,9 @@ export function useLoadShareDeployment() {
         projectIsLoading: true,
         projectIs404: false,
       });
-      if (!version) {
+      if (!routeInfo.deploymentVersion) {
         const latestRes =
-          await route_get_latest_share_deployment(projectConfigName);
+          await route_get_latest_share_deployment(routeInfo.deploymentName);
         if (!res200(latestRes)) {
           useProjectLoading.setState({
             projectIsLoading: false,
@@ -38,12 +89,20 @@ export function useLoadShareDeployment() {
           return;
         }
         const resolvedVersion = latestRes.data.deploymentVersion;
-        navigate(`/share/${projectConfigName}/${resolvedVersion}`, {
+        let targetPath = `/share/${routeInfo.deploymentName}/${resolvedVersion}`;
+        if (routeInfo.requestedConfigName) {
+          targetPath = `${targetPath}/${routeInfo.requestedConfigName}`;
+        }
+        navigate(targetPath, {
           replace: true,
         });
         return;
       }
-      await initializeShareDeployment(projectConfigName, version);
+      await initializeShareDeployment(
+        routeInfo.deploymentName,
+        routeInfo.deploymentVersion,
+        routeInfo.requestedConfigName,
+      );
       if (!isMounted) {
         return;
       }
@@ -54,7 +113,7 @@ export function useLoadShareDeployment() {
     return () => {
       isMounted = false;
     };
-  }, [navigate, projectConfigName, version]);
+  }, [navigate, projectConfigName, targetProjectConfigName, version]);
 
   return [doneLoading, is404] as const;
 }

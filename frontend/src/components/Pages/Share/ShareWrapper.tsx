@@ -38,17 +38,33 @@ function useShareWebsocket() {
 }
 
 function useShareHTMLTitle() {
-  const { projectConfigName, version } = useParams();
+  const { projectConfigName, version, targetProjectConfigName } = useParams();
 
   useEffect(() => {
-    if (projectConfigName && version) {
-      document.title = `Share ${projectConfigName}/${version}`;
-      return;
+    document.title = resolveShareTitle(
+      projectConfigName,
+      version,
+      targetProjectConfigName,
+    );
+  }, [projectConfigName, targetProjectConfigName, version]);
+}
+
+function resolveShareTitle(
+  deploymentName: string | undefined,
+  version: string | undefined,
+  targetConfigName: string | undefined,
+): string {
+  if (!deploymentName) {
+    return "Sharing Mode";
+  }
+  if (targetConfigName) {
+    if (version) {
+      return `Share ${deploymentName}/${version}/${targetConfigName}`;
     }
-    if (projectConfigName) {
-      document.title = `Share ${projectConfigName}`;
-      return;
-    }
-    document.title = "Sharing Mode";
-  }, [projectConfigName, version]);
+    return `Share ${deploymentName}/${targetConfigName}`;
+  }
+  if (version) {
+    return `Share ${deploymentName}/${version}`;
+  }
+  return `Share ${deploymentName}`;
 }

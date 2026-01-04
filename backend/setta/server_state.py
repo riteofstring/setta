@@ -401,6 +401,7 @@ class SettaFastAPIState:
             project_manager=None,
             realtime_event_hub=self.realtime_event_hub,
             share_mode=True,
+            share_runtime_state=self.share_runtime_state,
         )
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
             self.websocket_manager,

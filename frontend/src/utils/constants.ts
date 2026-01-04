@@ -118,6 +118,8 @@ export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SHARE_PROJECT_ROUTER_PATH = "/share/:projectConfigName";
 export const SHARE_PROJECT_VERSION_ROUTER_PATH =
   "/share/:projectConfigName/:version";
+export const SHARE_PROJECT_VERSION_CONFIG_ROUTER_PATH =
+  "/share/:projectConfigName/:version/:targetProjectConfigName";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
 export function pathRelativeToProject(projectConfigName: string) {

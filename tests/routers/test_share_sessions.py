@@ -12,15 +12,18 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
 from setta.routers.share_deployments import (
+    LoadShareProjectConfigRequest,
     route_create_share_session,
     route_get_share_deployment_state,
     route_get_latest_share_deployment,
+    route_load_share_project_config,
     route_list_share_deployment_versions,
     route_list_share_deployments,
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
+from setta.types.id import ID
 from setta.types.share_deployment import ShareDeploymentManifest
 
 
@@ -46,6 +49,30 @@ def _write_share_project(
     )
     dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
     return project_config
+
+
+def _write_share_project_with_configs(
+    deployment_root: Path,
+    *,
+    project_configs: list[ProjectConfig],
+    default_project_config_id: ID,
+    deployment_version: str,
+) -> None:
+    deployment_root.mkdir(parents=True, exist_ok=True)
+    dbe = DBE(deployment_root)
+    project_state = ProjectStateBackend(
+        projectConfigs={config.id: config for config in project_configs},
+        defaultProjectConfigId=default_project_config_id,
+    )
+    dbe.write_project(project_state)
+    default_config = project_state.projectConfigs[default_project_config_id]
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=default_project_config_id,
+        projectConfigName=default_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
 
 
 def _make_request(share_session_id: str | None) -> Request:
@@ -158,6 +185,40 @@ class ShareSessionRouteTests(unittest.IsolatedAsyncioTestCase):
                     request,
                 )
             self.assertEqual(400, ctx.exception.status_code)
+
+    async def test_session_loads_multiple_project_configs(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            share_root = Path(tmpdir) / "share_deployments"
+            deployment_version = "v1"
+            config_a = ProjectConfig(name="Share Config A")
+            config_b = ProjectConfig(name="Share Config B")
+            deployment_root = (
+                share_root / config_a.name / deployment_version
+            )
+            _write_share_project_with_configs(
+                deployment_root,
+                project_configs=[config_a, config_b],
+                default_project_config_id=config_a.id,
+                deployment_version=deployment_version,
+            )
+            state = await self._build_state(deployment_root)
+
+            session_response = await route_create_share_session(
+                config_a.name,
+                deployment_version,
+                state,
+            )
+            request = _make_request(session_response.shareSessionId)
+            response = await route_load_share_project_config(
+                config_a.name,
+                deployment_version,
+                LoadShareProjectConfigRequest(projectConfigId=config_b.id),
+                state,
+                request,
+            )
+            self.assertEqual(
+                config_b.id, response.projectState.projectConfig.id
+            )
 
     async def test_unknown_session_id_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
