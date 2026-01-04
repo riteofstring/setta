@@ -130,7 +130,7 @@ class ShareRuntimeState:
             project_state,
             session_id=session_id,
         )
-        self._validate_project_state(project_state)
+        project_state.validate_for_update(validate_code_file_bindings=False)
         if updated_binding:
             self._session_backends[session_id] = merge_single_config_into_backend(
                 backend,
@@ -148,7 +148,6 @@ class ShareRuntimeState:
             raise KeyError(f"Unknown share session backend: {session_id}")
         if project_config_id not in self._session_backends[session_id].projectConfigs:
             raise KeyError(f"Unknown share project config: {project_config_id}")
-        self.update(project_state)
         updated = merge_single_config_into_backend(
             self._session_backends[session_id], project_state
         )
@@ -187,7 +186,7 @@ class ShareRuntimeState:
         return None
 
     def update(self, project_state: "ProjectStateSingleConfig") -> None:
-        self._validate_project_state(project_state)
+        project_state.validate_for_update(validate_code_file_bindings=False)
 
     def watch_json_source_files(self) -> None:
         return None
@@ -295,16 +294,6 @@ class ShareRuntimeState:
         base_backend = self.project_state_backend.model_copy(deep=True)
         self._hydrate_json_sources(base_backend, settings_file)
         self._base_backend = base_backend
-
-    def _validate_project_state(
-        self, project_state: "ProjectStateSingleConfig"
-    ) -> None:
-        project_state.validate_singleton_sections()
-        project_state.validate_parent_section_map()
-        project_state.validate_view_modes()
-        project_state.validate_shown_param_ids()
-        project_state.validate_yaml_values()
-        project_state.validate_required_decoded_images()
 
     def _ensure_gen_code_binding(
         self,

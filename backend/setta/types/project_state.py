@@ -132,6 +132,21 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def _validate_view_modes(self):
         return self.validate_view_modes()
 
+    def validate_for_update(
+        self,
+        *,
+        validate_code_file_bindings: bool,
+    ):
+        self.validate_singleton_sections()
+        self.validate_parent_section_map()
+        self.validate_view_modes()
+        self.validate_shown_param_ids()
+        self.validate_yaml_values()
+        self.validate_required_decoded_images()
+        if validate_code_file_bindings:
+            self.validate_code_file_bindings()
+        return self
+
     def validate_singleton_sections(self):
         output = SingletonSections()
         found = set()

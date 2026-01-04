@@ -658,91 +658,112 @@ class BaseProjectManager(ABC):
                 singleConfig, updateFileWatcher=False
             )
 
+    async def _refresh_codegen_state(
+        self,
+        projectState: ProjectStateSingleConfig,
+    ) -> None:
+        dep_graph = DependencyGraph(projectState)
+        projectConfig = projectState.projectConfig
+        projectConfigId = projectConfig.id
+        if self.gen_code.get(projectConfigId):
+            await self.maybe_do_rename_refactor(
+                projectState, projectConfigId, dep_graph
+            )
+            self.gen_code[projectConfigId].callback_cleanup()
+
+        code_generator = PythonCodeGenerator(
+            dep_graph,
+            projectConfig.genCodePrefix,
+            projectConfig.genCodeSuffix,
+            value_mode=PythonValueMode.PACKAGED_RUNTIME,
+        )
+        code_generator.generate_code()
+        ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
+            projectState
+        )
+
+        gen_code_binding = projectState.genCodeBinding
+        if gen_code_binding is None:
+            raise ValueError("Project state missing generated code binding")
+        new_gen_code = ProjectGenPythonCode(
+            self.dbe,
+            self.code_files,
+            gen_code_binding,
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            projectConfigId,
+            dep_graph,
+            code_generator,
+            ignore_type_errors_by_section,
+        )
+        if not new_gen_code.binding.canonical_path.exists():
+            new_gen_code.write_to_disk(new_gen_code.code)
+        if self.lsp_writers.full is not None:
+            await new_gen_code.sync_lsp(new_gen_code.code)
+        maybe_update_gen_python_code_section(projectState, new_gen_code.generated_code)
+        self.gen_code[projectConfigId] = new_gen_code
+
+        if self.code_dict.get(projectConfigId):
+            for c in self.code_dict[projectConfigId].values():
+                if isinstance(c, ProjectPythonCode):
+                    c.callback_cleanup()
+        self.code_dict[projectConfigId] = {}
+
+        for sectionId in projectState.sections.keys():
+            section_impl = get_curr_effective_section_impl(projectState, sectionId)
+            if isinstance(section_impl, CodeSectionImpl):
+                section_code = self.create_project_code(
+                    projectState, sectionId, section_impl
+                )
+
+                if not section_code:
+                    continue
+
+                if not section_code.binding.canonical_path.exists():
+                    section_code.write_to_disk(section_code.code)
+                if self.lsp_writers.full is not None:
+                    await section_code.sync_lsp(section_code.code)
+                self.code_dict[projectConfigId][sectionId] = section_code
+
+    def _merge_project_state_backend(
+        self,
+        projectState: ProjectStateSingleConfig,
+        *,
+        updateFileWatcher: bool,
+    ) -> None:
+        self.project_state_backend = self.get_new_project_state_backend(projectState)
+        if updateFileWatcher:
+            self.watch_json_source_files()
+            self.watch_artifact_files()
+            self.watch_code_files()
+
+    def shutdown(self) -> None:
+        categories = (
+            f"{self._file_watcher_category_prefix}_JSONSource",
+            f"{self._file_watcher_category_prefix}_Artifacts",
+            f"{self._file_watcher_category_prefix}_CodeFiles",
+        )
+        for category in categories:
+            self.specific_file_watcher.update_callbacks({}, category, [])
+        self.autosave_debouncer.cancel()
+        self.queue_task.cancel()
+
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
         updateFileWatcher: bool = True,
+        validate_code_file_bindings: bool = True,
     ):
         async with self._project_state_lock.write_lock():
-            projectState.validate_singleton_sections()
-            projectState.validate_parent_section_map()
-            projectState.validate_view_modes()
-            projectState.validate_shown_param_ids()
-            projectState.validate_yaml_values()
-            projectState.validate_required_decoded_images()
-            projectState.validate_code_file_bindings()
-            dep_graph = DependencyGraph(projectState)
-            projectConfig = projectState.projectConfig
-            projectConfigId = projectConfig.id
-            if self.gen_code.get(projectConfigId):
-                await self.maybe_do_rename_refactor(
-                    projectState, projectConfigId, dep_graph
-                )
-                self.gen_code[projectConfigId].callback_cleanup()
-
-            code_generator = PythonCodeGenerator(
-                dep_graph,
-                projectConfig.genCodePrefix,
-                projectConfig.genCodeSuffix,
-                value_mode=PythonValueMode.PACKAGED_RUNTIME,
+            projectState.validate_for_update(
+                validate_code_file_bindings=validate_code_file_bindings,
             )
-            code_generator.generate_code()
-            ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
-                projectState
-            )
-
-            gen_code_binding = projectState.genCodeBinding
-            if gen_code_binding is None:
-                raise ValueError("Project state missing generated code binding")
-            new_gen_code = ProjectGenPythonCode(
-                self.dbe,
-                self.code_files,
-                gen_code_binding,
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                projectConfigId,
-                dep_graph,
-                code_generator,
-                ignore_type_errors_by_section,
-            )
-            if not new_gen_code.binding.canonical_path.exists():
-                new_gen_code.write_to_disk(new_gen_code.code)
             if self.lsp_writers.full is not None:
-                await new_gen_code.sync_lsp(new_gen_code.code)
-            maybe_update_gen_python_code_section(
-                projectState, new_gen_code.generated_code
+                await self._refresh_codegen_state(projectState)
+            self._merge_project_state_backend(
+                projectState,
+                updateFileWatcher=updateFileWatcher,
             )
-            self.gen_code[projectConfigId] = new_gen_code
-
-            if self.code_dict.get(projectConfigId):
-                for c in self.code_dict[projectConfigId].values():
-                    if isinstance(c, ProjectPythonCode):
-                        c.callback_cleanup()
-            self.code_dict[projectConfigId] = {}
-
-            for sectionId in projectState.sections.keys():
-                section_impl = get_curr_effective_section_impl(projectState, sectionId)
-                if isinstance(section_impl, CodeSectionImpl):
-                    section_code = self.create_project_code(
-                        projectState, sectionId, section_impl
-                    )
-
-                    if not section_code:
-                        continue
-
-                    if not section_code.binding.canonical_path.exists():
-                        section_code.write_to_disk(section_code.code)
-                    if self.lsp_writers.full is not None:
-                        await section_code.sync_lsp(section_code.code)
-                    self.code_dict[projectConfigId][sectionId] = section_code
-
-            self.project_state_backend = self.get_new_project_state_backend(
-                projectState
-            )
-            if updateFileWatcher:
-                self.watch_json_source_files()
-                self.watch_artifact_files()
-                self.watch_code_files()
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: ID):
