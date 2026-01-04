@@ -166,6 +166,7 @@ async def websocket_route_loop(
                 severity=SettaBackendLogEventSeverity.error,
                 project_config_id=project_config_id,
                 context=context,
+                share_session_id=share_session_id,
             )
             raise
         finally:

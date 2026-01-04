@@ -18,6 +18,8 @@ Latest completion updates (this branch):
   `share_runtime` when deployments are relocated.
 - Share run commands always use `python <absolute path>` in share mode so
   session snapshots avoid invalid `python -m` module paths and CWD assumptions.
+- Share run commands shell-quote absolute paths to handle spaces in deployment
+  roots.
 - Share session cleanup now cancels per-session project manager queue tasks.
 - Share settings load waits for backend readiness in share mode.
 - Share session cleanup now terminates terminals associated with expired sessions.
@@ -36,6 +38,8 @@ Latest completion updates (this branch):
 - Share deployment path rebasing keeps absolute runtime paths in memory so share
   file access checks do not double-join deployment-relative paths.
 - Code editors are read-only in share mode when `allowParamChanges` is false.
+- Share websocket error logs include the share session id so messages reach the
+  active viewer.
 - New tests cover manager-state publishing, in-memory JSON source publishing,
   relocated deployment roots, gen-code rebasing, share path guarding, and
   share updates without LSP enabled.
@@ -349,6 +353,8 @@ Implemented:
 - Terminal websocket connections validate share session ids and close with
   4400/4404 when missing or unknown.
 - Run/terminal HTTP routes require share session ids in share mode.
+- Run routes resolve `entryCodeBlockId` when `sectionId` is omitted so
+  `allowedSections` is enforced against the entry section.
 - Share-mode run routes create temporary terminal sections through the
   session-scoped project manager, and terminal section IDs stay unprefixed
   while PTY ids include the share session prefix.

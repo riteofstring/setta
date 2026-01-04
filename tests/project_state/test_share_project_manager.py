@@ -1,5 +1,6 @@
 import asyncio
 import json
+import shlex
 import shutil
 import unittest
 from pathlib import Path
@@ -512,7 +513,8 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertTrue(runner_path.exists())
             self.assertTrue(gen_path.exists())
             self.assertEqual("print('hello')", runner_path.read_text(encoding="utf-8"))
-            self.assertEqual(f"python {runner_path.resolve()}", command)
+            expected = f"python {shlex.quote(str(runner_path.resolve()))}"
+            self.assertEqual(expected, command)
 
     def test_run_command_ephemeral_outside_cwd_uses_absolute_path(self) -> None:
         with TemporaryDirectory(dir=Path.cwd().parent) as tmpdir:
@@ -543,7 +545,8 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertEqual(1, len(run_dirs))
             runner_path = run_dirs[0] / "runner.py"
             self.assertTrue(runner_path.is_absolute())
-            self.assertEqual(f"python {runner_path.resolve()}", command)
+            expected = f"python {shlex.quote(str(runner_path.resolve()))}"
+            self.assertEqual(expected, command)
 
     def test_json_source_values_are_rehydrated(self) -> None:
         with TemporaryDirectory() as tmpdir:

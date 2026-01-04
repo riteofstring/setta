@@ -1,3 +1,4 @@
+import shlex
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -507,10 +508,12 @@ class ShareProjectManager:
         return self._build_bash_run_command(path)
 
     def _build_python_run_command(self, path: Path) -> str:
-        return f"python {path.resolve()}"
+        resolved = shlex.quote(str(path.resolve()))
+        return f"python {resolved}"
 
     def _build_bash_run_command(self, path: Path) -> str:
-        return f"bash {path.resolve()}"
+        resolved = shlex.quote(str(path.resolve()))
+        return f"bash {resolved}"
 
     async def apply_listener_emit_updates(
         self,

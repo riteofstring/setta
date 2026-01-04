@@ -149,6 +149,10 @@ per version, per session, per run) rather than `setta_files/code`.
 In share mode, run commands should execute with `python <absolute path>` (or
 `bash <absolute path>`) instead of `python -m` module paths to avoid invalid
 module names and CWD-dependent layouts.
+Run commands should shell-quote the resolved path to handle spaces in share
+deployment roots.
+When a run request omits `sectionId`, share mode should resolve
+`entryCodeBlockId` and enforce `allowedSections` against that entry section.
 
 ### 9) LLM + MCP in share mode
 Default: disabled. Opt-in via share policy.

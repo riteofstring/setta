@@ -153,6 +153,33 @@ def _write_share_project(
     return project_config.id
 
 
+def _write_share_project_with_entry_code(
+    root: Path,
+    *,
+    project_config_name: str,
+    deployment_version: str,
+    entry_code_block_id: ID,
+) -> ID:
+    dbe = DBE(root)
+    project_config = ProjectConfig(
+        name=project_config_name,
+        entryCodeBlockId=entry_code_block_id,
+    )
+    project_state = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    dbe.write_project(project_state)
+    manifest = ShareDeploymentManifest(
+        version=1,
+        projectConfigId=project_config.id,
+        projectConfigName=project_config.name,
+        deploymentVersion=deployment_version,
+    )
+    dbe.write_json(root / "manifest.json", manifest.model_dump())
+    return project_config.id
+
+
 def _write_share_project_with_section(
     root: Path,
     *,
@@ -387,6 +414,43 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(403, ctx.exception.status_code)
             self.assertIn("Share policy disallows changes to sections", ctx.exception.detail)
+
+    async def test_run_routes_blocked_when_entry_code_section_disallowed(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            blocked_section_id = create_new_id()
+            allowed_section_id = create_new_id()
+            project_config_id = _write_share_project_with_entry_code(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+                entry_code_block_id=blocked_section_id,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(
+                    allowRun=True,
+                    allowedSections=[allowed_section_id],
+                ),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            run_request = RunCodeRequest(
+                projectConfigId=project_config_id,
+                sectionId=None,
+                cliId=None,
+            )
+            request = _build_share_request(session.id)
+
+            with self.assertRaises(HTTPException) as ctx:
+                await route_run_code(run_request, state, request)
+
+            self.assertEqual(403, ctx.exception.status_code)
+            self.assertIn(
+                "Share policy disallows changes to sections",
+                ctx.exception.detail,
+            )
 
     async def test_terminal_section_blocked_when_run_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:

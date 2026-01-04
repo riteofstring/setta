@@ -190,16 +190,26 @@ async def route_run_code(
     state: ReadyAppStateFromRequest,
     request: Request,
 ):
-    share_session_id = require_share_session_id(
-        state,
-        maybe_get_share_session_id_from_request(request),
-    )
+    if state.share_mode:
+        share_session_id = require_share_session_id(
+            state,
+            maybe_get_share_session_id_from_request(request),
+        )
+        resolved_section_id = x.sectionId
+        if resolved_section_id is None:
+            project_state = state.share_project_manager.get_session_state(
+                share_session_id
+            )
+            resolved_section_id = project_state.projectConfig.entryCodeBlockId
+    else:
+        share_session_id = None
+        resolved_section_id = x.sectionId
 
     await ensure_share_run_allowed(
         state,
         project_config_id=x.projectConfigId,
         share_session_id=share_session_id,
-        section_ids=[x.sectionId] if x.sectionId else None,
+        section_ids=[resolved_section_id] if resolved_section_id else None,
     )
 
     if state.share_mode:
