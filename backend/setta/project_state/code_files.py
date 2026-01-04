@@ -420,6 +420,8 @@ class CodeFiles:
             if not self.should_reload(normalized_path, content_hash):
                 return None
 
+            project_state_backend = project_state_backend_getter_fn()
+            _ = project_state_backend  # eager resolution for parity with other watchers
             bindings_by_config = self._group_bindings_by_config(bindings)
             if not bindings_by_config:
                 return None

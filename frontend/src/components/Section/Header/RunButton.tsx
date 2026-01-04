@@ -1,14 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCodeBlock } from "state/actions/runOrImportCode";
-import { useShareCapabilities } from "state/hooks/share";
 
 export function RunButton({ sectionId }) {
-  const { canRun } = useShareCapabilities();
-  if (!canRun) {
-    return null;
-  }
-
   function onClick() {
     runCodeBlock(sectionId);
   }

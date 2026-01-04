@@ -18,7 +18,7 @@ class JsonSourceReloadDebounceTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.manager.autosave_debouncer.cancel)
         self.addCleanup(self.manager.autosave_debouncer.cancel_pending)
 
-        self.category = f"{self.manager._file_watcher_category_prefix}_JSONSource"
+        self.category = f"{self.manager.__class__.__name__}_JSONSource"
         category_mapping = self.manager.json_source._get_category_section_variants(
             self.category
         )

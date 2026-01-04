@@ -49,6 +49,7 @@ export function getTextBlockText(
   return {
     format: impl.format,
     headingAsSectionName: impl.headingAsSectionName,
+    metaControlStyle: impl.metaControlStyle,
     text: impl.text,
   };
 }

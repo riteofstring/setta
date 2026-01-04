@@ -9,14 +9,11 @@ from setta.project_state.project_manager_types import ForceRefreshProjectRequest
 from setta.routers.project_manager import route_force_refresh_listener
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.manager_fixture import (
     real_project_manager,
     real_settings_manager,
 )
-from tests.utils.runtime_context import runtime_context
 
 if TYPE_CHECKING:
     from setta.server_state import SettaFastAPIState
@@ -30,17 +27,14 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                 real_settings_manager() as settings_fixture,
             ):
                 switcher = ProjectManagerSwitcher(
-                    main_manager=project_fixture.manager,
-                    settings_manager=settings_fixture.manager,
+                    project_fixture.manager,
+                    settings_fixture.manager,
                 )
-                frontend_sender = WMHFrontendSender(WebsocketManager())
                 state = cast(
                     "SettaFastAPIState",
                     SimpleNamespace(
                         project_manager_switcher=switcher,
                         wmh_python_script_sender=project_fixture.python_script_sender,
-                        wmh_frontend_sender=frontend_sender,
-                        share_mode=False,
                     ),
                 )
                 default_project_config_id = (
@@ -60,14 +54,12 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     projectState: ProjectStateSingleConfig,
                     projectConfigId: ID | None = None,
                     targetWebsocketIds: tuple[str, ...] | list[str] | None = None,
-                    share_session_id: str | None = None,
                 ) -> None:
                     captured_calls.append(
                         {
                             "projectState": projectState,
                             "projectConfigId": projectConfigId,
                             "targetWebsocketIds": targetWebsocketIds,
-                            "shareSessionId": share_session_id,
                         }
                     )
 
@@ -81,8 +73,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     request = ForceRefreshProjectRequest(
                         projectConfigId=default_project_config_id
                     )
-                    with runtime_context(state) as runtime_ctx:
-                        await route_force_refresh_listener(request, runtime_ctx)
+                    await route_force_refresh_listener(request, state)
                 finally:
                     sender.send_force_refresh = original_send_force_refresh
 
@@ -95,7 +86,6 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertIsNone(call["projectConfigId"])
                 self.assertIsNone(call["targetWebsocketIds"])
-                self.assertIsNone(call["shareSessionId"])
         except RuntimeError as exc:
             self.skipTest(str(exc))
 
@@ -106,17 +96,14 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                 real_settings_manager() as settings_fixture,
             ):
                 switcher = ProjectManagerSwitcher(
-                    main_manager=project_fixture.manager,
-                    settings_manager=settings_fixture.manager,
+                    project_fixture.manager,
+                    settings_fixture.manager,
                 )
-                frontend_sender = WMHFrontendSender(WebsocketManager())
                 state = cast(
                     "SettaFastAPIState",
                     SimpleNamespace(
                         project_manager_switcher=switcher,
                         wmh_python_script_sender=project_fixture.python_script_sender,
-                        wmh_frontend_sender=frontend_sender,
-                        share_mode=False,
                     ),
                 )
 
@@ -124,8 +111,7 @@ class RouteForceRefreshListenerTests(unittest.IsolatedAsyncioTestCase):
                     projectConfigId=ID("missing-project")
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    with runtime_context(state) as runtime_ctx:
-                        await route_force_refresh_listener(request, runtime_ctx)
+                    await route_force_refresh_listener(request, state)
                 self.assertEqual(404, ctx.exception.status_code)
         except RuntimeError as exc:
             self.skipTest(str(exc))

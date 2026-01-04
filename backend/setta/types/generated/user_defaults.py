@@ -80,6 +80,7 @@ class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="fo
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     isHorizontalOrientation: bool = False
+    overflowMode: bool = False
 
 
 class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -107,14 +108,18 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
+    metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
 class UserDefaultMetaControlSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pass
+    showSectionTitle: bool = False
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
