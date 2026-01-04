@@ -3,7 +3,7 @@ import {
   getSectionRect,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useMisc, useProjectState } from "state/definitions";
+import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_paste_sections,
@@ -38,6 +38,9 @@ export async function copy() {
 }
 
 export async function paste({ asRef = false }) {
+  if (useShareSession.getState().isShareMode) {
+    return;
+  }
   let x: BaseClipboardDataUnionWithDiscriminator;
   try {
     x = JSON.parse(await navigator.clipboard.readText());

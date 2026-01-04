@@ -505,7 +505,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     );
     return {
       value: impl.code,
-      variantIsFrozen: false,
+      variantIsFrozen: impl.isFrozen,
     };
   }, _.isEqual);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);

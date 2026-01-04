@@ -14,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import setta.mcp.tools  # noqa: F401
 from setta.logging.context import get_logging_context
 from setta.logging.context_sources import ensure_request_context
 from setta.logging.errors import log_failure
@@ -52,6 +51,9 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.utils import get_absolute_path
+
+if not C.SHARE_MODE:
+    import setta.mcp.tools  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

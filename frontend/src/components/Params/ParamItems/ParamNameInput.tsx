@@ -62,10 +62,10 @@ export function ParamNameInput({
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
-  const { canEditParams } = useShareCapabilities();
+  const { canEditStructure } = useShareCapabilities();
 
   function onChange(v: string) {
-    if (!canEditParams) {
+    if (!canEditStructure) {
       return;
     }
     if (showParamDisplayNames && !isKwarg) {
@@ -83,7 +83,7 @@ export function ParamNameInput({
 
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
-  const isDisabled = !canEditParams;
+  const isDisabled = !canEditStructure;
 
   return (
     <>

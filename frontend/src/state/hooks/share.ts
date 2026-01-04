@@ -123,6 +123,7 @@ type ShareCapabilities = {
   canEditVariants: boolean;
   canEditLayout: boolean;
   canRun: boolean;
+  canEditStructure: boolean;
 };
 
 export function useShareCapabilities(): ShareCapabilities {
@@ -132,11 +133,13 @@ export function useShareCapabilities(): ShareCapabilities {
   const allowVariantChanges = sharePolicy?.allowVariantChanges ?? true;
   const allowLayoutChanges = sharePolicy?.allowLayoutChanges ?? true;
   const allowRun = sharePolicy?.allowRun ?? false;
+  const canEditStructure = !isShareMode;
 
   return {
-    canEditParams: !isShareMode || allowParamChanges,
-    canEditVariants: !isShareMode || allowVariantChanges,
-    canEditLayout: !isShareMode || allowLayoutChanges,
-    canRun: !isShareMode || allowRun,
+    canEditParams: canEditStructure || allowParamChanges,
+    canEditVariants: canEditStructure || allowVariantChanges,
+    canEditLayout: canEditStructure || allowLayoutChanges,
+    canRun: canEditStructure || allowRun,
+    canEditStructure,
   };
 }
