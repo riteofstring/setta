@@ -1,39 +1,19 @@
 from typing import TYPE_CHECKING
 
 from setta.project_state.chats.load import load_chat
+from setta.project_state.chats.utils import append_chat_messages, build_new_chat
 from setta.types.chat import Chat
-from setta.types.chat_messages import MessageTextContent
-from setta.types.generated.chat_messages import (
-    BaseChatMessageTypeAdapter,
-    BaseChatMessageUnion,
-)
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.utils.generate_memorable_string import generate_memorable_string
-from setta.utils.timestamps import get_now_timestamp
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
 
 
-def create_new_chat_name(first_message: BaseChatMessageUnion) -> str:
-    for content_block in first_message.content:
-        if isinstance(content_block, MessageTextContent) and content_block.text:
-            return content_block.text[:30]
-    return generate_memorable_string()
-
-
 def _persist_chat(dbe: "DBE", chat: Chat) -> Chat:
     dbe.write_chat(chat.id, chat.model_dump(mode="json"))
     return chat
-
-
-def _copy_message(message: BaseChatMessageUnion) -> BaseChatMessageUnion:
-    return BaseChatMessageTypeAdapter.validate_python(message.model_dump(mode="json"))
-
-
-def _copy_messages(messages: list[BaseChatMessageUnion]) -> list[BaseChatMessageUnion]:
-    return [_copy_message(message) for message in messages]
 
 
 def create_new_chat(
@@ -42,13 +22,7 @@ def create_new_chat(
     llm_config: LLMConfig,
     project_config_id: ID,
 ) -> Chat:
-    name = create_new_chat_name(first_message)
-    chat = Chat(
-        name=name,
-        messages=_copy_messages([first_message]),
-        llmConfig=llm_config.model_copy(deep=True),
-        projectConfigId=project_config_id,
-    )
+    chat = build_new_chat(first_message, llm_config, project_config_id)
     return _persist_chat(dbe, chat)
 
 
@@ -65,12 +39,6 @@ def save_messages(
     chat = load_chat(dbe, chat_id)
     if not chat:
         return None
-
-    existing_ids = {message.id for message in chat.messages}
-    new_messages = [message for message in messages if message.id not in existing_ids]
-    if not new_messages:
-        return chat
-
-    chat.messages.extend(_copy_messages(new_messages))
-    chat.lastUpdated = get_now_timestamp()
-    return _persist_chat(dbe, chat)
+    if append_chat_messages(chat, messages):
+        return _persist_chat(dbe, chat)
+    return chat
