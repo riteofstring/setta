@@ -214,7 +214,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 try:
                     project_config_id = (
                         self.project_manager_switcher.get_config_id_by_name(
-                            project_name
+                            project_name,
+                            share_session_id=share_session_id,
                         )
                     )
                 except ProjectNotFound:
@@ -261,7 +262,8 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         if project_name is not None:
             try:
                 resolved_id = self.project_manager_switcher.get_config_id_by_name(
-                    project_name
+                    project_name,
+                    share_session_id=share_session_id,
                 )
             except ProjectNotFound:
                 logger.warning(

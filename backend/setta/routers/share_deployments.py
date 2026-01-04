@@ -547,6 +547,7 @@ async def route_publish_share_deployment(
         )
 
     snapshot = project_state_backend.model_copy(deep=True)
+    snapshot.defaultProjectConfigId = x.projectConfigId
     _rebase_project_state_paths(snapshot, deployment_root)
     json_source_payloads = build_json_source_dicts(snapshot)
     for filename, data in json_source_payloads.items():

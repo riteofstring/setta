@@ -71,7 +71,10 @@ class ProjectManagerSwitcher:
                 project_config_id = project_identifier
             else:
                 project_config_id = project_identifier.projectConfig.id
-            if not self.share_runtime_state.has_project_config(project_config_id):
+            session_backend = self.share_runtime_state.get_session_backend(
+                share_session_id
+            )
+            if project_config_id not in session_backend.projectConfigs:
                 raise KeyError(f"Unknown share project config: {project_config_id}")
             return manager
         if isinstance(project_identifier, str):
@@ -88,12 +91,19 @@ class ProjectManagerSwitcher:
             share_session_id=share_session_id,
         )
 
-    def get_config_id_by_name(self, projectConfigName: str):
+    def get_config_id_by_name(
+        self,
+        projectConfigName: str,
+        *,
+        share_session_id: str | None = None,
+    ):
         if self.share_runtime_state is not None:
-            for (
-                config_id,
-                config,
-            ) in self.share_runtime_state.project_state_backend.projectConfigs.items():
+            if share_session_id is None:
+                raise KeyError("Missing share session id")
+            session_backend = self.share_runtime_state.get_session_backend(
+                share_session_id
+            )
+            for config_id, config in session_backend.projectConfigs.items():
                 if config.name == projectConfigName:
                     return config_id
             raise ProjectNotFound

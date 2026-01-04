@@ -67,6 +67,9 @@ class ShareRuntimeState:
         self.deployment_version = self._resolve_deployment_version()
         self._validate_deployment_root()
         self.default_project_config_id = self._resolve_default_project_config_id()
+        self.project_state_backend.defaultProjectConfigId = (
+            self.default_project_config_id
+        )
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
         if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
             raise ValueError(
@@ -122,8 +125,16 @@ class ShareRuntimeState:
         project_state = convert_backend_to_single_config(
             backend, project_config_id
         ).model_copy(deep=True)
-        self._ensure_gen_code_binding(project_state, session_id=session_id)
+        updated_binding = self._ensure_gen_code_binding(
+            project_state,
+            session_id=session_id,
+        )
         self._validate_project_state(project_state)
+        if updated_binding:
+            self._session_backends[session_id] = merge_single_config_into_backend(
+                backend,
+                project_state,
+            )
         return project_state
 
     def update_session_state(
@@ -298,15 +309,15 @@ class ShareRuntimeState:
         project_state: "ProjectStateSingleConfig",
         *,
         session_id: str | None = None,
-    ) -> None:
+    ) -> bool:
         if project_state.genCodeBinding is not None:
-            return
+            return False
         gen_section_id = project_state.singletonSections.GenPythonCode
         if gen_section_id is None:
             project_state.genCodeBinding = self._build_fallback_gen_code_binding(
                 project_state, session_id=session_id
             )
-            return
+            return True
         gen_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
             gen_section_id,
@@ -316,8 +327,9 @@ class ShareRuntimeState:
             project_state.genCodeBinding = self._build_fallback_gen_code_binding(
                 project_state, session_id=session_id
             )
-            return
+            return True
         project_state.genCodeBinding = gen_impl.codeFileBinding
+        return True
 
     def _build_fallback_gen_code_binding(
         self,
