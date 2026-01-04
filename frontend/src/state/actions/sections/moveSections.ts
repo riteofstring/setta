@@ -1,3 +1,4 @@
+import { adjustOverflowGroupMinimumSizes } from "components/Utils/Resizable/overflowResizeUtils";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { ZustandProjectState } from "state/definitions";
 import {
@@ -36,6 +37,15 @@ function moveSections({
   }
 }
 
+function mergeSizeUpdates(
+  target: Record<string, SectionSize>,
+  source: Record<string, SectionSize>,
+) {
+  for (const [id, size] of Object.entries(source)) {
+    target[id] = size;
+  }
+}
+
 function moveSection({
   oldParentId,
   newParentId,
@@ -63,7 +73,19 @@ function moveSection({
     state,
   });
 
-  return syncSectionSizeToOverflowGroup(newParentId, newSectionId, state);
+  const updates: Record<string, SectionSize> = {};
+
+  // Sync the dropped section's size to match the overflow group's cross-axis
+  mergeSizeUpdates(
+    updates,
+    syncSectionSizeToOverflowGroup(newParentId, newSectionId, state),
+  );
+
+  // Recalculate and adjust minimum sizes for ancestor overflow groups
+  // This ensures nested groups don't get clipped
+  mergeSizeUpdates(updates, adjustOverflowGroupMinimumSizes(newParentId, state));
+
+  return updates;
 }
 
 // Group container has px-6 = 24px left + 24px right = 48px total horizontal padding

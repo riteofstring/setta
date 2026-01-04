@@ -129,6 +129,7 @@ function getCrossAxis(isHorizontalOrientation: boolean): CrossAxis {
   return "width";
 }
 
+// Base minimum sizes for overflow groups - used as fallback when overflowMinSize is not set
 const GROUP_OVERFLOW_MIN_WIDTH = 250;
 const GROUP_OVERFLOW_MIN_HEIGHT = 185;
 
@@ -159,6 +160,7 @@ function ContainerGroup({
     overflowMode,
     isHorizontalOrientation,
     size,
+    overflowMinSize,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -172,6 +174,7 @@ function ContainerGroup({
       overflowMode: impl.overflowMode ?? false,
       isHorizontalOrientation: impl.isHorizontalOrientation ?? false,
       size: impl.size,
+      overflowMinSize: impl.overflowMinSize ?? null,
     };
   }, _.isEqual);
 
@@ -190,11 +193,18 @@ function ContainerGroup({
   let effectiveMinHeight = minHeight;
   let effectiveMinWidth = minWidth;
   if (overflowMode) {
-    effectiveMinHeight = Math.max(
-      effectiveMinHeight,
-      GROUP_OVERFLOW_MIN_HEIGHT,
-    );
-    effectiveMinWidth = Math.max(effectiveMinWidth, GROUP_OVERFLOW_MIN_WIDTH);
+    // Use overflowMinSize if set (calculated from nested groups), otherwise use base constants
+    const overflowMinHeight =
+      typeof overflowMinSize?.height === "number"
+        ? overflowMinSize.height
+        : GROUP_OVERFLOW_MIN_HEIGHT;
+    const overflowMinWidth =
+      typeof overflowMinSize?.width === "number"
+        ? overflowMinSize.width
+        : GROUP_OVERFLOW_MIN_WIDTH;
+
+    effectiveMinHeight = Math.max(effectiveMinHeight, overflowMinHeight);
+    effectiveMinWidth = Math.max(effectiveMinWidth, overflowMinWidth);
   }
   const snapGrid = useSettings((x) => x.gui.snapGrid);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
