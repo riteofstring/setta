@@ -241,10 +241,10 @@ function ContainerGroup({
       ? "overflow-x-auto overflow-y-hidden"
       : "overflow-y-auto overflow-x-hidden";
 
-    // Padding to prevent scrollbar from crowding sections
+    // Padding to prevent scrollbar from crowding sections and outlines from being clipped
     const overflowPaddingClassName = isHorizontalOrientation
-      ? "pb-4 -mb-4" // Bottom for scrollbar
-      : "pr-4 -mr-4"; // Right for scrollbar
+      ? "pb-4 -mb-4 pl-1 -ml-1" // Bottom for scrollbar, left for outline
+      : "pr-4 -mr-4 pl-1 -ml-1"; // Right for scrollbar, left for outline
 
     contentClassName =
       `z-10 flex min-h-0 min-w-0 flex-1 flex-col ${overflowAxisClassName} ${overflowPaddingClassName}`.trim();

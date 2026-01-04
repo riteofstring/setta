@@ -47,7 +47,7 @@ function _Markdown({ sectionId }: TextBlockProps) {
 
   const { ref, isScrollable } = useIsScrollable();
 
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} [grid-row:search/bottom-gutter] [grid-column:1/-1] px-3 nodrag ${isScrollable ? "nowheel" : ""} mb-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
   const markdownToneClassName = metaControlStyle
     ? "text-setta-800 dark:text-setta-100 prose-headings:text-setta-850 dark:prose-headings:text-setta-50 prose-p:text-setta-800 dark:prose-p:text-setta-100 prose-li:text-setta-800 dark:prose-li:text-setta-100 prose-strong:text-setta-850 dark:prose-strong:text-setta-50 prose-code:text-setta-700 dark:prose-code:text-setta-200 prose-blockquote:text-setta-700 dark:prose-blockquote:text-setta-200 prose-a:text-blue-700 dark:prose-a:text-blue-300"
     : "prose-headings:text-setta-400";

@@ -109,7 +109,9 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=200, height=98))
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     metaControlStyle: bool = False

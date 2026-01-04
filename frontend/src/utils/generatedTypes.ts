@@ -2464,7 +2464,7 @@ export const TextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 200.0, height: 98.0 }),
+    createSectionSize({ width: 300.0, height: 150.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6184,9 +6184,9 @@ export const SectionSizingPolicyByTypeSchema = z.object({
   ),
   TextBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 32.0,
+      minHeight: 20.0,
       maxHeight: 100000.0,
-      minWidth: 80.0,
+      minWidth: 40.0,
       maxWidth: 100000.0,
     }),
   ),
@@ -6747,7 +6747,7 @@ export function createUserDefaultTerminalSectionImpl(
 export const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 200.0, height: 98.0 }),
+    createSectionSize({ width: 300.0, height: 150.0 }),
   ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),

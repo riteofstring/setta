@@ -86,6 +86,10 @@ function getMetaControlMinHeight({
   return null;
 }
 
+// TextBlock sections should be able to resize very compact
+const TEXT_BLOCK_MIN_HEIGHT = 20;
+const TEXT_BLOCK_MIN_WIDTH = 40;
+
 function getMinSectionHeight({
   sectionType,
   hideSearch,
@@ -103,6 +107,11 @@ function getMinSectionHeight({
 
   if (isMinimized) {
     return sizingPolicy.globals.minimizedHeight;
+  }
+
+  // TextBlock has a hardcoded low minimum to allow very compact sizing
+  if (sectionType === SectionTypeEnum.TextBlock) {
+    return TEXT_BLOCK_MIN_HEIGHT;
   }
 
   if (sectionType === SectionTypeEnum.Callable) {
@@ -143,8 +152,12 @@ function getMinSectionWidth({
   sectionType: SectionType;
   sizingPolicy: SectionSizingPolicy;
 }): number {
-  const policyByType = sizingPolicy.byType[sectionType];
+  // TextBlock has a hardcoded low minimum to allow very compact sizing
+  if (sectionType === SectionTypeEnum.TextBlock) {
+    return TEXT_BLOCK_MIN_WIDTH;
+  }
 
+  const policyByType = sizingPolicy.byType[sectionType];
   return policyByType.minWidth;
 }
 
