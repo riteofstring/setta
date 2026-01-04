@@ -19,13 +19,11 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useProjectState,
-  useShareSession,
   useToolArgumentPreview,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import { useSharePolicyFlag } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -42,16 +40,13 @@ export function SectionSearch({
   callable: string | null;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
-  const isShareMode = useShareSession((state) => state.isShareMode);
-  const allowLsp = useSharePolicyFlag("allowLSP", true);
-  const lspEnabled = !isShareMode || allowLsp;
 
   function onEnter(value: string) {
-    setCallable(sectionId, value, lspEnabled);
+    setCallable(sectionId, value);
   }
 
   function onShiftEnter(value: string) {
-    setCallable(sectionId, value, lspEnabled, true);
+    setCallable(sectionId, value, true);
   }
 
   return (
@@ -63,8 +58,7 @@ export function SectionSearch({
       onShiftEnter={onShiftEnter}
       dummyCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 dark:border-setta-800 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`}
       realCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-blue-500 bg-white mx-[.125rem] py-1  dark:border-blue-400/50 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`}
-      isDisabled={variantIsFrozen || !lspEnabled}
-      lspEnabled={lspEnabled}
+      isDisabled={variantIsFrozen}
     />
   );
 }
@@ -78,7 +72,6 @@ function SectionSearchCore({
   realCodeClassName,
   isDisabled,
   divId,
-  lspEnabled,
 }: {
   sectionId: string;
   callable: string | null;
@@ -88,7 +81,6 @@ function SectionSearchCore({
   realCodeClassName: string;
   isDisabled: boolean;
   divId: string;
-  lspEnabled: boolean;
 }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
@@ -161,13 +153,11 @@ function SectionSearchCore({
       setDraftCallableName(null);
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
-      if (lspEnabled) {
-        route_clear_text_field_completion({
-          projectConfigId,
-          sectionId,
-          paramInfoId: null,
-        });
-      }
+      route_clear_text_field_completion({
+        projectConfigId,
+        sectionId,
+        paramInfoId: null,
+      });
       shouldResetValueOnBlur.current = false;
       return;
     }
@@ -297,12 +287,8 @@ function SectionSearchCore({
 async function setCallable(
   sectionId: string,
   callableName: string,
-  allowLsp: boolean,
   refetchParams = false,
 ) {
-  if (!allowLsp) {
-    return;
-  }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_set_callable({

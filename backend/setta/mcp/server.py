@@ -29,7 +29,6 @@ from setta.mcp.utils import (
     convert_canonical_ids_to_temporary,
     convert_temporary_ids_to_canonical,
 )
-from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -144,57 +143,21 @@ class SettaFastMCP(FastMCP):
             context_kwargs = {k: v for k, v in kwargs.items() if isinstance(v, Context)}
             for key in context_kwargs:
                 kwargs.pop(key)
-            share_session_token = None
-            if self._is_share_mode():
-                share_session_id = self._resolve_share_session_id(context_kwargs)
-                if share_session_id is None:
-                    raise KeyError("Missing share session id for MCP tool call")
-                share_session_token = set_share_session_id(share_session_id)
-            try:
-                kwargs = convert_temporary_ids_to_canonical(
-                    kwargs, self.temporary_to_canonical
-                )
-                result = func(**kwargs, **context_kwargs)
-                if is_async:
-                    result = await result
-                result = convert_canonical_ids_to_temporary(
-                    result,
-                    self.canonical_to_temporary,
-                    self.temporary_to_canonical,
-                )
-                self.dbe.write_temporary_id_map(self.canonical_to_temporary)
-                return result
-            finally:
-                if share_session_token is not None:
-                    reset_share_session_id(share_session_token)
+            kwargs = convert_temporary_ids_to_canonical(
+                kwargs, self.temporary_to_canonical
+            )
+            result = func(**kwargs, **context_kwargs)
+            if is_async:
+                result = await result
+            result = convert_canonical_ids_to_temporary(
+                result,
+                self.canonical_to_temporary,
+                self.temporary_to_canonical,
+            )
+            self.dbe.write_temporary_id_map(self.canonical_to_temporary)
+            return result
 
         return wrapper
-
-    def _resolve_share_session_id(
-        self, context_kwargs: dict[str, Context]
-    ) -> str | None:
-        if not self._is_share_mode():
-            return None
-        context = next(iter(context_kwargs.values()), None)
-        if context is None:
-            context = self.get_context()
-        request_context = context.request_context
-        meta = request_context.meta if request_context else None
-        if meta is None:
-            return None
-        share_session_id = getattr(meta, "shareSessionId", None)
-        if share_session_id is None:
-            extra = getattr(meta, "model_extra", None)
-            if isinstance(extra, dict):
-                share_session_id = extra.get("shareSessionId")
-        if share_session_id is None:
-            return None
-        if not isinstance(share_session_id, str) or not share_session_id:
-            raise ValueError("shareSessionId must be a non-empty string")
-        return share_session_id
-
-    def _is_share_mode(self) -> bool:
-        return getattr(self.state, "share_mode", False)
 
     def _refresh_temporary_id_map_if_needed(self) -> None:
         path = self.dbe.temporary_id_map

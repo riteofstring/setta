@@ -69,44 +69,18 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
-const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
-let lastPathname: string | null = null;
-let lastShareSessionId: string | null = null;
-let currentShareSessionId: string | null = null;
-let currentRoute: string | null = null;
-let shareHeartbeatTimer: number | null = null;
 
 export const openWebSocket = _.debounce(
-  (pathname: string, shareSessionId: string | null = null) => {
+  (pathname: string) => {
     if (authLost) {
       return;
     }
-    lastPathname = pathname;
-    lastShareSessionId = shareSessionId;
-    const isShareMode = Boolean(shareSessionId);
-    if (!isShareMode) {
-      stopShareHeartbeat();
-    }
-    const route = isShareMode
-      ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
-      : RouteEnum.WEBSOCKET_FRONTEND;
-    const targetUrl = isShareMode
-      ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
-          shareSessionId ?? "",
-        )}`
-      : `${C_ADDRESSES.WEBSOCKET}${route}`;
-    if (
-      wss &&
-      (currentRoute !== route || currentShareSessionId !== shareSessionId)
-    ) {
-      closeWebSocket();
-    }
     if (!wss) {
-      wss = new WebSocket(targetUrl);
-      currentShareSessionId = shareSessionId;
-      currentRoute = route;
+      wss = new WebSocket(
+        `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
+      );
       wss.addEventListener("open", async () => {
         sendCurrentAddress(pathname);
         addTemporaryNotification("Connected to server");
@@ -115,23 +89,17 @@ export const openWebSocket = _.debounce(
             id: "main",
             connectionType: WebsocketConnectionTypeEnum.SERVER,
             currentAddress: pathname,
-            shareSessionId,
           }),
         );
         wasOpen = true;
-        if (isShareMode) {
-          startShareHeartbeat();
-        }
-        if (!isShareMode) {
-          const projectConfigId = getCurrProjectConfigId();
-          if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
-            const res = await route_get_latest_project_state({
-              projectConfigId: getCurrProjectConfigId(),
-            });
-            if (res200(res)) {
-              processProjectStateUpdateFromBackend(res.data);
-              await requestAIFollowSnapshot(projectConfigId);
-            }
+        const projectConfigId = getCurrProjectConfigId();
+        if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
+          const res = await route_get_latest_project_state({
+            projectConfigId: getCurrProjectConfigId(),
+          });
+          if (res200(res)) {
+            processProjectStateUpdateFromBackend(res.data);
+            await requestAIFollowSnapshot(projectConfigId);
           }
         }
       });
@@ -143,10 +111,7 @@ export const openWebSocket = _.debounce(
       wss.addEventListener("error", closeWebSocket);
 
       wss.addEventListener("close", (event: CloseEvent) => {
-        stopShareHeartbeat();
         wss = null;
-        currentShareSessionId = null;
-        currentRoute = null;
         if (event.code === AUTH_CLOSE_CODE) {
           authLost = true;
           wasOpen = false;
@@ -164,7 +129,7 @@ export const openWebSocket = _.debounce(
         clearAllWebsocketConnections();
         // Attempt to reconnect
         setTimeout(() => {
-          openWebSocket(pathname, shareSessionId);
+          openWebSocket(pathname);
         }, 3000);
       });
     }
@@ -204,7 +169,7 @@ async function attemptAuthRecovery(pathname: string) {
   if (res200(res)) {
     authLost = false;
     clearAuthRecoveryTimer();
-    openWebSocket(lastPathname ?? pathname, lastShareSessionId);
+    openWebSocket(pathname);
     return;
   }
   scheduleAuthRecovery(pathname);
@@ -215,33 +180,10 @@ function closeWebSocket() {
     wss.close();
     wss = null;
   }
-  stopShareHeartbeat();
 }
 
 function wssReady(wss: WebSocket | null): wss is WebSocket {
   return wss !== null && wss.readyState === 1;
-}
-
-function startShareHeartbeat() {
-  stopShareHeartbeat();
-  shareHeartbeatTimer = window.setInterval(() => {
-    if (currentShareSessionId === null || !wssReady(wss)) {
-      return;
-    }
-    const currentAddress = lastPathname;
-    if (!currentAddress) {
-      return;
-    }
-    sendCurrentAddress(currentAddress);
-  }, SHARE_HEARTBEAT_INTERVAL_MS);
-}
-
-function stopShareHeartbeat() {
-  if (shareHeartbeatTimer === null) {
-    return;
-  }
-  window.clearInterval(shareHeartbeatTimer);
-  shareHeartbeatTimer = null;
 }
 
 function receiveMessage(message: string) {
