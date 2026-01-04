@@ -331,7 +331,7 @@ def add_meta_control_code_obj(
         type=code_obj_type,  # type: ignore
         defaults=get_user_default_code_obj_from_settings(settings, code_obj_type),  # type: ignore
     )
-    if code_obj_impl.type in (CodeObjType.SliderParam, CodeObjType.RotaryParam):
+    if code_obj_impl.type == CodeObjType.SliderParam:
         code_obj_impl.value = convert_code_obj_value(
             code_obj_impl,
             code_obj_impl.value,
@@ -1488,6 +1488,25 @@ def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: ID, text: str)
             p.sections[sectionId].name = first_heading
 
 
+def set_text_block_heading_as_section_name(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    headingAsSectionName: bool,
+):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, TextBlockSectionImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        TextBlockSectionImplArgsWithCallable(headingAsSectionName=headingAsSectionName),
+    )
+    if headingAsSectionName:
+        first_heading = get_first_heading_or_text(impl.text)
+        if first_heading:
+            p.sections[sectionId].name = first_heading
+
+
 def get_first_heading_or_text(markdown: str):
     trimmed_markdown = markdown.lstrip()
     heading_match = re.search(r"(^|\n)(#+)\s*(.*?)(?=\n|$)", trimmed_markdown)
@@ -1527,6 +1546,23 @@ def toggle_group_orientation(p: "ProjectStateSingleConfig", sectionId: ID):
         p,
         sectionId,
         GroupSectionImplArgsWithCallable(isHorizontalOrientation=lambda curr: not curr),
+    )
+
+
+def set_group_overflow_mode(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    overflow_mode: bool,
+    overflow_min_size: SectionSize | None,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, GroupSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        GroupSectionImplArgsWithCallable(
+            overflowMode=overflow_mode,
+            overflowMinSize=overflow_min_size,
+        ),
     )
 
 
@@ -1588,6 +1624,19 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
         p.sections[sectionId].name = name
 
 
+def set_meta_control_show_section_title(
+    p: "ProjectStateSingleConfig", sectionId: ID, showSectionTitle: bool
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, MetaControlSectionImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        MetaControlSectionImplArgsWithCallable(showSectionTitle=showSectionTitle),
+    )
+
+
 def set_text_block_display_mode(
     p: "ProjectStateSingleConfig",
     sectionId: ID,
@@ -1597,6 +1646,19 @@ def set_text_block_display_mode(
         p,
         sectionId,
         TextBlockSectionImplArgsWithCallable(textDisplayMode=textDisplayMode),
+    )
+
+
+def set_text_block_meta_control_style(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    metaControlStyle: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        TextBlockSectionImplArgsWithCallable(metaControlStyle=metaControlStyle),
     )
 
 
