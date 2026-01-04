@@ -15,7 +15,6 @@ from setta.project_state.share_project_manager import ShareProjectManager
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime, _ListenerHandle
 from setta.share.session_cleanup import cleanup_expired_share_sessions
-from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.terminals.terminals import Terminals
@@ -106,11 +105,10 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 frontend_sender=frontend_sender,
                 specific_file_watcher=SpecificFileWatcher(),
             )
-            token = set_share_session_id(session.id)
-            try:
-                manager = switcher.get(share_project_manager.project_config_id)
-            finally:
-                reset_share_session_id(token)
+            manager = switcher.get(
+                share_project_manager.project_config_id,
+                share_session_id=session.id,
+            )
             await manager._process_queue_task_started.wait()
 
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)

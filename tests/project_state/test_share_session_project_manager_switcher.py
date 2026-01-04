@@ -8,7 +8,6 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_project_manager import ShareProjectManager
-from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -81,7 +80,7 @@ def _build_switcher(
 
 
 class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
-    async def test_switcher_requires_session_context(self) -> None:
+    async def test_switcher_requires_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-switcher-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
@@ -93,7 +92,7 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
             switcher, share_manager = _build_switcher(root)
 
             with self.assertRaises(KeyError):
-                switcher.get(share_manager.project_config_id)
+                switcher.get(share_manager.project_config_id, share_session_id=None)
 
     async def test_switcher_scopes_managers_by_session(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -106,19 +105,23 @@ class ShareSessionProjectManagerSwitcherTests(unittest.IsolatedAsyncioTestCase):
             )
             switcher, _share_manager = _build_switcher(root)
 
-            token_a = set_share_session_id("session-a")
-            try:
-                manager_a = switcher.get(project_config.id)
-                self.assertIs(manager_a, switcher.get(project_config.id))
-            finally:
-                reset_share_session_id(token_a)
+            manager_a = switcher.get(
+                project_config.id,
+                share_session_id="session-a",
+            )
+            self.assertIs(
+                manager_a,
+                switcher.get(
+                    project_config.id,
+                    share_session_id="session-a",
+                ),
+            )
 
-            token_b = set_share_session_id("session-b")
-            try:
-                manager_b = switcher.get(project_config.id)
-                self.assertIsNot(manager_a, manager_b)
-            finally:
-                reset_share_session_id(token_b)
+            manager_b = switcher.get(
+                project_config.id,
+                share_session_id="session-b",
+            )
+            self.assertIsNot(manager_a, manager_b)
 
             await manager_a._process_queue_task_started.wait()
             await manager_b._process_queue_task_started.wait()

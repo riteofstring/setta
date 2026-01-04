@@ -8,7 +8,6 @@ from setta.project_state.session_project_manager import (
     SessionProjectManager,
 )
 from setta.runtime.scoped_sender import ScopedFrontendSender
-from setta.share.session_context import require_share_session_id
 from setta.types.helpers_lvl2 import ProjectNotFound, confirm_config_name
 from setta.types.project_state import ProjectStateSingleConfig
 
@@ -59,10 +58,14 @@ class ProjectManagerSwitcher:
             self.settings = settings_manager
 
     def get(
-        self, project_identifier: str | ProjectStateSingleConfig
+        self,
+        project_identifier: str | ProjectStateSingleConfig,
+        *,
+        share_session_id: str | None = None,
     ) -> BaseProjectManager:
         if self.share_project_manager is not None:
-            share_session_id = require_share_session_id()
+            if not share_session_id:
+                raise KeyError("Missing share session id")
             manager = self.get_for_session(share_session_id)
             if isinstance(project_identifier, str):
                 project_config_id = project_identifier
@@ -80,7 +83,10 @@ class ProjectManagerSwitcher:
             if self.main is None:
                 raise ProjectNotFound
             return self.main
-        return self.get(project_identifier.projectConfig.id)
+        return self.get(
+            project_identifier.projectConfig.id,
+            share_session_id=share_session_id,
+        )
 
     def get_config_id_by_name(self, projectConfigName: str):
         if self.share_project_manager is not None:
@@ -169,8 +175,7 @@ class ProjectManagerSwitcher:
     @property
     def main(self) -> BaseProjectManager:
         if self.share_project_manager is not None:
-            share_session_id = require_share_session_id()
-            return self.get_for_session(share_session_id)
+            raise KeyError("Share mode requires a share session id")
         if self._main is None:
             raise ProjectNotFound
         return self._main

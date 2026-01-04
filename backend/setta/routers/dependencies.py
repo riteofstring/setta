@@ -5,7 +5,6 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
-from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.utils.constants import C
 
 
@@ -149,11 +148,7 @@ async def get_runtime_context_from_request(
             state,
             maybe_get_share_session_id_from_request(request),
         )
-    token = set_share_session_id(share_session_id)
-    try:
-        yield RuntimeContext(state, share_session_id=share_session_id)
-    finally:
-        reset_share_session_id(token)
+    yield RuntimeContext(state, share_session_id=share_session_id)
 
 
 async def get_runtime_context_from_websocket(
@@ -168,11 +163,7 @@ async def get_runtime_context_from_websocket(
         )
         if share_session_id is None:
             raise WebSocketDisconnect()
-    token = set_share_session_id(share_session_id)
-    try:
-        yield RuntimeContext(state, share_session_id=share_session_id)
-    finally:
-        reset_share_session_id(token)
+    yield RuntimeContext(state, share_session_id=share_session_id)
 
 
 AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]

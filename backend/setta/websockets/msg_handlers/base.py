@@ -1,4 +1,3 @@
-from setta.share.session_context import get_share_session_id
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -7,7 +6,7 @@ class BaseWebsocketMsgReceiver:
         self.websocket_manager = websocket_manager
 
     def require_share_session_id(self, websocket_id: str) -> str:
-        share_session_id = get_share_session_id()
+        share_session_id = self.websocket_manager.get_share_session_id(websocket_id)
         if share_session_id is None:
             raise KeyError(f"Missing share session id for websocket {websocket_id}")
         return share_session_id

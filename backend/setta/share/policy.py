@@ -4,7 +4,6 @@ from fastapi import HTTPException, WebSocket, status
 from starlette.websockets import WebSocketState
 
 from setta.database.db_objs import DBE
-from setta.share.session_context import get_share_session_id
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -164,8 +163,6 @@ async def enforce_share_policy(
 ) -> None:
     if not share_mode:
         return
-    if share_session_id is None:
-        share_session_id = get_share_session_id()
     if not getattr(policy, policy_flag):
         await _notify_and_raise(
             frontend_sender,

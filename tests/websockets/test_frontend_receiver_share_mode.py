@@ -12,7 +12,6 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     RealtimeUIChangeContent,
 )
-from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgListenerRealtimeEvent,
@@ -130,7 +129,6 @@ class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             id="frontend-share",
             shareSessionId="session-a",
         )
-        token = set_share_session_id("session-a")
         try:
             await receiver.on_connect(frontend_id)
 
@@ -150,7 +148,6 @@ class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(1, parsed.content.sequence)
             self.assertEqual(dependency, parsed.content.deltas[0].dependency)
         finally:
-            reset_share_session_id(token)
             await frontend_socket.close()
             await listener_socket.close()
 

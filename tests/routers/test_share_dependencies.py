@@ -14,7 +14,6 @@ from setta.routers.dependencies import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.database.db_objs import DBE
-from setta.share.session_context import get_share_session_id
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
@@ -216,7 +215,7 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
         await state.wait_until_ready()
         return app, state
 
-    async def test_share_session_context_sets_and_resets(self) -> None:
+    async def test_runtime_context_exposes_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-dependency-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
@@ -231,17 +230,12 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
                 app,
                 headers=[(b"x-share-session-id", session.id.encode())],
             )
-            self.assertIsNone(get_share_session_id())
-
             context = get_runtime_context_from_request(request)
             try:
                 runtime_ctx = await context.__anext__()
                 self.assertEqual(session.id, runtime_ctx.share_session_id)
-                self.assertEqual(session.id, get_share_session_id())
             finally:
                 await context.aclose()
-
-            self.assertIsNone(get_share_session_id())
 
     async def test_share_session_context_requires_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:

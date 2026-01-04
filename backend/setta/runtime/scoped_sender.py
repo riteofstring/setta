@@ -43,6 +43,13 @@ class ScopedFrontendSender:
             share_session_id=self._share_session_id,
         )
 
+    async def send_streaming_response(self, chat_id, chunk) -> None:
+        await self._sender.send_streaming_response(
+            chat_id,
+            chunk,
+            share_session_id=self._share_session_id,
+        )
+
     async def broadcast_backend_log_event(
         self,
         message: str,
@@ -110,5 +117,31 @@ class ScopedFrontendSender:
     async def broadcast_rename_refactor_results(self, content) -> None:
         await self._sender.broadcast_rename_refactor_results(
             content,
+            share_session_id=self._share_session_id,
+        )
+
+    async def broadcast_ai_follow_tool_arguments_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type,
+    ) -> None:
+        await self._sender.broadcast_ai_follow_tool_arguments_update(
+            project_config_id,
+            chat_id,
+            ids_by_type,
+            share_session_id=self._share_session_id,
+        )
+
+    async def broadcast_ai_follow_tool_result_update(
+        self,
+        project_config_id: ID,
+        chat_id: ID,
+        ids_by_type,
+    ) -> None:
+        await self._sender.broadcast_ai_follow_tool_result_update(
+            project_config_id,
+            chat_id,
+            ids_by_type,
             share_session_id=self._share_session_id,
         )

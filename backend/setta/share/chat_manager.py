@@ -6,13 +6,11 @@ from setta.llm.chat_store import MemoryChatStore
 from setta.llm.config import load_llm_config
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.noop_client import NoopMCPClient
-from setta.project_state.project_manager_types import (
-    GetLatestProjectStateSummaryRequest,
-)
+from setta.project_state.project_state_summary_types import ProjectStateSummary
+from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.types.helpers_lvl3 import build_project_state_summary
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -21,108 +19,6 @@ if TYPE_CHECKING:
     from setta.share.session_store import ShareSessionStore
     from setta.types.chat import APIKeys, Chat
     from setta.types.generated.chat_messages import BaseChatMessageUnion
-
-
-class ShareFrontendSender:
-    def __init__(self, sender: WMHFrontendSender, share_session_id: str) -> None:
-        self._sender = sender
-        self._share_session_id = share_session_id
-
-    async def send_streaming_response(self, chat_id, chunk):
-        await self._sender.send_streaming_response(
-            chat_id, chunk, share_session_id=self._share_session_id
-        )
-
-    async def log_failure_and_broadcast_backend_log_event(
-        self,
-        exc: BaseException,
-        label: str,
-        message: str,
-        severity,
-        project_config_id: ID | None = None,
-        handled: bool = False,
-        logger=None,
-        context=None,
-    ) -> None:
-        await self._sender.log_failure_and_broadcast_backend_log_event(
-            exc,
-            label=label,
-            message=message,
-            severity=severity,
-            project_config_id=project_config_id,
-            handled=handled,
-            logger=logger,
-            context=context,
-            share_session_id=self._share_session_id,
-        )
-
-    async def broadcast_ai_follow_tool_arguments_update(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        ids_by_type,
-    ) -> None:
-        await self._sender.broadcast_ai_follow_tool_arguments_update(
-            project_config_id,
-            chat_id,
-            ids_by_type,
-            share_session_id=self._share_session_id,
-        )
-
-    async def broadcast_ai_follow_tool_result_update(
-        self,
-        project_config_id: ID,
-        chat_id: ID,
-        ids_by_type,
-    ) -> None:
-        await self._sender.broadcast_ai_follow_tool_result_update(
-            project_config_id,
-            chat_id,
-            ids_by_type,
-            share_session_id=self._share_session_id,
-        )
-
-
-class ShareProjectManagerAdapter:
-    def __init__(
-        self,
-        share_project_manager: "ShareProjectManager",
-        share_session_id: str,
-    ) -> None:
-        self.share_project_manager = share_project_manager
-        self.share_session_id = share_session_id
-
-    async def get_latest_project_state_summary(
-        self, x: GetLatestProjectStateSummaryRequest
-    ):
-        if x.projectConfigId != self.share_project_manager.project_config_id:
-            raise KeyError(f"Unknown project config: {x.projectConfigId}")
-        project_state = self.share_project_manager.get_session_state(
-            self.share_session_id
-        )
-        return build_project_state_summary(project_state)
-
-
-class ShareProjectManagerSwitcher:
-    def __init__(
-        self,
-        share_project_manager: "ShareProjectManager",
-        share_session_id: str,
-    ) -> None:
-        self.share_project_manager = share_project_manager
-        self.share_session_id = share_session_id
-        self._adapter = ShareProjectManagerAdapter(
-            share_project_manager, share_session_id
-        )
-
-    def get(self, project_identifier: str | ProjectStateSingleConfig):
-        if isinstance(project_identifier, str):
-            project_config_id = project_identifier
-        else:
-            project_config_id = project_identifier.projectConfig.id
-        if project_config_id != self.share_project_manager.project_config_id:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        return self._adapter
 
 
 class ShareChatManager:
@@ -162,21 +58,33 @@ class ShareChatManager:
             return self._noop_mcp_client
         return self._mcp_client
 
+    def _build_summary_provider(self, share_session_id: str):
+        async def provider(project_config_id: ID) -> ProjectStateSummary:
+            if project_config_id != self.share_project_manager.project_config_id:
+                raise KeyError(f"Unknown project config: {project_config_id}")
+            project_state = self.share_project_manager.get_session_state(
+                share_session_id
+            )
+            return build_project_state_summary(project_state)
+
+        return provider
+
     def _get_or_create_manager(self, share_session_id: str) -> LLMChatManager:
         if share_session_id not in self._managers:
             self.share_session_store.get_session(share_session_id)
             self.share_project_manager.get_or_create_session_state(share_session_id)
-            session_sender = ShareFrontendSender(self.frontend_sender, share_session_id)
-            project_switcher = ShareProjectManagerSwitcher(
-                self.share_project_manager, share_session_id
+            session_sender = ScopedFrontendSender(
+                self.frontend_sender, share_session_id
             )
+            summary_provider = self._build_summary_provider(share_session_id)
             manager = LLMChatManager(
                 self.dbe,
                 self._resolve_mcp_client(),
                 session_sender,
-                project_switcher,
+                project_manager_switcher=None,
                 chat_store=MemoryChatStore(),
                 share_session_id=share_session_id,
+                project_summary_provider=summary_provider,
             )
             manager.update_config(self.config)
             manager.update_api_keys(self._raw_env_vars)
