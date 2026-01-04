@@ -83,6 +83,25 @@ class MemoryChatStoreTests(unittest.TestCase):
         metadata = store.get_all_chat_metadata()
         self.assertEqual([chat_two.id, chat_one.id], [m.id for m in metadata])
 
+    def test_metadata_returns_copies(self) -> None:
+        store = MemoryChatStore()
+        config = _build_config("primary")
+        project_config_id = ID("project-four")
+        chat = store.create_new_chat(
+            _build_message("hello"),
+            config,
+            project_config_id=project_config_id,
+        )
+
+        metadata = store.get_all_chat_metadata()
+        self.assertEqual(1, len(metadata))
+        metadata[0].llmConfig.model = "mutated-model"
+
+        fetched = store.get_chat(chat.id)
+        if fetched is None:
+            raise AssertionError("expected chat to be returned")
+        self.assertEqual("test-model", fetched.llmConfig.model)
+
 
 if __name__ == "__main__":
     unittest.main()
