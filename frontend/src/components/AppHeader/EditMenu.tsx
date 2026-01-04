@@ -15,6 +15,7 @@ import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings, useShareSession } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
 
@@ -28,7 +29,7 @@ export function EditMenu() {
 
 function Items() {
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const canEditStructure = !isShareMode;
+  const { canEditStructure } = useShareCapabilities();
   const shortcuts = useSettings((x) => {
     return {
       newCardShortcut: shortcutPrettified(x.shortcuts.newCardShortcut),
