@@ -7,8 +7,9 @@ their values/actions propagate, and how they appear in generated code and listen
 - `SectionType.MetaControl` wraps a single control code object stored as
   `metaControlParamId` on the section impl.
 - The control type must be one of the backend control types
-  (`CodeParam`, `TextParam`, `ButtonParam`, `SliderParam`, `SwitchParam`,
-  `ColorPickerParam`, `DropdownParam`, `PasswordParam`, `DropzoneParam`).
+  (`CodeParam`, `TextParam`, `ButtonParam`, `TextAreaParam`, `SliderParam`,
+  `RotaryParam`, `SwitchParam`, `ColorPickerParam`, `DropdownParam`,
+  `PasswordParam`, `DropzoneParam`).
 - Meta controls are not "sections with params"; there is no way to add extra
   controls. Create another MetaControl section instead.
 
@@ -43,7 +44,7 @@ their values/actions propagate, and how they appear in generated code and listen
   param id.
 - Literal formatting uses the control type (for example,
   `SwitchParam` -> `True`/`False`, `ColorPickerParam` -> quoted string,
-  `TextParam`/`PasswordParam`/`DropzoneParam` -> `repr(...)`).
+  `TextAreaParam`/`PasswordParam`/`DropzoneParam` -> `repr(...)`).
 
 ## Listener integration
 - Subscribe to value controls using the section dependency name

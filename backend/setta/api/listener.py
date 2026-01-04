@@ -14,6 +14,7 @@ from typing import (
     Mapping,
     Sequence,
 )
+from urllib.parse import urlencode
 from uuid import uuid4
 
 import websockets
@@ -256,6 +257,7 @@ class SettaListener:
         *,
         project_name: str | None = None,
         project_config_id: "ID | None" = None,
+        share_session_id: str | None = None,
         use_temporary_ids: bool = False,
         refresh_concurrency: int = 8,
         host: str = C.HOST,
@@ -268,6 +270,7 @@ class SettaListener:
             raise ValueError("refresh_concurrency must be >= 1")
         self._project_name = project_name
         self._project_config_id: "ID | None" = project_config_id
+        self._share_session_id = share_session_id
         self._use_temporary_ids = use_temporary_ids
         self._refresh_concurrency = refresh_concurrency
         self._refresh_callback_semaphore = asyncio.Semaphore(refresh_concurrency)
@@ -282,7 +285,7 @@ class SettaListener:
         self._expected_ack_callback_ids: set[str] = set()
         self._runtime_state: ListenerRuntimeState | None = None
         self._dependency_cache: dict[str, Any] = {}
-        self._last_realtime_sequence: int | None = None
+        self._last_realtime_sequence_by_session: dict[str | None, int] = {}
         self._scheduler = ListenerCallbackScheduler()
         self._websocket: "ClientConnection | None" = None
         self._send_lock = asyncio.Lock()
@@ -304,6 +307,22 @@ class SettaListener:
             )
         return project_config_id
 
+    def _resolve_sequence_session_id(self, share_session_id: str | None) -> str | None:
+        if self._share_session_id is not None:
+            return self._share_session_id
+        return share_session_id
+
+    def _get_last_realtime_sequence(self, share_session_id: str | None) -> int | None:
+        return self._last_realtime_sequence_by_session.get(share_session_id)
+
+    def _set_last_realtime_sequence(
+        self, share_session_id: str | None, sequence: int
+    ) -> None:
+        self._last_realtime_sequence_by_session[share_session_id] = sequence
+
+    def _reset_realtime_sequence(self, share_session_id: str | None) -> None:
+        self._last_realtime_sequence_by_session.pop(share_session_id, None)
+
     @property
     def websocket_endpoint(self) -> str:
         """Compute the websocket endpoint for the current listener configuration."""
@@ -312,7 +331,11 @@ class SettaListener:
         else:
             base = f"ws://{self._host}:{self._port}{Route.PREFIX.value}"
         route = Route.WEBSOCKET_PYTHON_SCRIPT.value.format(id=self._socket_id)
-        return f"{base}{route}"
+        endpoint = f"{base}{route}"
+        if self._share_session_id is None:
+            return endpoint
+        query = urlencode({"shareSessionId": self._share_session_id})
+        return f"{endpoint}?{query}"
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
@@ -891,6 +914,8 @@ class SettaListener:
     async def _refresh_from_snapshot(
         self,
         project_state: ProjectStateSingleConfig,
+        *,
+        share_session_id: str | None = None,
     ) -> None:
         """Refresh listener state from a snapshot delivered over the websocket."""
         self._latest_persisted_snapshot = project_state
@@ -902,6 +927,7 @@ class SettaListener:
         await self._process_snapshot(
             project_state,
             refresh_kind=refresh_kind,
+            share_session_id=share_session_id,
         )
 
     async def _process_snapshot(
@@ -909,8 +935,10 @@ class SettaListener:
         project_state: ProjectStateSingleConfig,
         *,
         refresh_kind: Literal["bootstrap", "force_refresh"],
+        share_session_id: str | None,
     ) -> None:
-        self._last_realtime_sequence = None
+        sequence_session_id = self._resolve_sequence_session_id(share_session_id)
+        self._reset_realtime_sequence(sequence_session_id)
         incoming_project_id = project_state.projectConfig.id
         if self._project_config_id is None:
             self._project_config_id = incoming_project_id
@@ -1167,17 +1195,23 @@ class SettaListener:
 
         self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
-        if self._last_realtime_sequence is not None:
-            if content.sequence <= self._last_realtime_sequence:
+        sequence_session_id = self._resolve_sequence_session_id(content.shareSessionId)
+        last_sequence = self._get_last_realtime_sequence(sequence_session_id)
+        if last_sequence is not None:
+            if content.sequence <= last_sequence:
                 logger.debug(
-                    "Listener %s ignoring out-of-order realtime sequence %s (last=%s)",
+                    (
+                        "Listener %s ignoring out-of-order realtime sequence %s "
+                        "(last=%s session=%s)"
+                    ),
                     self._log_identifier,
                     content.sequence,
-                    self._last_realtime_sequence,
+                    last_sequence,
+                    sequence_session_id,
                 )
                 return
 
-        self._last_realtime_sequence = content.sequence
+        self._set_last_realtime_sequence(sequence_session_id, content.sequence)
         if not content.deltas:
             logger.debug(
                 "Listener %s received realtime event with no deltas (sequence=%s)",
@@ -1299,17 +1333,23 @@ class SettaListener:
             )
             return
 
-        if self._last_realtime_sequence is not None:
-            if content.sequence <= self._last_realtime_sequence:
+        sequence_session_id = self._resolve_sequence_session_id(content.shareSessionId)
+        last_sequence = self._get_last_realtime_sequence(sequence_session_id)
+        if last_sequence is not None:
+            if content.sequence <= last_sequence:
                 logger.debug(
-                    "Listener %s ignoring out-of-order action sequence %s (last=%s)",
+                    (
+                        "Listener %s ignoring out-of-order action sequence %s "
+                        "(last=%s session=%s)"
+                    ),
                     self._log_identifier,
                     content.sequence,
-                    self._last_realtime_sequence,
+                    last_sequence,
+                    sequence_session_id,
                 )
                 return
 
-        self._last_realtime_sequence = content.sequence
+        self._set_last_realtime_sequence(sequence_session_id, content.sequence)
         if not content.actionEvents:
             logger.debug(
                 "Listener %s received action event with no actions (sequence=%s)",
@@ -1342,9 +1382,13 @@ class SettaListener:
 
     async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
+        sequence_session_id = self._resolve_sequence_session_id(content.shareSessionId)
         project_state = content.projectState
         if project_state is not None:
-            await self._refresh_from_snapshot(project_state)
+            await self._refresh_from_snapshot(
+                project_state,
+                share_session_id=content.shareSessionId,
+            )
             return
         project_state = self._latest_persisted_snapshot
         if project_state is None:
@@ -1352,10 +1396,14 @@ class SettaListener:
                 "Listener %s received force refresh without cached project state",
                 self._log_identifier,
             )
-            self._last_realtime_sequence = None
+            self._reset_realtime_sequence(sequence_session_id)
             return
 
-        await self._process_snapshot(project_state, refresh_kind="force_refresh")
+        await self._process_snapshot(
+            project_state,
+            refresh_kind="force_refresh",
+            share_session_id=content.shareSessionId,
+        )
 
     async def emit_to_frontend(
         self,

@@ -455,18 +455,6 @@ class ToggleGroupOrientationRequest(ProjectManagerRequestWithSection):
     """Switch a group section between horizontal and vertical layouts."""
 
 
-class SetGroupOverflowModeRequest(ProjectManagerRequestWithSection):
-    """Toggle whether a group section constrains its children with scrolling."""
-
-    overflowMode: bool = Field(
-        description="True to keep group contents in a scrollable viewport.",
-    )
-    overflowMinSize: SectionSize | None = Field(
-        default=None,
-        description="Minimum size snapshot to enforce when overflow mode is active.",
-    )
-
-
 class SetCodeRequest(ProjectManagerRequestWithSection):
     """Submit inline code edits for a section."""
 
@@ -538,14 +526,6 @@ class SetSectionNameRequest(ProjectManagerRequestWithSection):
     )
 
 
-class SetMetaControlShowSectionTitleRequest(ProjectManagerRequestWithSection):
-    """Request payload for toggling a meta control section title."""
-
-    showSectionTitle: bool = Field(
-        description="True to display the meta control title inline with the control.",
-    )
-
-
 class AcceptRenameRefactorRequest(ProjectManagerRequestWithProjectConfig):
     pass
 
@@ -563,18 +543,6 @@ class RenameRefactorBroadcastContent(BaseModel):
 
 class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
-
-
-class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
-    """Request payload for toggling text block heading-as-title behavior."""
-
-    headingAsSectionName: bool = Field(
-        description="True to use the first markdown heading as the section title.",
-    )
-
-
-class SetTextBlockMetaControlStyleRequest(ProjectManagerRequestWithSection):
-    metaControlStyle: bool
 
 
 class SetSectionWithParamsDisplayModeRequest(ProjectManagerRequestWithSection):
