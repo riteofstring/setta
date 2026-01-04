@@ -12,10 +12,10 @@ from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.jsonSource.jsonSource import JSONSource, ProcessedJSONInfo
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.project_state.utils import (
     create_timestamped_folder,
 )
-from setta.project_state.project_manager_types import RunCodeRequest
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (

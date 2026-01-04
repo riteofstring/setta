@@ -95,6 +95,7 @@ from setta.project_state.project_manager_types import (
     PrepareSectionsForCopyRequest,
     RedoRequest,
     RenameRefactorBroadcastContent,
+    RunCodeRequest,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
@@ -148,7 +149,6 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
-    RunCodeRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.share.policy import (
