@@ -12,8 +12,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncIterator,
-    Awaitable,
-    Callable,
     Iterator,
     Literal,
     TypeVar,
@@ -94,8 +92,6 @@ if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
-
-ProjectSummaryProvider = Callable[[ID], Awaitable[ProjectStateSummary]]
 
 
 @dataclass
@@ -189,11 +185,10 @@ class LLMChatManager:
         dbe: DBE,
         mcp_client: MultiMCPClient,
         websocket_msg_handler: WMHFrontendSender,
-        project_manager_switcher: "ProjectManagerSwitcher | None" = None,
+        project_manager_switcher: "ProjectManagerSwitcher",
         chat_store: ChatStore | None = None,
         *,
         share_session_id: str | None = None,
-        project_summary_provider: ProjectSummaryProvider | None = None,
     ) -> None:
         self.dbe = dbe
         self.chat_store = chat_store or DBEChatStore(dbe)
@@ -201,17 +196,6 @@ class LLMChatManager:
         self.tool_preunlocker = ToolPreunlocker()
         self.websocket_msg_handler = websocket_msg_handler
         self.project_manager_switcher = project_manager_switcher
-        if project_summary_provider is None:
-            if project_manager_switcher is None:
-                raise ValueError(
-                    "LLMChatManager requires project_manager_switcher or "
-                    "project_summary_provider."
-                )
-            self._project_summary_provider = self._build_summary_provider(
-                project_manager_switcher
-            )
-        else:
-            self._project_summary_provider = project_summary_provider
         self.share_session_id = share_session_id
         self.config: AllLLMConfigs = self._hydrate_config(AllLLMConfigs())
         self.api_keys: APIKeys = {}
@@ -224,17 +208,6 @@ class LLMChatManager:
             SETTA_MCP_SERVER_ID, C.SEARCH_AND_UNLOCK_MCP_TOOLS_NAME
         )
         self.system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
-
-    def _build_summary_provider(
-        self, project_manager_switcher: "ProjectManagerSwitcher"
-    ) -> ProjectSummaryProvider:
-        async def provider(project_config_id: ID) -> ProjectStateSummary:
-            project_manager = project_manager_switcher.get(project_config_id)
-            return await project_manager.get_latest_project_state_summary(
-                GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
-            )
-
-        return provider
 
     def get_chat(self, chat_id: ID, share_session_id: str | None = None) -> Chat | None:
         _ = share_session_id
@@ -569,7 +542,13 @@ class LLMChatManager:
     async def _build_project_summary(
         self, project_config_id: ID
     ) -> tuple[ID, str, ProjectStateSummary]:
-        summary = await self._project_summary_provider(project_config_id)
+        project_manager = self.project_manager_switcher.get(
+            project_config_id,
+            share_session_id=self.share_session_id,
+        )
+        summary = await project_manager.get_latest_project_state_summary(
+            GetLatestProjectStateSummaryRequest(projectConfigId=project_config_id)
+        )
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
         )

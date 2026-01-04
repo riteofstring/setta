@@ -439,6 +439,7 @@ class SettaFastAPIState:
                 self.wmh_frontend_sender,
                 self.share_project_manager,
                 self.share_session_store,
+                self.project_manager_switcher,
                 mcp_client=self.mcp_client if share_policy.allowMCP else None,
                 llm_config=llm_config,
             )

@@ -6,15 +6,14 @@ from setta.llm.chat_store import MemoryChatStore
 from setta.llm.config import load_llm_config
 from setta.llm.llm_chat_manager import LLMChatManager
 from setta.mcp.noop_client import NoopMCPClient
-from setta.project_state.project_state_summary_types import ProjectStateSummary
 from setta.runtime.scoped_sender import ScopedFrontendSender
-from setta.types.helpers_lvl3 import build_project_state_summary
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
     from setta.mcp.client import MultiMCPClient
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.project_state.share_project_manager import ShareProjectManager
     from setta.share.session_store import ShareSessionStore
     from setta.types.chat import APIKeys, Chat
@@ -28,6 +27,7 @@ class ShareChatManager:
         frontend_sender: WMHFrontendSender,
         share_project_manager: "ShareProjectManager",
         share_session_store: "ShareSessionStore",
+        project_manager_switcher: "ProjectManagerSwitcher",
         *,
         mcp_client: "MultiMCPClient | None" = None,
         llm_config: AllLLMConfigs | None = None,
@@ -37,6 +37,7 @@ class ShareChatManager:
         self.frontend_sender = frontend_sender
         self.share_project_manager = share_project_manager
         self.share_session_store = share_session_store
+        self.project_manager_switcher = project_manager_switcher
         self._noop_mcp_client = NoopMCPClient()
         self._mcp_client = mcp_client
 
@@ -58,17 +59,6 @@ class ShareChatManager:
             return self._noop_mcp_client
         return self._mcp_client
 
-    def _build_summary_provider(self, share_session_id: str):
-        async def provider(project_config_id: ID) -> ProjectStateSummary:
-            if project_config_id != self.share_project_manager.project_config_id:
-                raise KeyError(f"Unknown project config: {project_config_id}")
-            project_state = self.share_project_manager.get_session_state(
-                share_session_id
-            )
-            return build_project_state_summary(project_state)
-
-        return provider
-
     def _get_or_create_manager(self, share_session_id: str) -> LLMChatManager:
         if share_session_id not in self._managers:
             self.share_session_store.get_session(share_session_id)
@@ -76,15 +66,13 @@ class ShareChatManager:
             session_sender = ScopedFrontendSender(
                 self.frontend_sender, share_session_id
             )
-            summary_provider = self._build_summary_provider(share_session_id)
             manager = LLMChatManager(
                 self.dbe,
                 self._resolve_mcp_client(),
                 session_sender,
-                project_manager_switcher=None,
+                self.project_manager_switcher,
                 chat_store=MemoryChatStore(),
                 share_session_id=share_session_id,
-                project_summary_provider=summary_provider,
             )
             manager.update_config(self.config)
             manager.update_api_keys(self._raw_env_vars)

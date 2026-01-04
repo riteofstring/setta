@@ -26,7 +26,13 @@ class ProjectSummaryManager:
 class ProjectSummarySwitcher:
     manager: ProjectSummaryManager
 
-    def get(self, _project_identifier: object) -> ProjectSummaryManager:
+    def get(
+        self,
+        _project_identifier: object,
+        *,
+        share_session_id: str | None = None,
+    ) -> ProjectSummaryManager:
+        _ = share_session_id
         return self.manager
 
 
