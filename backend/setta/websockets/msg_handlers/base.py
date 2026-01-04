@@ -1,16 +1,9 @@
-from setta.share.session_context import get_share_session_id
 from setta.websockets.websocket_manager import WebsocketManager
 
 
 class BaseWebsocketMsgReceiver:
     def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
-
-    def require_share_session_id(self, websocket_id: str) -> str:
-        share_session_id = get_share_session_id()
-        if share_session_id is None:
-            raise KeyError(f"Missing share session id for websocket {websocket_id}")
-        return share_session_id
 
     async def on_connect(self, websocket_id):
         pass

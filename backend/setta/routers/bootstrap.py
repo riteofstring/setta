@@ -7,13 +7,12 @@ from setta.auth.headers import extract_bearer_token_value
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token
-from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import format_host_for_url
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaAPIRouter()
 
 BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">

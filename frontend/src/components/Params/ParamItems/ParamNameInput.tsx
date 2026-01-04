@@ -8,7 +8,6 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   route_set_code_obj_display_name,
@@ -62,12 +61,8 @@ export function ParamNameInput({
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
-  const { canEditParams } = useShareCapabilities();
 
   function onChange(v: string) {
-    if (!canEditParams) {
-      return;
-    }
     if (showParamDisplayNames && !isKwarg) {
       debouncedSetParamDisplayName(paramInfoId, v);
       return;
@@ -83,7 +78,7 @@ export function ParamNameInput({
 
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
-  const isDisabled = !canEditParams;
+  const isDisabled = false;
 
   return (
     <>
@@ -100,7 +95,7 @@ export function ParamNameInput({
         language={configLanguage}
         autocomplete={false}
         isKeyName={true}
-        isDisabled={isDisabled}
+        // isDisabled={isDisabled}
         onMouseDown={onMouseDown}
       />
       <span
