@@ -64,6 +64,8 @@ function mergeSizeUpdates(
 
 // Group container has px-6 = 24px left + 24px right = 48px total horizontal padding
 const GROUP_HORIZONTAL_PADDING = 48;
+// Vertical: pt-2 (8) + pb-6 (24) + header min-h-10 (40) + content pt-2 (8) = 80px
+const GROUP_VERTICAL_PADDING = 80;
 
 function applyOverflowSectionResizeUpdates({
   sectionId,
@@ -129,6 +131,7 @@ function applyOverflowSectionResizeUpdates({
       state,
     });
     if (heightGroupId) {
+      // Set all children (siblings) to match this section's height
       mergeSizeUpdates(
         updates,
         setOverflowGroupCrossAxisSize({
@@ -137,6 +140,19 @@ function applyOverflowSectionResizeUpdates({
           axisSize: height,
           state,
           includeChildren: true,
+          includeGroup: false,
+        }),
+      );
+      // Set the group height to section height + padding so children fit
+      const groupHeight = height + GROUP_VERTICAL_PADDING;
+      mergeSizeUpdates(
+        updates,
+        setOverflowGroupCrossAxisSize({
+          groupId: heightGroupId,
+          axis: "height",
+          axisSize: groupHeight,
+          state,
+          includeChildren: false,
           includeGroup: true,
         }),
       );
@@ -145,7 +161,7 @@ function applyOverflowSectionResizeUpdates({
         applyOverflowParentSizeUpdates({
           sectionId: heightGroupId,
           newWidth: undefined,
-          newHeight: height,
+          newHeight: groupHeight,
           state,
         }),
       );

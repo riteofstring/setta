@@ -329,12 +329,15 @@ function ContainerGroup({
           const axisSize =
             crossAxis === "width" ? changedSize.width : changedSize.height;
           if (typeof axisSize === "number") {
-            // Subtract container padding (px-6 = 48px horizontal) so children fit within group
+            // Subtract container padding so children fit within group
+            // Horizontal: px-6 = 48px
+            // Vertical: pt-2 (8) + pb-6 (24) + header min-h-10 (40) + content pt-2 (8) = 80px
             const GROUP_HORIZONTAL_PADDING = 48;
+            const GROUP_VERTICAL_PADDING = 80;
             const childAxisSize =
               crossAxis === "width"
                 ? axisSize - GROUP_HORIZONTAL_PADDING
-                : axisSize;
+                : axisSize - GROUP_VERTICAL_PADDING;
             mergeSizeUpdates(
               updatedSectionSizes,
               setOverflowGroupCrossAxisSize({
