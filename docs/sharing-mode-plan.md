@@ -23,7 +23,7 @@ workspace.
 - Public sharing is open by default; optional auth is supported.
 - Listener execution is per-viewer (isolated state).
 - Run snapshots should be configurable (not always-on).
-- Terminals/run code are opt-in for share mode.
+- Terminals/run code are opt-in for share mode (output-only terminals, no stdin).
 - Share URLs support `/share/<project_config_name>` and
   `/share/<project_config_name>/vN` (latest resolves to the highest vN).
 
@@ -91,7 +91,7 @@ Key requirement: viewer A never sees viewer B's changes.
 ### 4) Sharing policy
 A share policy defines what can be modified in share mode:
 - params, variants, layouts, view modes
-- run/terminals
+- run/terminals (output-only; no terminal input or custom commands)
 - LLM access
 - allowed sections or controls
 - Structural changes, LSP, and MCP are disabled in share mode.
@@ -140,7 +140,7 @@ Introduce a configurable run snapshot mode:
 
 Suggested defaults:
 - IDE mode: `ephemeral` with a UI toggle to "record run".
-- Share mode: `ephemeral` only (with opt-in allowRun).
+- Share mode: `ephemeral` only (with opt-in allowRun; `never` is disallowed).
 
 Share mode should redirect run output to a share run root (per project config,
 per version, per session, per run) rather than `setta_files/code`.
@@ -149,6 +149,8 @@ In share mode, run commands should execute with `python <absolute path>` (or
 module names and CWD-dependent layouts.
 Run commands should shell-quote the resolved path to handle spaces in share
 deployment roots.
+Terminal input is always disabled in share mode; viewers can only observe run
+output from published code.
 When a run request omits `sectionId`, share mode should resolve
 `entryCodeBlockId` and enforce `allowedSections` against that entry section.
 
@@ -223,4 +225,4 @@ Phase 4: SaaS alignment
 ## Open Questions
 - Exact UX for publish/redeploy (manual CLI vs UI button).
 - Default share policy for new deployments.
-- Whether to keep terminals completely disabled in share mode by default.
+- Whether to keep run/terminals disabled by default in share mode (terminals are output-only when enabled).

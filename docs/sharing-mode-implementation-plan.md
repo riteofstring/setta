@@ -20,6 +20,7 @@ Latest completion updates (this branch):
   session snapshots avoid invalid `python -m` module paths and CWD assumptions.
 - Share run commands shell-quote absolute paths to handle spaces in deployment
   roots.
+- Share terminals are output-only in share mode (stdin disabled).
 - Share session cleanup now cancels per-session project manager queue tasks.
 - Share settings load waits for backend readiness in share mode.
 - Share session cleanup now terminates terminals associated with expired sessions.
@@ -240,8 +241,7 @@ and param selection routes are gated.
 - Return 403 with a clear message; emit a UI log event via
   `backend/setta/websockets/msg_handlers/frontend_sender.py`.
 Implemented:
-- Policy violations broadcast to the active share session (or all share
-  sessions if the request is not session-scoped).
+- Policy violations broadcast to the active share session.
 - Structural mutations are blocked in share mode via
   `backend/setta/routers/project_manager.py`.
 - Content mutations now enforce `allowParamChanges` (text/code/draw/image/chart
@@ -335,6 +335,7 @@ Status: completed. Run snapshot mode, share run roots, and per-viewer terminal
 isolation are implemented.
 - Add run snapshot mode (`always`/`ephemeral`/`never`) to
   `backend/setta/types/settings_state.py` or the share policy.
+- Reject `runSnapshotMode=never` for share deployments.
 - Override `create_run_command` in share mode to write into
   `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
   (default root: `setta_files/share_runtime/...`).
@@ -360,14 +361,16 @@ Implemented:
   run command creation.
 - Share run output writes to
   `share_runtime/<project_config_name>/<version>/share_runs/<session>/<timestamp>`
-  (default root: `setta_files/share_runtime/...`) and uses per-session snapshots
-  or canonical files based on snapshot mode.
+  (default root: `setta_files/share_runtime/...`) and always uses per-session
+  snapshots (no canonical runs in share mode).
 - Share run commands always use `python <absolute path>` (and `bash <absolute path>`)
   in share mode to avoid invalid module paths.
 - Share run output cleanup runs in the background for ephemeral snapshots.
 - Terminals are keyed by share session + section id to prevent PTY collisions
   across viewers; run/delete/kill routes and terminal websockets use the
   session-scoped ids.
+- Terminal input is disabled in share mode; terminals are output-only even when
+  `allowRun` is true.
 
 ## 9) LLM gating
 Status: completed. Share boot gates LLM by policy, and per-viewer chat state
@@ -479,8 +482,8 @@ Implemented:
 - `tests/project_state/test_share_project_manager.py` covers listener emit sync
   with per-session managers.
 - `tests/project_state/test_share_project_manager.py` covers share run snapshot
-  creation for `ephemeral` and canonical runs for `never`, including absolute
-  run command paths for relocated deployments.
+  creation for `ephemeral` and `always` modes, including absolute run command
+  paths for relocated deployments.
 - `tests/routers/test_share_dependencies.py` covers share session id extraction
   precedence for HTTP and websocket requests plus share session context setup
   and touch behavior.
@@ -567,7 +570,7 @@ Implemented:
 ## Open questions
 - Should OSS share mode be open-by-default or require auth/bootstrap tokens?
 - What is the default share policy for new deployments?
-- Should terminals/run remain disabled by default in share mode?
+- Should run/terminals remain disabled by default in share mode (terminals are output-only when enabled)?
 - Do we want an IDE-side "record run" toggle for run snapshot mode?
 - How should we simplify dev-mode share testing (single `pnpm start`)?
 
