@@ -96,15 +96,6 @@ function _Container({
 
 export const Container = React.memo(_Container, _.isEqual);
 
-function getNumericSectionSizeValue(
-  value: SectionSize["width"] | null | undefined,
-): number | null {
-  if (typeof value === "number") {
-    return value;
-  }
-  return null;
-}
-
 function getGroupResizeSizeFromRef(
   ref: HTMLDivElement | null,
 ): SectionSize | null {
@@ -135,6 +126,9 @@ function getCrossAxis(isHorizontalOrientation: boolean): CrossAxis {
   return "width";
 }
 
+const GROUP_OVERFLOW_MIN_WIDTH = 250;
+const GROUP_OVERFLOW_MIN_HEIGHT = 140;
+
 function mergeSizeUpdates(
   target: Record<string, SectionSize>,
   updates: Record<string, SectionSize>,
@@ -160,7 +154,6 @@ function ContainerGroup({
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     overflowMode,
-    overflowMinSize,
     isHorizontalOrientation,
     size,
   } = useProjectState((x) => {
@@ -174,7 +167,6 @@ function ContainerGroup({
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       overflowMode: impl.overflowMode ?? false,
-      overflowMinSize: impl.overflowMinSize ?? null,
       isHorizontalOrientation: impl.isHorizontalOrientation ?? false,
       size: impl.size,
     };
@@ -195,16 +187,8 @@ function ContainerGroup({
   let effectiveMinHeight = minHeight;
   let effectiveMinWidth = minWidth;
   if (overflowMode) {
-    const overflowMinHeight = getNumericSectionSizeValue(
-      overflowMinSize?.height,
-    );
-    if (overflowMinHeight !== null) {
-      effectiveMinHeight = Math.max(minHeight, overflowMinHeight);
-    }
-    const overflowMinWidth = getNumericSectionSizeValue(overflowMinSize?.width);
-    if (overflowMinWidth !== null) {
-      effectiveMinWidth = Math.max(minWidth, overflowMinWidth);
-    }
+    effectiveMinHeight = Math.max(effectiveMinHeight, GROUP_OVERFLOW_MIN_HEIGHT);
+    effectiveMinWidth = Math.max(effectiveMinWidth, GROUP_OVERFLOW_MIN_WIDTH);
   }
   const snapGrid = useSettings((x) => x.gui.snapGrid);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
