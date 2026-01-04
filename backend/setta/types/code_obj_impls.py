@@ -40,6 +40,7 @@ class ParamNameType(str, Enum):
 class ButtonActionMode(str, Enum):
     WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
     HTTP_REQUEST = "HTTP_REQUEST"
+    SETTA_API = "SETTA_API"
 
 
 class HttpRequestMethod(str, Enum):
