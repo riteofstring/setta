@@ -168,36 +168,26 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
     async def test_share_state_policy_gates_services(self) -> None:
         scenarios = [
             (
-                "no-llm-no-mcp-no-run",
-                SharePolicy(allowLLM=False, allowMCP=False, allowRun=False),
-                False,
+                "no-llm-no-run",
+                SharePolicy(allowLLM=False, allowRun=False),
                 False,
                 False,
             ),
             (
                 "llm-only",
-                SharePolicy(allowLLM=True, allowMCP=False, allowRun=False),
-                True,
-                False,
-                False,
-            ),
-            (
-                "mcp-only",
-                SharePolicy(allowLLM=False, allowMCP=True, allowRun=False),
-                False,
+                SharePolicy(allowLLM=True, allowRun=False),
                 True,
                 False,
             ),
             (
-                "llm-mcp-run",
-                SharePolicy(allowLLM=True, allowMCP=True, allowRun=True),
-                True,
+                "llm-run",
+                SharePolicy(allowLLM=True, allowRun=True),
                 True,
                 True,
             ),
         ]
 
-        for label, policy, expect_llm, expect_mcp, expect_run in scenarios:
+        for label, policy, expect_llm, expect_run in scenarios:
             with self.subTest(label=label):
                 with TemporaryDirectory() as tmpdir:
                     project_config_name = "share_test"
@@ -217,12 +207,8 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                     else:
                         self.assertFalse(state.chat_manager)
 
-                    if expect_mcp:
-                        self.assertIsInstance(state.mcp_client, MultiMCPClient)
-                        self.assertFalse(state.mcp_client.disabled)
-                        await state.mcp_client.stop()
-                    else:
-                        self.assertTrue(state.mcp_client.disabled)
+                    self.assertIsInstance(state.mcp_client, MultiMCPClient)
+                    self.assertTrue(state.mcp_client.disabled)
 
                     if expect_run:
                         self.assertIsInstance(state.terminals, Terminals)

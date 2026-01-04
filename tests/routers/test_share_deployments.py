@@ -126,7 +126,6 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(manifest.listener)
                 self.assertFalse(policy.allowRun)
                 self.assertFalse(policy.allowLLM)
-                self.assertFalse(policy.allowMCP)
                 self.assertEqual(policy_path, metadata.sharePolicyPath)
         except RuntimeError as exc:
             self.skipTest(str(exc))

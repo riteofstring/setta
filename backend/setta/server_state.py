@@ -185,7 +185,7 @@ class SettaFastAPIState:
     async def _initialize_async(self, app):
         try:
             if self.share_mode:
-                await self._initialize_share_async(app)
+                await self._initialize_share_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -328,7 +328,7 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_share_async(self, app) -> None:
+    async def _initialize_share_async(self) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -357,11 +357,6 @@ class SettaFastAPIState:
         )
         self.share_runtime_state.initialize_share_state(self.settings_file)
         lsp_writers = None
-        if self.share_runtime_state.share_policy.allowLSP:
-            self.lsps = LSPServers(self.settings_file.settings.languageServer)
-            self.lsp_writers = LSPWriters(self.lsps)
-            self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
-            lsp_writers = self.lsp_writers
         from setta.project_state.project_manager_switcher import (
             ProjectManagerSwitcher,
         )
@@ -415,24 +410,8 @@ class SettaFastAPIState:
         share_policy = self.share_runtime_state.share_policy
         llm_dbe = self._resolve_share_llm_dbe()
         llm_config = None
-        if share_policy.allowLLM or share_policy.allowMCP:
+        if share_policy.allowLLM:
             llm_config = load_llm_config(llm_dbe, allow_write=False)
-        if share_policy.allowMCP:
-            apply_fastmcp_preparse_patch()
-            self.mcp_server = SettaFastMCP(
-                app,
-                self,
-                "/mcp",
-                "Setta MCP Server",
-                self.wmh_frontend_sender,
-                self.dbe,
-            )
-            if llm_config is None:
-                llm_config = load_llm_config(llm_dbe, allow_write=False)
-            self.mcp_client = MultiMCPClient(
-                llm_config.mcpServers,
-                frontend_sender=self.wmh_frontend_sender,
-            )
         if not self.mcp_client.disabled:
             spawn_background_task(
                 self.mcp_client.connect_to_servers(),
@@ -468,13 +447,6 @@ class SettaFastAPIState:
                 "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
-        if self.lsps and self.lsp_readers and self.lsp_writers:
-            spawn_background_task(
-                start_lsps(self.lsps, self.lsp_readers, self.lsp_writers),
-                label="lsp-startup",
-                request_id="boot",
-                extra_values={"service": "language-servers"},
-            )
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._ready_event.set()

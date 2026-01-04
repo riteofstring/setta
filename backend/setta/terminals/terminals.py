@@ -208,6 +208,7 @@ class Terminals:
         websocket,
         sectionId,
         *,
+        allow_input: bool = True,
         on_activity: Callable[[], None] | None = None,
     ):
         pty_info = self.PTY_PIDS[sectionId]
@@ -227,7 +228,7 @@ class Terminals:
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     pty_info["wasJustResized"] = doResize
                     continue
-                elif input_data:
+                if allow_input and input_data:
                     pty_process.write(input_data)
                     self.set_terminal_start_time(sectionId)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):

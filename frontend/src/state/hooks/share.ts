@@ -131,7 +131,6 @@ type ShareCapabilities = {
   canRun: boolean;
   canUseLsp: boolean;
   canUseLlm: boolean;
-  canUseMcp: boolean;
 };
 
 function resolveSharePolicyFlag(
@@ -175,24 +174,16 @@ export function useShareCapabilities(): ShareCapabilities {
     "allowLayoutChanges",
     true,
   );
-  const allowStructuralChanges = resolveSharePolicyFlag(
-    sharePolicy,
-    "allowStructuralChanges",
-    true,
-  );
   const allowRun = resolveSharePolicyFlag(sharePolicy, "allowRun", true);
-  const allowLsp = resolveSharePolicyFlag(sharePolicy, "allowLSP", true);
   const allowLlm = resolveSharePolicyFlag(sharePolicy, "allowLLM", true);
-  const allowMcp = resolveSharePolicyFlag(sharePolicy, "allowMCP", true);
 
   return {
     canEditParams: !isShareMode || allowParamChanges,
     canEditVariants: !isShareMode || allowVariantChanges,
     canEditLayout: !isShareMode || allowLayoutChanges,
-    canEditStructure: !isShareMode || allowStructuralChanges,
+    canEditStructure: !isShareMode,
     canRun: !isShareMode || allowRun,
-    canUseLsp: !isShareMode || allowLsp,
+    canUseLsp: !isShareMode,
     canUseLlm: !isShareMode || allowLlm,
-    canUseMcp: !isShareMode || allowMcp,
   };
 }

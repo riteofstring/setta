@@ -4850,11 +4850,8 @@ const SharePolicySchema = z.object({
   allowParamChanges: z.boolean().default(true),
   allowVariantChanges: z.boolean().default(true),
   allowLayoutChanges: z.boolean().default(true),
-  allowStructuralChanges: z.boolean().default(true),
   allowRun: z.boolean().default(false),
-  allowLSP: z.boolean().default(false),
   allowLLM: z.boolean().default(false),
-  allowMCP: z.boolean().default(false),
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
@@ -6029,11 +6026,8 @@ const SharePolicyOverridesSchema = z.object({
   allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
   allowVariantChanges: z.union([z.boolean(), z.null()]).default(null),
   allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowStructuralChanges: z.union([z.boolean(), z.null()]).default(null),
   allowRun: z.union([z.boolean(), z.null()]).default(null),
-  allowLSP: z.union([z.boolean(), z.null()]).default(null),
   allowLLM: z.union([z.boolean(), z.null()]).default(null),
-  allowMCP: z.union([z.boolean(), z.null()]).default(null),
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),

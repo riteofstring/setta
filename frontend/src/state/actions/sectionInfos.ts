@@ -823,10 +823,7 @@ export function getAncestorSameVisibility(
 
 export function deleteAllActiveSections() {
   const shareSession = useShareSession.getState();
-  if (
-    shareSession.isShareMode &&
-    !shareSession.sharePolicy?.allowStructuralChanges
-  ) {
+  if (shareSession.isShareMode) {
     return;
   }
   route_delete_sections({

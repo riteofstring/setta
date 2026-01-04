@@ -52,11 +52,8 @@ class SharePolicyOverrides(BaseModel, extra="forbid"):
     allowParamChanges: bool | None = None
     allowVariantChanges: bool | None = None
     allowLayoutChanges: bool | None = None
-    allowStructuralChanges: bool | None = None
     allowRun: bool | None = None
-    allowLSP: bool | None = None
     allowLLM: bool | None = None
-    allowMCP: bool | None = None
     runSnapshotMode: RunSnapshotMode | None = None
     allowedSections: list[ID] | None = None
 

@@ -1,5 +1,4 @@
 import shlex
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -95,8 +94,6 @@ class ShareRuntimeState:
         if session_id in self._session_backends:
             raise KeyError(f"Share session already exists: {session_id}")
         project_state = self._build_base_backend()
-        if self.share_policy.allowLSP:
-            self._rebase_session_code_paths(project_state, session_id)
         self._session_backends[session_id] = project_state
         return project_state
 
@@ -126,10 +123,7 @@ class ShareRuntimeState:
         project_state = convert_backend_to_single_config(
             backend, project_config_id
         ).model_copy(deep=True)
-        updated_binding = self._ensure_gen_code_binding(
-            project_state,
-            session_id=session_id,
-        )
+        updated_binding = self._ensure_gen_code_binding(project_state)
         project_state.validate_for_update(validate_code_file_bindings=False)
         if updated_binding:
             self._session_backends[session_id] = merge_single_config_into_backend(
@@ -160,10 +154,6 @@ class ShareRuntimeState:
         del self._session_backends[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
-        if self.share_policy.allowLSP:
-            session_root = self._resolve_session_code_root(session_id)
-            if session_root.exists():
-                shutil.rmtree(session_root)
 
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
@@ -298,15 +288,13 @@ class ShareRuntimeState:
     def _ensure_gen_code_binding(
         self,
         project_state: "ProjectStateSingleConfig",
-        *,
-        session_id: str | None = None,
     ) -> bool:
         if project_state.genCodeBinding is not None:
             return False
         gen_section_id = project_state.singletonSections.GenPythonCode
         if gen_section_id is None:
             project_state.genCodeBinding = self._build_fallback_gen_code_binding(
-                project_state, session_id=session_id
+                project_state
             )
             return True
         gen_impl = get_curr_effective_section_impl_with_type_guard(
@@ -316,7 +304,7 @@ class ShareRuntimeState:
         )
         if gen_impl.codeFileBinding is None:
             project_state.genCodeBinding = self._build_fallback_gen_code_binding(
-                project_state, session_id=session_id
+                project_state
             )
             return True
         project_state.genCodeBinding = gen_impl.codeFileBinding
@@ -325,18 +313,8 @@ class ShareRuntimeState:
     def _build_fallback_gen_code_binding(
         self,
         project_state: "ProjectStateSingleConfig",
-        *,
-        session_id: str | None = None,
     ) -> CodeFileBinding:
         project_slug = sanitize_name(project_state.projectConfig.name)
-        if session_id is not None and self.share_policy.allowLSP:
-            session_root = self._resolve_session_code_root(session_id)
-            return CodeFileBinding(
-                canonical_path=(
-                    session_root / "code" / "sections" / project_slug / "setta_gen.py"
-                ).resolve(),
-                access_mode=CodeFileAccessMode.write_only,
-            )
         deployment_path = (
             self.deployment_root / "code" / "sections" / project_slug / "setta_gen.py"
         ).resolve()

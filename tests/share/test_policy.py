@@ -187,16 +187,12 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
             with self.assertRaises(HTTPException) as raised:
-                await runtime_ctx.enforce_policy(
-                    policy_flag="allowStructuralChanges",
-                    denied_message="Share policy disallows structural changes.",
-                    project_config_id=project_config_id,
-                    section_ids=[create_new_id()],
+                await runtime_ctx.enforce_structural_changes_allowed(
+                    project_config_id=project_config_id
                 )
 
             self.assertEqual(403, raised.exception.status_code)
@@ -210,7 +206,6 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            _write_share_policy(root, SharePolicy(allowLSP=False))
             state = await self._build_state(root)
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 

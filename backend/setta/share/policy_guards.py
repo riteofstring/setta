@@ -115,11 +115,8 @@ async def enforce_share_policy_guard(
         )
         return
     if guard is SharePolicyGuard.structural:
-        await ctx.enforce_policy(
-            policy_flag="allowStructuralChanges",
-            denied_message="Share policy disallows structural changes.",
-            project_config_id=request.projectConfigId,
-            section_ids=section_ids,
+        await ctx.enforce_structural_changes_allowed(
+            project_config_id=request.projectConfigId
         )
         return
     if guard is SharePolicyGuard.run:
@@ -129,8 +126,6 @@ async def enforce_share_policy_guard(
         )
         return
     if guard is SharePolicyGuard.lsp:
-        await ctx.enforce_lsp_allowed(
-            project_config_id=request.projectConfigId,
-        )
+        await ctx.enforce_lsp_allowed(project_config_id=request.projectConfigId)
         return
     raise KeyError(f"Unsupported share policy guard: {guard}")

@@ -85,6 +85,7 @@ async def terminal_websocket_endpoint(
             await ctx.state.terminals.write_to_terminal(
                 websocket,
                 terminal_id,
+                allow_input=not ctx.share_mode,
                 on_activity=touch_session,
             )
         except Exception as exc:

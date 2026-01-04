@@ -6,17 +6,15 @@ from fastapi import HTTPException, WebSocket, status
 from setta.project_state.session_project_manager import SessionPersistenceMode
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.policy import (
+    deny_in_share_mode,
     enforce_share_policy,
     ensure_share_llm_allowed,
-    ensure_share_lsp_allowed,
-    ensure_share_mcp_allowed,
     ensure_share_run_allowed,
     ensure_share_run_allowed_ws,
 )
 from setta.types.share_deployment import SharePolicy
 
 if TYPE_CHECKING:
-    from setta.project_state.base_project_manager import BaseProjectManager
     from setta.server_state import SettaFastAPIState
     from setta.types.id import ID
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -153,10 +151,12 @@ class RuntimeContext:
         *,
         project_config_id: "ID | None",
     ) -> None:
-        await ensure_share_lsp_allowed(
-            self.state,
+        await deny_in_share_mode(
+            share_mode=self.state.share_mode,
+            frontend_sender=self.state.wmh_frontend_sender,
+            message="Share mode disallows language server features.",
             project_config_id=project_config_id,
-            share_session_id=self._share_session_id,
+            share_session_id=self.share_session_id,
         )
 
     async def enforce_llm_allowed(
@@ -170,24 +170,18 @@ class RuntimeContext:
             share_session_id=self._share_session_id,
         )
 
-    async def enforce_mcp_allowed(
+    async def enforce_structural_changes_allowed(
         self,
         *,
         project_config_id: "ID | None",
     ) -> None:
-        await ensure_share_mcp_allowed(
-            self.state,
+        await deny_in_share_mode(
+            share_mode=self.state.share_mode,
+            frontend_sender=self.state.wmh_frontend_sender,
+            message="Share mode disallows structural changes.",
             project_config_id=project_config_id,
-            share_session_id=self._share_session_id,
+            share_session_id=self.share_session_id,
         )
 
-    async def ensure_lsp_ready(
-        self,
-        manager: "BaseProjectManager",
-        project_config_id: "ID",
-    ) -> None:
-        if not self.state.share_mode:
-            return
-        if not self.policy.allowLSP:
-            return
-        await manager.ensure_gen_code_ready(project_config_id)
+    async def ensure_lsp_ready(self) -> None:
+        return

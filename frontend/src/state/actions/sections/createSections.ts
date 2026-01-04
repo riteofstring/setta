@@ -38,14 +38,7 @@ type SmartPlacementContext = {
 
 function allowStructuralChanges(): boolean {
   const shareSession = useShareSession.getState();
-  if (!shareSession.isShareMode) {
-    return true;
-  }
-  const policy = shareSession.sharePolicy;
-  if (!policy) {
-    return true;
-  }
-  return policy.allowStructuralChanges;
+  return !shareSession.isShareMode;
 }
 
 export async function createTopLevelSection({

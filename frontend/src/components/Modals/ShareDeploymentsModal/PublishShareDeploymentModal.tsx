@@ -28,11 +28,8 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
     allowParamChanges: true,
     allowVariantChanges: true,
     allowLayoutChanges: true,
-    allowStructuralChanges: true,
     allowRun: false,
-    allowLSP: false,
     allowLLM: false,
-    allowMCP: false,
     runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
     allowedSections: null,
   };
@@ -196,36 +193,16 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             onChange={(checked) => setPolicyFlag("allowLayoutChanges", checked)}
           />
           <ToggleRow
-            label="Structural changes"
-            description="Allow creating + deleting sections."
-            checked={policyOverrides.allowStructuralChanges}
-            onChange={(checked) =>
-              setPolicyFlag("allowStructuralChanges", checked)
-            }
-          />
-          <ToggleRow
             label="Run & terminals"
             description="Allow code execution in share mode."
             checked={policyOverrides.allowRun}
             onChange={(checked) => setPolicyFlag("allowRun", checked)}
           />
           <ToggleRow
-            label="Language server (LSP)"
-            description="Enable completions + callable search."
-            checked={policyOverrides.allowLSP}
-            onChange={(checked) => setPolicyFlag("allowLSP", checked)}
-          />
-          <ToggleRow
             label="LLM access"
             description="Enable chat + AI features."
             checked={policyOverrides.allowLLM}
             onChange={(checked) => setPolicyFlag("allowLLM", checked)}
-          />
-          <ToggleRow
-            label="MCP access"
-            description="Enable MCP tools when allowed."
-            checked={policyOverrides.allowMCP}
-            onChange={(checked) => setPolicyFlag("allowMCP", checked)}
           />
           <SelectRow
             label="Run snapshot mode"
@@ -351,10 +328,8 @@ type PolicyFlag =
   | "allowParamChanges"
   | "allowVariantChanges"
   | "allowLayoutChanges"
-  | "allowStructuralChanges"
   | "allowRun"
-  | "allowLLM"
-  | "allowMCP";
+  | "allowLLM";
 
 function SectionCard({
   title,

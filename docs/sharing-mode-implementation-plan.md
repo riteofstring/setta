@@ -32,7 +32,7 @@ Latest completion updates (this branch):
   `rewrite_project_state_paths`, reused by publish + share boot, and now updates
   `genCodeBinding` alongside section bindings.
 - Share sessions ensure a `genCodeBinding` even when the deployment lacks a
-  generated code section, so run/LSP paths stay rooted in the share runtime.
+  generated code section, so run paths stay rooted in the share runtime.
 - Share path guards now resolve relative paths against the deployment root
   instead of the server CWD.
 - Share deployment path rebasing keeps absolute runtime paths in memory so share
@@ -42,7 +42,7 @@ Latest completion updates (this branch):
   active viewer.
 - New tests cover manager-state publishing, in-memory JSON source publishing,
   relocated deployment roots, gen-code rebasing, share path guarding, and
-  share updates without LSP enabled.
+  share updates without LSP.
 
 ## Notes on current codebase constraints
 - Auth is enforced on all HTTP routes (`backend/setta/middleware/auth.py`) and
@@ -85,7 +85,7 @@ Implemented in `backend/setta/types/share_deployment.py`, added
 - Create Pydantic models in `backend/setta/types/share_deployment.py` for:
   - `ShareDeploymentManifest` (schema version, projectConfigId,
     projectConfigName, deploymentVersion, createdAt, listener config).
-  - `SharePolicy` (allowStructuralChanges, allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLSP, allowLLM, allowMCP, runSnapshotMode, allowedSections).
+  - `SharePolicy` (allowParamChanges, allowVariantChanges, allowLayoutChanges, allowRun, allowLLM, runSnapshotMode, allowedSections).
   - `ShareDeploymentMetadata` (projectConfigName, deploymentVersion, createdAt,
     path, policy path).
   - `ShareDeploymentSessionResponse` (projectConfigName, deploymentVersion,
@@ -140,7 +140,7 @@ Status: completed. CLI-flag startup + name/version selection are implemented.
   `backend/setta/server_state.py` or add a `backend/setta/share_server.py`.
 - Create a share-specific state that:
   - Loads from a deployment root (not `C.SETTA_FILES_FOLDER`).
-  - Skips `SpecificFileWatcher`, LSP startup, MCP, and LLM watchers unless allowed by policy.
+  - Skips `SpecificFileWatcher`; LLM only when allowed by policy (LSP/MCP disabled in share mode).
   - Initializes a share session store and share project manager.
 - Ensure share routers are included in `backend/setta/server.py` so endpoint
   generation in `frontend/generation/convert_endpoints.py` can see them.
@@ -151,7 +151,7 @@ Implemented:
 - Removed share env-var startup; share mode is configured by CLI at launch.
 - `backend/setta/server.py` constructs `SettaFastAPIState` with share mode.
 - `backend/setta/server_state.py` branches share initialization, loads from the
-  deployment root, skips watchers, and only boots LSP when allowed by policy.
+  deployment root, skips watchers, and disables LSP in share mode.
 - Share CLI derives project config name/version from `manifest.json` so the
   share URL stays correct even when `--deployment-root` is relocated.
 - Share mode uses `setta_files/share_runtime/<project_config_name>/<version>`
@@ -159,8 +159,8 @@ Implemented:
   `DBE.runtime_root`/`lock_root`) so deployments stay immutable.
 - `backend/setta/server_state.py` initializes share settings, terminals only
   when `allowRun`, and share listener runtime + share websocket receivers.
-- `backend/setta/server_state.py` initializes MCP + LLM only when allowed by
-  policy (and wires share chat manager accordingly).
+- `backend/setta/server_state.py` initializes LLM only when allowed by policy
+  (MCP disabled in share mode, share chat manager wired accordingly).
 
 ## 4) Share project manager + per-viewer overlays
 Status: completed. ShareRuntimeState + session store exist, share-mode mutation routes are wired to per-session overlays, session validation/cleanup/artifact caching are in place, and share artifact updates broadcast to the active share session after caching.
@@ -168,7 +168,7 @@ Status: completed. ShareRuntimeState + session store exist, share-mode mutation 
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
   - `watch_json_source_files`, `watch_artifact_files`, `watch_code_files` are no-ops.
-  - Override `update` to avoid writing canonical files; only touch LSPs when allowed by policy.
+  - Override `update` to avoid writing canonical files; do not touch LSPs in share mode.
   - Override `create_run_command` to use a share run root (see step 8).
 - Add `ShareSessionStore` in `backend/setta/share/session_store.py`:
   - Methods: `create_session`, `get_session`, `update_session`, `touch_session`,
@@ -194,8 +194,7 @@ Implemented:
 - `ShareRuntimeState` rebases deployment-relative paths for image/chart/draw
   artifacts, draw transforms, code bindings, and json-source variant names to
   runtime paths on share boot.
-- Share sessions optionally rebase code bindings to per-session runtime roots
-  when LSP is enabled by policy.
+- Share sessions keep code bindings rooted in the share runtime.
 - `backend/setta/routers/dependencies.py` resolves share session ids from
   header/cookie/query and exposes session/overlay dependencies.
 - Share session ids are validated/touched against the session store before
@@ -232,8 +231,8 @@ and param selection routes are gated.
   - Run/terminals: `route_run_code`, `route_kill_subprocesses`,
     `route_delete_terminals`, and terminal websocket in
     `backend/setta/routers/terminals.py`.
-  - LSP routes: text/code completions and `route_set_callable` in
-    `backend/setta/routers/project_manager.py`.
+  - LSP routes (text/code completions and `route_set_callable`) are blocked in
+    share mode.
   - Listener emits: `apply_listener_emit_updates` in
     `backend/setta/project_state/base_project_manager.py`.
   - LLM routes: `backend/setta/routers/ai.py` + `backend/setta/routers/llm.py`.
@@ -243,18 +242,17 @@ and param selection routes are gated.
 Implemented:
 - Policy violations broadcast to the active share session (or all share
   sessions if the request is not session-scoped).
-- Structural mutations are blocked via `allowStructuralChanges` in
+- Structural mutations are blocked in share mode via
   `backend/setta/routers/project_manager.py`.
 - Content mutations now enforce `allowParamChanges` (text/code/draw/image/chart
-  updates), and paste operations enforce `allowStructuralChanges`.
+  updates), and paste operations are blocked in share mode.
 - Section variant deletion is blocked in share mode regardless of
   `allowVariantChanges`.
 - Artifact updates in `backend/setta/routers/artifact.py` are gated by
   `allowParamChanges` in share mode.
-- Rename refactor accept/decline routes are gated by `allowStructuralChanges`.
+- Rename refactor accept/decline routes are blocked in share mode.
 - Run and LLM routes also block when share runtime services are not initialized.
-- LSP routes are gated by `allowLSP`, and share mode checks LSP initialization
-  before servicing LSP requests.
+- LSP routes are blocked in share mode.
 - Policy helpers now resolve the active share session id from request context
   when one is not passed explicitly.
 - Additional gating covers kwarg add/delete, section renames, callable hide params,
@@ -371,25 +369,24 @@ Implemented:
   across viewers; run/delete/kill routes and terminal websockets use the
   session-scoped ids.
 
-## 9) LLM + MCP gating
-Status: completed. Share boot gates MCP/LLM by policy, and per-viewer chat state
+## 9) LLM gating
+Status: completed. Share boot gates LLM by policy, and per-viewer chat state
 is isolated in memory.
-- Add share policy flags `allowLLM` and `allowMCP` (default false).
-- In share mode initialization, skip `SettaFastMCP`, `MultiMCPClient`, and
-  `LLMChatManager` unless enabled.
+- Add share policy flag `allowLLM` (default false).
+- In share mode initialization, skip `LLMChatManager` unless enabled (MCP is
+  disabled in share mode).
 - Add an in-memory chat store keyed by share session id so chats are not written
   to `setta_files/chats`.
 - Block `/llm/config` and `/llm/apiKeys` updates in share mode.
 Implemented:
-- Share state only initializes MCP/LLM when policy allows, and loads LLM config
-  only when `allowLLM` or `allowMCP` is true, using the share runtime DBE with
+- Share state only initializes LLM when policy allows, and loads LLM config
+  only when `allowLLM` is true, using the share runtime DBE with
   `allow_write=False` to keep deployment roots immutable.
 - `backend/setta/llm/chat_store.py` introduces `ChatStore` plus `DBEChatStore`
   and `MemoryChatStore` so share sessions can avoid disk writes.
 - `backend/setta/share/chat_manager.py` provides a per-session `ShareChatManager`
   that uses `MemoryChatStore` and session-scoped project summaries.
-- `MultiMCPClient(disabled=True)` provides a no-op MCP client for LLM-only
-  share sessions.
+- `MultiMCPClient` remains disabled in share mode.
 - LLM routes in `backend/setta/routers/ai.py` and `backend/setta/routers/llm.py`
   require a share session id in share mode, and are blocked when `allowLLM` is
   false or share LLM is not initialized.
@@ -429,8 +426,8 @@ Implemented:
 - Variant deletion is disabled in share mode.
  - Header shows a "Sharing Mode" indicator and share search behavior.
  - Publish/redeploy UI: IDE entry point (File menu) and modal with policy toggles
-   (allowStructuralChanges, allowParamChanges, allowVariantChanges,
-   allowLayoutChanges, allowRun, allowLLM, allowMCP).
+   (allowParamChanges, allowVariantChanges, allowLayoutChanges,
+   allowRun, allowLLM).
  - Publish/redeploy UI: listener inputs (entrypoint path, enabled flag) and run
    snapshot mode.
  - Publish/redeploy UI: calls `route_publish_share_deployment`, surfaces errors,
@@ -560,7 +557,7 @@ Implemented:
   temporary id maps into `setta_files/share_runtime/<project_config_name>/<version>`.
 - Fill policy gaps / allowed mutations: `route_set_callable` is gated by
   `allowParamChanges`/`allowedSections`, while code obj name/display-name and
-  code file binding changes are gated by `allowStructuralChanges`, with tests.
+  code file binding changes are blocked in share mode, with tests.
 - Share-mode endpoint hardening: publish endpoints return 403 in share mode so
   public share servers cannot create deployments.
 - Share-mode endpoint hardening: non-share routers require IDE mode, and share

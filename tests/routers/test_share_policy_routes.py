@@ -470,7 +470,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 root,
                 SharePolicy(
                     allowRun=False,
-                    allowStructuralChanges=True,
                 ),
             )
             state = await self._build_state(root)
@@ -507,7 +506,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
+            _write_share_policy(root, SharePolicy())
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
             with runtime_context(state, session.id) as runtime_ctx:
@@ -925,7 +924,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
+            _write_share_policy(root, SharePolicy())
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
 
@@ -949,7 +948,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
-            _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
+            _write_share_policy(root, SharePolicy())
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
 

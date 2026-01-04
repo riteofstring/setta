@@ -4,7 +4,11 @@ from fastapi import HTTPException, WebSocket, status
 from starlette.websockets import WebSocketState
 
 from setta.database.db_objs import DBE
-from setta.types.helpers_lvl1 import get_variant_effective_section_impl
+from setta.types.code_obj_impls import CodeParamCodeObjImpl
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_code_obj_impl,
+    get_variant_effective_section_impl,
+)
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import (
@@ -150,6 +154,25 @@ async def _notify_and_close(
     await websocket.close(code=4403)
 
 
+async def deny_in_share_mode(
+    *,
+    share_mode: bool,
+    frontend_sender: "WMHFrontendSender",
+    message: str,
+    project_config_id: ID | None,
+    share_session_id: str | None = None,
+) -> None:
+    if not share_mode:
+        return
+    await _notify_and_raise(
+        frontend_sender,
+        message=message,
+        project_config_id=project_config_id,
+        share_mode=share_mode,
+        share_session_id=share_session_id,
+    )
+
+
 async def enforce_share_policy(
     *,
     share_mode: bool,
@@ -289,6 +312,40 @@ async def ensure_share_run_allowed_ws(
     return True
 
 
+async def ensure_share_param_value_allowed(
+    *,
+    share_mode: bool,
+    policy: SharePolicy,
+    frontend_sender: "WMHFrontendSender",
+    project_config_id: ID | None,
+    project_state: "ProjectStateSingleConfig",
+    section_id: ID,
+    param_info_id: ID,
+    share_session_id: str | None = None,
+) -> None:
+    await enforce_share_policy(
+        share_mode=share_mode,
+        policy=policy,
+        frontend_sender=frontend_sender,
+        policy_flag="allowParamChanges",
+        denied_message="Share policy disallows parameter changes.",
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+        section_ids=[section_id],
+    )
+    if not share_mode:
+        return
+    impl = get_curr_effective_code_obj_impl(project_state, section_id, param_info_id)
+    if isinstance(impl, CodeParamCodeObjImpl):
+        await _notify_and_raise(
+            frontend_sender,
+            message="Share mode disallows CodeParam edits.",
+            project_config_id=project_config_id,
+            share_mode=share_mode,
+            share_session_id=share_session_id,
+        )
+
+
 async def ensure_share_llm_allowed(
     state: "SettaFastAPIState",
     *,
@@ -312,23 +369,6 @@ async def ensure_share_llm_allowed(
             share_mode=state.share_mode,
             share_session_id=share_session_id,
         )
-
-
-async def ensure_share_mcp_allowed(
-    state: "SettaFastAPIState",
-    *,
-    project_config_id: ID | None,
-    share_session_id: str | None = None,
-) -> None:
-    await enforce_share_policy(
-        share_mode=state.share_mode,
-        policy=_policy_from_state(state),
-        frontend_sender=state.wmh_frontend_sender,
-        policy_flag="allowMCP",
-        denied_message="Share policy disallows MCP access.",
-        project_config_id=project_config_id,
-        share_session_id=share_session_id,
-    )
 
 
 async def ensure_share_listener_emits_allowed(
@@ -391,31 +431,6 @@ async def ensure_share_listener_emit_updates_allowed(
         share_session_id=share_session_id,
         section_ids=combined_section_ids if combined_section_ids else None,
     )
-
-
-async def ensure_share_lsp_allowed(
-    state: "SettaFastAPIState",
-    *,
-    project_config_id: ID | None,
-    share_session_id: str | None = None,
-) -> None:
-    await enforce_share_policy(
-        share_mode=state.share_mode,
-        policy=_policy_from_state(state),
-        frontend_sender=state.wmh_frontend_sender,
-        policy_flag="allowLSP",
-        denied_message="Share policy disallows language server features.",
-        project_config_id=project_config_id,
-        share_session_id=share_session_id,
-    )
-    if state.share_mode and not state.lsp_writers:
-        await _notify_and_raise(
-            state.wmh_frontend_sender,
-            message="Share LSP support is not enabled.",
-            project_config_id=project_config_id,
-            share_mode=state.share_mode,
-            share_session_id=share_session_id,
-        )
 
 
 async def ensure_share_artifact_paths_scoped(

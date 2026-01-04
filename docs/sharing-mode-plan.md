@@ -33,14 +33,13 @@ Note: Share runtime is started via CLI flags (no env vars).
 
 ### 1) Two runtimes
 - IDE mode: full persistence, LSP, file watchers, autosave/manual save.
-- Share mode: read-only by default, optional LSP via share policy, no file watchers, no writes to developer state.
+- Share mode: read-only by default, no file watchers, no writes to developer state.
 
 Share mode should still support:
 - Realtime UI changes (params, variants, layout, view modes, etc.) within a
   per-viewer overlay.
 - Optional listener execution per-viewer.
-- Optional LSP (completions + callable search) when allowed by policy.
-- Optional LLM and MCP (disabled by default).
+- Optional LLM (disabled by default).
 
 ### 2) Share deployment artifact (published snapshot)
 Share mode loads a published snapshot instead of the live workspace. This keeps
@@ -91,22 +90,21 @@ Key requirement: viewer A never sees viewer B's changes.
 
 ### 4) Sharing policy
 A share policy defines what can be modified in share mode:
-- structural changes (add/delete sections)
 - params, variants, layouts, view modes
 - run/terminals
-- language server access (completions + callable search)
-- LLM or MCP access
+- LLM access
 - allowed sections or controls
+- Structural changes, LSP, and MCP are disabled in share mode.
 
 Example `share_policy.json`:
 ```json
 {
-  "allowStructuralChanges": false,
   "allowParamChanges": true,
   "allowVariantChanges": true,
   "allowLayoutChanges": true,
   "allowRun": false,
-  "allowLSP": false
+  "allowLLM": false,
+  "runSnapshotMode": "ephemeral"
 }
 ```
 
@@ -154,7 +152,7 @@ deployment roots.
 When a run request omits `sectionId`, share mode should resolve
 `entryCodeBlockId` and enforce `allowedSections` against that entry section.
 
-### 9) LLM + MCP in share mode
+### 9) LLM in share mode
 Default: disabled. Opt-in via share policy.
 If enabled, store chat state per viewer (memory or TTL store) and disable config
 edits in share mode.
@@ -204,7 +202,7 @@ Frontend:
 Phase 1: Share runtime skeleton
 - Share deployment artifact format + loader.
 - Share mode CLI flags + startup path.
-- Disable persistence and watchers; LSP optional via policy.
+- Disable persistence and watchers; LSP disabled in share mode.
 - In-memory session store + per-viewer overlay.
 
 Phase 2: Policy + listeners

@@ -86,12 +86,14 @@ from setta.project_state.project_manager_types import (
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.share.policy import deny_in_share_mode, ensure_share_param_value_allowed
 from setta.share.policy_guards import (
     SharePolicyGuard,
     enforce_share_policy_guard,
 )
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -106,7 +108,7 @@ async def route_clear_text_field_completion(
 ) -> None:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
+    await ctx.ensure_lsp_ready()
     await manager.clear_text_field_completion(x)
 
 
@@ -117,7 +119,7 @@ async def route_set_callable(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
-    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
+    await ctx.ensure_lsp_ready()
     return await manager.set_callable(x)
 
 
@@ -127,7 +129,7 @@ async def route_text_field_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
+    await ctx.ensure_lsp_ready()
     return await manager.text_field_completion(x)
 
 
@@ -137,7 +139,7 @@ async def route_code_area_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
+    await ctx.ensure_lsp_ready()
     return await manager.code_area_completion(x)
 
 
@@ -147,7 +149,7 @@ async def route_gen_code_prefix_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
+    await ctx.ensure_lsp_ready()
     return await manager.gen_code_prefix_completion(x)
 
 
@@ -157,7 +159,7 @@ async def route_gen_code_suffix_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready(manager, x.projectConfigId)
+    await ctx.ensure_lsp_ready()
     return await manager.gen_code_suffix_completion(x)
 
 
@@ -167,6 +169,21 @@ async def route_change_param_impl(
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
+    if ctx.share_mode:
+        project_state = manager.get_single_config_state(x.projectConfigId)
+        if x.selectedId in project_state.codeObjImpls:
+            impl_type = project_state.codeObjImpls[x.selectedId].type
+            is_code_param = impl_type == CodeObjType.CodeParam
+        else:
+            is_code_param = x.selectedId == CodeObjType.CodeParam.value
+        if is_code_param:
+            await deny_in_share_mode(
+                share_mode=ctx.share_mode,
+                frontend_sender=ctx.frontend_sender,
+                message="Share mode disallows CodeParam edits.",
+                project_config_id=x.projectConfigId,
+                share_session_id=ctx.share_session_id,
+            )
     return await manager.change_param_impl(x)
 
 
@@ -175,7 +192,18 @@ async def route_update_param_impl_config(
     x: UpdateParamImplConfigRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
+    if ctx.share_mode:
+        project_state = manager.get_single_config_state(x.projectConfigId)
+        await ensure_share_param_value_allowed(
+            share_mode=ctx.share_mode,
+            policy=ctx.policy,
+            frontend_sender=ctx.frontend_sender,
+            project_config_id=x.projectConfigId,
+            project_state=project_state,
+            section_id=x.sectionId,
+            param_info_id=x.paramInfoId,
+            share_session_id=ctx.share_session_id,
+        )
     return await manager.update_param_impl_config(x)
 
 
@@ -462,7 +490,18 @@ async def route_set_param_entered_value(
     x: SetParamEnteredValueRequest, ctx: RuntimeContextFromRequest
 ):
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
+    if ctx.share_mode:
+        project_state = manager.get_single_config_state(x.projectConfigId)
+        await ensure_share_param_value_allowed(
+            share_mode=ctx.share_mode,
+            policy=ctx.policy,
+            frontend_sender=ctx.frontend_sender,
+            project_config_id=x.projectConfigId,
+            project_state=project_state,
+            section_id=x.sectionId,
+            param_info_id=x.paramInfoId,
+            share_session_id=ctx.share_session_id,
+        )
     await manager.set_param_entered_value(x)
 
 
