@@ -130,7 +130,6 @@ type ShareCapabilities = {
   canEditStructure: boolean;
   canRun: boolean;
   canUseLsp: boolean;
-  canUseLlm: boolean;
 };
 
 function resolveSharePolicyFlag(
@@ -167,7 +166,6 @@ export function useShareCapabilities(): ShareCapabilities {
     true,
   );
   const allowRun = resolveSharePolicyFlag(sharePolicy, "allowRun", true);
-  const allowLlm = resolveSharePolicyFlag(sharePolicy, "allowLLM", true);
 
   return {
     canEditParams: !isShareMode || allowParamChanges,
@@ -176,6 +174,5 @@ export function useShareCapabilities(): ShareCapabilities {
     canEditStructure: !isShareMode,
     canRun: !isShareMode || allowRun,
     canUseLsp: !isShareMode,
-    canUseLlm: !isShareMode || allowLlm,
   };
 }

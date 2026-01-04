@@ -74,8 +74,6 @@ async def enforce_share_policy_guard(
     request: ProjectManagerRequestWithProjectConfig,
     guard: SharePolicyGuard,
 ) -> None:
-    if not ctx.share_mode:
-        return
     if guard is SharePolicyGuard.lsp:
         await ctx.enforce_lsp_allowed(project_config_id=request.projectConfigId)
         return
@@ -83,6 +81,8 @@ async def enforce_share_policy_guard(
         await ctx.enforce_structural_changes_allowed(
             project_config_id=request.projectConfigId
         )
+        return
+    if not ctx.share_mode:
         return
     section_ids = resolve_section_ids(request, manager)
     if guard is SharePolicyGuard.param:

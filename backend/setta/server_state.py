@@ -414,7 +414,6 @@ class SettaFastAPIState:
         llm_config = None
         if share_policy.allowLLM:
             llm_config = load_llm_config(llm_dbe, allow_write=False)
-        if share_policy.allowLLM:
             self.chat_manager = ShareChatManager(
                 llm_dbe,
                 self.wmh_frontend_sender,

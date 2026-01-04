@@ -3,7 +3,6 @@ import importlib.metadata
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from setta.mcp.context_utils import require_share_session_id
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.types.id import ID
@@ -43,10 +42,7 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
     Args:
         sectionId: The id of the terminal.
     """
-    share_session_id = None
-    if ctx.fastmcp.state.share_mode:
-        share_session_id = require_share_session_id(ctx)
-    terminal_id = build_terminal_id(sectionId, share_session_id)
+    terminal_id = build_terminal_id(sectionId, None)
     return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
 
 
@@ -55,13 +51,7 @@ def getProjectConfigNamesAndIds(ctx: Context):
     """
     Return metadata for every known project config so external agents can pick one.
     """
-    if ctx.fastmcp.state.share_mode:
-        share_session_id = require_share_session_id(ctx)
-        manager = ctx.fastmcp.state.project_manager_switcher.get_for_session(
-            share_session_id
-        )
-    else:
-        manager = ctx.fastmcp.state.project_manager_switcher.main
+    manager = ctx.fastmcp.state.project_manager_switcher.main
     _, metadata = manager.get_all_project_metadata()
     entries = [ProjectConfigNamesAndIdsEntry(name=m.name, id=m.id) for m in metadata]
     return ProjectConfigNamesAndIdsList(projectConfigs=entries)

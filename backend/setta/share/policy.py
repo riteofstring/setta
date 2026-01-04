@@ -291,7 +291,6 @@ async def ensure_share_run_allowed_ws(
 
 async def ensure_share_param_value_allowed(
     *,
-    share_mode: bool,
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
     project_config_id: ID | None,
@@ -301,7 +300,7 @@ async def ensure_share_param_value_allowed(
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
-        share_mode=share_mode,
+        share_mode=True,
         policy=policy,
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",
@@ -310,8 +309,6 @@ async def ensure_share_param_value_allowed(
         share_session_id=share_session_id,
         section_ids=[section_id],
     )
-    if not share_mode:
-        return
     impl = get_curr_effective_code_obj_impl(project_state, section_id, param_info_id)
     if isinstance(impl, CodeParamCodeObjImpl):
         await _notify_and_raise(

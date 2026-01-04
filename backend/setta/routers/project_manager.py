@@ -117,7 +117,6 @@ async def route_set_callable(
 ) -> SetCallableResponse:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
     return await manager.set_callable(x)
 
 
@@ -189,7 +188,6 @@ async def route_update_param_impl_config(
     if ctx.share_mode:
         project_state = manager.get_single_config_state(x.projectConfigId)
         await ensure_share_param_value_allowed(
-            share_mode=ctx.share_mode,
             policy=ctx.policy,
             frontend_sender=ctx.frontend_sender,
             project_config_id=x.projectConfigId,
@@ -484,7 +482,6 @@ async def route_set_param_entered_value(
     if ctx.share_mode:
         project_state = manager.get_single_config_state(x.projectConfigId)
         await ensure_share_param_value_allowed(
-            share_mode=ctx.share_mode,
             policy=ctx.policy,
             frontend_sender=ctx.frontend_sender,
             project_config_id=x.projectConfigId,
