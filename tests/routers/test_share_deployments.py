@@ -79,8 +79,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 switcher = ProjectManagerSwitcher(
-                    project_fixture.manager,
-                    settings_fixture.manager,
+                    main_manager=project_fixture.manager,
+                    settings_manager=settings_fixture.manager,
                 )
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
@@ -146,8 +146,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 switcher = ProjectManagerSwitcher(
-                    project_fixture.manager,
-                    settings_fixture.manager,
+                    main_manager=project_fixture.manager,
+                    settings_manager=settings_fixture.manager,
                 )
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
@@ -291,8 +291,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual({"foo": 1}, persisted_json)
 
                 switcher = ProjectManagerSwitcher(
-                    project_fixture.manager,
-                    settings_fixture.manager,
+                    main_manager=project_fixture.manager,
+                    settings_manager=settings_fixture.manager,
                 )
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
@@ -451,8 +451,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 switcher = ProjectManagerSwitcher(
-                    project_fixture.manager,
-                    settings_fixture.manager,
+                    main_manager=project_fixture.manager,
+                    settings_manager=settings_fixture.manager,
                 )
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,
@@ -581,8 +581,8 @@ class ShareDeploymentPublishTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 switcher = ProjectManagerSwitcher(
-                    project_fixture.manager,
-                    settings_fixture.manager,
+                    main_manager=project_fixture.manager,
+                    settings_manager=settings_fixture.manager,
                 )
                 state = SimpleNamespace(
                     dbe=project_fixture.dbe,

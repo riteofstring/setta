@@ -6,15 +6,9 @@ from fastapi import FastAPI, HTTPException
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
+from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
-from setta.share.policy import (
-    ensure_share_layout_changes_allowed,
-    ensure_share_lsp_allowed,
-    ensure_share_param_changes_allowed,
-    ensure_share_structural_changes_allowed,
-    ensure_share_variant_changes_allowed,
-    resolve_section_ids_for_artifacts,
-)
+from setta.share.policy import resolve_section_ids_for_artifacts
 from setta.types.artifact import ImageArtifact
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
@@ -126,15 +120,17 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             )
             _write_share_policy(root, SharePolicy(allowParamChanges=False))
             state = await self._build_state(root)
+            runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as ctx:
-                await ensure_share_param_changes_allowed(
-                    state,
+            with self.assertRaises(HTTPException) as raised:
+                await runtime_ctx.enforce_policy(
+                    policy_flag="allowParamChanges",
+                    denied_message="Share policy disallows parameter changes.",
                     project_config_id=project_config_id,
                     section_ids=[create_new_id()],
                 )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            self.assertEqual(403, raised.exception.status_code)
 
     async def test_variant_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -147,15 +143,17 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             )
             _write_share_policy(root, SharePolicy(allowVariantChanges=False))
             state = await self._build_state(root)
+            runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as ctx:
-                await ensure_share_variant_changes_allowed(
-                    state,
+            with self.assertRaises(HTTPException) as raised:
+                await runtime_ctx.enforce_policy(
+                    policy_flag="allowVariantChanges",
+                    denied_message="Share policy disallows variant changes.",
                     project_config_id=project_config_id,
                     section_ids=[create_new_id()],
                 )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            self.assertEqual(403, raised.exception.status_code)
 
     async def test_layout_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -168,15 +166,17 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             )
             _write_share_policy(root, SharePolicy(allowLayoutChanges=False))
             state = await self._build_state(root)
+            runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as ctx:
-                await ensure_share_layout_changes_allowed(
-                    state,
+            with self.assertRaises(HTTPException) as raised:
+                await runtime_ctx.enforce_policy(
+                    policy_flag="allowLayoutChanges",
+                    denied_message="Share policy disallows layout changes.",
                     project_config_id=project_config_id,
                     section_ids=[create_new_id()],
                 )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            self.assertEqual(403, raised.exception.status_code)
 
     async def test_structural_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -189,15 +189,17 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             )
             _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
             state = await self._build_state(root)
+            runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as ctx:
-                await ensure_share_structural_changes_allowed(
-                    state,
+            with self.assertRaises(HTTPException) as raised:
+                await runtime_ctx.enforce_policy(
+                    policy_flag="allowStructuralChanges",
+                    denied_message="Share policy disallows structural changes.",
                     project_config_id=project_config_id,
                     section_ids=[create_new_id()],
                 )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            self.assertEqual(403, raised.exception.status_code)
 
     async def test_lsp_changes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -210,14 +212,14 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
             )
             _write_share_policy(root, SharePolicy(allowLSP=False))
             state = await self._build_state(root)
+            runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            with self.assertRaises(HTTPException) as ctx:
-                await ensure_share_lsp_allowed(
-                    state,
-                    project_config_id=project_config_id,
+            with self.assertRaises(HTTPException) as raised:
+                await runtime_ctx.enforce_lsp_allowed(
+                    project_config_id=project_config_id
                 )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            self.assertEqual(403, raised.exception.status_code)
 
     async def test_allowed_sections_gate(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -238,21 +240,24 @@ class SharePolicyEnforcementTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
             state = await self._build_state(root)
+            runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
-            await ensure_share_layout_changes_allowed(
-                state,
+            await runtime_ctx.enforce_policy(
+                policy_flag="allowLayoutChanges",
+                denied_message="Share policy disallows layout changes.",
                 project_config_id=project_config_id,
                 section_ids=[allowed_section_id],
             )
 
-            with self.assertRaises(HTTPException) as ctx:
-                await ensure_share_layout_changes_allowed(
-                    state,
+            with self.assertRaises(HTTPException) as raised:
+                await runtime_ctx.enforce_policy(
+                    policy_flag="allowLayoutChanges",
+                    denied_message="Share policy disallows layout changes.",
                     project_config_id=project_config_id,
                     section_ids=[blocked_section_id],
                 )
 
-            self.assertEqual(403, ctx.exception.status_code)
+            self.assertEqual(403, raised.exception.status_code)
 
     def test_resolve_section_ids_for_artifacts(self) -> None:
         project_config_id = ID("artifact-project")

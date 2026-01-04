@@ -12,6 +12,7 @@ from starlette.websockets import WebSocket
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
+from setta.routers.dependencies import require_share_session_id_from_websocket
 from setta.routers.terminals import terminal_websocket_endpoint
 from setta.routers.websocket import route_websocket_share_frontend
 from setta.server_state import SettaFastAPIState
@@ -24,6 +25,7 @@ from setta.types.websocket import WebsocketMsgCurrentAddressUpdate
 from setta.utils.timestamps import get_now_timestamp
 from setta.terminals.terminal_ids import build_terminal_id
 from setta.utils.constants import C
+from tests.utils.runtime_context import runtime_context
 
 
 def _build_share_deployment_root(
@@ -323,13 +325,7 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
             messages: list[Message] = []
             websocket = await _build_websocket(messages)
 
-            await terminal_websocket_endpoint(
-                websocket,
-                state.share_project_manager.project_config_id,
-                create_new_id(),
-                "client-1",
-                state,
-            )
+            await require_share_session_id_from_websocket(websocket, state)
 
             self.assertEqual(4400, _close_code(messages))
 
@@ -349,13 +345,7 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
                 headers=[(b"x-share-session-id", b"missing-session")],
             )
 
-            await terminal_websocket_endpoint(
-                websocket,
-                state.share_project_manager.project_config_id,
-                create_new_id(),
-                "client-2",
-                state,
-            )
+            await require_share_session_id_from_websocket(websocket, state)
 
             self.assertEqual(4404, _close_code(messages))
 
@@ -393,20 +383,21 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
                 message_gate=gate_event,
             )
 
-            task = asyncio.create_task(
-                terminal_websocket_endpoint(
-                    websocket,
-                    state.share_project_manager.project_config_id,
-                    section_id,
-                    "client-keepalive",
-                    state,
+            with runtime_context(state, session.id) as runtime_ctx:
+                task = asyncio.create_task(
+                    terminal_websocket_endpoint(
+                        websocket,
+                        state.share_project_manager.project_config_id,
+                        section_id,
+                        "client-keepalive",
+                        runtime_ctx,
+                    )
                 )
-            )
 
-            await ready_event.wait()
-            threshold = get_now_timestamp()
-            gate_event.set()
-            await task
+                await ready_event.wait()
+                threshold = get_now_timestamp()
+                gate_event.set()
+                await task
 
             touched = state.share_session_store._sessions[session.id].last_accessed_at
             self.assertGreater(touched, threshold)

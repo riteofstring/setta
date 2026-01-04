@@ -6,8 +6,9 @@ from tempfile import TemporaryDirectory
 from setta.code_gen.utils import sanitize_name
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_project_manager import ShareProjectManager
-from setta.project_state.share_session_project_manager import ShareSessionProjectManager
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
@@ -166,12 +167,15 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
                 websocket_manager,
                 ListenerRegistry(),
             )
-            session_manager = ShareSessionProjectManager(
+            switcher = ProjectManagerSwitcher(
                 share_project_manager=share_manager,
-                share_session_id="session-a",
                 settings_file=settings_file,
                 python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
             )
+            session_manager = switcher.get_for_session("session-a")
 
             try:
                 await session_manager._process_queue_task_started.wait()

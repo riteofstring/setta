@@ -12,6 +12,7 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
+from tests.utils.runtime_context import runtime_context
 
 
 def _build_share_deployment_root(
@@ -72,12 +73,14 @@ class ShareModeIdeRouteTests(unittest.IsolatedAsyncioTestCase):
                 deployment_version=root.name,
             )
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_save_settings(
-                    SaveSettingsRequest(settings=SettingsState()),
-                    state,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_save_settings(
+                        SaveSettingsRequest(settings=SettingsState()),
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_require_ide_mode_rejects_share_state(self) -> None:

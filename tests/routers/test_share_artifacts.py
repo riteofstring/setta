@@ -16,6 +16,7 @@ from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketConnectionType
+from tests.utils.runtime_context import runtime_context
 
 
 def _build_share_deployment_root(
@@ -111,6 +112,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
+            state.share_project_manager.create_session_state(session.id)
 
             artifact_path = root / "artifacts" / "stroke.json"
             artifact = BrushStrokeArtifact(
@@ -123,7 +125,8 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             request = UpdateArtifactsRequest(artifacts=[artifact])
 
-            results = await route_update_artifacts(request, state, session.id)
+            with runtime_context(state, session.id) as runtime_ctx:
+                results = await route_update_artifacts(request, runtime_ctx)
 
             self.assertEqual(1, len(results))
             self.assertEqual("saved", results[0].status)
@@ -150,6 +153,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
+            state.share_project_manager.create_session_state(session.id)
 
             artifact_path = root / "artifacts" / "stroke.json"
             artifact = BrushStrokeArtifact(
@@ -163,7 +167,8 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             request = UpdateArtifactsRequest(artifacts=[artifact])
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_update_artifacts(request, state, session.id)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_update_artifacts(request, runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -183,6 +188,7 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
+            state.share_project_manager.create_session_state(session.id)
 
             artifact_path = root / "artifacts" / "stroke.json"
             artifact = BrushStrokeArtifact(
@@ -196,7 +202,8 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             request = UpdateArtifactsRequest(artifacts=[artifact])
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_update_artifacts(request, state, session.id)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_update_artifacts(request, runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
             self.assertIn("unscoped artifacts", ctx.exception.detail)
@@ -214,6 +221,8 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             session_a = state.share_session_store.create_session()
             session_b = state.share_session_store.create_session()
+            state.share_project_manager.create_session_state(session_a.id)
+            state.share_project_manager.create_session_state(session_b.id)
 
             messages_a: list[Message] = []
             messages_b: list[Message] = []
@@ -246,7 +255,8 @@ class ShareArtifactRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             request = UpdateArtifactsRequest(artifacts=[artifact])
 
-            await route_update_artifacts(request, state, session_a.id)
+            with runtime_context(state, session_a.id) as runtime_ctx:
+                await route_update_artifacts(request, runtime_ctx)
 
             types_a = [
                 json.loads(text)["messageType"]

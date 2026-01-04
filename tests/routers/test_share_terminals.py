@@ -13,6 +13,7 @@ from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from tests.utils.runtime_context import runtime_context
 
 
 def _build_share_deployment_root(
@@ -101,11 +102,11 @@ class ShareTerminalRouteTests(unittest.IsolatedAsyncioTestCase):
                 [terminal_id_a, terminal_id_b],
             )
 
-            await route_delete_terminals(
-                DeleteTerminalsRequest(sectionIds=[section_id]),
-                state,
-                share_session_id=session_a.id,
-            )
+            with runtime_context(state, session_a.id) as runtime_ctx:
+                await route_delete_terminals(
+                    DeleteTerminalsRequest(sectionIds=[section_id]),
+                    runtime_ctx,
+                )
 
             self.assertNotIn(terminal_id_a, state.terminals.PTY_PIDS)
             self.assertIn(terminal_id_b, state.terminals.PTY_PIDS)

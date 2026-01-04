@@ -2,11 +2,15 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
 from setta.database.db_objs import DBE
+from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_project_manager import ShareProjectManager
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
@@ -40,7 +44,20 @@ PROJECT_CONFIG_ID = ID("share-project")
 SECTION_ID = ID("section-a")
 
 
-async def _build_websocket(messages: list[Message]) -> WebSocket:
+async def _noop_wait_until_ready() -> None:
+    return None
+
+
+def _build_share_state() -> SimpleNamespace:
+    return SimpleNamespace(
+        share_mode=True,
+        wait_until_ready=_noop_wait_until_ready,
+    )
+
+
+async def _build_websocket(
+    messages: list[Message], *, state: SimpleNamespace | None = None
+) -> WebSocket:
     receive_queue: list[Message] = [{"type": "websocket.connect"}]
 
     async def receive() -> Message:
@@ -51,6 +68,8 @@ async def _build_websocket(messages: list[Message]) -> WebSocket:
     async def send(message: Message) -> None:
         messages.append(message)
 
+    if state is None:
+        state = _build_share_state()
     scope: Scope = {
         "type": "websocket",
         "asgi": {"version": "3.0"},
@@ -62,6 +81,7 @@ async def _build_websocket(messages: list[Message]) -> WebSocket:
         "client": ("testclient", 0),
         "server": ("testserver", 80),
         "subprotocols": [],
+        "app": SimpleNamespace(state=SimpleNamespace(setta=state)),
     }
     return WebSocket(scope=scope, receive=receive, send=send)
 
@@ -151,19 +171,32 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                 websocket_manager, listener_registry
             )
             share_manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(
+                dbe,
+                frontend_sender,
+                allow_write=False,
+            )
+            share_manager.initialize_share_state(settings_file)
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=share_manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
             receiver = WMHPythonScriptReceiver(
                 websocket_manager,
                 listener_registry,
                 frontend_sender,
                 python_sender,
-                None,
+                switcher,
                 dbe,
-                share_project_manager=share_manager,
-                share_mode=True,
             )
 
             messages: list[Message] = []
-            websocket = await _build_websocket(messages)
+            share_state = _build_share_state()
+            websocket = await _build_websocket(messages, state=share_state)
             websocket_id = await websocket_manager.on_connect(
                 websocket,
                 WebsocketConnectionType.PYTHON_SCRIPT,
@@ -218,21 +251,40 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
                 websocket_manager, listener_registry
             )
             share_manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(
+                dbe,
+                frontend_sender,
+                allow_write=False,
+            )
+            share_manager.initialize_share_state(settings_file)
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=share_manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
             receiver = WMHPythonScriptReceiver(
                 websocket_manager,
                 listener_registry,
                 frontend_sender,
                 python_sender,
-                None,
+                switcher,
                 dbe,
-                share_project_manager=share_manager,
-                share_mode=True,
             )
 
             frontend_messages_a: list[Message] = []
             frontend_messages_b: list[Message] = []
-            websocket_a = await _build_websocket(frontend_messages_a)
-            websocket_b = await _build_websocket(frontend_messages_b)
+            share_state = _build_share_state()
+            websocket_a = await _build_websocket(
+                frontend_messages_a,
+                state=share_state,
+            )
+            websocket_b = await _build_websocket(
+                frontend_messages_b,
+                state=share_state,
+            )
             await websocket_manager.on_connect(
                 websocket_a,
                 WebsocketConnectionType.FRONTEND,
@@ -250,7 +302,10 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             share_manager.create_session_state("session-b")
 
             listener_messages: list[Message] = []
-            listener_socket = await _build_websocket(listener_messages)
+            listener_socket = await _build_websocket(
+                listener_messages,
+                state=share_state,
+            )
             listener_id = await websocket_manager.on_connect(
                 listener_socket,
                 WebsocketConnectionType.PYTHON_SCRIPT,

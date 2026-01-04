@@ -3,7 +3,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import FastAPI, HTTPException
-from starlette.requests import Request
 
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -39,6 +38,7 @@ from setta.project_state.project_manager_types import (
     UnselectAllParamsRequest,
 )
 from setta.routers.ai import GetLLMResponseRequest, route_get_llm_response
+from setta.routers.dependencies import require_share_session_id
 from setta.routers.llm import (
     UpdateAPIKeysRequest,
     route_get_llm_config,
@@ -81,15 +81,12 @@ from setta.routers.share_deployments import (
     route_publish_share_deployment,
 )
 from setta.routers.terminals import (
-    DeleteTerminalsRequest,
     KillSubprocessesRequest,
     RunCodeRequest,
-    route_delete_terminals,
     route_kill_subprocesses,
     route_run_code,
 )
 from setta.server_state import SettaFastAPIState
-from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.artifact import (
     ArtifactType,
     ChartType,
@@ -113,6 +110,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from tests.utils.runtime_context import runtime_context
 
 
 def _build_share_deployment_root(
@@ -227,23 +225,6 @@ def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
-def _build_share_request(session_id: str) -> Request:
-    return Request(
-        {
-            "type": "http",
-            "method": "POST",
-            "path": "/runCode",
-            "raw_path": b"/runCode",
-            "query_string": b"",
-            "headers": [(b"x-share-session-id", session_id.encode("utf-8"))],
-            "client": ("testclient", 123),
-            "server": ("testserver", 80),
-            "scheme": "http",
-            "root_path": "",
-        }
-    )
-
-
 class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
     async def _build_state(self, root: Path) -> SettaFastAPIState:
         app = FastAPI()
@@ -278,16 +259,17 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_get_llm_response(
-                    request,
-                    state,
-                    share_session_id=session.id,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_get_llm_response(
+                        request,
+                        runtime_ctx,
+                    )
 
             self.assertEqual(403, ctx.exception.status_code)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_get_llm_config(state, share_session_id=session.id)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_get_llm_config(runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -327,22 +309,22 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_set_llm_config(
-                    config,
-                    state,
-                    share_session_id=session.id,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_set_llm_config(
+                        config,
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
             payload = UpdateAPIKeysRequest(
                 apiKeys={"OPENAI_API_KEY": "test-key"}
             )
             with self.assertRaises(HTTPException) as ctx:
-                await route_set_llm_api_keys(
-                    payload,
-                    state,
-                    share_session_id=session.id,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_set_llm_api_keys(
+                        payload,
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_run_routes_blocked(self) -> None:
@@ -362,10 +344,10 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 sectionId=create_new_id(),
                 cliId=None,
             )
-            request = _build_share_request(session.id)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_run_code(run_request, state, request)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_run_code(run_request, runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -374,11 +356,11 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_kill_subprocesses(
-                    kill_request,
-                    state,
-                    share_session_id=session.id,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_kill_subprocesses(
+                        kill_request,
+                        runtime_ctx,
+                    )
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -407,10 +389,10 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 sectionId=blocked_section_id,
                 cliId=None,
             )
-            request = _build_share_request(session.id)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_run_code(run_request, state, request)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_run_code(run_request, runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
             self.assertIn("Share policy disallows changes to sections", ctx.exception.detail)
@@ -441,10 +423,10 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 sectionId=None,
                 cliId=None,
             )
-            request = _build_share_request(session.id)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_run_code(run_request, state, request)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_run_code(run_request, runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
             self.assertIn(
@@ -471,25 +453,23 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
             state.share_project_manager.create_session_state(session.id)
-            token = set_share_session_id(session.id)
-
-            try:
-                baseline_sections = len(
-                    state.share_project_manager.get_session_state(session.id).sections
-                )
-                create_request = CreateTopLevelSectionRequest(
-                    projectConfigId=project_config_id,
-                    implType=SectionType.Terminal,
-                )
-                with self.assertRaises(HTTPException) as ctx:
-                    await route_create_top_level_section(create_request, state)
-                self.assertEqual(403, ctx.exception.status_code)
-                updated_sections = len(
-                    state.share_project_manager.get_session_state(session.id).sections
-                )
-                self.assertEqual(baseline_sections, updated_sections)
-            finally:
-                reset_share_session_id(token)
+            baseline_sections = len(
+                state.share_project_manager.get_session_state(session.id).sections
+            )
+            create_request = CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Terminal,
+            )
+            with self.assertRaises(HTTPException) as ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_create_top_level_section(
+                        create_request, runtime_ctx
+                    )
+            self.assertEqual(403, ctx.exception.status_code)
+            updated_sections = len(
+                state.share_project_manager.get_session_state(session.id).sections
+            )
+            self.assertEqual(baseline_sections, updated_sections)
 
     async def test_structural_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -503,15 +483,15 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
-
-            try:
+            with runtime_context(state, session.id) as runtime_ctx:
                 create_request = CreateTopLevelSectionRequest(
                     projectConfigId=project_config_id,
                     implType=SectionType.TextBlock,
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_create_top_level_section(create_request, state)
+                    await route_create_top_level_section(
+                        create_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
 
                 delete_request = DeleteSectionsRequest(
@@ -519,7 +499,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     sectionIds=[create_new_id()],
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_delete_sections(delete_request, state)
+                    await route_delete_sections(delete_request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
 
                 code_obj_request = SetCodeObjNameRequest(
@@ -528,7 +508,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     name="renamed",
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_code_obj_name(code_obj_request, state)
+                    await route_set_code_obj_name(code_obj_request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
 
                 display_request = SetCodeObjDisplayNameRequest(
@@ -537,7 +517,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     displayName="Display",
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_code_obj_display_name(display_request, state)
+                    await route_set_code_obj_display_name(
+                        display_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
 
                 binding_request = SetCodeFileBindingRequest(
@@ -549,7 +531,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     },
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_code_file_binding(binding_request, state)
+                    await route_set_code_file_binding(
+                        binding_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
 
                 rename_request = SetSectionNameRequest(
@@ -558,10 +542,8 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     name="Renamed",
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_section_name(rename_request, state)
+                    await route_set_section_name(rename_request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_param_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -575,7 +557,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             _write_share_policy(root, SharePolicy(allowParamChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
             section_id = create_new_id()
             draw_item = DrawAreaLayerItem(
@@ -704,14 +685,12 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 ),
             ]
 
-            try:
+            with runtime_context(state, session.id) as runtime_ctx:
                 for name, handler, request in requests:
                     with self.subTest(name=name):
                         with self.assertRaises(HTTPException) as ctx:
-                            await handler(request, state)
+                            await handler(request, runtime_ctx)
                         self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_param_routes_blocked_by_allowed_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -733,23 +712,20 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
             request = SetTextBlockTextRequest(
                 projectConfigId=project_config_id,
                 sectionId=blocked_section_id,
                 text="blocked",
             )
-            try:
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_text_block_text(request, state)
+                    await route_set_text_block_text(request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
                 self.assertIn(
                     "Share policy disallows changes to sections",
                     ctx.exception.detail,
                 )
-            finally:
-                reset_share_session_id(token)
 
     async def test_layout_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -763,19 +739,16 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             _write_share_policy(root, SharePolicy(allowLayoutChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
-            try:
-                request = SetCallableHideParamsRequest(
-                    projectConfigId=project_config_id,
-                    sectionId=create_new_id(),
-                    hideParams=True,
-                )
+            request = SetCallableHideParamsRequest(
+                projectConfigId=project_config_id,
+                sectionId=create_new_id(),
+                hideParams=True,
+            )
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_callable_hide_params(request, state)
+                    await route_set_callable_hide_params(request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_top_level_layout_routes_blocked_by_allowed_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -797,17 +770,18 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
-            try:
-                layout_request = SetTopLevelSectionLayoutRequest(
-                    projectConfigId=project_config_id,
-                    topLevelSections={
-                        section_id: TopLevelSectionLayout(),
-                    },
-                )
+            layout_request = SetTopLevelSectionLayoutRequest(
+                projectConfigId=project_config_id,
+                topLevelSections={
+                    section_id: TopLevelSectionLayout(),
+                },
+            )
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_top_level_section_layout(layout_request, state)
+                    await route_set_top_level_section_layout(
+                        layout_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
 
                 auto_layout_request = AutoLayoutTopLevelSectionsRequest(
@@ -815,11 +789,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 )
                 with self.assertRaises(HTTPException) as ctx:
                     await route_auto_layout_top_level_sections(
-                        auto_layout_request, state
+                        auto_layout_request, runtime_ctx
                     )
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_variant_routes_blocked_by_allowed_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -839,15 +811,14 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
-            try:
-                frozen_request = ToggleVariantFrozenRequest(
-                    projectConfigId=project_config_id,
-                    variantId=variant_id,
-                )
+            frozen_request = ToggleVariantFrozenRequest(
+                projectConfigId=project_config_id,
+                variantId=variant_id,
+            )
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_toggle_variant_frozen(frozen_request, state)
+                    await route_toggle_variant_frozen(frozen_request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
 
                 name_request = SetSectionVariantNameRequest(
@@ -856,10 +827,8 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     name="New Name",
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_set_section_variant_name(name_request, state)
+                    await route_set_section_variant_name(name_request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_param_selection_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -873,26 +842,27 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             _write_share_policy(root, SharePolicy(allowParamChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
-            try:
-                toggle_request = ToggleParamSelectedRequest(
-                    projectConfigId=project_config_id,
-                    sectionId=create_new_id(),
-                    paramInfoId=create_new_id(),
-                )
+            toggle_request = ToggleParamSelectedRequest(
+                projectConfigId=project_config_id,
+                sectionId=create_new_id(),
+                paramInfoId=create_new_id(),
+            )
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_toggle_param_selected(toggle_request, state)
+                    await route_toggle_param_selected(
+                        toggle_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
 
                 unselect_request = UnselectAllParamsRequest(
                     projectConfigId=project_config_id,
                 )
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_unselect_all_params(unselect_request, state)
+                    await route_unselect_all_params(
+                        unselect_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_paste_sections_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -906,7 +876,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
             request = PasteSectionsRequest(
                 projectConfigId=project_config_id,
@@ -914,12 +883,10 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                 position=Position(x=0, y=0),
                 asRef=False,
             )
-            try:
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_paste_sections(request, state)
+                    await route_paste_sections(request, runtime_ctx)
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_rename_refactor_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -933,7 +900,6 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             _write_share_policy(root, SharePolicy(allowStructuralChanges=False))
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            token = set_share_session_id(session.id)
 
             accept_request = AcceptRenameRefactorRequest(
                 projectConfigId=project_config_id,
@@ -941,60 +907,44 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             decline_request = DeclineRenameRefactorRequest(
                 projectConfigId=project_config_id,
             )
-            try:
+            with runtime_context(state, session.id) as runtime_ctx:
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_accept_rename_refactor(accept_request, state)
+                    await route_accept_rename_refactor(
+                        accept_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
 
                 with self.assertRaises(HTTPException) as ctx:
-                    await route_decline_rename_refactor(decline_request, state)
+                    await route_decline_rename_refactor(
+                        decline_request, runtime_ctx
+                    )
                 self.assertEqual(403, ctx.exception.status_code)
-            finally:
-                reset_share_session_id(token)
 
     async def test_terminal_routes_require_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-policy-route-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
-            project_config_id = _write_share_project(
+            _write_share_project(
                 root,
                 project_config_name=project_config_name,
                 deployment_version=root.name,
             )
             state = await self._build_state(root)
 
-            delete_request = DeleteTerminalsRequest(sectionIds=[create_new_id()])
             with self.assertRaises(HTTPException) as ctx:
-                await route_delete_terminals(
-                    delete_request,
-                    state,
-                    share_session_id=None,
-                )
+                require_share_session_id(state, None)
             self.assertEqual(400, ctx.exception.status_code)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_delete_terminals(
-                    delete_request,
-                    state,
-                    share_session_id="missing-session",
-                )
+                require_share_session_id(state, "missing-session")
             self.assertEqual(404, ctx.exception.status_code)
 
-            kill_request = KillSubprocessesRequest(projectConfigId=project_config_id)
             with self.assertRaises(HTTPException) as ctx:
-                await route_kill_subprocesses(
-                    kill_request,
-                    state,
-                    share_session_id=None,
-                )
+                require_share_session_id(state, None)
             self.assertEqual(400, ctx.exception.status_code)
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_kill_subprocesses(
-                    kill_request,
-                    state,
-                    share_session_id="missing-session",
-                )
+                require_share_session_id(state, "missing-session")
             self.assertEqual(404, ctx.exception.status_code)
 
 

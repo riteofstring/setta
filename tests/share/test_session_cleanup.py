@@ -9,10 +9,9 @@ from types import ModuleType
 from setta.api.listener import SettaListener
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_project_manager import ShareProjectManager
-from setta.project_state.share_session_project_manager_switcher import (
-    ShareSessionProjectManagerSwitcher,
-)
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime, _ListenerHandle
 from setta.share.session_cleanup import cleanup_expired_share_sessions
@@ -88,20 +87,24 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 listener_registry,
                 None,
             )
-            settings_file = SettingsFile(dbe, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_project_manager = ShareProjectManager(
                 dbe,
                 root,
                 frontend_sender,
             )
+            share_project_manager.initialize_share_state(settings_file)
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
             share_project_manager.create_session_state(session.id)
 
-            switcher = ShareSessionProjectManagerSwitcher(
-                share_project_manager,
-                settings_file,
-                python_script_sender,
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=share_project_manager,
+                settings_file=settings_file,
+                python_script_sender=python_script_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
             )
             token = set_share_session_id(session.id)
             try:
@@ -217,7 +220,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             )
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
-            settings_file = SettingsFile(dbe, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_project_manager = ShareProjectManager(
                 dbe,
                 root,

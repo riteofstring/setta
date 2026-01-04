@@ -12,6 +12,7 @@ from setta.types.listener import (
     ListenerRegisterCallback,
     RealtimeUIChangeContent,
 )
+from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgListenerRealtimeEvent,
@@ -129,26 +130,29 @@ class FrontendReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             id="frontend-share",
             shareSessionId="session-a",
         )
-        await receiver.on_connect(frontend_id)
+        token = set_share_session_id("session-a")
+        try:
+            await receiver.on_connect(frontend_id)
 
-        content = RealtimeUIChangeContent(
-            projectConfigId=project_config_id,
-            dependencyKey=dependency,
-            value=LiteralDependencyValue("hello"),
-        )
-        message = WebsocketMsgRealtimeUIChange(content=content)
+            content = RealtimeUIChangeContent(
+                projectConfigId=project_config_id,
+                dependencyKey=dependency,
+                value=LiteralDependencyValue("hello"),
+            )
+            message = WebsocketMsgRealtimeUIChange(content=content)
 
-        await receiver.process_json_str(message.model_dump_json(), frontend_id)
+            await receiver.process_json_str(message.model_dump_json(), frontend_id)
 
-        sent = _sent_text_messages(listener_messages)
-        self.assertEqual(1, len(sent))
-        parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent[0])
-        self.assertIsInstance(parsed, WebsocketMsgListenerRealtimeEvent)
-        self.assertEqual(1, parsed.content.sequence)
-        self.assertEqual(dependency, parsed.content.deltas[0].dependency)
-
-        await frontend_socket.close()
-        await listener_socket.close()
+            sent = _sent_text_messages(listener_messages)
+            self.assertEqual(1, len(sent))
+            parsed = PythonScriptWebsocketMsgTypeAdapter.validate_json(sent[0])
+            self.assertIsInstance(parsed, WebsocketMsgListenerRealtimeEvent)
+            self.assertEqual(1, parsed.content.sequence)
+            self.assertEqual(dependency, parsed.content.deltas[0].dependency)
+        finally:
+            reset_share_session_id(token)
+            await frontend_socket.close()
+            await listener_socket.close()
 
 
 if __name__ == "__main__":  # pragma: no cover

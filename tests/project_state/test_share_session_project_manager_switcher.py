@@ -5,10 +5,9 @@ from tempfile import TemporaryDirectory
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_project_manager import ShareProjectManager
-from setta.project_state.share_session_project_manager_switcher import (
-    ShareSessionProjectManagerSwitcher,
-)
 from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
@@ -59,20 +58,24 @@ def _write_share_project(
 
 def _build_switcher(
     root: Path,
-) -> tuple[ShareSessionProjectManagerSwitcher, ShareProjectManager]:
+) -> tuple[ProjectManagerSwitcher, ShareProjectManager]:
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
     dbe = DBE(root)
     share_manager = ShareProjectManager(dbe, root, frontend_sender)
-    settings_file = SettingsFile(dbe, frontend_sender)
+    settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+    share_manager.initialize_share_state(settings_file)
     python_sender = WMHPythonScriptSender(
         websocket_manager,
         ListenerRegistry(),
     )
-    switcher = ShareSessionProjectManagerSwitcher(
-        share_manager,
-        settings_file,
-        python_sender,
+    switcher = ProjectManagerSwitcher(
+        share_project_manager=share_manager,
+        settings_file=settings_file,
+        python_script_sender=python_sender,
+        lsp_writers=None,
+        frontend_sender=frontend_sender,
+        specific_file_watcher=SpecificFileWatcher(),
     )
     return switcher, share_manager
 

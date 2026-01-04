@@ -38,6 +38,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import ShareDeploymentManifest
+from tests.utils.runtime_context import runtime_context
 
 
 def _build_share_deployment_root(
@@ -104,10 +105,16 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             _seed_share_dirs(root)
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            session = state.share_session_store.create_session()
 
             allowed_path = root / "json_sources" / "allowed.json"
             with self.assertRaises(HTTPException) as ctx:
-                route_create_file(CreateFileRequest(filepath=str(allowed_path)), state)
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_create_file(
+                        CreateFileRequest(filepath=str(allowed_path)),
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
             self.assertFalse(allowed_path.exists())
 
@@ -122,13 +129,15 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             _seed_share_dirs(root)
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
 
             allowed_path = root / "json_sources" / "version.json"
             with self.assertRaises(HTTPException) as ctx:
-                route_new_json_version_name(
-                    NewJSONVersionNameRequest(filename=str(allowed_path)),
-                    state,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_new_json_version_name(
+                        NewJSONVersionNameRequest(filename=str(allowed_path)),
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_get_json_source_path_to_be_deleted_restricts_share_paths(
@@ -144,12 +153,14 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             _seed_share_dirs(root)
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
 
             with self.assertRaises(HTTPException) as ctx:
-                route_get_json_source_path_to_be_deleted(
-                    GetJSONSourcePathToBeDeleted(variantName="data.json"),
-                    state,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_get_json_source_path_to_be_deleted(
+                        GetJSONSourcePathToBeDeleted(variantName="data.json"),
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_check_if_file_exists_restricts_share_paths(self) -> None:
@@ -163,21 +174,24 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             _seed_share_dirs(root)
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
 
             allowed_path = root / "code" / "run.py"
             allowed_path.write_text("print('hi')", encoding="utf-8")
-            result = route_check_if_file_exists(
-                CheckIfFileExistsRequests(filepath=str(allowed_path)),
-                state,
-            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                result = route_check_if_file_exists(
+                    CheckIfFileExistsRequests(filepath=str(allowed_path)),
+                    runtime_ctx,
+                )
             self.assertTrue(result)
 
             blocked_path = root / "manifest.json"
             with self.assertRaises(HTTPException) as ctx:
-                route_check_if_file_exists(
-                    CheckIfFileExistsRequests(filepath=str(blocked_path)),
-                    state,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_check_if_file_exists(
+                        CheckIfFileExistsRequests(filepath=str(blocked_path)),
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_get_folder_contents_restricts_share_paths(self) -> None:
@@ -191,21 +205,24 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             _seed_share_dirs(root)
             state = await self._build_state(root)
+            session = state.share_session_store.create_session()
 
             artifacts_dir = root / "artifacts"
             (artifacts_dir / "image.png").touch()
-            contents = route_get_folder_contents(
-                GetFolderContentsRequest(folderPath=str(artifacts_dir)),
-                state,
-            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                contents = route_get_folder_contents(
+                    GetFolderContentsRequest(folderPath=str(artifacts_dir)),
+                    runtime_ctx,
+                )
             names = {item["name"] for item in contents}
             self.assertIn("image.png", names)
 
             with self.assertRaises(HTTPException) as ctx:
-                route_get_folder_contents(
-                    GetFolderContentsRequest(folderPath=str(root)),
-                    state,
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_get_folder_contents(
+                        GetFolderContentsRequest(folderPath=str(root)),
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_load_cached_image_artifacts_restricts_share_paths(self) -> None:
@@ -225,9 +242,8 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             image_path = root / "artifacts" / "preview.png"
             image_path.write_bytes(b"img")
             payload = LoadCachedPathsRequest(paths=[str(image_path)])
-            result = route_load_cached_image_artifacts(
-                payload, state, share_session_id=session.id
-            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                result = route_load_cached_image_artifacts(payload, runtime_ctx)
             self.assertEqual(1, len(result))
             self.assertIsNotNone(result[0])
 
@@ -249,7 +265,9 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_delete_section_variant_or_ask(request, state)
+                session = state.share_session_store.create_session()
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_delete_section_variant_or_ask(request, runtime_ctx)
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -272,7 +290,12 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             )
 
             with self.assertRaises(HTTPException) as ctx:
-                await route_delete_json_source_file_and_variant(request, state)
+                session = state.share_session_store.create_session()
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_delete_json_source_file_and_variant(
+                        request,
+                        runtime_ctx,
+                    )
 
             self.assertEqual(403, ctx.exception.status_code)
 
@@ -293,17 +316,15 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
             chart_path = root / "artifacts" / "chart.csv"
             chart_path.write_text("x,y\n1,2\n", encoding="utf-8")
             payload = LoadCachedPathsRequest(paths=[str(chart_path)])
-            result = route_load_cached_chart_data(
-                payload, state, share_session_id=session.id
-            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                result = route_load_cached_chart_data(payload, runtime_ctx)
             self.assertEqual(1, len(result))
             self.assertIsNotNone(result[0])
 
             blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
             with self.assertRaises(HTTPException) as ctx:
-                route_load_cached_chart_data(
-                    blocked_payload, state, share_session_id=session.id
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_load_cached_chart_data(blocked_payload, runtime_ctx)
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_load_cached_brush_strokes_restricts_share_paths(self) -> None:
@@ -331,17 +352,15 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(stroke_payload), encoding="utf-8"
             )
             payload = LoadCachedPathsRequest(paths=[str(stroke_path)])
-            result = route_load_cached_brush_strokes(
-                payload, state, share_session_id=session.id
-            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                result = route_load_cached_brush_strokes(payload, runtime_ctx)
             self.assertEqual(1, len(result))
             self.assertIsNotNone(result[0])
 
             blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
             with self.assertRaises(HTTPException) as ctx:
-                route_load_cached_brush_strokes(
-                    blocked_payload, state, share_session_id=session.id
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_load_cached_brush_strokes(blocked_payload, runtime_ctx)
             self.assertEqual(403, ctx.exception.status_code)
 
     async def test_load_cached_draw_area_layer_item_transform_restricts_share_paths(
@@ -369,17 +388,20 @@ class ShareFilesystemRouteTests(unittest.IsolatedAsyncioTestCase):
                 json.dumps(transform_payload), encoding="utf-8"
             )
             payload = LoadCachedPathsRequest(paths=[str(transform_path)])
-            result = route_load_cached_draw_area_layer_item_transform(
-                payload, state, share_session_id=session.id
-            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                result = route_load_cached_draw_area_layer_item_transform(
+                    payload, runtime_ctx
+                )
             self.assertEqual(1, len(result))
             self.assertIsNotNone(result[0])
 
             blocked_payload = LoadCachedPathsRequest(paths=[str(root / "project.json")])
             with self.assertRaises(HTTPException) as ctx:
-                route_load_cached_draw_area_layer_item_transform(
-                    blocked_payload, state, share_session_id=session.id
-                )
+                with runtime_context(state, session.id) as runtime_ctx:
+                    route_load_cached_draw_area_layer_item_transform(
+                        blocked_payload,
+                        runtime_ctx,
+                    )
             self.assertEqual(403, ctx.exception.status_code)
 
 

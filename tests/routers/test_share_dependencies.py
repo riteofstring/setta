@@ -8,9 +8,9 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket
 from starlette.types import Scope
 
 from setta.routers.dependencies import (
+    get_runtime_context_from_request,
     get_share_session_id_from_request,
     get_share_session_id_from_websocket,
-    share_session_context_from_request,
 )
 from setta.server_state import SettaFastAPIState
 from setta.database.db_objs import DBE
@@ -233,10 +233,10 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertIsNone(get_share_session_id())
 
-            context = share_session_context_from_request(request)
+            context = get_runtime_context_from_request(request)
             try:
-                session_id = await context.__anext__()
-                self.assertEqual(session.id, session_id)
+                runtime_ctx = await context.__anext__()
+                self.assertEqual(session.id, runtime_ctx.share_session_id)
                 self.assertEqual(session.id, get_share_session_id())
             finally:
                 await context.aclose()
@@ -254,7 +254,7 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
             )
             app, _state = await self._build_state(root)
             request = _make_app_request(app)
-            context = share_session_context_from_request(request)
+            context = get_runtime_context_from_request(request)
             try:
                 with self.assertRaises(HTTPException) as ctx:
                     await context.__anext__()
@@ -279,7 +279,7 @@ class ShareSessionContextTests(unittest.IsolatedAsyncioTestCase):
                 app,
                 headers=[(b"x-share-session-id", session.id.encode())],
             )
-            context = share_session_context_from_request(request)
+            context = get_runtime_context_from_request(request)
             try:
                 await context.__anext__()
             finally:

@@ -12,8 +12,9 @@ from starlette.websockets import WebSocket
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.share_project_manager import ShareProjectManager
-from setta.project_state.share_session_project_manager import ShareSessionProjectManager
 from setta.types.artifact import (
     ArtifactType,
     DrawAreaLayer,
@@ -692,19 +693,46 @@ class ShareProjectManagerTests(unittest.TestCase):
             state = _build_project_state(project_config_id, section_id)
             root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
+            websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(
-                WebsocketManager(), share_mode=True
+                websocket_manager, share_mode=True
             )
             manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
 
-            with self.assertRaises(ValueError):
-                self._loop.run_until_complete(
-                    manager.apply_listener_emit_updates(
-                        share_session_id="session-a",
-                        dependency_updates=[],
-                        artifact_updates=[],
+            async def run_test() -> None:
+                session_manager = switcher.get_for_session("session-a")
+                try:
+                    await session_manager._process_queue_task_started.wait()
+                    with self.assertRaises(ValueError):
+                        await session_manager.apply_listener_emit_updates(
+                            projectConfigId=project_config_id,
+                            dependency_updates=[],
+                            artifact_updates=[],
+                        )
+                finally:
+                    session_manager.queue_task.cancel()
+                    results = await asyncio.gather(
+                        session_manager.queue_task,
+                        return_exceptions=True,
                     )
-                )
+                    self.assertEqual(1, len(results))
+                    self.assertIsInstance(results[0], asyncio.CancelledError)
+
+            self._loop.run_until_complete(run_test())
 
     def test_listener_emit_requires_active_sessions(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -713,10 +741,25 @@ class ShareProjectManagerTests(unittest.TestCase):
             state = _build_project_state(project_config_id, section_id)
             root = _build_share_deployment_root(tmpdir, state.projectConfig.name)
             dbe = _write_project_with_state(root, state)
+            websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(
-                WebsocketManager(), share_mode=True
+                websocket_manager, share_mode=True
             )
             manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
 
             dependency_updates = [
                 ListenerFrontendEmitKeyAndValue(
@@ -725,14 +768,27 @@ class ShareProjectManagerTests(unittest.TestCase):
                 )
             ]
 
-            with self.assertRaises(KeyError):
-                self._loop.run_until_complete(
-                    manager.apply_listener_emit_updates(
-                        share_session_id=None,
-                        dependency_updates=dependency_updates,
-                        artifact_updates=[],
+            async def run_test() -> None:
+                session_manager = switcher.get_for_session("session-a")
+                try:
+                    await session_manager._process_queue_task_started.wait()
+                    manager.delete_session_state("session-a")
+                    with self.assertRaises(KeyError):
+                        await session_manager.apply_listener_emit_updates(
+                            projectConfigId=project_config_id,
+                            dependency_updates=dependency_updates,
+                            artifact_updates=[],
+                        )
+                finally:
+                    session_manager.queue_task.cancel()
+                    results = await asyncio.gather(
+                        session_manager.queue_task,
+                        return_exceptions=True,
                     )
-                )
+                    self.assertEqual(1, len(results))
+                    self.assertIsInstance(results[0], asyncio.CancelledError)
+
+            self._loop.run_until_complete(run_test())
 
     def test_listener_emit_broadcasts_dependency_updates(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -746,6 +802,20 @@ class ShareProjectManagerTests(unittest.TestCase):
                 websocket_manager, share_mode=True
             )
             manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
 
             manager.create_session_state("session-a")
             manager.create_session_state("session-b")
@@ -782,13 +852,26 @@ class ShareProjectManagerTests(unittest.TestCase):
                     value=LiteralDependencyValue(new_text),
                 )
             ]
-            self._loop.run_until_complete(
-                manager.apply_listener_emit_updates(
-                    share_session_id="session-a",
-                    dependency_updates=dependency_updates,
-                    artifact_updates=[],
-                )
-            )
+
+            async def run_test() -> None:
+                session_manager = switcher.get_for_session("session-a")
+                try:
+                    await session_manager._process_queue_task_started.wait()
+                    await session_manager.apply_listener_emit_updates(
+                        projectConfigId=project_config_id,
+                        dependency_updates=dependency_updates,
+                        artifact_updates=[],
+                    )
+                finally:
+                    session_manager.queue_task.cancel()
+                    results = await asyncio.gather(
+                        session_manager.queue_task,
+                        return_exceptions=True,
+                    )
+                    self.assertEqual(1, len(results))
+                    self.assertIsInstance(results[0], asyncio.CancelledError)
+
+            self._loop.run_until_complete(run_test())
 
             session_state_a = manager.get_session_state("session-a")
             impl_a = get_curr_effective_section_impl_with_type_guard(
@@ -833,20 +916,23 @@ class ShareProjectManagerTests(unittest.TestCase):
                 websocket_manager, share_mode=True
             )
             manager = ShareProjectManager(dbe, root, frontend_sender)
-            manager.create_session_state("session-a")
 
             async def run_test() -> None:
                 python_sender = WMHPythonScriptSender(
                     websocket_manager,
                     ListenerRegistry(),
                 )
-                settings_file = SettingsFile(dbe, frontend_sender)
-                session_manager = ShareSessionProjectManager(
+                settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+                manager.initialize_share_state(settings_file)
+                switcher = ProjectManagerSwitcher(
                     share_project_manager=manager,
-                    share_session_id="session-a",
                     settings_file=settings_file,
                     python_script_sender=python_sender,
+                    lsp_writers=None,
+                    frontend_sender=frontend_sender,
+                    specific_file_watcher=SpecificFileWatcher(),
                 )
+                session_manager = switcher.get_for_session("session-a")
                 try:
                     await session_manager._process_queue_task_started.wait()
                     new_text = "Updated text"
@@ -856,8 +942,8 @@ class ShareProjectManagerTests(unittest.TestCase):
                             value=LiteralDependencyValue(new_text),
                         )
                     ]
-                    await manager.apply_listener_emit_updates(
-                        share_session_id="session-a",
+                    await session_manager.apply_listener_emit_updates(
+                        projectConfigId=project_config_id,
                         dependency_updates=dependency_updates,
                         artifact_updates=[],
                     )
@@ -894,6 +980,20 @@ class ShareProjectManagerTests(unittest.TestCase):
                 websocket_manager, share_mode=True
             )
             manager = ShareProjectManager(dbe, root, frontend_sender)
+            settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
+            manager.initialize_share_state(settings_file)
+            python_sender = WMHPythonScriptSender(
+                websocket_manager,
+                ListenerRegistry(),
+            )
+            switcher = ProjectManagerSwitcher(
+                share_project_manager=manager,
+                settings_file=settings_file,
+                python_script_sender=python_sender,
+                lsp_writers=None,
+                frontend_sender=frontend_sender,
+                specific_file_watcher=SpecificFileWatcher(),
+            )
 
             manager.create_session_state("session-a")
             manager.create_session_state("session-b")
@@ -929,13 +1029,26 @@ class ShareProjectManagerTests(unittest.TestCase):
                     value="data:image/png;base64,AAA",
                 )
             ]
-            self._loop.run_until_complete(
-                manager.apply_listener_emit_updates(
-                    share_session_id="session-b",
-                    dependency_updates=[],
-                    artifact_updates=artifact_updates,
-                )
-            )
+
+            async def run_test() -> None:
+                session_manager = switcher.get_for_session("session-b")
+                try:
+                    await session_manager._process_queue_task_started.wait()
+                    await session_manager.apply_listener_emit_updates(
+                        projectConfigId=project_config_id,
+                        dependency_updates=[],
+                        artifact_updates=artifact_updates,
+                    )
+                finally:
+                    session_manager.queue_task.cancel()
+                    results = await asyncio.gather(
+                        session_manager.queue_task,
+                        return_exceptions=True,
+                    )
+                    self.assertEqual(1, len(results))
+                    self.assertIsInstance(results[0], asyncio.CancelledError)
+
+            self._loop.run_until_complete(run_test())
 
             types_a = [
                 json.loads(text)["messageType"]
