@@ -2,6 +2,7 @@ from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request, WebSocket, status
 
+from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
 from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.utils.constants import C
@@ -128,6 +129,30 @@ async def share_session_context_from_request(
         reset_share_session_id(token)
 
 
+async def get_runtime_context_from_request(request: Request) -> RuntimeContext:
+    state = await get_ready_app_state_from_request(request)
+    share_session_id = None
+    if state.share_mode:
+        share_session_id = require_share_session_id(
+            state,
+            maybe_get_share_session_id_from_request(request),
+        )
+    return RuntimeContext(state, share_session_id=share_session_id)
+
+
+async def get_runtime_context_from_websocket(
+    websocket: WebSocket,
+) -> RuntimeContext:
+    state = await get_ready_app_state_from_websocket(websocket)
+    share_session_id = None
+    if state.share_mode:
+        share_session_id = require_share_session_id(
+            state,
+            maybe_get_share_session_id_from_websocket(websocket),
+        )
+    return RuntimeContext(state, share_session_id=share_session_id)
+
+
 AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]
 ReadyAppStateFromRequest = Annotated[
     SettaFastAPIState, Depends(get_ready_app_state_from_request)
@@ -140,4 +165,10 @@ ReadyAppStateFromWebsocket = Annotated[
 ]
 MaybeShareSessionIdFromRequest = Annotated[
     str | None, Depends(maybe_get_share_session_id_from_request)
+]
+RuntimeContextFromRequest = Annotated[
+    RuntimeContext, Depends(get_runtime_context_from_request)
+]
+RuntimeContextFromWebsocket = Annotated[
+    RuntimeContext, Depends(get_runtime_context_from_websocket)
 ]

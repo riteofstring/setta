@@ -37,11 +37,28 @@ Proposal:
   - Policy enforcement via the shared policy guard.
 - Move "if share_mode" branches into the adapters (policy, persistence, paths).
 
+Status: in progress.
+
+Completed:
+- Added `RuntimeContext` + scoped sender adapters.
+- Introduced `SessionProjectManager` as the unified session-backed manager.
+- Replaced IDE + share manager wiring with session-backed managers.
+- Updated listener websocket flow to resolve session managers directly.
+- Deleted legacy managers: `project_manager.py`, `settings_project_manager.py`,
+  `share_session_project_manager.py`, and
+  `share_session_project_manager_switcher.py`.
+
+Remaining:
+- Route policy enforcement and manager access should use `RuntimeContext`
+  instead of share/IDE branches.
+- Replace share-mode conditionals in routers with context calls.
+
 Impact:
 - `backend/setta/runtime/context.py` (new)
-- `backend/setta/project_state/share_project_manager.py` (merge or shrink)
-- `backend/setta/project_state/share_session_project_manager.py` (merge)
-- `backend/setta/project_state/project_manager.py`
+- `backend/setta/runtime/scoped_sender.py` (new)
+- `backend/setta/project_state/session_project_manager.py` (new)
+- `backend/setta/project_state/share_project_manager.py` (shrink/merge)
+- `backend/setta/project_state/project_manager_switcher.py`
 - `backend/setta/websockets/msg_handlers/python_script_receiver.py`
 - `backend/setta/routers/*` (replace share/IDE branches with context calls)
 - `backend/setta/share/policy.py` (shared guard entry point)
@@ -64,10 +81,16 @@ Proposal:
   instead of `ShareProjectManager` so LSP state stays in sync without the
   manager map in `ShareProjectManager`.
 
+Status: completed.
+
+Completed:
+- Session managers now live in `ProjectManagerSwitcher`.
+- Removed the share session switcher and session manager classes.
+- Session cleanup now drops session managers via the unified switcher.
+
 Impact:
 - `backend/setta/project_state/share_project_manager.py`
-- `backend/setta/project_state/share_session_project_manager.py`
-- `backend/setta/project_state/share_session_project_manager_switcher.py`
+- `backend/setta/project_state/project_manager_switcher.py`
 - `backend/setta/websockets/msg_handlers/python_script_receiver.py`
 - `backend/setta/share/session_cleanup.py`
 
@@ -153,7 +176,8 @@ Impact:
 
 
 ## Sequencing
-1. Session manager ownership consolidation (highest leverage).
+0. Unify share/IDE runtime flow behind adapters (in progress).
+1. Session manager ownership consolidation (done).
 2. Listener emit policy helper (reduce duplication and share-mode drift).
 3. Route policy guard helper and router cleanup.
 4. Session id normalization.

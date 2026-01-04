@@ -20,10 +20,11 @@ from setta.mcp.server import SettaFastMCP
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.share_project_manager import ShareProjectManager
-from setta.project_state.share_session_project_manager_switcher import (
-    ShareSessionProjectManagerSwitcher,
+from setta.project_state.session_project_manager import (
+    SessionPersistenceMode,
+    SessionProjectManager,
 )
+from setta.project_state.share_project_manager import ShareProjectManager
 from setta.share.chat_manager import ShareChatManager
 from setta.share.deployment_utils import read_share_deployment_manifest
 from setta.share.listener_runtime import ShareListenerRuntime
@@ -182,12 +183,8 @@ class SettaFastAPIState:
             if self.share_mode:
                 await self._initialize_share_async(app)
                 return
-            from setta.project_state.project_manager import ProjectManager
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
-            )
-            from setta.project_state.settings_project_manager import (
-                SettingsProjectManager,
             )
             from setta.websockets.msg_handlers.frontend_receiver import (
                 WMHFrontendReceiver,
@@ -216,30 +213,33 @@ class SettaFastAPIState:
             await self._maybe_delay()
             self.lsps = LSPServers(self.settings_file.settings.languageServer)
             self.lsp_writers = LSPWriters(self.lsps)
-            project_manager = ProjectManager(
-                self.lsp_writers,
-                self.wmh_frontend_sender,
-                self.wmh_python_script_sender,
-                self.settings_file,
-                self.specific_file_watcher,
-                self.dbe,
-                self.artifacts,
-                self.json_source,
-                self.code_files,
+            project_manager = SessionProjectManager(
+                persistence_mode=SessionPersistenceMode.ide_main,
+                frontend_sender=self.wmh_frontend_sender,
+                python_script_sender=self.wmh_python_script_sender,
+                settings_file=self.settings_file,
+                specific_file_watcher=self.specific_file_watcher,
+                dbe=self.dbe,
+                artifacts=self.artifacts,
+                json_source=self.json_source,
+                code_files=self.code_files,
+                lsp_writers=self.lsp_writers,
             )
-            settings_project_manager = SettingsProjectManager(
-                self.lsp_writers,
-                self.wmh_frontend_sender,
-                self.wmh_python_script_sender,
-                self.settings_file,
-                self.specific_file_watcher,
-                self.dbe,
-                self.artifacts,
-                self.json_source,
-                self.code_files,
+            settings_project_manager = SessionProjectManager(
+                persistence_mode=SessionPersistenceMode.ide_settings,
+                frontend_sender=self.wmh_frontend_sender,
+                python_script_sender=self.wmh_python_script_sender,
+                settings_file=self.settings_file,
+                specific_file_watcher=self.specific_file_watcher,
+                dbe=self.dbe,
+                artifacts=self.artifacts,
+                json_source=self.json_source,
+                code_files=self.code_files,
+                lsp_writers=self.lsp_writers,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
-                project_manager, settings_project_manager
+                main_manager=project_manager,
+                settings_manager=settings_project_manager,
             )
 
             self.init_status.record("Preparing websocket handlers")
@@ -356,11 +356,17 @@ class SettaFastAPIState:
             self.lsp_writers = LSPWriters(self.lsps)
             self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
             lsp_writers = self.lsp_writers
-        self.project_manager_switcher = ShareSessionProjectManagerSwitcher(
-            self.share_project_manager,
-            self.settings_file,
-            self.wmh_python_script_sender,
+        from setta.project_state.project_manager_switcher import (
+            ProjectManagerSwitcher,
+        )
+
+        self.project_manager_switcher = ProjectManagerSwitcher(
+            share_project_manager=self.share_project_manager,
+            settings_file=self.settings_file,
+            python_script_sender=self.wmh_python_script_sender,
             lsp_writers=lsp_writers,
+            frontend_sender=self.wmh_frontend_sender,
+            specific_file_watcher=SpecificFileWatcher(),
         )
         if self.share_project_manager.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
@@ -396,10 +402,8 @@ class SettaFastAPIState:
             self.listener_registry,
             self.wmh_frontend_sender,
             self.wmh_python_script_sender,
-            project_manager_switcher=None,
+            self.project_manager_switcher,
             dbe=self.dbe,
-            share_session_manager_switcher=self.project_manager_switcher,
-            share_mode=True,
         )
         share_policy = self.share_project_manager.share_policy
         llm_dbe = self._resolve_share_llm_dbe()

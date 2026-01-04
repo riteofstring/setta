@@ -7,10 +7,8 @@ DEFAULT_SHARE_SESSION_TTL_SECONDS = 60 * 30
 DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS = 60 * 5
 
 if TYPE_CHECKING:
+    from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.project_state.share_project_manager import ShareProjectManager
-    from setta.project_state.share_session_project_manager_switcher import (
-        ShareSessionProjectManagerSwitcher,
-    )
     from setta.share.chat_manager import ShareChatManager
     from setta.share.listener_runtime import ShareListenerRuntime
     from setta.terminals.terminals import Terminals
@@ -19,7 +17,7 @@ if TYPE_CHECKING:
 async def cleanup_expired_share_sessions(
     share_session_store: ShareSessionStore,
     share_project_manager: "ShareProjectManager",
-    session_manager_switcher: "ShareSessionProjectManagerSwitcher | None" = None,
+    session_manager_switcher: "ProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     share_chat_manager: "ShareChatManager | None" = None,
     terminals: "Terminals | None" = None,
@@ -42,7 +40,7 @@ async def cleanup_expired_share_sessions(
 async def run_share_session_cleanup_loop(
     share_session_store: ShareSessionStore,
     share_project_manager: "ShareProjectManager",
-    session_manager_switcher: "ShareSessionProjectManagerSwitcher | None" = None,
+    session_manager_switcher: "ProjectManagerSwitcher | None" = None,
     share_listener_runtime: "ShareListenerRuntime | None" = None,
     share_chat_manager: "ShareChatManager | None" = None,
     terminals: "Terminals | None" = None,

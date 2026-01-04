@@ -1,4 +1,4 @@
-from setta.project_state.project_manager import ProjectManager
+from setta.project_state.base_project_manager import BaseProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
@@ -24,7 +24,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
     def __init__(
         self,
         websocket_manager: WebsocketManager,
-        project_manager: ProjectManager | None,
+        project_manager: BaseProjectManager | None,
         realtime_event_hub: RealtimeEventHub,
         *,
         share_mode: bool = False,
