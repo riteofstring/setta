@@ -124,6 +124,16 @@ Impact:
 - `backend/setta/share/policy.py`
 - `backend/setta/share/policy_guards.py` (new)
 
+Status: completed.
+
+Completed:
+- Added `SharePolicyGuard` + guard helper to centralize policy checks and
+  section-id resolution.
+- Updated project-manager routes to use the guard instead of per-route checks.
+- Removed unused share-policy enforcement helpers tied to the old flow.
+
+Remaining: none.
+
 
 ### 3) Unify listener emit policy checks
 Problem: Listener emit policy checks live in both `BaseProjectManager` and
@@ -188,7 +198,7 @@ Impact:
 0. Unify share/IDE runtime flow behind adapters (done).
 1. Session manager ownership consolidation (done).
 2. Listener emit policy helper (done).
-3. Route policy guard helper and router cleanup.
+3. Route policy guard helper and router cleanup (done).
 4. Session id normalization.
 5. Frontend gating cleanup.
 

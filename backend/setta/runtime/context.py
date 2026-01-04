@@ -117,45 +117,6 @@ class RuntimeContext:
             section_ids=section_ids,
         )
 
-    async def enforce_variant_changes_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
-    ) -> None:
-        await self.enforce_policy(
-            policy_flag="allowVariantChanges",
-            denied_message="Share policy disallows variant changes.",
-            project_config_id=project_config_id,
-            section_ids=section_ids,
-        )
-
-    async def enforce_layout_changes_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
-    ) -> None:
-        await self.enforce_policy(
-            policy_flag="allowLayoutChanges",
-            denied_message="Share policy disallows layout changes.",
-            project_config_id=project_config_id,
-            section_ids=section_ids,
-        )
-
-    async def enforce_structural_changes_allowed(
-        self,
-        *,
-        project_config_id: "ID | None",
-        section_ids: list["ID"] | None = None,
-    ) -> None:
-        await self.enforce_policy(
-            policy_flag="allowStructuralChanges",
-            denied_message="Share policy disallows structural changes.",
-            project_config_id=project_config_id,
-            section_ids=section_ids,
-        )
-
     async def enforce_run_allowed(
         self,
         *,
