@@ -220,6 +220,7 @@ and param selection routes are gated.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
 - Load the share policy in `backend/setta/project_state/share_runtime_state.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
+- Share policy restrictions never apply in IDE mode.
 - Enforce policy in share routes and listeners:
   - Structural: create/delete sections and incrementer add/remove flows in
     `backend/setta/routers/project_manager.py`.

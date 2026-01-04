@@ -29,7 +29,7 @@ export function EditMenu() {
 
 function Items() {
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const { canEditStructure } = useShareCapabilities();
+  const { canEditLayout, canEditStructure } = useShareCapabilities();
   const shortcuts = useSettings((x) => {
     return {
       newCardShortcut: shortcutPrettified(x.shortcuts.newCardShortcut),
@@ -76,7 +76,9 @@ function Items() {
       >
         Restart Language Server
       </MenuItem>
-      <MenuItem onClick={autoLayout}>Auto Layout</MenuItem>
+      <MenuItem onClick={autoLayout} disabled={!canEditLayout}>
+        Auto Layout
+      </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem onClick={redoProjectState} shortcut={shortcuts.redoShortcut}>
         Redo

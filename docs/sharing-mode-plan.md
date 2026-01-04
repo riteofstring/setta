@@ -95,6 +95,7 @@ A share policy defines what can be modified in share mode:
 - LLM access
 - allowed sections or controls
 - Code editing, structural changes, LSP, and MCP are disabled in share mode.
+Share policy restrictions never apply in IDE mode.
 
 Example `share_policy.json`:
 ```json

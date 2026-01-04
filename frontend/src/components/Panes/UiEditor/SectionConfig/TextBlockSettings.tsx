@@ -1,6 +1,6 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { setCurrEffectiveSectionImplValue } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { useShareCapabilities } from "state/hooks/share";
 import { res200 } from "utils/endpointUtils";
@@ -10,20 +10,21 @@ import { TextBlockFormatEnum } from "utils/generatedTypes";
 export function TextBlockSettings({ sectionId }: { sectionId: string }) {
   const { format, text, isFrozen, headingAsSectionName } =
     useTextBlockTextAndEditability(sectionId);
-  const { canEditLayout, canEditParams } = useShareCapabilities();
-  const canToggleFormat = canEditLayout && canEditParams;
-  const canToggleHeading = canEditLayout;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const { canEditParams } = useShareCapabilities();
+  const canToggleFormat = !isShareMode || canEditParams;
+  const canToggleHeading = !isShareMode || canEditParams;
 
   async function onChangeRenderMarkdown(v: boolean) {
     if (!canToggleFormat) {
       return;
     }
-    let newText;
+    let newText = text;
     if (v) {
       const res = await route_docstring_to_markdown({ docstring: text });
-      newText = res200(res) ? res.data : text;
-    } else {
-      newText = text;
+      if (res200(res)) {
+        newText = res.data;
+      }
     }
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
