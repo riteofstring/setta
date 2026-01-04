@@ -3,10 +3,6 @@ from typing import TYPE_CHECKING
 
 from setta.project_state.project_manager_types import (
     AutoLayoutTopLevelSectionsRequest,
-    CreateChildSectionsRequest,
-    CreateChildSectionsViaIncrementerRequest,
-    DeleteChildSectionsViaDecrementerRequest,
-    PasteSectionsRequest,
     ProjectManagerRequestWithProjectConfig,
     ProjectManagerRequestWithSection,
     ProjectManagerRequestWithSectionIds,
@@ -27,7 +23,6 @@ class SharePolicyGuard(str, Enum):
     variant = "variant"
     layout = "layout"
     structural = "structural"
-    run = "run"
     lsp = "lsp"
 
 
@@ -49,12 +44,6 @@ def resolve_section_ids(
     request: ProjectManagerRequestWithProjectConfig,
     manager: "BaseProjectManager",
 ) -> list[ID] | None:
-    if isinstance(request, CreateChildSectionsRequest):
-        return [request.parentId]
-    if isinstance(request, CreateChildSectionsViaIncrementerRequest):
-        return [request.calledBy]
-    if isinstance(request, DeleteChildSectionsViaDecrementerRequest):
-        return [request.calledBy]
     if isinstance(request, SetTopLevelSectionLayoutRequest):
         return list(request.topLevelSections.keys())
     if isinstance(request, AutoLayoutTopLevelSectionsRequest):
@@ -64,8 +53,6 @@ def resolve_section_ids(
         return list(request.sectionSizes.keys())
     if isinstance(request, UngroupGroupsRequest):
         return list(request.groupIds)
-    if isinstance(request, PasteSectionsRequest):
-        return list(request.data.core.sections.keys())
     if isinstance(request, ProjectManagerRequestWithSectionIds):
         return list(request.sectionIds)
     if isinstance(request, ProjectManagerRequestWithSection):
@@ -118,12 +105,6 @@ async def enforce_share_policy_guard(
         await ctx.enforce_policy(
             policy_flag="allowLayoutChanges",
             denied_message="Share policy disallows layout changes.",
-            project_config_id=request.projectConfigId,
-            section_ids=section_ids,
-        )
-        return
-    if guard is SharePolicyGuard.run:
-        await ctx.enforce_run_allowed(
             project_config_id=request.projectConfigId,
             section_ids=section_ids,
         )

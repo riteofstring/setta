@@ -5,7 +5,6 @@ import {
   useLocalStorage,
   useNodeInternals,
   useProjectState,
-  useShareSession,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
@@ -42,10 +41,6 @@ export async function createTopLevelSection({
   controlCodeObjType = null,
   position = null,
 }: CreateTopLevelSectionArgs) {
-  const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
-    return null;
-  }
   const placement = getSmartPlacementContext();
   const res = await route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),

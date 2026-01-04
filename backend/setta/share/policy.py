@@ -108,22 +108,14 @@ async def _notify_and_raise(
     *,
     message: str,
     project_config_id: ID | None,
-    share_mode: bool,
     share_session_id: str | None,
 ) -> None:
-    if share_mode and share_session_id is None:
-        await frontend_sender.log_and_broadcast_backend_log_event_to_all_frontends(
-            message,
-            severity=SettaBackendLogEventSeverity.warning,
-            project_config_id=project_config_id,
-        )
-    else:
-        await frontend_sender.log_and_broadcast_backend_log_event(
-            message,
-            severity=SettaBackendLogEventSeverity.warning,
-            project_config_id=project_config_id,
-            share_session_id=share_session_id,
-        )
+    await frontend_sender.log_and_broadcast_backend_log_event(
+        message,
+        severity=SettaBackendLogEventSeverity.warning,
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+    )
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
 
 
@@ -133,22 +125,14 @@ async def _notify_and_close(
     *,
     message: str,
     project_config_id: ID | None,
-    share_mode: bool,
     share_session_id: str | None,
 ) -> None:
-    if share_mode and share_session_id is None:
-        await frontend_sender.log_and_broadcast_backend_log_event_to_all_frontends(
-            message,
-            severity=SettaBackendLogEventSeverity.warning,
-            project_config_id=project_config_id,
-        )
-    else:
-        await frontend_sender.log_and_broadcast_backend_log_event(
-            message,
-            severity=SettaBackendLogEventSeverity.warning,
-            project_config_id=project_config_id,
-            share_session_id=share_session_id,
-        )
+    await frontend_sender.log_and_broadcast_backend_log_event(
+        message,
+        severity=SettaBackendLogEventSeverity.warning,
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+    )
     if websocket.application_state == WebSocketState.CONNECTING:
         await websocket.accept()
     await websocket.close(code=4403)
@@ -168,7 +152,6 @@ async def deny_in_share_mode(
         frontend_sender,
         message=message,
         project_config_id=project_config_id,
-        share_mode=share_mode,
         share_session_id=share_session_id,
     )
 
@@ -191,7 +174,6 @@ async def enforce_share_policy(
             frontend_sender,
             message=denied_message,
             project_config_id=project_config_id,
-            share_mode=share_mode,
             share_session_id=share_session_id,
         )
     if section_ids and policy.allowedSections is not None:
@@ -204,7 +186,6 @@ async def enforce_share_policy(
                 frontend_sender,
                 message=message,
                 project_config_id=project_config_id,
-                share_mode=share_mode,
                 share_session_id=share_session_id,
             )
 
@@ -229,7 +210,6 @@ async def enforce_share_policy_ws(
             websocket,
             message=denied_message,
             project_config_id=project_config_id,
-            share_mode=share_mode,
             share_session_id=share_session_id,
         )
         return False
@@ -244,7 +224,6 @@ async def enforce_share_policy_ws(
                 websocket,
                 message=message,
                 project_config_id=project_config_id,
-                share_mode=share_mode,
                 share_session_id=share_session_id,
             )
             return False
@@ -273,7 +252,6 @@ async def ensure_share_run_allowed(
             state.wmh_frontend_sender,
             message="Share run support is not enabled.",
             project_config_id=project_config_id,
-            share_mode=state.share_mode,
             share_session_id=share_session_id,
         )
 
@@ -305,7 +283,6 @@ async def ensure_share_run_allowed_ws(
             websocket,
             message="Share run support is not enabled.",
             project_config_id=project_config_id,
-            share_mode=state.share_mode,
             share_session_id=share_session_id,
         )
         return False
@@ -341,7 +318,6 @@ async def ensure_share_param_value_allowed(
             frontend_sender,
             message="Share mode disallows CodeParam edits.",
             project_config_id=project_config_id,
-            share_mode=share_mode,
             share_session_id=share_session_id,
         )
 
@@ -366,7 +342,6 @@ async def ensure_share_llm_allowed(
             state.wmh_frontend_sender,
             message="Share LLM support is not enabled.",
             project_config_id=project_config_id,
-            share_mode=state.share_mode,
             share_session_id=share_session_id,
         )
 
@@ -455,6 +430,5 @@ async def ensure_share_artifact_paths_scoped(
         frontend_sender,
         message=message,
         project_config_id=project_config_id,
-        share_mode=share_mode,
         share_session_id=share_session_id,
     )

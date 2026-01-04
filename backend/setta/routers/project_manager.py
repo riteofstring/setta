@@ -207,8 +207,6 @@ async def route_create_top_level_section(
 ) -> CreateTopLevelSectionResponse:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.structural)
-    if x.implType == SectionType.Terminal:
-        await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.run)
     result = await manager.create_top_level_section(x)
     if x.implType == SectionType.Terminal:
         share_session_id = ctx.share_session_id
