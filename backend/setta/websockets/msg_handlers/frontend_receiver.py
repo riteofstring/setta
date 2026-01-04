@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING
 
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.types.id import ID
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
     BackendWebsocketMsgUnion,
 )
+from setta.types.id import ID
 from setta.types.listener import (
     ListenerRealtimeDelta,
     RealtimeActionEventContent,
@@ -129,8 +129,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             raise KeyError("Missing share session id")
         if self.share_runtime_state is None:
             raise KeyError("Missing share runtime state")
-        session_backend = self.share_runtime_state.get_session_backend(
-            share_session_id
-        )
+        session_backend = self.share_runtime_state.get_session_backend(share_session_id)
         if project_config_id not in session_backend.projectConfigs:
             raise KeyError(f"Unknown share project config: {project_config_id}")

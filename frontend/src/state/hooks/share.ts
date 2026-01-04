@@ -76,8 +76,9 @@ export function useLoadShareDeployment() {
         projectIs404: false,
       });
       if (!routeInfo.deploymentVersion) {
-        const latestRes =
-          await route_get_latest_share_deployment(routeInfo.deploymentName);
+        const latestRes = await route_get_latest_share_deployment(
+          routeInfo.deploymentName,
+        );
         if (!res200(latestRes)) {
           useProjectLoading.setState({
             projectIsLoading: false,
