@@ -14,7 +14,9 @@ type ToggleMetaControlLookProps = {
   sectionId: string;
 };
 
-export function ToggleMetaControlLook({ sectionId }: ToggleMetaControlLookProps) {
+export function ToggleMetaControlLook({
+  sectionId,
+}: ToggleMetaControlLookProps) {
   const { metaControlStyle, isFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,

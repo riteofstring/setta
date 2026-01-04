@@ -52,9 +52,13 @@ export function MetaControlMenuButton({
     const nextValue = !showSectionTitle;
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveSectionImplValue<"MetaControlSection">(state, sectionId, {
-          showSectionTitle: nextValue,
-        });
+        setCurrEffectiveSectionImplValue<"MetaControlSection">(
+          state,
+          sectionId,
+          {
+            showSectionTitle: nextValue,
+          },
+        );
       },
       send: (frontendOpId) =>
         route_set_meta_control_show_section_title({

@@ -15,8 +15,8 @@ import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
-import { ToggleHeadingAsSectionName } from "./ToggleHeadingAsSectionName";
 import { ToggleGroupOverflowMode } from "./ToggleGroupOverflowMode";
+import { ToggleHeadingAsSectionName } from "./ToggleHeadingAsSectionName";
 import { ToggleMetaControlLook } from "./ToggleMetaControlLook";
 import { UngroupButton } from "./UngroupButton";
 

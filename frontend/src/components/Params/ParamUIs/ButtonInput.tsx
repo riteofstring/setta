@@ -7,15 +7,15 @@ import {
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
-import {
-  ButtonActionModeEnum,
-  CodeObjTypeEnum,
-  HttpRequestMethodEnum,
-} from "utils/generatedTypes";
 import type {
   ButtonActionMode,
   ButtonParamCodeObjImpl,
   HttpRequestMethod,
+} from "utils/generatedTypes";
+import {
+  ButtonActionModeEnum,
+  CodeObjTypeEnum,
+  HttpRequestMethodEnum,
 } from "utils/generatedTypes";
 
 const ACTION_MODE_LABELS: Record<ButtonActionMode, string> = {
@@ -108,8 +108,7 @@ export function ButtonInputConfigForParam({
 
   const actionMode =
     config.actionMode ?? ButtonActionModeEnum.WEBSOCKET_LISTENER;
-  const requestMethod =
-    config.requestMethod ?? HttpRequestMethodEnum.POST;
+  const requestMethod = config.requestMethod ?? HttpRequestMethodEnum.POST;
   const showRequestFields = actionMode === ButtonActionModeEnum.HTTP_REQUEST;
 
   function onActionModeChange(event: ChangeEvent<HTMLSelectElement>) {

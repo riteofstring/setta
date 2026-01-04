@@ -19,16 +19,16 @@ import {
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
+import type {
+  BaseCodeObjImplUnion,
+  ButtonParamCodeObjImpl,
+} from "utils/generatedTypes";
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
   HttpRequestMethodEnum,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
-} from "utils/generatedTypes";
-import type {
-  BaseCodeObjImplUnion,
-  ButtonParamCodeObjImpl,
 } from "utils/generatedTypes";
 
 type ButtonRequestConfig = Pick<
@@ -83,59 +83,52 @@ function MetaControlValueArea({
     sectionName,
     paramDisplayName,
     buttonConfig,
-  } = useProjectState(
-    (x) => {
-      const sectionName = getSectionCore(x, sectionId).name;
-      const paramDisplayName = getParamDisplayName(
+  } = useProjectState((x) => {
+    const sectionName = getSectionCore(x, sectionId).name;
+    const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
+    const controlImpl = getCurrEffectiveCodeObjImpl(
+      x,
+      sectionId,
+      controlParamId,
+    );
+    if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
+      const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
         x,
         sectionId,
         controlParamId,
-      );
-      const controlImpl = getCurrEffectiveCodeObjImpl(
-        x,
-        sectionId,
-        controlParamId,
-      );
-      if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-        const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-          x,
-          sectionId,
-          controlParamId,
-          isButtonParamCodeObjImpl,
-        );
-        return {
-          codeObjType: controlImpl.type,
-          baseValue: "",
-          defaultVal: "",
-          sectionName,
-          paramDisplayName,
-          buttonConfig: {
-            actionMode: buttonImpl.actionMode,
-            requestMethod: buttonImpl.requestMethod,
-            requestUrl: buttonImpl.requestUrl,
-            requestHeaderKey: buttonImpl.requestHeaderKey,
-            requestHeaderValue: buttonImpl.requestHeaderValue,
-            requestBody: buttonImpl.requestBody,
-          },
-        };
-      }
-      const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-        x,
-        sectionId,
-        controlParamId,
-        isBaseChildlessCodeObjImpl,
+        isButtonParamCodeObjImpl,
       );
       return {
-        codeObjType: childlessImpl.type,
-        baseValue: childlessImpl.value,
-        defaultVal: childlessImpl.defaultVal,
+        codeObjType: controlImpl.type,
+        baseValue: "",
+        defaultVal: "",
         sectionName,
         paramDisplayName,
-        buttonConfig: null,
+        buttonConfig: {
+          actionMode: buttonImpl.actionMode,
+          requestMethod: buttonImpl.requestMethod,
+          requestUrl: buttonImpl.requestUrl,
+          requestHeaderKey: buttonImpl.requestHeaderKey,
+          requestHeaderValue: buttonImpl.requestHeaderValue,
+          requestBody: buttonImpl.requestBody,
+        },
       };
-    },
-    _.isEqual,
-  );
+    }
+    const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+      x,
+      sectionId,
+      controlParamId,
+      isBaseChildlessCodeObjImpl,
+    );
+    return {
+      codeObjType: childlessImpl.type,
+      baseValue: childlessImpl.value,
+      defaultVal: childlessImpl.defaultVal,
+      sectionName,
+      paramDisplayName,
+      buttonConfig: null,
+    };
+  }, _.isEqual);
 
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,

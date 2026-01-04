@@ -1,4 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import type { ReactNode } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -14,14 +16,15 @@ import { type SectionType } from "utils/generatedTypes";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { HeaderIcon } from "../Header/HeaderIcon";
 import { LockPositionButton } from "../Header/LockPositionButton";
-import { SectionTitle } from "../Header/SectionTitle";
 import { CreateNewVariantButton } from "../Header/MenuButton/CreateNewVariantButton";
 import { ResetToDefaultVersion } from "../Header/MenuButton/ResetToDefaultVersion";
-import { ConvertFormat, RenderTextBlock } from "../Header/MenuButton/ShowMarkdown";
+import {
+  ConvertFormat,
+  RenderTextBlock,
+} from "../Header/MenuButton/ShowMarkdown";
 import { ToggleHeadingAsSectionName } from "../Header/MenuButton/ToggleHeadingAsSectionName";
 import { ToggleMetaControlLook } from "../Header/MenuButton/ToggleMetaControlLook";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { SectionTitle } from "../Header/SectionTitle";
 
 type TextBlockMetaControlMenuButtonProps = {
   sectionId: string;
@@ -131,7 +134,9 @@ function MinimizeMenuItem({ sectionId }: { sectionId: string }) {
   }
 
   const label = isMinimized ? "Expand" : "Minimize";
-  const iconClassName = isMinimized ? "gg-maximize !scale-[.4]" : "gg-math-minus";
+  const iconClassName = isMinimized
+    ? "gg-maximize !scale-[.4]"
+    : "gg-math-minus";
 
   return (
     <MenuItem onClick={onClick}>

@@ -468,8 +468,7 @@ function MetaControlTitleStack({
   titleClassName?: string;
 }) {
   const showTitle = showSectionTitle && sectionName.trim().length > 0;
-  const baseContainerClassName =
-    "relative h-full w-full min-h-0 min-w-0";
+  const baseContainerClassName = "relative h-full w-full min-h-0 min-w-0";
   const containerClassNameToUse = `${baseContainerClassName} ${
     containerClassName ?? ""
   }`;
