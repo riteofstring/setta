@@ -18,11 +18,7 @@ from setta.project_state.listener_dependency_updates import (
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.project_state.settings_project import apply_settings_display_names
 from setta.runtime.scoped_sender import ScopedFrontendSender
-from setta.share.policy import (
-    ensure_share_artifact_paths_scoped,
-    ensure_share_listener_emits_allowed,
-    resolve_section_ids_for_artifacts,
-)
+from setta.share.policy import ensure_share_listener_emit_updates_allowed
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     copy_project,
@@ -227,32 +223,15 @@ class SessionProjectManager(BaseProjectManager):
         project_state = self.share_project_manager.get_session_state(
             self.share_session_id
         )
-        dependency_section_ids = [
-            update.dependencyKey.sectionId for update in dependency_updates
-        ]
-
-        artifact_section_ids: list[ID] = []
-        if artifact_updates:
-            artifact_section_ids, unknown_paths = resolve_section_ids_for_artifacts(
-                project_state, artifact_updates
-            )
-            await ensure_share_artifact_paths_scoped(
-                share_mode=True,
-                policy=self.share_project_manager.share_policy,
-                frontend_sender=self.share_project_manager.frontend_sender,
-                project_config_id=self.share_project_manager.project_config_id,
-                share_session_id=self.share_session_id,
-                unknown_paths=unknown_paths,
-            )
-
-        combined_section_ids = dependency_section_ids + artifact_section_ids
-        await ensure_share_listener_emits_allowed(
+        await ensure_share_listener_emit_updates_allowed(
             share_mode=True,
             policy=self.share_project_manager.share_policy,
             frontend_sender=self.share_project_manager.frontend_sender,
             project_config_id=self.share_project_manager.project_config_id,
+            project_state=project_state,
+            dependency_updates=dependency_updates,
+            artifact_updates=artifact_updates,
             share_session_id=self.share_session_id,
-            section_ids=combined_section_ids if combined_section_ids else None,
         )
 
         if dependency_updates:

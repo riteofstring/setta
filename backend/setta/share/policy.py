@@ -19,6 +19,7 @@ from setta.utils.utils import normalize_path
 if TYPE_CHECKING:
     from setta.server_state import SettaFastAPIState
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+    from setta.types.listener import ListenerFrontendEmitKeyAndValue
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -427,6 +428,47 @@ async def ensure_share_listener_emits_allowed(
         project_config_id=project_config_id,
         share_session_id=share_session_id,
         section_ids=section_ids,
+    )
+
+
+async def ensure_share_listener_emit_updates_allowed(
+    *,
+    share_mode: bool,
+    policy: SharePolicy,
+    frontend_sender: "WMHFrontendSender",
+    project_config_id: ID | None,
+    project_state: "ProjectStateSingleConfig",
+    dependency_updates: list["ListenerFrontendEmitKeyAndValue"],
+    artifact_updates: list["BaseArtifactUnionWithDiscriminator"],
+    share_session_id: str | None = None,
+) -> None:
+    if not share_mode:
+        return
+    dependency_section_ids = [
+        update.dependencyKey.sectionId for update in dependency_updates
+    ]
+    artifact_section_ids: list[ID] = []
+    unknown_paths: list[str] = []
+    if artifact_updates:
+        artifact_section_ids, unknown_paths = resolve_section_ids_for_artifacts(
+            project_state, artifact_updates
+        )
+    await ensure_share_artifact_paths_scoped(
+        share_mode=share_mode,
+        policy=policy,
+        frontend_sender=frontend_sender,
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+        unknown_paths=unknown_paths,
+    )
+    combined_section_ids = dependency_section_ids + artifact_section_ids
+    await ensure_share_listener_emits_allowed(
+        share_mode=share_mode,
+        policy=policy,
+        frontend_sender=frontend_sender,
+        project_config_id=project_config_id,
+        share_session_id=share_session_id,
+        section_ids=combined_section_ids if combined_section_ids else None,
     )
 
 

@@ -127,7 +127,7 @@ Impact:
 
 ### 3) Unify listener emit policy checks
 Problem: Listener emit policy checks live in both `BaseProjectManager` and
-`ShareProjectManager`, with slight behavior differences.
+`SessionProjectManager`, with slight behavior differences.
 
 Proposal:
 - Add a single helper that accepts dependency updates, artifact updates,
@@ -140,11 +140,21 @@ Proposal:
 Impact:
 - `backend/setta/share/policy.py`
 - `backend/setta/project_state/base_project_manager.py`
-- `backend/setta/project_state/share_project_manager.py`
+- `backend/setta/project_state/session_project_manager.py`
 
 Notes:
 - Pass `share_session_id` into the helper so notifications are scoped to the
   active session instead of all share viewers.
+
+Status: completed.
+
+Completed:
+- Added `ensure_share_listener_emit_updates_allowed` in
+  `backend/setta/share/policy.py`.
+- `BaseProjectManager` + `SessionProjectManager` now use the shared helper
+  instead of duplicating policy enforcement.
+
+Remaining: none.
 
 
 ### 4) Normalize share session id handling
@@ -175,9 +185,9 @@ Impact:
 
 
 ## Sequencing
-0. Unify share/IDE runtime flow behind adapters (in progress).
+0. Unify share/IDE runtime flow behind adapters (done).
 1. Session manager ownership consolidation (done).
-2. Listener emit policy helper (reduce duplication and share-mode drift).
+2. Listener emit policy helper (done).
 3. Route policy guard helper and router cleanup.
 4. Session id normalization.
 5. Frontend gating cleanup.
