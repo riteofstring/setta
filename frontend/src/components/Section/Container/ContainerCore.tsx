@@ -23,11 +23,14 @@ import {
   useSettings,
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import { useIsScrollable, useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import {
-  NO_WHEEL_CLASS_NAME,
+  useIsScrollable,
+  useSectionMinMaxDims,
+} from "state/hooks/sectionSizes";
+import {
   NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -127,7 +130,7 @@ function getCrossAxis(isHorizontalOrientation: boolean): CrossAxis {
 }
 
 const GROUP_OVERFLOW_MIN_WIDTH = 250;
-const GROUP_OVERFLOW_MIN_HEIGHT = 140;
+const GROUP_OVERFLOW_MIN_HEIGHT = 185;
 
 function mergeSizeUpdates(
   target: Record<string, SectionSize>,
@@ -187,7 +190,10 @@ function ContainerGroup({
   let effectiveMinHeight = minHeight;
   let effectiveMinWidth = minWidth;
   if (overflowMode) {
-    effectiveMinHeight = Math.max(effectiveMinHeight, GROUP_OVERFLOW_MIN_HEIGHT);
+    effectiveMinHeight = Math.max(
+      effectiveMinHeight,
+      GROUP_OVERFLOW_MIN_HEIGHT,
+    );
     effectiveMinWidth = Math.max(effectiveMinWidth, GROUP_OVERFLOW_MIN_WIDTH);
   }
   const snapGrid = useSettings((x) => x.gui.snapGrid);
@@ -206,17 +212,17 @@ function ContainerGroup({
   });
 
   const groupStyle = { ...(style ?? {}) };
-  if (overflowMode) {
-    // Set both dimensions - both axes are now resizable
-    if (size.width !== "auto") {
-      groupStyle.width = size.width;
-    }
-    if (size.height !== "auto") {
-      groupStyle.height = size.height;
-    }
+  // Apply explicit dimensions from state - needed for both overflow groups
+  // and non-overflow groups nested inside overflow groups
+  if (size.width !== "auto") {
+    groupStyle.width = size.width;
+  }
+  if (size.height !== "auto") {
+    groupStyle.height = size.height;
   }
 
-  let contentClassName = "z-10";
+  // Non-overflow groups still need flex-1 to fill space when nested in overflow groups
+  let contentClassName = "z-10 flex min-h-0 flex-1 flex-col";
   if (overflowMode) {
     // Scroll axis: auto (allows scrolling when content exceeds container)
     // Cross axis: hidden (no scrollbar, but scrollWidth still reports actual content width
@@ -393,7 +399,7 @@ function ContainerGroup({
     : "";
   const containerClassName = `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${overflowContainerClassName} ${className}`;
   const dropAreaClassName =
-    "z-10 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500 -mx-4";
+    "z-10 mt-4 flex min-h-0 flex-1 flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-sm text-setta-500/80 dark:border-setta-700 dark:text-setta-500 -mx-4";
 
   const containerBody = (
     <>
