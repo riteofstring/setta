@@ -1,6 +1,7 @@
 from typing import Literal
 
 AllImplFields = Literal[
+    "actionMode",
     "activeLayerIdx",
     "aspectRatio",
     "aspectRatioExtraHeight",
@@ -60,6 +61,11 @@ AllImplFields = Literal[
     "pinnedParams",
     "positionAndSizeLocked",
     "renderedValue",
+    "requestBody",
+    "requestHeaderKey",
+    "requestHeaderValue",
+    "requestMethod",
+    "requestUrl",
     "selectedParams",
     "showSectionTitle",
     "size",

@@ -381,6 +381,13 @@ export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
 
 export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
 
+export const ButtonActionModeEnum = {
+  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
+  HTTP_REQUEST: "HTTP_REQUEST",
+} as const;
+
+export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
+
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
   CodeParam: "CodeParam",
@@ -398,6 +405,18 @@ export const CodeObjTypeEnum = {
 } as const;
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
+export const HttpRequestMethodEnum = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  PATCH: "PATCH",
+  DELETE: "DELETE",
+  HEAD: "HEAD",
+  OPTIONS: "OPTIONS",
+} as const;
+
+export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
 
 export const ParamNameTypeEnum = { CODE: "CODE", TEXT: "TEXT" } as const;
 
@@ -1734,6 +1753,7 @@ export type ToolArgumentPreviewIdTypeInput = z.input<
 >;
 
 export const AllImplFieldsSchema = z.literal([
+  "actionMode",
   "activeLayerIdx",
   "aspectRatio",
   "aspectRatioExtraHeight",
@@ -1793,6 +1813,11 @@ export const AllImplFieldsSchema = z.literal([
   "pinnedParams",
   "positionAndSizeLocked",
   "renderedValue",
+  "requestBody",
+  "requestHeaderKey",
+  "requestHeaderValue",
+  "requestMethod",
+  "requestUrl",
   "selectedParams",
   "showSectionTitle",
   "size",
@@ -2020,6 +2045,7 @@ export function createSectionSize(
 }
 
 export const SharedModifierSchema = z.object({
+  actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeLayerIdx: z.int().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -2081,6 +2107,11 @@ export const SharedModifierSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
   renderedValue: z.union([z.string(), z.null()]).optional(),
+  requestBody: z.string().optional(),
+  requestHeaderKey: z.string().optional(),
+  requestHeaderValue: z.string().optional(),
+  requestMethod: z.enum(HttpRequestMethodEnum).optional(),
+  requestUrl: z.string().optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -2114,6 +2145,7 @@ export const CoreSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
+        "actionMode",
         "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -2173,6 +2205,11 @@ export const CoreSchema = z.object({
         "pinnedParams",
         "positionAndSizeLocked",
         "renderedValue",
+        "requestBody",
+        "requestHeaderKey",
+        "requestHeaderValue",
+        "requestMethod",
+        "requestUrl",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -2459,7 +2496,9 @@ export const TextBlockSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -2885,6 +2924,16 @@ export const ButtonParamCodeObjImplSchema = z.object({
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
   label: z.string().default("Trigger" as const),
+  actionMode: z
+    .enum(ButtonActionModeEnum)
+    .default(ButtonActionModeEnum.WEBSOCKET_LISTENER),
+  requestMethod: z
+    .enum(HttpRequestMethodEnum)
+    .default(HttpRequestMethodEnum.POST),
+  requestUrl: z.string().default("" as const),
+  requestHeaderKey: z.string().default("" as const),
+  requestHeaderValue: z.string().default("" as const),
+  requestBody: z.string().default("" as const),
 });
 
 export type ButtonParamCodeObjImpl = z.infer<
@@ -4139,6 +4188,12 @@ export const ButtonParamCodeObjImplArgsSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   label: z.string().optional(),
+  actionMode: z.enum(ButtonActionModeEnum).optional(),
+  requestMethod: z.enum(HttpRequestMethodEnum).optional(),
+  requestUrl: z.string().optional(),
+  requestHeaderKey: z.string().optional(),
+  requestHeaderValue: z.string().optional(),
+  requestBody: z.string().optional(),
 });
 
 export type ButtonParamCodeObjImplArgs = z.infer<
@@ -6738,7 +6793,9 @@ export function createUserDefaultTerminalSectionImpl(
 
 export const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 300.0, height: 150.0 }),
+  ),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -6769,6 +6826,16 @@ export const UserDefaultButtonParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   label: z.string().default("Trigger" as const),
+  actionMode: z
+    .enum(ButtonActionModeEnum)
+    .default(ButtonActionModeEnum.WEBSOCKET_LISTENER),
+  requestMethod: z
+    .enum(HttpRequestMethodEnum)
+    .default(HttpRequestMethodEnum.POST),
+  requestUrl: z.string().default("" as const),
+  requestHeaderKey: z.string().default("" as const),
+  requestHeaderValue: z.string().default("" as const),
+  requestBody: z.string().default("" as const),
 });
 
 export type UserDefaultButtonParamCodeObjImpl = z.infer<
@@ -8850,6 +8917,12 @@ export const ButtonParamCodeObjImplArgsWithCallableSchema = z.object({
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
   label: z.union([z.string(), z.any()]).optional(),
+  actionMode: z.union([z.enum(ButtonActionModeEnum), z.any()]).optional(),
+  requestMethod: z.union([z.enum(HttpRequestMethodEnum), z.any()]).optional(),
+  requestUrl: z.union([z.string(), z.any()]).optional(),
+  requestHeaderKey: z.union([z.string(), z.any()]).optional(),
+  requestHeaderValue: z.union([z.string(), z.any()]).optional(),
+  requestBody: z.union([z.string(), z.any()]).optional(),
 });
 
 export type ButtonParamCodeObjImplArgsWithCallable = z.infer<
@@ -9790,6 +9863,7 @@ export const CoreArgsSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
+        "actionMode",
         "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -9849,6 +9923,11 @@ export const CoreArgsSchema = z.object({
         "pinnedParams",
         "positionAndSizeLocked",
         "renderedValue",
+        "requestBody",
+        "requestHeaderKey",
+        "requestHeaderValue",
+        "requestMethod",
+        "requestUrl",
         "selectedParams",
         "showSectionTitle",
         "size",

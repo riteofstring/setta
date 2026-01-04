@@ -10,7 +10,9 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 
 # Code object type imports
 from setta.types.code_obj_impls import (
+    ButtonActionMode,
     ColorPickerChoice,
+    HttpRequestMethod,
     ParamNameType,
 )
 from setta.types.section_impls import (
@@ -208,6 +210,12 @@ class UserDefaultButtonParamCodeObjImpl(
     UserDefaultBaseParamCodeObjImpl, extra="forbid"
 ):
     label: str = "Trigger"
+    actionMode: ButtonActionMode = ButtonActionMode.WEBSOCKET_LISTENER
+    requestMethod: HttpRequestMethod = HttpRequestMethod.POST
+    requestUrl: str = ""
+    requestHeaderKey: str = ""
+    requestHeaderValue: str = ""
+    requestBody: str = ""
 
 
 class UserDefaultSliderParamCodeObjImpl(

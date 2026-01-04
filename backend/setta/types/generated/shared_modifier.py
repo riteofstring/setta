@@ -11,7 +11,9 @@ from setta.types.artifact import (
     ScatterChartSettings,
 )
 from setta.types.code_obj_impls import (
+    ButtonActionMode,
     ColorPickerChoice,
+    HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
 )
@@ -34,6 +36,7 @@ class SharedModifier(TypedDict):
     # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    actionMode: NotRequired[ButtonActionMode]
     activeLayerIdx: NotRequired[int]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
@@ -93,6 +96,11 @@ class SharedModifier(TypedDict):
     pinnedParams: NotRequired[list[ID]]
     positionAndSizeLocked: NotRequired[bool]
     renderedValue: NotRequired[str | None]
+    requestBody: NotRequired[str]
+    requestHeaderKey: NotRequired[str]
+    requestHeaderValue: NotRequired[str]
+    requestMethod: NotRequired[HttpRequestMethod]
+    requestUrl: NotRequired[str]
     selectedParams: NotRequired[list[ID]]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]

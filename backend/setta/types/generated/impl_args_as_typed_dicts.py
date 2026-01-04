@@ -8,8 +8,10 @@ from setta.types.artifact import (
     ScatterChartSettings,
 )
 from setta.types.code_obj_impls import (
+    ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
+    HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
 )
@@ -45,6 +47,7 @@ class CoreArgs(TypedDict):
     unsharedKeys: NotRequired[
         list[
             Literal[
+                "actionMode",
                 "activeLayerIdx",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
@@ -104,6 +107,11 @@ class CoreArgs(TypedDict):
                 "pinnedParams",
                 "positionAndSizeLocked",
                 "renderedValue",
+                "requestBody",
+                "requestHeaderKey",
+                "requestHeaderValue",
+                "requestMethod",
+                "requestUrl",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
@@ -631,6 +639,12 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
 class ButtonParamCodeObjImplArgs(BaseParamCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.ButtonParam]]
     label: NotRequired[str]
+    actionMode: NotRequired[ButtonActionMode]
+    requestMethod: NotRequired[HttpRequestMethod]
+    requestUrl: NotRequired[str]
+    requestHeaderKey: NotRequired[str]
+    requestHeaderValue: NotRequired[str]
+    requestBody: NotRequired[str]
 
 
 class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallable):
@@ -639,6 +653,16 @@ class ButtonParamCodeObjImplArgsWithCallable(BaseParamCodeObjImplArgsWithCallabl
         | Callable[[Literal[CodeObjType.ButtonParam]], Literal[CodeObjType.ButtonParam]]
     ]
     label: NotRequired[str | Callable[[str], str]]
+    actionMode: NotRequired[
+        ButtonActionMode | Callable[[ButtonActionMode], ButtonActionMode]
+    ]
+    requestMethod: NotRequired[
+        HttpRequestMethod | Callable[[HttpRequestMethod], HttpRequestMethod]
+    ]
+    requestUrl: NotRequired[str | Callable[[str], str]]
+    requestHeaderKey: NotRequired[str | Callable[[str], str]]
+    requestHeaderValue: NotRequired[str | Callable[[str], str]]
+    requestBody: NotRequired[str | Callable[[str], str]]
 
 
 class SliderParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
