@@ -224,6 +224,9 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
 
 class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=300, height=150)
+    )
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     metaControlStyle: bool = False

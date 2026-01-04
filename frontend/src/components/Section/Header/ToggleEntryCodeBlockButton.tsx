@@ -37,7 +37,11 @@ export function ToggleEntryCodeBlockButton({
       onClick={onClick}
       {...getFloatingBoxHandlers({ title: "Toggle Entry Code Block" })}
     >
-      {isEntryCodeBlock ? <FaFlag /> : <FaRegFlag />}
+      {isEntryCodeBlock ? (
+        <FaFlag className="h-3 w-3" />
+      ) : (
+        <FaRegFlag className="h-3 w-3" />
+      )}
     </button>
   );
 }
