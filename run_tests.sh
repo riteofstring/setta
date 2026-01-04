@@ -1,0 +1,1 @@
+. ./activate.sh && python -m unittest discover

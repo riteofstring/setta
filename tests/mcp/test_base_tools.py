@@ -22,8 +22,8 @@ class GetProjectConfigNamesAndIdsTests(unittest.IsolatedAsyncioTestCase):
                 real_settings_manager() as settings_fixture,
             ):
                 switcher = ProjectManagerSwitcher(
-                    project_fixture.manager,
-                    settings_fixture.manager,
+                    main_manager=project_fixture.manager,
+                    settings_manager=settings_fixture.manager,
                 )
                 state = SimpleNamespace(project_manager_switcher=switcher)
                 ctx = Context(fastmcp=SimpleNamespace(state=state))

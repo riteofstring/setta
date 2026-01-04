@@ -18,11 +18,7 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 
-type TextBlockProps = {
-  sectionId: string;
-};
-
-function _TextBlock({ sectionId }: TextBlockProps) {
+function _TextBlock({ sectionId }) {
   const textDisplayMode = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -39,21 +35,15 @@ function _TextBlock({ sectionId }: TextBlockProps) {
   );
 }
 
-function _Markdown({ sectionId }: TextBlockProps) {
-  const { format, metaControlStyle, text } = useProjectState(
+function _Markdown({ sectionId }) {
+  const { format, text } = useProjectState(
     (x) => getTextBlockText(sectionId, x),
     _.isEqual,
   );
 
   const { ref, isScrollable } = useIsScrollable();
 
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} [grid-row:search/bottom-gutter] [grid-column:1/-1] px-3 nodrag ${isScrollable ? "nowheel" : ""} mb-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
-  const markdownToneClassName = metaControlStyle
-    ? "text-setta-800 dark:text-setta-100 prose-headings:text-setta-850 dark:prose-headings:text-setta-50 prose-p:text-setta-800 dark:prose-p:text-setta-100 prose-li:text-setta-800 dark:prose-li:text-setta-100 prose-strong:text-setta-850 dark:prose-strong:text-setta-50 prose-code:text-setta-700 dark:prose-code:text-setta-200 prose-blockquote:text-setta-700 dark:prose-blockquote:text-setta-200 prose-a:text-blue-700 dark:prose-a:text-blue-300"
-    : "prose-headings:text-setta-400";
-  const plainTextToneClassName = metaControlStyle
-    ? "text-setta-800 dark:text-setta-100"
-    : "text-setta-700 dark:text-setta-300";
+  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
 
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041
@@ -62,7 +52,7 @@ function _Markdown({ sectionId }: TextBlockProps) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
-        className={`prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert prose-headings:tracking-tighter ${markdownToneClassName} prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]`}
+        className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]"
         components={{
           code: CodeBlock,
         }}
@@ -73,7 +63,7 @@ function _Markdown({ sectionId }: TextBlockProps) {
   ) : (
     <pre
       ref={ref}
-      className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs ${plainTextToneClassName}`}
+      className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs text-setta-700 dark:text-setta-300`}
     >
       {text}
     </pre>
