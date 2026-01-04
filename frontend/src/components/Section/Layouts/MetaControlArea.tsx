@@ -8,7 +8,6 @@ import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  getParamDisplayName,
   getSectionCore,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
@@ -19,30 +18,14 @@ import {
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
-import type {
-  BaseCodeObjImplUnion,
-  ButtonParamCodeObjImpl,
-} from "utils/generatedTypes";
 import {
-  ButtonActionModeEnum,
   CodeObjTypeEnum,
-  HttpRequestMethodEnum,
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 
-type ButtonRequestConfig = Pick<
-  ButtonParamCodeObjImpl,
-  | "actionMode"
-  | "requestMethod"
-  | "requestUrl"
-  | "requestHeaderKey"
-  | "requestHeaderValue"
-  | "requestBody"
->;
-
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
-  const { controlParamId, showSectionTitle } = useProjectState((x) => {
+  const { controlParamId } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -50,7 +33,6 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     );
     return {
       controlParamId: impl.metaControlParamId,
-      showSectionTitle: impl.showSectionTitle ?? false,
     };
   }, _.isEqual);
 
@@ -62,7 +44,6 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     <MetaControlValueArea
       sectionId={sectionId}
       controlParamId={controlParamId}
-      showSectionTitle={showSectionTitle}
     />
   );
 }
@@ -70,65 +51,41 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
 function MetaControlValueArea({
   sectionId,
   controlParamId,
-  showSectionTitle,
 }: {
   sectionId: string;
   controlParamId: string;
-  showSectionTitle: boolean;
 }) {
-  const {
-    codeObjType,
-    baseValue,
-    defaultVal,
-    sectionName,
-    paramDisplayName,
-    buttonConfig,
-  } = useProjectState((x) => {
-    const sectionName = getSectionCore(x, sectionId).name;
-    const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
-    const controlImpl = getCurrEffectiveCodeObjImpl(
-      x,
-      sectionId,
-      controlParamId,
-    );
-    if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
-      const buttonImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+  const { codeObjType, baseValue, defaultVal, sectionName } = useProjectState(
+    (x) => {
+      const sectionName = getSectionCore(x, sectionId).name;
+      const controlImpl = getCurrEffectiveCodeObjImpl(
         x,
         sectionId,
         controlParamId,
-        isButtonParamCodeObjImpl,
+      );
+      if (controlImpl.type === CodeObjTypeEnum.ButtonParam) {
+        return {
+          codeObjType: controlImpl.type,
+          baseValue: "",
+          defaultVal: "",
+          sectionName,
+        };
+      }
+      const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        x,
+        sectionId,
+        controlParamId,
+        isBaseChildlessCodeObjImpl,
       );
       return {
-        codeObjType: controlImpl.type,
-        baseValue: "",
-        defaultVal: "",
+        codeObjType: childlessImpl.type,
+        baseValue: childlessImpl.value,
+        defaultVal: childlessImpl.defaultVal,
         sectionName,
-        paramDisplayName,
-        buttonConfig: {
-          actionMode: buttonImpl.actionMode,
-          requestMethod: buttonImpl.requestMethod,
-          requestUrl: buttonImpl.requestUrl,
-          requestHeaderKey: buttonImpl.requestHeaderKey,
-          requestHeaderValue: buttonImpl.requestHeaderValue,
-          requestBody: buttonImpl.requestBody,
-        },
       };
-    }
-    const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      controlParamId,
-      isBaseChildlessCodeObjImpl,
-    );
-    return {
-      codeObjType: childlessImpl.type,
-      baseValue: childlessImpl.value,
-      defaultVal: childlessImpl.defaultVal,
-      sectionName,
-      paramDisplayName,
-      buttonConfig: null,
-    };
-  }, _.isEqual);
+    },
+    _.isEqual,
+  );
 
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
@@ -165,13 +122,6 @@ function MetaControlValueArea({
   };
 
   function handleAction() {
-    if (!buttonConfig) {
-      return;
-    }
-    if (buttonConfig.actionMode === ButtonActionModeEnum.HTTP_REQUEST) {
-      sendButtonHttpRequest(buttonConfig);
-      return;
-    }
     sendRealtimeControlAction({
       controlName: sectionName,
       actionId: sectionName,
@@ -187,22 +137,18 @@ function MetaControlValueArea({
           sectionId={sectionId}
           controlParamId={controlParamId}
           sectionName={sectionName}
-          paramDisplayName={paramDisplayName}
           codeObjType={codeObjType}
           onAction={handleAction}
-          showSectionTitle={showSectionTitle}
         />
       ) : (
         <MetaControlContent
           sectionId={sectionId}
           controlParamId={controlParamId}
           sectionName={sectionName}
-          paramDisplayName={paramDisplayName}
           codeObjType={codeObjType}
           value={value}
           defaultVal={defaultVal}
           onValueChange={handleValueChange}
-          showSectionTitle={showSectionTitle}
         />
       )}
     </div>
@@ -236,39 +182,3 @@ const debouncedSetParamEnteredValue = _.debounce(
   },
   50,
 );
-
-function isButtonParamCodeObjImpl(
-  impl: BaseCodeObjImplUnion,
-): impl is ButtonParamCodeObjImpl {
-  return impl.type === CodeObjTypeEnum.ButtonParam;
-}
-
-function sendButtonHttpRequest(config: ButtonRequestConfig) {
-  const requestUrl = config.requestUrl.trim();
-  if (requestUrl === "") {
-    return;
-  }
-
-  const method = config.requestMethod ?? HttpRequestMethodEnum.POST;
-  const headerKey = config.requestHeaderKey.trim();
-  let headers: HeadersInit | undefined;
-  if (headerKey !== "") {
-    headers = { [headerKey]: config.requestHeaderValue };
-  }
-
-  const trimmedBody = config.requestBody.trim();
-  let body: string | undefined;
-  if (
-    trimmedBody !== "" &&
-    method !== HttpRequestMethodEnum.GET &&
-    method !== HttpRequestMethodEnum.HEAD
-  ) {
-    body = config.requestBody;
-  }
-
-  void fetch(requestUrl, {
-    method,
-    headers,
-    body,
-  });
-}

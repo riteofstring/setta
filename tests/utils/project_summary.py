@@ -25,8 +25,15 @@ class ProjectSummaryManager:
 @dataclass(slots=True)
 class ProjectSummarySwitcher:
     manager: ProjectSummaryManager
+    last_share_session_id: str | None = None
 
-    def get(self, _project_identifier: object) -> ProjectSummaryManager:
+    def get(
+        self,
+        _project_identifier: object,
+        *,
+        share_session_id: str | None = None,
+    ) -> ProjectSummaryManager:
+        self.last_share_session_id = share_session_id
         return self.manager
 
 

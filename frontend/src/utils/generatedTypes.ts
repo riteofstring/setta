@@ -18,8 +18,10 @@ export const ControlCodeObjTypeSet = new Set([
   "DropdownParam",
   "DropzoneParam",
   "PasswordParam",
+  "RotaryParam",
   "SliderParam",
   "SwitchParam",
+  "TextAreaParam",
   "TextParam",
 ]);
 
@@ -131,13 +133,6 @@ const ToolArgumentPreviewKindEnum = {
 
 export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
 
-export const ButtonActionModeEnum = {
-  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
-  HTTP_REQUEST: "HTTP_REQUEST",
-} as const;
-
-export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
-
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
   CodeParam: "CodeParam",
@@ -155,18 +150,6 @@ export const CodeObjTypeEnum = {
 } as const;
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
-
-export const HttpRequestMethodEnum = {
-  GET: "GET",
-  POST: "POST",
-  PUT: "PUT",
-  PATCH: "PATCH",
-  DELETE: "DELETE",
-  HEAD: "HEAD",
-  OPTIONS: "OPTIONS",
-} as const;
-
-export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
 
 const ParamNameTypeEnum = { CODE: "CODE", TEXT: "TEXT" } as const;
 
@@ -370,7 +353,6 @@ export const RouteEnum = {
   TOGGLE_POSITION_LOCKS: "/togglePositionLocks",
   TOGGLE_MINIMIZED: "/toggleMinimized",
   TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
-  SET_GROUP_OVERFLOW_MODE: "/setGroupOverflowMode",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
@@ -380,10 +362,7 @@ export const RouteEnum = {
   SET_ACTIVE_IDS: "/setActiveIds",
   SET_VIEWPORT: "/setViewport",
   SET_SECTION_NAME: "/setSectionName",
-  SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
-  SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
-  SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
@@ -412,6 +391,16 @@ export const RouteEnum = {
   SET_CHART_SETTINGS: "/setChartSettings",
   LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
   LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM: "/loadDrawAreaLayerItemTransform",
+  SHARE_DEPLOYMENTS: "/share/deployments",
+  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{projectConfigName}/versions",
+  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{projectConfigName}/latest",
+  SHARE_DEPLOYMENT_SESSION:
+    "/share/deployments/{projectConfigName}/{version}/session",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG:
+    "/share/deployments/{projectConfigName}/{version}/project_config",
+  SHARE_DEPLOYMENT_STATE:
+    "/share/deployments/{projectConfigName}/{version}/state",
+  WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
 } as const;
 
 export const BackgroundVariantEnum = {
@@ -433,6 +422,12 @@ export const RenameRefactorModeEnum = {
 } as const;
 
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
+
+const RunSnapshotModeEnum = {
+  always: "always",
+  ephemeral: "ephemeral",
+  never: "never",
+} as const;
 
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
 
@@ -1103,7 +1098,6 @@ export function createSectionSize(
 }
 
 const SharedModifierSchema = z.object({
-  actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeLayerIdx: z.int().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -1155,23 +1149,15 @@ const SharedModifierSchema = z.object({
   layers: z.array(DrawAreaLayerSchema).optional(),
   max: z.union([z.number(), z.int()]).optional(),
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
-  metaControlStyle: z.boolean().optional(),
   min: z.union([z.number(), z.int()]).optional(),
   name: z.string().optional(),
-  overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   positionAndSizeLocked: z.boolean().optional(),
   renderedValue: z.union([z.string(), z.null()]).optional(),
-  requestBody: z.string().optional(),
-  requestHeaderKey: z.string().optional(),
-  requestHeaderValue: z.string().optional(),
-  requestMethod: z.enum(HttpRequestMethodEnum).optional(),
-  requestUrl: z.string().optional(),
   selectedParams: z.array(IDSchema).optional(),
-  showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
   text: z.string().optional(),
@@ -1201,7 +1187,6 @@ const CoreSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "actionMode",
         "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -1251,23 +1236,15 @@ const CoreSchema = z.object({
         "layers",
         "max",
         "metaControlParamId",
-        "metaControlStyle",
         "min",
         "name",
-        "overflowMode",
         "paramFilter",
         "passingStyle",
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
         "renderedValue",
-        "requestBody",
-        "requestHeaderKey",
-        "requestHeaderValue",
-        "requestMethod",
-        "requestUrl",
         "selectedParams",
-        "showSectionTitle",
         "size",
         "step",
         "text",
@@ -1396,7 +1373,6 @@ const GroupSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   children: z.array(IDSchema).default([]),
   isHorizontalOrientation: z.boolean().default(false),
-  overflowMode: z.boolean().default(false),
 });
 
 type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
@@ -1479,9 +1455,7 @@ const TextBlockSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 150.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -1490,7 +1464,6 @@ const TextBlockSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
-  metaControlStyle: z.boolean().default(false),
   textDisplayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.Render),
@@ -1514,7 +1487,6 @@ const MetaControlSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   metaControlParamId: z.union([IDSchema, z.null()]).default(null),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
-  showSectionTitle: z.boolean().default(false),
 });
 
 type MetaControlSectionImpl = z.infer<typeof MetaControlSectionImplSchema>;
@@ -1762,16 +1734,6 @@ const ButtonParamCodeObjImplSchema = z.object({
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
   label: z.string().default("Trigger" as const),
-  actionMode: z
-    .enum(ButtonActionModeEnum)
-    .default(ButtonActionModeEnum.WEBSOCKET_LISTENER),
-  requestMethod: z
-    .enum(HttpRequestMethodEnum)
-    .default(HttpRequestMethodEnum.POST),
-  requestUrl: z.string().default("" as const),
-  requestHeaderKey: z.string().default("" as const),
-  requestHeaderValue: z.string().default("" as const),
-  requestBody: z.string().default("" as const),
 });
 
 export type ButtonParamCodeObjImpl = z.infer<
@@ -2431,12 +2393,6 @@ const ButtonParamCodeObjImplArgsSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   label: z.string().optional(),
-  actionMode: z.enum(ButtonActionModeEnum).optional(),
-  requestMethod: z.enum(HttpRequestMethodEnum).optional(),
-  requestUrl: z.string().optional(),
-  requestHeaderKey: z.string().optional(),
-  requestHeaderValue: z.string().optional(),
-  requestBody: z.string().optional(),
 });
 
 type ButtonParamCodeObjImplArgs = z.infer<
@@ -2597,7 +2553,6 @@ const GroupSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   children: z.array(IDSchema).optional(),
   isHorizontalOrientation: z.boolean().optional(),
-  overflowMode: z.boolean().optional(),
 });
 
 type GroupSectionImplArgs = z.infer<typeof GroupSectionImplArgsSchema>;
@@ -2664,7 +2619,6 @@ const TextBlockSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
-  metaControlStyle: z.boolean().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   text: z.string().optional(),
 });
@@ -2686,7 +2640,6 @@ const MetaControlSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   metaControlParamId: z.union([IDSchema, z.null()]).optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
-  showSectionTitle: z.boolean().optional(),
 });
 
 type MetaControlSectionImplArgs = z.infer<
@@ -2858,6 +2811,7 @@ const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),
   currentAddress: z.union([z.string(), z.null()]),
+  shareSessionId: z.union([z.string(), z.null()]).default(null),
 });
 
 export type WebsocketConnectionInfo = z.infer<
@@ -3296,6 +3250,9 @@ const SettingsBackendSchema = z.object({
     .enum(RenameRefactorModeEnum)
     .default(RenameRefactorModeEnum.ALWAYS_ASK),
   saveRenderedValues: z.boolean().default(false),
+  runSnapshotMode: z
+    .enum(RunSnapshotModeEnum)
+    .default(RunSnapshotModeEnum.ephemeral),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -3760,7 +3717,6 @@ const UserDefaultGroupSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isHorizontalOrientation: z.boolean().default(false),
-  overflowMode: z.boolean().default(false),
 });
 
 type UserDefaultGroupSectionImpl = z.infer<
@@ -3834,7 +3790,6 @@ const UserDefaultMetaControlSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  showSectionTitle: z.boolean().default(false),
 });
 
 type UserDefaultMetaControlSectionImpl = z.infer<
@@ -3888,15 +3843,12 @@ function createUserDefaultTerminalSectionImpl(
 
 const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 300.0, height: 150.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
-  metaControlStyle: z.boolean().default(false),
   textDisplayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.Render),
@@ -3917,16 +3869,6 @@ const UserDefaultButtonParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   label: z.string().default("Trigger" as const),
-  actionMode: z
-    .enum(ButtonActionModeEnum)
-    .default(ButtonActionModeEnum.WEBSOCKET_LISTENER),
-  requestMethod: z
-    .enum(HttpRequestMethodEnum)
-    .default(HttpRequestMethodEnum.POST),
-  requestUrl: z.string().default("" as const),
-  requestHeaderKey: z.string().default("" as const),
-  requestHeaderValue: z.string().default("" as const),
-  requestBody: z.string().default("" as const),
 });
 
 type UserDefaultButtonParamCodeObjImpl = z.infer<
@@ -4872,6 +4814,69 @@ const BrowserAreaItemSchema = z.object({
 
 export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
 
+const ShareDeploymentListenerConfigSchema = z.object({
+  entrypoint: z.string(),
+  enabled: z.boolean().default(true),
+});
+
+const ShareDeploymentManifestSchema = z.object({
+  version: z.int(),
+  projectConfigId: IDSchema,
+  projectConfigName: z.string(),
+  deploymentVersion: z.string(),
+  createdAt: z.iso.datetime().default(get_now_timestamp),
+  listener: z
+    .union([ShareDeploymentListenerConfigSchema, z.null()])
+    .default(null),
+});
+
+export type ShareDeploymentManifest = z.infer<
+  typeof ShareDeploymentManifestSchema
+>;
+
+const ShareDeploymentMetadataSchema = z.object({
+  projectConfigName: z.string(),
+  deploymentVersion: z.string(),
+  createdAt: z.iso.datetime(),
+  deploymentRoot: z.string(),
+  sharePolicyPath: z.string(),
+});
+
+export type ShareDeploymentMetadata = z.infer<
+  typeof ShareDeploymentMetadataSchema
+>;
+
+const SharePolicySchema = z.object({
+  allowParamChanges: z.boolean().default(true),
+  allowVariantChanges: z.boolean().default(true),
+  allowLayoutChanges: z.boolean().default(true),
+  allowStructuralChanges: z.boolean().default(true),
+  allowRun: z.boolean().default(false),
+  allowLSP: z.boolean().default(false),
+  allowLLM: z.boolean().default(false),
+  allowMCP: z.boolean().default(false),
+  runSnapshotMode: z
+    .enum(RunSnapshotModeEnum)
+    .default(RunSnapshotModeEnum.ephemeral),
+  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
+});
+
+export type SharePolicy = z.infer<typeof SharePolicySchema>;
+
+const ShareDeploymentSessionResponseSchema = z.object({
+  projectConfigName: z.string(),
+  deploymentVersion: z.string(),
+  shareSessionId: z.string(),
+  defaultProjectConfigId: IDSchema,
+  projectMetadata: z.array(ProjectConfigSchema),
+  sharePolicy: SharePolicySchema,
+  manifest: z.union([ShareDeploymentManifestSchema, z.null()]).default(null),
+});
+
+export type ShareDeploymentSessionResponse = z.infer<
+  typeof ShareDeploymentSessionResponseSchema
+>;
+
 const WebsocketMsgSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -5562,17 +5567,6 @@ export type SetGenCodeSuffixRequestInput = z.input<
   typeof SetGenCodeSuffixRequestSchema
 >;
 
-const SetGroupOverflowModeRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  overflowMode: z.boolean(),
-});
-
-export type SetGroupOverflowModeRequestInput = z.input<
-  typeof SetGroupOverflowModeRequestSchema
->;
-
 const SetImageAreaImagePathRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -5582,17 +5576,6 @@ const SetImageAreaImagePathRequestSchema = z.object({
 
 export type SetImageAreaImagePathRequestInput = z.input<
   typeof SetImageAreaImagePathRequestSchema
->;
-
-const SetMetaControlShowSectionTitleRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  showSectionTitle: z.boolean(),
-});
-
-export type SetMetaControlShowSectionTitleRequestInput = z.input<
-  typeof SetMetaControlShowSectionTitleRequestSchema
 >;
 
 const SetParamEnteredValueRequestSchema = z.object({
@@ -5735,28 +5718,6 @@ const SetTextBlockFormatRequestSchema = z.object({
 
 export type SetTextBlockFormatRequestInput = z.input<
   typeof SetTextBlockFormatRequestSchema
->;
-
-const SetTextBlockHeadingAsSectionNameRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  headingAsSectionName: z.boolean(),
-});
-
-export type SetTextBlockHeadingAsSectionNameRequestInput = z.input<
-  typeof SetTextBlockHeadingAsSectionNameRequestSchema
->;
-
-const SetTextBlockMetaControlStyleRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  metaControlStyle: z.boolean(),
-});
-
-export type SetTextBlockMetaControlStyleRequestInput = z.input<
-  typeof SetTextBlockMetaControlStyleRequestSchema
 >;
 
 const SetTextBlockTextRequestSchema = z.object({
@@ -6054,6 +6015,42 @@ const SaveSettingsRequestSchema = z.object({
 
 export type SaveSettingsRequestInput = z.input<
   typeof SaveSettingsRequestSchema
+>;
+
+const LoadShareProjectConfigRequestSchema = z.object({
+  projectConfigId: IDSchema,
+});
+
+export type LoadShareProjectConfigRequestInput = z.input<
+  typeof LoadShareProjectConfigRequestSchema
+>;
+
+const SharePolicyOverridesSchema = z.object({
+  allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowVariantChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowStructuralChanges: z.union([z.boolean(), z.null()]).default(null),
+  allowRun: z.union([z.boolean(), z.null()]).default(null),
+  allowLSP: z.union([z.boolean(), z.null()]).default(null),
+  allowLLM: z.union([z.boolean(), z.null()]).default(null),
+  allowMCP: z.union([z.boolean(), z.null()]).default(null),
+  runSnapshotMode: z
+    .union([z.enum(RunSnapshotModeEnum), z.null()])
+    .default(null),
+  allowedSections: z.union([z.array(IDSchema), z.null()]).default(null),
+});
+
+const PublishShareDeploymentRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  sharePolicyOverrides: z
+    .union([SharePolicyOverridesSchema, z.null()])
+    .default(null),
+  listenerEntrypoint: z.union([z.string(), z.null()]).default(null),
+  listenerEnabled: z.boolean().default(true),
+});
+
+export type PublishShareDeploymentRequestInput = z.input<
+  typeof PublishShareDeploymentRequestSchema
 >;
 
 const BackendInitEventSchema = z.object({
