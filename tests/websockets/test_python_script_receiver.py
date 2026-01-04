@@ -2,7 +2,6 @@ import tempfile
 import unittest
 import weakref
 from pathlib import Path
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Iterable, TypeVar, cast
 
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -56,21 +55,6 @@ PROJECT_UNKNOWN_ID = ID("proj-unknown")
 PROJECT_A_ID = ID("proj-a")
 PROJECT_B_ID = ID("proj-b")
 PROJECT_EMPTY_ID = ID("proj-empty")
-
-_DEFAULT_SOCKET_IDS = (
-    "socket-1",
-    "socket-temp",
-    "socket-init",
-    "socket-missing",
-    "socket-missing-name",
-    "socket-unknown",
-    "socket-a",
-    "socket-b",
-)
-
-
-async def _noop_wait_until_ready() -> None:
-    return None
 
 
 def _build_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
@@ -170,7 +154,6 @@ class _StubPythonScriptSender:
         projectState: ProjectStateSingleConfig | None = None,
         projectConfigId: ID | None = None,
         targetWebsocketIds: Iterable[str] | None = None,
-        share_session_id: str | None = None,
     ) -> None:
         self.force_refresh_calls.append(
             {
@@ -179,7 +162,6 @@ class _StubPythonScriptSender:
                 "targetWebsocketIds": tuple(targetWebsocketIds)
                 if targetWebsocketIds is not None
                 else None,
-                "shareSessionId": share_session_id,
             }
         )
 
@@ -245,12 +227,7 @@ class _StubProjectManagerSwitcher:
     def get(self, project_config_id: ID) -> _StubProjectManager:
         return self._manager
 
-    def get_config_id_by_name(
-        self,
-        project_name: str,
-        *,
-        share_session_id: str | None = None,
-    ) -> ID:
+    def get_config_id_by_name(self, project_name: str) -> ID:
         for state in self._manager._states.values():
             if state.projectConfig.name == project_name:
                 return state.projectConfig.id
@@ -261,20 +238,6 @@ class _StubWebsocketManager:
     def __init__(self) -> None:
         self.sent_messages: list[tuple[object, str]] = []
         self.broadcasts: list[tuple[object, object | None, object | None]] = []
-        self.sockets: dict[str, SimpleNamespace] = {}
-        self._state = SimpleNamespace(
-            share_mode=False,
-            wait_until_ready=_noop_wait_until_ready,
-        )
-        for websocket_id in _DEFAULT_SOCKET_IDS:
-            self.register_socket(websocket_id)
-
-    def register_socket(self, websocket_id: str) -> None:
-        if websocket_id in self.sockets:
-            return
-        app_state = SimpleNamespace(setta=self._state)
-        websocket = SimpleNamespace(app=SimpleNamespace(state=app_state))
-        self.sockets[websocket_id] = SimpleNamespace(websocket=websocket)
 
     async def send_message(self, message, toWebsocketId: str):
         self.sent_messages.append((message, toWebsocketId))
@@ -645,8 +608,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
             project_manager_switcher,
             listener_registry,
         ) = _build_receiver_fixture({PROJECT_ID: project_state})
-        dependency_name, _ = _get_primary_section_dependency_info(project_state)
-        del project_manager_switcher._manager._states[PROJECT_ID]
+        del project_manager_switcher._manager.gen_code[PROJECT_ID]
         callback = ListenerRegisterCallback(
             dependencies=[],
             dependencyMode=ListenerDependencyMode.REFRESH_ONLY,
@@ -664,6 +626,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         websocket_manager.sent_messages.clear()
         websocket_manager.broadcasts.clear()
 
+        dependency_name, _ = _get_primary_section_dependency_info(project_state)
         emit_message = WebsocketMsgListenerFrontendEmit(
             content=ListenerFrontendEmitRawContent(
                 projectConfigId=PROJECT_ID,
@@ -682,7 +645,7 @@ class WMHPythonScriptReceiverTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual("socket-1", websocket_id)
         self.assertEqual("project_state_unavailable", error_message.content.error)
-        self.assertEqual({"message": f"'{PROJECT_ID}'"}, error_message.content.details)
+        self.assertEqual({"projectConfigId": PROJECT_ID}, error_message.content.details)
         self._assert_backend_log_broadcast(websocket_manager, PROJECT_ID)
 
     async def test_listener_frontend_emit_rejects_project_config_mismatch(self):

@@ -114,7 +114,16 @@ export type ColorPickerConfigForFrontend = Pick<
   "colorChoices"
 >;
 
-type ButtonConfigForFrontend = Pick<ButtonParamCodeObjImpl, "label">;
+type ButtonConfigForFrontend = Pick<
+  ButtonParamCodeObjImpl,
+  | "label"
+  | "actionMode"
+  | "requestMethod"
+  | "requestUrl"
+  | "requestHeaderKey"
+  | "requestHeaderValue"
+  | "requestBody"
+>;
 
 const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.SliderParam]: (
@@ -145,6 +154,12 @@ const UI_CONFIG_EXTRACTORS = {
     obj: ButtonParamCodeObjImpl,
   ): ButtonConfigForFrontend => ({
     label: obj.label,
+    actionMode: obj.actionMode,
+    requestMethod: obj.requestMethod,
+    requestUrl: obj.requestUrl,
+    requestHeaderKey: obj.requestHeaderKey,
+    requestHeaderValue: obj.requestHeaderValue,
+    requestBody: obj.requestBody,
   }),
 } as const;
 

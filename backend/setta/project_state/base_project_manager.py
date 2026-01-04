@@ -32,7 +32,7 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
-from setta.lsp.managers import LSPWriters, NoopLSPWriters
+from setta.lsp.managers import LSPWriters
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -95,7 +95,6 @@ from setta.project_state.project_manager_types import (
     PrepareSectionsForCopyRequest,
     RedoRequest,
     RenameRefactorBroadcastContent,
-    RunCodeRequest,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
@@ -115,7 +114,9 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetSectionColumnWidthRequest,
@@ -130,6 +131,8 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
+    SetTextBlockHeadingAsSectionNameRequest,
+    SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
@@ -199,7 +202,9 @@ from setta.types.helpers_lvl2 import (
     set_code,
     set_code_file_binding,
     set_default_section_variant,
+    set_group_overflow_mode,
     set_image_area_image_path,
+    set_meta_control_show_section_title,
     set_param_entered_value,
     set_project_config_name,
     set_section_column_width,
@@ -213,6 +218,8 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
+    set_text_block_heading_as_section_name,
+    set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
     toggle_group_orientation,
@@ -253,7 +260,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     SectionType,
 )
-from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.settings_state import RenameRefactorMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -272,7 +279,7 @@ _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]
 class BaseProjectManager(ABC):
     def __init__(
         self,
-        lsp_writers: LSPWriters | NoopLSPWriters,
+        lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
         python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
@@ -291,7 +298,6 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
-        self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
@@ -546,49 +552,30 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def create_run_command(
         self,
-        x: RunCodeRequest,
+        projectConfigId: ID,
+        sectionId: ID | None,
     ):
-        project_config_id = x.projectConfigId
-        section_id = x.sectionId
-        run_snapshot_mode = x.runSnapshotMode
         async with self._project_state_lock.read_lock():
-            gen_code, code_entries = self._flush_code_files(project_config_id)
+            gen_code, code_entries = self._flush_code_files(projectConfigId)
             if gen_code is None:
                 raise KeyError(
-                    f"Missing generated code for project config {project_config_id}"
+                    f"Missing generated code for project config {projectConfigId}"
                 )
-            resolved_run_snapshot_mode = (
-                run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
-            )
-            if resolved_run_snapshot_mode == RunSnapshotMode.never:
-                gen_code_path = gen_code.get_gen_python_code_path()
-                code_paths = {
-                    sid: c.binding.canonical_path for sid, c in code_entries.items()
-                }
-            else:
-                target_folder = create_timestamped_folder(
-                    self._resolve_run_snapshot_root(resolved_run_snapshot_mode)
-                )
-                gen_code_path = gen_code.write_to_folder(target_folder)
-                code_paths = {}
-                for sid, c in code_entries.items():
-                    code_paths[sid] = c.write_to_folder(target_folder)
+            target_folder = create_timestamped_folder(C.CODE_FOLDER)
+            gen_code_path = gen_code.write_to_folder(target_folder)
 
-            if not section_id:
-                section_id = self.project_state_backend.projectConfigs[
-                    project_config_id
+            code_paths = {}
+            for sid, c in code_entries.items():
+                code_paths[sid] = c.write_to_folder(target_folder)
+
+            if not sectionId:
+                sectionId = self.project_state_backend.projectConfigs[
+                    projectConfigId
                 ].entryCodeBlockId
 
-            if section_id:
-                return code_entries[section_id].get_run_command(code_paths[section_id])
+            if sectionId:
+                return code_entries[sectionId].get_run_command(code_paths[sectionId])
             return gen_code.get_run_command(gen_code_path)
-
-    def _resolve_run_snapshot_root(self, run_snapshot_mode: RunSnapshotMode) -> Path:
-        if run_snapshot_mode == RunSnapshotMode.ephemeral:
-            return C.RUN_FOLDER
-        if run_snapshot_mode == RunSnapshotMode.always:
-            return C.CODE_FOLDER
-        raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
 
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
@@ -658,112 +645,89 @@ class BaseProjectManager(ABC):
                 singleConfig, updateFileWatcher=False
             )
 
-    async def _refresh_codegen_state(
-        self,
-        projectState: ProjectStateSingleConfig,
-    ) -> None:
-        dep_graph = DependencyGraph(projectState)
-        projectConfig = projectState.projectConfig
-        projectConfigId = projectConfig.id
-        if self.gen_code.get(projectConfigId):
-            await self.maybe_do_rename_refactor(
-                projectState, projectConfigId, dep_graph
-            )
-            self.gen_code[projectConfigId].callback_cleanup()
-
-        code_generator = PythonCodeGenerator(
-            dep_graph,
-            projectConfig.genCodePrefix,
-            projectConfig.genCodeSuffix,
-            value_mode=PythonValueMode.PACKAGED_RUNTIME,
-        )
-        code_generator.generate_code()
-        ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
-            projectState
-        )
-
-        gen_code_binding = projectState.genCodeBinding
-        if gen_code_binding is None:
-            raise ValueError("Project state missing generated code binding")
-        new_gen_code = ProjectGenPythonCode(
-            self.dbe,
-            self.code_files,
-            gen_code_binding,
-            self.lsp_writers,
-            self.websocket_msg_handler,
-            projectConfigId,
-            dep_graph,
-            code_generator,
-            ignore_type_errors_by_section,
-        )
-        if not new_gen_code.binding.canonical_path.exists():
-            new_gen_code.write_to_disk(new_gen_code.code)
-        if self.lsp_writers.full is not None:
-            await new_gen_code.sync_lsp(new_gen_code.code)
-        maybe_update_gen_python_code_section(projectState, new_gen_code.generated_code)
-        self.gen_code[projectConfigId] = new_gen_code
-
-        if self.code_dict.get(projectConfigId):
-            for c in self.code_dict[projectConfigId].values():
-                if isinstance(c, ProjectPythonCode):
-                    c.callback_cleanup()
-        self.code_dict[projectConfigId] = {}
-
-        for sectionId in projectState.sections.keys():
-            section_impl = get_curr_effective_section_impl(projectState, sectionId)
-            if isinstance(section_impl, CodeSectionImpl):
-                section_code = self.create_project_code(
-                    projectState, sectionId, section_impl
-                )
-
-                if not section_code:
-                    continue
-
-                if not section_code.binding.canonical_path.exists():
-                    section_code.write_to_disk(section_code.code)
-                if self.lsp_writers.full is not None:
-                    await section_code.sync_lsp(section_code.code)
-                self.code_dict[projectConfigId][sectionId] = section_code
-
-    def _merge_project_state_backend(
-        self,
-        projectState: ProjectStateSingleConfig,
-        *,
-        updateFileWatcher: bool,
-    ) -> None:
-        self.project_state_backend = self.get_new_project_state_backend(projectState)
-        if updateFileWatcher:
-            self.watch_json_source_files()
-            self.watch_artifact_files()
-            self.watch_code_files()
-
-    def shutdown(self) -> None:
-        categories = (
-            f"{self._file_watcher_category_prefix}_JSONSource",
-            f"{self._file_watcher_category_prefix}_Artifacts",
-            f"{self._file_watcher_category_prefix}_CodeFiles",
-        )
-        for category in categories:
-            self.specific_file_watcher.update_callbacks({}, category, [])
-        self.autosave_debouncer.cancel()
-        self.queue_task.cancel()
-
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
         updateFileWatcher: bool = True,
-        validate_code_file_bindings: bool = True,
     ):
         async with self._project_state_lock.write_lock():
-            projectState.validate_for_update(
-                validate_code_file_bindings=validate_code_file_bindings,
+            projectState.validate_singleton_sections()
+            projectState.validate_parent_section_map()
+            projectState.validate_view_modes()
+            projectState.validate_shown_param_ids()
+            projectState.validate_yaml_values()
+            projectState.validate_required_decoded_images()
+            projectState.validate_code_file_bindings()
+            dep_graph = DependencyGraph(projectState)
+            projectConfig = projectState.projectConfig
+            projectConfigId = projectConfig.id
+            if self.gen_code.get(projectConfigId):
+                await self.maybe_do_rename_refactor(
+                    projectState, projectConfigId, dep_graph
+                )
+                self.gen_code[projectConfigId].callback_cleanup()
+
+            code_generator = PythonCodeGenerator(
+                dep_graph,
+                projectConfig.genCodePrefix,
+                projectConfig.genCodeSuffix,
+                value_mode=PythonValueMode.PACKAGED_RUNTIME,
             )
-            if self.lsp_writers.full is not None:
-                await self._refresh_codegen_state(projectState)
-            self._merge_project_state_backend(
-                projectState,
-                updateFileWatcher=updateFileWatcher,
+            code_generator.generate_code()
+            ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
+                projectState
             )
+
+            gen_code_binding = projectState.genCodeBinding
+            if gen_code_binding is None:
+                raise ValueError("Project state missing generated code binding")
+            new_gen_code = ProjectGenPythonCode(
+                self.dbe,
+                self.code_files,
+                gen_code_binding,
+                self.lsp_writers,
+                self.websocket_msg_handler,
+                projectConfigId,
+                dep_graph,
+                code_generator,
+                ignore_type_errors_by_section,
+            )
+            if not new_gen_code.binding.canonical_path.exists():
+                new_gen_code.write_to_disk(new_gen_code.code)
+            await new_gen_code.sync_lsp(new_gen_code.code)
+            maybe_update_gen_python_code_section(
+                projectState, new_gen_code.generated_code
+            )
+            self.gen_code[projectConfigId] = new_gen_code
+
+            if self.code_dict.get(projectConfigId):
+                for c in self.code_dict[projectConfigId].values():
+                    if isinstance(c, ProjectPythonCode):
+                        c.callback_cleanup()
+            self.code_dict[projectConfigId] = {}
+
+            for sectionId in projectState.sections.keys():
+                section_impl = get_curr_effective_section_impl(projectState, sectionId)
+                if isinstance(section_impl, CodeSectionImpl):
+                    section_code = self.create_project_code(
+                        projectState, sectionId, section_impl
+                    )
+
+                    if not section_code:
+                        continue
+
+                    if not section_code.binding.canonical_path.exists():
+                        section_code.write_to_disk(section_code.code)
+                    await section_code.sync_lsp(section_code.code)
+                    self.code_dict[projectConfigId][sectionId] = section_code
+
+            self.project_state_backend = self.get_new_project_state_backend(
+                projectState
+            )
+            if updateFileWatcher:
+                self.watch_json_source_files()
+                self.watch_artifact_files()
+                self.watch_code_files()
 
     @enqueue_method(require_serialization=False)
     async def type_check(self, projectConfigId: ID):
@@ -988,6 +952,18 @@ class BaseProjectManager(ABC):
         """Flip whether a group section lays out children horizontally."""
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_group_orientation(project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_group_overflow_mode(self, x: SetGroupOverflowModeRequest):
+        """Set whether a group section constrains its children in a scrollable area."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_group_overflow_mode(project_state, x.sectionId, x.overflowMode)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1611,9 +1587,45 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        )
+    )
+    async def set_meta_control_show_section_title(
+        self, x: SetMetaControlShowSectionTitleRequest
+    ):
+        """Toggle meta control title visibility and broadcast the updated project state."""
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_meta_control_show_section_title(
+            project_state, x.sectionId, x.showSectionTitle
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_text_block_heading_as_section_name(
+        self, x: SetTextBlockHeadingAsSectionNameRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_heading_as_section_name(
+            project_state, x.sectionId, x.headingAsSectionName
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.textDisplayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_text_block_meta_control_style(
+        self, x: SetTextBlockMetaControlStyleRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_meta_control_style(
+            project_state, x.sectionId, x.metaControlStyle
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
@@ -1698,7 +1710,6 @@ class BaseProjectManager(ABC):
             raise ValueError("listener emits require dependency or artifact updates")
 
         project_state = self.get_single_config_state(projectConfigId)
-
         artifact_payloads: list[BaseArtifactUnion] = []
 
         if dependency_updates:
@@ -1991,7 +2002,7 @@ class BaseProjectManager(ABC):
             raise exception
 
     def watch_json_source_files(self):
-        callback_category = f"{self._file_watcher_category_prefix}_JSONSource"
+        callback_category = f"{self.__class__.__name__}_JSONSource"
 
         def should_defer_reload(
             section_variants_to_load: set[tuple[ID, ID]],
@@ -2020,13 +2031,12 @@ class BaseProjectManager(ABC):
 
     def watch_artifact_files(self):
         self.artifacts.watch_artifact_files(
-            f"{self._file_watcher_category_prefix}_Artifacts",
-            self.project_state_backend,
+            f"{self.__class__.__name__}_Artifacts", self.project_state_backend
         )
 
     def watch_code_files(self):
         self.code_files.watch_code_files(
-            f"{self._file_watcher_category_prefix}_CodeFiles",
+            f"{self.__class__.__name__}_CodeFiles",
             self.project_state_backend_getter_fn,
             self.reload_code_sections,
         )
@@ -2158,7 +2168,7 @@ class BaseProjectManager(ABC):
         pending.update(section_variants_to_load)
 
     async def _flush_deferred_json_source_loads(self) -> None:
-        callback_category = f"{self._file_watcher_category_prefix}_JSONSource"
+        callback_category = f"{self.__class__.__name__}_JSONSource"
         pending = self._deferred_json_source_loads.pop(callback_category, None)
         if not pending:
             return

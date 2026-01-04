@@ -1,12 +1,11 @@
 import docstring_to_markdown
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 
-from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 
-router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+router = SettaAPIRouter()
 
 
 class DocstringToMarkdownRequest(BaseModel):

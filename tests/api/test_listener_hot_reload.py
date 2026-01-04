@@ -249,7 +249,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         listener = SettaListener(project_name="Demo Project")
 
         def builder(target: SettaListener) -> None:
-            pass
+            _ = target  # keep signature explicit; builder not executed during test
 
         captured: dict[str, ListenerHotReloader] = {}
 
@@ -281,7 +281,7 @@ class SettaListenerHotReloadTests(unittest.IsolatedAsyncioTestCase):
         listener = SettaListener(project_name="Demo Project")
 
         def builder(target: SettaListener) -> None:
-            pass
+            _ = target
 
         with self.assertRaises(ValueError):
             listener.start(builder=builder)

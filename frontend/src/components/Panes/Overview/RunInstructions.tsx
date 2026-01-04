@@ -21,70 +21,20 @@ import {
   useLocalStorage,
   useProjectState,
   useRunControl,
-  useSettings,
-  useShareSession,
   ZustandProjectState,
 } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import {
   isBaseParentSectionImpl,
   SectionTypeEnum,
   type BaseSectionImplUnion,
   type Core,
-  type SettingsState,
   type ViewModeConfig,
 } from "utils/generatedTypes";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
-type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
-type RunSnapshotModeChoice = RunSnapshotMode | "default";
-
-const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
-  value: RunSnapshotMode;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "ephemeral",
-    label: "Ephemeral",
-    description: "Snapshot per run, cleaned up automatically.",
-  },
-  {
-    value: "always",
-    label: "Always",
-    description: "Snapshot per run, stored under code history.",
-  },
-  {
-    value: "never",
-    label: "Never",
-    description: "Run from canonical files without a snapshot.",
-  },
-];
-const RUN_SNAPSHOT_MODE_CHOICES: Array<{
-  value: RunSnapshotModeChoice;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "default",
-    label: "Use Settings",
-    description: "Follow the settings default for this project.",
-  },
-  ...RUN_SNAPSHOT_MODE_OPTIONS,
-];
 
 export function RunInstructions() {
-  const { canRun } = useShareCapabilities();
-  const isShareMode = useShareSession((x) => x.isShareMode);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const runSnapshotModeOverride = useLocalStorage(
-    (x) => x.runSnapshotModeByProjectConfigId[projectConfigId],
-  );
-  const settingsRunSnapshotMode = useSettings((x) => x.backend.runSnapshotMode);
-  const runSnapshotMode = runSnapshotModeOverride ?? settingsRunSnapshotMode;
-  const selectedRunSnapshotMode: RunSnapshotModeChoice = runSnapshotModeOverride
-    ? runSnapshotModeOverride
-    : "default";
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
@@ -97,53 +47,8 @@ export function RunInstructions() {
   const runnableCodeBlocks = useRunnableCodeBlockListing();
 
   React.useEffect(() => {
-    if (!canRun) {
-      return;
-    }
     ensureDefaultCustomRuns(projectConfigId);
-  }, [projectConfigId, canRun]);
-
-  if (!canRun) {
-    return (
-      <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
-        Run controls are disabled in sharing mode.
-      </div>
-    );
-  }
-
-  const runSnapshotModeMeta =
-    RUN_SNAPSHOT_MODE_OPTIONS.find(
-      (option) => option.value === runSnapshotMode,
-    ) ?? RUN_SNAPSHOT_MODE_OPTIONS[0];
-  let runSnapshotModePrefix = "Using settings default.";
-  if (runSnapshotModeOverride) {
-    runSnapshotModePrefix = "Override for this project.";
-  }
-
-  const handleRunSnapshotModeChange = (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ): void => {
-    const nextValue = event.target.value as RunSnapshotModeChoice;
-    if (nextValue === selectedRunSnapshotMode) {
-      return;
-    }
-    if (nextValue === "default") {
-      useLocalStorage.setState((state) => {
-        const nextOverrides = {
-          ...state.runSnapshotModeByProjectConfigId,
-        };
-        delete nextOverrides[projectConfigId];
-        return { runSnapshotModeByProjectConfigId: nextOverrides };
-      });
-      return;
-    }
-    useLocalStorage.setState((state) => ({
-      runSnapshotModeByProjectConfigId: {
-        ...state.runSnapshotModeByProjectConfigId,
-        [projectConfigId]: nextValue,
-      },
-    }));
-  };
+  }, [projectConfigId]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -151,33 +56,6 @@ export function RunInstructions() {
         Define custom run types (once or continuous) and choose which ones
         appear in the main Run dropdown.
       </p>
-      {!isShareMode && (
-        <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-              Run Snapshot Mode
-            </div>
-            <div className="text-[11px] text-setta-600 dark:text-setta-300">
-              {runSnapshotModeMeta.description}
-            </div>
-            <div className="text-[11px] text-setta-400 dark:text-setta-500">
-              {runSnapshotModePrefix}
-            </div>
-          </div>
-          <select
-            className="rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-            value={selectedRunSnapshotMode}
-            onChange={handleRunSnapshotModeChange}
-            {...getFloatingBoxHandlers({ content: "Run snapshot mode" })}
-          >
-            {RUN_SNAPSHOT_MODE_CHOICES.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
