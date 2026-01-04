@@ -35,20 +35,6 @@ class LSPWriters:
         self.file_watcher.start()
 
 
-class _NoopFileWatcher:
-    def stop(self) -> None:
-        return None
-
-
-class NoopLSPWriters:
-    def __init__(self) -> None:
-        self.full = None
-        self.file_watcher = _NoopFileWatcher()
-
-    async def start(self) -> None:
-        return None
-
-
 class LSPReaders:
     def __init__(self, servers, websocket_msg_handler: WMHFrontendSender):
         server_name = servers.full.name
