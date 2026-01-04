@@ -297,26 +297,12 @@ function ContainerGroup({
       return;
     }
 
-    const crossAxis = getCrossAxis(isHorizontalOrientation);
     const resizeWidth = didResizeWidth(direction);
     const resizeHeight = didResizeHeight(direction);
-    const shouldSyncCrossAxis =
-      crossAxis === "width" ? resizeWidth : resizeHeight;
 
+    // Only update the group size during drag - sync children on stop to avoid rubber-banding
     useProjectState.setState((state) => {
       setSectionSize(sectionId, nextSize, state);
-      if (shouldSyncCrossAxis) {
-        const axisSize =
-          crossAxis === "width" ? nextSize.width : nextSize.height;
-        setOverflowGroupCrossAxisSize({
-          groupId: sectionId,
-          axis: crossAxis,
-          axisSize,
-          state,
-          includeChildren: true,
-          includeGroup: false,
-        });
-      }
       if (resizeWidth) {
         applyOverflowParentSizeUpdates({
           sectionId,
@@ -359,12 +345,18 @@ function ContainerGroup({
           const axisSize =
             crossAxis === "width" ? changedSize.width : changedSize.height;
           if (typeof axisSize === "number") {
+            // Subtract container padding (px-6 = 48px horizontal) so children fit within group
+            const GROUP_HORIZONTAL_PADDING = 48;
+            const childAxisSize =
+              crossAxis === "width"
+                ? axisSize - GROUP_HORIZONTAL_PADDING
+                : axisSize;
             mergeSizeUpdates(
               updatedSectionSizes,
               setOverflowGroupCrossAxisSize({
                 groupId: sectionId,
                 axis: crossAxis,
-                axisSize,
+                axisSize: childAxisSize,
                 state,
                 includeChildren: true,
                 includeGroup: false,
