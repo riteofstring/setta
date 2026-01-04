@@ -5,16 +5,11 @@ from typing import TypedDict
 from pydantic import BaseModel
 
 from setta.project_state.artifacts import ArtifactSaveResult, SaveConflictStrategy
-from setta.routers.dependencies import (
-    AppStateFromRequest,
-    MaybeShareSessionIdFromRequest,
-    require_share_session_id,
-)
+from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.share.path_guard import ensure_share_deployment_path
 from setta.share.policy import (
     ensure_share_artifact_paths_scoped,
-    ensure_share_param_changes_allowed,
     resolve_section_ids_for_artifacts,
 )
 from setta.types.artifact import (
@@ -53,16 +48,18 @@ class UpdateArtifactsRequest(BaseModel):
 
 
 def _get_share_session_artifacts(
-    state: AppStateFromRequest, share_session_id: str | None
+    ctx: RuntimeContextFromRequest,
 ):
-    session_id = require_share_session_id(state, share_session_id)
-    return state.share_project_manager.get_session_artifacts(session_id)
+    share_session_id = ctx.share_session_id
+    if share_session_id is None:
+        raise KeyError("Missing share session id")
+    return ctx.state.share_project_manager.get_session_artifacts(share_session_id)
 
 
-def _get_artifacts(state: AppStateFromRequest, share_session_id: str | None):
-    if state.share_mode:
-        return _get_share_session_artifacts(state, share_session_id)
-    return state.artifacts
+def _get_artifacts(ctx: RuntimeContextFromRequest):
+    if ctx.share_mode:
+        return _get_share_session_artifacts(ctx)
+    return ctx.state.artifacts
 
 
 def _load_share_cached_image(
@@ -115,12 +112,10 @@ def _load_share_cached_transform(
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)
 def route_check_if_file_exists(
-    x: CheckIfFileExistsRequests, state: AppStateFromRequest
+    x: CheckIfFileExistsRequests, ctx: RuntimeContextFromRequest
 ) -> bool:
-    if state.share_mode:
-        target_path = ensure_share_deployment_path(
-            x.filepath, state.share_deployment_root
-        )
+    if ctx.share_mode:
+        target_path = ensure_share_deployment_path(x.filepath, ctx.deployment_root)
         return target_path.exists()
     return os.path.exists(x.filepath)
 
@@ -128,10 +123,10 @@ def route_check_if_file_exists(
 @router.post(Route.GET_FOLDER_CONTENTS)
 def route_get_folder_contents(
     x: GetFolderContentsRequest,
-    state: AppStateFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> list[FolderContentItem]:
-    if state.share_mode:
-        path = ensure_share_deployment_path(x.folderPath, state.share_deployment_root)
+    if ctx.share_mode:
+        path = ensure_share_deployment_path(x.folderPath, ctx.deployment_root)
     else:
         path = Path(x.folderPath)
 
@@ -154,14 +149,12 @@ def route_get_folder_contents(
 @router.post(Route.LOAD_CACHED_IMAGE_ARTIFACTS)
 def route_load_cached_image_artifacts(
     x: LoadCachedPathsRequest,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> list[ImageArtifact | None]:
-    artifacts = _get_artifacts(state, share_session_id)
-    if state.share_mode:
+    artifacts = _get_artifacts(ctx)
+    if ctx.share_mode:
         return [
-            _load_share_cached_image(artifacts, i, state.share_deployment_root)
-            for i in x.paths
+            _load_share_cached_image(artifacts, i, ctx.deployment_root) for i in x.paths
         ]
     return [artifacts.get_cached_image(i) for i in x.paths]
 
@@ -169,13 +162,12 @@ def route_load_cached_image_artifacts(
 @router.post(Route.LOAD_CACHED_CHART_DATA)
 def route_load_cached_chart_data(
     x: LoadCachedPathsRequest,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> list[ChartDataArtifact | None]:
-    artifacts = _get_artifacts(state, share_session_id)
-    if state.share_mode:
+    artifacts = _get_artifacts(ctx)
+    if ctx.share_mode:
         return [
-            _load_share_cached_chart_data(artifacts, i, state.share_deployment_root)
+            _load_share_cached_chart_data(artifacts, i, ctx.deployment_root)
             for i in x.paths
         ]
     return [artifacts.get_cached_chart_data(i) for i in x.paths]
@@ -184,13 +176,12 @@ def route_load_cached_chart_data(
 @router.post(Route.LOAD_CACHED_BRUSH_STROKES)
 def route_load_cached_brush_strokes(
     x: LoadCachedPathsRequest,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> list[BrushStrokeArtifact | None]:
-    artifacts = _get_artifacts(state, share_session_id)
-    if state.share_mode:
+    artifacts = _get_artifacts(ctx)
+    if ctx.share_mode:
         return [
-            _load_share_cached_brush_stroke(artifacts, i, state.share_deployment_root)
+            _load_share_cached_brush_stroke(artifacts, i, ctx.deployment_root)
             for i in x.paths
         ]
     return [artifacts.get_cached_brush_stroke(i) for i in x.paths]
@@ -199,13 +190,12 @@ def route_load_cached_brush_strokes(
 @router.post(Route.LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM)
 def route_load_cached_draw_area_layer_item_transform(
     x: LoadCachedPathsRequest,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> list[DrawAreaLayerItemTransformArtifact | None]:
-    artifacts = _get_artifacts(state, share_session_id)
-    if state.share_mode:
+    artifacts = _get_artifacts(ctx)
+    if ctx.share_mode:
         return [
-            _load_share_cached_transform(artifacts, i, state.share_deployment_root)
+            _load_share_cached_transform(artifacts, i, ctx.deployment_root)
             for i in x.paths
         ]
     return [artifacts.get_cached_draw_area_layer_item_transform(i) for i in x.paths]
@@ -214,30 +204,29 @@ def route_load_cached_draw_area_layer_item_transform(
 @router.post(Route.UPDATE_ARTIFACTS)
 async def route_update_artifacts(
     x: UpdateArtifactsRequest,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
-    if state.share_mode:
-        session_id = require_share_session_id(state, share_session_id)
-        project_state = state.share_project_manager.get_session_state(session_id)
+    if ctx.share_mode:
+        session_id = ctx.share_session_id
+        if session_id is None:
+            raise KeyError("Missing share session id")
+        project_state = ctx.state.share_project_manager.get_session_state(session_id)
         section_ids, unknown_paths = resolve_section_ids_for_artifacts(
             project_state, x.artifacts
         )
         await ensure_share_artifact_paths_scoped(
-            share_mode=state.share_mode,
-            policy=state.share_project_manager.share_policy,
-            frontend_sender=state.wmh_frontend_sender,
+            share_mode=ctx.share_mode,
+            policy=ctx.state.share_project_manager.share_policy,
+            frontend_sender=ctx.state.wmh_frontend_sender,
             project_config_id=None,
             share_session_id=session_id,
             unknown_paths=unknown_paths,
         )
-        await ensure_share_param_changes_allowed(
-            state,
+        await ctx.enforce_param_changes_allowed(
             project_config_id=None,
-            share_session_id=session_id,
             section_ids=section_ids if section_ids else None,
         )
-        artifacts = state.share_project_manager.get_session_artifacts(session_id)
+        artifacts = ctx.state.share_project_manager.get_session_artifacts(session_id)
         results: list[ArtifactSaveResult] = []
         payloads: list[BaseArtifactUnion] = []
         for artifact in x.artifacts:
@@ -258,13 +247,13 @@ async def route_update_artifacts(
                 )
             )
         if payloads:
-            await state.wmh_frontend_sender.broadcast_artifacts_update(
+            await ctx.state.wmh_frontend_sender.broadcast_artifacts_update(
                 artifacts=payloads,
                 updateType="update",
                 share_session_id=session_id,
             )
         return results
-    artifacts = _get_artifacts(state, share_session_id)
+    artifacts = _get_artifacts(ctx)
     conflict_strategy = x.conflictStrategy or SaveConflictStrategy.backup
     results = await artifacts.apply_updates(x.artifacts, conflict_strategy)
     return results

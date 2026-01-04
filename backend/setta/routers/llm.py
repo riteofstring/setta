@@ -2,13 +2,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.llm.config import save_llm_config
-from setta.routers.dependencies import (
-    AppStateFromRequest,
-    MaybeShareSessionIdFromRequest,
-    require_share_session_id,
-)
+from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.share.policy import ensure_share_llm_allowed
 from setta.types.chat import APIKeys
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -23,89 +18,49 @@ class UpdateAPIKeysRequest(BaseModel):
 
 @router.get(Route.LLM_CONFIG)
 async def route_get_llm_config(
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> AllLLMConfigs:
-    share_session_id = require_share_session_id(
-        state,
-        share_session_id,
-        create_session_state=False,
-    )
-    await ensure_share_llm_allowed(
-        state,
+    await ctx.enforce_llm_allowed(
         project_config_id=None,
-        share_session_id=share_session_id,
     )
-    return state.chat_manager.config
+    return ctx.state.chat_manager.config
 
 
 @router.post(Route.LLM_CONFIG)
 async def route_set_llm_config(
     config: AllLLMConfigs,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> AllLLMConfigs:
-    share_session_id = require_share_session_id(
-        state,
-        share_session_id,
-        create_session_state=False,
-    )
-    await ensure_share_llm_allowed(
-        state,
+    await ctx.enforce_llm_allowed(
         project_config_id=None,
-        share_session_id=share_session_id,
     )
-    if state.share_mode:
-        raise HTTPException(
-            status_code=403,
-            detail="Share mode does not allow updating LLM configs.",
-        )
-    save_llm_config(config, state.dbe)
-    state.chat_manager.update_config(config)
-    return state.chat_manager.config
+    ctx.require_ide_mode("Share mode does not allow updating LLM configs.")
+    save_llm_config(config, ctx.state.dbe)
+    ctx.state.chat_manager.update_config(config)
+    return ctx.state.chat_manager.config
 
 
 @router.get(Route.LLM_API_KEYS)
 async def route_get_llm_api_keys(
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
-    share_session_id = require_share_session_id(
-        state,
-        share_session_id,
-        create_session_state=False,
-    )
-    await ensure_share_llm_allowed(
-        state,
+    await ctx.enforce_llm_allowed(
         project_config_id=None,
-        share_session_id=share_session_id,
     )
-    return state.chat_manager.api_keys
+    return ctx.state.chat_manager.api_keys
 
 
 @router.post(Route.LLM_API_KEYS)
 async def route_set_llm_api_keys(
     payload: UpdateAPIKeysRequest,
-    state: AppStateFromRequest,
-    share_session_id: MaybeShareSessionIdFromRequest,
+    ctx: RuntimeContextFromRequest,
 ) -> APIKeys:
-    share_session_id = require_share_session_id(
-        state,
-        share_session_id,
-        create_session_state=False,
-    )
-    await ensure_share_llm_allowed(
-        state,
+    await ctx.enforce_llm_allowed(
         project_config_id=None,
-        share_session_id=share_session_id,
     )
-    if state.share_mode:
-        raise HTTPException(
-            status_code=403,
-            detail="Share mode does not allow updating LLM API keys.",
-        )
+    ctx.require_ide_mode("Share mode does not allow updating LLM API keys.")
     try:
-        env_vars = state.dbe.read_dot_env()
+        env_vars = ctx.state.dbe.read_dot_env()
         mutated = False
         for key, value in payload.apiKeys.items():
             normalized_key = key.strip()
@@ -121,14 +76,14 @@ async def route_set_llm_api_keys(
                     env_vars.pop(normalized_key)
                     mutated = True
         if mutated:
-            state.dbe.write_dot_env(env_vars)
-            state.dbe.reload_dot_env()
-        await state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
+            ctx.state.dbe.write_dot_env(env_vars)
+            ctx.state.dbe.reload_dot_env()
+        await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
             "Saved LLM API keys",
             severity=SettaBackendLogEventSeverity.info,
         )
-        state.chat_manager.update_api_keys(env_vars)
-        return state.chat_manager.api_keys
+        ctx.state.chat_manager.update_api_keys(env_vars)
+        return ctx.state.chat_manager.api_keys
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="Failed to save LLM API keys"

@@ -37,7 +37,7 @@ Proposal:
   - Policy enforcement via the shared policy guard.
 - Move "if share_mode" branches into the adapters (policy, persistence, paths).
 
-Status: in progress.
+Status: completed.
 
 Completed:
 - Added `RuntimeContext` + scoped sender adapters.
@@ -47,11 +47,10 @@ Completed:
 - Deleted legacy managers: `project_manager.py`, `settings_project_manager.py`,
   `share_session_project_manager.py`, and
   `share_session_project_manager_switcher.py`.
+- Route policy enforcement and manager access now use `RuntimeContext`.
+- Share-mode conditionals in routers are replaced with context calls.
 
-Remaining:
-- Route policy enforcement and manager access should use `RuntimeContext`
-  instead of share/IDE branches.
-- Replace share-mode conditionals in routers with context calls.
+Remaining: none.
 
 Impact:
 - `backend/setta/runtime/context.py` (new)

@@ -1,7 +1,6 @@
-from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from setta.routers.dependencies import ReadyAppStateFromRequest
+from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.generated.settings_state import SettingsState
 from setta.types.routes import Route
@@ -14,19 +13,15 @@ class SaveSettingsRequest(BaseModel):
 
 
 @router.post(Route.SAVE_SETTINGS)
-async def route_save_settings(x: SaveSettingsRequest, state: ReadyAppStateFromRequest):
-    if state.share_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Share mode does not allow updating settings.",
-        )
-    previous_autosave = state.settings_file.settings.backend.autosave
-    await state.settings_file.save_settings(x.settings)
-    if previous_autosave and not state.settings_file.settings.backend.autosave:
-        for manager in state.project_manager_switcher.project_managers:
+async def route_save_settings(x: SaveSettingsRequest, ctx: RuntimeContextFromRequest):
+    ctx.require_ide_mode("Share mode does not allow updating settings.")
+    previous_autosave = ctx.state.settings_file.settings.backend.autosave
+    await ctx.state.settings_file.save_settings(x.settings)
+    if previous_autosave and not ctx.state.settings_file.settings.backend.autosave:
+        for manager in ctx.state.project_manager_switcher.project_managers:
             manager.autosave_debouncer.cancel_pending()
 
 
 @router.post(Route.LOAD_SETTINGS)
-def route_load_settings(state: ReadyAppStateFromRequest) -> SettingsState:
-    return state.settings_file.load_settings()
+def route_load_settings(ctx: RuntimeContextFromRequest) -> SettingsState:
+    return ctx.state.settings_file.load_settings()
