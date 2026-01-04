@@ -307,10 +307,27 @@ class SettaListener:
             )
         return project_config_id
 
-    def _resolve_sequence_session_id(self, share_session_id: str | None) -> str | None:
-        if self._share_session_id is not None:
-            return self._share_session_id
-        return share_session_id
+    def _require_sequence_session_id(
+        self, share_session_id: str | None
+    ) -> str | None:
+        if self._share_session_id is None:
+            if share_session_id is not None:
+                raise ValueError(
+                    "Listener received shareSessionId without a configured share session"
+                )
+            return None
+        if share_session_id is None:
+            raise ValueError(
+                "Listener configured for share mode received payload without shareSessionId"
+            )
+        if share_session_id != self._share_session_id:
+            raise ValueError(
+                (
+                    "Listener received shareSessionId "
+                    f"{share_session_id!r} but expected {self._share_session_id!r}"
+                )
+            )
+        return self._share_session_id
 
     def _get_last_realtime_sequence(self, share_session_id: str | None) -> int | None:
         return self._last_realtime_sequence_by_session.get(share_session_id)
@@ -937,7 +954,7 @@ class SettaListener:
         refresh_kind: Literal["bootstrap", "force_refresh"],
         share_session_id: str | None,
     ) -> None:
-        sequence_session_id = self._resolve_sequence_session_id(share_session_id)
+        sequence_session_id = self._require_sequence_session_id(share_session_id)
         self._reset_realtime_sequence(sequence_session_id)
         incoming_project_id = project_state.projectConfig.id
         if self._project_config_id is None:
@@ -1195,7 +1212,7 @@ class SettaListener:
 
         self._refresh_callback_dependency_metadata(runtime_state.dependency_graph)
 
-        sequence_session_id = self._resolve_sequence_session_id(content.shareSessionId)
+        sequence_session_id = self._require_sequence_session_id(content.shareSessionId)
         last_sequence = self._get_last_realtime_sequence(sequence_session_id)
         if last_sequence is not None:
             if content.sequence <= last_sequence:
@@ -1333,7 +1350,7 @@ class SettaListener:
             )
             return
 
-        sequence_session_id = self._resolve_sequence_session_id(content.shareSessionId)
+        sequence_session_id = self._require_sequence_session_id(content.shareSessionId)
         last_sequence = self._get_last_realtime_sequence(sequence_session_id)
         if last_sequence is not None:
             if content.sequence <= last_sequence:
@@ -1382,7 +1399,7 @@ class SettaListener:
 
     async def _handle_force_refresh(self, content: ListenerForceRefreshContent) -> None:
         """Handle force refresh payloads by replaying the latest snapshot."""
-        sequence_session_id = self._resolve_sequence_session_id(content.shareSessionId)
+        sequence_session_id = self._require_sequence_session_id(content.shareSessionId)
         project_state = content.projectState
         if project_state is not None:
             await self._refresh_from_snapshot(
