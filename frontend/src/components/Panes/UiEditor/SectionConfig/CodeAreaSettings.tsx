@@ -11,6 +11,7 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import { route_set_code_file_binding } from "utils/generatedEndpoints";
 import {
   CodeFileAccessMode,
@@ -31,6 +32,7 @@ const ACCESS_MODE_LABELS: Record<CodeFileAccessMode, string> = {
 };
 
 export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
+  const { canEditStructure } = useShareCapabilities();
   const { canonicalPath, accessMode, isFrozen } = useProjectState(
     (state): CodeBindingState => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -56,6 +58,9 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
 
   const sendBinding = useCallback(
     (nextCanonicalPath: string, nextAccessMode: CodeFileAccessMode) => {
+      if (!canEditStructure) {
+        return;
+      }
       const trimmedPath = nextCanonicalPath.trim();
       if (!trimmedPath) {
         setLocalCanonicalPath(canonicalPath);
@@ -73,7 +78,7 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
 
       setLocalCanonicalPath(trimmedPath);
     },
-    [canonicalPath, sectionId],
+    [canEditStructure, canonicalPath, sectionId],
   );
 
   const onCanonicalPathBlur = useCallback(() => {
@@ -109,7 +114,7 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
           onChange={(event) => setLocalCanonicalPath(event.target.value)}
           onBlur={onCanonicalPathBlur}
           onKeyDown={onCanonicalPathKeyDown}
-          disabled={isFrozen}
+          disabled={isFrozen || !canEditStructure}
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -120,7 +125,7 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
           className="rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
           value={accessMode}
           onChange={onAccessModeChange}
-          disabled={isFrozen}
+          disabled={isFrozen || !canEditStructure}
         >
           {Object.values(CodeFileAccessModeEnum).map((mode) => (
             <option key={mode} value={mode}>

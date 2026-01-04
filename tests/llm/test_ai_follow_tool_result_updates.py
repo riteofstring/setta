@@ -140,8 +140,8 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
             project_manager_switcher = ProjectManagerSwitcher(
-                fixture.manager,
-                fixture.manager,
+                main_manager=fixture.manager,
+                settings_manager=fixture.manager,
             )
             chat_manager = LLMChatManager(
                 fixture.dbe,
@@ -262,8 +262,8 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             frontend_sender = WMHFrontendSender(websocket_manager)
             mcp_client = MultiMCPClient({})
             project_manager_switcher = ProjectManagerSwitcher(
-                fixture.manager,
-                fixture.manager,
+                main_manager=fixture.manager,
+                settings_manager=fixture.manager,
             )
             chat_manager = LLMChatManager(
                 fixture.dbe,
@@ -361,8 +361,8 @@ class AIFollowToolResultUpdateTests(unittest.IsolatedAsyncioTestCase):
             frontend_sender = WMHFrontendSender(fixture.websocket_manager)
             mcp_client = MultiMCPClient({})
             project_manager_switcher = ProjectManagerSwitcher(
-                fixture.manager,
-                fixture.manager,
+                main_manager=fixture.manager,
+                settings_manager=fixture.manager,
             )
             chat_manager = LLMChatManager(
                 fixture.dbe,

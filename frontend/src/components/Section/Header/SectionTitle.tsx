@@ -9,6 +9,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { useShareCapabilities } from "state/hooks/share";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
@@ -99,6 +100,7 @@ function setSectionName(sectionId: string, name: string) {
 }
 
 function useTitleIsEditable(sectionId: string) {
+  const { canEditStructure } = useShareCapabilities();
   return useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
 
@@ -111,7 +113,7 @@ function useTitleIsEditable(sectionId: string) {
 
     return {
       sectionName: s.name,
-      titleIsEditable: !uneditableTypes.includes(impl.type),
+      titleIsEditable: canEditStructure && !uneditableTypes.includes(impl.type),
     };
   });
 }
