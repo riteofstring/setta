@@ -380,52 +380,12 @@ class ShareRuntimeState:
             access_mode=binding.access_mode,
         )
 
-    def _resolve_session_code_root(self, session_id: str) -> Path:
-        return (self.dbe.runtime_root / "share_sessions" / session_id).resolve()
-
-    def _resolve_session_code_binding(
-        self,
-        binding: CodeFileBinding,
-        session_root: Path,
-    ) -> CodeFileBinding:
-        path = binding.canonical_path
-        if path.is_absolute():
-            if path.is_relative_to(self.deployment_root):
-                relative = path.relative_to(self.deployment_root)
-            else:
-                relative = Path(path.name)
-        else:
-            relative = path
-        resolved = (session_root / relative).resolve()
-        return CodeFileBinding(
-            canonical_path=resolved,
-            access_mode=binding.access_mode,
-        )
-
     def _rebase_deployment_paths(self, project_state: ProjectStateBackend) -> None:
         rewrite_project_state_paths(
             project_state,
             resolve_artifact_path=self._resolve_deployment_path,
             resolve_code_binding=self._resolve_code_binding,
             resolve_json_source_name=self._resolve_deployment_path,
-        )
-
-    def _rebase_session_code_paths(
-        self,
-        project_state: ProjectStateBackend,
-        session_id: str,
-    ) -> None:
-        session_root = self._resolve_session_code_root(session_id)
-        session_root.mkdir(parents=True, exist_ok=True)
-
-        def resolve_code_binding(binding: CodeFileBinding) -> CodeFileBinding:
-            return self._resolve_session_code_binding(binding, session_root)
-
-        rewrite_project_state_paths(
-            project_state,
-            resolve_artifact_path=lambda path_str: path_str,
-            resolve_code_binding=resolve_code_binding,
-            resolve_json_source_name=lambda path_str: path_str,
         )
 
     def _get_gen_code_binding(

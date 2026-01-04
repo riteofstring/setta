@@ -126,6 +126,16 @@ async def _deny_share_mode_structural(ctx, project_config_id) -> None:
     )
 
 
+async def _deny_share_mode_code_edit(ctx, project_config_id) -> None:
+    await deny_in_share_mode(
+        share_mode=ctx.share_mode,
+        frontend_sender=ctx.frontend_sender,
+        message="Share mode disallows code edits.",
+        project_config_id=project_config_id,
+        share_session_id=ctx.share_session_id,
+    )
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, ctx: RuntimeContextFromRequest
@@ -473,8 +483,8 @@ async def route_set_text_block_text(
 async def route_set_gen_code_prefix(
     x: SetGenCodePrefixRequest, ctx: RuntimeContextFromRequest
 ):
+    await _deny_share_mode_code_edit(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
     await manager.set_gen_code_prefix(x)
 
 
@@ -482,8 +492,8 @@ async def route_set_gen_code_prefix(
 async def route_set_gen_code_suffix(
     x: SetGenCodeSuffixRequest, ctx: RuntimeContextFromRequest
 ):
+    await _deny_share_mode_code_edit(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
     await manager.set_gen_code_suffix(x)
 
 
@@ -580,8 +590,8 @@ async def route_toggle_group_orientation(
 
 @router.post(Route.SET_CODE)
 async def route_set_code(x: SetCodeRequest, ctx: RuntimeContextFromRequest):
+    await _deny_share_mode_code_edit(ctx, x.projectConfigId)
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
     await manager.set_code(x)
 
 

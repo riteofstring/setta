@@ -356,7 +356,7 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const { canEditParams } = useShareCapabilities();
   const canUseLsp = !isShareMode;
-  const isShareReadOnly = !canEditParams;
+  const isShareReadOnly = isShareMode || !canEditParams;
   const completionsFn = useCallback(
     getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),
     [generatedCodeForValue, canUseLsp],
@@ -523,8 +523,9 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const { canEditParams } = useShareCapabilities();
-  const isShareReadOnly = !canEditParams;
+  const isShareReadOnly = isShareMode || !canEditParams;
   const isDisabled = variantIsFrozen || isShareReadOnly;
 
   function onChange(v) {
