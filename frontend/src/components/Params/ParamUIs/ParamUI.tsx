@@ -4,8 +4,9 @@ import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
-import { useMisc, useProjectState } from "state/definitions";
+import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -85,6 +86,8 @@ export function ParamUI({
   maybeErrorMessage,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const { canEditParams } = useShareCapabilities();
   const { codeObjType, configLanguage, defaultVal, disabledOrFrozen } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -110,7 +113,12 @@ export function ParamUI({
     sectionId,
     paramInfoId,
   });
-  const isDisabled = isSelectingParams || disabledOrFrozen;
+  const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
+  const isDisabled =
+    isSelectingParams ||
+    disabledOrFrozen ||
+    !canEditParams ||
+    (isShareMode && isCodeParam);
 
   function onEscape() {
     focusOnSection(null, sectionId, false);

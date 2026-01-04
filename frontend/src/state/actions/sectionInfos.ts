@@ -14,6 +14,7 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
+  useShareSession,
   useToolArgumentPreview,
   ZustandNodeInternalsState,
   ZustandProjectState,
@@ -821,6 +822,10 @@ export function getAncestorSameVisibility(
 }
 
 export function deleteAllActiveSections() {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isShareMode) {
+    return;
+  }
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds: useProjectState.getState().projectConfig.activeIds,

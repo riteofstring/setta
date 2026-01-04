@@ -33,16 +33,26 @@ class MockFileEvent:
 
 
 class SpecificFileWatcher:
-    def __init__(self):
+    def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
         self.observer = Observer()
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}
+        self._loop = loop
         self.handler = SpecificFileEventHandler(
-            asyncio.get_event_loop(),
+            self._get_loop,
             self.callbacks,
             self.file_to_patterns,
         )
+
+    def _get_loop(self) -> asyncio.AbstractEventLoop | None:
+        if self._loop is not None:
+            return self._loop
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return None
+        return self._loop
 
     def request_read(self, abs_path: Path):
         mock_event = MockFileEvent(abs_path)
@@ -61,7 +71,9 @@ class SpecificFileWatcher:
         dirs_to_watch = set()
         for category_callbacks in self.callbacks.values():
             for file_path in category_callbacks.keys():
-                dirs_to_watch.add(file_path.parent)
+                parent_dir = file_path.parent
+                if parent_dir.exists():
+                    dirs_to_watch.add(parent_dir)
 
         # Remove watches for directories no longer needed
         current_watched_dirs = set(self.watched_dirs.keys())
@@ -74,15 +86,22 @@ class SpecificFileWatcher:
         # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
         for dir_path in dirs_to_add:
+            if not dir_path.exists():
+                logger.debug(
+                    "Skipping watch for missing directory: %s",
+                    dir_path,
+                )
+                continue
             watch = self.observer.schedule(self.handler, str(dir_path), recursive=False)
             self.watched_dirs[dir_path] = watch
 
         # Fire immediate reads if requested (only for new files)
         for f in fire_immediately:
-            if f in callbacks:
+            if f in callbacks and f.exists():
                 self.request_read(f)
 
     def start(self):
+        self._get_loop()
         self.observer.start()
 
     def stop(self):
@@ -93,11 +112,11 @@ class SpecificFileWatcher:
 class SpecificFileEventHandler(FileSystemEventHandler):
     def __init__(
         self,
-        loop: asyncio.AbstractEventLoop,
+        loop_getter: Callable[[], asyncio.AbstractEventLoop | None],
         callbacks: CallbackCategoryToCallbacksDict,
         file_to_patterns: dict[Path, set[str]],
     ):
-        self.loop = loop
+        self._loop_getter = loop_getter
         self.callbacks = callbacks
         self.file_to_patterns = file_to_patterns
 
@@ -123,6 +142,10 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         event: FileSystemEvent | MockFileEvent,
         event_type: FileEventType,
     ):
+        loop = self._loop_getter()
+        if loop is None:
+            logger.debug("Specific file watcher missing event loop; skipping event.")
+            return
         if event.is_directory:
             return
 
@@ -157,10 +180,10 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             fileToRead=file_to_read,
         )
 
-        self.loop.call_soon_threadsafe(
+        loop.call_soon_threadsafe(
             lambda: spawn_background_task(
                 self.call_handlers(handlers, core_update),
-                loop=self.loop,
+                loop=loop,
                 label="specific-file-watcher-dispatch",
                 extra_values={
                     "file_event_type": event_type.value,

@@ -22,9 +22,11 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.project_manager import ProjectManager
 from setta.project_state.settings_project import create_settings_project_state
-from setta.project_state.settings_project_manager import SettingsProjectManager
+from setta.project_state.session_project_manager import (
+    SessionPersistenceMode,
+    SessionProjectManager,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
@@ -45,7 +47,7 @@ __all__ = [
 
 @dataclass(slots=True)
 class SettingsManagerFixture:
-    manager: SettingsProjectManager
+    manager: SessionProjectManager
     setta_root: Path
     code_folder: Path
     artifacts_folder: Path
@@ -61,7 +63,7 @@ class SettingsManagerFixture:
 
 @dataclass(slots=True)
 class ProjectManagerFixture:
-    manager: ProjectManager
+    manager: SessionProjectManager
     setta_root: Path
     code_folder: Path
     artifacts_folder: Path
@@ -77,7 +79,7 @@ class ProjectManagerFixture:
 
 @asynccontextmanager
 async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
-    """Provision a SettingsProjectManager backed by real collaborators.
+    """Provision a SessionProjectManager (settings) backed by real collaborators.
 
     SettingsProjectManager can bootstrap a blank temp workspace via SettingsFile.
     For project manager coverage, use ``real_project_manager`` which seeds a
@@ -119,16 +121,17 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 frontend_sender, settings_file, specific_file_watcher, dbe
             )
 
-            manager = SettingsProjectManager(
-                lsp_writers,
-                frontend_sender,
-                python_script_sender,
-                settings_file,
-                specific_file_watcher,
-                dbe,
-                artifacts,
-                json_source,
-                code_files,
+            manager = SessionProjectManager(
+                persistence_mode=SessionPersistenceMode.ide_settings,
+                frontend_sender=frontend_sender,
+                python_script_sender=python_script_sender,
+                settings_file=settings_file,
+                specific_file_watcher=specific_file_watcher,
+                dbe=dbe,
+                artifacts=artifacts,
+                json_source=json_source,
+                code_files=code_files,
+                lsp_writers=lsp_writers,
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
@@ -170,7 +173,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
 
 @asynccontextmanager
 async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
-    """Provision a ProjectManager backed by the repo's sample setta_files bundle."""
+    """Provision a SessionProjectManager (main) backed by the repo's sample setta_files bundle."""
 
     sample_root = Path(__file__).resolve().parents[2] / "setta_files"
 
@@ -214,16 +217,17 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 frontend_sender, settings_file, specific_file_watcher, dbe
             )
 
-            manager = ProjectManager(
-                lsp_writers,
-                frontend_sender,
-                python_script_sender,
-                settings_file,
-                specific_file_watcher,
-                dbe,
-                artifacts,
-                json_source,
-                code_files,
+            manager = SessionProjectManager(
+                persistence_mode=SessionPersistenceMode.ide_main,
+                frontend_sender=frontend_sender,
+                python_script_sender=python_script_sender,
+                settings_file=settings_file,
+                specific_file_watcher=specific_file_watcher,
+                dbe=dbe,
+                artifacts=artifacts,
+                json_source=json_source,
+                code_files=code_files,
+                lsp_writers=lsp_writers,
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
