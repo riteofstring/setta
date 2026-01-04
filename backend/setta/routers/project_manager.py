@@ -108,7 +108,6 @@ async def route_clear_text_field_completion(
 ) -> None:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready()
     await manager.clear_text_field_completion(x)
 
 
@@ -119,7 +118,6 @@ async def route_set_callable(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.param)
-    await ctx.ensure_lsp_ready()
     return await manager.set_callable(x)
 
 
@@ -129,7 +127,6 @@ async def route_text_field_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready()
     return await manager.text_field_completion(x)
 
 
@@ -139,7 +136,6 @@ async def route_code_area_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready()
     return await manager.code_area_completion(x)
 
 
@@ -149,7 +145,6 @@ async def route_gen_code_prefix_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready()
     return await manager.gen_code_prefix_completion(x)
 
 
@@ -159,7 +154,6 @@ async def route_gen_code_suffix_completion(
 ) -> list[CodeMirrorCompletion]:
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.lsp)
-    await ctx.ensure_lsp_ready()
     return await manager.gen_code_suffix_completion(x)
 
 
@@ -424,7 +418,6 @@ async def route_delete_section_variant_or_ask(
 ) -> str | None:
     ctx.require_ide_mode("Share mode does not allow deleting section variants.")
     manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, manager, x, SharePolicyGuard.variant)
     filepath_to_delete = await manager.delete_section_variant_or_ask(x)
     if filepath_to_delete:
         return filepath_to_delete

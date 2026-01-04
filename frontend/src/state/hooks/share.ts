@@ -148,14 +148,6 @@ function resolveSharePolicyFlag(
   return policyValue;
 }
 
-function useSharePolicyFlag(
-  flag: SharePolicyFlag,
-  defaultValue: boolean = true,
-): boolean {
-  const sharePolicy = useShareSession((x) => x.sharePolicy);
-  return resolveSharePolicyFlag(sharePolicy, flag, defaultValue);
-}
-
 export function useShareCapabilities(): ShareCapabilities {
   const isShareMode = useShareSession((x) => x.isShareMode);
   const sharePolicy = useShareSession((x) => x.sharePolicy);

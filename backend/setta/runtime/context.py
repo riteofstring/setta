@@ -182,6 +182,3 @@ class RuntimeContext:
             project_config_id=project_config_id,
             share_session_id=self.share_session_id,
         )
-
-    async def ensure_lsp_ready(self) -> None:
-        return

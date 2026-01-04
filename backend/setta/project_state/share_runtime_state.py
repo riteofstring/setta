@@ -195,30 +195,18 @@ class ShareRuntimeState:
         project_config_id = x.projectConfigId
         section_id = x.sectionId
         project_state = self.get_session_state(share_session_id, project_config_id)
-        run_snapshot_mode = self._resolve_run_snapshot_mode()
         gen_binding = self._get_gen_code_binding(project_state)
         code_sections = self._collect_code_sections(project_state)
 
         if not section_id:
             section_id = project_state.projectConfig.entryCodeBlockId
 
-        if run_snapshot_mode == RunSnapshotMode.never:
-            gen_code_path = gen_binding.canonical_path
-            code_paths = {
-                sid: binding.canonical_path
-                for sid, (_, binding, _) in code_sections.items()
-            }
-        else:
-            gen_code = self._generate_gen_code(project_state)
-            target_folder = self._create_share_run_folder(share_session_id)
-            gen_code_path = self._write_snapshot_file(
-                target_folder, gen_binding, gen_code
-            )
-            code_paths: dict[ID, Path] = {}
-            for sid, (code, binding, _) in code_sections.items():
-                code_paths[sid] = self._write_snapshot_file(
-                    target_folder, binding, code
-                )
+        gen_code = self._generate_gen_code(project_state)
+        target_folder = self._create_share_run_folder(share_session_id)
+        gen_code_path = self._write_snapshot_file(target_folder, gen_binding, gen_code)
+        code_paths: dict[ID, Path] = {}
+        for sid, (code, binding, _) in code_sections.items():
+            code_paths[sid] = self._write_snapshot_file(target_folder, binding, code)
 
         if section_id:
             if section_id not in code_sections:
@@ -439,9 +427,6 @@ class ShareRuntimeState:
             resolve_code_binding=resolve_code_binding,
             resolve_json_source_name=lambda path_str: path_str,
         )
-
-    def _resolve_run_snapshot_mode(self) -> RunSnapshotMode:
-        return self.share_policy.runSnapshotMode
 
     def _get_gen_code_binding(
         self, project_state: "ProjectStateSingleConfig"

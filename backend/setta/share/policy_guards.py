@@ -87,9 +87,17 @@ async def enforce_share_policy_guard(
     request: ProjectManagerRequestWithProjectConfig,
     guard: SharePolicyGuard,
 ) -> None:
-    section_ids: list[ID] | None = None
-    if guard is not SharePolicyGuard.lsp:
-        section_ids = resolve_section_ids(request, manager)
+    if not ctx.share_mode:
+        return
+    if guard is SharePolicyGuard.lsp:
+        await ctx.enforce_lsp_allowed(project_config_id=request.projectConfigId)
+        return
+    if guard is SharePolicyGuard.structural:
+        await ctx.enforce_structural_changes_allowed(
+            project_config_id=request.projectConfigId
+        )
+        return
+    section_ids = resolve_section_ids(request, manager)
     if guard is SharePolicyGuard.param:
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
@@ -114,18 +122,10 @@ async def enforce_share_policy_guard(
             section_ids=section_ids,
         )
         return
-    if guard is SharePolicyGuard.structural:
-        await ctx.enforce_structural_changes_allowed(
-            project_config_id=request.projectConfigId
-        )
-        return
     if guard is SharePolicyGuard.run:
         await ctx.enforce_run_allowed(
             project_config_id=request.projectConfigId,
             section_ids=section_ids,
         )
-        return
-    if guard is SharePolicyGuard.lsp:
-        await ctx.enforce_lsp_allowed(project_config_id=request.projectConfigId)
         return
     raise KeyError(f"Unsupported share policy guard: {guard}")

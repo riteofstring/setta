@@ -36,18 +36,14 @@ type SmartPlacementContext = {
   viewportBounds: ViewportBounds | null;
 };
 
-function allowStructuralChanges(): boolean {
-  const shareSession = useShareSession.getState();
-  return !shareSession.isShareMode;
-}
-
 export async function createTopLevelSection({
   implType,
   implOverrides,
   controlCodeObjType = null,
   position = null,
 }: CreateTopLevelSectionArgs) {
-  if (!allowStructuralChanges()) {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isShareMode) {
     return null;
   }
   const placement = getSmartPlacementContext();

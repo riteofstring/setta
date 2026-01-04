@@ -371,6 +371,8 @@ class SettaFastAPIState:
         )
         if self.share_runtime_state.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
+        else:
+            self.terminals = None
         if (
             self.share_runtime_state.share_policy.runSnapshotMode
             == RunSnapshotMode.ephemeral
@@ -412,13 +414,6 @@ class SettaFastAPIState:
         llm_config = None
         if share_policy.allowLLM:
             llm_config = load_llm_config(llm_dbe, allow_write=False)
-        if not self.mcp_client.disabled:
-            spawn_background_task(
-                self.mcp_client.connect_to_servers(),
-                label="mcp-client-connect",
-                request_id="boot",
-                extra_values={"service": "mcp-client"},
-            )
         if share_policy.allowLLM:
             self.chat_manager = ShareChatManager(
                 llm_dbe,
@@ -430,7 +425,7 @@ class SettaFastAPIState:
                 llm_config=llm_config,
             )
         share_chat_manager = self.chat_manager if share_policy.allowLLM else None
-        share_terminals = self.terminals if share_policy.allowRun else None
+        share_terminals = self.terminals
         spawn_background_task(
             run_share_session_cleanup_loop(
                 self.share_session_store,
