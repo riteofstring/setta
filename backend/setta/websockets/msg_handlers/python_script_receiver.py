@@ -30,6 +30,7 @@ from setta.project_state.listener_dependency_updates import (
     ListenerDependencyUpdateError,
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.runtime.context import RuntimeContext
 from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
 from setta.types.generated.websocket_unions import (
     PythonScriptWebsocketMsgTypeAdapter,
@@ -846,6 +847,12 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         kwargs: dict[str, object] = {spec.request_param_name: request_model}
         if spec.state_param_name is not None:
             kwargs[spec.state_param_name] = state
+        if spec.runtime_context_param_name is not None:
+            share_session_id = self._get_share_session_id_for_socket(websocket_id)
+            kwargs[spec.runtime_context_param_name] = RuntimeContext(
+                state,
+                share_session_id=share_session_id,
+            )
 
         result = spec.endpoint(**kwargs)
         if inspect.isawaitable(result):
