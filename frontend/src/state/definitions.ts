@@ -30,6 +30,8 @@ import {
   SettaBackendLogEvent,
   SettaNotification,
   SettingsState,
+  ShareDeploymentManifest,
+  SharePolicy,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -105,6 +107,28 @@ export const useProjectState = withProjectState(
         })),
       ),
     ),
+  ),
+);
+
+type ShareSessionState = {
+  isShareMode: boolean;
+  projectConfigName: string | null;
+  deploymentVersion: string | null;
+  shareSessionId: string | null;
+  sharePolicy: SharePolicy | null;
+  manifest: ShareDeploymentManifest | null;
+};
+
+export const useShareSession = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ShareSessionState>(() => ({
+      isShareMode: false,
+      projectConfigName: null,
+      deploymentVersion: null,
+      shareSessionId: null,
+      sharePolicy: null,
+      manifest: null,
+    })),
   ),
 );
 
@@ -221,6 +245,7 @@ export const useNotifications = createWithEqualityFn(
 );
 
 type RunMode = "once" | "continuous";
+type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
 export type CustomRunAction =
   | { type: "runCodeBlock"; sectionId: string | null }
@@ -513,6 +538,7 @@ type ZustandLocalStorage = {
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
+  runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -533,6 +559,7 @@ export const useLocalStorage = createWithEqualityFn(
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
+      runSnapshotModeByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation

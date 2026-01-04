@@ -118,7 +118,6 @@ export function DropdownInput({
   value,
   onChange,
   outerDivClasses,
-  inputOuterClasses,
   isDisabled,
   placeholder,
   small = true,
@@ -127,7 +126,6 @@ export function DropdownInput({
   value: string | null;
   onChange: OnSelectedItemChangeFnType<string>;
   outerDivClasses?: string;
-  inputOuterClasses?: string;
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
@@ -148,7 +146,6 @@ export function DropdownInput({
       small={small}
       isDisabled={isDisabled}
       placeholder={placeholder}
-      inputOuterClasses={inputOuterClasses}
     />
   );
 }
