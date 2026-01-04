@@ -1,6 +1,7 @@
 from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request, WebSocket, status
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
@@ -50,6 +51,12 @@ def _maybe_extract_share_session_id(headers, cookies, query_params) -> str | Non
     if not session_id:
         session_id = query_params.get("shareSessionId")
     return session_id
+
+
+async def _close_websocket_with_code(websocket: WebSocket, code: int) -> None:
+    if websocket.application_state == WebSocketState.CONNECTING:
+        await websocket.accept()
+    await websocket.close(code=code)
 
 
 def get_share_session_id_from_request(request: Request) -> str:
@@ -111,25 +118,30 @@ def require_share_session_id(
     return share_session_id
 
 
-async def share_session_context_from_request(
-    request: Request,
-) -> AsyncGenerator[str | None, None]:
-    state = await get_ready_app_state_from_request(request)
+async def require_share_session_id_from_websocket(
+    websocket: WebSocket,
+    state: SettaFastAPIState,
+    *,
+    create_session_state: bool = True,
+) -> str | None:
     if not state.share_mode:
-        yield None
-        return
-    session_id = require_share_session_id(
-        state,
-        maybe_get_share_session_id_from_request(request),
-    )
-    token = set_share_session_id(session_id)
-    try:
-        yield session_id
-    finally:
-        reset_share_session_id(token)
+        return None
+    share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+    if share_session_id is None:
+        await _close_websocket_with_code(websocket, 4400)
+        return None
+    if not state.share_session_store.has_session(share_session_id):
+        await _close_websocket_with_code(websocket, 4404)
+        return None
+    state.share_session_store.touch_session(share_session_id)
+    if create_session_state:
+        state.share_project_manager.get_or_create_session_state(share_session_id)
+    return share_session_id
 
 
-async def get_runtime_context_from_request(request: Request) -> RuntimeContext:
+async def get_runtime_context_from_request(
+    request: Request,
+) -> AsyncGenerator[RuntimeContext, None]:
     state = await get_ready_app_state_from_request(request)
     share_session_id = None
     if state.share_mode:
@@ -137,20 +149,30 @@ async def get_runtime_context_from_request(request: Request) -> RuntimeContext:
             state,
             maybe_get_share_session_id_from_request(request),
         )
-    return RuntimeContext(state, share_session_id=share_session_id)
+    token = set_share_session_id(share_session_id)
+    try:
+        yield RuntimeContext(state, share_session_id=share_session_id)
+    finally:
+        reset_share_session_id(token)
 
 
 async def get_runtime_context_from_websocket(
     websocket: WebSocket,
-) -> RuntimeContext:
+) -> AsyncGenerator[RuntimeContext, None]:
     state = await get_ready_app_state_from_websocket(websocket)
     share_session_id = None
     if state.share_mode:
-        share_session_id = require_share_session_id(
+        share_session_id = await require_share_session_id_from_websocket(
+            websocket,
             state,
-            maybe_get_share_session_id_from_websocket(websocket),
         )
-    return RuntimeContext(state, share_session_id=share_session_id)
+        if share_session_id is None:
+            raise WebSocketDisconnect()
+    token = set_share_session_id(share_session_id)
+    try:
+        yield RuntimeContext(state, share_session_id=share_session_id)
+    finally:
+        reset_share_session_id(token)
 
 
 AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]

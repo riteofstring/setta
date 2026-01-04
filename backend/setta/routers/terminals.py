@@ -2,7 +2,6 @@ import logging
 
 from fastapi import WebSocket
 from pydantic import BaseModel
-from starlette.websockets import WebSocketState
 
 from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.logging.project_id_route import require_project_context
@@ -34,12 +33,6 @@ class RunCodeRequest(BaseModel):
     projectConfigId: ID
     sectionId: ID | None
     cliId: str | None = None
-
-
-async def _close_with_code(websocket: WebSocket, code: int) -> None:
-    if websocket.application_state == WebSocketState.CONNECTING:
-        await websocket.accept()
-    await websocket.close(code=code)
 
 
 @terminals_ws_router.websocket(Route.TERMINAL)

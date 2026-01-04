@@ -96,12 +96,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         state = self._get_listener_state(websocket_id)
         if not state.share_mode:
             return None
-        share_session_id = self.websocket_manager.get_share_session_id(websocket_id)
-        if share_session_id is None:
-            raise KeyError(
-                f"Missing share session id for listener websocket {websocket_id}"
-            )
-        return share_session_id
+        return self.require_share_session_id(websocket_id)
 
     def _get_session_manager(
         self,
@@ -113,7 +108,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         state = self._get_listener_state(websocket_id)
         if state.share_mode:
             if share_session_id is None:
-                raise KeyError("Missing share session id for listener websocket")
+                share_session_id = self.require_share_session_id(websocket_id)
             return self.project_manager_switcher.get_for_session(share_session_id)
         if project_config_id is None:
             return self.project_manager_switcher.get_for_session("main")

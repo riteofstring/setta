@@ -12,10 +12,9 @@ from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.routers.dependencies import (
     ReadyAppStateFromWebsocket as AppStateFromWebsocket,
 )
-from setta.routers.dependencies import (
-    maybe_get_share_session_id_from_websocket,
-)
+from setta.routers.dependencies import require_share_session_id_from_websocket
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.share.session_context import reset_share_session_id, set_share_session_id
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -72,33 +71,6 @@ async def _close_unauthorized(websocket: WebSocket) -> None:
     await websocket.close(code=4401)
 
 
-async def _close_with_code(websocket: WebSocket, code: int) -> None:
-    if websocket.application_state == WebSocketState.CONNECTING:
-        await websocket.accept()
-    await websocket.close(code=code)
-
-
-async def _require_share_session_id(
-    websocket: WebSocket,
-    state: AppStateFromWebsocket,
-    *,
-    create_session_state: bool = True,
-) -> str | None:
-    if not state.share_mode:
-        return None
-    share_session_id = maybe_get_share_session_id_from_websocket(websocket)
-    if share_session_id is None:
-        await _close_with_code(websocket, 4400)
-        return None
-    if not state.share_session_store.has_session(share_session_id):
-        await _close_with_code(websocket, 4404)
-        return None
-    state.share_session_store.touch_session(share_session_id)
-    if create_session_state:
-        state.share_project_manager.get_or_create_session_state(share_session_id)
-    return share_session_id
-
-
 async def websocket_route_loop(
     websocket: WebSocket,
     websocket_manager: WebsocketManager,
@@ -117,65 +89,72 @@ async def websocket_route_loop(
     if id:
         extra_context["client_connection_id"] = id
 
-    async with bind_websocket_logging_context(
-        websocket,
-        extra_values=extra_context,
-    ):
-        fromWebsocketId = None
-        try:
-            fromWebsocketId = await websocket_manager.on_connect(
-                websocket,
-                connectionType,
-                id=id,
-                shareSessionId=share_session_id,
-                broadcast_connections=broadcast_connections,
-            )
-            if fromWebsocketId:
-                push_logging_context(connection_id=fromWebsocketId)
-            await websocket_msg_handler.on_connect(fromWebsocketId)
-            while True:
-                try:
-                    json_str = await websocket.receive_text()
-                    if share_session_id is not None and share_session_store is not None:
-                        share_session_store.touch_session(share_session_id)
-                    await websocket_msg_handler.process_json_str(
-                        json_str, fromWebsocketId
-                    )
-                except WebSocketDisconnect:
-                    logger.debug("WebSocketDisconnect!")
-                    break
-        except Exception as exc:
-            logging_context = get_logging_context()
-            request_id = logging_context.get("request_id")
-            project_config_id = logging_context.get("project_config_id")
-            suffix = f" (request {request_id})" if request_id else ""
-            exc_message = str(exc).replace("\n", " ").strip()
-            exc_name = type(exc).__name__
-            message = f"Websocket error{suffix}: {websocket.url.path} - {exc_name}"
-            if exc_message:
-                message = f"{message}: {exc_message}"
-
-            context = {"websocket_connection_type": connectionType.value}
-            if fromWebsocketId:
-                context["connection_id"] = fromWebsocketId
-            project_config_id = ID(project_config_id) if project_config_id else None
-            await frontend_sender.log_failure_and_broadcast_backend_log_event(
-                exc,
-                label="websocket-route-loop",
-                message=message,
-                severity=SettaBackendLogEventSeverity.error,
-                project_config_id=project_config_id,
-                context=context,
-                share_session_id=share_session_id,
-            )
-            raise
-        finally:
-            if fromWebsocketId:
-                await websocket_manager.on_disconnect(
-                    fromWebsocketId,
+    token = set_share_session_id(share_session_id)
+    try:
+        async with bind_websocket_logging_context(
+            websocket,
+            extra_values=extra_context,
+        ):
+            fromWebsocketId = None
+            try:
+                fromWebsocketId = await websocket_manager.on_connect(
+                    websocket,
+                    connectionType,
+                    id=id,
+                    shareSessionId=share_session_id,
                     broadcast_connections=broadcast_connections,
                 )
-                await websocket_msg_handler.on_disconnect(fromWebsocketId)
+                if fromWebsocketId:
+                    push_logging_context(connection_id=fromWebsocketId)
+                await websocket_msg_handler.on_connect(fromWebsocketId)
+                while True:
+                    try:
+                        json_str = await websocket.receive_text()
+                        if (
+                            share_session_id is not None
+                            and share_session_store is not None
+                        ):
+                            share_session_store.touch_session(share_session_id)
+                        await websocket_msg_handler.process_json_str(
+                            json_str, fromWebsocketId
+                        )
+                    except WebSocketDisconnect:
+                        logger.debug("WebSocketDisconnect!")
+                        break
+            except Exception as exc:
+                logging_context = get_logging_context()
+                request_id = logging_context.get("request_id")
+                project_config_id = logging_context.get("project_config_id")
+                suffix = f" (request {request_id})" if request_id else ""
+                exc_message = str(exc).replace("\n", " ").strip()
+                exc_name = type(exc).__name__
+                message = f"Websocket error{suffix}: {websocket.url.path} - {exc_name}"
+                if exc_message:
+                    message = f"{message}: {exc_message}"
+
+                context = {"websocket_connection_type": connectionType.value}
+                if fromWebsocketId:
+                    context["connection_id"] = fromWebsocketId
+                project_config_id = ID(project_config_id) if project_config_id else None
+                await frontend_sender.log_failure_and_broadcast_backend_log_event(
+                    exc,
+                    label="websocket-route-loop",
+                    message=message,
+                    severity=SettaBackendLogEventSeverity.error,
+                    project_config_id=project_config_id,
+                    context=context,
+                    share_session_id=share_session_id,
+                )
+                raise
+            finally:
+                if fromWebsocketId:
+                    await websocket_manager.on_disconnect(
+                        fromWebsocketId,
+                        broadcast_connections=broadcast_connections,
+                    )
+                    await websocket_msg_handler.on_disconnect(fromWebsocketId)
+    finally:
+        reset_share_session_id(token)
 
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
@@ -184,7 +163,10 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
         return
     share_session_id = None
     if state.share_mode:
-        share_session_id = await _require_share_session_id(websocket, state)
+        share_session_id = await require_share_session_id_from_websocket(
+            websocket,
+            state,
+        )
         if share_session_id is None:
             return
         await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
@@ -208,7 +190,10 @@ async def route_websocket_share_frontend(
         return
     if not state.share_mode:
         raise ValueError("Share websocket route requires share mode")
-    share_session_id = await _require_share_session_id(websocket, state)
+    share_session_id = await require_share_session_id_from_websocket(
+        websocket,
+        state,
+    )
     if share_session_id is None:
         return
     await state.share_listener_runtime.ensure_listener_for_session(share_session_id)
@@ -255,15 +240,12 @@ async def route_websocket_python_script(
         return
     share_session_id = None
     if state.share_mode:
-        share_session_id = maybe_get_share_session_id_from_websocket(websocket)
+        share_session_id = await require_share_session_id_from_websocket(
+            websocket,
+            state,
+        )
         if share_session_id is None:
-            await _close_with_code(websocket, 4400)
             return
-        if not state.share_session_store.has_session(share_session_id):
-            await _close_with_code(websocket, 4404)
-            return
-        state.share_session_store.touch_session(share_session_id)
-        state.share_project_manager.get_or_create_session_state(share_session_id)
     await websocket_route_loop(
         websocket,
         state.websocket_manager,

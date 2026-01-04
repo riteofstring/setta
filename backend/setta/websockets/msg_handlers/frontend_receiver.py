@@ -34,12 +34,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         self.realtime_event_hub = realtime_event_hub
         self.share_mode = share_mode
 
-    def _require_share_session_id(self, websocket_id: str) -> str:
-        share_session_id = self.websocket_manager.get_share_session_id(websocket_id)
-        if share_session_id is None:
-            raise KeyError(f"Missing share session id for websocket {websocket_id}")
-        return share_session_id
-
     async def process_json_str(self, json_str: str, fromWebsocketId: str):
         m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_json(
             json_str
@@ -51,7 +45,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgRealtimeUIChange):
             share_session_id = (
-                self._require_share_session_id(fromWebsocketId)
+                self.require_share_session_id(fromWebsocketId)
                 if self.share_mode
                 else None
             )
@@ -62,7 +56,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgRealtimeActionEvent):
             share_session_id = (
-                self._require_share_session_id(fromWebsocketId)
+                self.require_share_session_id(fromWebsocketId)
                 if self.share_mode
                 else None
             )
@@ -72,7 +66,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
     async def on_connect(self, _websocket_id: str):
         if self.share_mode:
-            self._require_share_session_id(_websocket_id)
+            self.require_share_session_id(_websocket_id)
             return
         if self.project_manager is None:
             return

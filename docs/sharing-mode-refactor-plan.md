@@ -178,7 +178,18 @@ Impact:
 - `backend/setta/routers/dependencies.py`
 - `backend/setta/routers/terminals.py`
 - `backend/setta/routers/websocket.py`
+- `backend/setta/websockets/msg_handlers/base.py`
+- `backend/setta/websockets/msg_handlers/frontend_receiver.py`
 - `backend/setta/websockets/msg_handlers/python_script_receiver.py`
+
+Status: completed.
+
+Completed:
+- Centralized websocket share-session validation in dependencies.
+- Scoped websocket processing with a share-session context token.
+- Reused the shared helper in websocket receivers to enforce consistent errors.
+
+Remaining: none.
 
 
 ### 5) Consolidate frontend share-policy gating
@@ -199,7 +210,7 @@ Impact:
 1. Session manager ownership consolidation (done).
 2. Listener emit policy helper (done).
 3. Route policy guard helper and router cleanup (done).
-4. Session id normalization.
+4. Session id normalization (done).
 5. Frontend gating cleanup.
 
 ## Validation
