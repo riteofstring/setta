@@ -18,22 +18,10 @@ from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
 class DBE:
-    def __init__(
-        self,
-        path: Path,
-        *,
-        runtime_root: Path | None = None,
-        lock_root: Path | None = None,
-    ):
+    def __init__(self, path: Path):
         self.path = normalize_path(path)
-        self.runtime_root = (
-            normalize_path(runtime_root) if runtime_root is not None else self.path
-        )
-        self.lock_root = (
-            normalize_path(lock_root) if lock_root is not None else self.runtime_root
-        )
         self.project = self.path / "project.json"
-        self.temporary_id_map = self.runtime_root / "temporary_id_map.json"
+        self.temporary_id_map = self.path / "temporary_id_map.json"
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
@@ -42,14 +30,10 @@ class DBE:
         self.llm_config_example = self.path / "llm_config.example.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
-        if self.runtime_root != self.path:
-            self.runtime_root.mkdir(parents=True, exist_ok=True)
-        if self.lock_root not in (self.path, self.runtime_root):
-            self.lock_root.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
-        locks_dir = self.lock_root / "file_locks"
-        locks_dir.mkdir(parents=True, exist_ok=True)
+        locks_dir = self.path / "file_locks"
+        locks_dir.mkdir(exist_ok=True)
         # Create a hash to avoid name conflicts
         path_hash = compute_md5_prefix(str(path.absolute()), 8)
         lock_filename = f"{path.name}_{path_hash}.lock"

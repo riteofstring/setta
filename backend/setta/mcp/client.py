@@ -5,7 +5,7 @@ import os
 import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Sequence
 from urllib.parse import parse_qs, urlparse
 
 import mcp.types as types
@@ -194,12 +194,9 @@ class MultiMCPClient:
         self,
         server_configs: dict[str, MCPServerConfig],
         frontend_sender: "WMHFrontendSender | None" = None,
-        *,
-        disabled: bool = False,
     ):
         self.server_configs = dict(server_configs)
         self.frontend_sender = frontend_sender
-        self.disabled = disabled
         self._is_shutting_down = False
         self._sessions: dict[str, ClientSession] = {}
         self._exit_stacks: dict[str, AsyncExitStack] = {}
@@ -211,8 +208,6 @@ class MultiMCPClient:
         self.routing: dict[str, tuple[str, str]] = {}
 
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
-        if self.disabled:
-            return
         if self._connection_tasks:
             logger.warning("MCP client already running; skipping duplicate start")
             return
@@ -228,17 +223,7 @@ class MultiMCPClient:
             tasks.append(task)
         await asyncio.gather(*tasks)
 
-    async def call_tool(
-        self,
-        tool_name: str,
-        tool_args: dict,
-        *,
-        meta: dict[str, Any] | None = None,
-    ) -> types.CallToolResult:
-        if self.disabled:
-            raise ValueError(
-                f"MCP tool calls are disabled (attempted {tool_name}, meta={meta})."
-            )
+    async def call_tool(self, tool_name: str, tool_args: dict) -> types.CallToolResult:
         route = self.routing.get(tool_name)
         if not route:
             raise KeyError(f"MCP tool '{tool_name}' is not registered")
@@ -246,11 +231,9 @@ class MultiMCPClient:
         session = self._sessions.get(server_id)
         if not session:
             raise ValueError(f"MCP session for server '{server_id}' is not initialized")
-        return await session.call_tool(tool_id, tool_args, meta=meta)
+        return await session.call_tool(tool_id, tool_args)
 
     async def stop(self) -> None:
-        if self.disabled:
-            return
         self._is_shutting_down = True
         tasks = list(self._connection_tasks.values())
         for task in tasks:
@@ -267,15 +250,11 @@ class MultiMCPClient:
     def init_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
-        if self.disabled:
-            return {}
         return self._filter_tool_definitions(self.init_tool_definitions, server_ids)
 
     def discoverable_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
-        if self.disabled:
-            return {}
         return self._filter_tool_definitions(
             self.discoverable_tool_definitions, server_ids
         )
@@ -283,8 +262,6 @@ class MultiMCPClient:
     def tool_annotations_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, SettaToolAnnotations | None]:
-        if self.disabled:
-            return {}
         return self._filter_tool_annotations(self.tool_annotations_by_name, server_ids)
 
     def _filter_tool_definitions(

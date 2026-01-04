@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.generated.unions import BaseArtifactUnion
-    from setta.types.project_state import ProjectStateBackend, ProjectStateCore
+    from setta.types.project_state import ProjectStateBackend
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -170,7 +170,7 @@ class Artifacts:
 
         return fn
 
-    def get_artifact_files_to_watch(self, p: "ProjectStateCore"):
+    def get_artifact_files_to_watch(self, p: "ProjectStateBackend"):
         path_and_types: set[tuple[Path, ArtifactType]] = set()
         for s in p.sections.values():
             for v in s.variants:

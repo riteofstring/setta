@@ -240,13 +240,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 get_variant_base_and_effective_section_impl(self, core, variant_id)
             )
 
-            if not isinstance(base_impl, BaseCodeSectionImpl) or not isinstance(
-                effective_impl, BaseCodeSectionImpl
+            if (
+                not isinstance(base_impl, BaseCodeSectionImpl)
+                or not isinstance(effective_impl, BaseCodeSectionImpl)
+                or effective_impl.codeFileBinding is not None
             ):
-                continue
-            if effective_impl.codeFileBinding is not None:
-                if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                    gen_code_binding = effective_impl.codeFileBinding
                 continue
 
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
