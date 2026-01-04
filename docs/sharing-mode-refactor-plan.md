@@ -204,6 +204,15 @@ Impact:
 - `frontend/src/state/hooks/share.ts`
 - UI components that gate on share policy.
 
+Status: completed.
+
+Completed:
+- Added `useShareCapabilities()` to centralize share-mode gating booleans.
+- Updated share-gated UI components to use shared can* flags instead of
+  ad-hoc policy flag reads.
+
+Remaining: none.
+
 
 ## Sequencing
 0. Unify share/IDE runtime flow behind adapters (done).
@@ -211,7 +220,7 @@ Impact:
 2. Listener emit policy helper (done).
 3. Route policy guard helper and router cleanup (done).
 4. Session id normalization (done).
-5. Frontend gating cleanup.
+5. Frontend gating cleanup (done).
 
 ## Validation
 - `source activate.sh && python -m unittest discover`

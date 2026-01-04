@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_child_sections_via_incrementer,
   route_delete_child_sections_via_decrementer,
@@ -19,7 +19,7 @@ export function Incrementer({
 }) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
-  const allowStructuralChanges = useSharePolicyFlag("allowStructuralChanges");
+  const { canEditStructure } = useShareCapabilities();
 
   const [numSections, setNumSections] = useState<number | "">(1);
 
@@ -42,7 +42,7 @@ export function Incrementer({
   };
 
   const addSections = () => {
-    if (!allowStructuralChanges) {
+    if (!canEditStructure) {
       return;
     }
     if (typeof numSections === "string") return;
@@ -55,7 +55,7 @@ export function Incrementer({
   };
 
   const deleteChildren = () => {
-    if (!allowStructuralChanges) {
+    if (!canEditStructure) {
       return;
     }
     if (typeof numSections === "string") return;
@@ -93,21 +93,21 @@ export function Incrementer({
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         onBlur={numSectionsOnBlur}
-        disabled={variantIsFrozen || !allowStructuralChanges}
+        disabled={variantIsFrozen || !canEditStructure}
       />
 
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={deleteChildren}
         role="button"
-        disabled={variantIsFrozen || !allowStructuralChanges}
+        disabled={variantIsFrozen || !canEditStructure}
       />
 
       <button
         className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={addSections}
         role="button"
-        disabled={variantIsFrozen || !allowStructuralChanges}
+        disabled={variantIsFrozen || !canEditStructure}
       />
     </div>
   );

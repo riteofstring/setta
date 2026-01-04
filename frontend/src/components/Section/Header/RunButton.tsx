@@ -1,11 +1,11 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCodeBlock } from "state/actions/runOrImportCode";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 
 export function RunButton({ sectionId }) {
-  const allowRun = useSharePolicyFlag("allowRun");
-  if (!allowRun) {
+  const { canRun } = useShareCapabilities();
+  if (!canRun) {
     return null;
   }
 

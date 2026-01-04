@@ -5,7 +5,7 @@ import { TbUser } from "react-icons/tb";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_view_mode,
   route_delete_view_mode,
@@ -29,7 +29,7 @@ export function ViewingEditingMode() {
         isEditingViewMode,
       };
     }, _.isEqual);
-  const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
+  const { canEditVariants } = useShareCapabilities();
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -42,7 +42,7 @@ export function ViewingEditingMode() {
   const canDeleteViewModes = viewModeList.length > 1;
 
   const handleModeChange = (modeId: string) => {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     void route_set_active_view_mode({
@@ -52,21 +52,21 @@ export function ViewingEditingMode() {
   };
 
   const handleToggleEdit = () => {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     void route_toggle_is_editing_view_mode({ projectConfigId });
   };
 
   const handleCreateMode = (): void => {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     void route_create_view_mode({ projectConfigId });
   };
 
   const handleToggleUserFacing = (modeId: string): void => {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     void route_toggle_view_mode_user_facing({
@@ -80,26 +80,26 @@ export function ViewingEditingMode() {
       <div className="flex items-center gap-2">
         <button
           className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
-            allowVariantChanges
+            canEditVariants
               ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
               : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
           }`}
           onClick={handleToggleEdit}
           title={editTitle}
-          disabled={!allowVariantChanges}
+          disabled={!canEditVariants}
         >
           <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
           {editLabel}
         </button>
         <button
           className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
-            allowVariantChanges
+            canEditVariants
               ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
               : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
           }`}
           onClick={handleCreateMode}
           title="Create a new view mode"
-          disabled={!allowVariantChanges}
+          disabled={!canEditVariants}
         >
           New View Mode
         </button>
@@ -124,7 +124,7 @@ export function ViewingEditingMode() {
                 projectConfigId={projectConfigId}
                 onSelect={handleModeChange}
                 onToggleUserFacing={handleToggleUserFacing}
-                allowVariantChanges={allowVariantChanges}
+                canEditVariants={canEditVariants}
               />
             );
           }
@@ -135,7 +135,7 @@ export function ViewingEditingMode() {
               mode={mode}
               isActive={isActive}
               onSelect={handleModeChange}
-              disabled={!allowVariantChanges}
+              disabled={!canEditVariants}
             />
           );
         })}
@@ -194,7 +194,7 @@ type ViewModeEditingRowProps = {
   projectConfigId: string;
   onSelect: (modeId: string) => void;
   onToggleUserFacing: (modeId: string) => void;
-  allowVariantChanges: boolean;
+  canEditVariants: boolean;
 };
 
 function ViewModeEditingRow({
@@ -204,10 +204,10 @@ function ViewModeEditingRow({
   projectConfigId,
   onSelect,
   onToggleUserFacing,
-  allowVariantChanges,
+  canEditVariants,
 }: ViewModeEditingRowProps) {
   function onSetName(name: string) {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -247,7 +247,7 @@ function ViewModeEditingRow({
     event: React.MouseEvent<HTMLButtonElement>,
   ) => {
     event.stopPropagation();
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     onToggleUserFacing(mode.id);
@@ -255,7 +255,7 @@ function ViewModeEditingRow({
 
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -305,11 +305,11 @@ function ViewModeEditingRow({
     userFacingTitle = "User-facing";
   }
 
-  const rowClick = allowVariantChanges ? () => onSelect(mode.id) : undefined;
+  const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
     <div
       className={`${rowClasses} ${
-        allowVariantChanges ? "" : "cursor-not-allowed opacity-60"
+        canEditVariants ? "" : "cursor-not-allowed opacity-60"
       }`}
       onClick={rowClick}
     >
@@ -321,13 +321,13 @@ function ViewModeEditingRow({
         onClick={handleInputClick}
         placeholder="View mode name"
         className="flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100"
-        disabled={!allowVariantChanges}
+        disabled={!canEditVariants}
       />
       <button
         className={`cursor-pointer bg-transparent ${userFacingClasses}`}
         onClick={handleToggleUserFacing}
         title={userFacingTitle}
-        disabled={!allowVariantChanges}
+        disabled={!canEditVariants}
       >
         {userFacingIcon}
       </button>
@@ -336,7 +336,7 @@ function ViewModeEditingRow({
           className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
           onClick={handleDelete}
           title="Delete view mode"
-          disabled={!allowVariantChanges}
+          disabled={!canEditVariants}
         >
           <i className="gg-trash" />
         </button>

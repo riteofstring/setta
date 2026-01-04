@@ -19,13 +19,12 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useProjectState,
-  useShareSession,
   useToolArgumentPreview,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -42,9 +41,8 @@ export function SectionSearch({
   callable: string | null;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
-  const isShareMode = useShareSession((state) => state.isShareMode);
-  const allowLsp = useSharePolicyFlag("allowLSP", true);
-  const lspEnabled = !isShareMode || allowLsp;
+  const { canUseLsp } = useShareCapabilities();
+  const lspEnabled = canUseLsp;
 
   function onEnter(value: string) {
     setCallable(sectionId, value, lspEnabled);
@@ -297,10 +295,10 @@ function SectionSearchCore({
 async function setCallable(
   sectionId: string,
   callableName: string,
-  allowLsp: boolean,
+  canUseLsp: boolean,
   refetchParams = false,
 ) {
-  if (!allowLsp) {
+  if (!canUseLsp) {
     return;
   }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);

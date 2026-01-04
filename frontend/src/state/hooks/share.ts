@@ -63,19 +63,76 @@ type SharePolicyFlag = {
   [K in keyof SharePolicy]-?: SharePolicy[K] extends boolean ? K : never;
 }[keyof SharePolicy];
 
-export function useSharePolicyFlag(
+type ShareCapabilities = {
+  canEditParams: boolean;
+  canEditVariants: boolean;
+  canEditLayout: boolean;
+  canEditStructure: boolean;
+  canRun: boolean;
+  canUseLsp: boolean;
+  canUseLlm: boolean;
+  canUseMcp: boolean;
+};
+
+function resolveSharePolicyFlag(
+  sharePolicy: SharePolicy | null,
   flag: SharePolicyFlag,
-  defaultValue: boolean = true,
+  defaultValue: boolean,
 ): boolean {
-  const policyValue = useShareSession((x) => {
-    const policy = x.sharePolicy;
-    if (!policy) {
-      return undefined;
-    }
-    return policy[flag];
-  });
+  if (!sharePolicy) {
+    return defaultValue;
+  }
+  const policyValue = sharePolicy[flag];
   if (policyValue === undefined || policyValue === null) {
     return defaultValue;
   }
   return policyValue;
+}
+
+function useSharePolicyFlag(
+  flag: SharePolicyFlag,
+  defaultValue: boolean = true,
+): boolean {
+  const sharePolicy = useShareSession((x) => x.sharePolicy);
+  return resolveSharePolicyFlag(sharePolicy, flag, defaultValue);
+}
+
+export function useShareCapabilities(): ShareCapabilities {
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const sharePolicy = useShareSession((x) => x.sharePolicy);
+  const allowParamChanges = resolveSharePolicyFlag(
+    sharePolicy,
+    "allowParamChanges",
+    true,
+  );
+  const allowVariantChanges = resolveSharePolicyFlag(
+    sharePolicy,
+    "allowVariantChanges",
+    true,
+  );
+  const allowLayoutChanges = resolveSharePolicyFlag(
+    sharePolicy,
+    "allowLayoutChanges",
+    true,
+  );
+  const allowStructuralChanges = resolveSharePolicyFlag(
+    sharePolicy,
+    "allowStructuralChanges",
+    true,
+  );
+  const allowRun = resolveSharePolicyFlag(sharePolicy, "allowRun", true);
+  const allowLsp = resolveSharePolicyFlag(sharePolicy, "allowLSP", true);
+  const allowLlm = resolveSharePolicyFlag(sharePolicy, "allowLLM", true);
+  const allowMcp = resolveSharePolicyFlag(sharePolicy, "allowMCP", true);
+
+  return {
+    canEditParams: !isShareMode || allowParamChanges,
+    canEditVariants: !isShareMode || allowVariantChanges,
+    canEditLayout: !isShareMode || allowLayoutChanges,
+    canEditStructure: !isShareMode || allowStructuralChanges,
+    canRun: !isShareMode || allowRun,
+    canUseLsp: !isShareMode || allowLsp,
+    canUseLlm: !isShareMode || allowLlm,
+    canUseMcp: !isShareMode || allowMcp,
+  };
 }

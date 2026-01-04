@@ -11,7 +11,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useContextMenus, useProjectState } from "state/definitions";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   route_delete_sections,
   route_group_sections,
@@ -25,7 +25,7 @@ export function SelectionContextMenu() {
     (x) => x.selection,
     _.isEqual,
   );
-  const allowStructuralChanges = useSharePolicyFlag("allowStructuralChanges");
+  const { canEditStructure } = useShareCapabilities();
 
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {
@@ -78,7 +78,7 @@ export function SelectionContextMenu() {
   }
 
   function onClickDelete() {
-    if (!allowStructuralChanges) {
+    if (!canEditStructure) {
       return;
     }
     route_delete_sections({
@@ -142,7 +142,7 @@ export function SelectionContextMenu() {
       closeContextMenu={closeContextMenu}
     >
       <Item onClick={onClickCreate}>Create Group</Item>
-      <Item onClick={onClickDelete} disabled={!allowStructuralChanges}>
+      <Item onClick={onClickDelete} disabled={!canEditStructure}>
         Delete
       </Item>
       <Item onClick={onClickLock}>{lockItem}</Item>

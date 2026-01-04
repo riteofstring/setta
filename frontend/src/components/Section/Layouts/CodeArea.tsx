@@ -34,7 +34,7 @@ import {
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
@@ -304,12 +304,10 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const isShareMode = useShareSession((state) => state.isShareMode);
-  const allowLsp = useSharePolicyFlag("allowLSP", true);
-  const lspEnabled = !isShareMode || allowLsp;
+  const { canUseLsp } = useShareCapabilities();
   const completionsFn = useCallback(
-    getPythonCodeAreaCompletionsFn(sectionId, lspEnabled),
-    [sectionId, lspEnabled],
+    getPythonCodeAreaCompletionsFn(sectionId, canUseLsp),
+    [sectionId, canUseLsp],
   );
 
   return (
@@ -355,13 +353,11 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   const theme = useCodeMirrorStyle();
 
   const isShareMode = useShareSession((state) => state.isShareMode);
-  const allowParamChanges = useSharePolicyFlag("allowParamChanges", true);
-  const allowLsp = useSharePolicyFlag("allowLSP", true);
-  const lspEnabled = !isShareMode || allowLsp;
-  const isShareReadOnly = isShareMode && !allowParamChanges;
+  const { canEditParams, canUseLsp } = useShareCapabilities();
+  const isShareReadOnly = isShareMode && !canEditParams;
   const completionsFn = useCallback(
-    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, lspEnabled),
-    [generatedCodeForValue, lspEnabled],
+    getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),
+    [generatedCodeForValue, canUseLsp],
   );
 
   function onChange(nextValue: string) {
@@ -526,8 +522,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
   const theme = useCodeMirrorStyle();
   const isShareMode = useShareSession((state) => state.isShareMode);
-  const allowParamChanges = useSharePolicyFlag("allowParamChanges", true);
-  const isShareReadOnly = isShareMode && !allowParamChanges;
+  const { canEditParams } = useShareCapabilities();
+  const isShareReadOnly = isShareMode && !canEditParams;
   const isDisabled = variantIsFrozen || isShareReadOnly;
 
   function onChange(v) {
@@ -747,9 +743,9 @@ const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
   });
 }, 50);
 
-function getPythonCodeAreaCompletionsFn(sectionId: string, allowLsp: boolean) {
+function getPythonCodeAreaCompletionsFn(sectionId: string, canUseLsp: boolean) {
   const fn = async (fullText: string, position: number) => {
-    if (!allowLsp) {
+    if (!canUseLsp) {
       return [];
     }
     const projectConfigId = getCurrProjectConfigId();
@@ -771,10 +767,10 @@ function getPythonCodeAreaCompletionsFn(sectionId: string, allowLsp: boolean) {
 
 function getGenPythonCodeAreaCompletionsFn(
   generatedCode: string,
-  allowLsp: boolean,
+  canUseLsp: boolean,
 ) {
   const fn = async (fullText: string, position: number) => {
-    if (!allowLsp) {
+    if (!canUseLsp) {
       return [];
     }
     const docParts = splitGenPythonDoc(fullText, generatedCode);

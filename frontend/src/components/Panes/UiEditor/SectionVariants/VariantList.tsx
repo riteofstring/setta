@@ -14,7 +14,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState, useShareSession } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
@@ -32,25 +32,25 @@ import {
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
-  const allowVariantChanges = useSharePolicyFlag("allowVariantChanges");
+  const { canEditVariants } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
-  const allowVariantDeletion = allowVariantChanges && !isShareMode;
-  const isEditingEnabled = allowVariantChanges && isEditing;
+  const allowVariantDeletion = canEditVariants && !isShareMode;
+  const isEditingEnabled = canEditVariants && isEditing;
   const actionButtonClasses = `flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${
-    allowVariantChanges
+    canEditVariants
       ? "cursor-pointer text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
       : "cursor-not-allowed text-setta-300 opacity-60 dark:text-setta-700"
   }`;
 
   function onClickEditButton() {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     setIsEditing(!isEditing);
   }
 
   function onClickAddVariantButton() {
-    if (!allowVariantChanges) {
+    if (!canEditVariants) {
       return;
     }
     route_create_new_section_variant({
@@ -67,7 +67,7 @@ export function VariantList({ sectionId }) {
           <button
             className={actionButtonClasses}
             onClick={onClickAddVariantButton}
-            disabled={!allowVariantChanges}
+            disabled={!canEditVariants}
           >
             Add Variant
           </button>
@@ -75,7 +75,7 @@ export function VariantList({ sectionId }) {
         <button
           className={actionButtonClasses}
           onClick={onClickEditButton}
-          disabled={!allowVariantChanges}
+          disabled={!canEditVariants}
         >
           <i className="gg-pen" />
           {isEditingEnabled ? "Done Editing" : "Edit"}
@@ -92,7 +92,7 @@ export function VariantList({ sectionId }) {
         <VariantListCore
           sectionId={sectionId}
           isEditing={isEditingEnabled}
-          allowVariantChanges={allowVariantChanges}
+          canEditVariants={canEditVariants}
           allowVariantDeletion={allowVariantDeletion}
         />
       </ul>
@@ -103,12 +103,12 @@ export function VariantList({ sectionId }) {
 function VariantListCore({
   sectionId,
   isEditing,
-  allowVariantChanges,
+  canEditVariants,
   allowVariantDeletion,
 }: {
   sectionId: string;
   isEditing: boolean;
-  allowVariantChanges: boolean;
+  canEditVariants: boolean;
   allowVariantDeletion: boolean;
 }) {
   const { currVariantId, variantIds, defaultVariantId } = useProjectState(
@@ -132,7 +132,7 @@ function VariantListCore({
         sectionId={sectionId}
         id={e}
         deletable={variantIds.length > 1}
-        allowVariantChanges={allowVariantChanges}
+        canEditVariants={canEditVariants}
         allowVariantDeletion={allowVariantDeletion}
       />
     ));
@@ -145,7 +145,7 @@ function VariantListCore({
       id={e}
       isCurr={currVariantId === e}
       isDefault={e === defaultVariantId}
-      allowVariantChanges={allowVariantChanges}
+      canEditVariants={canEditVariants}
     />
   ));
 }
@@ -155,13 +155,13 @@ function OneVariant({
   id,
   isCurr,
   isDefault,
-  allowVariantChanges,
+  canEditVariants,
 }: {
   sectionId: string;
   id: string;
   isCurr: boolean;
   isDefault: boolean;
-  allowVariantChanges: boolean;
+  canEditVariants: boolean;
 }) {
   const { name, isFrozen, isJsonSource, canUseJsonSource } = useProjectState(
     (x) => {
@@ -190,7 +190,7 @@ function OneVariant({
         })
       }
       onClick={
-        allowVariantChanges
+        canEditVariants
           ? () =>
               dispatchOptimisticProjectStateUpdate({
                 apply: (state) => {
@@ -206,9 +206,9 @@ function OneVariant({
               })
           : undefined
       }
-      aria-disabled={!allowVariantChanges}
+      aria-disabled={!canEditVariants}
       className={`section-key-value group/versionitem -my-[0.125rem] flex h-min items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs ${
-        allowVariantChanges
+        canEditVariants
           ? "cursor-pointer hover:bg-setta-200/30 dark:hover:bg-setta-700/50"
           : "cursor-not-allowed opacity-60"
       } ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
@@ -230,7 +230,7 @@ function OneVariant({
               : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
-            if (!allowVariantChanges) {
+            if (!canEditVariants) {
               return;
             }
             e.stopPropagation(); // so that you can click on it without clicking on the variant
@@ -247,7 +247,7 @@ function OneVariant({
                 }),
             });
           }}
-          disabled={!allowVariantChanges}
+          disabled={!canEditVariants}
         >
           <HiHome />
         </button>
@@ -258,7 +258,7 @@ function OneVariant({
               : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
-            if (!allowVariantChanges) {
+            if (!canEditVariants) {
               return;
             }
             e.stopPropagation(); // so that you can click on it without clicking on the variant
@@ -275,7 +275,7 @@ function OneVariant({
                 }),
             });
           }}
-          disabled={!allowVariantChanges}
+          disabled={!canEditVariants}
         >
           <FaRegSnowflake />
         </button>
@@ -287,7 +287,7 @@ function OneVariant({
                 : "text-transparent hover:!text-orange-400 group-hover/versionitem:text-setta-400/50"
             }`}
             onClick={(e) => {
-              if (!allowVariantChanges) {
+              if (!canEditVariants) {
                 return;
               }
               e.stopPropagation(); // so that you can click on it without clicking on the variant
@@ -323,7 +323,7 @@ function OneVariant({
                   }),
               });
             }}
-            disabled={!allowVariantChanges}
+            disabled={!canEditVariants}
           >
             <FiFileText />
           </button>
@@ -337,13 +337,13 @@ function OneVariantEditing({
   sectionId,
   id,
   deletable,
-  allowVariantChanges,
+  canEditVariants,
   allowVariantDeletion,
 }: {
   sectionId: string;
   id: string;
   deletable: boolean;
-  allowVariantChanges: boolean;
+  canEditVariants: boolean;
   allowVariantDeletion: boolean;
 }) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
@@ -407,7 +407,7 @@ function OneVariantEditing({
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         className="flex-1 truncate text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-200"
-        disabled={!allowVariantChanges}
+        disabled={!canEditVariants}
       />
 
       {deletable && allowVariantDeletion && (

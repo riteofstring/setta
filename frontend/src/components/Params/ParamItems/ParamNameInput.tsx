@@ -8,7 +8,7 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useSharePolicyFlag } from "state/hooks/share";
+import { useShareCapabilities } from "state/hooks/share";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   route_set_code_obj_display_name,
@@ -62,10 +62,10 @@ export function ParamNameInput({
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
-  const allowParamChanges = useSharePolicyFlag("allowParamChanges");
+  const { canEditParams } = useShareCapabilities();
 
   function onChange(v: string) {
-    if (!allowParamChanges) {
+    if (!canEditParams) {
       return;
     }
     if (showParamDisplayNames && !isKwarg) {
@@ -83,7 +83,7 @@ export function ParamNameInput({
 
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
-  const isDisabled = !allowParamChanges;
+  const isDisabled = !canEditParams;
 
   return (
     <>
