@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from setta.database.backup import maybe_create_backup
+from setta.lsp.managers import NoopLSPWriters
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.jsonSource.save import (
@@ -52,10 +53,6 @@ class SessionPersistenceMode(str, Enum):
     ide_settings = "ide_settings"
 
 
-class _NoopLSPWriters:
-    full = None
-
-
 class SessionProjectManager(BaseProjectManager):
     def __init__(
         self,
@@ -77,7 +74,7 @@ class SessionProjectManager(BaseProjectManager):
         self.share_runtime_state = share_runtime_state
         self.share_session_id = share_session_id
         self._allow_lsp = lsp_writers is not None
-        resolved_lsp_writers = lsp_writers or _NoopLSPWriters()
+        resolved_lsp_writers = lsp_writers or NoopLSPWriters()
         resolved_sender = (
             ScopedFrontendSender(frontend_sender, share_session_id)
             if share_runtime_state is not None
@@ -109,27 +106,12 @@ class SessionProjectManager(BaseProjectManager):
             )
         return self.dbe.read_project()
 
-    def get_single_config_state(self, projectConfigId: ID):
-        if self.share_runtime_state is not None:
-            if self.share_session_id is None:
-                raise KeyError("Missing share session id")
-            session_backend = self.share_runtime_state.get_session_backend(
-                self.share_session_id
-            )
-            if projectConfigId not in session_backend.projectConfigs:
-                raise KeyError(f"Unknown share project config: {projectConfigId}")
-        return super().get_single_config_state(projectConfigId)
-
     def save(self) -> None:
-        if self.share_runtime_state is not None:
-            return None
-        if self.persistence_mode == SessionPersistenceMode.ide_settings:
-            self._save_settings_project()
-            return None
-        if self.persistence_mode == SessionPersistenceMode.ide_main:
-            self._save_project_state()
-            return None
-        return None
+        if self.share_runtime_state is None:
+            if self.persistence_mode == SessionPersistenceMode.ide_settings:
+                self._save_settings_project()
+            elif self.persistence_mode == SessionPersistenceMode.ide_main:
+                self._save_project_state()
 
     async def save_as_new_project_config(
         self, x: SaveAsNewProjectConfigRequest
@@ -166,8 +148,7 @@ class SessionProjectManager(BaseProjectManager):
         updateFileWatcher: bool = True,
     ) -> None:
         if self.share_runtime_state is None:
-            await BaseProjectManager.update(
-                self,
+            await super().update(
                 projectState,
                 updateFileWatcher=updateFileWatcher,
             )
@@ -176,8 +157,7 @@ class SessionProjectManager(BaseProjectManager):
             raise KeyError("Missing share session id")
         project_config_id = projectState.projectConfig.id
         if self._allow_lsp:
-            await BaseProjectManager.update(
-                self,
+            await super().update(
                 projectState,
                 updateFileWatcher=updateFileWatcher,
             )

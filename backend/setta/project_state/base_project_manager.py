@@ -32,7 +32,7 @@ from setta.file_watchers.specific_file_watcher import (
 )
 from setta.logging.errors import log_failure
 from setta.logging.tasks import spawn_background_task
-from setta.lsp.managers import LSPWriters
+from setta.lsp.managers import LSPWriters, NoopLSPWriters
 from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
@@ -272,7 +272,7 @@ _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]
 class BaseProjectManager(ABC):
     def __init__(
         self,
-        lsp_writers: LSPWriters,
+        lsp_writers: LSPWriters | NoopLSPWriters,
         websocket_msg_handler: WMHFrontendSender,
         python_script_sender: WMHPythonScriptSender,
         settings_file: SettingsFile,
