@@ -22,7 +22,6 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
 type SectionContainerCoreResizableProps = {
@@ -42,32 +41,20 @@ export function SectionContainerCoreResizable({
   isUserView,
   positionAndSizeLocked,
 }: SectionContainerCoreResizableProps) {
-  const { isMinimized, isYouTube, textBlockMetaControlStyle } = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      return {
-        isMinimized: impl.isMinimized,
-        isYouTube: false,
-        // isYouTube: getIsYouTubeSection(sectionId, x),
-        textBlockMetaControlStyle:
-          impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      };
-    },
-    _.isEqual,
-  );
+  const { isMinimized, isYouTube } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    return {
+      isMinimized: impl.isMinimized,
+      isYouTube: false,
+      // isYouTube: getIsYouTubeSection(sectionId, x),
+    };
+  }, _.isEqual);
 
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
-  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
+  const bgColor = getBgColor(sectionTypeName);
   const shouldRenderMetaMenu = isMetaControl && !isUserView;
-  const shouldRenderTextBlockMetaMenu =
-    textBlockMetaControlStyle && !isUserView;
-  const showMetaControlDragHandle =
-    useMetaControlStyle && !isUserView && !positionAndSizeLocked;
-  const metaControlFrameClassName = useMetaControlStyle
+  const metaControlFrameClassName = isMetaControl
     ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
     : undefined;
   const metaControlLayoutClassName = isMetaControl
@@ -80,16 +67,10 @@ export function SectionContainerCoreResizable({
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
-      isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
     >
-      {showMetaControlDragHandle && (
-        <div className="absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 pointer-events-none transition-opacity group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto">
-          <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
-        </div>
-      )}
       {isMetaControl ? (
         shouldRenderMetaMenu && (
           <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">
@@ -98,19 +79,6 @@ export function SectionContainerCoreResizable({
                 sectionId={sectionId}
                 sectionTypeName={sectionTypeName}
                 isInOtherProjectConfigs={isInOtherProjectConfigs}
-              />
-            </div>
-          </div>
-        )
-      ) : textBlockMetaControlStyle ? (
-        shouldRenderTextBlockMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">
-            <div className="flex h-12 w-10 items-center justify-end">
-              <TextBlockMetaControlMenuButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isInOtherProjectConfigs={isInOtherProjectConfigs}
-                isRoot={isRoot}
               />
             </div>
           </div>

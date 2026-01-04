@@ -7,6 +7,7 @@ import {
   openFileMenuLoadProjectConfigModal,
   openFileMenuSaveProjectConfigAsModal,
   openFileMenuSaveProjectConfigAsWithRefsModal,
+  openPublishShareDeploymentModal,
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
@@ -57,6 +58,9 @@ export function FileMenu() {
       <MenuItem onClick={openFileMenuSaveProjectConfigAsWithRefsModal}>
         <VscSaveAs />
         Save As (With Refs)
+      </MenuItem>
+      <MenuItem onClick={openPublishShareDeploymentModal}>
+        Publish Share Deployment
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
     </NavbarMenuDropdown>

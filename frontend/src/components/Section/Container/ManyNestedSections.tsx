@@ -17,7 +17,7 @@ export function MaybeManyNestedSections({
   const hasNested = useHasTempNested(sectionId);
   return (
     hasNested && (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-col">
         <ManyNestedSections sectionId={sectionId} isGroup={isGroup} />
       </div>
     )
@@ -55,17 +55,15 @@ function NestedSectionsWithMargin({ childIds, sectionId, isGroup }) {
   });
 
   return (
-    <div
-      className={`flex min-h-0 flex-1 items-stretch ${isHorizontalOrientation ? "pt-2" : ""}`}
-    >
+    <div className="flex items-stretch">
       {!isGroup && (
         <div
-          className={`mr-2 min-h-full w-2 rounded-full bg-white/30 transition-all duration-75 hover:cursor-pointer hover:bg-white/50 dark:bg-setta-700 hover:dark:bg-setta-600 ${isHorizontalOrientation ? "" : "mt-2"}`}
+          className={`mr-2 mt-2 min-h-full w-2 rounded-full bg-white/30 transition-all duration-75 hover:cursor-pointer hover:bg-white/50 dark:bg-setta-700 hover:dark:bg-setta-600`}
           onClick={onClick}
         />
       )}
       <div
-        className={`flex min-h-0 flex-1 ${isHorizontalOrientation ? "flex-row items-stretch" : "mt-2 flex-col items-start"} gap-2`}
+        className={`mt-2 flex ${isHorizontalOrientation ? "flex-row" : "flex-col "} items-start gap-2`}
       >
         {childIds.map((e) => (
           <SortableSectionContainer sectionId={e} key={`Nested-Sec-${e}`} />

@@ -31,7 +31,7 @@ class ListenerMetaControlUpdatesTests(TestCase):
             project_state,
             SectionType.MetaControl,
             Position(),
-            control_code_obj_type=CodeObjType.TextParam,
+            control_code_obj_type=CodeObjType.TextAreaParam,
         )
         control_param_id = get_meta_control_param_id(project_state, section_id)
         update = ListenerFrontendEmitKeyAndValue(

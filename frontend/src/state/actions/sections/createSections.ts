@@ -5,6 +5,7 @@ import {
   useLocalStorage,
   useNodeInternals,
   useProjectState,
+  useShareSession,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
@@ -35,12 +36,27 @@ type SmartPlacementContext = {
   viewportBounds: ViewportBounds | null;
 };
 
+function allowStructuralChanges(): boolean {
+  const shareSession = useShareSession.getState();
+  if (!shareSession.isShareMode) {
+    return true;
+  }
+  const policy = shareSession.sharePolicy;
+  if (!policy) {
+    return true;
+  }
+  return policy.allowStructuralChanges;
+}
+
 export async function createTopLevelSection({
   implType,
   implOverrides,
   controlCodeObjType = null,
   position = null,
 }: CreateTopLevelSectionArgs) {
+  if (!allowStructuralChanges()) {
+    return null;
+  }
   const placement = getSmartPlacementContext();
   const res = await route_create_top_level_section({
     projectConfigId: getCurrProjectConfigId(),

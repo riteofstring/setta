@@ -28,17 +28,12 @@
 ## Testing Guidelines
 
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
-- Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover tests`.
-- Exercise `test.py` when altering database or JSON source flows; it seeds `setta_files/` and validates round-trips through the project state stack.
+- Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 
 ## Commit & Pull Request Guidelines
 
 - Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
-- Group related changes together; split UI and backend adjustments into separate commits when the history would otherwise mix responsibilities.
-- Every PR should describe the change, list commands executed (`pnpm test`, `./format_code.sh`, `test_install.sh`), and link any GitHub issues or Linear tickets.
-- Attach before/after screenshots or recordings for UI-facing updates and call out schema migrations or scripts that consumers must rerun.
-- Ensure reviewers are assigned, labels applied, and CI (when enabled) is green before merging or tagging a release.
 
 ## Environment & Tooling
 
