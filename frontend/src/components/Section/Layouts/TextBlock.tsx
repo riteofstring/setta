@@ -36,7 +36,7 @@ function _TextBlock({ sectionId }) {
 }
 
 function _Markdown({ sectionId }) {
-  const { format, text } = useProjectState(
+  const { format, text, metaControlStyle } = useProjectState(
     (x) => getTextBlockText(sectionId, x),
     _.isEqual,
   );
@@ -44,6 +44,12 @@ function _Markdown({ sectionId }) {
   const { ref, isScrollable } = useIsScrollable();
 
   const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const proseContrastClassName = metaControlStyle
+    ? "prose-headings:text-setta-750 dark:prose-headings:text-setta-150 prose-p:text-setta-850 dark:prose-p:text-setta-50"
+    : "prose-headings:text-setta-400";
+  const preTextClassName = metaControlStyle
+    ? "text-setta-850 dark:text-setta-50"
+    : "text-setta-700 dark:text-setta-300";
 
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041
@@ -52,7 +58,7 @@ function _Markdown({ sectionId }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
-        className="prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert   prose-headings:tracking-tighter prose-headings:text-setta-400  prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]"
+        className={`prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert prose-headings:tracking-tighter ${proseContrastClassName} prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]`}
         components={{
           code: CodeBlock,
         }}
@@ -63,7 +69,7 @@ function _Markdown({ sectionId }) {
   ) : (
     <pre
       ref={ref}
-      className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs text-setta-700 dark:text-setta-300`}
+      className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs ${preTextClassName}`}
     >
       {text}
     </pre>

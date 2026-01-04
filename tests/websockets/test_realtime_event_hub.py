@@ -27,14 +27,12 @@ class _StubPythonScriptSender:
         projectConfigId: ID,
         deltas: list[ListenerRealtimeDelta],
         sequence: int,
-        share_session_id: str | None = None,
     ) -> None:
         self.calls.append(
             {
                 "projectConfigId": projectConfigId,
                 "deltas": deltas,
                 "sequence": sequence,
-                "share_session_id": share_session_id,
             }
         )
 
@@ -138,19 +136,13 @@ class WMHPythonScriptSenderForceRefreshTests(unittest.IsolatedAsyncioTestCase):
             project_config_id=RealtimeEventHubTests.PROJECT_ID,
             deltas=[delta],
         )
-        self.assertIn(
-            (RealtimeEventHubTests.PROJECT_ID, None),
-            hub._sequence_by_project,
-        )
+        self.assertIn(RealtimeEventHubTests.PROJECT_ID, hub._sequence_by_project)
 
         await sender.send_force_refresh(
             projectConfigId=RealtimeEventHubTests.PROJECT_ID
         )
 
-        self.assertNotIn(
-            (RealtimeEventHubTests.PROJECT_ID, None),
-            hub._sequence_by_project,
-        )
+        self.assertNotIn(RealtimeEventHubTests.PROJECT_ID, hub._sequence_by_project)
         self.assertEqual([], websocket_manager.sent_messages)
 
 
