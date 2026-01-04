@@ -18,6 +18,7 @@ import {
 } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
+import { post } from "utils/endpointUtils";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseCodeObjImplUnion,
@@ -30,6 +31,7 @@ import {
   SectionTypeEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import { buildSettaApiPayload } from "utils/settaApiPresets";
 
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
@@ -172,6 +174,10 @@ function MetaControlValueArea({
       sendButtonHttpRequest(buttonConfig);
       return;
     }
+    if (buttonConfig.actionMode === ButtonActionModeEnum.SETTA_API) {
+      sendButtonSettaRequest(buttonConfig);
+      return;
+    }
     sendRealtimeControlAction({
       controlName: sectionName,
       actionId: sectionName,
@@ -271,4 +277,13 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     headers,
     body,
   });
+}
+
+function sendButtonSettaRequest(config: ButtonRequestConfig) {
+  const route = config.requestUrl.trim();
+  if (route === "") {
+    return;
+  }
+  const payload = buildSettaApiPayload(route, config.requestBody);
+  void post(route, payload);
 }

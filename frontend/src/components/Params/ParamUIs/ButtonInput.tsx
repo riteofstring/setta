@@ -17,15 +17,18 @@ import {
   CodeObjTypeEnum,
   HttpRequestMethodEnum,
 } from "utils/generatedTypes";
+import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
 
 const ACTION_MODE_LABELS: Record<ButtonActionMode, string> = {
   [ButtonActionModeEnum.WEBSOCKET_LISTENER]: "Websocket listener",
   [ButtonActionModeEnum.HTTP_REQUEST]: "HTTP request",
+  [ButtonActionModeEnum.SETTA_API]: "Setta API",
 };
 
 const ACTION_MODE_OPTIONS: Array<ButtonActionMode> = [
   ButtonActionModeEnum.WEBSOCKET_LISTENER,
   ButtonActionModeEnum.HTTP_REQUEST,
+  ButtonActionModeEnum.SETTA_API,
 ];
 
 const REQUEST_METHOD_OPTIONS: Array<HttpRequestMethod> = [
@@ -105,28 +108,76 @@ export function ButtonInputConfigForParam({
     onSetLabel,
     (value: string) => value.trim() !== "",
   );
-
-  const actionMode =
-    config.actionMode ?? ButtonActionModeEnum.WEBSOCKET_LISTENER;
-  const requestMethod = config.requestMethod ?? HttpRequestMethodEnum.POST;
-  const showRequestFields = actionMode === ButtonActionModeEnum.HTTP_REQUEST;
-
-  function onActionModeChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextMode = event.target.value as ButtonActionMode;
-    updateButtonConfig({ actionMode: nextMode });
-  }
-
-  function onRequestMethodChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextMethod = event.target.value as HttpRequestMethod;
-    updateButtonConfig({ requestMethod: nextMethod });
-  }
-
   const urlField = useEditableOnSubmit(
     config.requestUrl,
     (nextUrl: string) => updateButtonConfig({ requestUrl: nextUrl.trim() }),
     () => true,
     true,
   );
+
+  const actionMode =
+    config.actionMode ?? ButtonActionModeEnum.WEBSOCKET_LISTENER;
+  const requestMethod = config.requestMethod ?? HttpRequestMethodEnum.POST;
+  const showRequestFields = actionMode === ButtonActionModeEnum.HTTP_REQUEST;
+  const showSettaFields = actionMode === ButtonActionModeEnum.SETTA_API;
+  const defaultSettaRoute = SETTA_API_PRESETS[0]?.route ?? "";
+  const settaRouteValue = showSettaFields
+    ? urlField.inputValue
+    : config.requestUrl;
+  const settaPresetValue = SETTA_API_PRESETS.some(
+    (preset) => preset.route === settaRouteValue,
+  )
+    ? settaRouteValue
+    : "custom";
+
+  function onActionModeChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextMode = event.target.value as ButtonActionMode;
+    if (nextMode === ButtonActionModeEnum.SETTA_API) {
+      const nextRoute =
+        config.requestUrl && config.requestUrl !== ""
+          ? config.requestUrl
+          : defaultSettaRoute;
+      const nextBody =
+        config.requestBody && config.requestBody.trim() !== ""
+          ? config.requestBody
+          : formatSettaApiBody(nextRoute);
+      setRequestBody(nextBody);
+      updateButtonConfig({
+        actionMode: nextMode,
+        requestUrl: nextRoute,
+        requestBody: nextBody,
+      });
+      return;
+    }
+    updateButtonConfig({ actionMode: nextMode });
+  }
+
+  function onSettaPresetChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextRoute = event.target.value;
+    if (nextRoute === "custom") {
+      return;
+    }
+    const nextBody = formatSettaApiBody(nextRoute);
+    setRequestBody(nextBody);
+    updateButtonConfig({
+      requestUrl: nextRoute,
+      requestBody: nextBody,
+    });
+  }
+
+  function onSettaAutofill() {
+    const nextBody = formatSettaApiBody(settaRouteValue);
+    if (nextBody === "") {
+      return;
+    }
+    setRequestBody(nextBody);
+    updateButtonConfig({ requestBody: nextBody });
+  }
+
+  function onRequestMethodChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextMethod = event.target.value as HttpRequestMethod;
+    updateButtonConfig({ requestMethod: nextMethod });
+  }
 
   const headerKeyField = useEditableOnSubmit(
     config.requestHeaderKey,
@@ -160,6 +211,10 @@ export function ButtonInputConfigForParam({
     }
     updateButtonConfig({ requestBody });
   }
+
+  const requestBodyPlaceholder = showSettaFields
+    ? '{ "projectConfigId": "...", "implType": "TextBlock" }'
+    : '{"projectConfigId":"...","implType":"TextBlock","implOverrides":null,"controlCodeObjType":null,"position":null,"topLevelSections":{},"viewportBounds":null}';
 
   return (
     <div className="mt-1 flex flex-col gap-2">
@@ -237,18 +292,61 @@ export function ButtonInputConfigForParam({
               placeholder="application/json"
             />
           </div>
-          <div className="flex flex-col gap-1 px-3">
-            <p className="text-xs font-semibold text-setta-600">Body</p>
-            <textarea
-              className={TEXTAREA_CLASS_NAME}
-              value={requestBody}
-              onChange={onRequestBodyChange}
-              onBlur={onRequestBodyBlur}
-              placeholder='{"projectConfigId":"...","implType":"TextBlock","implOverrides":null,"controlCodeObjType":null,"position":null,"topLevelSections":{},"viewportBounds":null}'
-              spellCheck="false"
+        </>
+      ) : null}
+      {showSettaFields ? (
+        <>
+          <div className={ROW_CLASS_NAME}>
+            <p className={LABEL_CLASS_NAME}>Setta API</p>
+            <select
+              className={SELECT_CLASS_NAME}
+              value={settaPresetValue}
+              onChange={onSettaPresetChange}
+            >
+              {SETTA_API_PRESETS.map((preset) => (
+                <option key={preset.route} value={preset.route}>
+                  {preset.label}
+                </option>
+              ))}
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div className={ROW_CLASS_NAME}>
+            <p className={LABEL_CLASS_NAME}>Route</p>
+            <input
+              className={INPUT_CLASS_NAME}
+              value={urlField.inputValue}
+              onChange={urlField.onChange}
+              onBlur={urlField.onBlur}
+              onKeyDown={urlField.onKeyDown}
+              placeholder={defaultSettaRoute}
             />
           </div>
         </>
+      ) : null}
+      {showRequestFields || showSettaFields ? (
+        <div className="flex flex-col gap-1 px-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-setta-600">Body</p>
+            {showSettaFields ? (
+              <button
+                className="text-xs font-semibold text-setta-500 hover:text-setta-700"
+                type="button"
+                onClick={onSettaAutofill}
+              >
+                Auto-fill
+              </button>
+            ) : null}
+          </div>
+          <textarea
+            className={TEXTAREA_CLASS_NAME}
+            value={requestBody}
+            onChange={onRequestBodyChange}
+            onBlur={onRequestBodyBlur}
+            placeholder={requestBodyPlaceholder}
+            spellCheck="false"
+          />
+        </div>
       ) : null}
     </div>
   );

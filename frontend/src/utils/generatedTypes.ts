@@ -134,6 +134,7 @@ export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
 export const ButtonActionModeEnum = {
   WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
   HTTP_REQUEST: "HTTP_REQUEST",
+  SETTA_API: "SETTA_API",
 } as const;
 
 export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
