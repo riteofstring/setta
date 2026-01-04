@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from setta.project_state.artifacts import Artifacts
     from setta.project_state.code_files import CodeFiles
     from setta.project_state.jsonSource.jsonSource import JSONSource
-    from setta.project_state.share_project_manager import ShareProjectManager
+    from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.types.listener import ListenerFrontendEmitKeyAndValue
     from setta.types.project_state import ProjectStateSingleConfig
@@ -67,17 +67,17 @@ class SessionProjectManager(BaseProjectManager):
         json_source: "JSONSource",
         code_files: "CodeFiles",
         lsp_writers: "LSPWriters | None" = None,
-        share_project_manager: "ShareProjectManager | None" = None,
+        share_runtime_state: "ShareRuntimeState | None" = None,
         share_session_id: str | None = None,
     ) -> None:
         self.persistence_mode = persistence_mode
-        self.share_project_manager = share_project_manager
+        self.share_runtime_state = share_runtime_state
         self.share_session_id = share_session_id
         self._allow_lsp = lsp_writers is not None
         resolved_lsp_writers = lsp_writers or _NoopLSPWriters()
         resolved_sender = (
             ScopedFrontendSender(frontend_sender, share_session_id)
-            if share_project_manager is not None
+            if share_runtime_state is not None
             else frontend_sender
         )
         super().__init__(
@@ -93,10 +93,10 @@ class SessionProjectManager(BaseProjectManager):
         )
 
     def load_initial_state(self) -> ProjectStateBackend:
-        if self.share_project_manager is not None:
+        if self.share_runtime_state is not None:
             if self.share_session_id is None:
                 raise KeyError("Missing share session id")
-            session_state = self.share_project_manager.get_or_create_session_state(
+            session_state = self.share_runtime_state.get_or_create_session_state(
                 self.share_session_id
             )
             return merge_single_config_into_backend(
@@ -110,7 +110,7 @@ class SessionProjectManager(BaseProjectManager):
         return self.dbe.read_project()
 
     def save(self) -> None:
-        if self.share_project_manager is not None:
+        if self.share_runtime_state is not None:
             return None
         if self.persistence_mode == SessionPersistenceMode.ide_settings:
             self._save_settings_project()
@@ -123,7 +123,7 @@ class SessionProjectManager(BaseProjectManager):
     async def save_as_new_project_config(
         self, x: SaveAsNewProjectConfigRequest
     ) -> None:
-        if self.share_project_manager is not None:
+        if self.share_runtime_state is not None:
             raise NotImplementedError(
                 "Share mode does not support project config writes"
             )
@@ -149,27 +149,12 @@ class SessionProjectManager(BaseProjectManager):
         self.perform_manual_save()
         await self.broadcast_all_project_metadata()
 
-    def watch_json_source_files(self) -> None:
-        if self.share_project_manager is not None:
-            return None
-        super().watch_json_source_files()
-
-    def watch_artifact_files(self) -> None:
-        if self.share_project_manager is not None:
-            return None
-        super().watch_artifact_files()
-
-    def watch_code_files(self) -> None:
-        if self.share_project_manager is not None:
-            return None
-        super().watch_code_files()
-
     async def update(
         self,
         projectState: "ProjectStateSingleConfig",
         updateFileWatcher: bool = True,
     ) -> None:
-        if self.share_project_manager is None:
+        if self.share_runtime_state is None:
             await BaseProjectManager.update(
                 self,
                 projectState,
@@ -182,21 +167,25 @@ class SessionProjectManager(BaseProjectManager):
             await BaseProjectManager.update(
                 self,
                 projectState,
-                updateFileWatcher=False,
+                updateFileWatcher=updateFileWatcher,
             )
-            self.share_project_manager.update_session_state(
+            self.share_runtime_state.update_session_state(
                 self.share_session_id,
                 projectState,
             )
             return
         async with self._project_state_lock.write_lock():
-            self.share_project_manager.update_session_state(
+            self.share_runtime_state.update_session_state(
                 self.share_session_id,
                 projectState,
             )
             self.project_state_backend = self.get_new_project_state_backend(
                 projectState
             )
+        if updateFileWatcher:
+            self.watch_json_source_files()
+            self.watch_artifact_files()
+            self.watch_code_files()
 
     @BaseProjectManager.enqueue_method
     async def apply_listener_emit_updates(
@@ -205,7 +194,7 @@ class SessionProjectManager(BaseProjectManager):
         dependency_updates: list["ListenerFrontendEmitKeyAndValue"],
         artifact_updates: list["BaseArtifactUnionWithDiscriminator"],
     ) -> None:
-        if self.share_project_manager is None:
+        if self.share_runtime_state is None:
             await BaseProjectManager.apply_listener_emit_updates(
                 self,
                 projectConfigId=projectConfigId,
@@ -217,17 +206,17 @@ class SessionProjectManager(BaseProjectManager):
             raise ValueError("listener emits require dependency or artifact updates")
         if self.share_session_id is None:
             raise KeyError("Missing share session id")
-        if projectConfigId != self.share_project_manager.project_config_id:
+        if projectConfigId != self.share_runtime_state.project_config_id:
             raise KeyError(f"Unknown share project config: {projectConfigId}")
 
-        project_state = self.share_project_manager.get_session_state(
+        project_state = self.share_runtime_state.get_session_state(
             self.share_session_id
         )
         await ensure_share_listener_emit_updates_allowed(
             share_mode=True,
-            policy=self.share_project_manager.share_policy,
-            frontend_sender=self.share_project_manager.frontend_sender,
-            project_config_id=self.share_project_manager.project_config_id,
+            policy=self.share_runtime_state.share_policy,
+            frontend_sender=self.share_runtime_state.frontend_sender,
+            project_config_id=self.share_runtime_state.project_config_id,
             project_state=project_state,
             dependency_updates=dependency_updates,
             artifact_updates=artifact_updates,
@@ -257,11 +246,11 @@ class SessionProjectManager(BaseProjectManager):
             )
 
     async def ensure_gen_code_ready(self) -> None:
-        if self.share_project_manager is None:
+        if self.share_runtime_state is None:
             return
         if not self._allow_lsp:
             return
-        project_config_id = self.share_project_manager.project_config_id
+        project_config_id = self.share_runtime_state.project_config_id
         if project_config_id in self.gen_code:
             return
         project_state = self.get_single_config_state(project_config_id)
@@ -272,8 +261,18 @@ class SessionProjectManager(BaseProjectManager):
         )
 
     def shutdown(self) -> None:
+        self._clear_file_watcher_callbacks()
         self.autosave_debouncer.cancel()
         self.queue_task.cancel()
+
+    def _clear_file_watcher_callbacks(self) -> None:
+        categories = (
+            f"{self._file_watcher_category_prefix}_JSONSource",
+            f"{self._file_watcher_category_prefix}_Artifacts",
+            f"{self._file_watcher_category_prefix}_CodeFiles",
+        )
+        for category in categories:
+            self.specific_file_watcher.update_callbacks({}, category, [])
 
     @BaseProjectManager.enqueue_method
     async def create_run_command(
@@ -281,7 +280,7 @@ class SessionProjectManager(BaseProjectManager):
         projectConfigId: ID,
         sectionId: ID | None,
     ) -> str:
-        if self.share_project_manager is None:
+        if self.share_runtime_state is None:
             return await BaseProjectManager.create_run_command(
                 self,
                 projectConfigId=projectConfigId,
@@ -289,9 +288,9 @@ class SessionProjectManager(BaseProjectManager):
             )
         if self.share_session_id is None:
             raise KeyError("Missing share session id")
-        if projectConfigId != self.share_project_manager.project_config_id:
+        if projectConfigId != self.share_runtime_state.project_config_id:
             raise KeyError(f"Unknown share project config: {projectConfigId}")
-        return await self.share_project_manager.create_run_command(
+        return await self.share_runtime_state.create_run_command(
             self.share_session_id,
             sectionId,
         )

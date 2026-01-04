@@ -15,6 +15,7 @@ from setta.project_state.jsonSource.load import load_json_sources_into_data_stru
 from setta.project_state.utils import (
     create_timestamped_folder,
 )
+from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     load_share_policy_from_dbe,
@@ -46,12 +47,13 @@ if TYPE_CHECKING:
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
-class ShareProjectManager:
+class ShareRuntimeState:
     def __init__(
         self,
         dbe: DBE,
         deployment_root: Path,
         frontend_sender: "WMHFrontendSender",
+        specific_file_watcher: SpecificFileWatcher | None = None,
     ) -> None:
         self.dbe = dbe
         self.deployment_root = deployment_root
@@ -70,7 +72,7 @@ class ShareProjectManager:
             )
         self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
-        self._artifact_watcher = SpecificFileWatcher()
+        self._artifact_watcher = specific_file_watcher or SpecificFileWatcher()
         self._base_state: "ProjectStateSingleConfig | None" = None
 
     @property
@@ -125,7 +127,8 @@ class ShareProjectManager:
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
             return self._session_artifacts[session_id]
-        artifacts = Artifacts(self.frontend_sender, self._artifact_watcher, self.dbe)
+        scoped_sender = ScopedFrontendSender(self.frontend_sender, session_id)
+        artifacts = Artifacts(scoped_sender, self._artifact_watcher, self.dbe)
         self._session_artifacts[session_id] = artifacts
         return artifacts
 

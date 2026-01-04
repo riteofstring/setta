@@ -11,7 +11,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.listener_runtime import ShareListenerRuntime, _ListenerHandle
 from setta.share.session_cleanup import cleanup_expired_share_sessions
@@ -87,18 +87,18 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 None,
             )
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
-            share_project_manager = ShareProjectManager(
+            share_runtime_state = ShareRuntimeState(
                 dbe,
                 root,
                 frontend_sender,
             )
-            share_project_manager.initialize_share_state(settings_file)
+            share_runtime_state.initialize_share_state(settings_file)
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
-            share_project_manager.create_session_state(session.id)
+            share_runtime_state.create_session_state(session.id)
 
             switcher = ProjectManagerSwitcher(
-                share_project_manager=share_project_manager,
+                share_runtime_state=share_runtime_state,
                 settings_file=settings_file,
                 python_script_sender=python_script_sender,
                 lsp_writers=None,
@@ -106,7 +106,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 specific_file_watcher=SpecificFileWatcher(),
             )
             manager = switcher.get(
-                share_project_manager.project_config_id,
+                share_runtime_state.project_config_id,
                 share_session_id=session.id,
             )
             await manager._process_queue_task_started.wait()
@@ -114,12 +114,12 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
             expired_ids = await cleanup_expired_share_sessions(
                 session_store,
-                share_project_manager,
+                share_runtime_state,
                 switcher,
             )
 
             self.assertIn(session.id, expired_ids)
-            self.assertFalse(share_project_manager.has_session_state(session.id))
+            self.assertFalse(share_runtime_state.has_session_state(session.id))
             self.assertEqual([], switcher.project_managers)
 
             await asyncio.gather(manager.queue_task, return_exceptions=True)
@@ -137,15 +137,15 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
-            share_project_manager = ShareProjectManager(
+            share_runtime_state = ShareRuntimeState(
                 dbe,
                 root,
                 frontend_sender,
             )
-            share_project_manager.initialize_share_state(settings_file)
+            share_runtime_state.initialize_share_state(settings_file)
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
-            share_project_manager.create_session_state(session.id)
+            share_runtime_state.create_session_state(session.id)
 
             listener_registry = ListenerRegistry()
             python_script_sender = WMHPythonScriptSender(
@@ -154,7 +154,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 dbe,
             )
             switcher = ProjectManagerSwitcher(
-                share_project_manager=share_project_manager,
+                share_runtime_state=share_runtime_state,
                 settings_file=settings_file,
                 python_script_sender=python_script_sender,
                 lsp_writers=None,
@@ -167,7 +167,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             chat_manager = ShareChatManager(
                 dbe,
                 frontend_sender,
-                share_project_manager,
+                share_runtime_state,
                 session_store,
                 switcher,
                 llm_config=llm_config,
@@ -179,7 +179,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
                 None,
                 message,
                 "primary",
-                share_project_manager.project_config_id,
+                share_runtime_state.project_config_id,
                 share_session_id=session.id,
             )
             self.assertIn(session.id, chat_manager._managers)
@@ -187,13 +187,13 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             listener_runtime = ShareListenerRuntime(
                 deployment_root=root,
                 manifest=None,
-                project_config_id=share_project_manager.project_config_id,
+                project_config_id=share_runtime_state.project_config_id,
             )
             module_name = f"share_listener_{session.id}"
             module = ModuleType(module_name)
             sys.modules[module_name] = module
             listener = SettaListener(
-                project_config_id=share_project_manager.project_config_id,
+                project_config_id=share_runtime_state.project_config_id,
                 share_session_id=session.id,
             )
 
@@ -211,7 +211,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
             expired_ids = await cleanup_expired_share_sessions(
                 session_store,
-                share_project_manager,
+                share_runtime_state,
                 share_listener_runtime=listener_runtime,
                 share_chat_manager=chat_manager,
             )
@@ -236,19 +236,19 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
-            share_project_manager = ShareProjectManager(
+            share_runtime_state = ShareRuntimeState(
                 dbe,
                 root,
                 frontend_sender,
             )
             session_store = MemorySessionStore(ttl_seconds=1)
             session = session_store.create_session()
-            share_project_manager.create_session_state(session.id)
+            share_runtime_state.create_session_state(session.id)
 
             terminals = Terminals(frontend_sender, settings_file)
             terminal_id = build_terminal_id(ID("terminal-section"), session.id)
             created = terminals.new_terminal(
-                share_project_manager.project_config_id,
+                share_runtime_state.project_config_id,
                 terminal_id,
                 share_session_id=session.id,
             )
@@ -258,7 +258,7 @@ class ShareSessionCleanupTests(unittest.IsolatedAsyncioTestCase):
             session.last_accessed_at = session.last_accessed_at - timedelta(seconds=120)
             expired_ids = await cleanup_expired_share_sessions(
                 session_store,
-                share_project_manager,
+                share_runtime_state,
                 terminals=terminals,
             )
 

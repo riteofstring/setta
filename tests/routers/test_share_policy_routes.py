@@ -452,9 +452,9 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
             )
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
-            state.share_project_manager.create_session_state(session.id)
+            state.share_runtime_state.create_session_state(session.id)
             baseline_sections = len(
-                state.share_project_manager.get_session_state(session.id).sections
+                state.share_runtime_state.get_session_state(session.id).sections
             )
             create_request = CreateTopLevelSectionRequest(
                 projectConfigId=project_config_id,
@@ -467,7 +467,7 @@ class SharePolicyRouteTests(unittest.IsolatedAsyncioTestCase):
                     )
             self.assertEqual(403, ctx.exception.status_code)
             updated_sections = len(
-                state.share_project_manager.get_session_state(session.id).sections
+                state.share_runtime_state.get_session_state(session.id).sections
             )
             self.assertEqual(baseline_sections, updated_sections)
 

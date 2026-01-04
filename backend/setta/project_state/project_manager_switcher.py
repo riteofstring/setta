@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.lsp.managers import LSPWriters
-    from setta.project_state.share_project_manager import ShareProjectManager
+    from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
     from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -26,16 +26,16 @@ class ProjectManagerSwitcher:
         *,
         main_manager: BaseProjectManager | None = None,
         settings_manager: BaseProjectManager | None = None,
-        share_project_manager: "ShareProjectManager | None" = None,
+        share_runtime_state: "ShareRuntimeState | None" = None,
         settings_file: "SettingsFile | None" = None,
         python_script_sender: "WMHPythonScriptSender | None" = None,
         lsp_writers: "LSPWriters | None" = None,
         frontend_sender: "WMHFrontendSender | None" = None,
         specific_file_watcher: "SpecificFileWatcher | None" = None,
     ):
-        self.share_project_manager = share_project_manager
+        self.share_runtime_state = share_runtime_state
         self._session_managers: dict[str, SessionProjectManager] = {}
-        if share_project_manager is not None:
+        if share_runtime_state is not None:
             if settings_file is None:
                 raise ValueError("share manager switcher missing settings_file")
             if python_script_sender is None:
@@ -63,7 +63,7 @@ class ProjectManagerSwitcher:
         *,
         share_session_id: str | None = None,
     ) -> BaseProjectManager:
-        if self.share_project_manager is not None:
+        if self.share_runtime_state is not None:
             if not share_session_id:
                 raise KeyError("Missing share session id")
             manager = self.get_for_session(share_session_id)
@@ -71,7 +71,7 @@ class ProjectManagerSwitcher:
                 project_config_id = project_identifier
             else:
                 project_config_id = project_identifier.projectConfig.id
-            if project_config_id != self.share_project_manager.project_config_id:
+            if project_config_id != self.share_runtime_state.project_config_id:
                 raise KeyError(f"Unknown share project config: {project_config_id}")
             return manager
         if isinstance(project_identifier, str):
@@ -89,9 +89,9 @@ class ProjectManagerSwitcher:
         )
 
     def get_config_id_by_name(self, projectConfigName: str):
-        if self.share_project_manager is not None:
-            project_config_id = self.share_project_manager.project_config_id
-            config = self.share_project_manager.project_state_backend.projectConfigs[
+        if self.share_runtime_state is not None:
+            project_config_id = self.share_runtime_state.project_config_id
+            config = self.share_runtime_state.project_state_backend.projectConfigs[
                 project_config_id
             ]
             if config.name != projectConfigName:
@@ -113,7 +113,7 @@ class ProjectManagerSwitcher:
 
     @property
     def project_managers(self) -> list[BaseProjectManager]:
-        if self.share_project_manager is not None:
+        if self.share_runtime_state is not None:
             return list(self._session_managers.values())
         output: list[BaseProjectManager] = []
         if self.main is not None:
@@ -123,7 +123,7 @@ class ProjectManagerSwitcher:
         return output
 
     def get_for_session(self, share_session_id: str) -> BaseProjectManager:
-        if self.share_project_manager is None:
+        if self.share_runtime_state is None:
             if self.main is None:
                 raise ProjectNotFound
             if not share_session_id:
@@ -133,19 +133,19 @@ class ProjectManagerSwitcher:
             raise KeyError("Missing share session id")
         if share_session_id in self._session_managers:
             return self._session_managers[share_session_id]
-        self.share_project_manager.get_or_create_session_state(share_session_id)
+        self.share_runtime_state.get_or_create_session_state(share_session_id)
         scoped_sender = ScopedFrontendSender(self.frontend_sender, share_session_id)
-        artifacts = self.share_project_manager.get_session_artifacts(share_session_id)
+        artifacts = self.share_runtime_state.get_session_artifacts(share_session_id)
         json_source = JSONSource(
             scoped_sender,
             self.settings_file,
             self.specific_file_watcher,
-            self.share_project_manager.dbe,
+            self.share_runtime_state.dbe,
         )
         code_files = CodeFiles(
             scoped_sender,
             self.specific_file_watcher,
-            self.share_project_manager.dbe,
+            self.share_runtime_state.dbe,
         )
         manager = SessionProjectManager(
             persistence_mode=SessionPersistenceMode.share,
@@ -153,19 +153,19 @@ class ProjectManagerSwitcher:
             python_script_sender=self.python_script_sender,
             settings_file=self.settings_file,
             specific_file_watcher=self.specific_file_watcher,
-            dbe=self.share_project_manager.dbe,
+            dbe=self.share_runtime_state.dbe,
             artifacts=artifacts,
             json_source=json_source,
             code_files=code_files,
             lsp_writers=self.lsp_writers,
-            share_project_manager=self.share_project_manager,
+            share_runtime_state=self.share_runtime_state,
             share_session_id=share_session_id,
         )
         self._session_managers[share_session_id] = manager
         return manager
 
     def drop_session_manager(self, share_session_id: str) -> None:
-        if self.share_project_manager is None:
+        if self.share_runtime_state is None:
             return
         manager = self._session_managers.pop(share_session_id, None)
         if manager is None:
@@ -174,7 +174,7 @@ class ProjectManagerSwitcher:
 
     @property
     def main(self) -> BaseProjectManager:
-        if self.share_project_manager is not None:
+        if self.share_runtime_state is not None:
             raise KeyError("Share mode requires a share session id")
         if self._main is None:
             raise ProjectNotFound

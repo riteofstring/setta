@@ -54,7 +54,7 @@ class RuntimeContext:
     @property
     def policy(self) -> SharePolicy:
         if self.state.share_mode:
-            return self.state.share_project_manager.share_policy
+            return self.state.share_runtime_state.share_policy
         return SharePolicy()
 
     @property

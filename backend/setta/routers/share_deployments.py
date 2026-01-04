@@ -208,8 +208,8 @@ def _expected_share_deployment(state: AppStateFromRequest) -> tuple[str, str]:
             detail="Share deployment root is not configured.",
         )
     return (
-        state.share_project_manager.project_config_name,
-        state.share_project_manager.deployment_version,
+        state.share_runtime_state.project_config_name,
+        state.share_runtime_state.deployment_version,
     )
 
 
@@ -376,13 +376,13 @@ def route_get_latest_share_deployment(
     state: AppStateFromRequest,
 ) -> ShareDeploymentMetadata:
     if state.share_mode:
-        expected_name = state.share_project_manager.project_config_name
+        expected_name = state.share_runtime_state.project_config_name
         if projectConfigName != expected_name:
             raise HTTPException(
                 status_code=404,
                 detail=f"Share deployment not found: {projectConfigName}",
             )
-        manifest = state.share_project_manager.manifest
+        manifest = state.share_runtime_state.manifest
         if manifest is None:
             raise HTTPException(
                 status_code=404,
@@ -429,14 +429,14 @@ async def route_create_share_session(
     _require_share_mode(state)
     _require_matching_deployment(state, projectConfigName, version)
     session = state.share_session_store.create_session()
-    state.share_project_manager.create_session_state(session.id)
+    state.share_runtime_state.create_session_state(session.id)
     return ShareDeploymentSessionResponse(
-        projectConfigName=state.share_project_manager.project_config_name,
-        deploymentVersion=state.share_project_manager.deployment_version,
+        projectConfigName=state.share_runtime_state.project_config_name,
+        deploymentVersion=state.share_runtime_state.deployment_version,
         shareSessionId=session.id,
-        projectConfigId=state.share_project_manager.project_config_id,
-        sharePolicy=state.share_project_manager.share_policy,
-        manifest=state.share_project_manager.manifest,
+        projectConfigId=state.share_runtime_state.project_config_id,
+        sharePolicy=state.share_runtime_state.share_policy,
+        manifest=state.share_runtime_state.manifest,
     )
 
 
@@ -454,7 +454,7 @@ async def route_get_share_deployment_state(
         maybe_get_share_session_id_from_request(request),
         create_session_state=False,
     )
-    project_state = state.share_project_manager.get_or_create_session_state(
+    project_state = state.share_runtime_state.get_or_create_session_state(
         share_session_id
     )
     return ProjectStateSingleConfigWithCompletedOpIds(

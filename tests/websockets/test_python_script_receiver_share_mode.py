@@ -11,7 +11,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.generated.websocket_unions import PythonScriptWebsocketMsgTypeAdapter
@@ -170,7 +170,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             python_sender = WMHPythonScriptSender(
                 websocket_manager, listener_registry
             )
-            share_manager = ShareProjectManager(dbe, root, frontend_sender)
+            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(
                 dbe,
                 frontend_sender,
@@ -178,7 +178,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             )
             share_manager.initialize_share_state(settings_file)
             switcher = ProjectManagerSwitcher(
-                share_project_manager=share_manager,
+                share_runtime_state=share_manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,
@@ -250,7 +250,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             python_sender = WMHPythonScriptSender(
                 websocket_manager, listener_registry
             )
-            share_manager = ShareProjectManager(dbe, root, frontend_sender)
+            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(
                 dbe,
                 frontend_sender,
@@ -258,7 +258,7 @@ class PythonScriptReceiverShareModeTests(unittest.IsolatedAsyncioTestCase):
             )
             share_manager.initialize_share_state(settings_file)
             switcher = ProjectManagerSwitcher(
-                share_project_manager=share_manager,
+                share_runtime_state=share_manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,

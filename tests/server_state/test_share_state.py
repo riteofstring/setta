@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from setta.database.db_objs import DBE
 from setta.mcp.client import MultiMCPClient
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.server_state import SettaFastAPIState
 from setta.share.session_store import MemorySessionStore
@@ -70,7 +70,7 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
         await state.wait_until_ready()
         return state
 
-    async def test_share_state_boots_without_watchers(self) -> None:
+    async def test_share_state_boots_with_watchers(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share_test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
@@ -82,12 +82,12 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
             state = await self._build_state(root)
 
             self.assertIsInstance(state.share_session_store, MemorySessionStore)
-            self.assertIsInstance(state.share_project_manager, ShareProjectManager)
+            self.assertIsInstance(state.share_runtime_state, ShareRuntimeState)
             self.assertEqual(
                 project_config.id,
-                state.share_project_manager.project_state_backend.defaultProjectConfigId,
+                state.share_runtime_state.project_state_backend.defaultProjectConfigId,
             )
-            self.assertFalse(state.specific_file_watcher)
+            self.assertIsNotNone(state.specific_file_watcher)
             self.assertTrue(state.mcp_client.disabled)
             self.assertFalse(state.lsps)
 

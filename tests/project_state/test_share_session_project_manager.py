@@ -8,7 +8,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
@@ -160,7 +160,7 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
             dbe = _write_project_with_state(root, project_state, deployment_version="v1")
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
-            share_manager = ShareProjectManager(dbe, root, frontend_sender)
+            share_manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             share_manager.initialize_share_state(settings_file)
             python_sender = WMHPythonScriptSender(
@@ -168,7 +168,7 @@ class ShareSessionProjectManagerTests(unittest.IsolatedAsyncioTestCase):
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
-                share_project_manager=share_manager,
+                share_runtime_state=share_manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,

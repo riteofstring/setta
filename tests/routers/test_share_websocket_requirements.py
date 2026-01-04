@@ -387,7 +387,7 @@ class TerminalWebsocketRequirementTests(unittest.IsolatedAsyncioTestCase):
                 task = asyncio.create_task(
                     terminal_websocket_endpoint(
                         websocket,
-                        state.share_project_manager.project_config_id,
+                        state.share_runtime_state.project_config_id,
                         section_id,
                         "client-keepalive",
                         runtime_ctx,

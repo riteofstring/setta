@@ -163,8 +163,8 @@ Implemented:
   policy (and wires share chat manager accordingly).
 
 ## 4) Share project manager + per-viewer overlays
-Status: completed. ShareProjectManager + session store exist, share-mode mutation routes are wired to per-session overlays, session validation/cleanup/artifact caching are in place, and share artifact updates broadcast to the active share session after caching.
-- Implement `ShareProjectManager` in `backend/setta/project_state/share_project_manager.py`:
+Status: completed. ShareRuntimeState + session store exist, share-mode mutation routes are wired to per-session overlays, session validation/cleanup/artifact caching are in place, and share artifact updates broadcast to the active share session after caching.
+- Implement `ShareRuntimeState` in `backend/setta/project_state/share_runtime_state.py`:
   - `load_initial_state` reads `project.json` from the deployment root.
   - `save` is a no-op (share mode is read-only for persistence).
   - `watch_json_source_files`, `watch_artifact_files`, `watch_code_files` are no-ops.
@@ -178,20 +178,20 @@ Status: completed. ShareProjectManager + session store exist, share-mode mutatio
   share session id from header/cookie/query and to load the per-viewer overlay.
 - Keep explicit KeyError checks for missing sessions/ids (no `.get` side effects).
 Implemented:
-- `backend/setta/project_state/share_project_manager.py` loads `project.json`,
+- `backend/setta/project_state/share_runtime_state.py` loads `project.json`,
   consumes `manifest.json`, selects the share project config, and manages
   per-viewer overlay state in memory.
 - Share deployments no longer require directory names to match the manifest
   (relocated deployment roots are accepted).
-- `ShareProjectManager` keeps persistence/watchers as no-ops and only validates
+- `ShareRuntimeState` keeps persistence/watchers as no-ops and only validates
   state on updates.
-- `ShareProjectManager` tracks per-session artifacts and applies listener emits,
+- `ShareRuntimeState` tracks per-session artifacts and applies listener emits,
   broadcasting project state/artifact updates to the correct session(s).
-- `ShareProjectManager` skips per-session artifact preloads; share artifact routes
+- `ShareRuntimeState` skips per-session artifact preloads; share artifact routes
   load from disk on cache misses.
-- `ShareProjectManager` rehydrates json-source values from `json_sources/` on
+- `ShareRuntimeState` rehydrates json-source values from `json_sources/` on
   share boot (option 2) so stripped values are restored in session overlays.
-- `ShareProjectManager` rebases deployment-relative paths for image/chart/draw
+- `ShareRuntimeState` rebases deployment-relative paths for image/chart/draw
   artifacts, draw transforms, code bindings, and json-source variant names to
   runtime paths on share boot.
 - Share sessions optionally rebase code bindings to per-session runtime roots
@@ -218,7 +218,7 @@ Pending updates: none.
 Status: completed. Content mutation routes and rename refactor decisions are gated,
 and param selection routes are gated.
 - Use `SharePolicy` from `backend/setta/types/share_deployment.py`.
-- Load the share policy in `backend/setta/project_state/share_project_manager.py`
+- Load the share policy in `backend/setta/project_state/share_runtime_state.py`
   and in the enforcement helpers (`backend/setta/share/policy.py`).
 - Enforce policy in share routes and listeners:
   - Structural: create/delete sections and incrementer add/remove flows in

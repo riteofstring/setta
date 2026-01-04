@@ -6,7 +6,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.session_store import MemorySessionStore
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
@@ -64,8 +64,8 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
     settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
-    share_project_manager = ShareProjectManager(dbe, root, frontend_sender)
-    share_project_manager.initialize_share_state(settings_file)
+    share_runtime_state = ShareRuntimeState(dbe, root, frontend_sender)
+    share_runtime_state.initialize_share_state(settings_file)
     share_session_store = MemorySessionStore()
     listener_registry = ListenerRegistry()
     python_script_sender = WMHPythonScriptSender(
@@ -74,7 +74,7 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID
         dbe,
     )
     switcher = ProjectManagerSwitcher(
-        share_project_manager=share_project_manager,
+        share_runtime_state=share_runtime_state,
         settings_file=settings_file,
         python_script_sender=python_script_sender,
         lsp_writers=None,
@@ -87,12 +87,12 @@ def _build_manager(root: Path) -> tuple[ShareChatManager, MemorySessionStore, ID
     manager = ShareChatManager(
         dbe,
         frontend_sender,
-        share_project_manager,
+        share_runtime_state,
         share_session_store,
         switcher,
         llm_config=llm_config,
     )
-    return manager, share_session_store, share_project_manager.project_config_id
+    return manager, share_session_store, share_runtime_state.project_config_id
 
 
 class ShareChatManagerTests(unittest.TestCase):

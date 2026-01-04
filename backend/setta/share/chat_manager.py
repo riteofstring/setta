@@ -13,7 +13,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-    from setta.project_state.share_project_manager import ShareProjectManager
+    from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.share.session_store import ShareSessionStore
     from setta.types.chat import APIKeys, Chat
     from setta.types.generated.chat_messages import BaseChatMessageUnion
@@ -24,7 +24,7 @@ class ShareChatManager:
         self,
         dbe: DBE,
         frontend_sender: WMHFrontendSender,
-        share_project_manager: "ShareProjectManager",
+        share_runtime_state: "ShareRuntimeState",
         share_session_store: "ShareSessionStore",
         project_manager_switcher: "ProjectManagerSwitcher",
         *,
@@ -34,7 +34,7 @@ class ShareChatManager:
     ) -> None:
         self.dbe = dbe
         self.frontend_sender = frontend_sender
-        self.share_project_manager = share_project_manager
+        self.share_runtime_state = share_runtime_state
         self.share_session_store = share_session_store
         self.project_manager_switcher = project_manager_switcher
         self._mcp_client = (
@@ -57,7 +57,7 @@ class ShareChatManager:
     def _get_or_create_manager(self, share_session_id: str) -> LLMChatManager:
         if share_session_id not in self._managers:
             self.share_session_store.get_session(share_session_id)
-            self.share_project_manager.get_or_create_session_state(share_session_id)
+            self.share_runtime_state.get_or_create_session_state(share_session_id)
             session_sender = ScopedFrontendSender(
                 self.frontend_sender, share_session_id
             )

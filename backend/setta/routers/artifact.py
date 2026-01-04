@@ -53,7 +53,7 @@ def _get_share_session_artifacts(
     share_session_id = ctx.share_session_id
     if share_session_id is None:
         raise KeyError("Missing share session id")
-    return ctx.state.share_project_manager.get_session_artifacts(share_session_id)
+    return ctx.state.share_runtime_state.get_session_artifacts(share_session_id)
 
 
 def _get_artifacts(ctx: RuntimeContextFromRequest):
@@ -210,13 +210,13 @@ async def route_update_artifacts(
         session_id = ctx.share_session_id
         if session_id is None:
             raise KeyError("Missing share session id")
-        project_state = ctx.state.share_project_manager.get_session_state(session_id)
+        project_state = ctx.state.share_runtime_state.get_session_state(session_id)
         section_ids, unknown_paths = resolve_section_ids_for_artifacts(
             project_state, x.artifacts
         )
         await ensure_share_artifact_paths_scoped(
             share_mode=ctx.share_mode,
-            policy=ctx.state.share_project_manager.share_policy,
+            policy=ctx.state.share_runtime_state.share_policy,
             frontend_sender=ctx.state.wmh_frontend_sender,
             project_config_id=None,
             share_session_id=session_id,
@@ -226,7 +226,7 @@ async def route_update_artifacts(
             project_config_id=None,
             section_ids=section_ids if section_ids else None,
         )
-        artifacts = ctx.state.share_project_manager.get_session_artifacts(session_id)
+        artifacts = ctx.state.share_runtime_state.get_session_artifacts(session_id)
         results: list[ArtifactSaveResult] = []
         payloads: list[BaseArtifactUnion] = []
         for artifact in x.artifacts:

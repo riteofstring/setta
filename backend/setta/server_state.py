@@ -24,7 +24,7 @@ from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.share.chat_manager import ShareChatManager
 from setta.share.deployment_utils import read_share_deployment_manifest
 from setta.share.listener_runtime import ShareListenerRuntime
@@ -140,8 +140,8 @@ class SettaFastAPIState:
         self.share_session_store: ShareSessionStore = self._defer_attr(
             "share_session_store"
         )
-        self.share_project_manager: ShareProjectManager = self._defer_attr(
-            "share_project_manager"
+        self.share_runtime_state: ShareRuntimeState = self._defer_attr(
+            "share_runtime_state"
         )
         self.share_listener_runtime: ShareListenerRuntime = self._defer_attr(
             "share_listener_runtime"
@@ -343,19 +343,21 @@ class SettaFastAPIState:
         self.share_session_store = MemorySessionStore(
             ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
         )
-        self.share_project_manager = ShareProjectManager(
+        self.specific_file_watcher = SpecificFileWatcher()
+        self.share_runtime_state = ShareRuntimeState(
             self.dbe,
             self.share_deployment_root,
             self.wmh_frontend_sender,
+            specific_file_watcher=self.specific_file_watcher,
         )
         self.settings_file = SettingsFile(
             self.dbe,
             self.wmh_frontend_sender,
             allow_write=False,
         )
-        self.share_project_manager.initialize_share_state(self.settings_file)
+        self.share_runtime_state.initialize_share_state(self.settings_file)
         lsp_writers = None
-        if self.share_project_manager.share_policy.allowLSP:
+        if self.share_runtime_state.share_policy.allowLSP:
             self.lsps = LSPServers(self.settings_file.settings.languageServer)
             self.lsp_writers = LSPWriters(self.lsps)
             self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
@@ -365,35 +367,35 @@ class SettaFastAPIState:
         )
 
         self.project_manager_switcher = ProjectManagerSwitcher(
-            share_project_manager=self.share_project_manager,
+            share_runtime_state=self.share_runtime_state,
             settings_file=self.settings_file,
             python_script_sender=self.wmh_python_script_sender,
             lsp_writers=lsp_writers,
             frontend_sender=self.wmh_frontend_sender,
-            specific_file_watcher=SpecificFileWatcher(),
+            specific_file_watcher=self.specific_file_watcher,
         )
-        if self.share_project_manager.share_policy.allowRun:
+        if self.share_runtime_state.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         if (
-            self.share_project_manager.share_policy.runSnapshotMode
+            self.share_runtime_state.share_policy.runSnapshotMode
             == RunSnapshotMode.ephemeral
         ):
             spawn_background_task(
                 run_share_run_cleanup_loop(
-                    self.share_project_manager.share_runs_root,
+                    self.share_runtime_state.share_runs_root,
                     ttl_seconds=DEFAULT_SHARE_RUN_TTL_SECONDS,
                     interval_seconds=DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS,
                 ),
                 label="share-run-cleanup",
                 extra_values={
-                    "project_config_name": self.share_project_manager.project_config_name,
-                    "deployment_version": self.share_project_manager.deployment_version,
+                    "project_config_name": self.share_runtime_state.project_config_name,
+                    "deployment_version": self.share_runtime_state.deployment_version,
                 },
             )
         self.share_listener_runtime = ShareListenerRuntime(
             deployment_root=self.share_deployment_root,
-            manifest=self.share_project_manager.manifest,
-            project_config_id=self.share_project_manager.project_config_id,
+            manifest=self.share_runtime_state.manifest,
+            project_config_id=self.share_runtime_state.project_config_id,
         )
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,
@@ -410,7 +412,7 @@ class SettaFastAPIState:
             dbe=self.dbe,
         )
         self.mcp_client = MultiMCPClient({}, disabled=True)
-        share_policy = self.share_project_manager.share_policy
+        share_policy = self.share_runtime_state.share_policy
         llm_dbe = self._resolve_share_llm_dbe()
         llm_config = None
         if share_policy.allowLLM or share_policy.allowMCP:
@@ -442,7 +444,7 @@ class SettaFastAPIState:
             self.chat_manager = ShareChatManager(
                 llm_dbe,
                 self.wmh_frontend_sender,
-                self.share_project_manager,
+                self.share_runtime_state,
                 self.share_session_store,
                 self.project_manager_switcher,
                 mcp_client=self.mcp_client,
@@ -453,7 +455,7 @@ class SettaFastAPIState:
         spawn_background_task(
             run_share_session_cleanup_loop(
                 self.share_session_store,
-                self.share_project_manager,
+                self.share_runtime_state,
                 self.project_manager_switcher,
                 share_listener_runtime=self.share_listener_runtime,
                 share_chat_manager=share_chat_manager,
@@ -462,8 +464,8 @@ class SettaFastAPIState:
             ),
             label="share-session-cleanup",
             extra_values={
-                "project_config_name": self.share_project_manager.project_config_name,
-                "deployment_version": self.share_project_manager.deployment_version,
+                "project_config_name": self.share_runtime_state.project_config_name,
+                "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
         if self.lsps and self.lsp_readers and self.lsp_writers:
@@ -473,6 +475,8 @@ class SettaFastAPIState:
                 request_id="boot",
                 extra_values={"service": "language-servers"},
             )
+        if self.specific_file_watcher:
+            self.specific_file_watcher.start()
         self._ready_event.set()
         self.init_status.record("Share backend ready")
         self.init_status.mark_ready()

@@ -14,7 +14,7 @@ from setta.database.settings_file import SettingsFile
 from setta.database.utils import create_new_id
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
-from setta.project_state.share_project_manager import ShareProjectManager
+from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.types.artifact import (
     ArtifactType,
     DrawAreaLayer,
@@ -252,7 +252,7 @@ def _write_project_with_state(
     return dbe
 
 
-class ShareProjectManagerTests(unittest.TestCase):
+class ShareRuntimeStateTests(unittest.TestCase):
     def setUp(self) -> None:
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
@@ -276,7 +276,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             self.assertEqual(config_b.id, manager.project_config_id)
 
             session_state = manager.create_session_state("session-a")
@@ -300,7 +300,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             self.assertNotEqual(root.parent.name, manifest.projectConfigName)
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             self.assertEqual(config.name, manager.project_config_name)
             self.assertEqual(manifest.deploymentVersion, manager.deployment_version)
 
@@ -318,7 +318,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
             with self.assertRaises(KeyError):
-                ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
+                ShareRuntimeState(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_missing_project_configs_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -334,7 +334,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
             with self.assertRaises(KeyError):
-                ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
+                ShareRuntimeState(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_missing_project_json_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -349,7 +349,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             dbe.write_json(root / "manifest.json", manifest.model_dump())
 
             with self.assertRaises(FileNotFoundError):
-                ShareProjectManager(dbe, root, WMHFrontendSender(WebsocketManager()))
+                ShareRuntimeState(dbe, root, WMHFrontendSender(WebsocketManager()))
 
     def test_session_state_does_not_preload_artifacts(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -365,7 +365,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             )
             dbe = _write_project_with_state(root, project_state)
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
 
             manager.create_session_state("session-a")
             artifacts = manager.get_session_artifacts("session-a")
@@ -453,7 +453,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             )
             dbe = _write_project_with_state(root, project_state)
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
 
             session_state = manager.create_session_state("session-a")
             chart_session_impl = get_curr_effective_section_impl_with_type_guard(
@@ -492,7 +492,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             session_id = "session-ephemeral"
             manager.create_session_state(session_id)
             runs_root = manager.share_runs_root
@@ -532,7 +532,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             session_id = "session-absolute"
             manager.create_session_state(session_id)
 
@@ -592,7 +592,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(
                 WebsocketManager(), share_mode=True
             )
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
 
@@ -633,7 +633,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
             with self.assertRaises(ValueError):
-                ShareProjectManager(dbe, root, frontend_sender)
+                ShareRuntimeState(dbe, root, frontend_sender)
 
     def test_session_state_isolation(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -647,7 +647,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
-            manager = ShareProjectManager(
+            manager = ShareRuntimeState(
                 dbe, root, WMHFrontendSender(WebsocketManager())
             )
 
@@ -672,7 +672,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
-            manager = ShareProjectManager(
+            manager = ShareRuntimeState(
                 dbe, root, WMHFrontendSender(WebsocketManager())
             )
             existing_state = manager.create_session_state("session-a")
@@ -697,7 +697,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(
                 websocket_manager, share_mode=True
             )
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
             python_sender = WMHPythonScriptSender(
@@ -705,7 +705,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
-                share_project_manager=manager,
+                share_runtime_state=manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,
@@ -745,7 +745,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(
                 websocket_manager, share_mode=True
             )
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
             python_sender = WMHPythonScriptSender(
@@ -753,7 +753,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
-                share_project_manager=manager,
+                share_runtime_state=manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,
@@ -801,7 +801,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(
                 websocket_manager, share_mode=True
             )
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
             python_sender = WMHPythonScriptSender(
@@ -809,7 +809,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
-                share_project_manager=manager,
+                share_runtime_state=manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,
@@ -915,7 +915,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(
                 websocket_manager, share_mode=True
             )
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
 
             async def run_test() -> None:
                 python_sender = WMHPythonScriptSender(
@@ -925,7 +925,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
                 manager.initialize_share_state(settings_file)
                 switcher = ProjectManagerSwitcher(
-                    share_project_manager=manager,
+                    share_runtime_state=manager,
                     settings_file=settings_file,
                     python_script_sender=python_sender,
                     lsp_writers=None,
@@ -979,7 +979,7 @@ class ShareProjectManagerTests(unittest.TestCase):
             frontend_sender = WMHFrontendSender(
                 websocket_manager, share_mode=True
             )
-            manager = ShareProjectManager(dbe, root, frontend_sender)
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
             settings_file = SettingsFile(dbe, frontend_sender, allow_write=False)
             manager.initialize_share_state(settings_file)
             python_sender = WMHPythonScriptSender(
@@ -987,7 +987,7 @@ class ShareProjectManagerTests(unittest.TestCase):
                 ListenerRegistry(),
             )
             switcher = ProjectManagerSwitcher(
-                share_project_manager=manager,
+                share_runtime_state=manager,
                 settings_file=settings_file,
                 python_script_sender=python_sender,
                 lsp_writers=None,

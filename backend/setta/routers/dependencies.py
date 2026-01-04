@@ -113,7 +113,7 @@ def require_share_session_id(
         )
     state.share_session_store.touch_session(share_session_id)
     if create_session_state:
-        state.share_project_manager.get_or_create_session_state(share_session_id)
+        state.share_runtime_state.get_or_create_session_state(share_session_id)
     return share_session_id
 
 
@@ -134,7 +134,7 @@ async def require_share_session_id_from_websocket(
         return None
     state.share_session_store.touch_session(share_session_id)
     if create_session_state:
-        state.share_project_manager.get_or_create_session_state(share_session_id)
+        state.share_runtime_state.get_or_create_session_state(share_session_id)
     return share_session_id
 
 

@@ -35,7 +35,7 @@ def load_share_policy_from_dbe(dbe: DBE) -> SharePolicy:
 
 def _policy_from_state(state: "SettaFastAPIState") -> SharePolicy:
     if state.share_mode:
-        return state.share_project_manager.share_policy
+        return state.share_runtime_state.share_policy
     return SharePolicy()
 
 

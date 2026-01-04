@@ -71,7 +71,9 @@ class SpecificFileWatcher:
         dirs_to_watch = set()
         for category_callbacks in self.callbacks.values():
             for file_path in category_callbacks.keys():
-                dirs_to_watch.add(file_path.parent)
+                parent_dir = file_path.parent
+                if parent_dir.exists():
+                    dirs_to_watch.add(parent_dir)
 
         # Remove watches for directories no longer needed
         current_watched_dirs = set(self.watched_dirs.keys())
@@ -84,12 +86,18 @@ class SpecificFileWatcher:
         # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
         for dir_path in dirs_to_add:
+            if not dir_path.exists():
+                logger.debug(
+                    "Skipping watch for missing directory: %s",
+                    dir_path,
+                )
+                continue
             watch = self.observer.schedule(self.handler, str(dir_path), recursive=False)
             self.watched_dirs[dir_path] = watch
 
         # Fire immediate reads if requested (only for new files)
         for f in fire_immediately:
-            if f in callbacks:
+            if f in callbacks and f.exists():
                 self.request_read(f)
 
     def start(self):
