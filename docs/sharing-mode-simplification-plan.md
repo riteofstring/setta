@@ -25,30 +25,7 @@ session handling, which multiplies changes across the router surface.
 
 ## Simplification Ideas (Core)
 
-### 1) Make RuntimeContext a router-level dependency, not a per-endpoint param
-**Problem**: Every endpoint adds `ctx: RuntimeContextFromRequest` and then
-explicitly calls guards. This is noisy, increases churn, and in this branch it
-broke listener endpoint generation because `Annotated[..., Depends]` is not
-recognized as a dependency in the generator.
-
-**Approach**:
-- Add a small `RuntimeContextMiddleware` that resolves the context and stores it
-  on `request.state` or a contextvar.
-- Add a single dependency on routers (not endpoints) that ensures a context is
-  created and available.
-- Replace per-endpoint `ctx` parameters with `get_runtime_context()` helpers
-  that read from `request.state` / contextvar.
-- For WebSocket handlers, keep explicit runtime context creation but move it to
-  the websocket route wrapper so handlers do not accept `ctx` explicitly.
-
-**Outcome**:
-- Endpoints no longer need `ctx` params.
-- Listener endpoint generation sees only the request model param, restoring the
-  full generated API set.
-- Share-specific logic becomes centralized in runtime context handling rather
-  than copied in every route.
-
-### 2) Centralize share policy gating with a decorator / route metadata
+### 1) Centralize share policy gating with a decorator / route metadata
 **Problem**: `enforce_share_policy_guard` is called repeatedly in the
 project_manager router, and policy gates are scattered across multiple routers.
 This is repetitive and fragile.
@@ -67,7 +44,7 @@ This is repetitive and fragile.
 - Less duplication and fewer per-endpoint policy lines.
 - Easier to review and update policy behavior.
 
-### 3) Shrink share vs IDE branching with a share-focused router module
+### 2) Shrink share vs IDE branching with a share-focused router module
 **Problem**: Most routers now contain `if share_mode` branches and share
 exception behavior. This contributes to the diff size and makes it harder to
 reason about which endpoints behave differently in share mode.
@@ -86,7 +63,7 @@ reason about which endpoints behave differently in share mode.
 
 ## Additional Simplification (Optional)
 
-### 4) Unify session-scoped manager construction in one place
+### 3) Unify session-scoped manager construction in one place
 **Problem**: `ProjectManagerSwitcher` builds per-session managers and sets up
 scoped senders, artifacts, json sources, and code files inline.
 
@@ -99,7 +76,7 @@ scoped senders, artifacts, json sources, and code files inline.
 - The core switcher becomes simpler and focuses on routing.
 - Share session construction logic is isolated and easier to test.
 
-### 5) Clarify share policy defaults
+### 4) Clarify share policy defaults
 **Problem**: If `share_policy.json` is missing or empty, defaults are permissive.
 This is not strictly a simplification, but it makes behavior less predictable
 and increases risk.
@@ -120,35 +97,24 @@ and increases risk.
   - Create a deployment, open two share sessions, verify isolation.
   - Verify policy gating is enforced for param changes, layout, and run.
 
-### Phase 1: RuntimeContext centralization
-- Add request middleware or router-level dependency that populates
-  `RuntimeContext` into request state or a contextvar.
-- Replace per-endpoint ctx param usage with helper accessors.
-- Update listener endpoint generator to ignore `Annotated[..., Depends]` as a
-  dependency (if middleware is not used everywhere yet).
-
-### Phase 2: Share policy decorator
+### Phase 1: Share policy decorator
 - Implement `@share_guard(...)` decorator.
 - Replace repeated `enforce_share_policy_guard` calls in
   `backend/setta/routers/project_manager.py`.
 - Use the decorator in other routers where it meaningfully reduces boilerplate.
 
-### Phase 3: Share router / helper extraction
+### Phase 2: Share router / helper extraction
 - Extract share-only path guards and helpers into `share/` modules to reduce
   branching in core routers.
 - Where feasible, create a `share_router` for share-only endpoints and keep IDE
   routers guarded by `require_ide_mode` at router init.
 
-### Phase 4: Session manager factory (optional)
+### Phase 3: Session manager factory (optional)
 - Move session manager construction to a dedicated helper/factory module.
 - Update `ProjectManagerSwitcher` to call the factory.
 
 ## Risks and Mitigations
-- Risk: Middleware-based context access may fail for background tasks.
-  Mitigation: Keep context creation in router dependency for endpoints that
-  require background tasks, or attach context to the request explicitly.
-
-- Risk: Changing dependency handling could break listener endpoint generation.
+- Risk: Listener endpoint generation can drift as routes change.
   Mitigation: Add a unit test that asserts the generated listener API includes
   a representative set of endpoints.
 
