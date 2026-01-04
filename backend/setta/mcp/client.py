@@ -210,9 +210,6 @@ class MultiMCPClient:
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         self.routing: dict[str, tuple[str, str]] = {}
 
-    def __bool__(self) -> bool:
-        return not self.disabled
-
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if self.disabled:
             return

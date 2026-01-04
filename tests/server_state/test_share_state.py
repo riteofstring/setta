@@ -88,7 +88,7 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
                 state.share_project_manager.project_state_backend.defaultProjectConfigId,
             )
             self.assertFalse(state.specific_file_watcher)
-            self.assertFalse(state.mcp_client)
+            self.assertTrue(state.mcp_client.disabled)
             self.assertFalse(state.lsps)
 
     async def test_share_state_does_not_seed_settings_or_llm_files(self) -> None:
@@ -219,9 +219,10 @@ class ShareStateTests(unittest.IsolatedAsyncioTestCase):
 
                     if expect_mcp:
                         self.assertIsInstance(state.mcp_client, MultiMCPClient)
+                        self.assertFalse(state.mcp_client.disabled)
                         await state.mcp_client.stop()
                     else:
-                        self.assertFalse(state.mcp_client)
+                        self.assertTrue(state.mcp_client.disabled)
 
                     if expect_run:
                         self.assertIsInstance(state.terminals, Terminals)

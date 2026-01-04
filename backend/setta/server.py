@@ -101,7 +101,7 @@ async def lifespan(app: FastAPI):
             await browser_task
         if app.state.setta.specific_file_watcher:
             app.state.setta.specific_file_watcher.stop()
-        if app.state.setta.mcp_client:
+        if not app.state.setta.mcp_client.disabled:
             await app.state.setta.mcp_client.stop()
         if app.state.setta.lsps and app.state.setta.lsp_readers:
             await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)

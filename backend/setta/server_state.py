@@ -75,6 +75,10 @@ class _UninitializedAttribute:
     def __bool__(self) -> bool:
         return False
 
+    @property
+    def disabled(self) -> bool:
+        return True
+
 
 class SettaFastAPIState:
     def __init__(
@@ -299,7 +303,7 @@ class SettaFastAPIState:
 
             self.init_status.record("Starting background services")
             await self._maybe_delay()
-            if self.mcp_client:
+            if not self.mcp_client.disabled:
                 spawn_background_task(
                     self.mcp_client.connect_to_servers(),
                     label="mcp-client-connect",
@@ -405,6 +409,7 @@ class SettaFastAPIState:
             self.project_manager_switcher,
             dbe=self.dbe,
         )
+        self.mcp_client = MultiMCPClient({}, disabled=True)
         share_policy = self.share_project_manager.share_policy
         llm_dbe = self._resolve_share_llm_dbe()
         llm_config = None
@@ -426,13 +431,13 @@ class SettaFastAPIState:
                 llm_config.mcpServers,
                 frontend_sender=self.wmh_frontend_sender,
             )
-            if self.mcp_client:
-                spawn_background_task(
-                    self.mcp_client.connect_to_servers(),
-                    label="mcp-client-connect",
-                    request_id="boot",
-                    extra_values={"service": "mcp-client"},
-                )
+        if not self.mcp_client.disabled:
+            spawn_background_task(
+                self.mcp_client.connect_to_servers(),
+                label="mcp-client-connect",
+                request_id="boot",
+                extra_values={"service": "mcp-client"},
+            )
         if share_policy.allowLLM:
             self.chat_manager = ShareChatManager(
                 llm_dbe,
@@ -440,7 +445,7 @@ class SettaFastAPIState:
                 self.share_project_manager,
                 self.share_session_store,
                 self.project_manager_switcher,
-                mcp_client=self.mcp_client if share_policy.allowMCP else None,
+                mcp_client=self.mcp_client,
                 llm_config=llm_config,
             )
         share_chat_manager = self.chat_manager if share_policy.allowLLM else None
