@@ -84,11 +84,6 @@ function applyOverflowSectionResizeUpdates({
       axis: "width",
       state,
     });
-    console.log("[DEBUG] Looking for overflow group:", {
-      sectionId,
-      width,
-      widthGroupId,
-    });
     if (widthGroupId) {
       // Set all children (siblings) to match this section's width
       mergeSizeUpdates(
@@ -276,12 +271,6 @@ function CustomResizableCore({
           width: numericSize.width,
           height: numericSize.height,
           state,
-        });
-        console.log("[DEBUG] Section resize stop:", {
-          sectionId,
-          numericSize,
-          overflowUpdatesCount: Object.keys(overflowUpdates).length,
-          overflowUpdates,
         });
         mergeSizeUpdates(updatedSectionSizes, overflowUpdates);
       },

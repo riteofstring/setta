@@ -36,30 +36,14 @@ export function getClosestOverflowGroupIdForAxis({
   while (currentId) {
     // Use parentSectionMap for parent relationships, not impl.parentId
     const parentId = state.parentSectionMap[currentId] ?? null;
-    console.log("[DEBUG] Walking parent chain:", {
-      currentId,
-      parentId,
-    });
     if (!parentId) {
       return null;
     }
 
     const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
-    console.log("[DEBUG] Checking parent:", {
-      parentId,
-      parentType: parentImpl.type,
-      overflowMode: parentImpl.overflowMode,
-      isHorizontalOrientation: parentImpl.isHorizontalOrientation,
-      axis,
-    });
     if (parentImpl.type === SectionTypeEnum.Group && parentImpl.overflowMode) {
       const isHorizontal = parentImpl.isHorizontalOrientation ?? false;
       const matchesAxis = axis === "height" ? isHorizontal : !isHorizontal;
-      console.log("[DEBUG] Found overflow group:", {
-        parentId,
-        isHorizontal,
-        matchesAxis,
-      });
       if (matchesAxis) {
         return parentId;
       }
@@ -131,8 +115,8 @@ export function getOverflowParentSizeUpdates({
   let currentId: string | null = sectionId;
 
   while (currentId) {
-    const impl = getCurrEffectiveSectionImpl(state, currentId);
-    const parentId = impl.parentId ?? null;
+    // Use parentSectionMap for parent relationships
+    const parentId = state.parentSectionMap[currentId] ?? null;
     if (!parentId) {
       break;
     }

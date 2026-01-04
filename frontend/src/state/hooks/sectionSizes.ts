@@ -225,11 +225,7 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
-    if (
-      !isMinimized &&
-      (sectionType === SectionTypeEnum.MetaControl ||
-        sectionType === SectionTypeEnum.TextBlock)
-    ) {
+    if (!isMinimized && sectionType === SectionTypeEnum.MetaControl) {
       minHeight *= 0.5;
       minWidth *= 0.5;
     }
