@@ -64,12 +64,14 @@ function Items() {
       <MenuItem
         onClick={() => requestTypeCheck(true)}
         shortcut={shortcuts.typeCheckShortcut}
+        disabled={isShareMode}
       >
         Type Check
       </MenuItem>
       <MenuItem
         onClick={restartLanguageServer}
         shortcut={shortcuts.restartLanguageServerShortcut}
+        disabled={isShareMode}
       >
         Restart Language Server
       </MenuItem>

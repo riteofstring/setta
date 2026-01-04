@@ -53,10 +53,7 @@ class UpdateArtifactsRequest(BaseModel):
 def _get_share_session_artifacts(
     ctx: RuntimeContextFromRequest,
 ):
-    share_session_id = ctx.share_session_id
-    if share_session_id is None:
-        raise KeyError("Missing share session id")
-    return ctx.state.share_runtime_state.get_session_artifacts(share_session_id)
+    return ctx.state.share_runtime_state.get_session_artifacts(ctx.session_id)
 
 
 def _get_artifacts(ctx: RuntimeContextFromRequest):
@@ -210,9 +207,7 @@ async def route_update_artifacts(
     ctx: RuntimeContextFromRequest,
 ) -> list[ArtifactSaveResult]:
     if ctx.share_mode:
-        session_id = ctx.share_session_id
-        if session_id is None:
-            raise KeyError("Missing share session id")
+        session_id = ctx.session_id
         session_backend = ctx.state.share_runtime_state.get_session_backend(session_id)
         section_ids: set["ID"] = set()
         unknown_paths: set[str] | None = None

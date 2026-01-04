@@ -374,7 +374,8 @@ class SettaFastAPIState:
         else:
             self.terminals = None
         if (
-            self.share_runtime_state.share_policy.runSnapshotMode
+            self.share_runtime_state.share_policy.allowRun
+            and self.share_runtime_state.share_policy.runSnapshotMode
             == RunSnapshotMode.ephemeral
         ):
             spawn_background_task(

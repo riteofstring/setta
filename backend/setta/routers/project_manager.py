@@ -130,8 +130,8 @@ async def _deny_share_mode_structural(ctx, project_config_id) -> None:
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.clear_text_field_completion(x)
 
 
@@ -139,8 +139,8 @@ async def route_clear_text_field_completion(
 async def route_set_callable(
     x: SetCallableRequest, ctx: RuntimeContextFromRequest
 ) -> SetCallableResponse:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.set_callable(x)
 
 
@@ -148,8 +148,8 @@ async def route_set_callable(
 async def route_text_field_completion(
     x: TextFieldCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.text_field_completion(x)
 
 
@@ -157,8 +157,8 @@ async def route_text_field_completion(
 async def route_code_area_completion(
     x: CodeAreaCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.code_area_completion(x)
 
 
@@ -166,8 +166,8 @@ async def route_code_area_completion(
 async def route_gen_code_prefix_completion(
     x: GenCodePrefixCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.gen_code_prefix_completion(x)
 
 
@@ -175,8 +175,8 @@ async def route_gen_code_prefix_completion(
 async def route_gen_code_suffix_completion(
     x: GenCodeSuffixCompletionRequest, ctx: RuntimeContextFromRequest
 ) -> list[CodeMirrorCompletion]:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_lsp(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.gen_code_suffix_completion(x)
 
 
@@ -225,8 +225,8 @@ async def route_update_param_impl_config(
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, ctx: RuntimeContextFromRequest
 ) -> CreateTopLevelSectionResponse:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     result = await manager.create_top_level_section(x)
     if x.implType == SectionType.Terminal:
         share_session_id = ctx.share_session_id
@@ -243,8 +243,8 @@ async def route_create_top_level_section(
 async def route_create_child_sections(
     x: CreateChildSectionsRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.create_child_sections(x)
 
 
@@ -252,8 +252,8 @@ async def route_create_child_sections(
 async def route_create_child_sections_via_incrementer(
     x: CreateChildSectionsViaIncrementerRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.create_child_sections_via_incrementer(x)
 
 
@@ -261,8 +261,8 @@ async def route_create_child_sections_via_incrementer(
 async def route_delete_sections(
     x: DeleteSectionsRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.delete_sections(x)
 
 
@@ -270,8 +270,8 @@ async def route_delete_sections(
 async def route_delete_child_sections_via_decrementer(
     x: DeleteChildSectionsViaDecrementerRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.delete_child_sections_via_decrementer(x)
 
 
@@ -528,8 +528,8 @@ async def route_set_type_error_ignore(
 async def route_set_code_obj_name(
     x: SetCodeObjNameRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_obj_name(x)
 
 
@@ -537,8 +537,8 @@ async def route_set_code_obj_name(
 async def route_set_code_obj_display_name(
     x: SetCodeObjDisplayNameRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_obj_display_name(x)
 
 
@@ -546,8 +546,8 @@ async def route_set_code_obj_display_name(
 async def route_set_code_file_binding(
     x: SetCodeFileBindingRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_file_binding(x)
 
 
@@ -655,8 +655,8 @@ async def route_set_viewport(x: SetViewportRequest, ctx: RuntimeContextFromReque
 async def route_set_section_name(
     x: SetSectionNameRequest, ctx: RuntimeContextFromRequest
 ):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_section_name(x)
 
 
@@ -664,8 +664,8 @@ async def route_set_section_name(
 async def route_accept_rename_refactor(
     x: AcceptRenameRefactorRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.accept_rename_refactor(x)
 
 
@@ -673,8 +673,8 @@ async def route_accept_rename_refactor(
 async def route_decline_rename_refactor(
     x: DeclineRenameRefactorRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.decline_rename_refactor(x)
 
 
@@ -814,8 +814,8 @@ async def route_prepare_sections_for_copy(
 
 @router.post(Route.PASTE_SECTIONS)
 async def route_paste_sections(x: PasteSectionsRequest, ctx: RuntimeContextFromRequest):
-    manager = ctx.get_project_manager(x.projectConfigId)
     await _deny_share_mode_structural(ctx, x.projectConfigId)
+    manager = ctx.get_project_manager(x.projectConfigId)
     await manager.paste_sections(x)
 
 
