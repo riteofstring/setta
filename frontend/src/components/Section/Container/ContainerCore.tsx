@@ -1,5 +1,6 @@
 import {
   applyOverflowParentSizeUpdates,
+  adjustOverflowGroupMinimumSizes,
   type CrossAxis,
   setOverflowGroupCrossAxisSize,
 } from "components/Utils/Resizable/overflowResizeUtils";
@@ -389,6 +390,10 @@ function ContainerGroup({
             }),
           );
         }
+        mergeSizeUpdates(
+          updatedSectionSizes,
+          adjustOverflowGroupMinimumSizes(sectionId, state),
+        );
       },
       send: (frontendOpId) =>
         route_set_section_sizes({

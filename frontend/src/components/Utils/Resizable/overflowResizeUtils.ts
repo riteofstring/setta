@@ -35,6 +35,15 @@ function getAxisUpdate(axis: CrossAxis, axisSize: number): Partial<SectionSize> 
   return { height: axisSize };
 }
 
+function getNumericSectionSize(
+  value: SectionSize["width"] | undefined,
+): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  return null;
+}
+
 export function getClosestOverflowGroupIdForAxis({
   sectionId,
   axis,
@@ -210,7 +219,7 @@ type NestedMinimumSize = {
 
 /**
  * Recursively calculates the minimum size needed for a group based on its nested children.
- * For groups nested inside, we need to account for their minimum sizes + padding.
+ * For groups nested inside, we need to account for their sizes + padding.
  */
 export function calculateNestedGroupMinimumSize(
   groupId: string,
@@ -222,8 +231,6 @@ export function calculateNestedGroupMinimumSize(
     SectionTypeEnum.Group,
   );
 
-  const isHorizontal = groupImpl.isHorizontalOrientation ?? false;
-
   // Start with base minimum sizes
   let minWidth = GROUP_OVERFLOW_MIN_WIDTH;
   let minHeight = GROUP_OVERFLOW_MIN_HEIGHT;
@@ -233,7 +240,7 @@ export function calculateNestedGroupMinimumSize(
     return { minWidth, minHeight };
   }
 
-  // Calculate minimum size needed to contain all children without clipping
+  // Calculate minimum size needed to contain the largest nested child without clipping
   for (const childId of groupImpl.children) {
     const childImpl = getCurrEffectiveSectionImpl(state, childId);
 
@@ -245,21 +252,36 @@ export function calculateNestedGroupMinimumSize(
       const nestedMin = calculateNestedGroupMinimumSize(childId, state);
       childMinWidth = nestedMin.minWidth;
       childMinHeight = nestedMin.minHeight;
+
+      const childWidth = getNumericSectionSize(childImpl.size?.width);
+      if (childWidth !== null) {
+        childMinWidth = Math.max(childMinWidth, childWidth);
+      }
+
+      const childHeight = getNumericSectionSize(childImpl.size?.height);
+      if (childHeight !== null) {
+        childMinHeight = Math.max(childMinHeight, childHeight);
+      }
+
+      const childOverflowMinWidth = getNumericSectionSize(
+        childImpl.overflowMinSize?.width,
+      );
+      if (childOverflowMinWidth !== null) {
+        childMinWidth = Math.max(childMinWidth, childOverflowMinWidth);
+      }
+
+      const childOverflowMinHeight = getNumericSectionSize(
+        childImpl.overflowMinSize?.height,
+      );
+      if (childOverflowMinHeight !== null) {
+        childMinHeight = Math.max(childMinHeight, childOverflowMinHeight);
+      }
     }
 
-    // For the group orientation, determine how children contribute to min size:
-    // - In vertical groups: children stack vertically, so heights add up
-    //   but width is max of all children (cross-axis)
-    // - In horizontal groups: children stack horizontally, so widths add up
-    //   but height is max of all children (cross-axis)
-
-    if (isHorizontal) {
-      // Horizontal: widths stack, heights take max
-      minHeight = Math.max(minHeight, childMinHeight + GROUP_VERTICAL_PADDING);
-    } else {
-      // Vertical: heights stack, widths take max
-      minWidth = Math.max(minWidth, childMinWidth + GROUP_HORIZONTAL_PADDING);
-    }
+    // Keep both axes at least as large as the largest nested child + padding
+    // so overflow groups can't shrink below nested group minimums.
+    minWidth = Math.max(minWidth, childMinWidth + GROUP_HORIZONTAL_PADDING);
+    minHeight = Math.max(minHeight, childMinHeight + GROUP_VERTICAL_PADDING);
   }
 
   return { minWidth, minHeight };
