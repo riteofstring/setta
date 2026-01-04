@@ -65,7 +65,9 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
 if TYPE_CHECKING:
-    from setta.project_state.share_project_manager import ShareProjectManager
+    from setta.project_state.share_session_project_manager_switcher import (
+        ShareSessionProjectManagerSwitcher,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +82,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         project_manager_switcher: ProjectManagerSwitcher | None,
         dbe: DBE,
         *,
-        share_project_manager: "ShareProjectManager | None" = None,
+        share_session_manager_switcher: "ShareSessionProjectManagerSwitcher | None" = None,
         share_mode: bool = False,
     ):
         super().__init__(websocket_manager)
@@ -89,7 +91,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.python_script_sender = python_script_sender
         self.project_manager_switcher = project_manager_switcher
         self.dbe = dbe
-        self.share_project_manager = share_project_manager
+        self.share_session_manager_switcher = share_session_manager_switcher
         self.share_mode = share_mode
         self.listener_coverage_tracker = ListenerCoverageTracker()
         self.listener_frontend_emit_resolver = ListenerFrontendEmitResolver()
@@ -97,10 +99,12 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self._temporary_to_canonical: TemporaryToCanonicalIDMap = {}
         self._canonical_to_temporary: CanonicalToTemporaryIDMap = {}
 
-    def _require_share_project_manager(self) -> "ShareProjectManager":
-        if self.share_project_manager is None:
-            raise KeyError("Share project manager is required in share mode")
-        return self.share_project_manager
+    def _require_share_session_manager_switcher(
+        self,
+    ) -> "ShareSessionProjectManagerSwitcher":
+        if self.share_session_manager_switcher is None:
+            raise KeyError("Share session manager switcher is required in share mode")
+        return self.share_session_manager_switcher
 
     def _get_share_session_id_for_socket(self, websocket_id: str) -> str | None:
         if not self.share_mode:
@@ -208,29 +212,30 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 return
 
         if self.share_mode:
-            manager = self._require_share_project_manager()
+            switcher = self._require_share_session_manager_switcher()
+            share_manager = switcher.share_project_manager
             if project_config_id is None:
-                project_config_id = manager.project_config_id
-            elif project_config_id != manager.project_config_id:
+                project_config_id = share_manager.project_config_id
+            elif project_config_id != share_manager.project_config_id:
                 logger.warning(
                     "listener websocket %s requested project %s but share deployment is %s",
                     websocket_id,
                     project_config_id,
-                    manager.project_config_id,
+                    share_manager.project_config_id,
                 )
                 await self._send_listener_error(
                     websocket_id,
                     error="project_config_mismatch",
                     details={
-                        "expectedProjectConfigId": manager.project_config_id,
+                        "expectedProjectConfigId": share_manager.project_config_id,
                         "receivedProjectConfigId": project_config_id,
                     },
-                    project_config_id=manager.project_config_id,
+                    project_config_id=share_manager.project_config_id,
                     share_session_id=share_session_id,
                 )
                 return
             if project_name is not None:
-                config_map = manager.project_state_backend.projectConfigs
+                config_map = share_manager.project_state_backend.projectConfigs
                 if project_config_id not in config_map:
                     raise KeyError(
                         f"Share deployment missing project config: {project_config_id}"
@@ -260,7 +265,10 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 share_session_id,
             )
             try:
-                project_state = manager.get_or_create_session_state(share_session_id)
+                session_manager = switcher.get_for_session(share_session_id)
+                project_state = session_manager.get_single_config_state(
+                    project_config_id
+                )
             except KeyError:
                 logger.warning(
                     "failed to load share state for listener websocket %s (project %s)",
@@ -659,7 +667,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             return resolved_dependency_values, resolved_artifact_updates
 
         if self.share_mode:
-            share_manager = self._require_share_project_manager()
+            switcher = self._require_share_session_manager_switcher()
             try:
                 if share_session_id is None:
                     raise KeyError("Share listener emit missing share session id")
@@ -678,17 +686,14 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 )
                 return
 
-            resolved_by_session: dict[
-                str,
-                tuple[
-                    list[ListenerFrontendEmitKeyAndValue],
-                    list[BaseArtifactUnionWithDiscriminator],
-                ],
-            ] = {}
+            resolved_by_session = {}
             for session_id in session_ids:
                 try:
-                    project_state = share_manager.get_session_state(session_id)
-                    artifacts = share_manager.get_session_artifacts(session_id)
+                    session_manager = switcher.get_for_session(session_id)
+                    project_state = session_manager.get_single_config_state(
+                        project_config_id
+                    )
+                    artifacts = session_manager.artifacts
                 except KeyError as exc:
                     logger.warning(
                         "failed to load share state for listener emit (project %s)",
@@ -709,13 +714,13 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                 )
                 if resolved is None:
                     return
-                resolved_by_session[session_id] = resolved
+                resolved_by_session[session_id] = (session_manager, resolved)
 
             for session_id, resolved in resolved_by_session.items():
-                dependency_updates, resolved_artifact_updates = resolved
+                session_manager, resolved_payload = resolved
+                dependency_updates, resolved_artifact_updates = resolved_payload
                 try:
-                    await share_manager.apply_listener_emit_updates(
-                        share_session_id=session_id,
+                    await session_manager.apply_listener_emit_updates(
                         dependency_updates=dependency_updates,
                         artifact_updates=resolved_artifact_updates,
                     )

@@ -5,7 +5,18 @@ from setta.logging.context import LoggingContextInput
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
+from setta.project_state.listener_artifact_updates import (
+    apply_listener_artifact_updates,
+)
+from setta.project_state.listener_dependency_updates import (
+    apply_listener_dependency_updates,
+)
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
+from setta.share.policy import (
+    ensure_share_artifact_paths_scoped,
+    ensure_share_listener_emits_allowed,
+    resolve_section_ids_for_artifacts,
+)
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity, SettaNotification
@@ -15,6 +26,8 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 
 if TYPE_CHECKING:
     from setta.lsp.managers import LSPWriters
+    from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
+    from setta.types.listener import ListenerFrontendEmitKeyAndValue
     from setta.types.project_state import ProjectStateSingleConfig
 
 
@@ -170,7 +183,6 @@ class ShareSessionProjectManager(BaseProjectManager):
             json_source=json_source,
             code_files=code_files,
         )
-        self.share_project_manager.register_session_manager(share_session_id, self)
 
     def load_initial_state(self) -> ProjectStateBackend:
         session_state = self.share_project_manager.get_or_create_session_state(
@@ -238,6 +250,69 @@ class ShareSessionProjectManager(BaseProjectManager):
         async with self._project_state_lock.write_lock():
             self.project_state_backend = self.get_new_project_state_backend(
                 projectState
+            )
+
+    @BaseProjectManager.enqueue_method
+    async def apply_listener_emit_updates(
+        self,
+        dependency_updates: list["ListenerFrontendEmitKeyAndValue"],
+        artifact_updates: list["BaseArtifactUnionWithDiscriminator"],
+    ) -> None:
+        if not dependency_updates and not artifact_updates:
+            raise ValueError("listener emits require dependency or artifact updates")
+
+        project_state = self.share_project_manager.get_session_state(
+            self.share_session_id
+        )
+
+        dependency_section_ids = [
+            update.dependencyKey.sectionId for update in dependency_updates
+        ]
+
+        artifact_section_ids: list[ID] = []
+        if artifact_updates:
+            artifact_section_ids, unknown_paths = resolve_section_ids_for_artifacts(
+                project_state, artifact_updates
+            )
+            await ensure_share_artifact_paths_scoped(
+                share_mode=True,
+                policy=self.share_project_manager.share_policy,
+                frontend_sender=self.share_project_manager.frontend_sender,
+                project_config_id=self.share_project_manager.project_config_id,
+                share_session_id=self.share_session_id,
+                unknown_paths=unknown_paths,
+            )
+
+        combined_section_ids = dependency_section_ids + artifact_section_ids
+        await ensure_share_listener_emits_allowed(
+            share_mode=True,
+            policy=self.share_project_manager.share_policy,
+            frontend_sender=self.share_project_manager.frontend_sender,
+            project_config_id=self.share_project_manager.project_config_id,
+            share_session_id=self.share_session_id,
+            section_ids=combined_section_ids if combined_section_ids else None,
+        )
+
+        if dependency_updates:
+            apply_listener_dependency_updates(
+                project_state=project_state,
+                updates=dependency_updates,
+            )
+
+        artifact_payloads = []
+        if artifact_updates:
+            artifact_payloads = apply_listener_artifact_updates(
+                artifacts=self.artifacts,
+                updates=artifact_updates,
+            )
+
+        if dependency_updates:
+            await self.update_and_broadcast_project_state(project_state)
+
+        if artifact_payloads:
+            await self.websocket_msg_handler.broadcast_artifacts_update(
+                artifacts=artifact_payloads,
+                updateType="update",
             )
 
     async def ensure_gen_code_ready(self) -> None:

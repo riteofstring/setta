@@ -49,6 +49,12 @@ class ShareSessionProjectManagerSwitcher:
             return
         manager.shutdown()
 
+    def get_for_session(self, share_session_id: str) -> ShareSessionProjectManager:
+        if not share_session_id:
+            raise KeyError("Missing share session id")
+        self.share_project_manager.get_or_create_session_state(share_session_id)
+        return self._get_or_create_manager(share_session_id)
+
     def get(
         self,
         project_identifier: Union[str, "ProjectStateSingleConfig"],
@@ -60,8 +66,7 @@ class ShareSessionProjectManagerSwitcher:
             project_config_id = project_identifier.projectConfig.id
         if project_config_id != self.share_project_manager.project_config_id:
             raise KeyError(f"Unknown share project config: {project_config_id}")
-        self.share_project_manager.get_or_create_session_state(share_session_id)
-        return self._get_or_create_manager(share_session_id)
+        return self.get_for_session(share_session_id)
 
     def get_config_id_by_name(self, projectConfigName: str) -> str:
         project_config_id = self.share_project_manager.project_config_id

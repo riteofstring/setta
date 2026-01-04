@@ -398,7 +398,7 @@ class SettaFastAPIState:
             self.wmh_python_script_sender,
             project_manager_switcher=None,
             dbe=self.dbe,
-            share_project_manager=self.share_project_manager,
+            share_session_manager_switcher=self.project_manager_switcher,
             share_mode=True,
         )
         share_policy = self.share_project_manager.share_policy

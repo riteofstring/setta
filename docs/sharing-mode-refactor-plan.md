@@ -17,6 +17,39 @@ ownership of session state, while keeping share-mode behavior unchanged.
 
 ## Proposed Refactors
 
+### 0) Unify share/IDE runtime flow behind adapters
+Problem: Share and IDE modes duplicate a lot of core flow (session scoping,
+policy checks, persistence, and broadcasting). This causes drift and inflates
+future diffs.
+
+Proposal:
+- Introduce a `RuntimeContext` that exposes:
+  - mode (share vs IDE)
+  - policy source/enforcer
+  - session resolver (share session id vs IDE "main" session)
+  - path scoping + persistence strategy
+  - scoped frontend sender (session id optional)
+- Consolidate to a single session-backed project manager:
+  - IDE mode uses a single implicit session.
+  - Share mode uses per-session overlays.
+- Route listener emit + websocket flows through the same pipeline:
+  - Session scoping resolved by the runtime context.
+  - Policy enforcement via the shared policy guard.
+- Move "if share_mode" branches into the adapters (policy, persistence, paths).
+
+Impact:
+- `backend/setta/runtime/context.py` (new)
+- `backend/setta/project_state/share_project_manager.py` (merge or shrink)
+- `backend/setta/project_state/share_session_project_manager.py` (merge)
+- `backend/setta/project_state/project_manager.py`
+- `backend/setta/websockets/msg_handlers/python_script_receiver.py`
+- `backend/setta/routers/*` (replace share/IDE branches with context calls)
+- `backend/setta/share/policy.py` (shared guard entry point)
+
+Notes:
+- No backward compatibility needed; delete duplicated pathways outright.
+- IDE mode can still keep persistent storage via the persistence adapter.
+
 ### 1) Consolidate share session manager ownership
 Problem: Both `ShareProjectManager` and `ShareSessionProjectManagerSwitcher`
 track session managers. This causes lifecycle drift and adds boilerplate.
@@ -130,4 +163,3 @@ Impact:
 - `source activate.sh && python -m unittest discover`
 - Manual share-mode check: load share URL, change params, run (if allowed),
   verify other sessions are isolated.
-

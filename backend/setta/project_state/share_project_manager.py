@@ -12,21 +12,12 @@ from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.jsonSource.jsonSource import JSONSource, ProcessedJSONInfo
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
-from setta.project_state.listener_artifact_updates import (
-    apply_listener_artifact_updates,
-)
-from setta.project_state.listener_dependency_updates import (
-    apply_listener_dependency_updates,
-)
 from setta.project_state.utils import (
     create_timestamped_folder,
 )
 from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
-    ensure_share_artifact_paths_scoped,
-    ensure_share_listener_emits_allowed,
     load_share_policy_from_dbe,
-    resolve_section_ids_for_artifacts,
 )
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -35,7 +26,6 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
-from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_state import ProjectStateBackend
 from setta.types.section_impls import (
     BaseDictSectionImpl,
@@ -51,10 +41,6 @@ from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
-    from setta.project_state.share_session_project_manager import (
-        ShareSessionProjectManager,
-    )
-    from setta.types.generated.unions import BaseArtifactUnionWithDiscriminator
     from setta.types.project_state import ProjectStateSingleConfig
     from setta.types.share_deployment import SharePolicy
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -84,7 +70,6 @@ class ShareProjectManager:
             )
         self._session_states: dict[str, "ProjectStateSingleConfig"] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
-        self._session_managers: dict[str, "ShareSessionProjectManager"] = {}
         self._artifact_watcher = SpecificFileWatcher()
         self._base_state: "ProjectStateSingleConfig | None" = None
 
@@ -132,8 +117,6 @@ class ShareProjectManager:
         del self._session_states[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
-        if session_id in self._session_managers:
-            del self._session_managers[session_id]
         if self.share_policy.allowLSP:
             session_root = self._resolve_session_code_root(session_id)
             if session_root.exists():
@@ -151,11 +134,6 @@ class ShareProjectManager:
 
     def has_session_state(self, session_id: str) -> bool:
         return session_id in self._session_states
-
-    def register_session_manager(
-        self, session_id: str, manager: "ShareSessionProjectManager"
-    ) -> None:
-        self._session_managers[session_id] = manager
 
     def save(self) -> None:
         return None
@@ -514,80 +492,3 @@ class ShareProjectManager:
     def _build_bash_run_command(self, path: Path) -> str:
         resolved = shlex.quote(str(path.resolve()))
         return f"bash {resolved}"
-
-    async def apply_listener_emit_updates(
-        self,
-        *,
-        share_session_id: str | None,
-        dependency_updates: list[ListenerFrontendEmitKeyAndValue],
-        artifact_updates: list["BaseArtifactUnionWithDiscriminator"],
-    ) -> None:
-        if not dependency_updates and not artifact_updates:
-            raise ValueError("listener emits require dependency or artifact updates")
-
-        dependency_section_ids = [
-            update.dependencyKey.sectionId for update in dependency_updates
-        ]
-
-        if share_session_id is None:
-            raise KeyError("Share listener emit missing share session id")
-        if share_session_id not in self._session_states:
-            raise KeyError(f"Unknown share session state: {share_session_id}")
-        session_id = share_session_id
-        project_state = self._session_states[session_id]
-        artifact_payloads = []
-
-        artifact_section_ids: list[ID] = []
-        if artifact_updates:
-            artifact_section_ids, unknown_paths = resolve_section_ids_for_artifacts(
-                project_state, artifact_updates
-            )
-            await ensure_share_artifact_paths_scoped(
-                share_mode=True,
-                policy=self.share_policy,
-                frontend_sender=self.frontend_sender,
-                project_config_id=self.project_config_id,
-                share_session_id=share_session_id,
-                unknown_paths=unknown_paths,
-            )
-
-        combined_section_ids = dependency_section_ids + artifact_section_ids
-        await ensure_share_listener_emits_allowed(
-            share_mode=True,
-            policy=self.share_policy,
-            frontend_sender=self.frontend_sender,
-            project_config_id=self.project_config_id,
-            share_session_id=share_session_id,
-            section_ids=combined_section_ids if combined_section_ids else None,
-        )
-
-        if dependency_updates:
-            apply_listener_dependency_updates(
-                project_state=project_state,
-                updates=dependency_updates,
-            )
-
-        if artifact_updates:
-            artifact_payloads = apply_listener_artifact_updates(
-                artifacts=self.get_session_artifacts(session_id),
-                updates=artifact_updates,
-            )
-
-        if dependency_updates:
-            self.update(project_state)
-            session_manager = self._session_managers.get(session_id)
-            if session_manager is not None:
-                await session_manager.replace_session_state(project_state)
-            await self.frontend_sender.broadcast_project_state(
-                project_state,
-                completedOpIds=[],
-                pendingOpIds=[],
-                share_session_id=session_id,
-            )
-
-        if artifact_payloads:
-            await self.frontend_sender.broadcast_artifacts_update(
-                artifacts=artifact_payloads,
-                updateType="update",
-                share_session_id=session_id,
-            )
