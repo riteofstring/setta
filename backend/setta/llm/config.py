@@ -12,7 +12,7 @@ from setta.utils.generate_memorable_string import generate_memorable_available_s
 from setta.utils.network import format_host_for_url
 
 
-def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
+def load_llm_config(dbe: DBE) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
     if constants.IS_DEV_MODE and (
         not raw or raw == {"configs": {}, "default_config_id": None}
@@ -21,14 +21,12 @@ def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
         if example:
             config = AllLLMConfigs.model_validate(example)
             config = _ensure_setta_mcp_server_url(config)
-            if allow_write:
-                save_llm_config(config, dbe)
+            save_llm_config(config, dbe)
             return config
     if not raw:
         config = _build_default_llm_config()
         config = _ensure_setta_mcp_server_url(config)
-        if allow_write:
-            save_llm_config(config, dbe)
+        save_llm_config(config, dbe)
         return config
     config = AllLLMConfigs.model_validate(raw)
     return _ensure_setta_mcp_server_url(config)

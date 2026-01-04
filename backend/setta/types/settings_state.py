@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 INFINITE_MAX_HEIGHT = 100000
 INFINITE_MAX_WIDTH = 100000
 DEFAULT_MIN_WIDTH = 200
+TEXT_BLOCK_MIN_WIDTH = 40
 ROOT_SECTION_HEIGHT = 50
 MINIMIZED_SECTION_HEIGHT = 32
 PINNED_PARAMS_AREA_MIN_HEIGHT = 64
@@ -14,12 +15,6 @@ class RenameRefactorMode(str, Enum):
     ALWAYS_ASK = "ALWAYS_ASK"
     ALWAYS_RENAME = "ALWAYS_RENAME"
     NEVER_RENAME = "NEVER_RENAME"
-
-
-class RunSnapshotMode(str, Enum):
-    always = "always"
-    ephemeral = "ephemeral"
-    never = "never"
 
 
 class BackgroundVariant(str, Enum):
@@ -128,7 +123,6 @@ class SettingsBackend(BaseModel):
     exportDbReadableWithVariantsOnSave: bool = False
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
-    runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
 
 
 class SectionSizingPolicyTypeEntry(BaseModel):
@@ -211,9 +205,9 @@ class SectionSizingPolicyByType(BaseModel):
     )
     TextBlock: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=98,
+            minHeight=20,
             maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
+            minWidth=TEXT_BLOCK_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
