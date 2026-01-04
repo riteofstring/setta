@@ -44,7 +44,7 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
         sectionId: The id of the terminal.
     """
     share_session_id = None
-    if getattr(ctx.fastmcp.state, "share_mode", False):
+    if ctx.fastmcp.state.share_mode:
         share_session_id = require_share_session_id(ctx)
     terminal_id = build_terminal_id(sectionId, share_session_id)
     return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
@@ -55,7 +55,7 @@ def getProjectConfigNamesAndIds(ctx: Context):
     """
     Return metadata for every known project config so external agents can pick one.
     """
-    if getattr(ctx.fastmcp.state, "share_mode", False):
+    if ctx.fastmcp.state.share_mode:
         share_session_id = require_share_session_id(ctx)
         manager = ctx.fastmcp.state.project_manager_switcher.get_for_session(
             share_session_id

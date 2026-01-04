@@ -31,6 +31,7 @@
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover`.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
+- Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
 
 ## Commit & Pull Request Guidelines
 
