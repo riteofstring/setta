@@ -1,17 +1,9 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { ReactNode } from "react";
-import { BiCheck, BiHide, BiShow } from "react-icons/bi";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
-} from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { BiHide, BiShow } from "react-icons/bi";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { route_set_meta_control_show_section_title } from "utils/generatedEndpoints";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import type { SectionType } from "utils/generatedTypes";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { HeaderIcon } from "../Header/HeaderIcon";
 import { LockPositionButton } from "../Header/LockPositionButton";
@@ -29,14 +21,6 @@ export function MetaControlMenuButton({
   isInOtherProjectConfigs,
 }: MetaControlMenuButtonProps) {
   const isListElement = useIsListElement(sectionId);
-  const showSectionTitle = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.MetaControl,
-    );
-    return impl.showSectionTitle ?? false;
-  });
 
   const triggerClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto`;
   const titleBaseClasses =
@@ -47,28 +31,6 @@ export function MetaControlMenuButton({
     fixed:
       "block w-full px-2 py-1 text-xs font-semibold text-setta-700 dark:text-setta-100",
   };
-
-  function onToggleShowSectionTitle() {
-    const nextValue = !showSectionTitle;
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveSectionImplValue<"MetaControlSection">(
-          state,
-          sectionId,
-          {
-            showSectionTitle: nextValue,
-          },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_meta_control_show_section_title({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          showSectionTitle: nextValue,
-          frontendOpId,
-        }),
-    });
-  }
 
   return (
     <DropdownMenu.Root modal={false}>
@@ -91,14 +53,6 @@ export function MetaControlMenuButton({
             <SectionTitle sectionId={sectionId} titleProps={titleProps} />
           </div>
           <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/70" />
-          <DropdownMenuItem onClick={onToggleShowSectionTitle}>
-            <span className="flex items-center gap-2">
-              <MenuIcon>
-                {showSectionTitle ? <BiCheck className="h-4 w-4" /> : null}
-              </MenuIcon>
-              <span>Show title</span>
-            </span>
-          </DropdownMenuItem>
           <LockPositionButton
             sectionId={sectionId}
             render={({ positionAndSizeLocked, iconClassName, onClick }) => {
