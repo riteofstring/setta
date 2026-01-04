@@ -5,14 +5,13 @@ from setta.llm.api_keys import filter_env_vars_for_config
 from setta.llm.chat_store import MemoryChatStore
 from setta.llm.config import load_llm_config
 from setta.llm.llm_chat_manager import LLMChatManager
-from setta.mcp.noop_client import NoopMCPClient
+from setta.mcp.client import MultiMCPClient
 from setta.runtime.scoped_sender import ScopedFrontendSender
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
-    from setta.mcp.client import MultiMCPClient
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
     from setta.project_state.share_project_manager import ShareProjectManager
     from setta.share.session_store import ShareSessionStore
@@ -38,8 +37,9 @@ class ShareChatManager:
         self.share_project_manager = share_project_manager
         self.share_session_store = share_session_store
         self.project_manager_switcher = project_manager_switcher
-        self._noop_mcp_client = NoopMCPClient()
-        self._mcp_client = mcp_client
+        self._mcp_client = (
+            mcp_client if mcp_client is not None else MultiMCPClient({}, disabled=True)
+        )
 
         config = llm_config or load_llm_config(dbe, allow_write=False)
         self.config = config
@@ -54,11 +54,6 @@ class ShareChatManager:
             raise KeyError("Missing share session id")
         return share_session_id
 
-    def _resolve_mcp_client(self):
-        if self._mcp_client is None:
-            return self._noop_mcp_client
-        return self._mcp_client
-
     def _get_or_create_manager(self, share_session_id: str) -> LLMChatManager:
         if share_session_id not in self._managers:
             self.share_session_store.get_session(share_session_id)
@@ -68,7 +63,7 @@ class ShareChatManager:
             )
             manager = LLMChatManager(
                 self.dbe,
-                self._resolve_mcp_client(),
+                self._mcp_client,
                 session_sender,
                 self.project_manager_switcher,
                 chat_store=MemoryChatStore(),

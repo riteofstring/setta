@@ -388,7 +388,7 @@ Implemented:
   and `MemoryChatStore` so share sessions can avoid disk writes.
 - `backend/setta/share/chat_manager.py` provides a per-session `ShareChatManager`
   that uses `MemoryChatStore` and session-scoped project summaries.
-- `backend/setta/mcp/noop_client.py` provides a no-op MCP client for LLM-only
+- `MultiMCPClient(disabled=True)` provides a no-op MCP client for LLM-only
   share sessions.
 - LLM routes in `backend/setta/routers/ai.py` and `backend/setta/routers/llm.py`
   require a share session id in share mode, and are blocked when `allowLLM` is

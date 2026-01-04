@@ -194,9 +194,12 @@ class MultiMCPClient:
         self,
         server_configs: dict[str, MCPServerConfig],
         frontend_sender: "WMHFrontendSender | None" = None,
+        *,
+        disabled: bool = False,
     ):
         self.server_configs = dict(server_configs)
         self.frontend_sender = frontend_sender
+        self.disabled = disabled
         self._is_shutting_down = False
         self._sessions: dict[str, ClientSession] = {}
         self._exit_stacks: dict[str, AsyncExitStack] = {}
@@ -207,7 +210,12 @@ class MultiMCPClient:
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         self.routing: dict[str, tuple[str, str]] = {}
 
+    def __bool__(self) -> bool:
+        return not self.disabled
+
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
+        if self.disabled:
+            return
         if self._connection_tasks:
             logger.warning("MCP client already running; skipping duplicate start")
             return
@@ -230,6 +238,10 @@ class MultiMCPClient:
         *,
         meta: dict[str, Any] | None = None,
     ) -> types.CallToolResult:
+        if self.disabled:
+            raise ValueError(
+                f"MCP tool calls are disabled (attempted {tool_name}, meta={meta})."
+            )
         route = self.routing.get(tool_name)
         if not route:
             raise KeyError(f"MCP tool '{tool_name}' is not registered")
@@ -240,6 +252,8 @@ class MultiMCPClient:
         return await session.call_tool(tool_id, tool_args, meta=meta)
 
     async def stop(self) -> None:
+        if self.disabled:
+            return
         self._is_shutting_down = True
         tasks = list(self._connection_tasks.values())
         for task in tasks:
@@ -256,11 +270,15 @@ class MultiMCPClient:
     def init_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
+        if self.disabled:
+            return {}
         return self._filter_tool_definitions(self.init_tool_definitions, server_ids)
 
     def discoverable_tool_definitions_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, ChatCompletionToolParam]:
+        if self.disabled:
+            return {}
         return self._filter_tool_definitions(
             self.discoverable_tool_definitions, server_ids
         )
@@ -268,6 +286,8 @@ class MultiMCPClient:
     def tool_annotations_for_servers(
         self, server_ids: set[str]
     ) -> dict[str, SettaToolAnnotations | None]:
+        if self.disabled:
+            return {}
         return self._filter_tool_annotations(self.tool_annotations_by_name, server_ids)
 
     def _filter_tool_definitions(
