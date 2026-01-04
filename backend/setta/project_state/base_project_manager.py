@@ -294,6 +294,7 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
+        self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
@@ -1979,7 +1980,7 @@ class BaseProjectManager(ABC):
             raise exception
 
     def watch_json_source_files(self):
-        callback_category = f"{self.__class__.__name__}_JSONSource"
+        callback_category = f"{self._file_watcher_category_prefix}_JSONSource"
 
         def should_defer_reload(
             section_variants_to_load: set[tuple[ID, ID]],
@@ -2008,12 +2009,13 @@ class BaseProjectManager(ABC):
 
     def watch_artifact_files(self):
         self.artifacts.watch_artifact_files(
-            f"{self.__class__.__name__}_Artifacts", self.project_state_backend
+            f"{self._file_watcher_category_prefix}_Artifacts",
+            self.project_state_backend,
         )
 
     def watch_code_files(self):
         self.code_files.watch_code_files(
-            f"{self.__class__.__name__}_CodeFiles",
+            f"{self._file_watcher_category_prefix}_CodeFiles",
             self.project_state_backend_getter_fn,
             self.reload_code_sections,
         )
@@ -2145,7 +2147,7 @@ class BaseProjectManager(ABC):
         pending.update(section_variants_to_load)
 
     async def _flush_deferred_json_source_loads(self) -> None:
-        callback_category = f"{self.__class__.__name__}_JSONSource"
+        callback_category = f"{self._file_watcher_category_prefix}_JSONSource"
         pending = self._deferred_json_source_loads.pop(callback_category, None)
         if not pending:
             return
